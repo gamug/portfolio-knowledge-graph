@@ -108,7 +108,7 @@
 :ThresholdComparison
     a owl:Class ;
     rdfs:label "Threshold Comparison" ;
-    rdfs:comment "A leaf RuleClause operand: one numeric metric/operator/threshold triple, e.g. (ScoreFinanciero, '>', 0.65). CONVENTION (found while populating instances.trig, not stated in 06-ontology-definition.md): the Orchestrator's tree-walker compares Score* metrics (ScoreFinanciero/ScoreTecnico/ScoreCuantitativo) against ScoreSnapshot.normalizedScore ([0.0,1.0], matches v1's 0.65-0.90 thresholds), but compares the Sentiment metric against ScoreSnapshot.rawValue ([-1.0,1.0], matches v1's -0.50/-0.60 thresholds, which are out of range on the normalized scale). This per-metric dispatch has to be hardcoded in the evaluator; it is not derivable from the ontology alone." .
+    rdfs:comment "A leaf RuleClause operand: one numeric metric/operator/threshold triple, e.g. (ScoreFinanciero, '>', 0.65). CONVENTION (found while populating instances.trig, not stated in 06-ontology-definition.md): the Orchestrator's tree-walker compares Score* metrics (ScoreFinanciero/ScoreTecnico/ScoreCuantitativo) against ScoreSnapshot.normalizedScore ([0.0,1.0], matches v1's 0.65-0.90 thresholds), but compares the Sentiment metric against ScoreSnapshot.rawValue ([-1.0,1.0], matches v1's -0.50/-0.60 thresholds, which are out of range on the normalized scale). This per-metric dispatch has to be hardcoded in the evaluator; it is not derivable from the ontology alone. Added 2026-08-13: SectorRelativeMomentum (a ScoreSnapshot metricType, not a new class) is a third entry in this same dispatch table, compared via rawValue like Sentiment -- see rules.ttl's VETO_MKT_02." .
 
 :CategoricalComparison
     a owl:Class ;
@@ -135,6 +135,26 @@
     rdfs:label "Price Observation" ;
     rdfs:comment "A DERIVED daily summary (close, return, ATR, ...) for one Asset — NOT the raw OHLCV tick panel (see 07-ontology-topology.md)." .
 
+:SectorAggregateSnapshot
+    a owl:Class ;
+    rdfs:label "Sector Aggregate Snapshot" ;
+    rdfs:comment "Immutable, timestamped roll-up of member Assets' ScoreTecnico for one Sector on one date, written by the Sector Agent (08-agent-architecture.md). Added 2026-08-13, closes part of critique #3 (sector layer) -- see docs/superpowers/specs/2026-08-13-attractiveness-sector-momentum-design.md." .
+
+:AttractivenessSnapshot
+    a owl:Class ;
+    rdfs:label "Attractiveness Snapshot" ;
+    rdfs:comment "The Orchestrator's computed ranking output for one Asset in one cycle -- the positive counterpart to Veto (v1 modeled exclusion only). Closes part of critique #2/evolution layer B3's ranking half (not the position-sizing half). Added 2026-08-13." .
+
+:AttractivenessWeightScheme
+    a owl:Class ;
+    rdfs:label "Attractiveness Weight Scheme" ;
+    rdfs:comment "A versioned set of per-metric weights the Orchestrator applies to compute AttractivenessSnapshot.attractivenessScore, valid over [validFrom, validTo) -- mirrors RuleDefinition's 'rules live in the graph, not code' pattern (critique #6), applied to weights instead of thresholds. Added 2026-08-13." .
+
+:WeightComponent
+    a owl:Class ;
+    rdfs:label "Weight Component" ;
+    rdfs:comment "One (metric, weight, inverted) triple within an AttractivenessWeightScheme. inverted=true marks risk-oriented metrics (e.g. ScoreFinanciero) that must be flipped (1 - normalizedScore) before weighting -- see attractivenessScore's comment. Added 2026-08-13." .
+
 #################################################################
 # 1.1 UNION CLASSES — precise ranges for properties whose target
 # is "one of several classes" (replaces looser rdfs:Resource ranges)
@@ -152,18 +172,26 @@
     rdfs:label "Rule Operand" ;
     rdfs:comment "Anything a RuleClause's operand1/operand2 or a RuleDefinition's hasClause can point to — a nested clause, or one of the three leaf comparison kinds." .
 
+:ObservationSnapshot
+    a owl:Class ;
+    owl:unionOf ( :ScoreSnapshot :SectorAggregateSnapshot ) ;
+    rdfs:label "Observation Snapshot" ;
+    rdfs:comment "Widens metricType/agentOrigin/timestamp/normalizedScore's domain beyond ScoreSnapshot alone so SectorAggregateSnapshot can reuse the same properties without an RDFS-entailed type clash against AllDisjointClasses. Added 2026-08-13; never used as an individual's rdf:type, same convention as RuleOperand/EvidenceSource." .
+
 #################################################################
 # 1.2 DISJOINTNESS — every individual belongs to exactly one of
-# these 20 classes (the 2 union classes above are deliberately excluded --
-# RuleOperand/EvidenceSource are meant to overlap with their members).
-# Strengthens the ontology beyond the v1 sketch.
+# these 24 classes (the 2 union classes above, plus ObservationSnapshot
+# added 2026-08-13, are deliberately excluded -- they're meant to
+# overlap with their members).
 #################################################################
 
 [] a owl:AllDisjointClasses ;
    owl:members ( :Asset :Sector :Industry :Universe :UniverseMembership :ScoreSnapshot
                  :RiskEvent :NewsArticle :SECFiling :SECFilingSection :Executive :Veto
                  :RuleDefinition :RuleClause :ThresholdComparison :CategoricalComparison
-                 :GraphPredicate :Portfolio :PortfolioPosition :PriceObservation ) .
+                 :GraphPredicate :Portfolio :PortfolioPosition :PriceObservation
+                 :SectorAggregateSnapshot :AttractivenessSnapshot :AttractivenessWeightScheme
+                 :WeightComponent ) .
 
 #################################################################
 # 2. OBJECT PROPERTIES
@@ -231,6 +259,19 @@
 
 :priceObservationOf a owl:ObjectProperty, owl:FunctionalProperty ; rdfs:domain :PriceObservation ; rdfs:range :Asset .
 
+:sectorSnapshotOfSector a owl:ObjectProperty, owl:FunctionalProperty ; rdfs:domain :SectorAggregateSnapshot ; rdfs:range :Sector ;
+    owl:inverseOf :hasSectorSnapshot .
+:hasSectorSnapshot a owl:ObjectProperty ; rdfs:domain :Sector ; rdfs:range :SectorAggregateSnapshot .
+
+:attractivenessOfAsset a owl:ObjectProperty, owl:FunctionalProperty ; rdfs:domain :AttractivenessSnapshot ; rdfs:range :Asset ;
+    owl:inverseOf :hasAttractivenessSnapshot .
+:hasAttractivenessSnapshot a owl:ObjectProperty ; rdfs:domain :Asset ; rdfs:range :AttractivenessSnapshot .
+
+:computedWithScheme a owl:ObjectProperty, owl:FunctionalProperty ; rdfs:domain :AttractivenessSnapshot ; rdfs:range :AttractivenessWeightScheme ;
+    rdfs:comment "Audit trail -- same role appliesRule/primaryRule play for Veto." .
+
+:hasWeightComponent a owl:ObjectProperty ; rdfs:domain :AttractivenessWeightScheme ; rdfs:range :WeightComponent .
+
 #################################################################
 # 3. DATATYPE PROPERTIES
 #################################################################
@@ -246,14 +287,14 @@
 :validTo   a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:range xsd:date ;
     rdfs:comment "Valid-time end. Absent/unbound == currently active." .
 
-# --- ScoreSnapshot ---
-:normalizedScore a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :ScoreSnapshot ; rdfs:range xsd:decimal ;
-    rdfs:comment "[0.0, 1.0], 0=no risk, 1=critical risk (v1 §3A). Range enforced by SHACL." .
+# --- ScoreSnapshot / SectorAggregateSnapshot (via ObservationSnapshot union) ---
+:normalizedScore a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :ObservationSnapshot ; rdfs:range xsd:decimal ;
+    rdfs:comment "[0.0, 1.0], 0=no risk, 1=critical risk on ScoreSnapshot; sector-aggregate reading on SectorAggregateSnapshot. Range enforced by SHACL." .
 :rawValue    a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :ScoreSnapshot ; rdfs:range xsd:decimal .
-:metricType  a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :ScoreSnapshot ; rdfs:range xsd:string .
-:agentOrigin a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :ScoreSnapshot ; rdfs:range xsd:string ;
-    rdfs:comment "One of FUNDAMENTAL | SEMANTIC | QUANTITATIVE | TECHNICAL. SHACL sh:in enforced." .
-:timestamp   a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :ScoreSnapshot ; rdfs:range xsd:dateTime .
+:metricType  a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :ObservationSnapshot ; rdfs:range xsd:string .
+:agentOrigin a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :ObservationSnapshot ; rdfs:range xsd:string ;
+    rdfs:comment "One of FUNDAMENTAL | SEMANTIC | QUANTITATIVE | TECHNICAL | SECTOR. SHACL sh:in enforced." .
+:timestamp   a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :ObservationSnapshot ; rdfs:range xsd:dateTime .
 
 # --- RiskEvent / Veto ---
 :category a owl:DatatypeProperty ; rdfs:range xsd:string ;
@@ -306,6 +347,17 @@
 :closePrice       a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :PriceObservation ; rdfs:range xsd:decimal .
 :dailyReturnPct   a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :PriceObservation ; rdfs:range xsd:decimal .
 :atr14            a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :PriceObservation ; rdfs:range xsd:decimal .
+
+# --- AttractivenessSnapshot / AttractivenessWeightScheme / WeightComponent (added 2026-08-13) ---
+:attractivenessScore a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :AttractivenessSnapshot ; rdfs:range xsd:decimal ;
+    rdfs:comment "[0.0, 1.0], 1=most attractive -- the inverse sense of ScoreSnapshot.normalizedScore's risk convention. Formula: docs/superpowers/specs/2026-08-13-attractiveness-sector-momentum-design.md SS3." .
+:computedAt a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :AttractivenessSnapshot ; rdfs:range xsd:dateTime .
+:schemeId a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :AttractivenessWeightScheme ; rdfs:range xsd:string .
+:weightMetricName a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :WeightComponent ; rdfs:range xsd:string ;
+    rdfs:comment "Matches a ScoreSnapshot.metricType value. Named distinctly from ThresholdComparison's metricName to avoid a shared-property domain clash (see ObservationSnapshot's rationale)." .
+:weightValue a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :WeightComponent ; rdfs:range xsd:decimal .
+:inverted a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :WeightComponent ; rdfs:range xsd:boolean ;
+    rdfs:comment "true for risk-oriented metrics that must be read as (1 - normalizedScore) before weighting." .
 
 #################################################################
 # 4. OWL CARDINALITY RESTRICTIONS (semantic, complements SHACL's
