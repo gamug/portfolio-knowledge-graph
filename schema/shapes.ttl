@@ -16,10 +16,12 @@
 :ScoreSnapshotShape
     a sh:NodeShape ;
     sh:targetClass :ScoreSnapshot ;
-    sh:property [ sh:path :normalizedScore ; sh:datatype xsd:decimal ; sh:minInclusive 0.0 ; sh:maxInclusive 1.0 ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :normalizedScore ; sh:datatype xsd:decimal ; sh:minInclusive 0.0 ; sh:maxInclusive 1.0 ; sh:maxCount 1 ] ;
     sh:property [ sh:path :agentOrigin ; sh:in ("FUNDAMENTAL" "SEMANTIC" "QUANTITATIVE" "TECHNICAL") ; sh:minCount 1 ; sh:maxCount 1 ] ;
     sh:property [ sh:path :metricType ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ] ;
-    sh:property [ sh:path :timestamp ; sh:datatype xsd:dateTime ; sh:minCount 1 ; sh:maxCount 1 ] .
+    sh:property [ sh:path :timestamp ; sh:datatype xsd:dateTime ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:or ( [ sh:path :metricType ; sh:hasValue "SectorRelativeMomentum" ]
+            [ sh:path :normalizedScore ; sh:minCount 1 ] ) .
 
 :RiskEventShape
     a sh:NodeShape ;
@@ -80,3 +82,34 @@
     sh:targetClass :Asset ;
     sh:property [ sh:path :tickerSymbol ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ] ;
     sh:property [ sh:path :cikNumber ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ] .
+
+:SectorAggregateSnapshotShape
+    a sh:NodeShape ;
+    sh:targetClass :SectorAggregateSnapshot ;
+    sh:property [ sh:path :sectorSnapshotOfSector ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :normalizedScore ; sh:datatype xsd:decimal ; sh:minInclusive 0.0 ; sh:maxInclusive 1.0 ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :metricType ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :agentOrigin ; sh:hasValue "SECTOR" ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :timestamp ; sh:datatype xsd:dateTime ; sh:minCount 1 ; sh:maxCount 1 ] .
+
+:AttractivenessSnapshotShape
+    a sh:NodeShape ;
+    sh:targetClass :AttractivenessSnapshot ;
+    sh:property [ sh:path :attractivenessOfAsset ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :attractivenessScore ; sh:datatype xsd:decimal ; sh:minInclusive 0.0 ; sh:maxInclusive 1.0 ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :computedAt ; sh:datatype xsd:dateTime ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :computedWithScheme ; sh:minCount 1 ; sh:maxCount 1 ] .
+
+:AttractivenessWeightSchemeShape
+    a sh:NodeShape ;
+    sh:targetClass :AttractivenessWeightScheme ;
+    sh:property [ sh:path :schemeId ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :validFrom ; sh:datatype xsd:date ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :hasWeightComponent ; sh:minCount 1 ] .
+
+:WeightComponentShape
+    a sh:NodeShape ;
+    sh:targetClass :WeightComponent ;
+    sh:property [ sh:path :weightMetricName ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :weightValue ; sh:datatype xsd:decimal ; sh:minInclusive 0.0 ; sh:maxInclusive 1.0 ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :inverted ; sh:datatype xsd:boolean ; sh:minCount 1 ; sh:maxCount 1 ] .
