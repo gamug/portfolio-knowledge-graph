@@ -1,0 +1,325 @@
+@prefix :      <https://thesis.local/kg/portfolio#> .
+@prefix owl:   <http://www.w3.org/2002/07/owl#> .
+@prefix rdf:   <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd:   <http://www.w3.org/2001/XMLSchema#> .
+@prefix skos:  <http://www.w3.org/2004/02/skos/core#> .
+
+#################################################################
+# Portfolio Knowledge Graph — TBox (schema only)
+#
+# Loads into named graph urn:graph:tbox (see schema/README.md).
+# Companion files: shapes.ttl (SHACL constraints), reference.ttl
+# (GICS taxonomy + asset master data, urn:graph:reference),
+# rules.ttl (veto catalog instance data, urn:graph:rules:catalog),
+# instances.trig (dated ABox, multiple named graphs).
+#
+# Source lineage: formalizes "Avance arquitectura del sistema.docx"
+# (v1, §§1-6) plus critique-and-evolution.md's fixes (cited inline
+# as "critique #N"). This file supersedes the earlier single-file
+# schema/portfolio-kg.ttl, split here into a proper multi-file
+# layout per 07-ontology-topology.md's named-graph design.
+#################################################################
+
+:
+    a owl:Ontology ;
+    rdfs:label "Portfolio Knowledge Graph Ontology — TBox" ;
+    rdfs:comment "Ontology for a temporal, audit-traceable knowledge graph backing an S&P 500 portfolio construction/maintenance system." ;
+    owl:versionInfo "0.3.0-thesis-implementation" .
+
+#################################################################
+# 1. CORE CLASSES
+#################################################################
+
+:Asset
+    a owl:Class ;
+    rdfs:label "Asset" ;
+    rdfs:comment "A publicly traded S&P 500 constituent tracked by the system (v1 §2A, §3A)." ;
+    rdfs:seeAlso <https://www.omg.org/spec/EDMC-FIBO/BE/LegalEntities/LegalPersons/LegalPerson> .
+
+:Sector
+    a owl:Class ;
+    rdfs:subClassOf skos:Concept ;
+    rdfs:label "Sector" ;
+    rdfs:comment "GICS-level sector concept (e.g. 'Information Technology'). Closes critique #3 (no sector layer)." .
+
+:Industry
+    a owl:Class ;
+    rdfs:subClassOf skos:Concept ;
+    rdfs:label "Industry" ;
+    rdfs:comment "GICS-level industry-group concept, rolls up to exactly one Sector via memberOfSector. Closes critique #3." .
+
+:Universe
+    a owl:Class ;
+    rdfs:label "Universe" ;
+    rdfs:comment "A named candidate pool (e.g. the quarterly Watchlist) that Assets belong to via UniverseMembership (v1 §2A)." .
+
+:UniverseMembership
+    a owl:Class ;
+    rdfs:label "Universe Membership" ;
+    rdfs:comment "N-ary relation reifying v1's (Asset)-[PERTENECE_A_UNIVERSO{fecha_inicio,fecha_fin}]->(Universe) edge as a first-class individual. validTo absent/unbound == still active (mirrors v1's fecha_fin=NULL)." .
+
+:ScoreSnapshot
+    a owl:Class ;
+    rdfs:label "Score Snapshot" ;
+    rdfs:comment "Immutable, timestamped observation persisted by one specialist agent (v1 §3A). Never updated in place." .
+
+:RiskEvent
+    a owl:Class ;
+    rdfs:label "Risk Event" ;
+    rdfs:comment "A discrete flagged event (legal, financial, market, network) that can trigger a Veto, always backed by >=1 evidence item (v1 §3B; SHACL-enforced, closes critique #5)." .
+
+:NewsArticle
+    a owl:Class ;
+    rdfs:label "News Article" ;
+    rdfs:comment "Evidence leaf: a news article backing a RiskEvent. provenanceId cross-references the existing news-collector/news-crawler SQLite pipeline." .
+
+:SECFiling
+    a owl:Class ;
+    rdfs:label "SEC Filing" ;
+    rdfs:comment "A single EDGAR filing (10-K, 10-Q, 8-K, DEF 14A) for one Asset." ;
+    rdfs:seeAlso <https://www.omg.org/spec/EDMC-FIBO/FND/Documents/Documents/Filing> .
+
+:SECFilingSection
+    a owl:Class ;
+    rdfs:label "SEC Filing Section" ;
+    rdfs:comment "Evidence leaf: an extracted section of a SECFiling (Item 1A, Item 3, DEF 14A director list — v1 §2B). May be supersededBy a later corrected section (restatement — closes critique #8, see 07-ontology-topology.md)." .
+
+:Executive
+    a owl:Class ;
+    rdfs:label "Executive" ;
+    rdfs:comment "A named director/officer extracted from DEF 14A filings, used by the VETO_RED_01 contagion rule (v1 §4). canonicalId is populated by the entity-resolution service (roadmap step 7)." .
+
+:Veto
+    a owl:Class ;
+    rdfs:label "Veto" ;
+    rdfs:comment "The orchestrator's decision node for one Asset in one cycle: which rule(s) fired and why (v1 §4)." .
+
+:RuleDefinition
+    a owl:Class ;
+    rdfs:label "Rule Definition" ;
+    rdfs:comment "A versioned veto rule, valid over [validFrom, validTo). Stored as graph data, not application code (closes critique #6)." .
+
+:RuleClause
+    a owl:Class ;
+    rdfs:label "Rule Clause" ;
+    rdfs:comment "One AND/OR node in a RuleDefinition's boolean expression tree. Replaces v1's unparenthesized infix string (source of critique #1's precedence bug) with an explicit tree." .
+
+:ThresholdComparison
+    a owl:Class ;
+    rdfs:label "Threshold Comparison" ;
+    rdfs:comment "A leaf RuleClause operand: one numeric metric/operator/threshold triple, e.g. (ScoreFinanciero, '>', 0.65). CONVENTION (found while populating instances.trig, not stated in 06-ontology-definition.md): the Orchestrator's tree-walker compares Score* metrics (ScoreFinanciero/ScoreTecnico/ScoreCuantitativo) against ScoreSnapshot.normalizedScore ([0.0,1.0], matches v1's 0.65-0.90 thresholds), but compares the Sentiment metric against ScoreSnapshot.rawValue ([-1.0,1.0], matches v1's -0.50/-0.60 thresholds, which are out of range on the normalized scale). This per-metric dispatch has to be hardcoded in the evaluator; it is not derivable from the ontology alone." .
+
+:CategoricalComparison
+    a owl:Class ;
+    rdfs:label "Categorical Comparison" ;
+    rdfs:comment "A leaf RuleClause operand comparing a categorical field (e.g. RiskEvent.category, RiskEvent.severity) against an expected string value via equality. DISCOVERED DURING IMPLEMENTATION: the original ThresholdComparison-only design (06-ontology-definition.md §1.5) covers the numeric confluent rules but not VETO_LEG_01/VETO_COMP_02, which gate on RiskEvent.category/severity, not a numeric ScoreSnapshot metric — this class fills that gap. See rules.ttl." .
+
+:GraphPredicate
+    a owl:Class ;
+    rdfs:label "Graph Predicate" ;
+    rdfs:comment "A leaf RuleClause operand representing a boolean condition evaluated via graph traversal / a SPARQL ASK query rather than a scalar or categorical comparison — e.g. VETO_RED_01's HasSharedPrimaryVetoExecutive(A) over the sharedExecutiveWith network and T-1 veto state. DISCOVERED DURING IMPLEMENTATION alongside CategoricalComparison, for the same reason: VETO_RED_01 doesn't fit the numeric/categorical leaf shapes either. predicateName identifies which named traversal the Orchestrator agent (08-agent-architecture.md) runs; the traversal logic itself lives in agent code, not in the graph." .
+
+:Portfolio
+    a owl:Class ;
+    rdfs:label "Portfolio" ;
+    rdfs:comment "The actively-held book. Closes critique #2 (v1 had exclusion/veto only, no inclusion/holding model)." .
+
+:PortfolioPosition
+    a owl:Class ;
+    rdfs:label "Portfolio Position" ;
+    rdfs:comment "N-ary relation: one Asset's weighted position within one Portfolio over [validFrom, validTo)." .
+
+:PriceObservation
+    a owl:Class ;
+    rdfs:label "Price Observation" ;
+    rdfs:comment "A DERIVED daily summary (close, return, ATR, ...) for one Asset — NOT the raw OHLCV tick panel (see 07-ontology-topology.md)." .
+
+#################################################################
+# 1.1 UNION CLASSES — precise ranges for properties whose target
+# is "one of several classes" (replaces looser rdfs:Resource ranges)
+#################################################################
+
+:EvidenceSource
+    a owl:Class ;
+    owl:unionOf ( :NewsArticle :SECFilingSection ) ;
+    rdfs:label "Evidence Source" ;
+    rdfs:comment "Anything a RiskEvent can be backedBy." .
+
+:RuleOperand
+    a owl:Class ;
+    owl:unionOf ( :RuleClause :ThresholdComparison :CategoricalComparison :GraphPredicate ) ;
+    rdfs:label "Rule Operand" ;
+    rdfs:comment "Anything a RuleClause's operand1/operand2 or a RuleDefinition's hasClause can point to — a nested clause, or one of the three leaf comparison kinds." .
+
+#################################################################
+# 1.2 DISJOINTNESS — every individual belongs to exactly one of
+# these 20 classes (the 2 union classes above are deliberately excluded --
+# RuleOperand/EvidenceSource are meant to overlap with their members).
+# Strengthens the ontology beyond the v1 sketch.
+#################################################################
+
+[] a owl:AllDisjointClasses ;
+   owl:members ( :Asset :Sector :Industry :Universe :UniverseMembership :ScoreSnapshot
+                 :RiskEvent :NewsArticle :SECFiling :SECFilingSection :Executive :Veto
+                 :RuleDefinition :RuleClause :ThresholdComparison :CategoricalComparison
+                 :GraphPredicate :Portfolio :PortfolioPosition :PriceObservation ) .
+
+#################################################################
+# 2. OBJECT PROPERTIES
+#################################################################
+
+:hasScoreObservation a owl:ObjectProperty ; rdfs:domain :Asset ; rdfs:range :ScoreSnapshot ;
+    owl:inverseOf :scoreSnapshotOfAsset ;
+    rdfs:comment "v1 §3A: (Asset)-[:HAS_SCORE_OBSERVATION]->(ScoreSnapshot)." .
+:scoreSnapshotOfAsset a owl:ObjectProperty, owl:FunctionalProperty ; rdfs:domain :ScoreSnapshot ; rdfs:range :Asset .
+
+:hasUniverseMembership a owl:ObjectProperty ; rdfs:domain :Asset ; rdfs:range :UniverseMembership ;
+    owl:inverseOf :membershipAsset .
+:membershipAsset a owl:ObjectProperty, owl:FunctionalProperty ; rdfs:domain :UniverseMembership ; rdfs:range :Asset .
+:membershipUniverse a owl:ObjectProperty, owl:FunctionalProperty ; rdfs:domain :UniverseMembership ; rdfs:range :Universe .
+
+:classifiedAs a owl:ObjectProperty, owl:FunctionalProperty ; rdfs:domain :Asset ; rdfs:range :Industry ;
+    owl:inverseOf :industryOfAsset ;
+    rdfs:comment "An Asset's GICS industry group. Functional: one primary industry per Asset at a time." .
+:industryOfAsset a owl:ObjectProperty ; rdfs:domain :Industry ; rdfs:range :Asset .
+
+:memberOfSector a owl:ObjectProperty, owl:FunctionalProperty ; rdfs:domain :Industry ; rdfs:range :Sector ;
+    owl:inverseOf :sectorIndustries ;
+    rdfs:comment "GICS industry -> sector roll-up (07-ontology-topology.md reasoning profile)." .
+:sectorIndustries a owl:ObjectProperty ; rdfs:domain :Sector ; rdfs:range :Industry .
+
+:triggeredVeto a owl:ObjectProperty ; rdfs:domain :Asset ; rdfs:range :Veto ;
+    owl:inverseOf :vetoOfAsset .
+:vetoOfAsset a owl:ObjectProperty, owl:FunctionalProperty ; rdfs:domain :Veto ; rdfs:range :Asset .
+
+:triggeredBy a owl:ObjectProperty ; rdfs:domain :Veto ; rdfs:range :RiskEvent ;
+    rdfs:comment "v1 §3B: (Veto)-[:DISPARADO_POR]->(RiskEvent)." .
+
+:backedBy a owl:ObjectProperty ; rdfs:domain :RiskEvent ; rdfs:range :EvidenceSource ;
+    owl:inverseOf :evidenceForRiskEvent ;
+    rdfs:comment "SHACL requires sh:minCount 1: no RiskEvent may exist without >=1 evidence link (closes critique #5)." .
+:evidenceForRiskEvent a owl:ObjectProperty ; rdfs:domain :EvidenceSource ; rdfs:range :RiskEvent ;
+    rdfs:comment "Inverse of backedBy — supports 'which risk events cite this article/section' audit queries (evolution layer B9)." .
+
+:appliesRule a owl:ObjectProperty ; rdfs:domain :Veto ; rdfs:range :RuleDefinition ;
+    rdfs:comment "All rules that fired for this Veto (v1 'Mapeo de Activaciones Multiples')." .
+
+:primaryRule a owl:ObjectProperty, owl:FunctionalProperty ; rdfs:domain :Veto ; rdfs:range :RuleDefinition ;
+    rdfs:comment "The single lowest-priorityRank rule among appliesRule (v1 §4)." .
+
+:hasClause a owl:ObjectProperty, owl:FunctionalProperty ; rdfs:domain :RuleDefinition ; rdfs:range :RuleOperand ;
+    rdfs:comment "Root of the rule's expression tree. May point directly to a leaf comparison for single-signal rules (e.g. VETO_FIN_01) — the tree degenerates gracefully to one node." .
+
+:operand1 a owl:ObjectProperty, owl:FunctionalProperty ; rdfs:domain :RuleClause ; rdfs:range :RuleOperand .
+:operand2 a owl:ObjectProperty, owl:FunctionalProperty ; rdfs:domain :RuleClause ; rdfs:range :RuleOperand .
+
+:hasExecutive a owl:ObjectProperty ; rdfs:domain :Asset ; rdfs:range :Executive ;
+    rdfs:comment "Extracted from DEF 14A (v1 §2B)." .
+
+:sharedExecutiveWith a owl:ObjectProperty, owl:SymmetricProperty ; rdfs:domain :Asset ; rdfs:range :Asset ;
+    rdfs:comment "Derived/asserted by the entity-resolution service (roadmap step 7), never hand-authored. Backs VETO_RED_01's HasSharedPrimaryVetoExecutive(A) check (v1 §4)." .
+
+:partOfFiling a owl:ObjectProperty, owl:FunctionalProperty ; rdfs:domain :SECFilingSection ; rdfs:range :SECFiling .
+:filingOfAsset a owl:ObjectProperty, owl:FunctionalProperty ; rdfs:domain :SECFiling ; rdfs:range :Asset .
+
+:supersededBy a owl:ObjectProperty, owl:FunctionalProperty ; rdfs:domain :SECFilingSection ; rdfs:range :SECFilingSection ;
+    rdfs:comment "Points from an original section to its corrected/restated replacement. The named-graph the replacement lands in carries the new transaction-time; both stay queryable (closes critique #8, worked example in instances.trig)." .
+
+:holdsPosition a owl:ObjectProperty ; rdfs:domain :Portfolio ; rdfs:range :PortfolioPosition .
+:positionAsset a owl:ObjectProperty, owl:FunctionalProperty ; rdfs:domain :PortfolioPosition ; rdfs:range :Asset .
+
+:priceObservationOf a owl:ObjectProperty, owl:FunctionalProperty ; rdfs:domain :PriceObservation ; rdfs:range :Asset .
+
+#################################################################
+# 3. DATATYPE PROPERTIES
+#################################################################
+
+:tickerSymbol a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :Asset ; rdfs:range xsd:string .
+:companyName  a owl:DatatypeProperty ; rdfs:domain :Asset ; rdfs:range xsd:string .
+:cikNumber    a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :Asset ; rdfs:range xsd:string ;
+    rdfs:comment "SEC Central Index Key — stable join key to edgar_tool.py output." .
+
+# --- temporal (n-ary relation) properties, shared across UniverseMembership / PortfolioPosition / RuleDefinition ---
+:validFrom a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:range xsd:date ;
+    rdfs:comment "Valid-time start (06-ontology-definition.md §1.4)." .
+:validTo   a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:range xsd:date ;
+    rdfs:comment "Valid-time end. Absent/unbound == currently active." .
+
+# --- ScoreSnapshot ---
+:normalizedScore a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :ScoreSnapshot ; rdfs:range xsd:decimal ;
+    rdfs:comment "[0.0, 1.0], 0=no risk, 1=critical risk (v1 §3A). Range enforced by SHACL." .
+:rawValue    a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :ScoreSnapshot ; rdfs:range xsd:decimal .
+:metricType  a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :ScoreSnapshot ; rdfs:range xsd:string .
+:agentOrigin a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :ScoreSnapshot ; rdfs:range xsd:string ;
+    rdfs:comment "One of FUNDAMENTAL | SEMANTIC | QUANTITATIVE | TECHNICAL. SHACL sh:in enforced." .
+:timestamp   a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :ScoreSnapshot ; rdfs:range xsd:dateTime .
+
+# --- RiskEvent / Veto ---
+:category a owl:DatatypeProperty ; rdfs:range xsd:string ;
+    rdfs:comment "On RiskEvent: LEGAL | FINANCIAL | MARKET | NETWORK. On RuleDefinition: free-text category label matching v1's catalog table." .
+:severity a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :RiskEvent ; rdfs:range xsd:string ;
+    rdfs:comment "CRITICAL | HIGH | MODERATE | LOW." .
+:detectedAt a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :RiskEvent ; rdfs:range xsd:dateTime .
+:decidedAt  a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :Veto ; rdfs:range xsd:dateTime .
+
+# --- RuleDefinition / RuleClause / leaf comparisons ---
+:ruleId       a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :RuleDefinition ; rdfs:range xsd:string .
+:priorityRank a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :RuleDefinition ; rdfs:range xsd:integer ;
+    rdfs:comment "1 (highest) .. 6 (lowest), used to pick primaryRule (v1 §4)." .
+:clauseType   a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :RuleClause ; rdfs:range xsd:string ;
+    rdfs:comment "'AND' | 'OR'. SHACL sh:in enforced." .
+:metricName   a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :ThresholdComparison ; rdfs:range xsd:string .
+:operator     a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :ThresholdComparison ; rdfs:range xsd:string ;
+    rdfs:comment "'>' | '<' | '>=' | '<='." .
+:thresholdValue a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :ThresholdComparison ; rdfs:range xsd:decimal .
+:attributeName a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :CategoricalComparison ; rdfs:range xsd:string ;
+    rdfs:comment "e.g. 'category', 'severity' — a RiskEvent field name." .
+:expectedValue a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :CategoricalComparison ; rdfs:range xsd:string .
+:predicateName a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :GraphPredicate ; rdfs:range xsd:string ;
+    rdfs:comment "e.g. 'HasSharedPrimaryVetoExecutive' — identifies which named traversal the Orchestrator runs." .
+
+# --- provenance ---
+:provenanceId a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:range xsd:string ;
+    rdfs:comment "On NewsArticle: 'articles:<id>' / 'discovered_urls:<id>' from the existing SQLite pipeline. On SECFilingSection: an accession-number-based id from the EDGAR batch pipeline." .
+:sourceURL    a owl:DatatypeProperty ; rdfs:domain :NewsArticle ; rdfs:range xsd:anyURI .
+:publishedDate a owl:DatatypeProperty ; rdfs:domain :NewsArticle ; rdfs:range xsd:date .
+
+# --- SECFiling / SECFilingSection ---
+:formType    a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :SECFiling ; rdfs:range xsd:string ;
+    rdfs:comment "'10-K' | '10-Q' | '8-K' | 'DEF 14A'." .
+:filingDate  a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :SECFiling ; rdfs:range xsd:date .
+:accessionNumber a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :SECFiling ; rdfs:range xsd:string .
+:itemLabel   a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :SECFilingSection ; rdfs:range xsd:string ;
+    rdfs:comment "'ITEM_1A_RISK_FACTORS' | 'ITEM_3_LEGAL_PROCEEDINGS' | 'DEF14A_DIRECTORS'." .
+
+# --- Executive ---
+:executiveName a owl:DatatypeProperty ; rdfs:domain :Executive ; rdfs:range xsd:string .
+:canonicalId   a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :Executive ; rdfs:range xsd:string .
+
+# --- Portfolio / PortfolioPosition ---
+:portfolioName a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :Portfolio ; rdfs:range xsd:string .
+:weightPct     a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :PortfolioPosition ; rdfs:range xsd:decimal .
+
+# --- PriceObservation (derived daily summary only) ---
+:observationDate  a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :PriceObservation ; rdfs:range xsd:date .
+:closePrice       a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :PriceObservation ; rdfs:range xsd:decimal .
+:dailyReturnPct   a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :PriceObservation ; rdfs:range xsd:decimal .
+:atr14            a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :PriceObservation ; rdfs:range xsd:decimal .
+
+#################################################################
+# 4. OWL CARDINALITY RESTRICTIONS (semantic, complements SHACL's
+# data-level validation in shapes.ttl — see schema/README.md for
+# why the ontology carries both)
+#################################################################
+
+:RuleClause rdfs:subClassOf
+    [ a owl:Restriction ; owl:onProperty :operand1 ; owl:cardinality 1 ] ,
+    [ a owl:Restriction ; owl:onProperty :operand2 ; owl:cardinality 1 ] ,
+    [ a owl:Restriction ; owl:onProperty :clauseType ; owl:cardinality 1 ] .
+
+:RuleDefinition rdfs:subClassOf
+    [ a owl:Restriction ; owl:onProperty :hasClause ; owl:cardinality 1 ] .
+
+:RiskEvent rdfs:subClassOf
+    [ a owl:Restriction ; owl:onProperty :backedBy ; owl:minCardinality 1 ] .

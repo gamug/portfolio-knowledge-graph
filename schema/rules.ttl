@@ -1,0 +1,118 @@
+@prefix :      <https://thesis.local/kg/portfolio#> .
+@prefix xsd:   <http://www.w3.org/2001/XMLSchema#> .
+@prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
+
+#################################################################
+# Portfolio Knowledge Graph — Veto Rule Catalog (all 6 rules)
+#
+# Loads into named graph urn:graph:rules:catalog.
+#
+# TOPOLOGY ADDENDUM: 07-ontology-topology.md's original named-graph
+# table didn't assign the rule catalog a graph of its own (rules
+# were discussed only in the abstract, via the single VETO_COMP_01
+# example in 06-ontology-definition.md §1.5). Resolved during
+# implementation: rules are versioned by their own validFrom/validTo
+# already, but still deserve a dedicated graph so "which ruleset was
+# loaded as of transaction-time X" stays answerable the same way
+# every other reference-like dataset in this system is — see
+# schema/README.md.
+#
+# All 6 rules from v1's catalog table (§4), corrected for the
+# unparenthesized ∧/∨ precedence ambiguity (critique #1): every
+# confluent rule below is AND(primary_signal, OR(secondary_signals))
+# — the intended reading, now structurally the ONLY possible reading
+# because there is no infix string left to mis-parse.
+#
+# Encoding this full catalog (not just VETO_COMP_01) surfaced a
+# genuine gap in the original ThresholdComparison-only leaf design:
+# VETO_LEG_01/VETO_COMP_02 gate on RiskEvent.category/severity
+# (categorical, not numeric) and VETO_RED_01 gates on a graph-
+# structural predicate, not a scalar comparison at all. Hence
+# CategoricalComparison and GraphPredicate in tbox.ttl.
+#################################################################
+
+# --- Rank 1: VETO_LEG_01 — Legal, single rule, AND of two categorical checks ---
+:Rule_VETO_LEG_01 a :RuleDefinition ;
+    :ruleId "VETO_LEG_01" ; :category "LEGAL" ; :priorityRank 1 ;
+    :validFrom "2026-01-01"^^xsd:date ;
+    :hasClause :Clause_LEG01_Root .
+
+:Clause_LEG01_Root a :RuleClause ; :clauseType "AND" ;
+    :operand1 :Cat_LEG01_Category ; :operand2 :Cat_LEG01_Severity .
+
+:Cat_LEG01_Category a :CategoricalComparison ; :attributeName "category" ; :expectedValue "LEGAL" .
+:Cat_LEG01_Severity a :CategoricalComparison ; :attributeName "severity" ; :expectedValue "CRITICAL" .
+
+# --- Rank 2: VETO_FIN_01 — Financial, single signal, tree degenerates to one leaf ---
+:Rule_VETO_FIN_01 a :RuleDefinition ;
+    :ruleId "VETO_FIN_01" ; :category "FINANCIAL" ; :priorityRank 2 ;
+    :validFrom "2026-01-01"^^xsd:date ;
+    :hasClause :Cmp_FIN01_ScoreHigh .
+
+:Cmp_FIN01_ScoreHigh a :ThresholdComparison ; :metricName "ScoreFinanciero" ; :operator ">" ; :thresholdValue "0.85"^^xsd:decimal .
+
+# --- Rank 3: VETO_COMP_02 — Legal/Reputational, confluent ---
+# Corrected: (category=LEGAL AND severity=HIGH) AND (Sentiment<-0.50 OR ScoreCuantitativo>0.65)
+:Rule_VETO_COMP_02 a :RuleDefinition ;
+    :ruleId "VETO_COMP_02" ; :category "LEGAL_REPUTATIONAL" ; :priorityRank 3 ;
+    :validFrom "2026-01-01"^^xsd:date ;
+    :hasClause :Clause_COMP02_Root .
+
+:Clause_COMP02_Root a :RuleClause ; :clauseType "AND" ;
+    :operand1 :Clause_COMP02_LegalHigh ; :operand2 :Clause_COMP02_SentOrQuant .
+
+:Clause_COMP02_LegalHigh a :RuleClause ; :clauseType "AND" ;
+    :operand1 :Cat_COMP02_Category ; :operand2 :Cat_COMP02_Severity .
+:Cat_COMP02_Category a :CategoricalComparison ; :attributeName "category" ; :expectedValue "LEGAL" .
+:Cat_COMP02_Severity a :CategoricalComparison ; :attributeName "severity" ; :expectedValue "HIGH" .
+
+:Clause_COMP02_SentOrQuant a :RuleClause ; :clauseType "OR" ;
+    :operand1 :Cmp_COMP02_SentLow ; :operand2 :Cmp_COMP02_QuantHigh .
+:Cmp_COMP02_SentLow  a :ThresholdComparison ; :metricName "Sentiment"        ; :operator "<" ; :thresholdValue "-0.50"^^xsd:decimal .
+:Cmp_COMP02_QuantHigh a :ThresholdComparison ; :metricName "ScoreCuantitativo" ; :operator ">" ; :thresholdValue "0.65"^^xsd:decimal .
+
+# --- Rank 4: VETO_COMP_01 — Financial/Market, confluent ---
+# Corrected: ScoreFinanciero>0.65 AND (Sentiment<-0.60 OR ScoreTecnico>0.70)
+:Rule_VETO_COMP_01 a :RuleDefinition ;
+    :ruleId "VETO_COMP_01" ; :category "FINANCIAL_MARKET" ; :priorityRank 4 ;
+    :validFrom "2026-01-01"^^xsd:date ;
+    :hasClause :Clause_COMP01_Root .
+
+:Clause_COMP01_Root a :RuleClause ; :clauseType "AND" ;
+    :operand1 :Cmp_COMP01_FinHigh ; :operand2 :Clause_COMP01_Inner .
+
+:Clause_COMP01_Inner a :RuleClause ; :clauseType "OR" ;
+    :operand1 :Cmp_COMP01_SentLow ; :operand2 :Cmp_COMP01_TecHigh .
+
+:Cmp_COMP01_FinHigh  a :ThresholdComparison ; :metricName "ScoreFinanciero" ; :operator ">" ; :thresholdValue "0.65"^^xsd:decimal .
+:Cmp_COMP01_SentLow  a :ThresholdComparison ; :metricName "Sentiment"       ; :operator "<" ; :thresholdValue "-0.60"^^xsd:decimal .
+:Cmp_COMP01_TecHigh  a :ThresholdComparison ; :metricName "ScoreTecnico"    ; :operator ">" ; :thresholdValue "0.70"^^xsd:decimal .
+
+# --- Rank 5: VETO_RED_01 — Network/Contagion, confluent, graph-structural primary signal ---
+# Corrected: HasSharedPrimaryVetoExecutive(A) AND (Sentiment<-0.50 OR ScoreFinanciero>0.65)
+:Rule_VETO_RED_01 a :RuleDefinition ;
+    :ruleId "VETO_RED_01" ; :category "NETWORK" ; :priorityRank 5 ;
+    :validFrom "2026-01-01"^^xsd:date ;
+    :hasClause :Clause_RED01_Root .
+
+:Clause_RED01_Root a :RuleClause ; :clauseType "AND" ;
+    :operand1 :Pred_RED01_SharedExec ; :operand2 :Clause_RED01_Inner .
+
+:Pred_RED01_SharedExec a :GraphPredicate ; :predicateName "HasSharedPrimaryVetoExecutive" ;
+    rdfs:comment "Evaluated by the Orchestrator against sharedExecutiveWith + the T-1 checkpointed prior-cycle Veto state (08-agent-architecture.md), excluding primary vetoes triggered by VETO_RED_01 itself (de-recursion, v1 §4)." .
+
+:Clause_RED01_Inner a :RuleClause ; :clauseType "OR" ;
+    :operand1 :Cmp_RED01_SentLow ; :operand2 :Cmp_RED01_FinHigh .
+:Cmp_RED01_SentLow a :ThresholdComparison ; :metricName "Sentiment"        ; :operator "<" ; :thresholdValue "-0.50"^^xsd:decimal .
+:Cmp_RED01_FinHigh a :ThresholdComparison ; :metricName "ScoreFinanciero"  ; :operator ">" ; :thresholdValue "0.65"^^xsd:decimal .
+
+# --- Rank 6: VETO_COMP_03 — Market/Volatility, confluent, already unambiguous (pure AND) ---
+:Rule_VETO_COMP_03 a :RuleDefinition ;
+    :ruleId "VETO_COMP_03" ; :category "MARKET_VOLATILITY" ; :priorityRank 6 ;
+    :validFrom "2026-01-01"^^xsd:date ;
+    :hasClause :Clause_COMP03_Root .
+
+:Clause_COMP03_Root a :RuleClause ; :clauseType "AND" ;
+    :operand1 :Cmp_COMP03_QuantHigh ; :operand2 :Cmp_COMP03_TecHigh .
+:Cmp_COMP03_QuantHigh a :ThresholdComparison ; :metricName "ScoreCuantitativo" ; :operator ">" ; :thresholdValue "0.75"^^xsd:decimal .
+:Cmp_COMP03_TecHigh   a :ThresholdComparison ; :metricName "ScoreTecnico"      ; :operator ">" ; :thresholdValue "0.75"^^xsd:decimal .
