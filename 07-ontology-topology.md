@@ -21,8 +21,9 @@ special query language feature.
 | `urn:graph:reference` | Static reference data: GICS `Sector`/`Industry` SKOS scheme, FIBO alignment annotations, Asset master data (`schema/reference.ttl`) | Rarely changes. |
 | `urn:graph:rules:catalog` | The versioned veto rule catalog (`schema/rules.ttl`) | Rarely changes; each `RuleDefinition` is already self-temporal via `validFrom`/`validTo`. |
 | `urn:graph:ingest:{agent}:{date}` | One graph per (agent, day) ingestion batch — that day's `ScoreSnapshot`s and `RiskEvent`s from `SEMANTIC`/`QUANTITATIVE`/`TECHNICAL` agents (v1's fast cycle, §2B) | **Append-only.** Never edited after creation — this is what makes it a faithful transaction-time record. |
+| `urn:graph:ingest:SECTOR:{date}` | One graph per Sector Agent daily run — `SectorAggregateSnapshot`s and per-asset `SectorRelativeMomentum` `ScoreSnapshot`s (added 2026-08-13, see spec) | **Append-only**, same convention as the other per-agent ingest graphs. |
 | `urn:graph:ingest:FUNDAMENTAL:{year}-Q{n}` | One graph per quarterly Fundamental Agent run — new `UniverseMembership` records, fundamental `ScoreSnapshot`s (v1's slow cycle, §2A) | Append-only. |
-| `urn:graph:ingest:ORCHESTRATOR:{date}` | The Orchestrator's own decisions — `Veto` individuals and any `RiskEvent`s it directly produced | Append-only. |
+| `urn:graph:ingest:ORCHESTRATOR:{date}` | The Orchestrator's own decisions — `Veto` individuals and any `RiskEvent`s it directly produced; also `AttractivenessSnapshot` individuals (added 2026-08-13) — the Orchestrator's ranking output, alongside its veto output | Append-only. |
 | `urn:graph:ingest:EDGAR:{date-or-quarter}` | `SECFiling`/`SECFilingSection` individuals from the EDGAR batch pipeline (roadmap step 4), including restated sections | Append-only — see the restatement pattern below. |
 | `urn:graph:derived:entity-resolution:{date}` | `sharedExecutiveWith` and other entity-resolution-service output (roadmap step 7) | Append-only; kept separate from the EDGAR graphs it draws on since it's a different service's output. |
 | `urn:graph:universe:{year}-Q{n}` | The `Universe` individual + its membership boundary for that quarter | Append-only, closed by writing `validTo` on the *previous* quarter's memberships (never by deleting them). |
@@ -58,6 +59,7 @@ Back-of-envelope for a full 2022–present backfill (~4 years, ~1,008 trading da
 | `NewsArticle` | ~100K–150K individuals | Scaling the existing `news-crawler` corpus density (§ above) to the full S&P 500. |
 | `SECFilingSection` | ~30K individuals | 500 companies × ~20 filings (10-K/10-Q/DEF 14A) over 4 years × ~3 sections each. |
 | `RiskEvent`, `Veto` | Low tens of thousands | Only fires when a threshold is actually crossed — a small fraction of `ScoreSnapshot` volume. |
+| `SectorAggregateSnapshot` + `SectorRelativeMomentum` + `AttractivenessSnapshot` (added 2026-08-13) | Low tens of millions combined at full backfill scale | ~11 sectors × 500 assets × ~1,000 trading days — comparable order of magnitude to the existing daily `ScoreSnapshot` volume above; does not change this table's headline order-of-magnitude conclusion below, it's absorbed within it. |
 
 **Total: on the order of 15–20 million triples** over the full historical backfill, dominated by
 the daily fast-cycle `ScoreSnapshot` volume. That is comfortably within a single-node GraphDB or

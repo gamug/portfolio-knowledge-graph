@@ -12,12 +12,14 @@ actually building it (each flagged inline in the file that surfaced it, and summ
 | `tbox.ttl` | Turtle | `urn:graph:tbox` | Classes, properties, OWL cardinality restrictions. |
 | `shapes.ttl` | Turtle | `urn:graph:tbox` | SHACL data-quality shapes (kept as a separate file/concern from `tbox.ttl` — OWL semantics vs. SHACL validation, see below). |
 | `reference.ttl` | Turtle | `urn:graph:reference` | GICS sector/industry taxonomy + asset master data (5 worked-example tickers). |
-| `rules.ttl` | Turtle | `urn:graph:rules:catalog` | All 6 veto rules from v1's catalog, as unambiguous `RuleClause` trees. |
-| `instances.trig` | **TriG** | *(self-describing — see below)* | Dated ABox: universe membership, agent snapshots, evidence, vetoes, filings, portfolio. |
+| `rules.ttl` | Turtle | `urn:graph:rules:catalog` | All 7 veto rules from v1's catalog plus `VETO_MKT_02` (added 2026-08-13), as unambiguous `RuleClause` trees. |
+| `instances.trig` | **TriG** | *(self-describing — see below)* | Dated ABox: universe membership, agent snapshots, evidence, vetoes, filings, portfolio; sector-aggregate and attractiveness-ranking output (added 2026-08-13). |
 
 `instances.trig` is TriG, not Turtle — it contains explicit `GRAPH <urn:graph:...> { ... }` blocks,
 so it's the one file that's self-describing about which named graph each triple belongs to. Every
-other file loads wholesale into the single graph named in the table.
+other file loads wholesale into the single graph named in the table. No new file was added for the
+attractiveness-ranking feature: its `urn:graph:ingest:SECTOR:{date}` graph pattern is populated
+from within `instances.trig` like every other per-agent ingest graph.
 
 **Load order for a fresh GraphDB/Fuseki repository:** `tbox.ttl` → `shapes.ttl` → `reference.ttl`
 → `rules.ttl` → `instances.trig`. Nothing strictly requires this order at load time (a quad store
@@ -38,7 +40,7 @@ They answer different questions and neither substitutes for the other:
 A thesis-grade ontology benefits from stating both: OWL for what the classes *mean*, SHACL for
 what the store *enforces*.
 
-## Three refinements found during implementation (not anticipated in the design docs)
+## Refinements found during implementation (not anticipated in the design docs)
 
 1. **Two new leaf types.** `06-ontology-definition.md` §1.5 only worked through `VETO_COMP_01`,
    whose leaves are all numeric. Encoding the full 6-rule catalog (`rules.ttl`) surfaced that
@@ -54,6 +56,14 @@ what the store *enforces*.
    *agent's* daily output but not to the Orchestrator's own decisions or to entity resolution's
    derived facts. Resolved: `urn:graph:ingest:ORCHESTRATOR:{date}` and
    `urn:graph:derived:entity-resolution:{date}` (both documented in `instances.trig`'s header).
+4. **Shared-property domain collision when reusing `ScoreSnapshot`'s fields for a sibling class.**
+   Adding `SectorAggregateSnapshot` (2026-08-13, attractiveness-score feature) needed to reuse
+   `metricType`/`agentOrigin`/`timestamp`/`normalizedScore`, but those properties' `rdfs:domain`
+   was declared as `:ScoreSnapshot` specifically — reusing them as-is would RDFS-entail that a
+   `SectorAggregateSnapshot` individual is also a `:ScoreSnapshot`, contradicting
+   `AllDisjointClasses`. Resolved the same way `RuleOperand`/`EvidenceSource` already resolve the
+   analogous range problem: a new union class (`:ObservationSnapshot`) widens the four properties'
+   domain instead of duplicating them under new names.
 
 ## Validation
 
@@ -70,3 +80,8 @@ g.parse('instances.trig', format='trig')
 print('quads:', len(list(g.quads())))
 "
 ```
+
+`pyshacl` conformance and hand-verified attractiveness-score/VETO_MKT_02 arithmetic are checked by
+the script in Task 5 of `docs/superpowers/plans/2026-08-13-attractiveness-sector-momentum.md` —
+re-run it the same way after any future schema edit that touches `ScoreSnapshot`,
+`SectorAggregateSnapshot`, or `AttractivenessSnapshot`.

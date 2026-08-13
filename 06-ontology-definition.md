@@ -1,15 +1,16 @@
 # Ontology Definition — Portfolio Knowledge Graph (v2)
 
 **Implementation:** [`schema/`](./schema/) — the formal OWL/SHACL/TriG implementation of
-everything described below, split into `tbox.ttl` (classes/properties), `shapes.ttl` (SHACL),
-`reference.ttl` (GICS taxonomy + asset master data), `rules.ttl` (all 6 veto rules as trees), and
-`instances.trig` (a worked, multi-graph, multi-asset dataset). Parsed clean with `rdflib` and
-SHACL-validated with `pyshacl` (**conforms: True**); the veto rule trees were independently
-re-executed in Python against the instance data and reproduced the expected firings exactly (see
-`schema/README.md`). This document is the prose walkthrough; `schema/` is the executable artifact
-a thesis appendix or a real GraphDB/Fuseki load would use. `schema/README.md` documents the
-file-to-named-graph map and three modeling refinements only discovered while implementing (two new
-`RuleClause` leaf types, and a raw-vs-normalized comparison convention) — summarized in §1.5 below.
+everything described below, split into `tbox.ttl` (classes/properties, 27 classes total), `shapes.ttl`
+(SHACL, 14 shapes), `reference.ttl` (GICS taxonomy + asset master data), `rules.ttl` (all 7 veto
+rules as trees), and `instances.trig` (a worked, multi-graph, multi-asset dataset). Parsed clean
+with `rdflib` and SHACL-validated with `pyshacl` (**conforms: True**); the veto rule trees were
+independently re-executed in Python against the instance data and reproduced the expected firings
+exactly (see `schema/README.md`). This document is the prose walkthrough; `schema/` is the
+executable artifact a thesis appendix or a real GraphDB/Fuseki load would use. `schema/README.md`
+documents the file-to-named-graph map and the modeling refinements only discovered while
+implementing (two new `RuleClause` leaf types, a raw-vs-normalized comparison convention, and a
+shared-property domain-collision fix) — summarized in §1.5 and §1.8 below.
 
 **Store target:** RDF triple/quad store (GraphDB or Apache Jena Fuseki). This is the single
 decision that shapes everything in this document — it means the ontology has to be formal OWL
@@ -167,18 +168,19 @@ own tree structure and reproduced the intended firings exactly — see `schema/R
 ## 1.6 SHACL shapes for data-quality enforcement
 
 SHACL (Shapes Constraint Language) is RDF's declarative validator — the world-view equivalent of
-a schema/type checker, but expressed as data rather than code. Eight shapes are defined
+a schema/type checker, but expressed as data rather than code. 14 shapes are defined
 (`schema/shapes.ttl`; three more than originally scoped here — `ThresholdComparisonShape`,
 `CategoricalComparisonShape`, `GraphPredicateShape` — added to cover the two new leaf types from
-the addendum above), each closing a specific gap:
+the addendum above, plus four more added 2026-08-13 for the attractiveness-ranking feature, see
+§1.8), each closing a specific gap:
 
 | Shape | Constraint | Closes |
 |---|---|---|
 | `ScoreSnapshotShape` | `normalizedScore` ∈ `[0.0, 1.0]`; `agentOrigin` ∈ the 4 known agents; `metricType`/`timestamp` required | Prevents a malformed snapshot from silently entering veto evaluation. |
 | `RiskEventShape` | `backedBy` `sh:minCount 1`; `severity`/`category` from closed vocabularies | Critique #5 (no null-handling policy) — evidence-free risk events are now a validation failure, not a silent gap. |
-| `RuleDefinitionShape` | `validFrom` required; exactly one `hasClause`; `priorityRank` ∈ `[1,6]` | Critique #6 — a rule can't be persisted without being properly temporal and ranked. |
+| `RuleDefinitionShape` | `validFrom` required; exactly one `hasClause`; `priorityRank` ∈ `[1,7]` | Critique #6 — a rule can't be persisted without being properly temporal and ranked. |
 | `RuleClauseShape` | `clauseType` ∈ `{AND, OR}`; both operands required | Structural half of the critique #1 fix — a clause literally cannot be built with a missing operand or an unrecognized operator. |
-| `ThresholdComparisonShape` / `CategoricalComparisonShape` / `GraphPredicateShape` | Each leaf kind's required fields (`metricName`/`operator`/`thresholdValue`; `attributeName`/`expectedValue`; `predicateName`) | Completes the structural half of the critique #1 fix across all 6 rules, not just numeric ones. |
+| `ThresholdComparisonShape` / `CategoricalComparisonShape` / `GraphPredicateShape` | Each leaf kind's required fields (`metricName`/`operator`/`thresholdValue`; `attributeName`/`expectedValue`; `predicateName`) | Completes the structural half of the critique #1 fix across all 7 rules, not just numeric ones. |
 | `UniverseMembershipShape` | both endpoints + `validFrom` required | Keeps §1.4's n-ary relation pattern from degrading into a dangling record. |
 
 Validated end-to-end with `pyshacl` against the full worked dataset below: **conforms = True**.
@@ -191,12 +193,92 @@ flat file, operationalizing `07-ontology-topology.md`'s partitioning scheme dire
 membership, agent `ScoreSnapshot`s across all 4 agent types, a full evidence chain
 (`NewsArticle` → `RiskEvent` → `Veto`), an EDGAR filing restatement demonstrating
 `supersededBy` (critique #8's bitemporal pattern, concretely), and 3 `PortfolioPosition`s. It
-exercises three of the six rules by design — `VETO_FIN_01` (single-signal), `VETO_COMP_01`
-(confluent, numeric), and `VETO_RED_01` (contagion, via a shared `Executive` and a T-1 prior-cycle
-veto) — chosen to cover the single-leaf, numeric-tree, and graph-predicate cases distinctly. An
-independent Python script walks the ontology's own `RuleClause` trees against this data and
-reproduces exactly the firings the dataset was designed to produce (`AAPL→VETO_COMP_01`,
-`JPM→VETO_RED_01`, `XOM→VETO_FIN_01`, `JNJ`/`PG`→none) — see `schema/README.md`.
+exercises four of the seven rules by design — `VETO_FIN_01` (single-signal), `VETO_COMP_01`
+(confluent, numeric), `VETO_RED_01` (contagion, via a shared `Executive` and a T-1 prior-cycle
+veto), and, added 2026-08-13, `VETO_MKT_02` (single-signal, on the new `SectorRelativeMomentum`
+metric — see §1.8) — chosen to cover the single-leaf, numeric-tree, graph-predicate, and
+sector-relative cases distinctly. An independent Python script walks the ontology's own
+`RuleClause` trees against this data and reproduces exactly the firings the dataset was designed
+to produce (`AAPL→VETO_COMP_01`, `JPM→VETO_RED_01`, `XOM→VETO_FIN_01` and, on a later date,
+`VETO_MKT_02`; `JNJ`/`PG`→none) — see `schema/README.md`.
+
+## 1.8 Attractiveness Ranking and Sector-Relative Momentum (added 2026-08-13)
+
+`schema/rules.ttl` and §1.5–1.7 above give the ontology a full *exclusion* model — vetoes are
+purely negative, a surviving candidate is never ranked against its peers. This addition closes
+that gap in part (critique #2, evolution layer B3's ranking half) and, along the way, gives the
+ontology its first sector-level signal (critique #3, layer B2's momentum half). Full detail,
+including the arithmetic worked example, lives in
+`docs/superpowers/specs/2026-08-13-attractiveness-sector-momentum-design.md`; this section
+summarizes what changed in the TBox. Four new classes were added, bringing the ontology to 27
+total classes (`AllDisjointClasses` grew from 20 to 24 members) and `shapes.ttl` to 14 shapes
+(§1.6):
+
+- **`SectorAggregateSnapshot`** — immutable, timestamped roll-up of member `Asset`s'
+  `ScoreTecnico` for one `Sector` on one date, written by the new Sector Agent
+  (`08-agent-architecture.md`). Reuses `ScoreSnapshot`'s field shape (`normalizedScore`,
+  `metricType`, `timestamp`, `agentOrigin='SECTOR'`) rather than inventing parallel fields — see
+  the `ObservationSnapshot` note below for how that reuse was made OWL-safe. The same agent also
+  writes a per-asset `SectorRelativeMomentum` — not a new class, but a new `metricType` value on
+  the existing `ScoreSnapshot`, computed as that asset's `ScoreTecnico` minus its sector's
+  aggregate and stored in `rawValue` (signed, `[-1.0, 1.0]`); it is the first `ScoreSnapshot`
+  `metricType` that leaves `normalizedScore` unset, which required relaxing `ScoreSnapshotShape`'s
+  `sh:minCount 1` on that field to a conditional (`sh:xone`) exempting this one `metricType`.
+- **`AttractivenessSnapshot`** — the Orchestrator's computed ranking output for one `Asset` in one
+  cycle: the positive counterpart to `Veto` (v1 modeled exclusion only). Closes part of critique
+  #2/evolution layer B3's ranking half, not the position-sizing half. Carries `attractivenessScore`
+  (functional, `[0.0, 1.0]`, 1 = most attractive), `computedAt`, and an audit-trail pointer
+  `computedWithScheme` back to the `AttractivenessWeightScheme` that produced it — the same role
+  `appliesRule`/`primaryRule` play for `Veto`. No stored rank field: rank is relative to whatever
+  comparison set a query defines, so it is always a query-time `ORDER BY attractivenessScore`,
+  never a persisted fact.
+- **`AttractivenessWeightScheme`** — a versioned set of per-metric weights the Orchestrator applies
+  to compute `attractivenessScore`, valid over `[validFrom, validTo)` — mirrors
+  `RuleDefinition`'s "rules live in the graph, not code" pattern (critique #6), applied to weights
+  instead of thresholds.
+- **`WeightComponent`** — one `(metric, weight, inverted)` triple within an
+  `AttractivenessWeightScheme`. `inverted=true` marks risk-oriented metrics (e.g.
+  `ScoreFinanciero`) that must be flipped (`1 - normalizedScore`) before weighting.
+
+**Attractiveness score formula** (spec §3):
+
+```
+attractivenessScore = Σ weight_i * component_i   (weights sum to 1.0)
+component_i = (1 - normalizedScore_i)     if inverted
+component_i = (rawValue_i + 1) / 2         if not inverted
+```
+
+Every existing `normalizedScore` in this ontology is a *risk* reading (0 = no risk, 1 = critical
+risk); attractiveness is the inverse sense, so `WeightComponent.inverted` marks which inputs need
+that inversion rather than hardcoding it per metric. `Sentiment` and `SectorRelativeMomentum` are
+`inverted=false` and read from `rawValue`, rescaled from `[-1,1]` to `[0,1]` — the same
+raw-vs-normalized dispatch convention documented on `ThresholdComparison` in §1.2, now with
+`SectorRelativeMomentum` as a third entry in that dispatch table alongside `Sentiment`. The
+initial `AttractivenessWeightScheme` is an equal-ish weighting across five inputs
+(`ScoreFinanciero` 0.25, `ScoreCuantitativo` 0.2, `ScoreTecnico` 0.2 — all inverted; `Sentiment`
+0.2, `SectorRelativeMomentum` 0.15 — neither inverted), an explicit placeholder pending
+calibration, same status as every veto threshold today.
+
+The same `SectorRelativeMomentum` signal also feeds a new 7th veto rule, `VETO_MKT_02` (rank 7,
+single-signal, threshold `-0.50` on `rawValue` — `rules.ttl`): an asset can now be excluded for
+badly underperforming its sector peers, independent of and in addition to the six original
+dimensions.
+
+**Domain-collision fix (`ObservationSnapshot`).** `SectorAggregateSnapshot` reuses
+`ScoreSnapshot`'s `metricType`/`agentOrigin`/`timestamp`/`normalizedScore` properties, but those
+properties' `rdfs:domain` was declared as `:ScoreSnapshot` specifically; reusing them as-is would
+RDFS-entail that a `SectorAggregateSnapshot` individual is also a `:ScoreSnapshot`, contradicting
+`AllDisjointClasses`. Resolved the same way `RuleOperand`/`EvidenceSource` already resolve the
+analogous range problem: a new union class `:ObservationSnapshot = unionOf(:ScoreSnapshot,
+:SectorAggregateSnapshot)` widens the four properties' domain instead of duplicating them under
+new names. `:ObservationSnapshot` is never used as an individual's `rdf:type`, and is deliberately
+excluded from `AllDisjointClasses` (same convention as `RuleOperand`/`EvidenceSource`).
+
+**Explicitly out of scope** (spec §1, not silently dropped): position sizing / `weightPct`
+assignment from `attractivenessScore` (B3's sizing module), the full Sector/Industry
+dashboard-style roll-up beyond this one aggregate metric (B2's broader signal set), and
+rebalancing cadence / correlation / concentration caps. These remain open per
+`critique-and-evolution.md`.
 
 ---
 

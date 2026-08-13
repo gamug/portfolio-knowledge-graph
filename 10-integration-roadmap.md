@@ -21,11 +21,14 @@ before it, and which existing repo (if any) it extends versus builds from scratc
 
 **0. Formalize ontology TBox + SHACL shapes.** ✅ **Implemented.**
 `schema/tbox.ttl` + `schema/shapes.ttl` + `schema/reference.ttl` + `schema/rules.ttl` (this
-series' §1) — 22 classes, 8 SHACL shapes, the full 6-rule veto catalog as unambiguous trees, and a
+series' §1) — 27 classes, 14 SHACL shapes, the full 7-rule veto catalog as unambiguous trees, and a
 5-asset worked dataset (`schema/instances.trig`) that's been parsed, SHACL-validated
 (`pyshacl`: conforms = True), and independently re-evaluated in Python to confirm the rule trees
 fire exactly as intended. Everything downstream needs real classes to write into — this is why it
-was built first, not last, in this whole engagement. See `schema/README.md`.
+was built first, not last, in this whole engagement. Extended 2026-08-13 with an
+attractiveness-ranking + sector-relative-momentum feature (4 new classes, a 7th veto rule, a
+versioned weight scheme) — see docs/superpowers/specs/2026-08-13-attractiveness-sector-momentum-design.md.
+See `schema/README.md`.
 
 **1. Stand up the triple store.**
 GraphDB or Fuseki, with the named-graph topology from `07-ontology-topology.md` (TBox graph,

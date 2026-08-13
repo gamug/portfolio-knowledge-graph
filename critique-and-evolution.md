@@ -100,11 +100,21 @@ constraints, or transaction costs. As written, this is a **screening system**, n
 portfolio-construction system — which is the thesis's stated primary goal. This is the largest
 gap relative to scope.
 
+> **Update (2026-08-13):** the ranking half of this gap is now closed — see
+> `AttractivenessSnapshot` in `06-ontology-definition.md`'s attractiveness-ranking subsection and
+> `docs/superpowers/specs/2026-08-13-attractiveness-sector-momentum-design.md`. Position sizing,
+> rebalancing cadence, and diversification/correlation constraints remain open.
+
 **3. No sector/industry layer.** The stated requirement is to track "current best-performing
 companies **and sectors**," but there is no `Sector`/`Industry` node type anywhere in the model,
 no sector-level score roll-up, and no relative-strength or rotation signal. Sector-level reasoning
 cannot be bolted on later without touching the core schema, so it belongs in the next design
 iteration, not deferred indefinitely.
+
+> **Update (2026-08-13):** a sector-relative-momentum signal (one metric, feeding both a new veto
+> rule and the attractiveness score) is now implemented — see `SectorAggregateSnapshot`. The full
+> sector-rotation dashboard (relative-strength-vs-benchmark roll-ups, a dedicated Sector Agent's
+> broader signal set) described in layer B2 remains open beyond this one signal.
 
 **4. Hardcoded, uncalibrated thresholds.** Every threshold (`0.85`, `0.65`, `-0.50`, `-0.60`,
 `0.70`, `0.75`) appears with no stated derivation — no sensitivity analysis, no backtest, no
@@ -160,8 +170,8 @@ portfolio-construction-and-maintenance system.
 | Layer | Adds | Closes gap |
 |---|---|---|
 | **B1. Formal ontology** | Complete class/relationship inventory — `Asset`, `Sector`, `Universe`, `ScoreSnapshot`, `RiskEvent`, `NewsArticle`, `SECFilingSection`, `Executive`, `Veto`, `RuleDefinition`, `Portfolio`, `Position` — with full property lists and cardinalities. | #9 |
-| **B2. Sector/rotation layer** | `Sector`/`Industry` nodes aggregating member `ScoreSnapshot`s; relative-strength-vs-benchmark and sector-momentum signals computed by a new Sector Agent. | #3 |
-| **B3. Portfolio construction layer** | An attractiveness/ranking score (the positive counterpart to the veto score) over surviving names; a sizing module (vol-scaled or risk-budgeted weights, correlation/concentration caps); a rebalancing cadence. | #2 |
+| **B2. Sector/rotation layer** | `Sector`/`Industry` nodes aggregating member `ScoreSnapshot`s; relative-strength-vs-benchmark and sector-momentum signals computed by a new Sector Agent (sector-relative-momentum signal implemented 2026-08-13; broader roll-up dashboard still open). | #3 |
+| **B3. Portfolio construction layer** | An attractiveness/ranking score (the positive counterpart to the veto score) over surviving names; a sizing module (vol-scaled or risk-budgeted weights, correlation/concentration caps); a rebalancing cadence (attractiveness/ranking score implemented 2026-08-13; sizing module still open). | #2 |
 | **B4. Rules as versioned graph data** | `RuleDefinition` nodes (`expression`, `thresholds`, `valid_from`, `valid_to`) — the orchestrator reads its active ruleset from the graph instead of code, exactly mirroring the pattern already used for universe membership in §2A. | #4, #6 |
 | **B5. Calibration & backtesting framework** | Walk-forward threshold fitting plus a per-rule ablation study (portfolio performance with vs. without each veto rule active) — this *is* the thesis's empirical evaluation chapter. | #4 |
 | **B6. Data-quality / null-handling policy** | Explicit `confidence`/`staleness` flags on `ScoreSnapshot`, and a documented fallback (no-signal vs. carry-forward vs. block) consumed by rule evaluation instead of implicit `NULL` semantics. | #5 |
