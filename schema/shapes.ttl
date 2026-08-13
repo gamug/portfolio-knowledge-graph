@@ -35,7 +35,7 @@
     sh:targetClass :RuleDefinition ;
     sh:property [ sh:path :validFrom ; sh:datatype xsd:date ; sh:minCount 1 ; sh:maxCount 1 ] ;
     sh:property [ sh:path :hasClause ; sh:minCount 1 ; sh:maxCount 1 ] ;
-    sh:property [ sh:path :priorityRank ; sh:datatype xsd:integer ; sh:minInclusive 1 ; sh:maxInclusive 6 ] ;
+    sh:property [ sh:path :priorityRank ; sh:datatype xsd:integer ; sh:minInclusive 1 ; sh:maxInclusive 7 ] ;
     sh:property [ sh:path :ruleId ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ] .
 
 :RuleClauseShape
