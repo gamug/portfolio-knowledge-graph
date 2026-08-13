@@ -2,7 +2,7 @@
 
 Implements `06-ontology-definition.md` and `07-ontology-topology.md` as loadable OWL/SHACL/TriG.
 Supersedes the earlier single-file `schema/portfolio-kg.ttl` sketch, split here per the topology
-document's named-graph design — and extended with three refinements that only became visible while
+document's named-graph design — and extended with four refinements that only became visible while
 actually building it (each flagged inline in the file that surfaced it, and summarized below).
 
 ## File-to-named-graph map
@@ -12,7 +12,7 @@ actually building it (each flagged inline in the file that surfaced it, and summ
 | `tbox.ttl` | Turtle | `urn:graph:tbox` | Classes, properties, OWL cardinality restrictions. |
 | `shapes.ttl` | Turtle | `urn:graph:tbox` | SHACL data-quality shapes (kept as a separate file/concern from `tbox.ttl` — OWL semantics vs. SHACL validation, see below). |
 | `reference.ttl` | Turtle | `urn:graph:reference` | GICS sector/industry taxonomy + asset master data (5 worked-example tickers). |
-| `rules.ttl` | Turtle | `urn:graph:rules:catalog` | All 7 veto rules from v1's catalog plus `VETO_MKT_02` (added 2026-08-13), as unambiguous `RuleClause` trees. |
+| `rules.ttl` | Turtle | `urn:graph:rules:catalog` | The 7-rule veto catalog: v1's original 6 rules plus `VETO_MKT_02` (added 2026-08-13), as unambiguous `RuleClause` trees. |
 | `instances.trig` | **TriG** | *(self-describing — see below)* | Dated ABox: universe membership, agent snapshots, evidence, vetoes, filings, portfolio; sector-aggregate and attractiveness-ranking output (added 2026-08-13). |
 
 `instances.trig` is TriG, not Turtle — it contains explicit `GRAPH <urn:graph:...> { ... }` blocks,

@@ -169,10 +169,10 @@ own tree structure and reproduced the intended firings exactly — see `schema/R
 
 SHACL (Shapes Constraint Language) is RDF's declarative validator — the world-view equivalent of
 a schema/type checker, but expressed as data rather than code. 14 shapes are defined
-(`schema/shapes.ttl`; three more than originally scoped here — `ThresholdComparisonShape`,
-`CategoricalComparisonShape`, `GraphPredicateShape` — added to cover the two new leaf types from
-the addendum above, plus four more added 2026-08-13 for the attractiveness-ranking feature, see
-§1.8), each closing a specific gap:
+(`schema/shapes.ttl`; 10 before 2026-08-13, including `ThresholdComparisonShape`,
+`CategoricalComparisonShape`, and `GraphPredicateShape` added during implementation to cover the
+two new leaf types from the addendum above, plus four more added 2026-08-13 for the
+attractiveness-ranking feature, see §1.8), each closing a specific gap:
 
 | Shape | Constraint | Closes |
 |---|---|---|
