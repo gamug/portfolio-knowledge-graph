@@ -1,0 +1,97 @@
+@prefix :      <https://thesis.local/kg/portfolio#> .
+@prefix skos:  <http://www.w3.org/2004/02/skos/core#> .
+@prefix xsd:   <http://www.w3.org/2001/XMLSchema#> .
+@prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
+
+#################################################################
+# Portfolio Knowledge Graph — Reference data
+#
+# Loads into named graph urn:graph:reference (07-ontology-topology.md).
+# Two things live here, both "slowly-changing dimension" data rather
+# than dated observations, which is why TOPOLOGY ADDENDUM below
+# resolves a gap the original topology document left implicit:
+#
+#   1. GICS sector/industry-group taxonomy, as SKOS concepts.
+#   2. Asset master data (ticker/CIK/company name/current industry
+#      classification) for this implementation's worked examples.
+#
+# TOPOLOGY ADDENDUM (found while implementing, not anticipated in
+# 07-ontology-topology.md's original table): that document assigned
+# a named graph to every *observational* data category but never
+# said where Asset master-data facts (ticker, CIK, company name —
+# established once, rarely revised) belong. Resolution: they belong
+# here, in urn:graph:reference, alongside the taxonomy they're
+# classified against — same append-mostly nature, same graph.
+#
+# CAVEAT: this is a GICS-STRUCTURE-INSPIRED taxonomy at the
+# Sector/Industry-Group level of granularity, reconstructed from
+# memory for thesis-implementation purposes. GICS is maintained and
+# periodically revised by S&P/MSCI — verify sector/industry-group
+# names and counts against the current published GICS Structure
+# document before using this file outside a thesis context.
+#################################################################
+
+:GICSScheme a skos:ConceptScheme ;
+    rdfs:label "GICS-inspired Sector / Industry Group Classification Scheme" .
+
+# --- 11 Sectors ---
+:Sec_Energy                a :Sector ; skos:inScheme :GICSScheme ; skos:prefLabel "Energy" .
+:Sec_Materials              a :Sector ; skos:inScheme :GICSScheme ; skos:prefLabel "Materials" .
+:Sec_Industrials            a :Sector ; skos:inScheme :GICSScheme ; skos:prefLabel "Industrials" .
+:Sec_ConsumerDiscretionary  a :Sector ; skos:inScheme :GICSScheme ; skos:prefLabel "Consumer Discretionary" .
+:Sec_ConsumerStaples        a :Sector ; skos:inScheme :GICSScheme ; skos:prefLabel "Consumer Staples" .
+:Sec_HealthCare             a :Sector ; skos:inScheme :GICSScheme ; skos:prefLabel "Health Care" .
+:Sec_Financials             a :Sector ; skos:inScheme :GICSScheme ; skos:prefLabel "Financials" .
+:Sec_InformationTechnology  a :Sector ; skos:inScheme :GICSScheme ; skos:prefLabel "Information Technology" .
+:Sec_CommunicationServices  a :Sector ; skos:inScheme :GICSScheme ; skos:prefLabel "Communication Services" .
+:Sec_Utilities              a :Sector ; skos:inScheme :GICSScheme ; skos:prefLabel "Utilities" .
+:Sec_RealEstate             a :Sector ; skos:inScheme :GICSScheme ; skos:prefLabel "Real Estate" .
+
+# --- Industry groups, each rolling up to exactly one Sector ---
+:Ind_EnergyEquipServices     a :Industry ; skos:inScheme :GICSScheme ; skos:prefLabel "Energy Equipment & Services" ;         :memberOfSector :Sec_Energy ; skos:broader :Sec_Energy .
+:Ind_OilGasConsumableFuels   a :Industry ; skos:inScheme :GICSScheme ; skos:prefLabel "Oil, Gas & Consumable Fuels" ;          :memberOfSector :Sec_Energy ; skos:broader :Sec_Energy .
+
+:Ind_Materials               a :Industry ; skos:inScheme :GICSScheme ; skos:prefLabel "Materials" ;                            :memberOfSector :Sec_Materials ; skos:broader :Sec_Materials .
+
+:Ind_CapitalGoods            a :Industry ; skos:inScheme :GICSScheme ; skos:prefLabel "Capital Goods" ;                        :memberOfSector :Sec_Industrials ; skos:broader :Sec_Industrials .
+:Ind_CommercialServices      a :Industry ; skos:inScheme :GICSScheme ; skos:prefLabel "Commercial & Professional Services" ;   :memberOfSector :Sec_Industrials ; skos:broader :Sec_Industrials .
+:Ind_Transportation          a :Industry ; skos:inScheme :GICSScheme ; skos:prefLabel "Transportation" ;                       :memberOfSector :Sec_Industrials ; skos:broader :Sec_Industrials .
+
+:Ind_Automobiles             a :Industry ; skos:inScheme :GICSScheme ; skos:prefLabel "Automobiles & Components" ;             :memberOfSector :Sec_ConsumerDiscretionary ; skos:broader :Sec_ConsumerDiscretionary .
+:Ind_ConsumerDurables        a :Industry ; skos:inScheme :GICSScheme ; skos:prefLabel "Consumer Durables & Apparel" ;          :memberOfSector :Sec_ConsumerDiscretionary ; skos:broader :Sec_ConsumerDiscretionary .
+:Ind_ConsumerServices        a :Industry ; skos:inScheme :GICSScheme ; skos:prefLabel "Consumer Services" ;                    :memberOfSector :Sec_ConsumerDiscretionary ; skos:broader :Sec_ConsumerDiscretionary .
+:Ind_ConsumerDiscRetail      a :Industry ; skos:inScheme :GICSScheme ; skos:prefLabel "Consumer Discretionary Distribution & Retail" ; :memberOfSector :Sec_ConsumerDiscretionary ; skos:broader :Sec_ConsumerDiscretionary .
+
+:Ind_ConsumerStaplesRetail   a :Industry ; skos:inScheme :GICSScheme ; skos:prefLabel "Consumer Staples Distribution & Retail" ; :memberOfSector :Sec_ConsumerStaples ; skos:broader :Sec_ConsumerStaples .
+:Ind_FoodBeverageTobacco     a :Industry ; skos:inScheme :GICSScheme ; skos:prefLabel "Food, Beverage & Tobacco" ;             :memberOfSector :Sec_ConsumerStaples ; skos:broader :Sec_ConsumerStaples .
+:Ind_HouseholdPersonalProds  a :Industry ; skos:inScheme :GICSScheme ; skos:prefLabel "Household & Personal Products" ;        :memberOfSector :Sec_ConsumerStaples ; skos:broader :Sec_ConsumerStaples .
+
+:Ind_HealthCareEquipServices a :Industry ; skos:inScheme :GICSScheme ; skos:prefLabel "Health Care Equipment & Services" ;     :memberOfSector :Sec_HealthCare ; skos:broader :Sec_HealthCare .
+:Ind_PharmaBiotechLifeSci    a :Industry ; skos:inScheme :GICSScheme ; skos:prefLabel "Pharmaceuticals, Biotechnology & Life Sciences" ; :memberOfSector :Sec_HealthCare ; skos:broader :Sec_HealthCare .
+
+:Ind_Banks                   a :Industry ; skos:inScheme :GICSScheme ; skos:prefLabel "Banks" ;                                :memberOfSector :Sec_Financials ; skos:broader :Sec_Financials .
+:Ind_FinancialServices       a :Industry ; skos:inScheme :GICSScheme ; skos:prefLabel "Financial Services" ;                   :memberOfSector :Sec_Financials ; skos:broader :Sec_Financials .
+:Ind_Insurance               a :Industry ; skos:inScheme :GICSScheme ; skos:prefLabel "Insurance" ;                            :memberOfSector :Sec_Financials ; skos:broader :Sec_Financials .
+
+:Ind_SoftwareServices        a :Industry ; skos:inScheme :GICSScheme ; skos:prefLabel "Software & Services" ;                  :memberOfSector :Sec_InformationTechnology ; skos:broader :Sec_InformationTechnology .
+:Ind_TechHardwareEquip       a :Industry ; skos:inScheme :GICSScheme ; skos:prefLabel "Technology Hardware & Equipment" ;      :memberOfSector :Sec_InformationTechnology ; skos:broader :Sec_InformationTechnology .
+:Ind_Semiconductors          a :Industry ; skos:inScheme :GICSScheme ; skos:prefLabel "Semiconductors & Semiconductor Equipment" ; :memberOfSector :Sec_InformationTechnology ; skos:broader :Sec_InformationTechnology .
+
+:Ind_TelecomServices         a :Industry ; skos:inScheme :GICSScheme ; skos:prefLabel "Telecommunication Services" ;           :memberOfSector :Sec_CommunicationServices ; skos:broader :Sec_CommunicationServices .
+:Ind_MediaEntertainment      a :Industry ; skos:inScheme :GICSScheme ; skos:prefLabel "Media & Entertainment" ;                :memberOfSector :Sec_CommunicationServices ; skos:broader :Sec_CommunicationServices .
+
+:Ind_Utilities                a :Industry ; skos:inScheme :GICSScheme ; skos:prefLabel "Utilities" ;                           :memberOfSector :Sec_Utilities ; skos:broader :Sec_Utilities .
+
+:Ind_EquityREITs              a :Industry ; skos:inScheme :GICSScheme ; skos:prefLabel "Equity Real Estate Investment Trusts (REITs)" ; :memberOfSector :Sec_RealEstate ; skos:broader :Sec_RealEstate .
+:Ind_RealEstateMgmtDev        a :Industry ; skos:inScheme :GICSScheme ; skos:prefLabel "Real Estate Management & Development" ; :memberOfSector :Sec_RealEstate ; skos:broader :Sec_RealEstate .
+
+#################################################################
+# Asset master data — the 5 worked-example constituents used
+# throughout instances.trig, chosen to span 5 different sectors.
+#################################################################
+
+:AAPL a :Asset ; :tickerSymbol "AAPL" ; :companyName "Apple Inc."          ; :cikNumber "0000320193" ; :classifiedAs :Ind_TechHardwareEquip .
+:JPM  a :Asset ; :tickerSymbol "JPM"  ; :companyName "JPMorgan Chase & Co."; :cikNumber "0000019617" ; :classifiedAs :Ind_Banks .
+:XOM  a :Asset ; :tickerSymbol "XOM"  ; :companyName "Exxon Mobil Corporation" ; :cikNumber "0000034088" ; :classifiedAs :Ind_OilGasConsumableFuels .
+:JNJ  a :Asset ; :tickerSymbol "JNJ"  ; :companyName "Johnson & Johnson"   ; :cikNumber "0000200406" ; :classifiedAs :Ind_PharmaBiotechLifeSci .
+:PG   a :Asset ; :tickerSymbol "PG"   ; :companyName "The Procter & Gamble Company" ; :cikNumber "0000080424" ; :classifiedAs :Ind_HouseholdPersonalProds .
