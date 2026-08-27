@@ -153,6 +153,15 @@ inventory of every entity type touched — `Executive` and `RiskEvent`, for inst
 never fully specified). This is expected scaffolding for a thesis architecture chapter and is
 addressed directly by the diagrams accompanying this document.
 
+> **Update (2026-08-23):** closing this gap with a full class inventory (`06`) turned out to leave
+> a narrower structural sub-gap behind it — the 24 resulting classes were disjoint but otherwise
+> flat, with no `rdfs:subClassOf` hierarchy among them at all (only the GICS `Sector`/`Industry`
+> pair had real taxonomic structure, via SKOS). `06-ontology-definition.md` §1.2 now organizes all
+> 24 into an explicit taxonomy — 6 broad categories, 4 mid-level — and upgrades the three
+> `owl:unionOf` domain-widening helpers (`ObservationSnapshot`, `EvidenceSource`, `RuleOperand`)
+> into ordinary, queryable superclasses along the way. Additive only; no existing class, property,
+> or SHACL shape changed.
+
 **10. No feedback/evaluation loop.** Nothing connects realized forward returns back to
 veto/threshold calibration. As written this is a one-way screening pipeline, not a system that
 adapts — worth flagging explicitly since "maintain the portfolio over time" is part of the stated

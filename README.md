@@ -44,14 +44,14 @@ storage location assigned in `07` and its writer assigned in `08`.
 ├── 09-nlp-finbert-architecture.md         NLP / FinBERT pipeline design
 ├── 10-integration-roadmap.md              10-step build roadmap
 ├── FAQ.md                                 running Q&A log on graph population mechanics
-├── schema/                                the implemented ontology (roadmap step 0)
+├── schema/                                the implemented ontology (roadmap step 0) — all files real, verified
 │   ├── README.md                          authoritative map of this directory — read first
-│   ├── tbox.ttl                           OWL classes, properties, cardinality restrictions
-│   ├── shapes.ttl                         SHACL data-quality shapes
-│   ├── reference.ttl                      GICS sector/industry taxonomy + asset master data
-│   ├── rules.ttl                          veto rule catalog, as RuleClause trees
+│   ├── tbox.ttl                           OWL classes, properties, cardinality restrictions, class taxonomy (§1.2)
+│   ├── shapes.ttl                         SHACL data-quality shapes (14)
+│   ├── reference.ttl                      GICS sector/industry taxonomy + asset master data + MetricType vocabulary
+│   ├── rules.ttl                          veto rule catalog + AttractivenessWeightScheme, as RuleClause/weight trees
 │   ├── instances.trig                     worked-example ABox (TriG, multiple named graphs)
-│   └── protege-view.ttl                   generated flat Turtle bundle for Protégé (don't hand-edit)
+│   └── protege-view.ttl                   generated flat Turtle bundle for Protégé — STALE as of 2026-08-23, not regenerated after the tbox.ttl/reference.ttl/shapes.ttl edits below; regenerate before using in Protégé
 └── docs/superpowers/                      planning/spec artifacts from the SDD workflow used
                                             to build the attractiveness-ranking + sector-momentum
                                             feature
@@ -62,12 +62,25 @@ is gitignored — it's a personal working note, not part of the tracked reposito
 
 ## The schema
 
+**2026-08-23 note:** for a while, this repository copy had no `schema/` files at all — every
+reference to them across these docs described a design that was never actually included, only
+written up in prose. The real files (`tbox.ttl`, `shapes.ttl`, `reference.ttl`, `rules.ttl`,
+`instances.trig`, `protege-view.ttl`, `schema/README.md`) have since been added, and this revision's
+class taxonomy (§1.2 in `06-ontology-definition.md`) and MetricType vocabulary (§1.9) were merged
+directly into `tbox.ttl`/`reference.ttl`/`shapes.ttl` — not left as separate addendum files. Full
+`rdflib` parse + `pyshacl` conformance re-verified against the real files after the merge: **parses
+clean (1608 quads — `schema/taxonomy-quality-review-2026-08-23.md` has the +1 delta from a
+same-day `RuleClause` fix), conforms: True** (`schema/README.md`'s Validation section has the exact
+command). `protege-view.ttl` is the one file *not* re-verified — it's a generated bundle
+(`schema/README.md`: "never hand-edit") that predates this revision's edits and needs regenerating
+from a real Protégé session, not something this pass could safely hand-patch.
+
 `schema/README.md` is the authoritative map of that directory — read it before editing any
 `.ttl`/`.trig` file. Current shape:
 
 | File | Format | Named graph | Contents |
 |---|---|---|---|
-| `tbox.ttl` | Turtle | `urn:graph:tbox` | 27 classes (24 mutually disjoint), properties, cardinality restrictions |
+| `tbox.ttl` | Turtle | `urn:graph:tbox` | 37 classes (24 mutually disjoint leaf/domain classes + a 13-class `rdfs:subClassOf` taxonomic backbone), properties, cardinality restrictions |
 | `shapes.ttl` | Turtle | `urn:graph:tbox` | 14 SHACL node shapes |
 | `reference.ttl` | Turtle | `urn:graph:reference` | GICS sector/industry taxonomy + 5 worked-example asset tickers |
 | `rules.ttl` | Turtle | `urn:graph:rules:catalog` | 7-rule veto catalog as unambiguous `RuleClause` trees |
@@ -131,6 +144,12 @@ authoritative.
 
 ## Conventions worth knowing before editing
 
+- **Class taxonomy** — the 24 domain classes sit under an explicit `rdfs:subClassOf` backbone (6
+  broad categories: `DomainEntity`, `TemporalRelation`, `Observation`, `Evidence`,
+  `RiskAndDecision`, `RuleSystem`, plus 4 mid-level categories) rather than flat under `owl:Thing`.
+  Three former `owl:unionOf` domain-widening helpers (`ObservationSnapshot`, `EvidenceSource`,
+  `RuleOperand`) were upgraded to ordinary, queryable superclasses as part of this — same IRIs, no
+  other change. See `06-ontology-definition.md` §1.2.
 - **Immutable observations, not mutable attributes** — a `ScoreSnapshot` is never updated in
   place; a new measurement is a new individual.
 - **Valid-time via `validFrom`/`validTo`** — absence of `validTo` means "still active." Closing a

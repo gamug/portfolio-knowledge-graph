@@ -133,8 +133,13 @@ The pipeline writes via SPARQL `INSERT DATA`:
 
 ```turtle
 :Snap_AAPL_Sent_20260805 a :ScoreSnapshot ;
-    :agentOrigin "SEMANTIC" ; :metricType "NEWS_SENTIMENT_FINBERT" ;
+    :agentOrigin "SEMANTIC" ; :metricType "Sentiment" ;
     :normalizedScore "0.83"^^xsd:decimal ; :timestamp "2026-08-05T09:00:00"^^xsd:dateTime .
+    # Corrected 2026-08-23: this example previously showed metricType "NEWS_SENTIMENT_FINBERT",
+    # a value never actually used anywhere in schema/rules.ttl or instances.trig -- every real
+    # Sentiment ScoreSnapshot uses plain "Sentiment" (now enforced by shapes.ttl's sh:in on
+    # metricType, see 06-ontology-definition.md §1.9). Fixed to match the real convention rather
+    # than leaving this doc and the schema silently disagreeing with each other.
 
 :Article_AAPL_20260805 a :NewsArticle ;
     :provenanceId "articles:48211" ;   # news-crawler's articles.id, itself FK'd to discovered_urls.id
