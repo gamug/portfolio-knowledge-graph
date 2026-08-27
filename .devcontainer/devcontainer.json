@@ -7,6 +7,9 @@
       "shellAutocompletion": true
     }
   },
+  "mounts": [
+    "source=D:\\Mestría\\Semestre 3\\Thesis,target=/workspaces/thesis,type=bind,consistency=cached"
+  ],
   "postCreateCommand": "uv sync --group dev && uv run pre-commit install --install-hooks",
   "remoteEnv": {
     "UV_LINK_MODE": "copy"
