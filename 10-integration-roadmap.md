@@ -34,7 +34,7 @@ See `schema/README.md`.
 **1. Stand up the triple store.**
 GraphDB or Fuseki, with the named-graph topology from `07-ontology-topology.md` (TBox graph,
 per-batch ABox graphs, quarterly Universe snapshots). `schema/instances.trig` already demonstrates
-the target shape end to end (11 named graphs) against 5 example tickers — standing up a real store
+the target shape end to end (12 named graphs) against 5 example tickers — standing up a real store
 is now a load operation (`schema/README.md`'s load order), not a from-scratch design exercise.
 
 **2. Ingestion adapters for already-collected data.**

@@ -6,9 +6,10 @@ Turtle ``data.ttl`` that loads on top of this repo's ``schema/`` files
 (``tbox.ttl`` -> ``shapes.ttl`` -> ``reference.ttl`` -> ``rules.ttl`` ->
 ``data.ttl``).
 
-This is roadmap step 1 of ``10-integration-roadmap.md`` (step 0, ``schema/``,
-being the only step previously marked done). It is an MVP single-shot load, not
-the named-graph-partitioned target architecture of ``07-ontology-topology.md``.
+This is roadmap step 2 of ``10-integration-roadmap.md`` ("ingestion adapters for
+already-collected data"; step 0, ``schema/``, is the only prior step marked done,
+step 1 stands up the store). It is an MVP single-shot load, not the
+named-graph-partitioned target architecture of ``07-ontology-topology.md``.
 
 Run it with::
 

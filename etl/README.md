@@ -1,8 +1,10 @@
 # `etl/` — knowledge-graph data population
 
-Roadmap **step 1** of `10-integration-roadmap.md` (step 0, `schema/`, being the
-only step previously marked done). This package turns two external sources into
-a flat Turtle `data.ttl` that loads on top of this repo's `schema/`:
+Roadmap **step 2** of `10-integration-roadmap.md` — "ingestion adapters for
+already-collected data" (step 0, `schema/`, is the only prior step marked done;
+step 1 stands up the triple store the output loads into). This package turns two
+external sources into a flat Turtle `data.ttl` that loads on top of this repo's
+`schema/`:
 
 | Source | Produces |
 |---|---|
