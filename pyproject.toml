@@ -1,0 +1,30 @@
+[project]
+name = "portfolio-kowledge-graph"
+version = "0.1.0"
+description = "Design/artifact repo for a knowledge-graph-backed S&P 500 portfolio system: RDF/OWL/SHACL ontology + architecture docs."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "rdflib>=7.0",
+    "pyshacl>=0.26",
+]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.16.2",
+    "mypy>=1.13",
+    "pre-commit>=4.0",
+    "commitizen>=4.17",
+]
+
+[tool.uv]
+# This repo has no importable package — it's an ontology plus Markdown docs, with the
+# Python deps used only to parse/validate schema/ (see CLAUDE.md "Validating the schema").
+package = false
+
+[tool.commitizen]
+name = "cz_conventional_commits"
+version = "0.1.0"
+version_files = ["pyproject.toml:version"]
+tag_format = "v$version"
+update_changelog_on_bump = true
