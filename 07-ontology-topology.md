@@ -93,10 +93,16 @@ here explicitly so it isn't.
 
 Recommend **OWL 2 RL / RDFS+ only** — not a full OWL DL reasoner:
 
-- **Turn on:** `rdfs:subClassOf` transitivity, so `Industry → Sector` roll-up queries ("give me
-  every `Asset` in the Information Technology sector") work without manually re-deriving the
-  join at query time. The GICS taxonomy is small (~11 sectors, ~70 industries), so materializing
-  this inference is cheap.
+- **Turn on:** `rdfs:subClassOf` transitivity — this now pays off in two places, not one. The GICS
+  `Industry → Sector` roll-up ("give me every `Asset` in the Information Technology sector",
+  ~11 sectors/~70 industries) is cheap to materialize, as before. As of the 2026-08-23 taxonomy
+  revision (`06-ontology-definition.md` §1.2), the ontology's own 24 domain classes also have
+  `subClassOf` structure to reason over — e.g. `?x a :ObservationSnapshot` now correctly returns
+  every `ScoreSnapshot`, `SectorAggregateSnapshot`, and `AttractivenessSnapshot` individual without
+  the query author enumerating all three types by hand. Before that revision this setting only ever
+  did work for GICS, since the 24 domain classes had no `subClassOf` edges among themselves at all —
+  worth noting since it means this section's recommendation is now doing more than it used to for
+  the same reasoning cost.
 - **Leave off:** full OWL DL / property-chain reasoning. In particular, `sharedExecutiveWith`
   (used by `VETO_RED_01`'s contagion check) is deliberately **not** something the reasoner
   computes automatically via property chains — it's written explicitly by the entity-resolution

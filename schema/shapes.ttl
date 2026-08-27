@@ -18,7 +18,8 @@
     sh:targetClass :ScoreSnapshot ;
     sh:property [ sh:path :normalizedScore ; sh:datatype xsd:decimal ; sh:minInclusive 0.0 ; sh:maxInclusive 1.0 ; sh:maxCount 1 ] ;
     sh:property [ sh:path :agentOrigin ; sh:in ("FUNDAMENTAL" "SEMANTIC" "QUANTITATIVE" "TECHNICAL" "SECTOR") ; sh:minCount 1 ; sh:maxCount 1 ] ;
-    sh:property [ sh:path :metricType ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :metricType ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ;
+                  sh:in ("ScoreFinanciero" "ScoreCuantitativo" "ScoreTecnico" "Sentiment" "SectorRelativeMomentum") ] ;
     sh:property [ sh:path :timestamp ; sh:datatype xsd:dateTime ; sh:minCount 1 ; sh:maxCount 1 ] ;
     sh:or ( [ sh:path :metricType ; sh:hasValue "SectorRelativeMomentum" ]
             [ sh:path :normalizedScore ; sh:minCount 1 ] ) .
@@ -48,7 +49,8 @@
 :ThresholdComparisonShape
     a sh:NodeShape ;
     sh:targetClass :ThresholdComparison ;
-    sh:property [ sh:path :metricName ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :metricName ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ;
+                  sh:in ("ScoreFinanciero" "ScoreCuantitativo" "ScoreTecnico" "Sentiment" "SectorRelativeMomentum") ] ;
     sh:property [ sh:path :operator ; sh:in (">" "<" ">=" "<=") ; sh:minCount 1 ; sh:maxCount 1 ] ;
     sh:property [ sh:path :thresholdValue ; sh:datatype xsd:decimal ; sh:minCount 1 ; sh:maxCount 1 ] .
 
@@ -88,7 +90,7 @@
     sh:targetClass :SectorAggregateSnapshot ;
     sh:property [ sh:path :sectorSnapshotOfSector ; sh:minCount 1 ; sh:maxCount 1 ] ;
     sh:property [ sh:path :normalizedScore ; sh:datatype xsd:decimal ; sh:minInclusive 0.0 ; sh:maxInclusive 1.0 ; sh:minCount 1 ; sh:maxCount 1 ] ;
-    sh:property [ sh:path :metricType ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :metricType ; sh:hasValue "ScoreTecnico" ; sh:minCount 1 ; sh:maxCount 1 ] ;
     sh:property [ sh:path :agentOrigin ; sh:hasValue "SECTOR" ; sh:minCount 1 ; sh:maxCount 1 ] ;
     sh:property [ sh:path :timestamp ; sh:datatype xsd:dateTime ; sh:minCount 1 ; sh:maxCount 1 ] .
 
@@ -110,6 +112,7 @@
 :WeightComponentShape
     a sh:NodeShape ;
     sh:targetClass :WeightComponent ;
-    sh:property [ sh:path :weightMetricName ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :weightMetricName ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ;
+                  sh:in ("ScoreFinanciero" "ScoreCuantitativo" "ScoreTecnico" "Sentiment" "SectorRelativeMomentum") ] ;
     sh:property [ sh:path :weightValue ; sh:datatype xsd:decimal ; sh:minInclusive 0.0 ; sh:maxInclusive 1.0 ; sh:minCount 1 ; sh:maxCount 1 ] ;
     sh:property [ sh:path :inverted ; sh:datatype xsd:boolean ; sh:minCount 1 ; sh:maxCount 1 ] .

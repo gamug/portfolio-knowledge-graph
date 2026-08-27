@@ -95,3 +95,33 @@
 :XOM  a :Asset ; :tickerSymbol "XOM"  ; :companyName "Exxon Mobil Corporation" ; :cikNumber "0000034088" ; :classifiedAs :Ind_OilGasConsumableFuels .
 :JNJ  a :Asset ; :tickerSymbol "JNJ"  ; :companyName "Johnson & Johnson"   ; :cikNumber "0000200406" ; :classifiedAs :Ind_PharmaBiotechLifeSci .
 :PG   a :Asset ; :tickerSymbol "PG"   ; :companyName "The Procter & Gamble Company" ; :cikNumber "0000080424" ; :classifiedAs :Ind_HouseholdPersonalProds .
+
+#################################################################
+# MetricType controlled vocabulary (added 2026-08-23) — closes the
+# same untyped-string gap this file already closed for GICS sectors,
+# now for ScoreSnapshot.metricType / ThresholdComparison.metricName /
+# WeightComponent.weightMetricName. Exactly the 5 values actually
+# used across rules.ttl and instances.trig (verified by grep, not
+# assumed) -- NOT 6: 09-nlp-finbert-architecture.md's worked example
+# shows a metricType of "NEWS_SENTIMENT_FINBERT" that is NEVER
+# actually used anywhere in this schema -- every real Sentiment
+# ScoreSnapshot, in rules.ttl's VETO_COMP_01/02/RED_01 thresholds and
+# in the WC_Sent weight component below, uses plain "Sentiment"
+# instead. That's a live doc/implementation inconsistency in 09, not
+# a second real value -- flagged here rather than silently
+# perpetuated into a 6-member vocabulary.
+#
+# Spanish-origin labels (ScoreFinanciero/ScoreCuantitativo/ScoreTecnico)
+# are kept as-is, not translated -- they trace to the source thesis
+# document ("Avance arquitectura del sistema.docx") and translating
+# them would sever that audit trail for no real gain; skos:altLabel
+# carries the English gloss instead.
+#################################################################
+
+:MetricTypeScheme a skos:ConceptScheme ; skos:prefLabel "Portfolio KG Metric Types"@en .
+
+:ScoreFinanciero        a skos:Concept ; skos:inScheme :MetricTypeScheme ; skos:prefLabel "ScoreFinanciero"@es ; skos:altLabel "Financial Score"@en ; rdfs:comment "FUNDAMENTAL agent, v1 §2A." .
+:ScoreCuantitativo      a skos:Concept ; skos:inScheme :MetricTypeScheme ; skos:prefLabel "ScoreCuantitativo"@es ; skos:altLabel "Quantitative Score"@en .
+:ScoreTecnico           a skos:Concept ; skos:inScheme :MetricTypeScheme ; skos:prefLabel "ScoreTecnico"@es ; skos:altLabel "Technical Score"@en .
+:Sentiment              a skos:Concept ; skos:inScheme :MetricTypeScheme ; skos:prefLabel "Sentiment"@en ; rdfs:comment "rawValue-compared, not normalizedScore — see 06-ontology-definition.md §1.5's dispatch convention." .
+:SectorRelativeMomentum a skos:Concept ; skos:inScheme :MetricTypeScheme ; skos:prefLabel "SectorRelativeMomentum"@en ; rdfs:comment "Added 2026-08-13 with the Sector Agent; the metricType that leaves normalizedScore unset (see ScoreSnapshotShape's sh:or clause in shapes.ttl)." .

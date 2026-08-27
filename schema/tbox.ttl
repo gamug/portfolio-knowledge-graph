@@ -25,7 +25,8 @@
     a owl:Ontology ;
     rdfs:label "Portfolio Knowledge Graph Ontology — TBox" ;
     rdfs:comment "Ontology for a temporal, audit-traceable knowledge graph backing an S&P 500 portfolio construction/maintenance system." ;
-    owl:versionInfo "0.3.0-thesis-implementation" .
+    rdfs:comment "2026-08-23: added a class taxonomy (section 1.2) over the 24 disjoint leaf classes below, and upgraded EvidenceSource/RuleOperand/ObservationSnapshot from owl:unionOf helpers to ordinary rdfs:subClassOf superclasses (same IRIs) -- see 06-ontology-definition.md §1.2. No existing class, property, cardinality restriction, or SHACL shape changed." ;
+    owl:versionInfo "0.4.0-thesis-implementation" .
 
 #################################################################
 # 1. CORE CLASSES
@@ -156,33 +157,123 @@
     rdfs:comment "One (metric, weight, inverted) triple within an AttractivenessWeightScheme. inverted=true marks risk-oriented metrics (e.g. ScoreFinanciero) that must be flipped (1 - normalizedScore) before weighting -- see attractivenessScore's comment. Added 2026-08-13." .
 
 #################################################################
-# 1.1 UNION CLASSES — precise ranges for properties whose target
-# is "one of several classes" (replaces looser rdfs:Resource ranges)
+# 1.1 SHARED-PROPERTY SUPERCLASSES — precise ranges for properties
+# whose target is "one of several classes" (replaces looser
+# rdfs:Resource ranges).
+#
+# REVISED 2026-08-23: previously declared via owl:unionOf (see git
+# history / 06-ontology-definition.md §1.5/§1.8 for the original
+# form). owl:unionOf makes a class's membership condition *necessary
+# and sufficient* (equivalent to the union) — harmless as long as
+# nothing else is ever asserted rdfs:subClassOf it, but that is
+# exactly what section 1.2 below now does (AttractivenessSnapshot
+# under ObservationSnapshot). Keeping both would make ObservationSnapshot
+# unsatisfiable under a DL reasoner: unionOf entails every instance is
+# ScoreSnapshot-or-SectorAggregateSnapshot, while AttractivenessSnapshot
+# is asserted disjoint from both via AllDisjointClasses below. Plain
+# rdfs:subClassOf (ordinary, one-directional subsumption) has no such
+# equivalence and creates no such conflict, so that's what these three
+# classes use now. RDFS domain entailment for the properties that
+# reference them (backedBy's range, operand1/operand2's range,
+# normalizedScore/metricType/agentOrigin/timestamp's domain) is
+# unaffected either way — those are unchanged below. Individuals can
+# now additionally be queried by these types directly (e.g.
+# `?x a :ObservationSnapshot`), which owl:unionOf could not support
+# without a DL reasoner materializing the union.
 #################################################################
 
 :EvidenceSource
     a owl:Class ;
-    owl:unionOf ( :NewsArticle :SECFilingSection ) ;
     rdfs:label "Evidence Source" ;
     rdfs:comment "Anything a RiskEvent can be backedBy." .
+:NewsArticle rdfs:subClassOf :EvidenceSource .
+:SECFilingSection rdfs:subClassOf :EvidenceSource .
 
 :RuleOperand
     a owl:Class ;
-    owl:unionOf ( :RuleClause :ThresholdComparison :CategoricalComparison :GraphPredicate ) ;
     rdfs:label "Rule Operand" ;
     rdfs:comment "Anything a RuleClause's operand1/operand2 or a RuleDefinition's hasClause can point to — a nested clause, or one of the three leaf comparison kinds." .
+:RuleClause rdfs:subClassOf :RuleOperand .
+:ThresholdComparison rdfs:subClassOf :RuleOperand .
+:CategoricalComparison rdfs:subClassOf :RuleOperand .
+:GraphPredicate rdfs:subClassOf :RuleOperand .
 
 :ObservationSnapshot
     a owl:Class ;
-    owl:unionOf ( :ScoreSnapshot :SectorAggregateSnapshot ) ;
     rdfs:label "Observation Snapshot" ;
-    rdfs:comment "Widens metricType/agentOrigin/timestamp/normalizedScore's domain beyond ScoreSnapshot alone so SectorAggregateSnapshot can reuse the same properties without an RDFS-entailed type clash against AllDisjointClasses. Added 2026-08-13; never used as an individual's rdf:type, same convention as RuleOperand/EvidenceSource." .
+    rdfs:comment "Groups the ScoreSnapshot-shaped individuals: metricType/agentOrigin/timestamp/normalizedScore's shared shape. Added 2026-08-13 (ScoreSnapshot, SectorAggregateSnapshot); AttractivenessSnapshot added 2026-08-23 (§1.2) — it shares the same immutable/timestamped shape even though it's also thematically an Orchestrator decision output like Veto." .
+:ScoreSnapshot rdfs:subClassOf :ObservationSnapshot .
+:SectorAggregateSnapshot rdfs:subClassOf :ObservationSnapshot .
+:AttractivenessSnapshot rdfs:subClassOf :ObservationSnapshot .
 
 #################################################################
-# 1.2 DISJOINTNESS — every individual belongs to exactly one of
-# these 24 classes (the 2 union classes above, plus ObservationSnapshot
-# added 2026-08-13, are deliberately excluded -- they're meant to
-# overlap with their members).
+# 1.2 CLASS TAXONOMY (added 2026-08-23) — an rdfs:subClassOf
+# backbone over the 24 disjoint leaf classes below, none of which
+# had any subClassOf structure among themselves before this
+# revision (only GICS Sector/Industry, via skos:Concept, did).
+# Placement is decided by shared property shape, not theme — see
+# 06-ontology-definition.md §1.2 for the full rationale and the
+# ASCII tree. Six broad categories, four of them with one
+# intervening mid-level category.
+#################################################################
+
+:DomainEntity a owl:Class ; rdfs:label "Domain Entity"@en .
+:TemporalRelation a owl:Class ; rdfs:label "Temporal Relation"@en .
+:Observation a owl:Class ; rdfs:label "Observation"@en .
+:RiskAndDecision a owl:Class ; rdfs:label "Risk and Decision"@en .
+:RuleSystem a owl:Class ; rdfs:label "Rule System"@en .
+# NOTE: :Evidence would be the sixth broad category name, but it collides
+# with nothing here — EvidenceSource (1.1 above) is its child, declared
+# below with an explicit rdfs:subClassOf edge rather than repeating its
+# owl:Class declaration.
+:Evidence a owl:Class ; rdfs:label "Evidence"@en .
+
+:ClassificationConcept a owl:Class ; rdfs:subClassOf :DomainEntity ;
+    rdfs:label "Classification Concept"@en ;
+    rdfs:comment "GICS reference concepts. Their internal Sector/Industry hierarchy is a parallel skos:broader tree over skos:Concept individuals in reference.ttl, not further rdfs:subClassOf structure -- SKOS and OWL subsumption answer different questions, deliberately kept separate." .
+:Collection a owl:Class ; rdfs:subClassOf :DomainEntity ; rdfs:label "Collection"@en .
+:SourceDocument a owl:Class ; rdfs:subClassOf :Evidence ; rdfs:label "Source Document"@en .
+:AttractivenessScheme a owl:Class ; rdfs:subClassOf :RuleSystem ; rdfs:label "Attractiveness Scheme"@en .
+
+:EvidenceSource rdfs:subClassOf :Evidence .
+:RuleOperand rdfs:subClassOf :RuleSystem .
+:ObservationSnapshot rdfs:subClassOf :Observation .
+
+:Asset rdfs:subClassOf :DomainEntity .
+:Executive rdfs:subClassOf :DomainEntity .
+:Sector rdfs:subClassOf :ClassificationConcept .
+:Industry rdfs:subClassOf :ClassificationConcept .
+:Universe rdfs:subClassOf :Collection .
+:Portfolio rdfs:subClassOf :Collection .
+
+:UniverseMembership rdfs:subClassOf :TemporalRelation .
+:PortfolioPosition rdfs:subClassOf :TemporalRelation .
+
+:PriceObservation rdfs:subClassOf :Observation .
+
+:SECFiling rdfs:subClassOf :SourceDocument .
+
+:RiskEvent rdfs:subClassOf :RiskAndDecision .
+:Veto rdfs:subClassOf :RiskAndDecision .
+
+:RuleDefinition rdfs:subClassOf :RuleSystem .
+:RuleClause rdfs:subClassOf :RuleSystem .
+:AttractivenessWeightScheme rdfs:subClassOf :AttractivenessScheme .
+:WeightComponent rdfs:subClassOf :AttractivenessScheme .
+# NOTE: RuleClause is deliberately dual-parented (also :RuleOperand, section 1.1 above) --
+# found missing here during the 2026-08-23 review pass even though 06-ontology-definition.md's
+# own §1.2.1 spec always included it. It's a genuine, structurally-justified exception to this
+# taxonomy's otherwise-single-inheritance design (RuleClause is both a rule-tree-structure node
+# in its own right, and a valid nested operand of another RuleClause -- see the RuleClause self-loop
+# in the object properties above). Sector/Industry (via skos:Concept) are the other two classes
+# with >1 rdfs:subClassOf parent in this file, pre-existing and unrelated to this taxonomy.
+
+#################################################################
+# 1.3 DISJOINTNESS — every individual belongs to exactly one of
+# these 24 classes. EvidenceSource/RuleOperand/ObservationSnapshot
+# (§1.1) and every §1.2 taxonomy class are deliberately excluded --
+# they're superclasses of members of this list, and a superclass is
+# never disjoint from its own subclasses.
 #################################################################
 
 [] a owl:AllDisjointClasses ;
@@ -307,7 +398,7 @@
 # --- RuleDefinition / RuleClause / leaf comparisons ---
 :ruleId       a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :RuleDefinition ; rdfs:range xsd:string .
 :priorityRank a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :RuleDefinition ; rdfs:range xsd:integer ;
-    rdfs:comment "1 (highest) .. 6 (lowest), used to pick primaryRule (v1 §4)." .
+    rdfs:comment "1 (highest) .. 7 (lowest), used to pick primaryRule (v1 §4). (Comment corrected 2026-08-23: stale '6' predates VETO_MKT_02, added 2026-08-13 as the 7th rule -- shapes.ttl's RuleDefinitionShape already had priorityRank's range as [1,7] correctly.)" .
 :clauseType   a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :RuleClause ; rdfs:range xsd:string ;
     rdfs:comment "'AND' | 'OR'. SHACL sh:in enforced." .
 :metricName   a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :ThresholdComparison ; rdfs:range xsd:string .
