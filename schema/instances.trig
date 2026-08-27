@@ -19,6 +19,11 @@
 #   - VETO_RED_01 (contagion) firing for JPM on 2026-08-05, reading
 #     XOM's 2026-08-04 primary veto as its T-1 input, via a shared
 #     Executive resolved by entity resolution.
+#   - VETO_MKT_02 (single-signal, rank 7, added 2026-08-13) firing for XOM on 2026-08-05, via a
+#     new SectorRelativeMomentum signal showing XOM badly lagging its (illustratively strong)
+#     Energy sector.
+#   - AttractivenessSnapshot ranking all 5 tickers on 2026-08-05 — the positive counterpart to
+#     veto, computed independently of veto status.
 #   - A SECFilingSection restatement (JNJ) via :supersededBy,
 #     asserted in the graph where the correction becomes known —
 #     not by editing the original graph.
@@ -154,6 +159,62 @@ GRAPH <urn:graph:ingest:SEMANTIC:2026-08-05> {
         :detectedAt "2026-08-05T09:05:00"^^xsd:dateTime ; :backedBy :Article_AAPL_20260805 .
 }
 
+GRAPH <urn:graph:ingest:SECTOR:2026-08-05> {
+    # Sector aggregates — degenerate to the single worked-example member's own ScoreTecnico for
+    # 4 of 5 sectors (this file only populates one Asset per sector; a real deployment aggregates
+    # across the full ~500-asset universe — see docs/superpowers/specs/2026-08-13-attractiveness-
+    # sector-momentum-design.md §6). Sec_Energy is deliberately given an illustrative aggregate
+    # DIFFERENT from XOM's own score, to demonstrate a non-zero SectorRelativeMomentum and
+    # VETO_MKT_02 firing below.
+    :SectSnap_InfoTech_20260805 a :SectorAggregateSnapshot ; :sectorSnapshotOfSector :Sec_InformationTechnology ;
+        :metricType "ScoreTecnico" ; :normalizedScore "0.50"^^xsd:decimal ; :agentOrigin "SECTOR" ;
+        :timestamp "2026-08-05T07:15:00"^^xsd:dateTime .
+    :SectSnap_Financials_20260805 a :SectorAggregateSnapshot ; :sectorSnapshotOfSector :Sec_Financials ;
+        :metricType "ScoreTecnico" ; :normalizedScore "0.40"^^xsd:decimal ; :agentOrigin "SECTOR" ;
+        :timestamp "2026-08-05T07:15:00"^^xsd:dateTime .
+    :SectSnap_Energy_20260805 a :SectorAggregateSnapshot ; :sectorSnapshotOfSector :Sec_Energy ;
+        :metricType "ScoreTecnico" ; :normalizedScore "0.90"^^xsd:decimal ; :agentOrigin "SECTOR" ;
+        :timestamp "2026-08-05T07:15:00"^^xsd:dateTime ;
+        rdfs:comment "Illustrative: Energy sector broadly strong on technicals (0.90) while XOM itself is weak (0.35, Snap_XOM_Tec_20260805) — feeds XOM's -0.55 SectorRelativeMomentum below, which fires VETO_MKT_02." .
+    :SectSnap_HealthCare_20260805 a :SectorAggregateSnapshot ; :sectorSnapshotOfSector :Sec_HealthCare ;
+        :metricType "ScoreTecnico" ; :normalizedScore "0.30"^^xsd:decimal ; :agentOrigin "SECTOR" ;
+        :timestamp "2026-08-05T07:15:00"^^xsd:dateTime .
+    :SectSnap_ConsumerStaples_20260805 a :SectorAggregateSnapshot ; :sectorSnapshotOfSector :Sec_ConsumerStaples ;
+        :metricType "ScoreTecnico" ; :normalizedScore "0.28"^^xsd:decimal ; :agentOrigin "SECTOR" ;
+        :timestamp "2026-08-05T07:15:00"^^xsd:dateTime .
+
+    :Sec_InformationTechnology :hasSectorSnapshot :SectSnap_InfoTech_20260805 .
+    :Sec_Financials            :hasSectorSnapshot :SectSnap_Financials_20260805 .
+    :Sec_Energy                :hasSectorSnapshot :SectSnap_Energy_20260805 .
+    :Sec_HealthCare            :hasSectorSnapshot :SectSnap_HealthCare_20260805 .
+    :Sec_ConsumerStaples       :hasSectorSnapshot :SectSnap_ConsumerStaples_20260805 .
+
+    # Per-asset SectorRelativeMomentum = own ScoreTecnico.normalizedScore - sector aggregate
+    # (spec §3). rawValue only — normalizedScore intentionally absent (no natural [0,1] reading
+    # of a signed delta); validates the amended ScoreSnapshotShape's sh:or clause (Task 2).
+    :Snap_AAPL_SectMom_20260805 a :ScoreSnapshot ; :agentOrigin "SECTOR" ; :metricType "SectorRelativeMomentum" ;
+        :rawValue "0.00"^^xsd:decimal ; :timestamp "2026-08-05T07:15:00"^^xsd:dateTime ;
+        rdfs:comment "0.50 (AAPL ScoreTecnico) - 0.50 (Sec_InformationTechnology aggregate) = 0.00." .
+    :Snap_JPM_SectMom_20260805 a :ScoreSnapshot ; :agentOrigin "SECTOR" ; :metricType "SectorRelativeMomentum" ;
+        :rawValue "0.00"^^xsd:decimal ; :timestamp "2026-08-05T07:15:00"^^xsd:dateTime ;
+        rdfs:comment "0.40 (JPM) - 0.40 (Sec_Financials aggregate) = 0.00." .
+    :Snap_XOM_SectMom_20260805 a :ScoreSnapshot ; :agentOrigin "SECTOR" ; :metricType "SectorRelativeMomentum" ;
+        :rawValue "-0.55"^^xsd:decimal ; :timestamp "2026-08-05T07:15:00"^^xsd:dateTime ;
+        rdfs:comment "0.35 (XOM ScoreTecnico, Snap_XOM_Tec_20260805) - 0.90 (Sec_Energy aggregate) = -0.55 — below VETO_MKT_02's -0.50 threshold." .
+    :Snap_JNJ_SectMom_20260805 a :ScoreSnapshot ; :agentOrigin "SECTOR" ; :metricType "SectorRelativeMomentum" ;
+        :rawValue "0.00"^^xsd:decimal ; :timestamp "2026-08-05T07:15:00"^^xsd:dateTime ;
+        rdfs:comment "0.30 (JNJ) - 0.30 (Sec_HealthCare aggregate) = 0.00." .
+    :Snap_PG_SectMom_20260805 a :ScoreSnapshot ; :agentOrigin "SECTOR" ; :metricType "SectorRelativeMomentum" ;
+        :rawValue "0.00"^^xsd:decimal ; :timestamp "2026-08-05T07:15:00"^^xsd:dateTime ;
+        rdfs:comment "0.28 (PG) - 0.28 (Sec_ConsumerStaples aggregate) = 0.00." .
+
+    :AAPL :hasScoreObservation :Snap_AAPL_SectMom_20260805 .
+    :JPM  :hasScoreObservation :Snap_JPM_SectMom_20260805 .
+    :XOM  :hasScoreObservation :Snap_XOM_SectMom_20260805 .
+    :JNJ  :hasScoreObservation :Snap_JNJ_SectMom_20260805 .
+    :PG   :hasScoreObservation :Snap_PG_SectMom_20260805 .
+}
+
 GRAPH <urn:graph:ingest:EDGAR:2026-Q3> {
     :Filing_JNJ_10K_2026 a :SECFiling ; :filingOfAsset :JNJ ; :formType "10-K" ;
         :filingDate "2026-02-15"^^xsd:date ; :accessionNumber "0000200406-26-000012" .
@@ -211,6 +272,39 @@ GRAPH <urn:graph:ingest:ORCHESTRATOR:2026-08-05> {
         :decidedAt "2026-08-05T09:12:00"^^xsd:dateTime ;
         rdfs:comment "Contagion: JPM sharedExecutiveWith XOM (Jane R. Doe), and XOM carries a T-1 (2026-08-04) primary veto triggered by VETO_FIN_01 -- a rule other than VETO_RED_01 itself, satisfying the de-recursion exclusion (v1 SS4). JPM's own OR-branch signal is Sentiment=-0.55 < -0.50." .
     :JPM :triggeredVeto :Veto_JPM_20260805 .
+
+    :Veto_XOM_MKT_20260805 a :Veto ; :appliesRule :Rule_VETO_MKT_02 ; :primaryRule :Rule_VETO_MKT_02 ;
+        :decidedAt "2026-08-05T09:15:00"^^xsd:dateTime ;
+        rdfs:comment "Single-signal rule (rank 7, added 2026-08-13) — evidence is Snap_XOM_SectMom_20260805's rawValue -0.55 < -0.50. A second, independent veto for XOM alongside 2026-08-04's VETO_FIN_01 — different dates, both legitimately on record." .
+    :XOM :triggeredVeto :Veto_XOM_MKT_20260805 .
+
+    # Attractiveness ranking (added 2026-08-13) — computed for every monitored asset regardless
+    # of veto status; portfolio construction (roadmap step 8, not yet built) is what would act on
+    # both signals together. Formula and full arithmetic: docs/superpowers/specs/2026-08-13-
+    # attractiveness-sector-momentum-design.md §3 and §6.
+    :Attr_AAPL_20260805 a :AttractivenessSnapshot ; :attractivenessOfAsset :AAPL ;
+        :attractivenessScore "0.405"^^xsd:decimal ; :computedAt "2026-08-05T09:16:00"^^xsd:dateTime ;
+        :computedWithScheme :WeightScheme_v1 .
+    :Attr_JPM_20260805 a :AttractivenessSnapshot ; :attractivenessOfAsset :JPM ;
+        :attractivenessScore "0.505"^^xsd:decimal ; :computedAt "2026-08-05T09:16:00"^^xsd:dateTime ;
+        :computedWithScheme :WeightScheme_v1 .
+    :Attr_XOM_20260805 a :AttractivenessSnapshot ; :attractivenessOfAsset :XOM ;
+        :attractivenessScore "0.389"^^xsd:decimal ; :computedAt "2026-08-05T09:16:00"^^xsd:dateTime ;
+        :computedWithScheme :WeightScheme_v1 .
+    :Attr_JNJ_20260805 a :AttractivenessSnapshot ; :attractivenessOfAsset :JNJ ;
+        :attractivenessScore "0.648"^^xsd:decimal ; :computedAt "2026-08-05T09:16:00"^^xsd:dateTime ;
+        :computedWithScheme :WeightScheme_v1 .
+    :Attr_PG_20260805 a :AttractivenessSnapshot ; :attractivenessOfAsset :PG ;
+        :attractivenessScore "0.679"^^xsd:decimal ; :computedAt "2026-08-05T09:16:00"^^xsd:dateTime ;
+        :computedWithScheme :WeightScheme_v1 .
+    :AAPL :hasAttractivenessSnapshot :Attr_AAPL_20260805 .
+    :JPM  :hasAttractivenessSnapshot :Attr_JPM_20260805 .
+    :XOM  :hasAttractivenessSnapshot :Attr_XOM_20260805 .
+    :JNJ  :hasAttractivenessSnapshot :Attr_JNJ_20260805 .
+    :PG   :hasAttractivenessSnapshot :Attr_PG_20260805 .
+    # Ranked (most to least attractive): PG (0.679) > JNJ (0.648) > JPM (0.505) > AAPL (0.405) >
+    # XOM (0.389) — the two names NOT vetoed on 8/5 (PG, JNJ) rank highest, illustrating that
+    # ranking and veto are computed independently even though they correlate here.
 }
 
 GRAPH <urn:graph:portfolio:current> {

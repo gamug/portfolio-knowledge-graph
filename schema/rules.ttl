@@ -116,3 +116,34 @@
     :operand1 :Cmp_COMP03_QuantHigh ; :operand2 :Cmp_COMP03_TecHigh .
 :Cmp_COMP03_QuantHigh a :ThresholdComparison ; :metricName "ScoreCuantitativo" ; :operator ">" ; :thresholdValue "0.75"^^xsd:decimal .
 :Cmp_COMP03_TecHigh   a :ThresholdComparison ; :metricName "ScoreTecnico"      ; :operator ">" ; :thresholdValue "0.75"^^xsd:decimal .
+
+# --- Rank 7: VETO_MKT_02 — Market/Sector-Momentum, single signal (added 2026-08-13) ---
+# Closes part of critique #3 (sector layer) — see docs/superpowers/specs/2026-08-13-
+# attractiveness-sector-momentum-design.md. Appended after the original 6; none of their
+# already-validated thresholds change.
+:Rule_VETO_MKT_02 a :RuleDefinition ;
+    :ruleId "VETO_MKT_02" ; :category "MARKET" ; :priorityRank 7 ;
+    :validFrom "2026-08-13"^^xsd:date ;
+    :hasClause :Cmp_MKT02_SectorMomentumLow .
+
+:Cmp_MKT02_SectorMomentumLow a :ThresholdComparison ;
+    :metricName "SectorRelativeMomentum" ; :operator "<" ; :thresholdValue "-0.50"^^xsd:decimal ;
+    rdfs:comment "Compared via rawValue, not normalizedScore — SectorRelativeMomentum is a signed delta, same raw-scale convention as Sentiment (see tbox.ttl's ThresholdComparison comment). Placeholder threshold pending calibration (B5), same status as every other threshold in this file." .
+
+#################################################################
+# Attractiveness weight scheme (added 2026-08-13) — the positive
+# counterpart to this rule catalog. Versioned graph data, same
+# pattern as RuleDefinition above (critique #6's principle applied
+# to weights, not just thresholds). Formula this scheme feeds:
+# docs/superpowers/specs/2026-08-13-attractiveness-sector-momentum-
+# design.md §3. Placeholder weights pending calibration (B5).
+#################################################################
+:WeightScheme_v1 a :AttractivenessWeightScheme ;
+    :schemeId "ATTR_WEIGHTS_V1" ; :validFrom "2026-08-13"^^xsd:date ;
+    :hasWeightComponent :WC_Fin, :WC_Quant, :WC_Tec, :WC_Sent, :WC_SectorMom .
+
+:WC_Fin       a :WeightComponent ; :weightMetricName "ScoreFinanciero"        ; :weightValue "0.25"^^xsd:decimal ; :inverted true .
+:WC_Quant     a :WeightComponent ; :weightMetricName "ScoreCuantitativo"      ; :weightValue "0.20"^^xsd:decimal ; :inverted true .
+:WC_Tec       a :WeightComponent ; :weightMetricName "ScoreTecnico"           ; :weightValue "0.20"^^xsd:decimal ; :inverted true .
+:WC_Sent      a :WeightComponent ; :weightMetricName "Sentiment"              ; :weightValue "0.20"^^xsd:decimal ; :inverted false .
+:WC_SectorMom a :WeightComponent ; :weightMetricName "SectorRelativeMomentum" ; :weightValue "0.15"^^xsd:decimal ; :inverted false .

@@ -26,7 +26,11 @@ because its state-graph model plus built-in checkpointing map onto the two-speed
 
 1. `load_active_universe` — SPARQL query for the current candidate universe (`UniverseMembership`
    with unbound `validTo`) plus any open `PortfolioPosition` assets, per v1's own scoping rule.
-2. Fan-out (`Send`) over that set, three parallel agent nodes per ticker:
+2. Fan-out (`Send`) over that set, three parallel agent nodes per ticker — since 2026-08-13 this
+   fan-out no longer joins straight back into a single `orchestrator` node; the shape is now
+   `fan-out(quantitative_agent, technical_agent, semantic_agent) → sector_agent →
+   {orchestrator, compute_attractiveness}` (spec §7), i.e. one join (`sector_agent`) feeding two
+   independent sibling joins:
    - `quantitative_agent` — reads the price panel (external columnar store, **not** the graph —
      see `07-ontology-topology.md`'s price-panel warning) and writes `ScoreSnapshot('QUANTITATIVE')`.
    - `technical_agent` — computes momentum/ATR and writes `ScoreSnapshot('TECHNICAL')` plus a
@@ -34,12 +38,25 @@ because its state-graph model plus built-in checkpointing map onto the two-speed
    - `semantic_agent` — pulls new rows from `news-crawler`'s `articles` table and new EDGAR
      sections, calls the FinBERT service (`09-nlp-finbert-architecture.md`), writes
      `ScoreSnapshot('SEMANTIC')` and any `RiskEvent`s.
-3. `orchestrator` — join node after the fan-out: reads the live `RuleDefinition`/`RuleClause` tree
+3. `sector_agent` — join node run after the fan-out (needs every asset's `ScoreTecnico` already
+   written to compute a per-sector aggregate): reads all `ScoreSnapshot(metricType='ScoreTecnico')`
+   individuals for the cycle, groups by `Sector` (via each `Asset`'s `classifiedAs` → `Industry` →
+   `memberOfSector` chain), writes one `SectorAggregateSnapshot` per sector plus a per-asset
+   `ScoreSnapshot(metricType='SectorRelativeMomentum', agentOrigin='SECTOR')` (added 2026-08-13,
+   closes part of critique #3 — see `docs/superpowers/specs/2026-08-13-attractiveness-sector-momentum-design.md`).
+4. `orchestrator` — join node after `sector_agent`: reads the live `RuleDefinition`/`RuleClause` tree
    for every active rule (`06-ontology-definition.md` §1.5) via SPARQL, evaluates each asset's
    latest snapshots against every rule using a plain-Python tree walker that mirrors the ontology's
    own `RuleClause`/`operand1`/`operand2`/`ThresholdComparison` structure exactly — the same tree,
    evaluated once, not re-parsed from a string — and writes `Veto` individuals for triggered
-   assets.
+   assets. Since 2026-08-13 this also evaluates the 7th rule, `VETO_MKT_02`, against the
+   `SectorRelativeMomentum` snapshots `sector_agent` just wrote.
+5. `compute_attractiveness` — join node, sibling to `orchestrator` (both run after `sector_agent`,
+   neither depends on the other): reads the active `AttractivenessWeightScheme` via SPARQL, reads
+   each asset's latest snapshots (same snapshot set `orchestrator` reads), computes
+   `attractivenessScore` per the weighted-formula convention (§3 of the spec above), writes one
+   `AttractivenessSnapshot` per asset — independent of veto status, since ranking and exclusion are
+   separate concerns with separate audit trails (added 2026-08-13).
 
 ## State schema — thin, by design
 
@@ -53,6 +70,8 @@ class MonitoringCycleState(TypedDict):
     pending_snapshot_iris: dict[str, list[str]] # ticker -> IRIs written this cycle, not values
     prior_cycle_vetoes: dict[str, list[str]]    # ticker -> rule IRIs that fired last cycle (T-1)
     current_vetoes: dict[str, list[str]]
+    sector_snapshot_iris: dict[str, str]        # sector -> SectorAggregateSnapshot IRI written this cycle
+    attractiveness_iris: dict[str, str]          # ticker -> AttractivenessSnapshot IRI written this cycle
 ```
 
 No metric value, article text, or evidence ever sits in LangGraph state — every agent node writes
@@ -65,7 +84,9 @@ straight to the triple store and state only threads the IRI back for the orchest
 | Fundamental | Batched `edgar_tool.py::EdgarAgent` (`get_financials`, `search_filings`, ...) | **Reuses** the existing agent-tool-style wrapper (`{"success","data"}` contract) — currently on-demand/single-company, needs the batch runner from roadmap step 4. |
 | Semantic | Read `news-crawler`'s `articles` table + new EDGAR-section extractor + FinBERT service | **Reuses** `news-crawler`'s already-clean `body_text`; FinBERT service is new (`09-nlp-finbert-architecture.md`). |
 | Quantitative / Technical | New pricing-data reader + indicator functions (ATR, Sharpe, volatility) | **New** — no pricing collector exists anywhere yet (roadmap step 3). Deterministic calculations, not LLM calls — stays consistent with v1 §1's compute/memory split. |
+| Sector | SPARQL `SELECT` (per-asset `ScoreTecnico`) + SPARQL `INSERT` (`SectorAggregateSnapshot`, `SectorRelativeMomentum`) | **New** (added 2026-08-13) — no sector roll-up exists anywhere yet. |
 | Orchestrator | SPARQL `SELECT` (rule trees + latest snapshots) + Python boolean-tree evaluator + SPARQL `INSERT` (Veto) | Tree evaluator is the direct executable counterpart of `06-ontology-definition.md` §1.5's `RuleClause` structure — same tree, no separate rule language to maintain. |
+| Orchestrator (`compute_attractiveness`) | SPARQL `SELECT` (`AttractivenessWeightScheme` + latest snapshots) + Python weighted-sum evaluator + SPARQL `INSERT` (`AttractivenessSnapshot`) | **New** (added 2026-08-13) — the weighted-sum evaluator is the direct executable counterpart of `06-ontology-definition.md` §1.8's formula, same "graph, not code" pattern as the veto tree evaluator. |
 
 ## Concurrency and checkpointing
 
