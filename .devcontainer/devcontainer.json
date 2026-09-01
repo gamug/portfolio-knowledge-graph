@@ -10,7 +10,7 @@
   "mounts": [
     "source=D:\\thesis,target=/workspaces/thesis,type=bind,consistency=cached"
   ],
-  "postCreateCommand": "uv sync --group dev && uv run pre-commit install --install-hooks",
+  "postCreateCommand": "bash scripts/init.sh",
   "remoteEnv": {
     "UV_LINK_MODE": "copy"
   },
