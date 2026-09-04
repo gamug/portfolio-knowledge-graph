@@ -9,6 +9,12 @@ dependencies = [
     "pyshacl>=0.26",
     "python-dotenv>=1.0",
     "pre-commit>=4.6.2",
+    # --- shared DB layer: the connection factory + the news_nlp results-DB
+    # contract (two-tier SOURCE/RESULTS connection, the fetch_processed_articles
+    # export join), imported as `portfolio_common.news_nlp` from src/etl/. Pinned
+    # by tag in [tool.uv.sources] -- bump the tag there to adopt a new schema/DB
+    # contract.
+    "portfolio-common",
 ]
 
 [dependency-groups]
@@ -20,9 +26,20 @@ dev = [
 ]
 
 [tool.uv]
-# This repo has no importable package — it's an ontology plus Markdown docs, with the
-# Python deps used only to parse/validate schema/ (see CLAUDE.md "Validating the schema").
+# This repo is mostly an ontology plus Markdown docs (see CLAUDE.md "Validating
+# the schema"), but src/etl/ is a real importable package (the KG-population
+# ETL, run via cli/build_data_ttl.py) -- package = false because it's still not
+# built/installed as a wheel; src/ is put on sys.path by that entrypoint script
+# instead (see cli/build_data_ttl.py).
 package = false
+
+[tool.uv.sources]
+# portfolio-common lives in its own repo (github.com/gamug/portfolio-common) and
+# is pinned by tag -- bump the tag here to adopt a new schema/DB contract. For
+# local work against a checkout next to this repo, override with an editable
+# path source:
+#   portfolio-common = { path = "../portfolio-common", editable = true }
+portfolio-common = { git = "https://github.com/gamug/portfolio-common", tag = "v0.4.0" }
 
 [tool.commitizen]
 name = "cz_conventional_commits"

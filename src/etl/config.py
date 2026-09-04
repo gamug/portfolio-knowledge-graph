@@ -6,10 +6,21 @@ Every path/URL the ETL needs is resolved here, in this precedence order:
 2. an environment variable, loaded from a repo-root ``.env`` by ``python-dotenv``,
 3. a documented default rooted at the repository.
 
-The one value that has no useful default is ``URLS_DB`` -- the external
-``news-collector`` SQLite database lives outside this repo (in this dev
-container it is bind-mounted at ``/workspaces/thesis/data/urls.db``), so it
-must be supplied via ``.env``. See ``.env.example`` and ``etl/README.md``.
+The news stage reads two databases -- ``portfolio_common.news_nlp``'s two-tier
+SOURCE/RESULTS contract (see ``portfolio-common/docs/news-nlp-db-topology.md``
+and ``portfolio-nlp/docs/db-topology.md``):
+
+* ``KG_URLS_DB`` (SOURCE) -- the external ``news-collector`` SQLite database,
+  which has ``articles.body_text``. No useful default; in this dev container
+  it is bind-mounted at ``/workspaces/thesis/data/urls.db``, so it must be
+  supplied via ``.env``.
+* ``KG_RESULTS_DB`` (RESULTS) -- the ``portfolio-nlp`` results store
+  (``article_sentiment``/``article_category``, no ``body_text``), e.g. that
+  repo's ``nlp.db``. Defaults to ``<repo>/data/nlp.db``, same default
+  ``portfolio_common.news_nlp.env.results_db_path()`` uses, but resolved
+  independently (this repo doesn't read ``$DATABASE_URL`` -- see below).
+
+See ``.env.example`` and ``etl/README.md``.
 """
 
 from __future__ import annotations
@@ -20,7 +31,8 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 #: Repository root (the directory that contains ``schema/`` and ``.env``).
-REPO_ROOT: Path = Path(__file__).resolve().parent.parent
+#: config.py now lives at <repo>/src/etl/config.py, hence three .parent hops.
+REPO_ROOT: Path = Path(__file__).resolve().parent.parent.parent
 
 # Load ``<repo>/.env`` if present. ``override=False`` keeps any value already
 # exported in the real environment authoritative over the file.
@@ -45,8 +57,15 @@ def schema_dir() -> Path:
 
 
 def urls_db_path() -> Path:
-    """Path to the external ``news-collector`` SQLite database (``urls.db``)."""
+    """SOURCE database path: the external ``news-collector`` SQLite database
+    (``urls.db``), which has ``articles.body_text``."""
     return _env_path("KG_URLS_DB", REPO_ROOT / "data" / "urls.db")
+
+
+def results_db_path() -> Path:
+    """RESULTS database path: the ``portfolio-nlp`` results store
+    (``article_sentiment``/``article_category``, no ``body_text``)."""
+    return _env_path("KG_RESULTS_DB", REPO_ROOT / "data" / "nlp.db")
 
 
 def output_path() -> Path:

@@ -1,10 +1,10 @@
-"""Entry point: build ``data.ttl`` from Wikipedia + ``urls.db``.
+"""Entry point: build ``data.ttl`` from Wikipedia + urls.db/nlp.db.
 
-    python -m etl.build_data_ttl              # full run
-    python -m etl.build_data_ttl --limit 500  # smoke test (caps news rows)
+    python cli/build_data_ttl.py              # full run
+    python cli/build_data_ttl.py --limit 500  # smoke test (caps news rows)
 
 Orchestrates :mod:`etl.asset_master` (Wikipedia -> ``:Asset``/``:classifiedAs``)
-and :mod:`etl.news_to_rdf` (``urls.db`` -> ``:NewsArticle``/``:ScoreSnapshot``/
+and :mod:`etl.news_to_rdf` (urls.db/nlp.db -> ``:NewsArticle``/``:ScoreSnapshot``/
 ``:RiskEvent``). Scope is news + company/sector structuring only; SEC EDGAR,
 pricing, executives, and the summary tables are out of scope for this phase
 (see ``etl/README.md``).
@@ -104,9 +104,10 @@ def generate(
             _write_header(out)
         out.write(_PREFIXES)
         known_tickers = asset_master.build_assets(sp500_rows, out, warnings, already_defined)
-        stats = news_to_rdf.stream_news(
-            config.urls_db_path(), known_tickers, out, warnings, limit=news_limit
+        db_paths = news_to_rdf.NewsDbPaths(
+            source=config.urls_db_path(), results=config.results_db_path()
         )
+        stats = news_to_rdf.stream_news(db_paths, known_tickers, out, warnings, limit=news_limit)
     return known_tickers, stats, warnings
 
 
@@ -132,7 +133,7 @@ def _shacl_check(ttl_path: Path) -> None:
 
 def _validate_sample() -> None:
     """Build a fresh ``KG_SAMPLE_NEWS_ROWS``-row sample and SHACL-check it."""
-    sample_path = config.REPO_ROOT / "etl" / "_sample_for_validation.ttl"
+    sample_path = config.REPO_ROOT / "src" / "etl" / "_sample_for_validation.ttl"
     print(f"\nBuilding a {config.sample_news_rows()}-row validation sample...")
     generate(sample_path, news_limit=config.sample_news_rows(), with_header=False)
     _shacl_check(sample_path)
@@ -164,7 +165,10 @@ def main() -> None:
     smoke = args.limit is not None
 
     t0 = time.time()
-    print(f"Fetching S&P 500 constituents and streaming {config.urls_db_path()} ...")
+    print(
+        f"Fetching S&P 500 constituents and streaming {config.urls_db_path()} "
+        f"(SOURCE) + {config.results_db_path()} (RESULTS) ..."
+    )
     known_tickers, stats, warnings = generate(
         out_path, news_limit=args.limit, with_header=not smoke
     )

@@ -1,4 +1,4 @@
-# `etl/` — knowledge-graph data population
+# `src/etl/` — knowledge-graph data population
 
 Roadmap **step 2** of `10-integration-roadmap.md` — "ingestion adapters for
 already-collected data" (step 0, `schema/`, is the only prior step marked done;
@@ -9,26 +9,44 @@ external sources into a flat Turtle `data.ttl` that loads on top of this repo's
 | Source | Produces |
 |---|---|
 | Wikipedia "List of S&P 500 companies" table | `:Asset` + `:classifiedAs` (full ~503-constituent universe) |
-| `urls.db` — the `news-collector` / `news-crawler` SQLite DB | `:NewsArticle`, `:ScoreSnapshot` (Sentiment), `:RiskEvent` (gated) |
+| `urls.db`/`nlp.db` — `portfolio_common.news_nlp`'s two-tier SOURCE/RESULTS pair | `:NewsArticle`, `:ScoreSnapshot` (Sentiment), `:RiskEvent` (gated) |
 
 It is an **MVP single-shot load**, not the named-graph-partitioned target
 architecture of `07-ontology-topology.md`. There is no bitemporal / audit-trail
 tracking on data loaded this way.
 
+The news source reads through **`portfolio-common`** (git-tag-pinned in the
+repo-root `pyproject.toml`'s `[tool.uv.sources]`) rather than owning its own
+SQLite connection or query — see [Database access](#database-access) below.
+
 ## Layout
 
 ```
-etl/
-  config.py          # resolves DB path / schema dir / output path / source URL from .env
+src/etl/
+  config.py          # resolves DB paths / schema dir / output path / source URL from .env
   asset_master.py    # Wikipedia table  -> :Asset / :classifiedAs
-  news_to_rdf.py     # urls.db          -> :NewsArticle / :ScoreSnapshot / :RiskEvent
-  build_data_ttl.py  # entry point; orchestrates the two + a sample SHACL check
+  news_to_rdf.py     # urls.db/nlp.db   -> :NewsArticle / :ScoreSnapshot / :RiskEvent
+  build_data_ttl.py  # orchestrates the two + a sample SHACL check
   common/
     gics_rollup.py   # GICS Sub-Industry -> reference.ttl :Ind_* rollup (Gap G5)
     provenance.py    # provenanceId formatting
     severity.py      # provisional G1/G2/G3 sentiment/category/severity formulas
     turtle_util.py   # dependency-free Turtle-literal helpers
+cli/
+  build_data_ttl.py  # entry point (bootstraps src/ onto sys.path, calls etl.build_data_ttl.main)
 ```
+
+## Database access
+
+`news_to_rdf.py` does not open SQLite directly. It calls
+`portfolio_common.news_nlp.connect_pipeline(results_db=..., source_db=...)` for
+the connection (pragma policy, row factory, the read-only `ATTACH` of SOURCE as
+schema `source`, the stale-WAL preflight) and
+`portfolio_common.news_nlp.fetch_processed_articles(conn, limit=...)` for the
+`articles ⋈ article_sentiment ⋈ article_category` join — the same two-tier
+SOURCE/RESULTS contract `portfolio-nlp` implements. See
+`portfolio-common/docs/news-nlp-db-topology.md` and
+`portfolio-nlp/docs/db-topology.md` for the contract itself.
 
 ## Configuration
 
@@ -37,7 +55,8 @@ to `.env` and set at least `KG_URLS_DB`:
 
 | Key | Default | Meaning |
 |---|---|---|
-| `KG_URLS_DB` | `<repo>/data/urls.db` | external `news-collector` SQLite DB. In this dev container it is bind-mounted at `/workspaces/thesis/data/urls.db` (see `.devcontainer/devcontainer.json`). |
+| `KG_URLS_DB` | `<repo>/data/urls.db` | SOURCE: external `news-collector` SQLite DB, has `articles.body_text`. In this dev container it is bind-mounted at `/workspaces/thesis/data/urls.db` (see `.devcontainer/devcontainer.json`). |
+| `KG_RESULTS_DB` | `<repo>/data/nlp.db` | RESULTS: the `portfolio-nlp` results store (`article_sentiment`/`article_category`, no `body_text`). In this dev container, `/workspaces/thesis/data/nlp.db`. |
 | `KG_SCHEMA_DIR` | `<repo>/schema` | dir holding `tbox.ttl` / `shapes.ttl` / `reference.ttl` / `rules.ttl` |
 | `KG_DATA_TTL` | `<repo>/data.ttl` | output path (git-ignored) |
 | `KG_SP500_SOURCE_URL` | Wikipedia S&P 500 list | constituent table to parse |
@@ -46,8 +65,8 @@ to `.env` and set at least `KG_URLS_DB`:
 ## Running
 
 ```bash
-python -m etl.build_data_ttl --limit 500   # smoke test: caps news rows, skips header + SHACL sample
-python -m etl.build_data_ttl               # full run -> data.ttl (millions of triples; git-ignored)
+python cli/build_data_ttl.py --limit 500   # smoke test: caps news rows, skips header + SHACL sample
+python cli/build_data_ttl.py               # full run -> data.ttl (millions of triples; git-ignored)
 ```
 
 Load order into a fresh triple store, `data.ttl` **last**:
