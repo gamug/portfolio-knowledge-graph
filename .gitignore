@@ -15,7 +15,7 @@ uv.lock.tmp
 .mypy_cache/
 .pytest_cache/
 
-# ETL local config + generated output (see etl/README.md)
+# ETL local config + generated output (see src/etl/README.md)
 .env
 /data.ttl
-etl/_sample_for_validation.ttl
+src/etl/_sample_for_validation.ttl

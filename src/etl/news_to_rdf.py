@@ -1,7 +1,9 @@
-"""``urls.db`` -> ``:NewsArticle`` / ``:ScoreSnapshot`` / ``:RiskEvent`` Turtle.
+"""``urls.db``/``nlp.db`` -> ``:NewsArticle`` / ``:ScoreSnapshot`` / ``:RiskEvent`` Turtle.
 
 Reads ``articles`` joined to ``article_sentiment`` and ``article_category`` for
-rows with ``fetch_status = 'ok'`` and writes:
+rows with ``fetch_status = 'ok'`` via
+``portfolio_common.news_nlp.fetch_processed_articles`` (see
+``portfolio-common/docs/news-nlp-db-topology.md``) and writes:
 
 * ``:NewsArticle``   -- ``provenanceId``, ``publishedDate``
 * ``:ScoreSnapshot`` -- ``agentOrigin = "SEMANTIC"``, ``metricType = "Sentiment"``, ``rawValue``
@@ -21,10 +23,11 @@ Explicitly NOT read/written this phase:
 from __future__ import annotations
 
 import sqlite3
-from contextlib import closing
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TextIO
+from typing import NamedTuple, TextIO
+
+from portfolio_common.news_nlp import connect_pipeline, fetch_processed_articles
 
 from etl.common.provenance import article_provenance_id
 from etl.common.severity import (
@@ -38,18 +41,15 @@ from etl.common.turtle_util import date_lit, datetime_lit, decimal_lit, str_lit
 _ISO_DATE_LEN = 10
 _MAX_UNRESOLVED_TICKERS_LOGGED = 20
 
-_NEWS_QUERY = """
-    SELECT a.id AS id, a.ticker AS ticker, a.pub_date AS pub_date,
-           a.fetched_at AS fetched_at, a.body_text AS body_text,
-           s.positive AS positive, s.negative AS negative,
-           s.processed_at AS sent_processed_at,
-           c.label AS cat_label, c.score AS cat_score,
-           c.processed_at AS cat_processed_at
-    FROM articles a
-    JOIN article_sentiment s ON s.article_id = a.id
-    JOIN article_category c ON c.article_id = a.id
-    WHERE a.fetch_status = 'ok'
-"""
+
+class NewsDbPaths(NamedTuple):
+    """The two-tier database pair :func:`stream_news` reads: SOURCE (has
+    ``body_text``, e.g. ``urls.db``) and RESULTS (has ``article_sentiment``/
+    ``article_category``, e.g. ``nlp.db``). See ``portfolio-common/docs/
+    news-nlp-db-topology.md``."""
+
+    source: str | Path
+    results: str | Path
 
 
 @dataclass(frozen=True, slots=True)
@@ -178,38 +178,36 @@ def _process_row(
 
 
 def stream_news(
-    db_path: str | Path,
+    db_paths: NewsDbPaths,
     known_tickers: set[str],
     out_fh: TextIO,
     warnings: list[str],
     limit: int | None = None,
 ) -> dict[str, int]:
-    """Stream news rows from ``db_path`` and write Turtle blocks to ``out_fh``.
+    """Stream news rows from the SOURCE/RESULTS database pair and write Turtle
+    blocks to ``out_fh``.
 
     ``limit``, when given, caps the number of source rows read (used for the
     validation-sample build in :mod:`etl.build_data_ttl`, not the real run).
     """
-    query = _NEWS_QUERY
-    if limit is not None:
-        query += f" LIMIT {int(limit)}"  # int()-coerced; base query is a literal
-
     out_fh.write("#################################################################\n")
     out_fh.write("# Section B: News evidence, sentiment snapshots, risk events\n")
-    out_fh.write("# Source: urls.db articles / article_sentiment / article_category.\n")
+    out_fh.write("# Source: urls.db/nlp.db articles / article_sentiment / article_category\n")
+    out_fh.write("# (portfolio_common.news_nlp.fetch_processed_articles).\n")
     out_fh.write("# Excludes article_summary/sector_summary and discovered_urls/\n")
     out_fh.write("# article_entities/discovery_progress -- see module docstring.\n")
     out_fh.write("#################################################################\n\n")
 
     counts = _Counts()
     unresolved_tickers: set[str] = set()
-    with closing(sqlite3.connect(str(db_path))) as con:
-        con.row_factory = sqlite3.Row
-        cur = con.cursor()
-        cur.execute(query)
-        for row in cur:
+    con = connect_pipeline(results_db=db_paths.results, source_db=db_paths.source)
+    try:
+        for row in fetch_processed_articles(con, limit=limit):
             unresolved = _process_row(_Article.from_row(row), known_tickers, out_fh, counts)
             if unresolved is not None:
                 unresolved_tickers.add(unresolved)
+    finally:
+        con.close()
 
     _record_warnings(warnings, counts, unresolved_tickers)
     return counts.as_dict()
