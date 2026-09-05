@@ -29,11 +29,11 @@ Explicitly NOT read/written this phase:
 
 from __future__ import annotations
 
-import sqlite3
 from dataclasses import dataclass
 from pathlib import Path
 from typing import NamedTuple, TextIO
 
+from portfolio_common.db import Row
 from portfolio_common.news_export import connect_readonly, fetch_processed_articles
 
 from etl.common.provenance import article_provenance_id
@@ -76,7 +76,7 @@ class _Article:
     cat_processed_at: str
 
     @classmethod
-    def from_row(cls, row: sqlite3.Row) -> _Article:
+    def from_row(cls, row: Row) -> _Article:
         return cls(
             id=row["id"],
             ticker=row["ticker"],
