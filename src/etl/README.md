@@ -9,21 +9,23 @@ external sources into a flat Turtle `data.ttl` that loads on top of this repo's
 | Source | Produces |
 |---|---|
 | Wikipedia "List of S&P 500 companies" table | `:Asset` + `:classifiedAs` (full ~503-constituent universe) |
-| `urls.db`/`nlp.db` — `portfolio_common.news_nlp`'s two-tier SOURCE/RESULTS pair | `:NewsArticle`, `:ScoreSnapshot` (Sentiment), `:RiskEvent` (gated) |
+| `urls.db`/`nlp.db` — a two-tier SOURCE/RESULTS pair (see below) | `:NewsArticle`, `:ScoreSnapshot` (Sentiment), `:RiskEvent` (gated) |
 
 It is an **MVP single-shot load**, not the named-graph-partitioned target
 architecture of `07-ontology-topology.md`. There is no bitemporal / audit-trail
 tracking on data loaded this way.
 
-The news source reads through **`portfolio-common`** (git-tag-pinned in the
-repo-root `pyproject.toml`'s `[tool.uv.sources]`) rather than owning its own
-SQLite connection or query — see [Database access](#database-access) below.
+The news source's connection goes through **`portfolio-common`**'s DB engine
+(git-tag-pinned in the repo-root `pyproject.toml`'s `[tool.uv.sources]`)
+rather than a hand-rolled `sqlite3.connect()` — see
+[Database access](#database-access) below.
 
 ## Layout
 
 ```
 src/etl/
   config.py          # resolves DB paths / schema dir / output path / source URL from .env
+  queries.py         # urls.db/nlp.db connection + the articles/sentiment/category export join
   asset_master.py    # Wikipedia table  -> :Asset / :classifiedAs
   news_to_rdf.py     # urls.db/nlp.db   -> :NewsArticle / :ScoreSnapshot / :RiskEvent
   build_data_ttl.py  # orchestrates the two + a sample SHACL check
@@ -38,15 +40,24 @@ cli/
 
 ## Database access
 
-`news_to_rdf.py` does not open SQLite directly. It calls
-`portfolio_common.news_nlp.connect_pipeline(results_db=..., source_db=...)` for
-the connection (pragma policy, row factory, the read-only `ATTACH` of SOURCE as
-schema `source`, the stale-WAL preflight) and
-`portfolio_common.news_nlp.fetch_processed_articles(conn, limit=...)` for the
-`articles ⋈ article_sentiment ⋈ article_category` join — the same two-tier
-SOURCE/RESULTS contract `portfolio-nlp` implements. See
-`portfolio-common/docs/news-nlp-db-topology.md` and
-`portfolio-nlp/docs/db-topology.md` for the contract itself.
+`news_to_rdf.py` does not open SQLite directly — it goes through `etl/queries.py`,
+which calls `portfolio_common.db.Database.connect()`/`.attach()` for the
+connection (pragma policy, row factory, the read-only `ATTACH` of SOURCE as
+schema `source`, the stale-WAL preflight — all now generic
+`portfolio_common.db` behavior, not `news_nlp`-specific) and implements
+`fetch_processed_articles()` — the `articles ⋈ article_sentiment ⋈
+article_category` join — as a **local copy** of `portfolio-nlp`'s
+`news_nlp.queries.fetch_processed_articles`.
+
+That's a local copy, not a shared import, because `portfolio-common` v1.0.0
+extracted the `news_nlp` results-DB contract out of the shared library
+entirely (vendored into `portfolio-nlp/src/news_nlp/`, not shipped as
+`portfolio_common.news_nlp` anymore), and this repo isn't adding a git
+dependency on `portfolio-nlp` yet — see
+`docs/portfolio-common-v1-migration-plan.md` for the full decision record and
+`portfolio-nlp/docs/db-topology.md` for the two-tier SOURCE/RESULTS contract
+itself. `etl/queries.py`'s docstring is the source of truth for keeping this
+copy in sync if `portfolio-nlp`'s query shape ever changes.
 
 ## Configuration
 

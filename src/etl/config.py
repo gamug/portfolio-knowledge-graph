@@ -6,9 +6,9 @@ Every path/URL the ETL needs is resolved here, in this precedence order:
 2. an environment variable, loaded from a repo-root ``.env`` by ``python-dotenv``,
 3. a documented default rooted at the repository.
 
-The news stage reads two databases -- ``portfolio_common.news_nlp``'s two-tier
-SOURCE/RESULTS contract (see ``portfolio-common/docs/news-nlp-db-topology.md``
-and ``portfolio-nlp/docs/db-topology.md``):
+The news stage reads two databases -- the same two-tier SOURCE/RESULTS
+contract ``portfolio-nlp``'s ``news_nlp`` package implements (see
+``etl/queries.py`` and ``portfolio-nlp/docs/db-topology.md``):
 
 * ``KG_URLS_DB`` (SOURCE) -- the external ``news-collector`` SQLite database,
   which has ``articles.body_text``. No useful default; in this dev container
@@ -16,9 +16,9 @@ and ``portfolio-nlp/docs/db-topology.md``):
   supplied via ``.env``.
 * ``KG_RESULTS_DB`` (RESULTS) -- the ``portfolio-nlp`` results store
   (``article_sentiment``/``article_category``, no ``body_text``), e.g. that
-  repo's ``nlp.db``. Defaults to ``<repo>/data/nlp.db``, same default
-  ``portfolio_common.news_nlp.env.results_db_path()`` uses, but resolved
-  independently (this repo doesn't read ``$DATABASE_URL`` -- see below).
+  repo's ``nlp.db``. Defaults to ``<repo>/data/nlp.db``, matching
+  ``portfolio-nlp``'s own ``news_nlp.env.results_db_path()`` default, but
+  resolved independently (this repo doesn't read ``$DATABASE_URL``).
 
 See ``.env.example`` and ``etl/README.md``.
 """

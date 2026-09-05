@@ -9,11 +9,13 @@ dependencies = [
     "pyshacl>=0.26",
     "python-dotenv>=1.0",
     "pre-commit>=4.6.2",
-    # --- shared DB layer: the connection factory + the news_nlp results-DB
-    # contract (two-tier SOURCE/RESULTS connection, the fetch_processed_articles
-    # export join), imported as `portfolio_common.news_nlp` from src/etl/. Pinned
-    # by tag in [tool.uv.sources] -- bump the tag there to adopt a new schema/DB
-    # contract.
+    # --- shared DB engine: portfolio_common.db.Database/Allowlist/in_clause,
+    # used by src/etl/queries.py. As of portfolio-common v1.0.0 this package is
+    # DB-engine-only -- it no longer ships the news_nlp results-DB contract
+    # (that moved to portfolio-nlp's own src/news_nlp/), so etl/queries.py
+    # carries a local copy of the one query this ETL needs (see that module's
+    # docstring and docs/portfolio-common-v1-migration-plan.md). Pinned by tag
+    # in [tool.uv.sources] -- bump the tag there to adopt a new engine contract.
     "portfolio-common",
 ]
 
@@ -39,7 +41,7 @@ package = false
 # local work against a checkout next to this repo, override with an editable
 # path source:
 #   portfolio-common = { path = "../portfolio-common", editable = true }
-portfolio-common = { git = "https://github.com/gamug/portfolio-common", tag = "v0.4.0" }
+portfolio-common = { git = "https://github.com/gamug/portfolio-common", tag = "v1.0.0" }
 
 [tool.commitizen]
 name = "cz_conventional_commits"

@@ -26,12 +26,21 @@ repos:
           - --config
           - .code_quality/ruff.toml
 
-  - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v2.3.0
+  # Run mypy in the project venv (via uv) rather than mirrors-mypy's isolated
+  # env: type-checking src/etl/queries.py needs the installed `portfolio_common`
+  # package (with its py.typed marker) to resolve `portfolio_common.db.Database`'s
+  # real return types, which an isolated env doesn't have -- same fix already
+  # applied in portfolio-data-mining/portfolio-financial-analysis/portfolio-nlp
+  # for the same reason. pass_filenames is off because mypy needs the whole
+  # import graph, not just the changed files.
+  - repo: local
     hooks:
       - id: mypy
-        args:
-          - --config-file=.code_quality/mypy.ini
+        name: mypy
+        entry: uv run mypy --config-file=.code_quality/mypy.ini
+        language: system
+        types: [python]
+        pass_filenames: false
 
   - repo: https://github.com/commitizen-tools/commitizen
     rev: v4.17.0
