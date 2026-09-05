@@ -1,9 +1,11 @@
 """``urls.db``/``nlp.db`` -> ``:NewsArticle`` / ``:ScoreSnapshot`` / ``:RiskEvent`` Turtle.
 
 Reads ``articles`` joined to ``article_sentiment`` and ``article_category`` for
-rows with ``fetch_status = 'ok'`` via
-``portfolio_common.news_nlp.fetch_processed_articles`` (see
-``portfolio-common/docs/news-nlp-db-topology.md``) and writes:
+rows with ``fetch_status = 'ok'`` via :mod:`etl.queries` (a local copy of
+``portfolio-nlp``'s ``fetch_processed_articles`` -- see that module's
+docstring and ``docs/portfolio-common-v1-migration-plan.md`` for why this repo
+carries its own copy rather than depending on ``portfolio_common.news_nlp``,
+which no longer exists as of ``portfolio-common`` v1.0.0) and writes:
 
 * ``:NewsArticle``   -- ``provenanceId``, ``publishedDate``
 * ``:ScoreSnapshot`` -- ``agentOrigin = "SEMANTIC"``, ``metricType = "Sentiment"``, ``rawValue``
@@ -27,8 +29,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import NamedTuple, TextIO
 
-from portfolio_common.news_nlp import connect_pipeline, fetch_processed_articles
-
 from etl.common.provenance import article_provenance_id
 from etl.common.severity import (
     compute_severity,
@@ -37,6 +37,7 @@ from etl.common.severity import (
     winning_category_and_score,
 )
 from etl.common.turtle_util import date_lit, datetime_lit, decimal_lit, str_lit
+from etl.queries import connect_pipeline, fetch_processed_articles
 
 _ISO_DATE_LEN = 10
 _MAX_UNRESOLVED_TICKERS_LOGGED = 20
@@ -193,21 +194,21 @@ def stream_news(
     out_fh.write("#################################################################\n")
     out_fh.write("# Section B: News evidence, sentiment snapshots, risk events\n")
     out_fh.write("# Source: urls.db/nlp.db articles / article_sentiment / article_category\n")
-    out_fh.write("# (portfolio_common.news_nlp.fetch_processed_articles).\n")
+    out_fh.write("# (etl.queries.fetch_processed_articles).\n")
     out_fh.write("# Excludes article_summary/sector_summary and discovered_urls/\n")
     out_fh.write("# article_entities/discovery_progress -- see module docstring.\n")
     out_fh.write("#################################################################\n\n")
 
     counts = _Counts()
     unresolved_tickers: set[str] = set()
-    con = connect_pipeline(results_db=db_paths.results, source_db=db_paths.source)
+    db, articles_rel = connect_pipeline(db_paths.source, db_paths.results)
     try:
-        for row in fetch_processed_articles(con, limit=limit):
+        for row in fetch_processed_articles(db, articles_rel, limit=limit):
             unresolved = _process_row(_Article.from_row(row), known_tickers, out_fh, counts)
             if unresolved is not None:
                 unresolved_tickers.add(unresolved)
     finally:
-        con.close()
+        db.close()
 
     _record_warnings(warnings, counts, unresolved_tickers)
     return counts.as_dict()
