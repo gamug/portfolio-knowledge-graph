@@ -27,12 +27,13 @@ repos:
           - .code_quality/ruff.toml
 
   # Run mypy in the project venv (via uv) rather than mirrors-mypy's isolated
-  # env: type-checking src/etl/queries.py needs the installed `portfolio_common`
-  # package (with its py.typed marker) to resolve `portfolio_common.db.Database`'s
-  # real return types, which an isolated env doesn't have -- same fix already
-  # applied in portfolio-data-mining/portfolio-financial-analysis/portfolio-nlp
-  # for the same reason. pass_filenames is off because mypy needs the whole
-  # import graph, not just the changed files.
+  # env: type-checking src/etl/news_to_rdf.py needs the installed
+  # `portfolio_common` package (with its py.typed marker) to resolve
+  # `portfolio_common.news_export`/`db.Database`'s real return types, which an
+  # isolated env doesn't have -- same fix already applied in
+  # portfolio-data-mining/portfolio-financial-analysis/portfolio-nlp for the
+  # same reason. pass_filenames is off because mypy needs the whole import
+  # graph, not just the changed files.
   - repo: local
     hooks:
       - id: mypy

@@ -8,7 +8,7 @@ Every path/URL the ETL needs is resolved here, in this precedence order:
 
 The news stage reads two databases -- the same two-tier SOURCE/RESULTS
 contract ``portfolio-nlp``'s ``news_nlp`` package implements (see
-``etl/queries.py`` and ``portfolio-nlp/docs/db-topology.md``):
+``portfolio_common.news_export`` and ``portfolio-nlp/docs/db-topology.md``):
 
 * ``KG_URLS_DB`` (SOURCE) -- the external ``news-collector`` SQLite database,
   which has ``articles.body_text``. No useful default; in this dev container
