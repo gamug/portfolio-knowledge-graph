@@ -9,13 +9,18 @@ dependencies = [
     "pyshacl>=0.26",
     "python-dotenv>=1.0",
     "pre-commit>=4.6.2",
-    # --- shared DB engine: portfolio_common.db.Database/Allowlist/in_clause,
-    # used by src/etl/queries.py. As of portfolio-common v1.0.0 this package is
-    # DB-engine-only -- it no longer ships the news_nlp results-DB contract
-    # (that moved to portfolio-nlp's own src/news_nlp/), so etl/queries.py
-    # carries a local copy of the one query this ETL needs (see that module's
-    # docstring and docs/portfolio-common-v1-migration-plan.md). Pinned by tag
-    # in [tool.uv.sources] -- bump the tag there to adopt a new engine contract.
+    # --- shared DB access: portfolio_common.news_export.connect_readonly /
+    # fetch_processed_articles, used by src/etl/news_to_rdf.py -- the read-only
+    # two-tier SOURCE/RESULTS connect and the articles/sentiment/category join
+    # for the news-NLP results store, shared with portfolio-nlp (which writes
+    # that schema and delegates its own copy of the same query to this module
+    # too). As of portfolio-common v1.0.0 this package is otherwise
+    # DB-engine-only (portfolio_common.db.Database/Allowlist/in_clause); v1.1.0
+    # added news_export as the one deliberate exception -- this repo used to
+    # carry a local copy of the query instead (see
+    # docs/portfolio-common-v1-migration-plan.md for that decision record).
+    # Pinned by tag in [tool.uv.sources] -- bump the tag there to adopt a new
+    # engine/news_export contract.
     "portfolio-common",
 ]
 
@@ -41,7 +46,11 @@ package = false
 # local work against a checkout next to this repo, override with an editable
 # path source:
 #   portfolio-common = { path = "../portfolio-common", editable = true }
-portfolio-common = { git = "https://github.com/gamug/portfolio-common", tag = "v1.0.0" }
+# TEMPORARY: pinned to the feat/news-export-shared-read-contract commit ahead
+# of the v1.1.0 tag -- gamug/portfolio-common#8 adds portfolio_common.news_export,
+# which src/etl/news_to_rdf.py now imports directly. Re-pin to
+# `tag = "v1.1.0"` once that PR is merged and tagged.
+portfolio-common = { git = "https://github.com/gamug/portfolio-common", rev = "2f8f93a76dfd1f8c163c53e3d1425a0f9ddd946a" }
 
 [tool.commitizen]
 name = "cz_conventional_commits"
