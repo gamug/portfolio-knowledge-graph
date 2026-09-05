@@ -604,8 +604,8 @@ wheels = [
 
 [[package]]
 name = "portfolio-common"
-version = "1.1.0"
-source = { git = "https://github.com/gamug/portfolio-common?rev=2f8f93a76dfd1f8c163c53e3d1425a0f9ddd946a#2f8f93a76dfd1f8c163c53e3d1425a0f9ddd946a" }
+version = "1.2.0"
+source = { git = "https://github.com/gamug/portfolio-common?tag=v1.2.0#410905ef876bea1a55b0e861435136a625788e07" }
 
 [[package]]
 name = "portfolio-kowledge-graph"
@@ -629,7 +629,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "portfolio-common", git = "https://github.com/gamug/portfolio-common?rev=2f8f93a76dfd1f8c163c53e3d1425a0f9ddd946a" },
+    { name = "portfolio-common", git = "https://github.com/gamug/portfolio-common?tag=v1.2.0" },
     { name = "pre-commit", specifier = ">=4.6.2" },
     { name = "pyshacl", specifier = ">=0.26" },
     { name = "python-dotenv", specifier = ">=1.0" },
