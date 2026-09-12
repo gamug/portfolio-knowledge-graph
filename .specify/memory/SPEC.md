@@ -431,16 +431,20 @@ treating a related FR/NR as done:
    edits and has not been regenerated** — it needs an actual Protégé
    session, not a code change.
 5. **This repo's local `CLAUDE.md` (untracked, gitignored) can lag
-   `origin/master`.** At the time this SPEC was drafted, a working checkout
+   `origin/master`.** ~~At the time this SPEC was drafted, a working checkout
    existed whose `CLAUDE.md` described the ETL as depending on a
    locally-vendored copy of `portfolio-nlp`'s `fetch_processed_articles`
    query against `portfolio-common` v1.0.0 — but `origin/master` had already
    merged two further PRs retiring that local copy in favor of
    `portfolio_common.news_export` and re-pinning to `portfolio-common`
-   v1.2.0 (`docs/portfolio-common-v1.2-engine-agnostic.md`). Reconcile
-   against `origin/master`'s actual `HEAD` before trusting `CLAUDE.md`'s
-   dependency description in any given working copy (constitution: Claude
-   Code / coding-agent conduct #2).
+   v1.2.0 (`docs/portfolio-common-v1.2-engine-agnostic.md`).~~ **Resolved for
+   this checkout** (the constitution-compliance pass that also added
+   `CLAUDE.md`'s required `.specify/memory/` references): `CLAUDE.md` now
+   describes `portfolio_common.news_export`/`v1.2.0` correctly. The general
+   risk of a *future* drift on some *other* checkout is unaffected by this
+   fix and stays covered by constitution "Claude Code / coding-agent
+   conduct" #2 — reconcile against `origin/master`'s actual `HEAD` before
+   trusting `CLAUDE.md`'s dependency description in any given working copy.
 6. **`ScoreSnapshotShape`'s `normalizedScore` requirement doesn't fit
    Sentiment snapshots** (§5's known divergence) — a documented schema
    decision producing one SHACL violation per Sentiment snapshot in the
@@ -521,7 +525,7 @@ of what this project is, not a gap someone forgot to close:
 | 2 — no `v_*`-views projection | **Pending development** | Folded into `PLAN.md` Work item 4 (the real step-2 projection); today's `src/etl/` shortcut stays live until that lands |
 | 3 — roadmap names superseded repos | **Pending development** (cheap, no blockers) | `PLAN.md` Work item 1 |
 | 4 — `protege-view.ttl` stale | **Pending development** (manual, needs a real Protégé session) | `PLAN.md` Work item 8 |
-| 5 — `CLAUDE.md` can lag `origin/master` | **Pending development** (cheap, no blockers) | `PLAN.md` Work item 2 |
+| 5 — `CLAUDE.md` can lag `origin/master` | **Resolved** for this checkout; general risk stays covered by constitution conduct #2 | `PLAN.md` Work item 2 — done |
 | 6 — `ScoreSnapshotShape` vs. Sentiment `rawValue` | **Pending development** (cheap, a schema decision + small edit) | `PLAN.md` Work item 9 |
 | 7 — no test suite for `src/etl/` | **Permanently out of scope** at current scale | See above |
 | 8 — uncalibrated severity formulas | **Permanently out of scope** (research task) | See above |

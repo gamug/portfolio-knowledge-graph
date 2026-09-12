@@ -21,6 +21,19 @@ other file loads wholesale into the single graph named in the table. No new file
 attractiveness-ranking feature: its `urn:graph:ingest:SECTOR:{date}` graph pattern is populated
 from within `instances.trig` like every other per-agent ingest graph.
 
+Two more files live in this directory but load into nothing (neither is part of the load order
+above):
+
+- `protege-view.ttl` — a **generated**, flattened plain-Turtle bundle for Protégé (which can't
+  open `.trig`), derived from the four authoritative sources plus a `:sourceNamedGraph` annotation
+  that exists only in this file. Never hand-edit it; regenerate it from a Protégé session after a
+  `tbox`/`shapes`/`reference`/`rules` edit rather than trusting a stale copy.
+- `protege-view.txt` — an earlier, superseded cut of the same generated bundle, kept only as a
+  historical artifact of how the Protégé view was produced before `protege-view.ttl` existed.
+- `taxonomy-quality-review-2026-08-23.md` — the write-up of the programmatic `rdfs:subClassOf`
+  audit referenced under "Validation" below (cycle/orphan/multi-parent detection); not loaded by
+  anything, kept as the record of that pass.
+
 **Load order for a fresh GraphDB/Fuseki repository:** `tbox.ttl` → `shapes.ttl` → `reference.ttl`
 → `rules.ttl` → `instances.trig`. Nothing strictly requires this order at load time (a quad store
 doesn't validate on ingest unless SHACL validation is explicitly turned on), but it matches
@@ -122,7 +135,7 @@ Full audit results (0 cycles, 0 self-loops, all 37 classes reach one of the 6 ta
 taxonomy) are recorded in the conversation that produced this pass, not re-derived here.
 
 ```bash
-python -c "
+uv run python -c "
 import rdflib
 g = rdflib.Dataset()
 for f, fmt in [('tbox.ttl','turtle'), ('shapes.ttl','turtle'), ('reference.ttl','turtle'), ('rules.ttl','turtle')]:
