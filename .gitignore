@@ -1,6 +1,16 @@
+# Claude Code tool-state -- never committed, see constitution.md's Project
+# structure #9. .claude/ in full (not just settings.local.json -- nothing
+# under it is tracked today, and nothing should be added later without
+# amending that rule first); CLAUDE.md itself; the Superpowers skill's local
+# scratch dir (.superpowers/) and its finalized-output dir (docs/superpowers/)
+# -- a spec/plan meant to be a permanent citable record graduates into the
+# repo's real documentation surface instead (see the constitution rule for
+# the two pre-existing, grandfathered files this doesn't retroactively
+# remove).
 .worktrees/
-.claude/settings.local.json
+.claude/
 .superpowers/
+docs/superpowers/
 CLAUDE.md
 
 # Python / uv
