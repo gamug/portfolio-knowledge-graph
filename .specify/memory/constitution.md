@@ -104,6 +104,36 @@ assumes the stack actually pinned in `pyproject.toml`.
    `src/etl/` emits — keep new terms in that namespace unless deliberately
    aligning to an external vocabulary (FIBO via `rdfs:seeAlso`, GICS sectors/
    industries as `skos:Concept`s).
+9. **No Claude Code tool-state is ever committed — full stop, no partial
+   exceptions.** This is deliberately broader than "don't commit secrets"
+   (Code & Git #5): it's about keeping the repo's tracked tree free of
+   anything that exists only because of *which coding agent* was used, so
+   the ontology/docs/ETL stay tool-agnostic. Concretely, `.gitignore` covers
+   all of the following in full, not file-by-file:
+   - **`.claude/`** — the entire directory (settings, worktrees, anything
+     else Claude Code or a plugin ever writes there), not just
+     `settings.local.json`. If a genuinely shared, team-wide Claude Code
+     setting is ever needed, that's a constitution amendment first (state
+     which file and why it's an exception), not a quiet un-ignore.
+   - **`CLAUDE.md`** — see "Claude Code / coding-agent conduct" #4; it must
+     exist on disk and reference this file and `SPEC.md`, but it is never
+     tracked.
+   - **`.superpowers/`** — the Superpowers skill's local scratch directory
+     for an in-progress brainstorming session, before a spec/plan is
+     approved.
+   - **`docs/superpowers/`** — that skill's finalized-output directory too.
+     An approved spec/plan meant to be a permanent, citable project record
+     (the way `critique-and-evolution.md` and the numbered `06`–`10` docs
+     are) belongs in the repo's real documentation surface — a new numbered
+     doc, a section of an existing one, or a `schema/README.md`-style
+     write-up — not left living under a tool-output folder. (Two files
+     already tracked there from before this rule existed are grandfathered,
+     not retroactively removed — they are not re-created if deleted, and no
+     new file joins them there.)
+
+   A spec/plan drafted with any coding agent's help is fine — what's
+   excluded is *that agent's own working directories and config*, never the
+   resulting project content once it's written into a real doc.
 
 ## Ontology design invariants
 
@@ -205,7 +235,7 @@ ad-hoc invocations:
 uv sync                                     # install deps
 
 # Ontology validation (run from schema/) -- the only automated gate today
-python -c "
+uv run python -c "
 import rdflib
 g = rdflib.Dataset()
 for f, fmt in [('tbox.ttl','turtle'), ('shapes.ttl','turtle'), ('reference.ttl','turtle'), ('rules.ttl','turtle')]:
@@ -226,8 +256,8 @@ uv run mypy --config-file=.code_quality/mypy.ini   # types
 uv run pre-commit run --all-files           # all of the above hooks, plus hygiene checks
 ```
 
-1. **There is no CI workflow configured** (`.github/workflows/` is empty) —
-   the parse+`pyshacl` check and the lint/type/pre-commit hooks above are run
+1. **There is no CI workflow configured** (`.github/` does not exist) — the
+   parse+`pyshacl` check and the lint/type/pre-commit hooks above are run
    manually before a PR. This is a documented gap (`SPEC.md` §9/§14), not an
    oversight to silently work around by inventing a workflow file outside a
    spec/plan for doing so.
@@ -284,4 +314,20 @@ Compliance is expected to be checked the same way a schema-parse/`pyshacl`
 gate is — a reviewer (human or agent) rejecting a PR that violates a
 principle above should cite the section by name.
 
-**Version**: 1.0.0 | **Ratified**: 2026-09-12 | **Last Amended**: 2026-09-12
+**Version**: 1.1.0 | **Ratified**: 2026-09-12 | **Last Amended**: 2026-09-12
+
+<!--
+1.0.1 (2026-09-12): PATCH, wording/self-consistency fix only. The "Executable
+cmds" rdflib snippet used bare `python -c`, contradicting this section's own
+rule 2 (verified to fail without `uv run` in this environment); fixed to
+`uv run python -c`. Also reworded "`.github/workflows/` is empty" to
+"`.github/` does not exist" (the directory itself is absent, not merely
+empty). No principle changed.
+
+1.1.0 (2026-09-12): MINOR, new principle. Added Project structure #9 ("No
+Claude Code tool-state is ever committed") and broadened `.gitignore`
+accordingly: `.claude/` in full (was just `settings.local.json`) and
+`docs/superpowers/` (new) alongside the already-ignored `.superpowers/` and
+`CLAUDE.md`. Two files already tracked under `docs/superpowers/` before this
+rule predate it and are explicitly grandfathered, not removed.
+-->

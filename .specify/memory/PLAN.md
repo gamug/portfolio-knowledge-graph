@@ -27,7 +27,7 @@ Close every item `SPEC.md` §14 categorizes as pending development:
 
 1. Rewrite `10-integration-roadmap.md`'s stale repo references (§13 item 3).
 2. Reconcile `CLAUDE.md` with `origin/master`'s actual merged state (§13
-   item 5).
+   item 5). **Done.**
 3. Stand up a triple store and wire the SHACL ingest gate (§13 item 1,
    roadmap step 1).
 4. Build the real step-2 projection: `financial-analysis`'s `v_*` views +
@@ -44,6 +44,8 @@ Close every item `SPEC.md` §14 categorizes as pending development:
 8. Regenerate `schema/protege-view.ttl` (§13 item 4).
 9. Resolve the `ScoreSnapshotShape`/Sentiment `rawValue` divergence (§13
    item 6).
+10. Complete `schema/README.md`'s directory map (found during a
+    constitution-compliance audit, not originally in `SPEC.md` §13). **Done.**
 
 Growing the ABox from the current MVP shortcut's output to the full
 500-name universe on the real (not shortcut) projection is the natural
@@ -106,6 +108,10 @@ in this repo's own `08-agent-architecture.md`.
 - The schema parse+`pyshacl` check still passes (docs-only change).
 
 ## Work item 2 — Reconcile `CLAUDE.md` with `origin/master`'s actual state
+
+**Status: DONE (2026-09-12)**, closed by the same PR that added the required
+constitution/SPEC references to `CLAUDE.md` (constitution "Claude Code /
+coding-agent conduct" #4) — see `TASKS.md` T-010–T-015.
 
 **Why**: `CLAUDE.md` is intentionally untracked (`.gitignore`'d), so it can
 silently drift from what's actually merged on `origin/master`. At the time
@@ -371,12 +377,37 @@ time gaps are documented):
   chosen and why, alongside its three existing worked-during-population
   gaps.
 
+## Work item 10 — Complete `schema/README.md`'s directory map
+
+**Status: DONE (2026-09-12).**
+
+**Why**: a constitution-compliance audit found `schema/README.md` — which
+both it and `CLAUDE.md` call "the authoritative map of this directory" (`.
+specify/memory/constitution.md`'s Project structure #1) — never mentioned
+two files that actually live in `schema/`: `protege-view.txt` (an earlier,
+superseded generated bundle) and `taxonomy-quality-review-2026-08-23.md`
+(the write-up of the `rdfs:subClassOf` taxonomy audit `schema/README.md`'s
+own "Validation" section already references by name). A reader relying on
+the README as the complete map would not know either file existed.
+
+**Approach**: add both to the file listing near the top of
+`schema/README.md`, alongside the existing note that `protege-view.ttl` is
+generated and never hand-edited — no `schema/*.ttl`/`.trig` content changes.
+
+**Acceptance criteria**:
+
+- `schema/README.md` lists `protege-view.txt` and
+  `taxonomy-quality-review-2026-08-23.md` alongside every other file in
+  `schema/`.
+- The schema parse+`pyshacl` check still passes (docs-only change).
+
 ## Sequencing
 
 ```
-Work item 1 (roadmap doc)  ─┐
-Work item 2 (CLAUDE.md)     ├─ independent, cheap, no blockers — land first
-Work item 9 (shape fix)    ─┘
+Work item 1 (roadmap doc)   ─┐
+Work item 2 (CLAUDE.md)      ├─ independent, cheap, no blockers — land first
+Work item 9 (shape fix)      │  (2 and 10 done)
+Work item 10 (README map)   ─┘
 
 Work item 3 (triple store)
         │

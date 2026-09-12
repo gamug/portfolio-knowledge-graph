@@ -36,25 +36,29 @@ renumber of the next work item's block.
 
 ## Work item 2 — Reconcile `CLAUDE.md` with `origin/master` (docs, no blockers)
 
-- [ ] **T-010** On a checkout confirmed up to date with `origin/master`,
+**DONE (2026-09-12)**, closed by the constitution-compliance pass.
+
+- [x] **T-010** On a checkout confirmed up to date with `origin/master`,
       read `src/etl/news_to_rdf.py`, `pyproject.toml`'s `portfolio-common`
       pin, and `docs/portfolio-common-v1.2-engine-agnostic.md`. → `PLAN.md`
       Work item 2, step 1.
-- [ ] **T-011** Update `CLAUDE.md`'s description of `src/etl/`'s database
+- [x] **T-011** Update `CLAUDE.md`'s description of `src/etl/`'s database
       access to describe `portfolio_common.news_export` and the actual
       `portfolio-common` version pin. → step 2.
-- [ ] **T-012** Add or fold in a pointer to
+- [x] **T-012** Add or fold in a pointer to
       `docs/portfolio-common-v1.2-engine-agnostic.md` alongside the existing
       `docs/portfolio-common-v1-migration-plan.md` reference. → step 3.
-- [ ] **T-013** Confirm `CLAUDE.md` references both
+- [x] **T-013** Confirm `CLAUDE.md` references both
       `.specify/memory/constitution.md` and `.specify/memory/SPEC.md`; add
       them if missing. → step 4.
-- [ ] **T-014** Verify: `CLAUDE.md`'s `src/etl/` description matches the
+- [x] **T-014** Verify: `CLAUDE.md`'s `src/etl/` description matches the
       actual imports and tag pin (inspection). → `PLAN.md` acceptance
       criteria.
-- [ ] **T-015** Update `SPEC.md` §13 item 5 to note this reconciliation done
-      for the checkout it was performed on (keep the item number). Also
-      update the two architecture artifacts per constitution #6.
+- [x] **T-015** Update `SPEC.md` §13 item 5 to note this reconciliation done
+      for the checkout it was performed on (keep the item number). The two
+      architecture artifacts (constitution #6) needed no update — this pass
+      touched no fact either artifact currently states (verified by reading
+      both; still content-consistent with the repo's actual state).
 
 ## Work item 3 — Stand up a triple store and wire the SHACL ingest gate (roadmap step 1)
 
@@ -168,10 +172,26 @@ decision.*
       `schema/README.md`'s gap list, alongside its three existing gaps. →
       `PLAN.md` acceptance criteria.
 
+## Work item 10 — Complete `schema/README.md`'s directory map
+
+**DONE (2026-09-12)**, closed by the constitution-compliance pass.
+
+- [x] **T-090** Add `protege-view.txt` and
+      `taxonomy-quality-review-2026-08-23.md` to `schema/README.md`'s file
+      listing. → `PLAN.md` Work item 10, approach.
+- [x] **T-091** Verify: both files are now listed; the schema parse+`pyshacl`
+      check still passes (docs-only change). → `PLAN.md` acceptance
+      criteria.
+
 ## Status
 
-Nothing above is started. Work items 1, 2, and 9 (T-001–T-015, T-080–T-083)
-have no blockers and can begin immediately. Work item 3 (T-020–T-025) is
+Work items 2 and 10 (T-010–T-015, T-090–T-091) are done, closed by a
+constitution-compliance pass (2026-09-12) that also fixed the constitution's
+own self-inconsistent "Executable cmds" snippet (bare `python -c` →
+`uv run python -c`, matching that same section's rule 2) and a stale
+`AllDisjointClasses` count in `CLAUDE.md` (20 → 24 members). Work items 1
+and 9 (T-001–T-006, T-080–T-083) have no blockers and can begin immediately.
+Work item 3 (T-020–T-025) is
 blocked on a maintainer store choice; work items 4–7 (T-030–T-064) follow in
 strict dependency order after it, with Work item 7 additionally blocked on a
 maintainer build-vs-delegate decision. Work item 8 (T-070–T-071) is
