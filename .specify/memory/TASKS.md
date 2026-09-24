@@ -5,6 +5,10 @@ references the plan work item and the `SPEC.md` section it closes. Check a
 box only when its acceptance criterion (in `PLAN.md`) is actually met — not
 when the code/doc edit is merely written.
 
+**Closed work items live in `.specify/memory/CHANGELOG.md`**, moved there verbatim
+(task IDs unchanged) once every task in them is done, superseded, or moved elsewhere —
+see constitution Claude Code conduct #7. This file carries only open work items.
+
 Task IDs are stable, same rule as `SPEC.md`'s `FR-0xx`/`NR-0xx`: don't
 renumber; mark a cancelled/superseded task in place instead. IDs are grouped
 in decades by work item (`T-00x` → Work item 1, `T-01x` → Work item 2, `T-02x`
@@ -33,32 +37,6 @@ renumber of the next work item's block.
       "Claude Code / coding-agent conduct" #6 (Portfolio Thesis + Portfolio
       Knowledge Graph) — reconcile the gap list entry for this item, never
       rename either artifact.
-
-## Work item 2 — Reconcile `CLAUDE.md` with `origin/master` (docs, no blockers)
-
-**DONE (2026-09-12)**, closed by the constitution-compliance pass.
-
-- [x] **T-010** On a checkout confirmed up to date with `origin/master`,
-      read `src/etl/news_to_rdf.py`, `pyproject.toml`'s `portfolio-common`
-      pin, and `docs/portfolio-common-v1.2-engine-agnostic.md`. → `PLAN.md`
-      Work item 2, step 1.
-- [x] **T-011** Update `CLAUDE.md`'s description of `src/etl/`'s database
-      access to describe `portfolio_common.news_export` and the actual
-      `portfolio-common` version pin. → step 2.
-- [x] **T-012** Add or fold in a pointer to
-      `docs/portfolio-common-v1.2-engine-agnostic.md` alongside the existing
-      `docs/portfolio-common-v1-migration-plan.md` reference. → step 3.
-- [x] **T-013** Confirm `CLAUDE.md` references both
-      `.specify/memory/constitution.md` and `.specify/memory/SPEC.md`; add
-      them if missing. → step 4.
-- [x] **T-014** Verify: `CLAUDE.md`'s `src/etl/` description matches the
-      actual imports and tag pin (inspection). → `PLAN.md` acceptance
-      criteria.
-- [x] **T-015** Update `SPEC.md` §13 item 5 to note this reconciliation done
-      for the checkout it was performed on (keep the item number). The two
-      architecture artifacts (constitution #6) needed no update — this pass
-      touched no fact either artifact currently states (verified by reading
-      both; still content-consistent with the repo's actual state).
 
 ## Work item 3 — Stand up a triple store and wire the SHACL ingest gate (roadmap step 1)
 
@@ -171,17 +149,6 @@ decision.*
 - [ ] **T-083** Document which option was chosen and why in
       `schema/README.md`'s gap list, alongside its three existing gaps. →
       `PLAN.md` acceptance criteria.
-
-## Work item 10 — Complete `schema/README.md`'s directory map
-
-**DONE (2026-09-12)**, closed by the constitution-compliance pass.
-
-- [x] **T-090** Add `protege-view.txt` and
-      `taxonomy-quality-review-2026-08-23.md` to `schema/README.md`'s file
-      listing. → `PLAN.md` Work item 10, approach.
-- [x] **T-091** Verify: both files are now listed; the schema parse+`pyshacl`
-      check still passes (docs-only change). → `PLAN.md` acceptance
-      criteria.
 
 ## Status
 
