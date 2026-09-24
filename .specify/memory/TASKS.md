@@ -152,11 +152,7 @@ decision.*
 
 ## Status
 
-Work items 2 and 10 (T-010–T-015, T-090–T-091) are done, closed by a
-constitution-compliance pass (2026-09-12) that also fixed the constitution's
-own self-inconsistent "Executable cmds" snippet (bare `python -c` →
-`uv run python -c`, matching that same section's rule 2) and a stale
-`AllDisjointClasses` count in `CLAUDE.md` (20 → 24 members). Work items 1
+Closed Work items 2 and 10 are in `CHANGELOG.md`. Work items 1
 and 9 (T-001–T-006, T-080–T-083) have no blockers and can begin immediately.
 Work item 3 (T-020–T-025) is
 blocked on a maintainer store choice; work items 4–7 (T-030–T-064) follow in
