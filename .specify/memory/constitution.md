@@ -88,7 +88,7 @@ assumes the stack actually pinned in `pyproject.toml`.
 5. **Docs live under `docs/`**, one topic per file (migration/coordination
    notes named by topic, e.g. `portfolio-common-v1-migration-plan.md`,
    `portfolio-common-v1.2-engine-agnostic.md`). A spec-kit artifact (this
-   constitution, `SPEC.md`, `PLAN.md`, `TASKS.md`) goes under `.specify/`.
+   constitution, `SPEC.md`, `PLAN.md`, `TASKS.md`, `CHANGELOG.md`) goes under `.specify/`.
 6. **Config lives where its tool expects it**: Ruff → `.code_quality/ruff.toml`
    (a root `ruff.toml` pointer, if one exists, only `extend`s it); Mypy →
    `.code_quality/mypy.ini`. Don't fork a second config file for a tool that
@@ -225,6 +225,15 @@ model — these are the conventions a spec/plan/PR must not silently violate.)*
    forever, independent of content changes. (See `Artifact` tool guidance:
    title changes are an explicit, separate, user-directed action, never a
    side effect of a content update.)
+7. **Once a Work Item is finished, move the entire work item to
+   `.specify/memory/CHANGELOG.md`.** When every task in a `TASKS.md` work
+   item is checked (or explicitly superseded/moved elsewhere), cut its whole
+   `## Work item N` section — heading, preamble, and every task, verbatim,
+   task IDs unchanged — out of `TASKS.md` and into `CHANGELOG.md`, in the
+   same change that closes it. `TASKS.md` carries only open work, so the
+   spec-driven loop doesn't re-read closed history on every pass;
+   `CHANGELOG.md` is the legacy record, read only when that history is
+   actually needed.
 
 ## Executable cmds
 
@@ -295,6 +304,11 @@ uv run pre-commit run --all-files           # all of the above hooks, plus hygie
    stays on that branch so the user can review the actual working tree
    immediately. Only move off it (per item 3, always to a fresh branch off
    up-to-date `master`) when starting genuinely new work, or when asked to.
+7. **Always present the PR link at the end of the development.** Whenever
+   a development effort ends in a pushed branch/PR, the final message to
+   the user closes with the PR's full URL (one per repo when the effort
+   spans several), so it can be opened for review directly — never just
+   "PR opened" or a bare number.
 
 ## Governance
 
@@ -314,7 +328,7 @@ Compliance is expected to be checked the same way a schema-parse/`pyshacl`
 gate is — a reviewer (human or agent) rejecting a PR that violates a
 principle above should cite the section by name.
 
-**Version**: 1.1.0 | **Ratified**: 2026-09-12 | **Last Amended**: 2026-09-12
+**Version**: 1.2.0 | **Ratified**: 2026-09-12 | **Last Amended**: 2026-09-24
 
 <!--
 1.0.1 (2026-09-12): PATCH, wording/self-consistency fix only. The "Executable
@@ -330,4 +344,10 @@ accordingly: `.claude/` in full (was just `settings.local.json`) and
 `docs/superpowers/` (new) alongside the already-ignored `.superpowers/` and
 `CLAUDE.md`. Two files already tracked under `docs/superpowers/` before this
 rule predate it and are explicitly grandfathered, not removed.
+
+1.2.0 (2026-09-24): MINOR, two new principles. Claude Code conduct #7: a
+finished work item moves, whole and verbatim, from `TASKS.md` to a new
+`.specify/memory/CHANGELOG.md` legacy record, so the spec-driven loop stops
+re-reading closed history (token cost). Code & Git #7: always end a
+development effort with the PR link.
 -->
