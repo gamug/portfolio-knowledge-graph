@@ -234,6 +234,14 @@ model — these are the conventions a spec/plan/PR must not silently violate.)*
    spec-driven loop doesn't re-read closed history on every pass;
    `CHANGELOG.md` is the legacy record, read only when that history is
    actually needed.
+   Moving the section is not enough on its own: in the same change, reduce
+   every other mention of the closed work item in `TASKS.md` (the preamble/
+   priority notes, the `## Status` section) to a one-line pointer to
+   `CHANGELOG.md` — keeping only cross-references an open task genuinely
+   depends on — and mark the work item closed in `PLAN.md`'s own status/
+   sequencing text, so no summary of it is left behind to re-read. "Verbatim"
+   governs the move, not the closing: check off the last task and record its
+   closure evidence first, then move the section as it then stands.
    Work items already closed when this rule was adopted (2026-09-24)
    were backfilled into `CHANGELOG.md` by the change that introduced it —
    the one sanctioned exception to "the same change that closes it".
@@ -351,6 +359,9 @@ rule predate it and are explicitly grandfathered, not removed.
 1.2.0 (2026-09-24): MINOR, two new principles. Claude Code conduct #7: a
 finished work item moves, whole and verbatim, from `TASKS.md` to a new
 `.specify/memory/CHANGELOG.md` legacy record, so the spec-driven loop stops
-re-reading closed history (token cost). Code & Git #7: always end a
+re-reading closed history (token cost); every other `TASKS.md` mention of it
+(preamble, Status) shrinks to a pointer and `PLAN.md` marks it closed;
+"verbatim" governs the move, not the closing; items already closed at adoption
+are backfilled by the introducing change. Code & Git #7: always end a
 development effort with the PR link.
 -->
