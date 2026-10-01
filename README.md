@@ -110,6 +110,13 @@ print('quads:', len(list(g.quads())))
 `pyshacl` (`pip install pyshacl`) validates `instances.trig`'s data against `shapes.ttl`'s shapes
 for SHACL conformance — both checks need to pass after any schema edit.
 
+Opening the repo in the provided **Dev Container** (`.devcontainer/`) pins the Python/`uv`
+toolchain and also bind-mounts a shared `thesis` data directory at `/workspaces/thesis`; set
+**`THESIS_HOST_DIR`** in your host environment (shell profile or OS environment variables, read
+before VS Code launches) to that directory's path on your machine before opening the container.
+This variable name is shared across this project's `portfolio-*` sibling repos that mount the
+same directory.
+
 ## Build status
 
 | Roadmap step | Status |
