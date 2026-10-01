@@ -10,6 +10,7 @@
   "mounts": [
     "source=${localEnv:THESIS_HOST_DIR},target=/workspaces/thesis,type=bind,consistency=cached"
   ],
+  "runArgs": ["--env-file", "${localWorkspaceFolder}/.env"],
   "postCreateCommand": "bash scripts/init.sh",
   "remoteEnv": {
     "UV_LINK_MODE": "copy"
