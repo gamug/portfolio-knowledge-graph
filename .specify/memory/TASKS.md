@@ -47,10 +47,12 @@ renumber of the next work item's block.
       reference) and the PLAN/TASKS text that describes this task itself. Parse: `quads: 1608`; `pyshacl`: `conforms:
       True` (flat union of `instances.trig` + `tbox`/`reference`/`rules`
       against `shapes.ttl`, no inference).*
-- [ ] **T-006** Update the two architecture artifacts per constitution
+- [~] **T-006** ~~Update the two architecture artifacts per constitution
       "Claude Code / coding-agent conduct" #6 (Portfolio Thesis + Portfolio
       Knowledge Graph) — reconcile the gap list entry for this item, never
-      rename either artifact.
+      rename either artifact.~~ **Deprecated 2026-10-02 in favor of T-009**,
+      which now carries this scope (both artifacts, the gap-list entry, and the
+      never-rename rule).
 
 - [x] **T-007** Scan the three upstream repos —
       https://github.com/gamug/portfolio-financial-analysis,
@@ -71,19 +73,27 @@ renumber of the next work item's block.
       `PLAN.md` Work item 7, "What remains here".
 
 - [ ] **T-009** Update the Claude Code artifacts to match the T-007 scope
-      decisions (`SPEC.md` §1/§2.5/§2.6): (a) the local, gitignored
-      `CLAUDE.md` — the stale `news-collector`/`news-crawler`/`edgar_tool.py`
-      line (split out of T-004; already fixed in the author's checkout), purely integrative scope, upstream ownership map,
-      `universe.db` as a direct upstream, upstream's six-rule catalog replacing
-      the "`RuleClause` tree / `VETO_RED_01`" convention (T-103), no
-      orchestrator or scheduler here (`portfolio-app` triggers cycles, T-108),
-      the corrected document chain (`docs/` paths, `08` as reference only);
-      (b) the published Claude Artifacts (architecture/gap-list ones) beyond
-      what T-006 reconciles — regenerate from the current `.md`/`.ttl`
-      sources, never rename. `CLAUDE.md` is untracked, so its edit cannot ride
-      a PR: record in the PR description that it was done locally. Do it after
-      T-003/T-004/T-008 and T-103's decision wording are settled. → `PLAN.md`
-      Work item 1, step 6.
+      decisions (`SPEC.md` §1/§2.5/§2.6) — absorbs the deprecated T-006.
+      **NEVER change a published Claude Artifact's name: not its `<title>`
+      tag, not the name shown in the artifact gallery, not its URL — update
+      content only** (constitution "Claude Code / coding-agent conduct" #6 and
+      the rule against renaming a published artifact as a side effect).
+      (a) The local, gitignored `CLAUDE.md` — the stale
+      `news-collector`/`news-crawler`/`edgar_tool.py` line (split out of
+      T-004; already fixed in the author's checkout), purely integrative
+      scope, upstream ownership map, `universe.db` as a direct upstream,
+      upstream's six-rule catalog replacing the "`RuleClause` tree /
+      `VETO_RED_01`" convention (T-103), no orchestrator or scheduler here
+      (`portfolio-app` triggers cycles, T-108), the corrected document chain
+      (`docs/` paths, `08` as reference only). (b) The two published
+      architecture artifacts named in constitution conduct #6 — *Portfolio
+      Thesis* (system-wide) and *Portfolio Knowledge Graph*
+      (repository-specific) — plus any other published artifact the scope
+      change makes stale: regenerate/reconcile their content (including the
+      gap-list entry for Work item 1) from the current `.md`/`.ttl` sources.
+      `CLAUDE.md` is untracked, so its edit cannot ride a PR: record in the PR
+      description that it was done locally. Do it after T-003/T-004/T-008 and
+      T-103's decision wording are settled. → `PLAN.md` Work item 1, step 6.
 
 ## Work item 3 — Stand up a triple store and wire the SHACL ingest gate (roadmap step 1)
 
@@ -235,8 +245,9 @@ renumber of the next work item's block.
 ## Status
 
 Closed Work items 2, 5, 7 (superseded/decided by T-007) and 10 are in
-`CHANGELOG.md`. Work item 1's T-007 is done
-(2026-10-02); T-003–T-006 and the new T-008 remain, with no blockers. Work
+`CHANGELOG.md`. Work item 1 has only T-009 open (T-001–T-005,
+T-007, T-008 done; T-006 deprecated in favor of T-009); it is local/artifact
+work with no code blockers. Work
 item 9 (T-080–T-083) has no blockers. Work item 3 (T-020–T-025) is blocked on
 a maintainer store choice; Work items 4 and 6 (T-030–T-035, T-050–T-053)
 follow in dependency order after it; Work item 11 (T-100–T-113, decisions
