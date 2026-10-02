@@ -70,6 +70,15 @@ is done by `portfolio-data-mining`, `portfolio-nlp` and
 `portfolio-financial-analysis`; if a capability needs a model, a formula or a
 scheduler, it belongs in one of those, not here. §2.5 is the ownership map.
 
+**Transitional exception**: `src/etl/` (§2.1, FR-004–FR-006) is a temporary
+compatibility path. Its existing computations — per-article Sentiment
+`ScoreSnapshot`s and the severity-derived, gated `:RiskEvent`s — remain
+allowed, and are not a violation of the principle above, until the Work item 4
+projection replaces it. The Sentiment snapshots are then replaced by the
+projected upstream SEMANTIC row; no upstream view corresponds to `:RiskEvent`
+(none appears in the §2.5 view list), so its replacement or retirement is an
+open decision for Work item 4, not something this exception settles.
+
 **What this repo is explicitly not**: it does not compute fundamentals,
 pricing, cycle rankings, or quant scores (`portfolio-financial-analysis`'s
 job); it does not run any NLP model or own article source text — it reads
@@ -581,15 +590,18 @@ treating a related FR/NR as done:
     Work item 11 decides each before Work item 4 writes the projection; Work
     item 4 then pins and checks the view columns it reads (T-030). No
     cross-repo schema generation is planned.
-11. **The SEMANTIC score is not computed here.** The earlier plan to
+11. **The ownership decision is resolved: the SEMANTIC score is not computed
+    here; the cut-over is still pending.** The earlier plan to
     aggregate `article_sentiment` per `(asset, day)` in this repo (old Work
     item 5) conflicted with the upstream boundary note
     (`portfolio-financial-analysis/docs/semantic-score-boundary.md`: `nlp`
     computes, `financial-analysis` materializes, this repo stops writing
     `score_snapshot[SEMANTIC]`). Until that upstream cut-over lands, the
     `src/etl/` per-article Sentiment `ScoreSnapshot`s remain the only SEMANTIC
-    data in the graph; afterwards they are replaced by the projected upstream
-    row (PLAN Work items 4–5).
+    data in the graph. The upstream aggregation (`portfolio-nlp`), its
+    materialization (`financial-analysis`) and the replacement of this local
+    path by the projected row remain pending integration work (PLAN Work items
+    4–5).
 
 ## 14. Scope Boundaries
 
@@ -656,7 +668,7 @@ of what this project is, not a gap someone forgot to close:
 |---|---|---|
 | 1 — integrative layer unbuilt (steps 1–2, query surface); compute steps owned upstream | **Pending development** (integrative layer only) | The actual backlog — `PLAN.md` Work items 3, 4, 6; Work items 5 and 7 are now scope-reassigned upstream (§2.5) |
 | 10 — `kg_schema`/`schema/` vocabulary and semantic drift | **Pending development** | `PLAN.md` Work item 11 (decisions, T-100–T-111) then Work item 4, T-030; register in §2.6 |
-| 11 — SEMANTIC score not computed here | **Resolved by scope decision** | `PLAN.md` Work item 5 (reassigned), §2.5 |
+| 11 — SEMANTIC score not computed here | **Ownership resolved; cut-over pending** (upstream aggregation + local replacement) | `PLAN.md` Work items 4–5 (reassigned), §2.5 |
 | 2 — no `v_*`-views projection | **Pending development** | Folded into `PLAN.md` Work item 4 (the real step-2 projection); today's `src/etl/` shortcut stays live until that lands |
 | 3 — roadmap names superseded repos | **Pending development** (cheap, no blockers) | `PLAN.md` Work item 1 |
 | 4 — `protege-view.ttl` stale | **Pending development** (manual, needs a real Protégé session) | `PLAN.md` Work item 8 |

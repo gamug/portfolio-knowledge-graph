@@ -229,18 +229,25 @@ architecture, and not partitioned for the bitemporal audit trail
 
 **Approach**:
 
-1. Enumerate `financial-analysis`'s `v_*` views this repo needs to read —
-   the T-007 scan found `v_score_snapshot`, `v_universe_membership`,
-   `v_sector`, `v_industry`, `v_price_observation`, `v_sec_filing`,
-   `v_sec_filing_section`, `v_veto`, `v_rule_catalog`, `v_portfolio_position`,
-   `v_cycle_ranking`, `v_shared_executive_edge`, `v_weight_scheme`,
-   `v_weight_component`, `v_data_quality_issue`, the `quant`-side
-   `v_corporate_action`/`v_quant_*`/`v_risk_free_rate`/`v_benchmark_series`,
-   `v_*_run` and `v_universe_coverage` (31 views in all, `SPEC.md` §2.5) in
-   its `src/kg_schema/views.py`, plus `universe.db` for membership
-   (`v_universe_membership` is frozen) — and confirm their actual column shapes against that repo's
-   own docs — this repo pins no contract on them today (§13 item 9's sibling
-   risk on the `financial-analysis` side).
+1. Enumerate and pin `financial-analysis`'s read contract. The T-007 scan
+   found exactly 31 views in `src/kg_schema/views.py` (no wildcards):
+   `v_analysis_run`, `v_pricing_run`, `v_quant_run`, `v_cycle_run`,
+   `v_universe_coverage`, `v_universe_membership` (**frozen** — use
+   `universe.db`), `v_sector`, `v_industry`, `v_score_snapshot`,
+   `v_sector_aggregate_snapshot`, `v_price_observation`, `v_corporate_action`,
+   `v_quant_return_daily`, `v_risk_free_rate`, `v_benchmark_series`,
+   `v_sec_filing`, `v_sec_filing_section`, `v_veto`, `v_rule_catalog`,
+   `v_data_quality_issue`, `v_portfolio_position`, `v_shared_executive_edge`,
+   `v_cycle_ranking`, `v_weight_scheme`, `v_weight_component`,
+   `v_quant_risk_model`, `v_quant_portfolio`, `v_quant_position`,
+   `v_quant_frontier_point`, `v_quant_benchmark_performance`,
+   `v_quant_vs_live` — plus `universe.db` for membership. T-030 then records,
+   per view this repo reads, the exact columns it depends on (a table in
+   `SPEC.md` or `schema/README.md`), taken from that repo's `views.py`
+   projection contract, and adds a check that fails on drift; views this
+   repo decides not to read (Work item 11, T-108) are listed as such. This repo
+   pins no contract on them today (§13 item 9's sibling risk on the
+   `financial-analysis` side).
 2. Design the write path: read each source, `INSERT DATA` into a fresh
    `urn:graph:ingest:{agent}:{date}` graph (Work item 3's store), SHACL-
    validated per row/batch against `shapes.ttl` on the way in — not a
