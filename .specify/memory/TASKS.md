@@ -21,7 +21,7 @@ renumber of the next work item's block.
       reference to `news-collector`, `news-crawler`, `edgar_tool.py`, or "a
       LangGraph agent layer" as an unspecified external thing. → `PLAN.md`
       Work item 1, step 1.
-- [ ] **T-002** Replace each superseded name with the current repo it maps
+- [x] **T-002** Replace each superseded name with the current repo it maps
       to, and point the agent-layer reference at `08-agent-architecture.md`.
       → step 2.
 - [ ] **T-003** Update the roadmap's step 0–9 table so each step names the
