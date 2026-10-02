@@ -36,10 +36,16 @@ renumber of the next work item's block.
       was split out because a gitignored file cannot be reviewed or verified
       from a PR: its stale-name line (fixed locally) and its wider rewrite are
       both tracked under T-009.*
-- [ ] **T-005** Verify: `grep -rn "news-collector\|news-crawler\|edgar_tool"
+- [x] **T-005** Verify: `grep -rn "news-collector\|news-crawler\|edgar_tool"
       *.md README.md CLAUDE.md` returns nothing outside `SPEC.md`'s
       historical §13 references; the schema parse+`pyshacl` check still
-      passes. → `PLAN.md` acceptance criteria.
+      passes. → `PLAN.md` acceptance criteria. *Done 2026-10-02: grep empty
+      over root `*.md`, `README.md` and the author's local `CLAUDE.md` (not
+      reviewable from a PR); remaining hits under `docs/` and `.specify/` are
+      deliberate historical notes (`docs/08` header, `SPEC.md` §13 item 3,
+      PLAN/TASKS task text). Parse: `quads: 1608`; `pyshacl`: `conforms:
+      True` (flat union of `instances.trig` + `tbox`/`reference`/`rules`
+      against `shapes.ttl`, no inference).*
 - [ ] **T-006** Update the two architecture artifacts per constitution
       "Claude Code / coding-agent conduct" #6 (Portfolio Thesis + Portfolio
       Knowledge Graph) — reconcile the gap list entry for this item, never
