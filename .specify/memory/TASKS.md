@@ -56,6 +56,20 @@ renumber of the next work item's block.
       repo-role wording. Fold into T-003/T-004 where they overlap. →
       `PLAN.md` Work item 7, "What remains here".
 
+- [ ] **T-009** Update the Claude Code artifacts to match the T-007 scope
+      decisions (`SPEC.md` §1/§2.5/§2.6): (a) the local, gitignored
+      `CLAUDE.md` — purely integrative scope, upstream ownership map,
+      `universe.db` as a direct upstream, upstream's six-rule catalog replacing
+      the "`RuleClause` tree / `VETO_RED_01`" convention (T-103), no
+      orchestrator or scheduler here (`portfolio-app` triggers cycles, T-108),
+      the corrected document chain (`docs/` paths, `08` as reference only);
+      (b) the published Claude Artifacts (architecture/gap-list ones) beyond
+      what T-006 reconciles — regenerate from the current `.md`/`.ttl`
+      sources, never rename. `CLAUDE.md` is untracked, so its edit cannot ride
+      a PR: record in the PR description that it was done locally. Do it after
+      T-003/T-004/T-008 and T-103's decision wording are settled. → `PLAN.md`
+      Work item 1, step 6.
+
 ## Work item 3 — Stand up a triple store and wire the SHACL ingest gate (roadmap step 1)
 
 - [ ] **T-020** *(maintainer)* Choose GraphDB or Fuseki and its hosting

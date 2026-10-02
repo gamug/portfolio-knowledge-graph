@@ -120,6 +120,9 @@ in this repo's own `08-agent-architecture.md`.
    roadmap's "`src/trading/` is empty" row is stale; roadmap steps 3, 4, 7, 8
    (and part of 9) are computed upstream. `.specify/` is corrected; the
    roadmap/`08`/README/CLAUDE.md wording is left to T-003, T-004, T-008.
+6. Update the Claude Code artifacts — the local `CLAUDE.md` and the published
+   Claude Artifacts — to the scope decisions above, per constitution "Claude
+   Code / coding-agent conduct" #4 and #6 (T-009).
 
 **Acceptance criteria**:
 
