@@ -7,15 +7,22 @@ processes that implement v1's "graph = memory, agents = compute" principle (§1)
 because its state-graph model plus built-in checkpointing map onto the two-speed cycle and the
 `T-1` contagion lag natively, not as bolted-on infrastructure.
 
+> **Status (2026-10-02): design reference, not a build target in this repo.** This repo is purely
+> integrative, so it builds no agents. The two-speed cycle this document designs is implemented
+> upstream by `portfolio-financial-analysis`'s `cycle` package, which differs from the LangGraph design
+> below in several ways — see "Mapping to what exists upstream" at the end. Decision and evidence:
+> `.specify/memory/SPEC.md` §2.2, §2.5, §2.6 and `PLAN.md` Work item 7. Name references below to
+> `news-collector`, `news-crawler` and `edgar_tool.py` have been updated to the current repos.
+
 ## Two graphs, mirroring the two-speed cycle
 
 **`SelectionCycleGraph`** (quarterly, triggered by 10-K/10-Q publication — v1 §2A):
 
-1. `fetch_universe_candidates` — the full S&P 500 list (reuses the Wikipedia-fetch logic already
-   built in `news-collector/news_collector/sp500.py`, not reimplemented).
+1. `fetch_universe_candidates` — the full S&P 500 list (reuses the universe loader already built in
+   `portfolio-data-mining` — `data_mining.portfolio` / the point-in-time `universe.db` — not reimplemented).
 2. `fundamental_screen` — fan-out (LangGraph `Send`) over ~500 tickers, each invocation calling a
-   *batched* wrapper around the existing `edgar_tool.py::EdgarAgent` (today it's single-company/
-   on-demand — see `10-integration-roadmap.md` step 4), computing solvency/liquidity metrics, and
+   *batched* wrapper around `portfolio-data-mining`'s `sec_edgar` agent (built upstream as
+   `portfolio-financial-analysis`'s `fundamental_agent` — see `10-integration-roadmap.md` step 4), computing solvency/liquidity metrics, and
    writing `ScoreSnapshot(agentOrigin='FUNDAMENTAL')` individuals straight to the graph.
 3. `select_watchlist` — a join node after the fan-out: ranks/filters down to 50–80 names, writes
    new `UniverseMembership` individuals for the new quarter.
@@ -35,8 +42,8 @@ because its state-graph model plus built-in checkpointing map onto the two-speed
      see `07-ontology-topology.md`'s price-panel warning) and writes `ScoreSnapshot('QUANTITATIVE')`.
    - `technical_agent` — computes momentum/ATR and writes `ScoreSnapshot('TECHNICAL')` plus a
      derived `PriceObservation`.
-   - `semantic_agent` — pulls new rows from `news-crawler`'s `articles` table and new EDGAR
-     sections, calls the FinBERT service (`09-nlp-finbert-architecture.md`), writes
+   - `semantic_agent` — pulls new rows from `portfolio-data-mining`'s `articles` table (via
+     `portfolio-nlp`) and new EDGAR sections, calls the FinBERT service (`09-nlp-finbert-architecture.md`), writes
      `ScoreSnapshot('SEMANTIC')` and any `RiskEvent`s.
 3. `sector_agent` — join node run after the fan-out (needs every asset's `ScoreTecnico` already
    written to compute a per-sector aggregate): reads all `ScoreSnapshot(metricType='ScoreTecnico')`
@@ -81,9 +88,9 @@ straight to the triple store and state only threads the IRI back for the orchest
 
 | Agent | Tools | Reuse vs. new |
 |---|---|---|
-| Fundamental | Batched `edgar_tool.py::EdgarAgent` (`get_financials`, `search_filings`, ...) | **Reuses** the existing agent-tool-style wrapper (`{"success","data"}` contract) — currently on-demand/single-company, needs the batch runner from roadmap step 4. |
-| Semantic | Read `news-crawler`'s `articles` table + new EDGAR-section extractor + FinBERT service | **Reuses** `news-crawler`'s already-clean `body_text`; FinBERT service is new (`09-nlp-finbert-architecture.md`). |
-| Quantitative / Technical | New pricing-data reader + indicator functions (ATR, Sharpe, volatility) | **New** — no pricing collector exists anywhere yet (roadmap step 3). Deterministic calculations, not LLM calls — stays consistent with v1 §1's compute/memory split. |
+| Fundamental | `portfolio-data-mining`'s `sec_edgar` agent (`get_financials`, `search_filings`, ...), batched | Built upstream as `portfolio-financial-analysis`'s `fundamental_agent` (roadmap step 4). |
+| Semantic | `portfolio-data-mining`'s `articles` via `portfolio-nlp`'s results + FinBERT service | `portfolio-nlp` ships per-article sentiment/NER/category (`09-nlp-finbert-architecture.md`); the per-asset-per-day score is not built. |
+| Quantitative / Technical | Pricing-data reader + indicator functions (ATR, Sharpe, volatility) | Built upstream — `portfolio-data-mining`'s pricing service feeds `pricing_agent`; `cycle` computes TECHNICAL and VALORIZATION (roadmap step 3). Deterministic calculations, not LLM calls — consistent with v1 §1's compute/memory split. |
 | Sector | SPARQL `SELECT` (per-asset `ScoreTecnico`) + SPARQL `INSERT` (`SectorAggregateSnapshot`, `SectorRelativeMomentum`) | **New** (added 2026-08-13) — no sector roll-up exists anywhere yet. |
 | Orchestrator | SPARQL `SELECT` (rule trees + latest snapshots) + Python boolean-tree evaluator + SPARQL `INSERT` (Veto) | Tree evaluator is the direct executable counterpart of `06-ontology-definition.md` §1.5's `RuleClause` structure — same tree, no separate rule language to maintain. |
 | Orchestrator (`compute_attractiveness`) | SPARQL `SELECT` (`AttractivenessWeightScheme` + latest snapshots) + Python weighted-sum evaluator + SPARQL `INSERT` (`AttractivenessSnapshot`) | **New** (added 2026-08-13) — the weighted-sum evaluator is the direct executable counterpart of `06-ontology-definition.md` §1.8's formula, same "graph, not code" pattern as the veto tree evaluator. |
@@ -92,7 +99,7 @@ straight to the triple store and state only threads the IRI back for the orchest
 
 **Fan-out**: LangGraph's `Send` API dispatches one sub-invocation per ticker, but the actual I/O
 inside each invocation (EDGAR calls, price-API calls, SPARQL writes) is wrapped in an
-`asyncio.Semaphore`, matching the pattern already established in `news-collector`'s
+`asyncio.Semaphore`, matching the pattern already established in `portfolio-data-mining`'s `news_collector`
 `DiscoveryOrchestrator` (global + per-domain semaphores) rather than relying on LangGraph's own
 dispatch to rate-limit calls to external, rate-limited APIs.
 
@@ -103,6 +110,29 @@ the checkpointed `current_vetoes` output of cycle N−1 — so `VETO_RED_01`'s `
 "Estrategia de Rezago de Ciclo") and ordinary resumability are the same feature. Cold start (v1
 §5, `T=0`) needs no special-casing: when no checkpoint exists yet, the checkpointer returns empty
 state, which is exactly v1's documented `∅` initialization.
+
+## Mapping to what exists upstream
+
+`portfolio-financial-analysis`'s `cycle` runs `universe → fundamental → technical → valorization →
+semantic_read → normalize → sector → veto → rank → [positions]` (`positions` only for `select`), as a
+topological runner whose resume state is the relational `cycle_checkpoint` table. Read from its docs and
+code; not run here. Differences from the design above:
+
+| This document | Upstream `cycle` |
+|---|---|
+| LangGraph state graphs, `Send` fan-out, `SqliteSaver`/`PostgresSaver` checkpointer | Checkpointed runner over relational tables; `cycle_run`/`cycle_checkpoint` are the resume source of truth (a Strands graph "can drive it later") |
+| Writes individuals straight to the triple store | Writes relational rows (`score_snapshot`, `veto`, `cycle_ranking`, `portfolio_position`); this repo projects them |
+| Quarterly selection triggered by 10-K/10-Q publication; daily monitoring | `cycle select` / `cycle monitor` are commands run with `--analysis-date`; **no scheduler exists** (`portfolio-app` is to trigger them) |
+| `fundamental_screen` fan-out inside the selection graph | `fundamental_agent run` is a separate batch; `cycle` only reads its scores |
+| Score type `QUANTITATIVE` | Renamed `VALORIZATION` |
+| `semantic_agent` computes SEMANTIC | `semantic_read` is a no-op; the SEMANTIC row is pending the `portfolio-nlp` aggregation |
+| `orchestrator` walks a `RuleClause` tree; seven rules incl. `VETO_RED_01` contagion and `VETO_MKT_02` | Six flat threshold rules (`LEVERAGE_EXTREME`, `NEGATIVE_FCF`, `LIQUIDITY_DISTRESS`, `PRICE_CRASH`, `EARNINGS_MISSING`, `DATA_QUALITY`); no contagion rule — upstream's catalog is the maintainer-confirmed final one |
+| T-1 lag = the checkpointer's previous-cycle state | T-1 lag = a read-time predicate: a veto stint is active at cutoff C iff `raised_on <= C AND (cleared_on IS NULL OR cleared_on > C)`; vetoes are stints with a raised and a cleared date, closed never deleted |
+| `compute_attractiveness` → `AttractivenessSnapshot` | `rank` blends the score types by per-run weights into `cycle_ranking` and capped `portfolio_position` stints; no attractiveness individual |
+| Universe from a Wikipedia fetch / SPARQL on `UniverseMembership` | Point-in-time `universe.db` as of `--analysis-date` |
+
+The T-1 mechanism, the stint model and the rule catalog are decisions still to be reflected in
+`schema/` (`.specify/memory/PLAN.md` Work item 11, T-102/T-103).
 
 ---
 

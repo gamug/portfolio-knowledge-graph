@@ -127,7 +127,8 @@ above (`08-agent-architecture.md`, designed but unbuilt — roadmap steps 1 and
 - Running any NLP model, discovering/crawling article URLs, or reading
   article `body_text` (`portfolio-data-mining`/`portfolio-nlp`) — this repo
   only ever reads `portfolio-nlp`'s already-published RESULTS tables,
-  read-only.
+  read-only. **Known deviation (§13 item 12):** today's ETL also reads the
+  SOURCE `urls.db`'s `body_text` for its severity keyword scan.
 - The two LangGraph agent cycles (`SelectionCycleGraph` quarterly,
   `MonitoringCycleGraph` daily) and any scheduler — the two-speed cycle is
   already implemented upstream as `portfolio-financial-analysis`'s `cycle`
@@ -158,7 +159,7 @@ above (`08-agent-architecture.md`, designed but unbuilt — roadmap steps 1 and
 | **FR-002** | Every domain class in `tbox.ttl` that is not a shared-property superclass (`ObservationSnapshot`/`EvidenceSource`/`RuleOperand`) belongs to exactly one `AllDisjointClasses` set and reaches at least one of the 6 taxonomy roots via `rdfs:subClassOf`. | `tbox.ttl`'s `AllDisjointClasses` block lists exactly 24 leaf classes; a taxonomy audit (cycle/orphan/multi-parent detection over the `subClassOf` graph) reports 0 cycles, 0 self-loops, all 37 classes reaching a root, exactly 3 legitimately multi-parented classes (`schema/README.md`'s implementation addendum). |
 | **FR-003** | Every `RuleDefinition` in `rules.ttl` expresses its veto condition as an explicit `RuleClause` tree (`AND`/`OR` of `ThresholdComparison`/`CategoricalComparison`/`GraphPredicate` leaves), never as an infix boolean string. | No `RuleDefinition` in `rules.ttl` carries a rule condition as a literal string to be re-parsed; every `hasClause` path terminates in one of the three documented leaf operand kinds. |
 | **FR-004** | `cli/build_data_ttl.py` projects the Wikipedia S&P 500 table into `:Asset`/`:classifiedAs` individuals, skipping any ticker `reference.ttl` already declares as an `:Asset` (so `cikNumber` never collides under the functional-property `sh:maxCount 1` contract). | A full run's known-ticker count equals the fetched Wikipedia row count minus `reference.ttl`'s worked-example tickers; none of those tickers appear as a second `:Asset` declaration in `data.ttl`. |
-| **FR-005** | `cli/build_data_ttl.py` projects `portfolio-nlp`'s RESULTS rows (`articles ⋈ article_sentiment ⋈ article_category`, `fetch_status = 'ok'`) into `:NewsArticle` + `:ScoreSnapshot` (`agentOrigin = SEMANTIC`, `metricType = Sentiment`) + a gated `:RiskEvent`, via `portfolio_common.news_export`'s read-only connect — never a raw `sqlite3` connection and never `portfolio-nlp`'s SOURCE `body_text`. | `grep -rn "import sqlite3\|body_text" src/etl` returns nothing; every `:NewsArticle` emitted in a sample run traces to a source row with `fetch_status = 'ok'`. |
+| **FR-005** | `cli/build_data_ttl.py` projects `portfolio-nlp`'s RESULTS rows (`articles ⋈ article_sentiment ⋈ article_category`, `fetch_status = 'ok'`) into `:NewsArticle` + `:ScoreSnapshot` (`agentOrigin = SEMANTIC`, `metricType = Sentiment`) + a gated `:RiskEvent`, via `portfolio_common.news_export`'s read-only connect — never a raw `sqlite3` connection and never `portfolio-nlp`'s SOURCE `body_text` (**not what the code does today** — see §13 item 12). | `grep -rn "import sqlite3\|body_text" src/etl` returns nothing; every `:NewsArticle` emitted in a sample run traces to a source row with `fetch_status = 'ok'`. |
 | **FR-006** | The post-build validation step SHACL-checks either the full output (`--limit` given) or a fresh `KG_SAMPLE_NEWS_ROWS`-row sample against the real `tbox.ttl` + `shapes.ttl` + `reference.ttl` — never a full `pyshacl` pass over the unsampled, multi-million-triple `data.ttl`. | `uv run cli/build_data_ttl.py --limit 500` prints `SHACL conforms: <bool>`; an unsampled default run builds and discards a `KG_SAMPLE_NEWS_ROWS`-row sample file rather than validating `data.ttl` directly. |
 
 ### 2.4 Non-functional requirements
@@ -193,7 +194,9 @@ Consequences for this repo's scope:
 2. **Read upstream through its published contract only** — `nlp.db` RESULTS
    via `portfolio_common.news_export`, and `financial-analysis`'s `v_*` views
    opened read-only (`mode=ro`). Never an upstream's SOURCE tables, never a
-   raw table, never `urls.db` directly (NR-002 spirit).
+   raw table, never `urls.db` directly (NR-002 spirit). *Today's ETL is the
+   exception: it also reads SOURCE `urls.db` through `news_export` (§13 item
+   12); the transitional exception in §1 covers it until Work item 4.*
 3. **The pricing endpoint exists** (`portfolio-data-mining`
    `apps/pricing_api.py`, `GET /pricing/{ticker}`; consumed by
    `portfolio-financial-analysis`'s `pricing_agent`). The roadmap's earlier
@@ -518,9 +521,14 @@ There is no CD pipeline and no CI workflow for this repo
   is retained as design reference and still to be reconciled — T-008). `portfolio-reports`
   and `portfolio-app` sit further downstream still, per the six-repo diagram
   in §1.
-- **No direct dependency on**: `portfolio-data-mining`'s `urls.db` or its
-  pricing/EDGAR HTTP services (consumed by `portfolio-nlp` and
-  `portfolio-financial-analysis`, not here — §2.5). The one direct
+- **Upstream (data, read-only, transitional)**: `portfolio-data-mining`'s
+  `urls.db` (SOURCE, `KG_URLS_DB`) — read today by `src/etl/` through
+  `portfolio_common.news_export` alongside the RESULTS store, because the
+  ETL's severity step scans `articles.body_text` (§13 item 12). The real
+  projection should not need it.
+- **No direct dependency on**: `portfolio-data-mining`'s pricing/EDGAR HTTP
+  services (consumed by `portfolio-nlp` and `portfolio-financial-analysis`,
+  not here — §2.5). The one direct
   `portfolio-data-mining` artifact this repo needs is `universe.db` (above). `portfolio-financial-analysis` is a designed, not-yet-wired source
   (§13 item 2), not a non-dependency.
 
@@ -602,6 +610,13 @@ treating a related FR/NR as done:
     materialization (`financial-analysis`) and the replacement of this local
     path by the projected row remain pending integration work (PLAN Work items
     4–5).
+12. **FR-005 and the code disagree.** FR-005 and §2.2 say the ETL never
+    reads `body_text`; `src/etl/news_to_rdf.py` and `config.py` do — SOURCE
+    `urls.db` (`KG_URLS_DB`) is a required input and `compute_severity`
+    keyword-scans the text to escalate severity. Found while handling review
+    on PR #22; the acceptance grep (`body_text` in `src/etl`) fails today.
+    Decision pending (PLAN Work item 11, T-113): drop the escalation or amend
+    the spec.
 
 ## 14. Scope Boundaries
 
@@ -667,6 +682,7 @@ of what this project is, not a gap someone forgot to close:
 | §13 item | Category | Disposition |
 |---|---|---|
 | 1 — integrative layer unbuilt (steps 1–2, query surface); compute steps owned upstream | **Pending development** (integrative layer only) | The actual backlog — `PLAN.md` Work items 3, 4, 6; Work items 5 and 7 are now scope-reassigned upstream (§2.5) |
+| 12 — FR-005 vs. the ETL's `body_text` read | **Pending development** (cheap: a spec/code reconciliation) | `PLAN.md` Work item 11, T-113 |
 | 10 — `kg_schema`/`schema/` vocabulary and semantic drift | **Pending development** | `PLAN.md` Work item 11 (decisions, T-100–T-111) then Work item 4, T-030; register in §2.6 |
 | 11 — SEMANTIC score not computed here | **Ownership resolved; cut-over pending** (upstream aggregation + local replacement) | `PLAN.md` Work items 4–5 (reassigned), §2.5 |
 | 2 — no `v_*`-views projection | **Pending development** | Folded into `PLAN.md` Work item 4 (the real step-2 projection); today's `src/etl/` shortcut stays live until that lands |

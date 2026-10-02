@@ -2,10 +2,14 @@
 
 A master's-thesis design artifact: a formal RDF/OWL/SHACL ontology, plus a set of Markdown
 architecture documents, for a knowledge-graph-backed S&P 500 portfolio
-construction-and-maintenance system. There is no application code in this repository — this is
-the ontology and its supporting specification, built to be loaded into a triple store (GraphDB /
-Fuseki) and driven by an external agent codebase (`news-collector/`, `news-crawler/`,
-`edgar_tool.py`, a LangGraph agent layer) that is not part of this repo.
+construction-and-maintenance system. It is the **integrative layer** of a six-repository system:
+this repo owns the ontology, the projection of its siblings' outputs into it, and the query surface;
+all computation — news acquisition and EDGAR/pricing services (`portfolio-data-mining`), NLP
+(`portfolio-nlp`), and fundamentals/pricing/scoring/vetoes/ranking/portfolio construction
+(`portfolio-financial-analysis`) — lives in those repos. The only application code here is a small
+ETL (`src/etl/`, entry `cli/build_data_ttl.py`) that turns Wikipedia's constituent table and
+`portfolio-nlp`'s results into a flat `data.ttl` loadable on top of `schema/`; the triple store
+(GraphDB / Fuseki) is not yet stood up. Scope detail: `.specify/memory/SPEC.md` §2.5–§2.6.
 
 The source document being formalized is `Avance arquitectura del sistema.docx` (v1, Spanish,
 6 sections). `critique-and-evolution.md` is a critical review of that v1 design plus a proposed
@@ -25,9 +29,9 @@ the numbered docs, in order:
 | — | [`docs/critique-and-evolution.md`](docs/critique-and-evolution.md) | Critique of v1 + the B1–B10 evolution layers everything else implements pieces of. |
 | `06` | [`docs/06-ontology-definition.md`](docs/06-ontology-definition.md) | The ontology design rationale — *what* exists: classes, properties, the `RuleClause` tree that fixes v1's unparenthesized ∧/∨ precedence bug. |
 | `07` | [`docs/07-ontology-topology.md`](docs/07-ontology-topology.md) | Physical layout — *how* it's stored: named-graph partitioning, scale estimates, reasoning profile. |
-| `08` | [`docs/08-agent-architecture.md`](docs/08-agent-architecture.md) | The compute layer — two LangGraph state graphs (`SelectionCycleGraph` quarterly, `MonitoringCycleGraph` daily) implementing v1's two-speed cycle. |
+| `08` | [`docs/08-agent-architecture.md`](docs/08-agent-architecture.md) | The compute-layer *design* — two LangGraph state graphs (`SelectionCycleGraph` quarterly, `MonitoringCycleGraph` daily) for v1's two-speed cycle. Reference only: the cycle is implemented upstream in `portfolio-financial-analysis`'s `cycle` package (mapping at the end of the doc). |
 | `09` | [`docs/09-nlp-finbert-architecture.md`](docs/09-nlp-finbert-architecture.md) | The Semantic Agent's NLP pipeline (FinBERT tone + NER + event/category classification). |
-| `10` | [`docs/10-integration-roadmap.md`](docs/10-integration-roadmap.md) | Dependency-ordered build steps (0–9) tying it all to the external codebase. Step 0 (`schema/`) is the only one done. |
+| `10` | [`docs/10-integration-roadmap.md`](docs/10-integration-roadmap.md) | Dependency-ordered steps (0–9) with the owning repo and status of each. Step 0 (`schema/`) is the only one built here; steps 3–9 are computation built (or planned) in the sibling repos. |
 
 Each doc is a companion to its neighbors, not standalone — a class defined in `06` gets its
 storage location assigned in `07` and its writer assigned in `08`.
@@ -45,13 +49,14 @@ storage location assigned in `07` and its writer assigned in `08`.
 │   ├── rules.ttl                          veto rule catalog + AttractivenessWeightScheme, as RuleClause/weight trees
 │   ├── instances.trig                     worked-example ABox (TriG, multiple named graphs)
 │   └── protege-view.ttl                   generated flat Turtle bundle for Protégé — STALE as of 2026-08-23, not regenerated after the tbox.ttl/reference.ttl/shapes.ttl edits below; regenerate before using in Protégé
+├── src/etl/, cli/build_data_ttl.py         the only application code: Wikipedia + portfolio-nlp results → flat data.ttl (roadmap step 2 shortcut)
 └── docs/                                  all Markdown design documents
     ├── critique-and-evolution.md          v1 critique + v2 evolution layers
     ├── 06-ontology-definition.md          ontology design rationale
     ├── 07-ontology-topology.md            named-graph storage design
-    ├── 08-agent-architecture.md           LangGraph agent architecture
+    ├── 08-agent-architecture.md           LangGraph agent design (reference; built upstream as `cycle`)
     ├── 09-nlp-finbert-architecture.md     NLP / FinBERT pipeline design
-    ├── 10-integration-roadmap.md          10-step build roadmap
+    ├── 10-integration-roadmap.md          10-step roadmap, with owner repo per step
     ├── FAQ.md                             running Q&A log on graph population mechanics
     ├── portfolio-common-v1-migration-plan.md      decision record: adopting portfolio-common v1
     ├── portfolio-common-v1.2-engine-agnostic.md   how the engine-agnostic state was reached
@@ -136,8 +141,8 @@ of configuration:
 |---|---|
 | 0 — Ontology + SHACL shapes (this repo's `schema/`) | ✅ Done |
 | 1 — Stand up the triple store | Not started |
-| 2 — Ingest already-collected news/EDGAR data (the actual next step) | Not started |
-| 3–9 — Pricing collector, EDGAR batch pipeline, FinBERT service, LangGraph agents, entity resolution, portfolio construction, backtesting | Not started |
+| 2 — Ingest already-collected data into the graph | Shortcut built — `src/etl/` projects assets (Wikipedia) and news (`portfolio-nlp` results) to a flat `data.ttl`; the real projection (`financial-analysis` `v_*` views, dated named graphs) not started |
+| 3–9 — Pricing collector, EDGAR batch pipeline, NLP service, agent cycles, entity resolution, sector/portfolio construction, backtesting | Not this repo's to build — owned by `portfolio-data-mining`, `portfolio-nlp`, `portfolio-financial-analysis` (built or partly built there, per their docs; per-step owner table in the roadmap). This repo's part is projecting their outputs (step 2) |
 
 Full dependency-ordered detail in [`docs/10-integration-roadmap.md`](docs/10-integration-roadmap.md).
 [`docs/FAQ.md`](docs/FAQ.md) is a growing log of Q&A on how instance data actually gets populated into the
@@ -177,7 +182,9 @@ authoritative.
 - **N-ary relations are reified as classes** whenever the relationship itself carries data (e.g.
   `UniverseMembership`, not a bare `hasUniverse` property with nowhere to hang dates).
 - **The `RuleClause` tree replaces v1's infix rule strings** so `AND`/`OR` precedence can never
-  be re-parsed wrong.
+  be re-parsed wrong. (Being revised: `portfolio-financial-analysis`'s six-rule catalog, all single
+  flat comparisons, was confirmed as the final one; `rules.ttl` migrates to it — see
+  `.specify/memory/SPEC.md` §2.6 D4.)
 - **Raw price data does not belong in the triple store** — only derived `PriceObservation`
   summaries for a bounded window. The full OHLCV panel belongs in a separate columnar store.
 - **IRI namespace**: everything hangs off `https://thesis.local/kg/portfolio#` (prefix `:`)
