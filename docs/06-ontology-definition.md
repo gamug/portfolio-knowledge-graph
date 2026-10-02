@@ -106,7 +106,7 @@ Portfolio Knowledge Graph
 | `ScoreSnapshot`, `SectorAggregateSnapshot`, `AttractivenessSnapshot` | Observation → Observation Snapshot | v1 §3A; §1.8 | Immutable, timestamped metrics sharing one property shape (`metricType`/`agentOrigin`/`timestamp`/`normalizedScore`). |
 | `PriceObservation` | Observation | scope requirement (daily pricing) | **New in v2, derived-summary only** — see the topology document for why raw OHLCV ticks do *not* belong in the triple store. |
 | `SECFiling` | Evidence → Source Document | v1 §2B | One EDGAR filing (10-K/10-Q/8-K/DEF 14A) for one `Asset`. |
-| `NewsArticle`, `SECFilingSection` | Evidence → Evidence Source | v1 §3B | Evidence leaves cited by `backedBy`; cross-referenced to the existing `news-collector`/`news-crawler` pipeline via `provenanceId` (see §1.6 and `09-nlp-finbert-architecture.md`). |
+| `NewsArticle`, `SECFilingSection` | Evidence → Evidence Source | v1 §3B | Evidence leaves cited by `backedBy`; cross-referenced to `portfolio-data-mining`'s news pipeline (`news_collector`/`extractor`, `urls.db`) via `provenanceId` (see §1.6 and `09-nlp-finbert-architecture.md`). |
 | `RiskEvent`, `Veto` | Risk And Decision | v1 §3B/§4 | A flagged event, SHACL-required to carry evidence (closes critique #5); and the orchestrator's per-cycle exclusion decision. |
 | `RuleDefinition`, `RuleClause` | Rule System | v1 §4, critique #1 & #6 | The veto catalog's tree structure, versioned as graph data — see §1.5. |
 | `ThresholdComparison`, `CategoricalComparison`, `GraphPredicate` | Rule System → Rule Operand | v1 §4, critique #1 | The three leaf-operand kinds a `RuleClause` can compare — see §1.5. |
