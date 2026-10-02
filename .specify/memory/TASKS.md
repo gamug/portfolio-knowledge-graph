@@ -38,15 +38,22 @@ renumber of the next work item's block.
       Knowledge Graph) — reconcile the gap list entry for this item, never
       rename either artifact.
 
-- [ ] **T-007** Scan https://github.com/gamug/portfolio-financial-analysis
-      and match its scope against this repo's scope: what it consumes (e.g.
-      the `portfolio-data-mining` pricing endpoint the maintainer says it
-      uses; unverified, and the roadmap currently says `src/trading/` is
-      empty, so confirm or correct that row) and what it produces for the knowledge graph.
-      Record any mismatch with `SPEC.md` §1/§2 and the roadmap's step 0–9
-      table (notably step 3, pricing, and step 4, EDGAR), and fix the
-      roadmap/README/SPEC wording that gets ownership wrong. → `PLAN.md`
-      Work item 1, step 5.
+- [ ] **T-007** Scan the three upstream repos —
+      https://github.com/gamug/portfolio-financial-analysis,
+      https://github.com/gamug/portfolio-nlp and
+      https://github.com/gamug/portfolio-data-mining — and use them to set
+      this repo's proper scope. This repo is purely integrative: all
+      computation (acquisition, NLP, fundamentals/pricing/quant) lives in
+      those repos, and this one only models, projects and queries their
+      outputs. For each repo record what it consumes and what it produces
+      for the knowledge graph, including the `portfolio-data-mining` pricing
+      endpoint the maintainer says `portfolio-financial-analysis` uses
+      (unverified; the roadmap currently says `src/trading/` is empty, so
+      confirm or correct that row). Record any mismatch with `SPEC.md`
+      §1/§2 and the roadmap's step 0–9 table (notably step 3, pricing, step
+      4, EDGAR, and step 5, FinBERT), and fix the roadmap/README/SPEC
+      wording that assigns computation to this repo or gets ownership
+      wrong. → `PLAN.md` Work item 1, step 5.
 
 ## Work item 3 — Stand up a triple store and wire the SHACL ingest gate (roadmap step 1)
 

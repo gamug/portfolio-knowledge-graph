@@ -97,11 +97,16 @@ in this repo's own `08-agent-architecture.md`.
    what actually change the status).
 4. Cross-check `README.md` and `CLAUDE.md` for the same stale names and
    update them in the same pass.
-5. Scan `github.com/gamug/portfolio-financial-analysis` and match its scope
-   to this repo's (inputs, e.g. the `portfolio-data-mining` pricing endpoint
-   the maintainer says it consumes — unverified, and contradicted by the
-   roadmap's "`src/trading/` is empty" row until the scan confirms it; outputs into the knowledge graph); correct any step 0–9 or
-   `SPEC.md` ownership claim the scan shows is wrong (T-007).
+5. Scan `github.com/gamug/portfolio-financial-analysis`,
+   `github.com/gamug/portfolio-nlp` and `github.com/gamug/portfolio-data-mining`
+   to set this repo's proper scope. This repo is purely integrative: the
+   computation lives in those repos; this one models, projects and queries
+   their outputs. For each, record inputs and outputs into the knowledge
+   graph (including the `portfolio-data-mining` pricing endpoint the
+   maintainer says `portfolio-financial-analysis` consumes — unverified, and
+   contradicted by the roadmap's "`src/trading/` is empty" row until the scan
+   confirms it); correct any step 0–9 or `SPEC.md` claim that assigns
+   computation to this repo or gets ownership wrong (T-007).
 
 **Acceptance criteria**:
 
