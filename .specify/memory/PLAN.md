@@ -97,6 +97,10 @@ in this repo's own `08-agent-architecture.md`.
    what actually change the status).
 4. Cross-check `README.md` and `CLAUDE.md` for the same stale names and
    update them in the same pass.
+5. Scan `github.com/gamug/portfolio-financial-analysis` and match its scope
+   to this repo's (inputs, e.g. the `portfolio-data-mining` pricing endpoint
+   it consumes; outputs into the knowledge graph); correct any step 0–9 or
+   `SPEC.md` ownership claim the scan shows is wrong (T-007).
 
 **Acceptance criteria**:
 
