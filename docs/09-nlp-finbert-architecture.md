@@ -1,8 +1,10 @@
 # NLP Architecture — FinBERT Pipeline
 
 Companion to `08-agent-architecture.md`'s Semantic Agent, which calls this pipeline as a tool.
-Fills the currently-empty `news-nlp/` repo (today it's just a copied `data/` directory — no code)
-with the sentiment/evidence-extraction service that v1 §2B assigns to the Semantic Agent, and that
+Designs the sentiment/evidence-extraction service (originally written for an empty `news-nlp/` scaffold;
+that role is now `portfolio-nlp`, which already ships FinBERT sentiment, NER and category stages — see
+`10-integration-roadmap.md` step 5, and treat the model choices below as the original design, not a
+description of what `portfolio-nlp` runs) that v1 §2B assigns to the Semantic Agent, and that
 `06-ontology-definition.md`'s `ScoreSnapshot(agentOrigin='SEMANTIC')` and `RiskEvent` classes exist
 to receive.
 
@@ -11,11 +13,12 @@ to receive.
 Two inputs, both already-clean structured text (no HTML/boilerplate to strip — that work is
 already done upstream):
 
-1. `news-crawler`'s `articles.body_text` — 2,289/2,289 rows already extracted and classified
-   (`fetch_status='ok'`) in the sample corpus; scales automatically as `news-collector`/
-   `news-crawler` cover more of the S&P 500.
+1. `articles.body_text` from `portfolio-data-mining`'s `extractor` (`urls.db`) — 2,289/2,289 rows already
+   extracted and classified (`fetch_status='ok'`) in the sample corpus; scales automatically as
+   `news_collector`/`extractor` cover more of the S&P 500.
 2. A new EDGAR section extractor's output — Item 1A (Risk Factors), Item 3 (Legal Proceedings),
-   DEF 14A director lists (v1 §2B) — built on `edgar_tool.py` (roadmap step 4).
+   DEF 14A director lists (v1 §2B) — built on `portfolio-data-mining`'s `sec_edgar` service (roadmap step 4). Upstream today stores risk-factor
+   and MD&A text (`sec_filing_section`) but not DEF 14A director lists.
 
 ## Model choice — and what FinBERT does *not* cover
 
@@ -142,12 +145,12 @@ The pipeline writes via SPARQL `INSERT DATA`:
     # than leaving this doc and the schema silently disagreeing with each other.
 
 :Article_AAPL_20260805 a :NewsArticle ;
-    :provenanceId "articles:48211" ;   # news-crawler's articles.id, itself FK'd to discovered_urls.id
+    :provenanceId "articles:48211" ;   # portfolio-data-mining's extractor articles.id, itself FK'd to discovered_urls.id
     :sourceURL "https://finance.yahoo.com/..." .
 ```
 
 `provenanceId` holds `"articles:<id>"` (or `"discovered_urls:<id>"` for rows not yet through
-extraction) directly from the existing `news-collector`/`news-crawler` SQLite pipeline, and an
+extraction) directly from `portfolio-data-mining`'s `urls.db` pipeline (`news_collector`/`extractor`), and an
 accession-number-based id for `SECFilingSection`. Joining a graph individual back to its full
 fetch/discovery history is a lookup in an existing database, not a new identifier scheme.
 

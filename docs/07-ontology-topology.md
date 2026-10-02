@@ -54,9 +54,9 @@ Back-of-envelope for a full 2022–present backfill (~4 years, ~1,008 trading da
 | Source | Rough volume | Why |
 |---|---|---|
 | `ScoreSnapshot` (QUANTITATIVE + TECHNICAL) | ~2.0M individuals | Daily metrics × 500 assets × ~1,000 trading days × 2 agents × ~2 metrics each. |
-| `ScoreSnapshot` (SEMANTIC) | ~200K individuals | News-driven, not every company every day — roughly matches the density already observed in the existing `news-crawler` corpus (2,289 articles from just 8 tickers in a sample window) scaled to 500 tickers over 4 years. |
+| `ScoreSnapshot` (SEMANTIC) | ~200K individuals | News-driven, not every company every day — roughly matches the density already observed in `portfolio-data-mining`'s extracted-article corpus (2,289 articles from just 8 tickers in a sample window) scaled to 500 tickers over 4 years. |
 | `ScoreSnapshot` (FUNDAMENTAL) | ~25K individuals | Quarterly × 500 assets × ~16 quarters × ~3 metrics. |
-| `NewsArticle` | ~100K–150K individuals | Scaling the existing `news-crawler` corpus density (§ above) to the full S&P 500. |
+| `NewsArticle` | ~100K–150K individuals | Scaling the existing extracted-article corpus density (§ above) to the full S&P 500. |
 | `SECFilingSection` | ~30K individuals | 500 companies × ~20 filings (10-K/10-Q/DEF 14A) over 4 years × ~3 sections each. |
 | `RiskEvent`, `Veto` | Low tens of thousands | Only fires when a threshold is actually crossed — a small fraction of `ScoreSnapshot` volume. |
 | `SectorAggregateSnapshot` + `SectorRelativeMomentum` + `AttractivenessSnapshot` (added 2026-08-13) | Low tens of millions combined at full backfill scale | ~11 sectors × 500 assets × ~1,000 trading days — comparable order of magnitude to the existing daily `ScoreSnapshot` volume above; does not change this table's headline order-of-magnitude conclusion below, it's absorbed within it. |

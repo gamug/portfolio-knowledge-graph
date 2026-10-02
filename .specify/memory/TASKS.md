@@ -30,11 +30,11 @@ renumber of the next work item's block.
       T-008. → step 3. *Superseded by T-008 before completion; the roadmap now
       has a "Step → owner → status" table with steps 3–9 marked built/partly
       built upstream per those repos' docs, not verified here.*
-- [ ] **T-004** Cross-check `README.md` and `CLAUDE.md` for the same stale
-      names and update them in the same pass. → step 4. *`README.md` done with
-      T-008; `CLAUDE.md` is local/gitignored and is covered by T-009. Stale
-      names also remain in `docs/06`, `07`, `09` (`news-crawler`, `news-nlp`,
-      `edgar_tool.py`) — fix here before ticking.*
+- [x] **T-004** Cross-check `README.md` and `CLAUDE.md` for the same stale
+      names and update them in the same pass. → step 4. *Done: `README.md`
+      (T-008), `docs/06`, `07`, `09`, and the stale-name line in the local
+      `CLAUDE.md` (gitignored, so not in the PR). `CLAUDE.md`'s broader
+      rewrite for the scope decisions remains T-009.*
 - [ ] **T-005** Verify: `grep -rn "news-collector\|news-crawler\|edgar_tool"
       *.md README.md CLAUDE.md` returns nothing outside `SPEC.md`'s
       historical §13 references; the schema parse+`pyshacl` check still
