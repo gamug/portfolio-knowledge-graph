@@ -122,7 +122,8 @@ in this repo's own `08-agent-architecture.md`.
    roadmap/`08`/README/CLAUDE.md wording is left to T-003, T-004, T-008.
 6. Update the Claude Code artifacts — the local `CLAUDE.md` and the published
    Claude Artifacts — to the scope decisions above, per constitution "Claude
-   Code / coding-agent conduct" #4 and #6 (T-009).
+   Code / coding-agent conduct" #4 and #6 (T-009, which absorbs the
+   deprecated T-006). Published artifact names are never changed.
 
 **Acceptance criteria**:
 
