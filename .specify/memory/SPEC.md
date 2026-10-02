@@ -60,6 +60,16 @@ single-shot, flat `data.ttl` load, so that the ontology has *some* real data
 to validate against before the target architecture (a standing triple store,
 a SHACL ingest gate, an OWL RL reasoner, a SPARQL surface) is built out.
 
+**Scope principle (maintainer decision, recorded 2026-10-02 from the T-007
+upstream-repo scan)**: this repo is **purely integrative**. It defines the
+ontology, projects its siblings' already-computed outputs into it,
+SHACL-validates what goes in, and exposes the result for query. All
+computation — acquisition, NLP, fundamentals, pricing, scoring, vetoes,
+ranking, portfolio construction, entity resolution, the Markowitz benchmark —
+is done by `portfolio-data-mining`, `portfolio-nlp` and
+`portfolio-financial-analysis`; if a capability needs a model, a formula or a
+scheduler, it belongs in one of those, not here. §2.5 is the ownership map.
+
 **What this repo is explicitly not**: it does not compute fundamentals,
 pricing, cycle rankings, or quant scores (`portfolio-financial-analysis`'s
 job); it does not run any NLP model or own article source text — it reads
@@ -110,8 +120,17 @@ above (`08-agent-architecture.md`, designed but unbuilt — roadmap steps 1 and
   only ever reads `portfolio-nlp`'s already-published RESULTS tables,
   read-only.
 - The two LangGraph agent cycles (`SelectionCycleGraph` quarterly,
-  `MonitoringCycleGraph` daily) — designed in `08-agent-architecture.md`, no
-  scheduler exists.
+  `MonitoringCycleGraph` daily) and any scheduler — the two-speed cycle is
+  already implemented upstream as `portfolio-financial-analysis`'s `cycle`
+  package (`cycle select` / `cycle monitor`, checkpointed, T-1 contagion-
+  lagged); this repo builds no orchestrator (§2.5, PLAN Work item 7).
+- The SEMANTIC per-`(asset, day)` aggregation — owned by `portfolio-nlp`,
+  materialized as `score_snapshot[SEMANTIC]` by `portfolio-financial-analysis`;
+  this repo only projects the resulting row (§2.5, PLAN Work item 5).
+- Entity resolution (`sharedExecutiveWith`), portfolio construction, sector
+  scoring and the Markowitz benchmark (roadmap steps 7–8) — built upstream in
+  `portfolio-financial-analysis` (`entity_resolution`, `cycle`, `quant`);
+  here they exist only as projected `v_*` rows.
 - SEC EDGAR filings/sections, pricing/trading data, `:Executive` individuals,
   `article_summary`/`sector_summary` ingestion, and entity extraction beyond
   sentiment/category — all explicitly excluded from the current ETL phase
@@ -139,6 +158,42 @@ above (`08-agent-architecture.md`, designed but unbuilt — roadmap steps 1 and
 | **NR-003** | Raw OHLCV/tick-level price data never enters the ontology or the ETL output (`07-ontology-topology.md`'s explicit warning). | `tbox.ttl` defines no tick-level price class; `grep` for a raw-bar/tick field name in `schema/` or `src/etl/` returns nothing beyond the bounded `PriceObservation` summary class. |
 | **NR-004** | The IRI namespace stays `https://thesis.local/kg/portfolio#` for every new term across `schema/*.ttl`/`.trig` unless deliberately aligning to an external vocabulary. | A bare `owl:Class`/`owl:ObjectProperty`/`owl:DatatypeProperty` declaration outside that namespace, excluding the documented FIBO `rdfs:seeAlso` and GICS `skos:Concept` alignments, does not occur. |
 | **NR-005** | The only automated gate is the `rdflib` parse + `pyshacl` conformance check (FR-001) — there is no `pytest` suite and no CI workflow configured today. | The parse+`pyshacl` script passes locally before merge; this NR exists so the absence of a test suite/CI is a documented decision (§14), not an oversight a reader might mistake for one. |
+
+### 2.5 Scope boundary — what this repo owns vs. consumes
+
+Established by the T-007 scan (2026-10-02) of `portfolio-data-mining`,
+`portfolio-nlp` and `portfolio-financial-analysis` (READMEs + their own
+`SPEC.md`s; read, not executed).
+
+| Repo | Computes / owns | Surface this repo may consume | Consumed today? |
+|---|---|---|---|
+| `portfolio-data-mining` | News URL discovery and article text extraction (`news_collector`, `extractor` → `urls.db`); Finnhub/yfinance pricing HTTP service (`pricing`, `GET /pricing/{ticker}`, corporate actions); SEC EDGAR HTTP service (`sec_edgar`); the S&P 500 universe, live and point-in-time (`data_mining.portfolio`, `universe_history` → `universe.db`) | `universe.db` (point-in-time membership) is the only candidate; its HTTP services and `urls.db` are consumed by the other two repos, not here | No — and it should stay indirect (§12) |
+| `portfolio-nlp` | Sentiment (FinBERT), NER, category, summaries → `nlp.db` (`article_sentiment`/`article_entities`/`article_category`/`article_summary`/`sector_summary`); proposed owner of the per-`(asset, day)` SEMANTIC aggregation (not built) | `nlp.db` RESULTS, read-only | Yes — `src/etl/` via `portfolio_common.news_export` |
+| `portfolio-financial-analysis` | `fundamental_agent` (EDGAR ratios + LLM assessment), `pricing_agent`, `cycle` (TECHNICAL/VALORIZATION/SECTOR scores, veto lane, ranking, positions, T-1 lag, checkpointing), `entity_resolution` (`sharedExecutiveWith`), `quant` (Markowitz benchmark, forward evaluation), read-only HTTP `api/`; passive `kg_schema` | The `v_*` read-contract views over `KG_FINANCIAL_DB` (`v_score_snapshot`, `v_universe_membership`, `v_sector`, `v_industry`, `v_price_observation`, `v_sec_filing`, `v_sec_filing_section`, `v_veto`, `v_rule_catalog`, `v_data_quality_issue`, `v_portfolio_position`, `v_cycle_ranking`, `v_shared_executive_edge`, `v_weight_scheme`, `v_weight_component`, `v_*_run`, `v_universe_coverage`) | No — designed source, unread (§13 item 2) |
+| `portfolio-knowledge-graph` (this repo) | The ontology (`schema/`); the projection of the above into SHACL-validated, dated named graphs; the store, reasoner and SPARQL surface over them | — | — |
+
+Consequences for this repo's scope:
+
+1. **No computation here.** Anything that would compute a score, rank, veto,
+   position, sentiment or filing metric is out of scope; this repo
+   *represents* it (`:ScoreSnapshot`, `:Veto`, `:PortfolioPosition`, …) with
+   provenance back to the upstream `run_id`/`as_of`/`code_version`.
+2. **Read upstream through its published contract only** — `nlp.db` RESULTS
+   via `portfolio_common.news_export`, and `financial-analysis`'s `v_*` views
+   opened read-only (`mode=ro`). Never an upstream's SOURCE tables, never a
+   raw table, never `urls.db` directly (NR-002 spirit).
+3. **The pricing endpoint exists** (`portfolio-data-mining`
+   `apps/pricing_api.py`, `GET /pricing/{ticker}`; consumed by
+   `portfolio-financial-analysis`'s `pricing_agent`). The roadmap's earlier
+   "`src/trading/` is empty / no pricing pipeline anywhere" claim is stale.
+   This repo needs no pricing access: only `v_price_observation` summaries
+   (NR-003).
+4. **`financial-analysis`'s `kg_schema` already mirrors this ontology's
+   concepts** (`ScoreSnapshot`, `UniverseMembership`, `PriceObservation`,
+   `SECFilingSection`, `Veto`/`RuleClause`, `PortfolioPosition`,
+   `sharedExecutiveWith`). That makes the projection a mapping job (view
+   column → ontology property), and makes drift between the two vocabularies
+   the main integration risk (§13 item 10).
 
 ## 3. Technology Stack & Architecture Decisions
 
@@ -195,13 +250,14 @@ flowchart TB
     ETL["src/etl/ -- step 2 shortcut, PARTIAL<br/>cli/build_data_ttl.py<br/>flat data.ttl, not partitioned"]
     REASON["OWL RL reasoner<br/>NOT BUILT"]
     SPARQL["SPARQL surface<br/>NOT BUILT"]
-    AGENTS["LangGraph agents -- doc 08<br/>Selection (quarterly) / Monitoring (daily)<br/>DESIGNED, NO SCHEDULER"]
+    AGENTS["cycle orchestration -- NOT THIS REPO<br/>fin-analysis `cycle select` / `cycle monitor`<br/>(doc 08 LangGraph design: reference only)"]
 
     SCHEMA -->|load order| STORE --> GRAPHS --> GATE
     FIN -.->|designed, not wired| GATE
     NLPRES -->|read-only, today| ETL
     ETL -.->|flat file, bypasses GATE/GRAPHS| SCHEMA
-    GATE --> REASON --> SPARQL --> AGENTS
+    GATE --> REASON --> SPARQL
+    SPARQL -.->|evidence surface, consumed by| AGENTS
 ```
 
 **Reading this diagram**: the top row (`schema/` → store → named graphs →
@@ -393,17 +449,27 @@ There is no CD pipeline and no CI workflow for this repo
   `pyproject.toml` (`[tool.uv.sources]`, currently `v1.2.0`) — a DB-engine or
   `news_export` contract change here is an explicit, reviewed re-pin, never
   a floating version.
+- **Upstream (data, read-only, designed — not yet read)**:
+  `portfolio-financial-analysis`'s `v_*` read-contract views over
+  `KG_FINANCIAL_DB` (opened `mode=ro`; list in §2.5), and — if the
+  point-in-time universe is projected here rather than via `v_universe_membership`
+  — `universe.db`. This is the only contract through which fundamentals,
+  pricing summaries, vetoes, rankings, positions, executive edges and the
+  SEMANTIC score reach this repo.
 - **Downstream (intended, not yet built)**: a standing triple store, the
-  SHACL ingest gate, the OWL RL reasoner, the SPARQL surface, and the two
-  LangGraph agent cycles (`08-agent-architecture.md`) — designed to consume
-  this repo's schema and, eventually, `financial-analysis`'s `v_*` views
-  projected through it (roadmap steps 1–8, not started). `portfolio-reports`
+  SHACL ingest gate, the OWL RL reasoner and the SPARQL surface (roadmap
+  steps 1–2 and the query surface). Cycle orchestration is **not** downstream
+  work for this repo: it already lives in `portfolio-financial-analysis`'s
+  `cycle` package (decision recorded 2026-10-02; `08-agent-architecture.md`
+  is retained as design reference and still to be reconciled — T-008). `portfolio-reports`
   and `portfolio-app` sit further downstream still, per the six-repo diagram
   in §1.
-- **No dependency on**: `portfolio-data-mining` (no direct read — this repo
-  only reads `portfolio-nlp`'s already-processed output) or
-  `portfolio-financial-analysis` (designed as a future source, not read
-  today — see §13 item 2).
+- **No direct dependency on**: `portfolio-data-mining` — no read of its
+  `urls.db`, HTTP services or `universe.db` beyond what reaches this repo
+  through `portfolio-nlp` and `portfolio-financial-analysis` (its pricing and
+  EDGAR services are consumed by `portfolio-financial-analysis`, not here —
+  §2.5). `portfolio-financial-analysis` is a designed, not-yet-wired source
+  (§13 item 2), not a non-dependency.
 
 ## 13. Open Questions & Risks
 
@@ -412,13 +478,17 @@ artifact](https://claude.ai/code/artifact/d5d59284-9565-4bf6-8a54-3d2d1549863f))
 and this document's own drafting — resolve or explicitly accept before
 treating a related FR/NR as done:
 
-1. **Roadmap steps 1–9 are entirely unbuilt.** No triple store, no SHACL
-   ingest gate, no dated named-graph partitioning, no OWL RL reasoner, no
-   SPARQL surface, no agent layer, no entity resolution or portfolio
-   construction *in the graph*, no backtest. The compute layer §4 diagrams
-   above the `src/etl/` shortcut is entirely unwritten.
+1. **The integrative layer (roadmap steps 1–2 and the query surface) is
+   unbuilt.** No triple store, no SHACL ingest gate, no dated named-graph
+   partitioning, no OWL RL reasoner, no SPARQL surface. The *compute* steps
+   the roadmap numbers 3–9 (pricing, EDGAR batch, NLP, agents, entity
+   resolution, sector/construction, backtesting) are not this repo's to build:
+   per the T-007 scan they are owned upstream (§2.5) — what is missing here is
+   only their projection into the graph.
 2. **The designed step-2 projection (`financial-analysis`'s `v_*` views →
-   dated named graphs, SHACL-validated on the way in) does not exist.**
+   dated named graphs, SHACL-validated on the way in) does not exist.** The
+   views to read are now enumerated in §2.5; their column shapes are still
+   unconfirmed (PLAN Work item 4, T-030).
    Today's `src/etl/` is a narrower, working stand-in: it reads only
    `portfolio-nlp`'s RESULTS store directly, bypassing
    `portfolio-financial-analysis` and named-graph partitioning entirely, and
@@ -457,6 +527,21 @@ treating a related FR/NR as done:
 9. **No SOURCE/RESULTS schema contract is pinned beyond
    `fetch_processed_articles`'s join shape** — a `portfolio-nlp` schema
    change could silently break this repo's ETL with no signal.
+10. **Vocabulary drift between `kg_schema` (in `portfolio-financial-analysis`)
+    and `schema/` (here).** Both name the same concepts; neither is generated
+    from the other, and `kg_schema`'s `v_*` views are the only contract. A
+    rename or new column upstream breaks Work item 4's mapping silently
+    (§2.5 consequence 4). Mitigation: Work item 4 pins and checks the view
+    columns it reads (T-030); no cross-repo schema generation is planned.
+11. **The SEMANTIC score is not computed here.** The earlier plan to
+    aggregate `article_sentiment` per `(asset, day)` in this repo (old Work
+    item 5) conflicted with the upstream boundary note
+    (`portfolio-financial-analysis/docs/semantic-score-boundary.md`: `nlp`
+    computes, `financial-analysis` materializes, this repo stops writing
+    `score_snapshot[SEMANTIC]`). Until that upstream cut-over lands, the
+    `src/etl/` per-article Sentiment `ScoreSnapshot`s remain the only SEMANTIC
+    data in the graph; afterwards they are replaced by the projected upstream
+    row (PLAN Work items 4–5).
 
 ## 14. Scope Boundaries
 
@@ -521,7 +606,9 @@ of what this project is, not a gap someone forgot to close:
 
 | §13 item | Category | Disposition |
 |---|---|---|
-| 1 — roadmap steps 1–9 unbuilt | **Pending development** | The actual backlog — see `PLAN.md` Work items 3–7, one per roadmap step/decision point, sequenced by dependency |
+| 1 — integrative layer unbuilt (steps 1–2, query surface); compute steps owned upstream | **Pending development** (integrative layer only) | The actual backlog — `PLAN.md` Work items 3, 4, 6; Work items 5 and 7 are now scope-reassigned upstream (§2.5) |
+| 10 — `kg_schema`/`schema/` vocabulary drift | **Pending development** (mitigation inside Work item 4) | `PLAN.md` Work item 4, T-030 |
+| 11 — SEMANTIC score not computed here | **Resolved by scope decision** | `PLAN.md` Work item 5 (reassigned), §2.5 |
 | 2 — no `v_*`-views projection | **Pending development** | Folded into `PLAN.md` Work item 4 (the real step-2 projection); today's `src/etl/` shortcut stays live until that lands |
 | 3 — roadmap names superseded repos | **Pending development** (cheap, no blockers) | `PLAN.md` Work item 1 |
 | 4 — `protege-view.ttl` stale | **Pending development** (manual, needs a real Protégé session) | `PLAN.md` Work item 8 |

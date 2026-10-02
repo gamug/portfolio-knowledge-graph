@@ -25,8 +25,8 @@ renumber of the next work item's block.
       to, and point the agent-layer reference at `08-agent-architecture.md`.
       → step 2.
 - [ ] **T-003** Update the roadmap's step 0–9 table so each step names the
-      repo that now owns or will build it, without changing done/not-started
-      status. → step 3.
+      repo that now owns or will build it (owners per `SPEC.md` §2.5), without
+      changing done/not-started status. → step 3.
 - [ ] **T-004** Cross-check `README.md` and `CLAUDE.md` for the same stale
       names and update them in the same pass. → step 4.
 - [ ] **T-005** Verify: `grep -rn "news-collector\|news-crawler\|edgar_tool"
@@ -38,22 +38,22 @@ renumber of the next work item's block.
       Knowledge Graph) — reconcile the gap list entry for this item, never
       rename either artifact.
 
-- [ ] **T-007** Scan the three upstream repos —
+- [x] **T-007** Scan the three upstream repos —
       https://github.com/gamug/portfolio-financial-analysis,
       https://github.com/gamug/portfolio-nlp and
       https://github.com/gamug/portfolio-data-mining — and use them to set
-      this repo's proper scope. This repo is purely integrative: all
-      computation (acquisition, NLP, fundamentals/pricing/quant) lives in
-      those repos, and this one only models, projects and queries their
-      outputs. For each repo record what it consumes and what it produces
-      for the knowledge graph, including the `portfolio-data-mining` pricing
-      endpoint the maintainer says `portfolio-financial-analysis` uses
-      (unverified; the roadmap currently says `src/trading/` is empty, so
-      confirm or correct that row). Record any mismatch with `SPEC.md`
-      §1/§2 and the roadmap's step 0–9 table (notably step 3, pricing, step
-      4, EDGAR, and step 5, FinBERT), and fix the roadmap/README/SPEC
-      wording that assigns computation to this repo or gets ownership
-      wrong. → `PLAN.md` Work item 1, step 5.
+      this repo's proper scope (purely integrative: computation lives
+      upstream). **Done 2026-10-02**: ownership map in `SPEC.md` §2.5; pricing
+      endpoint confirmed in `portfolio-data-mining`; `.specify/` reconciled
+      (SPEC §1/§2/§4/§12/§13/§14, PLAN Goal/WI 4/5/7, this file). → `PLAN.md`
+      Work item 1, step 5.
+- [ ] **T-008** Reconcile outside `.specify/` with the T-007 scope decision:
+      `08-agent-architecture.md` (LangGraph graphs → reference for upstream
+      `cycle`, not a build target), `10-integration-roadmap.md` steps 3–9 and
+      the stale "`src/trading/` is empty" row (pricing/EDGAR/entity
+      resolution/construction are computed upstream), and the README's
+      repo-role wording. Fold into T-003/T-004 where they overlap. →
+      `PLAN.md` Work item 7, "What remains here".
 
 ## Work item 3 — Stand up a triple store and wire the SHACL ingest gate (roadmap step 1)
 
@@ -77,38 +77,25 @@ renumber of the next work item's block.
 
 *Blocked on Work item 3 (T-020–T-025).*
 
-- [ ] **T-030** Enumerate and confirm the `financial-analysis` `v_*` views'
-      actual column shapes this repo needs to read. → `PLAN.md` Work item 4,
+- [ ] **T-030** Confirm the `financial-analysis` `v_*` views' actual column
+      shapes (view list in `SPEC.md` §2.5; definitions in that repo's
+      `src/kg_schema/views.py`), pin the columns this repo reads, and add a
+      check that fails on drift (`SPEC.md` §13 item 10). → `PLAN.md` Work item 4,
       step 1.
 - [ ] **T-031** Design and implement the SHACL-validated-on-write path into
       fresh `urn:graph:ingest:{agent}:{date}` graphs. → step 2.
 - [ ] **T-032** Decide and implement `:supersededBy` semantics for a
       restatement. → step 3.
 - [ ] **T-033** Retire or explicitly fold in today's `src/etl/` shortcut
-      once the real projection covers the SEMANTIC lane (coordinate with
-      Work item 5). → step 4.
+      once the real projection covers the SEMANTIC lane, i.e. once the
+      upstream `score_snapshot[SEMANTIC]` row exists to project (Work item
+      5's remainder). → step 4.
 - [ ] **T-034** Grow the ABox to the full ~503-constituent universe across
       all agent lanes once this projection can produce them. → step 5.
 - [ ] **T-035** Verify: a real-data projection run produces SHACL-conformant
       dated graphs at write time; the full universe is represented;
       `src/etl/`'s post-landing role is explicitly documented. → `PLAN.md`
       acceptance criteria.
-
-## Work item 5 — Implement the SEMANTIC score's per-`(asset, day)` aggregation
-
-*Blocked on Work item 4 (T-030–T-035) — implemented as part of its write
-path.*
-
-- [ ] **T-040** Define and get sign-off on the aggregation formula
-      (article-count-weighted mean `rawValue` per `(asset, day)`, or an
-      agreed alternative). → `PLAN.md` Work item 5, step 1.
-- [ ] **T-041** Implement it in Work item 4's write path — one aggregated
-      `ScoreSnapshot` per `(asset, day)`, not per article. → step 2.
-- [ ] **T-042** Mirror to `financial-analysis`'s `score_snapshot[SEMANTIC]`
-      column if that repo keeps it. → step 3.
-- [ ] **T-043** Verify: exactly one `SEMANTIC`/`Sentiment` `ScoreSnapshot`
-      per `(asset, day)` with articles; the formula is documented and
-      flagged provisional. → `PLAN.md` acceptance criteria.
 
 ## Work item 6 — Bring up the OWL RL reasoner and the SPARQL surface
 
@@ -125,24 +112,6 @@ path.*
 - [ ] **T-053** Verify: all three query patterns return correct results
       against real projected data; subclass-transitivity inference works
       without property-chain inference. → `PLAN.md` acceptance criteria.
-
-## Work item 7 — Decide and build the orchestrator
-
-*Blocked on Work items 3, 4, and 6, and on the maintainer's build-vs-delegate
-decision.*
-
-- [ ] **T-060** *(maintainer decision)* Build the two LangGraph state graphs
-      here, or delegate the two-speed cycle to `financial-analysis`'s
-      `cycle` package. → `PLAN.md` Work item 7, step 1.
-- [ ] **T-061** Implement the checkpointer-as-T-1-contagion-lag mechanism
-      per whichever choice was made. → step 2.
-- [ ] **T-062** Wire a scheduler for the quarterly/daily cadence. → step 3.
-- [ ] **T-063** Record the build-vs-delegate decision in `SPEC.md` §3/§12.
-      → `PLAN.md` acceptance criteria.
-- [ ] **T-064** Verify: a `SelectionCycleGraph` run and a
-      `MonitoringCycleGraph` run each produce a dated
-      `ingest:ORCHESTRATOR:{date}` graph consistent with `instances.trig`'s
-      worked example. → `PLAN.md` acceptance criteria.
 
 ## Work item 8 — Regenerate `schema/protege-view.ttl` (manual, independent)
 
@@ -169,10 +138,11 @@ decision.*
 
 ## Status
 
-Closed Work items 2 and 10 are in `CHANGELOG.md`. Work items 1
-and 9 (T-001–T-006, T-080–T-083) have no blockers and can begin immediately.
-Work item 3 (T-020–T-025) is
-blocked on a maintainer store choice; work items 4–7 (T-030–T-064) follow in
-strict dependency order after it, with Work item 7 additionally blocked on a
-maintainer build-vs-delegate decision. Work item 8 (T-070–T-071) is
-independent but needs a human at a Protégé session, not a coding session.
+Closed Work items 2, 5, 7 (superseded/decided by T-007) and 10 are in
+`CHANGELOG.md`. Work item 1's T-007 is done
+(2026-10-02); T-003–T-006 and the new T-008 remain, with no blockers. Work
+item 9 (T-080–T-083) has no blockers. Work item 3 (T-020–T-025) is blocked on
+a maintainer store choice; Work items 4 and 6 (T-030–T-035, T-050–T-053)
+follow in dependency order after it.
+Work item 8 (T-070–T-071) is independent but needs a human at a Protégé
+session, not a coding session.
