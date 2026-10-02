@@ -9,10 +9,10 @@ before it, and which existing repo (if any) it extends versus builds from scratc
 
 | Repo/asset | Status |
 |---|---|
-| `news-collector/` | Built, tested — S&P 500 news URL discovery. |
-| `news-crawler/` | Built, tested — full article text extraction (2,289/2,289 processed). |
-| `news-nlp/` | Empty scaffold — target of step 5. |
-| `projects/web_scraping/portfolio-data-mining/src/fundamental/edgar_tool.py` | Built, on-demand single-company EDGAR wrapper — target of step 4's batch extension. |
+| `portfolio-data-mining` (news discovery) | Built, tested — S&P 500 news URL discovery. |
+| `portfolio-data-mining` (article extraction) | Built, tested — full article text extraction, 2,289/2,289 processed. |
+| `portfolio-nlp` | Semantic layer — target of step 5. |
+| `portfolio-data-mining`'s on-demand EDGAR wrapper | Built, single-company — target of step 4's batch extension. |
 | `projects/web_scraping/portfolio-data-mining/src/trading/` | **Empty** — no pricing pipeline anywhere — target of step 3. |
 | `gdelt_news_full.csv` | Real historical GDELT data — usable as calibration/backtest fuel (step 9). |
 | No triple/graph store anywhere | Target of step 1. |
@@ -39,8 +39,7 @@ is now a load operation (`schema/README.md`'s load order), not a from-scratch de
 
 **2. Ingestion adapters for already-collected data.**
 Before building anything new, get the graph populated with what already exists, for early
-validation: a small ETL script reading `news-collector`+`news-crawler`'s SQLite (`discovered_urls`,
-`articles`) and any existing GDELT/EDGAR outputs, writing them as `NewsArticle`/evidence
+validation: a small ETL script reading `portfolio-data-mining`'s and `portfolio-nlp`'s SQLite stores (`urls.db`/`nlp.db`) and any existing GDELT/EDGAR outputs, writing them as `NewsArticle`/evidence
 individuals with `provenanceId` set (per `09-nlp-finbert-architecture.md`'s output contract). This
 step deliberately comes *before* any new agent or NLP code — it's the fastest way to get a
 SHACL-validated, non-trivial graph to test §0/§1's design against real data.
@@ -53,21 +52,21 @@ tickers. Per `07-ontology-topology.md`'s warning, the raw panel goes to a column
 (Parquet/SQLite), **not** the triple store — only derived `PriceObservation` summaries get
 projected into the graph, and only for the bounded window the veto rules need.
 
-**4. EDGAR batch pipeline — extends `edgar_tool.py`.**
+**4. EDGAR batch pipeline — extends `portfolio-data-mining`'s EDGAR wrapper.**
 Turns the existing on-demand, single-company `EdgarAgent` into a scheduled, full-universe sweep:
 iterate all S&P 500 tickers, pull 10-K/10-Q/DEF 14A, and extract Item 1A/Item 3/DEF 14A-director
 sections as `SECFilingSection` individuals — the structured-evidence counterpart to what
-`news-collector`/`news-crawler` already do for news. This is what makes the Fundamental Agent's
+`portfolio-data-mining` already does for news. This is what makes the Fundamental Agent's
 quarterly `fundamental_screen` node (`08-agent-architecture.md`) a batch operation instead of 500
 sequential on-demand calls.
 
-**5. FinBERT service in `news-nlp/`.**
-Builds `09-nlp-finbert-architecture.md` into the currently-empty repo, consuming step 2's ingested
+**5. FinBERT service in `portfolio-nlp`.**
+Builds `09-nlp-finbert-architecture.md` into that repo, consuming step 2's ingested
 articles and step 4's new filing sections. This is the first step that actually needs steps 0–4 to
 already exist — chunking/scoring text that isn't in the graph yet, with nowhere to write results,
 would be untestable.
 
-**6. LangGraph agent layer.**
+**6. LangGraph agent layer (specified in `08-agent-architecture.md`).**
 Builds `08-agent-architecture.md`'s two graphs, reading/writing everything steps 0–5 established:
 the ontology (0), the store (1), real seed data (2), pricing (3), filings (4), and sentiment (5).
 This is deliberately late in the sequence — the agents are orchestration *over* already-working
