@@ -53,6 +53,8 @@ storage location assigned in `07` and its writer assigned in `08`.
     ├── 09-nlp-finbert-architecture.md     NLP / FinBERT pipeline design
     ├── 10-integration-roadmap.md          10-step build roadmap
     ├── FAQ.md                             running Q&A log on graph population mechanics
+    ├── portfolio-common-v1-migration-plan.md      decision record: adopting portfolio-common v1
+    ├── portfolio-common-v1.2-engine-agnostic.md   how the engine-agnostic state was reached
     ├── new_ontology/                      taxonomy proposal + critical evaluation
     └── superpowers/                       planning/spec artifacts from the SDD workflow used
                                            to build the attractiveness-ranking + sector-momentum
