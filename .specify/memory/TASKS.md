@@ -17,7 +17,7 @@ renumber of the next work item's block.
 
 ## Work item 1 — Rewrite the integration roadmap's stale repo references (docs, no blockers)
 
-- [ ] **T-001** Read `10-integration-roadmap.md` in full and list every
+- [x] **T-001** Read `10-integration-roadmap.md` in full and list every
       reference to `news-collector`, `news-crawler`, `edgar_tool.py`, or "a
       LangGraph agent layer" as an unspecified external thing. → `PLAN.md`
       Work item 1, step 1.
