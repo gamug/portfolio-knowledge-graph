@@ -40,8 +40,9 @@ renumber of the next work item's block.
 
 - [ ] **T-007** Scan https://github.com/gamug/portfolio-financial-analysis
       and match its scope against this repo's scope: what it consumes (e.g.
-      the pricing endpoint in `portfolio-data-mining`, which it uses to feed
-      its financial analysis) and what it produces for the knowledge graph.
+      the `portfolio-data-mining` pricing endpoint the maintainer says it
+      uses; unverified, and the roadmap currently says `src/trading/` is
+      empty, so confirm or correct that row) and what it produces for the knowledge graph.
       Record any mismatch with `SPEC.md` §1/§2 and the roadmap's step 0–9
       table (notably step 3, pricing, and step 4, EDGAR), and fix the
       roadmap/README/SPEC wording that gets ownership wrong. → `PLAN.md`
