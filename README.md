@@ -22,12 +22,12 @@ the numbered docs, in order:
 
 | # | Document | Covers |
 |---|---|---|
-| — | [`critique-and-evolution.md`](critique-and-evolution.md) | Critique of v1 + the B1–B10 evolution layers everything else implements pieces of. |
-| `06` | [`06-ontology-definition.md`](06-ontology-definition.md) | The ontology design rationale — *what* exists: classes, properties, the `RuleClause` tree that fixes v1's unparenthesized ∧/∨ precedence bug. |
-| `07` | [`07-ontology-topology.md`](07-ontology-topology.md) | Physical layout — *how* it's stored: named-graph partitioning, scale estimates, reasoning profile. |
-| `08` | [`08-agent-architecture.md`](08-agent-architecture.md) | The compute layer — two LangGraph state graphs (`SelectionCycleGraph` quarterly, `MonitoringCycleGraph` daily) implementing v1's two-speed cycle. |
-| `09` | [`09-nlp-finbert-architecture.md`](09-nlp-finbert-architecture.md) | The Semantic Agent's NLP pipeline (FinBERT tone + NER + event/category classification). |
-| `10` | [`10-integration-roadmap.md`](10-integration-roadmap.md) | Dependency-ordered build steps (0–9) tying it all to the external codebase. Step 0 (`schema/`) is the only one done. |
+| — | [`docs/critique-and-evolution.md`](docs/critique-and-evolution.md) | Critique of v1 + the B1–B10 evolution layers everything else implements pieces of. |
+| `06` | [`docs/06-ontology-definition.md`](docs/06-ontology-definition.md) | The ontology design rationale — *what* exists: classes, properties, the `RuleClause` tree that fixes v1's unparenthesized ∧/∨ precedence bug. |
+| `07` | [`docs/07-ontology-topology.md`](docs/07-ontology-topology.md) | Physical layout — *how* it's stored: named-graph partitioning, scale estimates, reasoning profile. |
+| `08` | [`docs/08-agent-architecture.md`](docs/08-agent-architecture.md) | The compute layer — two LangGraph state graphs (`SelectionCycleGraph` quarterly, `MonitoringCycleGraph` daily) implementing v1's two-speed cycle. |
+| `09` | [`docs/09-nlp-finbert-architecture.md`](docs/09-nlp-finbert-architecture.md) | The Semantic Agent's NLP pipeline (FinBERT tone + NER + event/category classification). |
+| `10` | [`docs/10-integration-roadmap.md`](docs/10-integration-roadmap.md) | Dependency-ordered build steps (0–9) tying it all to the external codebase. Step 0 (`schema/`) is the only one done. |
 
 Each doc is a companion to its neighbors, not standalone — a class defined in `06` gets its
 storage location assigned in `07` and its writer assigned in `08`.
@@ -37,13 +37,6 @@ storage location assigned in `07` and its writer assigned in `08`.
 ```
 .
 ├── Avance arquitectura del sistema.docx   source v1 design doc (Spanish)
-├── critique-and-evolution.md              v1 critique + v2 evolution layers
-├── 06-ontology-definition.md              ontology design rationale
-├── 07-ontology-topology.md                named-graph storage design
-├── 08-agent-architecture.md               LangGraph agent architecture
-├── 09-nlp-finbert-architecture.md         NLP / FinBERT pipeline design
-├── 10-integration-roadmap.md              10-step build roadmap
-├── FAQ.md                                 running Q&A log on graph population mechanics
 ├── schema/                                the implemented ontology (roadmap step 0) — all files real, verified
 │   ├── README.md                          authoritative map of this directory — read first
 │   ├── tbox.ttl                           OWL classes, properties, cardinality restrictions, class taxonomy (§1.2)
@@ -52,9 +45,20 @@ storage location assigned in `07` and its writer assigned in `08`.
 │   ├── rules.ttl                          veto rule catalog + AttractivenessWeightScheme, as RuleClause/weight trees
 │   ├── instances.trig                     worked-example ABox (TriG, multiple named graphs)
 │   └── protege-view.ttl                   generated flat Turtle bundle for Protégé — STALE as of 2026-08-23, not regenerated after the tbox.ttl/reference.ttl/shapes.ttl edits below; regenerate before using in Protégé
-└── docs/superpowers/                      planning/spec artifacts from the SDD workflow used
-                                            to build the attractiveness-ranking + sector-momentum
-                                            feature
+└── docs/                                  all Markdown design documents
+    ├── critique-and-evolution.md          v1 critique + v2 evolution layers
+    ├── 06-ontology-definition.md          ontology design rationale
+    ├── 07-ontology-topology.md            named-graph storage design
+    ├── 08-agent-architecture.md           LangGraph agent architecture
+    ├── 09-nlp-finbert-architecture.md     NLP / FinBERT pipeline design
+    ├── 10-integration-roadmap.md          10-step build roadmap
+    ├── FAQ.md                             running Q&A log on graph population mechanics
+    ├── portfolio-common-v1-migration-plan.md      decision record: adopting portfolio-common v1
+    ├── portfolio-common-v1.2-engine-agnostic.md   how the engine-agnostic state was reached
+    ├── new_ontology/                      taxonomy proposal + critical evaluation
+    └── superpowers/                       planning/spec artifacts from the SDD workflow used
+                                           to build the attractiveness-ranking + sector-momentum
+                                           feature
 ```
 
 `CLAUDE.md` (instructions for AI-assisted development sessions on this repo) exists locally but
@@ -135,8 +139,8 @@ of configuration:
 | 2 — Ingest already-collected news/EDGAR data (the actual next step) | Not started |
 | 3–9 — Pricing collector, EDGAR batch pipeline, FinBERT service, LangGraph agents, entity resolution, portfolio construction, backtesting | Not started |
 
-Full dependency-ordered detail in [`10-integration-roadmap.md`](10-integration-roadmap.md).
-[`FAQ.md`](FAQ.md) is a growing log of Q&A on how instance data actually gets populated into the
+Full dependency-ordered detail in [`docs/10-integration-roadmap.md`](docs/10-integration-roadmap.md).
+[`docs/FAQ.md`](docs/FAQ.md) is a growing log of Q&A on how instance data actually gets populated into the
 graph once that build starts — node-vs-observation patterns, the two date mechanisms, and how
 named-graph filtering works in practice.
 

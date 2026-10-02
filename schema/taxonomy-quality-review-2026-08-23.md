@@ -52,7 +52,7 @@ correct pattern for a taxonomy (specific = general + differentiator), not a fide
 case was found of two *different* concepts sharing a name via spelling/casing drift, which is what
 this gate actually guards against.
 
-**Finding — disclosure gap, not a structural defect.** `new_ontology/taxonomy-v1.md` (the standalone
+**Finding — disclosure gap, not a structural defect.** `docs/new_ontology/taxonomy-v1.md` (the standalone
 design record) claimed "every leaf has exactly one parent path" as a deliberate, unqualified design
 choice. That was inaccurate even at the time: `Sector`/`Industry` were already dual-parented
 (`skos:Concept`, pre-existing in `tbox.ttl` since before this taxonomy work started) and — see
@@ -97,7 +97,7 @@ conforms `True`. All three artifacts now agree.
 - **Depth:** the path notation (`Root -> Broad -> Mid -> Leaf`) has 4 segments, but "Root" isn't a
   real `owl:Class` — measured directly against `tbox.ttl`'s edges, actual maximum depth is **2**
   (leaf → mid → broad, or leaf → broad directly). Both numbers are true; only one was being stated,
-  which read as more structural depth than exists. Corrected in `new_ontology/taxonomy-v1.md`.
+  which read as more structural depth than exists. Corrected in `docs/new_ontology/taxonomy-v1.md`.
 - **Density:** 24 leaves over 6 broad categories = exactly 4.0 leaves/category on average (6, 3, 4,
   2, 7, 2 — measured, not estimated), matching the "~4 leaves/category" claim precisely. Not
   over-decomposed (no singleton categories except where a real semantic distinction justified one —
