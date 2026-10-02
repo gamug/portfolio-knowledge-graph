@@ -94,6 +94,12 @@ renumber of the next work item's block.
       `CLAUDE.md` is untracked, so its edit cannot ride a PR: record in the PR
       description that it was done locally. Do it after T-003/T-004/T-008 and
       T-103's decision wording are settled. → `PLAN.md` Work item 1, step 6.
+      **Progress 2026-10-02:** (a) done locally (`CLAUDE.md` rewritten);
+      (b) *Portfolio Thesis* and *Portfolio Knowledge Graph* republished in
+      place with names/URLs unchanged. Still open: the other artifacts the
+      scope change makes stale — *Agent Architecture* and *Integration
+      Roadmap* (and possibly *Ontology Definition* / *Ontology Topology*, for
+      the rule-catalog wording) — then tick.
 
 ## Work item 3 — Stand up a triple store and wire the SHACL ingest gate (roadmap step 1)
 
