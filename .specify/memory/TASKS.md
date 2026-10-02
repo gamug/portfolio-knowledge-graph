@@ -25,10 +25,11 @@ renumber of the next work item's block.
       to, and point the agent-layer reference at `08-agent-architecture.md`.
       → step 2.
 - [x] **T-003** Update the roadmap's step 0–9 table so each step names the
-      repo that now owns or will build it (owners per `SPEC.md` §2.5), without
-      changing done/not-started status. → step 3. *Done with T-008: the
-      roadmap now has a "Step → owner → status" table; steps 3–9 are marked
-      built/partly built upstream per those repos' docs, not verified here.*
+      repo that now owns or will build it (owners per `SPEC.md` §2.5). The
+      done/not-started status rewrite is out of scope and tracked solely under
+      T-008. → step 3. *Superseded by T-008 before completion; the roadmap now
+      has a "Step → owner → status" table with steps 3–9 marked built/partly
+      built upstream per those repos' docs, not verified here.*
 - [ ] **T-004** Cross-check `README.md` and `CLAUDE.md` for the same stale
       names and update them in the same pass. → step 4. *`README.md` done with
       T-008; `CLAUDE.md` is local/gitignored and is covered by T-009. Stale
@@ -215,6 +216,12 @@ renumber of the next work item's block.
       rejected / raised upstream) in `SPEC.md` §2.6; re-run FR-001 and update
       `schema/README.md` counts if `schema/` changed. → `PLAN.md` acceptance
       criteria.
+- [ ] **T-113** *(found while handling review on PR #22)* Reconcile FR-005
+      with the code: `src/etl/news_to_rdf.py` reads SOURCE `urls.db`
+      `body_text` (via `news_export`) for `compute_severity`'s hard-trigger
+      keyword scan, but FR-005, §2.2 and its acceptance grep say the ETL never
+      reads `body_text`. Either drop the body-text escalation or amend FR-005,
+      §2.2 and §12. → `PLAN.md` Work item 11.
 
 ## Status
 
@@ -223,7 +230,7 @@ Closed Work items 2, 5, 7 (superseded/decided by T-007) and 10 are in
 (2026-10-02); T-003–T-006 and the new T-008 remain, with no blockers. Work
 item 9 (T-080–T-083) has no blockers. Work item 3 (T-020–T-025) is blocked on
 a maintainer store choice; Work items 4 and 6 (T-030–T-035, T-050–T-053)
-follow in dependency order after it; Work item 11 (T-100–T-112, decisions
+follow in dependency order after it; Work item 11 (T-100–T-113, decisions
 from the T-007 rescan) gates Work item 4 and has no store dependency.
 Work item 8 (T-070–T-071) is independent but needs a human at a Protégé
 session, not a coding session.

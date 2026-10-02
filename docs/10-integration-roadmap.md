@@ -20,7 +20,7 @@ before it, and which repo owns it.
 |---|---|---|---|
 | 0 | Ontology TBox + SHACL | this repo (`schema/`) | ✅ Done |
 | 1 | Triple store | this repo | Not started |
-| 2 | Ingestion / projection into the graph | this repo (`src/etl/` shortcut; real projection = PLAN Work item 4) | Partial — news only |
+| 2 | Ingestion / projection into the graph | this repo (`src/etl/` shortcut; real projection = PLAN Work item 4) | Shortcut built (assets from Wikipedia + news from `portfolio-nlp`); the real `v_*` projection not started |
 | 3 | Daily pricing collector | `portfolio-data-mining` (pricing service) + `portfolio-financial-analysis` (`pricing_agent`); this repo projects `v_price_observation` | Built upstream |
 | 4 | EDGAR batch pipeline | `portfolio-data-mining` (`sec_edgar` service) + `portfolio-financial-analysis` (`fundamental_agent`); this repo projects scores/filings/sections | Built upstream |
 | 5 | NLP / sentiment service | `portfolio-nlp` | Partly built — per-article sentiment/NER/category shipped; per-asset-per-day aggregation not built |
@@ -66,7 +66,7 @@ is now a load operation (`schema/README.md`'s load order), not a from-scratch de
 
 **2. Ingestion adapters for already-collected data.**
 Before building anything new, get the graph populated with what already exists, for early
-validation: a small ETL script reading `portfolio-nlp`'s results store (`nlp.db`, via `portfolio_common.news_export`) — and, for the real projection, `portfolio-financial-analysis`'s `v_*` views and `portfolio-data-mining`'s point-in-time `universe.db` — writing them as `NewsArticle`/evidence
+validation: a small ETL script reading both tiers of the news databases through `portfolio_common.news_export` — the SOURCE `urls.db` (for `articles.body_text`, which the ETL's severity step scans) and `portfolio-nlp`'s results store (`nlp.db`) — and, for the real projection, `portfolio-financial-analysis`'s `v_*` views and `portfolio-data-mining`'s point-in-time `universe.db` — writing them as `NewsArticle`/evidence
 individuals with `provenanceId` set (per `09-nlp-finbert-architecture.md`'s output contract). This
 step deliberately comes *before* any new agent or NLP code — it's the fastest way to get a
 SHACL-validated, non-trivial graph to test §0/§1's design against real data.
