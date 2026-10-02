@@ -245,8 +245,9 @@ renumber of the next work item's block.
 ## Status
 
 Closed Work items 2, 5, 7 (superseded/decided by T-007) and 10 are in
-`CHANGELOG.md`. Work item 1's T-007 is done
-(2026-10-02); T-003–T-006 and the new T-008 remain, with no blockers. Work
+`CHANGELOG.md`. Work item 1 has only T-009 open (T-001–T-005,
+T-007, T-008 done; T-006 deprecated in favor of T-009); it is local/artifact
+work with no code blockers. Work
 item 9 (T-080–T-083) has no blockers. Work item 3 (T-020–T-025) is blocked on
 a maintainer store choice; Work items 4 and 6 (T-030–T-035, T-050–T-053)
 follow in dependency order after it; Work item 11 (T-100–T-113, decisions
