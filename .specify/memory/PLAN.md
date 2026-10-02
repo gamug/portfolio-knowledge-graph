@@ -44,8 +44,11 @@ Close every item `SPEC.md` §14 categorizes as pending development:
 7. ~~Decide and build the orchestrator~~ — **decided: delegate** (T-007,
    2026-10-02). The two-speed cycle is `portfolio-financial-analysis`'s
    `cycle` package; this repo builds no orchestrator and projects its
-   outputs (Work item 4).
+   outputs (Work item 4). Note: no scheduler exists upstream either.
 8. Regenerate `schema/protege-view.ttl` (§13 item 4).
+11. Reconcile the ontology, SHACL shapes, rule catalog and ETL with the
+    upstream contracts found by the T-007 rescan (`SPEC.md` §2.6 D1–D16):
+    decisions first, then schema/ETL edits (§13 item 10).
 9. Resolve the `ScoreSnapshotShape`/Sentiment `rawValue` divergence (§13
    item 6).
 10. Complete `schema/README.md`'s directory map (found during a
@@ -228,9 +231,11 @@ architecture, and not partitioned for the bitemporal audit trail
    `v_sector`, `v_industry`, `v_price_observation`, `v_sec_filing`,
    `v_sec_filing_section`, `v_veto`, `v_rule_catalog`, `v_portfolio_position`,
    `v_cycle_ranking`, `v_shared_executive_edge`, `v_weight_scheme`,
-   `v_weight_component`, `v_data_quality_issue`, `v_*_run` and
-   `v_universe_coverage` in its `src/kg_schema/views.py` (no `v_quant_*`
-   view exists; `quant` tables have none) — and confirm their actual column shapes against that repo's
+   `v_weight_component`, `v_data_quality_issue`, the `quant`-side
+   `v_corporate_action`/`v_quant_*`/`v_risk_free_rate`/`v_benchmark_series`,
+   `v_*_run` and `v_universe_coverage` (31 views in all, `SPEC.md` §2.5) in
+   its `src/kg_schema/views.py`, plus `universe.db` for membership
+   (`v_universe_membership` is frozen) — and confirm their actual column shapes against that repo's
    own docs — this repo pins no contract on them today (§13 item 9's sibling
    risk on the `financial-analysis` side).
 2. Design the write path: read each source, `INSERT DATA` into a fresh
@@ -248,6 +253,9 @@ architecture, and not partitioned for the bitemporal audit trail
    EDGAR, ORCHESTRATOR — the lanes `instances.trig`'s worked example already
    demonstrates one dated graph per lane for) once this projection can
    produce them.
+
+**Prerequisite**: Work item 11 (the §2.6 drift decisions) — writing the
+projection before D1–D8 and D10 are decided would encode wrong semantics.
 
 **Acceptance criteria**:
 
@@ -316,6 +324,12 @@ implemented in `portfolio-financial-analysis`'s `cycle` package
 T-1 contagion-lagged vetoes, `rule_catalog` → `veto` lane). With this repo's
 scope fixed as purely integrative, the build-vs-delegate question resolves to
 **delegate**: no orchestrator, scheduler or LangGraph code here.
+
+**Correction (T-007 rescan)**: upstream's `cycle` is a relational-checkpoint
+topological runner (Strands-era), not LangGraph, and **no scheduler or
+cross-module orchestrator exists in any repo** (upstream `SPEC.md` §13 item 3,
+§14). Delegating therefore moves the cycle *logic*, not a running cadence —
+who triggers quarterly/daily runs is unassigned (T-108).
 
 **What remains here**:
 
@@ -395,6 +409,47 @@ generated and never hand-edited — no `schema/*.ttl`/`.trig` content changes.
   `schema/`.
 - The schema parse+`pyshacl` check still passes (docs-only change).
 
+## Work item 11 — Reconcile the ontology and ETL with the upstream contracts (T-007 rescan)
+
+**Why**: the second T-007 pass (`SPEC.md` §2.6, D1–D16) found that
+`portfolio-financial-analysis` moved well past the design this repo's ontology
+was written against. Most gaps are *semantic*, not naming: a point-in-time
+universe the ETL ignores, an `available_at` look-ahead guard the ontology
+cannot express, veto stints vs. veto events, a rule catalog with different
+ids and logic, a renamed score type that fails today's SHACL shape, candidate
+(not asserted) executive edges. Writing the Work item 4 projection first would
+encode them wrongly.
+
+**Approach** (decide, record in `SPEC.md`/`schema/README.md`, then edit; one
+decision may be "keep ours, translate on projection"):
+
+1. Universe (D1): replace the ETL's live-Wikipedia asset master by
+   `universe.db` as-of reads → `:UniverseMembership` (T-100).
+2. Temporal model (D2): `availableAt`/`eventTime` properties vs. ingest-graph
+   dates (T-101).
+3. Veto lifecycle and rule catalog (D3, D4, D5): stint properties, the T-1
+   predicate as SPARQL, upstream's six rules as `RuleDefinition`s, a
+   `DataQualityIssue` decision (T-102–T-104).
+4. Vocabulary (D6, D7): `QUANTITATIVE` → `VALORIZATION` in shapes/reference,
+   run-provenance modelling (T-105, T-106).
+5. Edges and quant scope (D10, D11): candidate-edge semantics; which quant
+   outputs become individuals (T-107, T-108).
+6. Read-contract gaps and moving parts (D8, D12, D13, D15, D16): list for
+   upstream, assert `schema_version`, reconcile the `portfolio-common` pin
+   (T-109, T-110); SEMANTIC `score_method` discriminator and wording (D14,
+   T-111).
+
+**Acceptance criteria**:
+
+- Each of D1–D16 has a recorded disposition (adopted / translated /
+  rejected / raised upstream) in `SPEC.md` §2.6.
+- Where a decision changes `schema/`, the FR-001 parse + `pyshacl` check
+  passes and `schema/README.md`'s counts are updated (NR-001).
+- No Work item 4 task starts before this one's items 1–4 are decided.
+
+**Blocked on**: nothing for the decisions; maintainer sign-off on D4 (which
+rule catalog is authoritative) and D11 (quant scope).
+
 ## Sequencing
 
 ```
@@ -410,6 +465,8 @@ Work item 4 (real projection; absorbs the SEMANTIC and ORCHESTRATOR lanes)
         │
         ▼
 Work item 6 (reasoner + SPARQL)
+
+Work item 11 (reconcile with upstream contracts) ──► gates Work item 4
 
 Work item 5 (SEMANTIC aggregation) — superseded, reassigned upstream
 Work item 7 (orchestrator)         — decided: delegate to financial-analysis `cycle`

@@ -45,8 +45,9 @@ renumber of the next work item's block.
       this repo's proper scope (purely integrative: computation lives
       upstream). **Done 2026-10-02**: ownership map in `SPEC.md` §2.5; pricing
       endpoint confirmed in `portfolio-data-mining`; `.specify/` reconciled
-      (SPEC §1/§2/§4/§12/§13/§14, PLAN Goal/WI 4/5/7, this file). → `PLAN.md`
-      Work item 1, step 5.
+      (SPEC §1/§2/§4/§12/§13/§14, PLAN Goal/WI 4/5/7/11, this file). A
+      careful rescan the same day added `SPEC.md` §2.6 (16 upstream drifts,
+      D1–D16) and Work item 11. → `PLAN.md` Work item 1, step 5.
 - [ ] **T-008** Reconcile outside `.specify/` with the T-007 scope decision:
       `08-agent-architecture.md` (LangGraph graphs → reference for upstream
       `cycle`, not a build target), `10-integration-roadmap.md` steps 3–9 and
@@ -75,9 +76,10 @@ renumber of the next work item's block.
 
 ## Work item 4 — Build the real step-2 projection (roadmap step 2)
 
-*Blocked on Work item 3 (T-020–T-025).*
+*Blocked on Work item 3 (T-020–T-025) and on Work item 11's decisions
+(T-100–T-104).*
 
-- [ ] **T-030** Confirm the `financial-analysis` `v_*` views' actual column
+- [ ] **T-030** *(after Work item 11's T-100–T-104)* Confirm the `financial-analysis` `v_*` views' actual column
       shapes (view list in `SPEC.md` §2.5; definitions in that repo's
       `src/kg_schema/views.py`), pin the columns this repo reads, and add a
       check that fails on drift (`SPEC.md` §13 item 10). → `PLAN.md` Work item 4,
@@ -136,6 +138,60 @@ renumber of the next work item's block.
       `schema/README.md`'s gap list, alongside its three existing gaps. →
       `PLAN.md` acceptance criteria.
 
+## Work item 11 — Reconcile the ontology and ETL with the upstream contracts (T-007 rescan)
+
+*Decisions first; Work item 4 is gated on T-100–T-104. D-numbers refer to
+`SPEC.md` §2.6.*
+
+- [ ] **T-100** *(D1)* Replace the ETL's live-Wikipedia asset master
+      (FR-004) with `universe.db` as-of reads (`KG_UNIVERSE_DB`, read-only via
+      `portfolio_common.db`), emitting `:Asset` + `:UniverseMembership`
+      (`validFrom`/`validTo`); document the stale-between-snapshots risk and
+      that `universe.db` is now a direct upstream. → `PLAN.md` Work item 11,
+      step 1.
+- [ ] **T-101** *(D2)* Decide how `available_at` vs. `event_time` is modelled
+      (new properties, or encoded in the ingest-graph date) so as-of queries
+      cannot leak look-ahead; update `tbox.ttl`/`shapes.ttl` and `07`. → step 2.
+- [ ] **T-102** *(D3)* Model veto stints (`raisedOn`/`clearedOn`/`lastSeenOn`
+      or `validFrom`/`validTo`) and write the "active at cutoff C" predicate
+      as the T-1-lag SPARQL pattern. → step 3.
+- [ ] **T-103** *(D4, maintainer sign-off)* Reconcile the rule catalogs: add
+      upstream's six rules (`LEVERAGE_EXTREME`, `NEGATIVE_FCF`,
+      `LIQUIDITY_DISTRESS`, `PRICE_CRASH`, `EARNINGS_MISSING`,
+      `DATA_QUALITY`) as `RuleDefinition`s so `:appliesRule` resolves, and mark
+      `rules.ttl`'s seven tree rules design-only (or the reverse). → step 3.
+- [ ] **T-104** *(D5)* Decide `:DataQualityIssue` (evidence for the
+      `DATA_QUALITY` veto) vs. dropping it. → step 3.
+- [ ] **T-105** *(D6)* `agentOrigin` `QUANTITATIVE` → `VALORIZATION` in
+      `shapes.ttl`/`reference.ttl` (MetricType) and docs; document each score
+      type's `event_time` meaning and the extra provenance fields. → step 4.
+- [ ] **T-106** *(D7)* Decide how upstream `run_id`/`as_of`/`code_version`/
+      `engine_version` map onto `provenanceId` (or a `Run` class). → step 4.
+- [ ] **T-107** *(D10)* Give projected `sharedExecutiveWith` a
+      method/weight/confidence (or a separate candidate property) so news
+      co-occurrence is not asserted as fact; decide `media_cooccurrence`. →
+      step 5.
+- [ ] **T-108** *(D9, D11, maintainer sign-off)* Decide which `quant` outputs
+      become individuals (benchmark books/positions/performance; never returns,
+      μ or Σ — NR-003) and who triggers the quarterly/daily cycle runs, since
+      no scheduler exists upstream. → steps 5–6.
+- [ ] **T-109** *(D8, D12, D13, D15, D16)* Pin and assert upstream's
+      `schema_version` floor; confirm `v_cycle_ranking`'s actual behaviour
+      (docstring says latest-only, SQL returns all runs); list contract gaps
+      for upstream (no `fundamental_metrics`/market-cap view; REPLAY
+      exclusion); check D13's weight-scheme mapping. → step 6.
+- [ ] **T-110** *(D16)* Reconcile the `portfolio-common` pin (`v1.2.0` here and
+      in `portfolio-nlp`; `v1.2.1` in `financial-analysis` and
+      `portfolio-data-mining`) — verify compatibility, then re-pin or record
+      why not. → step 6.
+- [ ] **T-111** *(D14)* Add a `score_method` discriminator for SEMANTIC and
+      correct the wording upstream still attributes to this repo (their
+      rollout step 4); no write-back code exists here to remove. → step 6.
+- [ ] **T-112** Record each D1–D16 disposition (adopted / translated /
+      rejected / raised upstream) in `SPEC.md` §2.6; re-run FR-001 and update
+      `schema/README.md` counts if `schema/` changed. → `PLAN.md` acceptance
+      criteria.
+
 ## Status
 
 Closed Work items 2, 5, 7 (superseded/decided by T-007) and 10 are in
@@ -143,6 +199,7 @@ Closed Work items 2, 5, 7 (superseded/decided by T-007) and 10 are in
 (2026-10-02); T-003–T-006 and the new T-008 remain, with no blockers. Work
 item 9 (T-080–T-083) has no blockers. Work item 3 (T-020–T-025) is blocked on
 a maintainer store choice; Work items 4 and 6 (T-030–T-035, T-050–T-053)
-follow in dependency order after it.
+follow in dependency order after it; Work item 11 (T-100–T-112, decisions
+from the T-007 rescan) gates Work item 4 and has no store dependency.
 Work item 8 (T-070–T-071) is independent but needs a human at a Protégé
 session, not a coding session.

@@ -123,7 +123,9 @@ above (`08-agent-architecture.md`, designed but unbuilt — roadmap steps 1 and
   `MonitoringCycleGraph` daily) and any scheduler — the two-speed cycle is
   already implemented upstream as `portfolio-financial-analysis`'s `cycle`
   package (`cycle select` / `cycle monitor`, checkpointed, T-1 contagion-
-  lagged); this repo builds no orchestrator (§2.5, PLAN Work item 7).
+  lagged); this repo builds no orchestrator. No scheduler exists upstream
+  either (its own §14 puts one out of scope), so the quarterly/daily cadence
+  is run by hand (§2.5, §2.6 D9, PLAN Work item 7).
 - The SEMANTIC per-`(asset, day)` aggregation — owned by `portfolio-nlp`,
   materialized as `score_snapshot[SEMANTIC]` by `portfolio-financial-analysis`;
   this repo only projects the resulting row (§2.5, PLAN Work item 5).
@@ -167,9 +169,9 @@ Established by the T-007 scan (2026-10-02) of `portfolio-data-mining`,
 
 | Repo | Computes / owns | Surface this repo may consume | Consumed today? |
 |---|---|---|---|
-| `portfolio-data-mining` | News URL discovery and article text extraction (`news_collector`, `extractor` → `urls.db`); Finnhub/yfinance pricing HTTP service (`pricing`, `GET /pricing/{ticker}`, corporate actions); SEC EDGAR HTTP service (`sec_edgar`); the S&P 500 universe, live and point-in-time (`data_mining.portfolio`, `universe_history` → `universe.db`) | `universe.db` (point-in-time membership) is the only candidate; its HTTP services and `urls.db` are consumed by the other two repos, not here | No — and it should stay indirect (§12) |
+| `portfolio-data-mining` | News URL discovery and article text extraction (`news_collector`, `extractor` → `urls.db`); Finnhub/yfinance pricing HTTP service (`pricing`: `GET /pricing/{ticker}`, `/pricing/{ticker}/actions`, `/universe`); SEC EDGAR HTTP service (`sec_edgar`); the S&P 500 universe, live (`data_mining.portfolio`) and **point-in-time** (`data_mining.universe_history` → `universe.db`, SCD-2 `universe_membership`) | `universe.db` — the point-in-time membership every upstream agent already reads read-only (D1); its HTTP services and `urls.db` are consumed by the other two repos, not here | No — `universe.db` should be (D1); the rest stays indirect (§12) |
 | `portfolio-nlp` | Sentiment (FinBERT), NER, category, summaries → `nlp.db` (`article_sentiment`/`article_entities`/`article_category`/`article_summary`/`sector_summary`); proposed owner of the per-`(asset, day)` SEMANTIC aggregation (not built) | `nlp.db` RESULTS, read-only | Yes — `src/etl/` via `portfolio_common.news_export` |
-| `portfolio-financial-analysis` | `fundamental_agent` (EDGAR ratios + LLM assessment), `pricing_agent`, `cycle` (TECHNICAL/VALORIZATION/SECTOR scores, veto lane, ranking, positions, T-1 lag, checkpointing), `entity_resolution` (`sharedExecutiveWith`), `quant` (Markowitz benchmark, forward evaluation), read-only HTTP `api/`; passive `kg_schema` | The `v_*` read-contract views over `KG_FINANCIAL_DB` (`v_score_snapshot`, `v_universe_membership`, `v_sector`, `v_industry`, `v_price_observation`, `v_sec_filing`, `v_sec_filing_section`, `v_veto`, `v_rule_catalog`, `v_data_quality_issue`, `v_portfolio_position`, `v_cycle_ranking`, `v_shared_executive_edge`, `v_weight_scheme`, `v_weight_component`, `v_*_run`, `v_universe_coverage`) | No — designed source, unread (§13 item 2) |
+| `portfolio-financial-analysis` | `fundamental_agent` (EDGAR ratios + LLM assessment, Ring-1 `DQ_*` data-quality gates), `pricing_agent`, `cycle` (a checkpointed topological runner — Strands-era, not LangGraph: TECHNICAL/VALORIZATION/SECTOR scores, veto stints, ranking, positions, `backfill` replay), `entity_resolution` (news-co-occurrence `sharedExecutiveWith` *candidates*), `quant` (Markowitz benchmark books, forward evaluation), read-only HTTP `api/` (:8010); passive `kg_schema` (DDL, migrations, `schema_version`, views) | The 31 `v_*` read-contract views over `KG_FINANCIAL_DB` (SQLite, `mode=ro`): `v_score_snapshot`, `v_sector`, `v_industry`, `v_sector_aggregate_snapshot`, `v_price_observation`, `v_corporate_action`, `v_quant_return_daily`, `v_risk_free_rate`, `v_benchmark_series`, `v_sec_filing`, `v_sec_filing_section`, `v_veto`, `v_rule_catalog`, `v_data_quality_issue`, `v_portfolio_position`, `v_shared_executive_edge`, `v_cycle_ranking`, `v_weight_scheme`, `v_weight_component`, `v_quant_risk_model`, `v_quant_portfolio`, `v_quant_position`, `v_quant_frontier_point`, `v_quant_benchmark_performance`, `v_quant_vs_live`, run logs `v_analysis_run`/`v_pricing_run`/`v_quant_run`/`v_cycle_run`, `v_universe_coverage`, and `v_universe_membership` (**frozen** — use `universe.db`). No view exposes `fundamental_metrics`, `financial_facts` or `filing_cover_shares` | No — designed source, unread (§13 item 2) |
 | `portfolio-knowledge-graph` (this repo) | The ontology (`schema/`); the projection of the above into SHACL-validated, dated named graphs; the store, reasoner and SPARQL surface over them | — | — |
 
 Consequences for this repo's scope:
@@ -188,12 +190,51 @@ Consequences for this repo's scope:
    "`src/trading/` is empty / no pricing pipeline anywhere" claim is stale.
    This repo needs no pricing access: only `v_price_observation` summaries
    (NR-003).
-4. **`financial-analysis`'s `kg_schema` already mirrors this ontology's
-   concepts** (`ScoreSnapshot`, `UniverseMembership`, `PriceObservation`,
-   `SECFilingSection`, `Veto`/`RuleClause`, `PortfolioPosition`,
-   `sharedExecutiveWith`). That makes the projection a mapping job (view
-   column → ontology property), and makes drift between the two vocabularies
-   the main integration risk (§13 item 10).
+4. **`financial-analysis`'s `kg_schema` mirrors much of this ontology's
+   vocabulary** (`ScoreSnapshot`, `UniverseMembership`, `PriceObservation`,
+   `SECFilingSection`, `Veto`, `PortfolioPosition`, `sharedExecutiveWith`,
+   sector aggregates, weight schemes) — but the **semantics differ in
+   places that matter** (§2.6: temporal model, veto lifecycle, rule catalog,
+   score-type names, edge evidence). It is not a 1:1 mapping job; each
+   difference needs a decision before the projection is written (PLAN Work
+   item 11).
+5. **There is no scheduler anywhere.** `financial-analysis`'s own §14 makes a
+   scheduler and a cross-module orchestrator out of scope there (its Work
+   item 2, an orchestrator, is open). Delegating the cycle upstream
+   therefore delegates the *logic* (`cycle select`/`monitor`), not a running
+   cadence; the quarterly/daily cadence is manual today.
+
+### 2.6 Upstream drift register (T-007 rescan, 2026-10-02)
+
+The first T-007 pass mapped *who owns what*. This second pass compared
+`portfolio-financial-analysis` (and, where it bites, `portfolio-nlp`/
+`portfolio-data-mining`) against **this repo's** SPEC, ontology and ETL, to
+catch capabilities and semantics that moved on after the ontology was
+designed. Sources: those repos' `.specify/memory/SPEC.md`, `docs/*.md`,
+`src/kg_schema/{views,ddl,migrations}.py`, `src/cycle/rules/builtin.py`
+(read in a shallow clone; **nothing was executed**, so every row is a
+documentation/code-reading claim, not a runtime-verified one). Each row
+names the decision it forces; none is decided here — they are PLAN Work item
+11's backlog.
+
+| # | Upstream fact | This repo today | Why it matters / decision forced |
+|---|---|---|---|
+| D1 | **Point-in-time S&P 500 universe.** `portfolio-data-mining` keeps `universe.db` (SCD-2 `universe_membership`: `symbol, security, gics_sector, gics_sub_industry, hq_location, date_added, cik, founded, valid_from, valid_to, source`), reconstructed from Wikipedia's "Historical components" change log (`source` = `wikipedia_changes_backfill` \| `live_snapshot`) and refreshed only by manual `universe-backfill`/`universe-snapshot`. Every upstream agent takes `--analysis-date D` and reads membership with `valid_from <= D AND (valid_to IS NULL OR valid_to > D)`, deduped by symbol keeping the latest stint; `financial-analysis`'s own `universe_membership` table and `v_universe_membership` are **frozen**. | FR-004 builds `:Asset`s from Wikipedia's *live* constituent table at ETL run time; no `:UniverseMembership` individual is produced; §12 declared no dependency on `portfolio-data-mining`. `UniverseMembership` (with `validFrom`/`validTo`) already exists in `tbox.ttl`. | The ontology's bitemporal universe has a real source; the ETL ignores it and so cannot represent who was in the index on any past date (survivorship bias). `universe.db` is therefore a **direct upstream contract** (read-only), and a stale `universe.db` between manual snapshots is a known upstream risk. Decide: retire the live-scrape asset master in favour of `universe.db` as-of reads (T-100). |
+| D2 | **Two-clock model with look-ahead guard.** Rows carry `event_time` (what the row is about) and `available_at` (when usable: first NYSE trading day *after* the filing date, T-107) alongside `computed_at`/`ingested_at`; every as-of reader filters on `available_at`, never `event_time`; `v_score_snapshot.event_time` = filing period-end (FUNDAMENTAL), cycle date (TECHNICAL/VALORIZATION), article-day (SEMANTIC). | `ScoreSnapshot` has `timestamp`/`detectedAt`/`provenanceId`; bitemporality is expressed only by dated named graphs (`07`). No `availableAt`/`eventTime` property. | A projection that stamps FUNDAMENTAL scores by filing date or period-end would leak look-ahead into every "as of D" query. Decide whether `availableAt` becomes a property (tbox/shapes change) or is encoded in the ingest-graph date (T-101). |
+| D3 | **Veto stints, not events.** `veto` rows are stints (`raised_on`, `cleared_on`, `last_seen_on` = cycle dates; `detected_at`/`cleared_at` wall-clock only); closed, never deleted; a HARD veto *clears* when its rule re-evaluates clean; a SOFT stint charges `soft_veto_penalty` once; active at cutoff `C` iff `raised_on <= C AND (cleared_on IS NULL OR cleared_on > C)`; the T-1 lag is this predicate applied at read time. | `Veto` has `decidedAt`/`detectedAt`; the T-1 lag was designed as a LangGraph checkpointer mechanism (`08`). | Needs `raisedOn`/`clearedOn`/`lastSeenOn` (or `validFrom`/`validTo`) on `:Veto`, and the T-1 predicate as a SPARQL pattern, not an orchestrator feature (T-102). |
+| D4 | **Different rule catalog.** Six flat threshold rules in `cycle/rules/builtin.py`: `LEVERAGE_EXTREME` (D/E > 3, HARD), `NEGATIVE_FCF` (HARD), `LIQUIDITY_DISTRESS` (current ratio < 1, SOFT), `PRICE_CRASH` (90d drawdown < −35%, SOFT), `EARNINGS_MISSING` (FUNDAMENTAL score aged > 400d, SOFT), `DATA_QUALITY` (a HARD Ring-1 gate fired, HARD); plus a non-veto `UNSCORED` exclusion in `rank` (T-119). No AND/OR tree (their §13 item 6 accepts that) and **no contagion/`sharedExecutiveWith` rule**. | `rules.ttl` holds 7 `RuleClause`-tree rules (`VETO_FIN_01`, `VETO_LEG_01`, `VETO_COMP_01..03`, `VETO_MKT_02`, `VETO_RED_01`) — different ids, different logic. | `v_veto.rule_id` values (`LEVERAGE_EXTREME`, …) resolve to no `:RuleDefinition`, so a projected `:Veto` would violate `:appliesRule` conformance. Our catalog is a design; upstream's is what actually runs. Decide: add the six as (flat-leaf) `RuleDefinition`s and mark ours as design-only, or reconcile the other way (T-103). |
+| D5 | **Data-quality gate.** Ring-1 `DQ_*` gates (`dq-v2`) write `data_quality_issue` (`severity`, `quarantined`, gated value); a quarantined metric reads as NULL; HARD → the `DATA_QUALITY` veto. Exposed as `v_data_quality_issue`. | No class or property for it. | Either model `:DataQualityIssue` (evidence for the `DATA_QUALITY` veto) or consciously drop it; at minimum a `DATA_QUALITY` veto needs an evidence target (T-104). |
+| D6 | **Score-type vocabulary.** `score_type` ∈ {FUNDAMENTAL, VALORIZATION, TECHNICAL, SEMANTIC, SECTOR}; `QUANTITATIVE` was **renamed `VALORIZATION`** by migration m006 (and `SECTOR` = SectorRelativeMomentum, not in the blend). Extra provenance: `forensic_flags_json`, `prompt_hash` (FUNDAMENTAL), `correction_rule` (`financial_facts`). | `shapes.ttl` `agentOrigin` is `sh:in ("FUNDAMENTAL" "SEMANTIC" "QUANTITATIVE" "TECHNICAL" "SECTOR")`; `MetricType` vocabulary has `ScoreCuantitativo`. | A projected `VALORIZATION` row fails SHACL today; `QUANTITATIVE` never appears upstream (T-105). |
+| D7 | **Provenance and versioning.** Every row carries `run_id`; run logs (`v_analysis_run`/`v_pricing_run`/`v_quant_run`/`v_cycle_run`) record `as_of`, `code_version` (git SHA, `-dirty` refused unless `--allow-dirty` with a recorded reason), params; `engine_version` (parallel rows; `v_*` views pick the newest per key), metric-version manifests, a monotonic `schema_version` floor. | One opaque `provenanceId` per individual. | The audit trail the ontology promises ("why is this true and when") has a concrete upstream shape that `provenanceId` can't carry (T-106); pin and assert the `schema_version` floor (T-109). |
+| D8 | **Replay and cycle types.** `cycle_type` ∈ {SELECTION, MONITORING, ENTITY_RESOLUTION, REPLAY}; `cycle backfill` writes a simulated book to `portfolio_position_replay` (never in `v_portfolio_position`) but its scores/vetoes/rankings land in the **shared** tables, indistinguishable from live ones (upstream's own caveat), against a throwaway DB. `v_cycle_ranking`'s docstring says "latest cycle per cycle_type" but its SQL returns every `cycle_run`'s rows — docstring and code disagree. | `ORCHESTRATOR` lane assumed one dated graph per cycle (`07`/`instances.trig`). | Project only against a production DB; confirm `v_cycle_ranking`'s real behaviour before relying on per-date ranking graphs (T-109). |
+| D9 | **No scheduler, not LangGraph.** `cycle` is a checkpointed topological runner (`cycle_run`/`cycle_checkpoint`, relational — "not the framework, is the source of truth for resume"; Strands can drive it later). A scheduler and a cross-module orchestrator are explicitly out of scope upstream (their §13 item 3, §14). Run order (`pricing → fundamental → entity_resolution → cycle → quant`) is manual. | `08-agent-architecture.md` designs two LangGraph graphs; this SPEC (first T-007 pass) implied the scheduler was delegated. | Corrects the first pass: the quarterly/daily cadence is owned by nobody (T-108). `08` must be reconciled (T-008). |
+| D10 | **Entity edges are candidates, news-derived.** `entity_resolution` emits `shared_executive_edge` from PER-span co-occurrence in news (`method = news-per-cooccurrence-v1`, `weight`, mean NER score in `evidence_json`), recomputed per method (`DELETE … WHERE method`, then insert); `v_shared_executive_edge` is a pair-level aggregate; a separate `media_cooccurrence` table (T-043, populated once their T-082 lands) holds non-executive co-occurrence. Their docs: "News co-occurrence ≠ an actual shared directorship." | `:sharedExecutiveWith` is designed over `:Executive`s from DEF 14A and is the structural input to `VETO_RED_01`. | Projecting a candidate edge as `:sharedExecutiveWith` would assert weak, method-dependent evidence as fact. Needs a method/weight/confidence on the edge or a separate candidate property (T-107). |
+| D11 | **A whole quant domain.** `corporate_action`, `quant_return_daily`, `risk_free_rate`, `benchmark_series`, `quant_risk_model` (μ/Σ stay internal), `quant_portfolio`/`quant_position`/`quant_frontier_point`, `quant_benchmark_performance`, `v_quant_vs_live` (active weight vs the live book). Upstream's own critical gap: μ carries no cross-sectional signal, so the return-aware objectives are not defensible (their §13 item 1). | Only `Portfolio`/`PortfolioPosition`; NR-003 keeps raw price/tick data out. | Decide which of it is in the graph at all — plausibly benchmark books and their positions/performance as `:Portfolio` individuals of a benchmark kind; never the return series, μ or Σ (T-108). |
+| D12 | **Ratios are not in the read contract.** Rules read `fundamental_metrics` ratios (debt-to-equity, FCF margin, current ratio, drawdown), but no `v_*` view exposes `fundamental_metrics`, `financial_facts` or `filing_cover_shares` (market cap). Only the 0–100 FUNDAMENTAL score, filings/sections, vetoes (with `evidence_json`) and DQ hits are projectable. | Our rule trees compare metrics via `ThresholdComparison` over `ScoreSnapshot`s. | Re-evaluating upstream's rules in the graph is impossible from the views; vetoes arrive as upstream *outcomes* with evidence, not as recomputable rules. Ask upstream for a view, or accept outcome-only (T-109). |
+| D13 | **Weight schemes are per run.** `v_weight_scheme` = one row per `cycle_run` that recorded a blend (scheme id + `top_n`, name/sector caps, soft-veto penalty); `v_weight_component` = one row per `(cycle_run, score_type)`; no `valid_from`/`valid_to` ("a later run with a changed blend is a new row"). Defaults FUND .4 / VALOR .3 / TECH .2 / SEM .1, renormalized over present types; upstream plans to hold SEMANTIC at 0 until `portfolio-nlp` has a labelled eval. Pending upstream WI 18 (T-134–T-139) will make the caps depend on N. | `AttractivenessWeightScheme`/`WeightComponent` (versioned weight schemes, `computedWithScheme`). | Mapping needs checking, not assuming (T-030). |
+| D14 | **SEMANTIC is still unbuilt on both sides, and wrongly attributed to this repo.** `portfolio-nlp` has no per-`(asset, day)` stage and no `as_of`; `financial-analysis` has no `KG_NLP_DB` reader (its `cycle` `semantic_read` step is a no-op "noting the aggregation runs in the integration repo"); its `README.md`/`docs/README.md` still name this repo as the SEMANTIC writer. Their rollout step 4 asks **this repo** to remove its SEMANTIC write path, add a `score_method` discriminator, and update docs. This repo's ETL emits Turtle only and never wrote to `KG_FINANCIAL_DB`, so there is no write-back *code* to remove. | `src/etl/` emits per-article Sentiment `ScoreSnapshot`s (agentOrigin `SEMANTIC`). | The stale attribution is upstream docs; our part is a `score_method` discriminator and wording (T-111). |
+| D15 | **Two access paths, one sufficient.** SQLite views over `KG_FINANCIAL_DB` (opened `mode=ro`; a view whose base table is absent is dropped, so a partial DB has *missing views*, not errors) or the HTTP `api/` — which serves only `/runs`, `/universe`, `/universe/coverage`, `/scores`, `/portfolio/positions`, `/portfolio/ranking`. | Unread. | The API cannot feed the projection (no vetoes, filings, sections, rules, DQ, quant); read SQLite via `portfolio_common.db` (`read_only`), not raw `sqlite3` (NR-002). |
+| D16 | **Contracts still moving.** Upstream open items that change view contents: cross-module orchestrator (WI 2), SEMANTIC half (WI 4), technical/valorization redesign + EBITDA + forensic flags + Carhart (WI 8), entity-resolution sanitization and `media_cooccurrence` routing (WI 9), N-driven weight caps (WI 18), full-universe production run (WI 12). Also: `portfolio-common` is pinned `v1.2.1` in both `financial-analysis` and `data-mining` but `v1.2.0` here and in `portfolio-nlp`. | Pin `v1.2.0`. | Treat the views as a versioned contract: assert `schema_version`, re-pin deliberately (T-109, T-110). |
 
 ## 3. Technology Stack & Architecture Decisions
 
@@ -451,11 +492,13 @@ There is no CD pipeline and no CI workflow for this repo
   a floating version.
 - **Upstream (data, read-only, designed — not yet read)**:
   `portfolio-financial-analysis`'s `v_*` read-contract views over
-  `KG_FINANCIAL_DB` (opened `mode=ro`; list in §2.5), and — if the
-  point-in-time universe is projected here rather than via `v_universe_membership`
-  — `universe.db`. This is the only contract through which fundamentals,
-  pricing summaries, vetoes, rankings, positions, executive edges and the
-  SEMANTIC score reach this repo.
+  `KG_FINANCIAL_DB` (opened `mode=ro` through `portfolio_common.db`; list in
+  §2.5) — the contract through which fundamentals, pricing summaries, vetoes,
+  rankings, positions, executive-edge candidates and the SEMANTIC score reach
+  this repo — **and `universe.db`** (`portfolio-data-mining`'s point-in-time
+  S&P 500 membership, `KG_UNIVERSE_DB`, read-only), because
+  `v_universe_membership` is frozen upstream (§2.6 D1). Both are versioned
+  contracts that are still moving (§2.6 D16).
 - **Downstream (intended, not yet built)**: a standing triple store, the
   SHACL ingest gate, the OWL RL reasoner and the SPARQL surface (roadmap
   steps 1–2 and the query surface). Cycle orchestration is **not** downstream
@@ -464,11 +507,10 @@ There is no CD pipeline and no CI workflow for this repo
   is retained as design reference and still to be reconciled — T-008). `portfolio-reports`
   and `portfolio-app` sit further downstream still, per the six-repo diagram
   in §1.
-- **No direct dependency on**: `portfolio-data-mining` — no read of its
-  `urls.db`, HTTP services or `universe.db` beyond what reaches this repo
-  through `portfolio-nlp` and `portfolio-financial-analysis` (its pricing and
-  EDGAR services are consumed by `portfolio-financial-analysis`, not here —
-  §2.5). `portfolio-financial-analysis` is a designed, not-yet-wired source
+- **No direct dependency on**: `portfolio-data-mining`'s `urls.db` or its
+  pricing/EDGAR HTTP services (consumed by `portfolio-nlp` and
+  `portfolio-financial-analysis`, not here — §2.5). The one direct
+  `portfolio-data-mining` artifact this repo needs is `universe.db` (above). `portfolio-financial-analysis` is a designed, not-yet-wired source
   (§13 item 2), not a non-dependency.
 
 ## 13. Open Questions & Risks
@@ -527,12 +569,16 @@ treating a related FR/NR as done:
 9. **No SOURCE/RESULTS schema contract is pinned beyond
    `fetch_processed_articles`'s join shape** — a `portfolio-nlp` schema
    change could silently break this repo's ETL with no signal.
-10. **Vocabulary drift between `kg_schema` (in `portfolio-financial-analysis`)
-    and `schema/` (here).** Both name the same concepts; neither is generated
-    from the other, and `kg_schema`'s `v_*` views are the only contract. A
-    rename or new column upstream breaks Work item 4's mapping silently
-    (§2.5 consequence 4). Mitigation: Work item 4 pins and checks the view
-    columns it reads (T-030); no cross-repo schema generation is planned.
+10. **Vocabulary and semantic drift between `kg_schema` (in
+    `portfolio-financial-analysis`) and `schema/` (here).** Both name the same
+    concepts; neither is generated from the other, and `kg_schema`'s `v_*`
+    views are the only contract. The T-007 rescan found sixteen concrete
+    differences (§2.6 D1–D16) — universe, temporal model, veto lifecycle, rule
+    catalog, score-type names, edge evidence, quant — several of which would
+    make a naive projection wrong, not merely incomplete. Mitigation: PLAN
+    Work item 11 decides each before Work item 4 writes the projection; Work
+    item 4 then pins and checks the view columns it reads (T-030). No
+    cross-repo schema generation is planned.
 11. **The SEMANTIC score is not computed here.** The earlier plan to
     aggregate `article_sentiment` per `(asset, day)` in this repo (old Work
     item 5) conflicted with the upstream boundary note
@@ -607,7 +653,7 @@ of what this project is, not a gap someone forgot to close:
 | §13 item | Category | Disposition |
 |---|---|---|
 | 1 — integrative layer unbuilt (steps 1–2, query surface); compute steps owned upstream | **Pending development** (integrative layer only) | The actual backlog — `PLAN.md` Work items 3, 4, 6; Work items 5 and 7 are now scope-reassigned upstream (§2.5) |
-| 10 — `kg_schema`/`schema/` vocabulary drift | **Pending development** (mitigation inside Work item 4) | `PLAN.md` Work item 4, T-030 |
+| 10 — `kg_schema`/`schema/` vocabulary and semantic drift | **Pending development** | `PLAN.md` Work item 11 (decisions, T-100–T-111) then Work item 4, T-030; register in §2.6 |
 | 11 — SEMANTIC score not computed here | **Resolved by scope decision** | `PLAN.md` Work item 5 (reassigned), §2.5 |
 | 2 — no `v_*`-views projection | **Pending development** | Folded into `PLAN.md` Work item 4 (the real step-2 projection); today's `src/etl/` shortcut stays live until that lands |
 | 3 — roadmap names superseded repos | **Pending development** (cheap, no blockers) | `PLAN.md` Work item 1 |

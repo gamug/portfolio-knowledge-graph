@@ -65,7 +65,8 @@ reused.*
 - [~] **T-061** ~~Implement the checkpointer-as-T-1-contagion-lag mechanism.~~
       Superseded — implemented upstream (`cycle_checkpoint`, T-1 lagged vetoes).
 - [~] **T-062** ~~Wire a scheduler for the quarterly/daily cadence.~~
-      Superseded — not this repo's.
+      Superseded — not this repo's; **but no scheduler exists upstream either**
+      (T-007 rescan, `SPEC.md` §2.6 D9) — ownership of the cadence is T-108.
 - [x] **T-063** Record the decision in `SPEC.md` — done (§2.2/§2.5/§12).
 - [~] **T-064** ~~Verify a `SelectionCycleGraph`/`MonitoringCycleGraph` run
       produces an `ORCHESTRATOR` graph.~~ Superseded — verify instead, within
