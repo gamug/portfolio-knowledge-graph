@@ -11,7 +11,7 @@ before it, and which existing repo (if any) it extends versus builds from scratc
 |---|---|
 | `portfolio-data-mining` (news discovery) | Built, tested — S&P 500 news URL discovery. |
 | `portfolio-data-mining` (article extraction) | Built, tested — full article text extraction, 2,289/2,289 processed. |
-| `portfolio-nlp` | Semantic layer — target of step 5. |
+| `portfolio-nlp` | Already publishes sentiment and category results (read by `src/etl/`); step 5 extends it with the FinBERT service from `09-nlp-finbert-architecture.md`. |
 | `portfolio-data-mining`'s on-demand EDGAR wrapper | Built, single-company — target of step 4's batch extension. |
 | `projects/web_scraping/portfolio-data-mining/src/trading/` | **Empty** — no pricing pipeline anywhere — target of step 3. |
 | `gdelt_news_full.csv` | Real historical GDELT data — usable as calibration/backtest fuel (step 9). |
