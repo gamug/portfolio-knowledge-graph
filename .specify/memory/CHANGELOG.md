@@ -32,6 +32,47 @@ acceptance criteria. Ordered by work item number.
       touched no fact either artifact currently states (verified by reading
       both; still content-consistent with the repo's actual state).
 
+## Work item 5 — ~~Implement the SEMANTIC score's per-`(asset, day)` aggregation~~ (SUPERSEDED, reassigned upstream)
+
+**CLOSED (2026-10-02)**, superseded by the T-007 scope decision.
+
+*Superseded 2026-10-02 (T-007): the aggregation is computed by
+`portfolio-nlp` and materialized by `portfolio-financial-analysis`; this repo
+only projects the resulting row (Work item 4). IDs kept, not reused.*
+
+- [~] **T-040** ~~Define and get sign-off on the aggregation formula.~~
+      Superseded — upstream's (`portfolio-nlp`) decision.
+- [~] **T-041** ~~Implement it in Work item 4's write path.~~ Superseded —
+      replaced by projecting the upstream SEMANTIC row (covered by T-031/T-033).
+- [~] **T-042** ~~Mirror to `financial-analysis`'s `score_snapshot[SEMANTIC]`.~~
+      Superseded — the dependency now runs the other way (this repo stops
+      writing it).
+- [~] **T-043** ~~Verify one aggregated snapshot per `(asset, day)`.~~
+      Superseded — verify instead, within T-035, that the projected SEMANTIC
+      lane equals the upstream rows.
+
+## Work item 7 — ~~Decide and build the orchestrator~~ (DECIDED: delegate)
+
+**CLOSED (2026-10-02)**, decided by the T-007 scope decision.
+
+*Decided 2026-10-02 (T-007): the two-speed cycle is `portfolio-financial-
+analysis`'s `cycle` package; this repo builds no orchestrator. IDs kept, not
+reused.*
+
+- [x] **T-060** *(maintainer decision)* Build the two LangGraph state graphs
+      here, or delegate to `financial-analysis`'s `cycle` package. →
+      **Delegate.**
+- [~] **T-061** ~~Implement the checkpointer-as-T-1-contagion-lag mechanism.~~
+      Superseded — implemented upstream (`cycle_checkpoint`, T-1 lagged vetoes).
+- [~] **T-062** ~~Wire a scheduler for the quarterly/daily cadence.~~
+      Superseded — not this repo's; **but no scheduler exists upstream either**
+      (T-007 rescan, `SPEC.md` §2.6 D9) — the maintainer assigned the cadence to the future `portfolio-app` (T-108).
+- [x] **T-063** Record the decision in `SPEC.md` — done (§2.2/§2.5/§12).
+- [~] **T-064** ~~Verify a `SelectionCycleGraph`/`MonitoringCycleGraph` run
+      produces an `ORCHESTRATOR` graph.~~ Superseded — verify instead, within
+      T-035, that `cycle`'s `v_veto`/`v_cycle_ranking`/`v_portfolio_position`
+      rows project into dated `ingest:ORCHESTRATOR:{date}` graphs.
+
 ## Work item 10 — Complete `schema/README.md`'s directory map
 
 **DONE (2026-09-12)**, closed by the constitution-compliance pass.

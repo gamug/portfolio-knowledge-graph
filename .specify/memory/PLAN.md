@@ -19,7 +19,8 @@ larger roadmap steps are broken into work items with a stated goal, approach,
 and acceptance criteria, but — like `portfolio-nlp`'s `PLAN.md` treats an
 infrastructure-blocked item — left coarse-grained where the actual
 implementation depends on a scope or architecture decision nobody has made
-yet (Work items 3–7).
+yet (Work item 3; Work items 5 and 7 were resolved by the 2026-10-02 scope
+decision).
 
 ## Goal
 
@@ -34,14 +35,20 @@ Close every item `SPEC.md` §14 categorizes as pending development:
    `portfolio-nlp`'s `article_*` tables → SHACL-validated, dated named
    graphs (§13 items 1 and 2, roadmap step 2 proper — supersedes today's
    `src/etl/` shortcut).
-5. Implement the SEMANTIC score's per-`(asset, day)` aggregation as part of
-   that projection (§13 item 1; the artifact's "owed work" gap).
+5. ~~Implement the SEMANTIC score's per-`(asset, day)` aggregation~~ —
+   **reassigned upstream** (T-007 scan, 2026-10-02): `portfolio-nlp` computes
+   it, `portfolio-financial-analysis` materializes it; this repo only
+   projects the resulting row (folded into Work item 4).
 6. Bring up the OWL RL reasoner and the SPARQL query surface (§13 item 1,
    roadmap steps within 1–3).
-7. Decide and build the orchestrator — the two LangGraph agent cycles here,
-   or delegate the two-speed cycle to `financial-analysis`'s `cycle` package
-   (§13 item 1, roadmap steps ~4–8).
+7. ~~Decide and build the orchestrator~~ — **decided: delegate** (T-007,
+   2026-10-02). The two-speed cycle is `portfolio-financial-analysis`'s
+   `cycle` package; this repo builds no orchestrator and projects its
+   outputs (Work item 4). Note: no scheduler exists upstream either.
 8. Regenerate `schema/protege-view.ttl` (§13 item 4).
+11. Reconcile the ontology, SHACL shapes, rule catalog and ETL with the
+    upstream contracts found by the T-007 rescan (`SPEC.md` §2.6 D1–D16):
+    decisions first, then schema/ETL edits (§13 item 10).
 9. Resolve the `ScoreSnapshotShape`/Sentiment `rawValue` divergence (§13
    item 6).
 10. Complete `schema/README.md`'s directory map (found during a
@@ -51,6 +58,12 @@ Growing the ABox from the current MVP shortcut's output to the full
 500-name universe on the real (not shortcut) projection is the natural
 completion criterion for Work item 4, not a separate item — see that work
 item's acceptance criteria.
+
+**Scope principle (T-007, 2026-10-02):** this repo is purely integrative —
+all computation lives in `portfolio-data-mining`, `portfolio-nlp` and
+`portfolio-financial-analysis` (`SPEC.md` §2.5). Work items here only model,
+project, validate and query; any task that would compute a score, rank,
+veto, sentiment or filing metric belongs in an upstream repo's plan.
 
 ## Non-goals
 
@@ -93,20 +106,23 @@ in this repo's own `08-agent-architecture.md`.
    unspecified.
 3. Update the roadmap's step 0–9 table so each step names the repo that now
    owns or will build it — without changing which steps are marked done vs.
-   not-started (a naming fix, not a status change; Work items 3–7 below are
+   not-started (a naming fix, not a status change; Work items 3, 4 and 6 below are
    what actually change the status).
 4. Cross-check `README.md` and `CLAUDE.md` for the same stale names and
    update them in the same pass.
-5. Scan `github.com/gamug/portfolio-financial-analysis`,
+5. **Done (2026-10-02, T-007).** Scan `github.com/gamug/portfolio-financial-analysis`,
    `github.com/gamug/portfolio-nlp` and `github.com/gamug/portfolio-data-mining`
    to set this repo's proper scope. This repo is purely integrative: the
    computation lives in those repos; this one models, projects and queries
    their outputs. For each, record inputs and outputs into the knowledge
-   graph (including the `portfolio-data-mining` pricing endpoint the
-   maintainer says `portfolio-financial-analysis` consumes — unverified, and
-   contradicted by the roadmap's "`src/trading/` is empty" row until the scan
-   confirms it); correct any step 0–9 or `SPEC.md` claim that assigns
-   computation to this repo or gets ownership wrong (T-007).
+   graph. Outcome: ownership map in `SPEC.md` §2.5; the `portfolio-data-mining`
+   pricing endpoint is confirmed to exist (`apps/pricing_api.py`), so the
+   roadmap's "`src/trading/` is empty" row is stale; roadmap steps 3, 4, 7, 8
+   (and part of 9) are computed upstream. `.specify/` is corrected; the
+   roadmap/`08`/README/CLAUDE.md wording is left to T-003, T-004, T-008.
+6. Update the Claude Code artifacts — the local `CLAUDE.md` and the published
+   Claude Artifacts — to the scope decisions above, per constitution "Claude
+   Code / coding-agent conduct" #4 and #6 (T-009).
 
 **Acceptance criteria**:
 
@@ -213,12 +229,25 @@ architecture, and not partitioned for the bitemporal audit trail
 
 **Approach**:
 
-1. Enumerate `financial-analysis`'s `v_*` views this repo needs to read
-   (`v_score_snapshot`, `v_price_observation`, `v_cycle_ranking`,
-   `v_portfolio_position`, `v_quant_*`, `v_sec_filing_section`, per `SPEC.md`
-   §4's diagram) and confirm their actual column shapes against that repo's
-   own docs — this repo pins no contract on them today (§13 item 9's sibling
-   risk on the `financial-analysis` side).
+1. Enumerate and pin `financial-analysis`'s read contract. The T-007 scan
+   found exactly 31 views in `src/kg_schema/views.py` (no wildcards):
+   `v_analysis_run`, `v_pricing_run`, `v_quant_run`, `v_cycle_run`,
+   `v_universe_coverage`, `v_universe_membership` (**frozen** — use
+   `universe.db`), `v_sector`, `v_industry`, `v_score_snapshot`,
+   `v_sector_aggregate_snapshot`, `v_price_observation`, `v_corporate_action`,
+   `v_quant_return_daily`, `v_risk_free_rate`, `v_benchmark_series`,
+   `v_sec_filing`, `v_sec_filing_section`, `v_veto`, `v_rule_catalog`,
+   `v_data_quality_issue`, `v_portfolio_position`, `v_shared_executive_edge`,
+   `v_cycle_ranking`, `v_weight_scheme`, `v_weight_component`,
+   `v_quant_risk_model`, `v_quant_portfolio`, `v_quant_position`,
+   `v_quant_frontier_point`, `v_quant_benchmark_performance`,
+   `v_quant_vs_live` — plus `universe.db` for membership. T-030 then records,
+   per view this repo reads, the exact columns it depends on (a table in
+   `SPEC.md` or `schema/README.md`), taken from that repo's `views.py`
+   projection contract, and adds a check that fails on drift; views this
+   repo decides not to read (Work item 11, T-108) are listed as such. This repo
+   pins no contract on them today (§13 item 9's sibling risk on the
+   `financial-analysis` side).
 2. Design the write path: read each source, `INSERT DATA` into a fresh
    `urn:graph:ingest:{agent}:{date}` graph (Work item 3's store), SHACL-
    validated per row/batch against `shapes.ttl` on the way in — not a
@@ -235,6 +264,9 @@ architecture, and not partitioned for the bitemporal audit trail
    demonstrates one dated graph per lane for) once this projection can
    produce them.
 
+**Prerequisite**: Work item 11 (the §2.6 drift decisions) — writing the
+projection before D1–D8 and D10 are decided would encode wrong semantics.
+
 **Acceptance criteria**:
 
 - A projection run against real `financial-analysis`/`portfolio-nlp` data
@@ -248,38 +280,22 @@ architecture, and not partitioned for the bitemporal audit trail
 
 **Blocked on**: Work item 3 (needs a store to write into).
 
-## Work item 5 — Implement the SEMANTIC score's per-`(asset, day)` aggregation
+## Work item 5 — ~~Implement the SEMANTIC score's per-`(asset, day)` aggregation~~ (SUPERSEDED — reassigned upstream)
 
-**Why**: `financial-analysis` accepts a `score_snapshot[SEMANTIC]` input,
-but the aggregation from `portfolio-nlp`'s `article_sentiment`/
-`article_category` rows into one `ScoreSnapshot` per `(asset, day)` is owed
-to "the integration repo" — this one — and doesn't exist yet as a designed
-aggregation (today's `src/etl/` emits one `ScoreSnapshot` per article, not
-aggregated per day).
+**Status: SUPERSEDED (2026-10-02, T-007).** Not this repo's job: the
+aggregation is a computation, and the upstream boundary note
+(`portfolio-financial-analysis/docs/semantic-score-boundary.md`) assigns it
+to `portfolio-nlp`, with `portfolio-financial-analysis` materializing
+`score_snapshot[SEMANTIC]` and this repo stopping its own writes of that
+score. Recorded in `SPEC.md` §2.2/§2.5/§13 item 11.
 
-**Approach**:
-
-1. Define the aggregation function (e.g. article-count-weighted mean
-   `rawValue` per `(asset, day)`, or a more deliberate scheme) — this is a
-   modeling decision that needs sign-off the same way the G1–G3/G9 formulas
-   in `etl/common/severity.py` are flagged as provisional, not a default to
-   pick silently.
-2. Implement it as part of Work item 4's write path (one aggregated
-   `ScoreSnapshot` written per `(asset, day)` into the day's ingest graph,
-   not one per article).
-3. Mirror to `financial-analysis`'s `score_snapshot[SEMANTIC]` column if
-   that repo keeps it, per `SPEC.md` §4/§12.
-
-**Acceptance criteria**:
-
-- Exactly one `SEMANTIC`/`Sentiment` `ScoreSnapshot` exists per
-  `(asset, day)` with available articles, not one per article.
-- The aggregation formula is documented and flagged provisional/sign-off-
-  pending the same way `etl/common/severity.py`'s G1–G3/G9 are, until
-  calibrated.
-
-**Blocked on**: Work item 4 (this is part of that projection's write path,
-not a standalone pipeline).
+**What remains here** (folded into Work item 4): once the upstream cut-over
+exists, project the `score_snapshot[SEMANTIC]` row from `v_score_snapshot`
+as the SEMANTIC lane, and retire `src/etl/`'s per-article Sentiment
+`ScoreSnapshot`s in the same step. Until then the per-article snapshots stay.
+Open dependency (not ours to build): the `portfolio-nlp` aggregation stage and
+`financial-analysis`'s `KG_NLP_DB` read are "designed, not built" in both
+repos as of the scan.
 
 ## Work item 6 — Bring up the OWL RL reasoner and the SPARQL surface
 
@@ -309,41 +325,35 @@ neither the reasoner nor a query surface exists today.
 
 **Blocked on**: Work items 3 and 4.
 
-## Work item 7 — Decide and build the orchestrator
+## Work item 7 — ~~Decide and build the orchestrator~~ (DECIDED: delegate, nothing to build here)
 
-**Why**: `08-agent-architecture.md` designs two LangGraph state graphs
-(`SelectionCycleGraph` quarterly, `MonitoringCycleGraph` daily) implementing
-the two-speed cycle, but no scheduler exists, and it's an open question
-whether this repo builds them or `financial-analysis`'s `cycle` package
-absorbs the two-speed cycle and this repo stays query-only.
+**Status: DECIDED (2026-10-02, T-007).** `08-agent-architecture.md` designed
+two LangGraph state graphs; the T-007 scan found the two-speed cycle already
+implemented in `portfolio-financial-analysis`'s `cycle` package
+(`cycle select` quarterly, `cycle monitor` daily, `cycle_checkpoint` resume,
+T-1 contagion-lagged vetoes, `rule_catalog` → `veto` lane). With this repo's
+scope fixed as purely integrative, the build-vs-delegate question resolves to
+**delegate**: no orchestrator, scheduler or LangGraph code here.
 
-**This is a scope decision, not a default to implement silently** — flag it
-for the repo owner before writing agent code either here or in
-`financial-analysis`.
+**Correction (T-007 rescan)**: upstream's `cycle` is a relational-checkpoint
+topological runner (Strands-era), not LangGraph, and **no scheduler or
+cross-module orchestrator exists in any repo** (upstream `SPEC.md` §13 item 3,
+§14). Delegating therefore moves the cycle *logic*, not a running cadence —
+who triggers quarterly/daily runs was unassigned until the maintainer
+(2026-10-02) assigned it to the future `portfolio-app` repo, which will call
+the upstream endpoints as needed (T-108).
 
-**Approach**:
+**What remains here**:
 
-1. *(maintainer decision)* Build the two LangGraph state graphs in this
-   repo, or delegate to `financial-analysis`'s `cycle` package and keep this
-   repo query-only (SPARQL surface from Work item 6, no orchestration code).
-2. Whichever is chosen: implement the checkpointer-as-T-1-contagion-lag
-   mechanism `08` designs (the orchestrator on day N reads only day N-1's
-   checkpointed vetoes — "what did we believe as of D" is *which dated
-   graphs exist*, not a temporal query).
-3. Wire a scheduler for the quarterly/daily cadence — none exists today
-   regardless of which repo owns the graphs.
+1. Project `cycle`'s outputs (`v_veto`, `v_cycle_ranking`,
+   `v_portfolio_position`, `v_cycle_run`) into dated
+   `ingest:ORCHESTRATOR:{date}` graphs — part of Work item 4, not a separate
+   build.
+2. Reconcile `08-agent-architecture.md` (and the roadmap's step 6) with the
+   decision: the LangGraph design becomes reference for what the upstream
+   `cycle` implements, not a build target (T-008).
 
-**Acceptance criteria**:
-
-- The decision (build here vs. delegate) is recorded in `SPEC.md` §3/§12,
-  not left implicit.
-- Whichever is built, a `SelectionCycleGraph` run and a `MonitoringCycleGraph`
-  run each produce a dated `ingest:ORCHESTRATOR:{date}` graph consistent
-  with `instances.trig`'s worked example of that lane.
-
-**Blocked on**: Work items 3, 4, and 6 (needs a store, real data, and a
-query surface to orchestrate over) — and the maintainer's build-vs-delegate
-decision.
+**Acceptance criteria**: the decision is in `SPEC.md` §2.2/§2.5/§12 (done).
 
 ## Work item 8 — Regenerate `schema/protege-view.ttl`
 
@@ -411,6 +421,48 @@ generated and never hand-edited — no `schema/*.ttl`/`.trig` content changes.
   `schema/`.
 - The schema parse+`pyshacl` check still passes (docs-only change).
 
+## Work item 11 — Reconcile the ontology and ETL with the upstream contracts (T-007 rescan)
+
+**Why**: the second T-007 pass (`SPEC.md` §2.6, D1–D16) found that
+`portfolio-financial-analysis` moved well past the design this repo's ontology
+was written against. Most gaps are *semantic*, not naming: a point-in-time
+universe the ETL ignores, an `available_at` look-ahead guard the ontology
+cannot express, veto stints vs. veto events, a rule catalog with different
+ids and logic, a renamed score type that fails today's SHACL shape, candidate
+(not asserted) executive edges. Writing the Work item 4 projection first would
+encode them wrongly.
+
+**Approach** (decide, record in `SPEC.md`/`schema/README.md`, then edit; one
+decision may be "keep ours, translate on projection"):
+
+1. Universe (D1): replace the ETL's live-Wikipedia asset master by
+   `universe.db` as-of reads → `:UniverseMembership` (T-100).
+2. Temporal model (D2): `availableAt`/`eventTime` properties vs. ingest-graph
+   dates (T-101).
+3. Veto lifecycle and rule catalog (D3, D4, D5): stint properties, the T-1
+   predicate as SPARQL, upstream's six rules as `RuleDefinition`s, a
+   `DataQualityIssue` decision (T-102–T-104).
+4. Vocabulary (D6, D7): `QUANTITATIVE` → `VALORIZATION` in shapes/reference,
+   run-provenance modelling (T-105, T-106).
+5. Edges and quant scope (D10, D11): candidate-edge semantics; which quant
+   outputs become individuals (T-107, T-108).
+6. Read-contract gaps and moving parts (D8, D12, D13, D15, D16): list for
+   upstream, assert `schema_version`, reconcile the `portfolio-common` pin
+   (T-109, T-110); SEMANTIC `score_method` discriminator and wording (D14,
+   T-111).
+
+**Acceptance criteria**:
+
+- Each of D1–D16 has a recorded disposition (adopted / translated /
+  rejected / raised upstream) in `SPEC.md` §2.6.
+- Where a decision changes `schema/`, the FR-001 parse + `pyshacl` check
+  passes and `schema/README.md`'s counts are updated (NR-001).
+- No Work item 4 task starts before this one's items 1–4 are decided.
+
+**Blocked on**: nothing for the decisions. Maintainer decisions so far
+(2026-10-02): D4 — upstream's rule catalog is final; D9 — `portfolio-app`
+triggers the cycles. Still open: D11 (which quant outputs become individuals).
+
 ## Sequencing
 
 ```
@@ -422,22 +474,23 @@ Work item 10 (README map)   ─┘
 Work item 3 (triple store)
         │
         ▼
-Work item 4 (real projection) ──► Work item 5 (SEMANTIC aggregation)
+Work item 4 (real projection; absorbs the SEMANTIC and ORCHESTRATOR lanes)
         │
         ▼
 Work item 6 (reasoner + SPARQL)
-        │
-        ▼
-Work item 7 (orchestrator) ── blocked additionally on a build-vs-delegate decision
+
+Work item 11 (reconcile with upstream contracts) ──► gates Work item 4
+
+Work item 5 (SEMANTIC aggregation) — superseded, reassigned upstream
+Work item 7 (orchestrator)         — decided: delegate to financial-analysis `cycle`
 
 Work item 8 (protege-view.ttl) — independent, manual, land whenever convenient
 ```
 
 Work items 1, 2, and 9 have no dependencies and no blockers — they can land
-immediately, in any order, in one PR or several. Work items 3–7 follow the
-roadmap's own dependency chain (a store before a projection, a projection
-before a reasoner/SPARQL surface, both before an orchestrator) and item 7 is
-additionally gated on a maintainer decision. Work item 8 is independent of
+immediately, in any order, in one PR or several. Work items 3, 4 and 6 follow
+the roadmap's own dependency chain (a store before a projection, a projection
+before a reasoner/SPARQL surface); 5 and 7 are no longer build items here. Work item 8 is independent of
 everything but needs a human at a Protégé session, not code.
 
 See `TASKS.md` for the discrete, checkable task breakdown.
