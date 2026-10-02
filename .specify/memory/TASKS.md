@@ -41,9 +41,10 @@ renumber of the next work item's block.
       historical §13 references; the schema parse+`pyshacl` check still
       passes. → `PLAN.md` acceptance criteria. *Done 2026-10-02: grep empty
       over root `*.md`, `README.md` and the author's local `CLAUDE.md` (not
-      reviewable from a PR); remaining hits under `docs/` and `.specify/` are
-      deliberate historical notes (`docs/08` header, `SPEC.md` §13 item 3,
-      PLAN/TASKS task text). Parse: `quads: 1608`; `pyshacl`: `conforms:
+      reviewable from a PR); no hits remain under `docs/` or `schema/`
+      either (the `docs/08` banner was reworded); the only remaining hits are
+      in `.specify/` — `SPEC.md` §13 item 3 (the allowed historical
+      reference) and the PLAN/TASKS text that describes this task itself. Parse: `quads: 1608`; `pyshacl`: `conforms:
       True` (flat union of `instances.trig` + `tbox`/`reference`/`rules`
       against `shapes.ttl`, no inference).*
 - [ ] **T-006** Update the two architecture artifacts per constitution

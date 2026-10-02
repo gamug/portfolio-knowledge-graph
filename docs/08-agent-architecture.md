@@ -11,8 +11,8 @@ because its state-graph model plus built-in checkpointing map onto the two-speed
 > integrative, so it builds no agents. The two-speed cycle this document designs is implemented
 > upstream by `portfolio-financial-analysis`'s `cycle` package, which differs from the LangGraph design
 > below in several ways — see "Mapping to what exists upstream" at the end. Decision and evidence:
-> `.specify/memory/SPEC.md` §2.2, §2.5, §2.6 and `PLAN.md` Work item 7. Name references below to
-> `news-collector`, `news-crawler` and `edgar_tool.py` have been updated to the current repos.
+> `.specify/memory/SPEC.md` §2.2, §2.5, §2.6 and `PLAN.md` Work item 7. Repo names below were
+> updated from the pre-split codebase to the current repos.
 
 ## Two graphs, mirroring the two-speed cycle
 
