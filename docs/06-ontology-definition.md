@@ -1,6 +1,6 @@
 # Ontology Definition — Portfolio Knowledge Graph (v2)
 
-**Implementation:** [`schema/`](./schema/) — the formal OWL/SHACL/TriG implementation of
+**Implementation:** [`schema/`](../schema/) — the formal OWL/SHACL/TriG implementation of
 everything described below, split into `tbox.ttl` (classes/properties, **37 classes total** as of
 this revision — 24 mutually-disjoint leaf/domain classes plus a 13-class `rdfs:subClassOf`
 taxonomic backbone, see §1.2), `shapes.ttl` (SHACL, 14 shapes), `reference.ttl` (GICS taxonomy +
