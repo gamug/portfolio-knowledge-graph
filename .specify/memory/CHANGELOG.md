@@ -66,7 +66,7 @@ reused.*
       Superseded — implemented upstream (`cycle_checkpoint`, T-1 lagged vetoes).
 - [~] **T-062** ~~Wire a scheduler for the quarterly/daily cadence.~~
       Superseded — not this repo's; **but no scheduler exists upstream either**
-      (T-007 rescan, `SPEC.md` §2.6 D9) — ownership of the cadence is T-108.
+      (T-007 rescan, `SPEC.md` §2.6 D9) — the maintainer assigned the cadence to the future `portfolio-app` (T-108).
 - [x] **T-063** Record the decision in `SPEC.md` — done (§2.2/§2.5/§12).
 - [~] **T-064** ~~Verify a `SelectionCycleGraph`/`MonitoringCycleGraph` run
       produces an `ORCHESTRATOR` graph.~~ Superseded — verify instead, within

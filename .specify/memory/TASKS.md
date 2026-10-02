@@ -155,11 +155,13 @@ renumber of the next work item's block.
 - [ ] **T-102** *(D3)* Model veto stints (`raisedOn`/`clearedOn`/`lastSeenOn`
       or `validFrom`/`validTo`) and write the "active at cutoff C" predicate
       as the T-1-lag SPARQL pattern. → step 3.
-- [ ] **T-103** *(D4, maintainer sign-off)* Reconcile the rule catalogs: add
-      upstream's six rules (`LEVERAGE_EXTREME`, `NEGATIVE_FCF`,
+- [ ] **T-103** *(D4 — decided 2026-10-02: upstream's catalog is final)*
+      Implement it: add upstream's six rules (`LEVERAGE_EXTREME`, `NEGATIVE_FCF`,
       `LIQUIDITY_DISTRESS`, `PRICE_CRASH`, `EARNINGS_MISSING`,
-      `DATA_QUALITY`) as `RuleDefinition`s so `:appliesRule` resolves, and mark
-      `rules.ttl`'s seven tree rules design-only (or the reverse). → step 3.
+      `DATA_QUALITY`) as `RuleDefinition`s (single-leaf `RuleClause`s) so
+      `:appliesRule` resolves, supersede `rules.ttl`'s seven tree rules
+      (including `VETO_RED_01`), and update FR-003, `06`/`07`, `schema/README.md`
+      and the FR-001 counts. → step 3.
 - [ ] **T-104** *(D5)* Decide `:DataQualityIssue` (evidence for the
       `DATA_QUALITY` veto) vs. dropping it. → step 3.
 - [ ] **T-105** *(D6)* `agentOrigin` `QUANTITATIVE` → `VALORIZATION` in
@@ -171,10 +173,13 @@ renumber of the next work item's block.
       method/weight/confidence (or a separate candidate property) so news
       co-occurrence is not asserted as fact; decide `media_cooccurrence`. →
       step 5.
-- [ ] **T-108** *(D9, D11, maintainer sign-off)* Decide which `quant` outputs
-      become individuals (benchmark books/positions/performance; never returns,
-      μ or Σ — NR-003) and who triggers the quarterly/daily cycle runs, since
-      no scheduler exists upstream. → steps 5–6.
+- [ ] **T-108** *(D9 decided 2026-10-02; D11 open, maintainer sign-off)*
+      (a) ~~Who triggers the quarterly/daily cycles~~ — **`portfolio-app`**
+      (not yet created) calls the upstream endpoints; raise with upstream that
+      `api/` is read-only with no run-trigger endpoint and that their docs name
+      `portfolio-reports` as the trigger. (b) Still to decide: which `quant`
+      outputs become individuals (benchmark books/positions/performance; never
+      returns, μ or Σ — NR-003). → steps 5–6.
 - [ ] **T-109** *(D8, D12, D13, D15, D16)* Pin and assert upstream's
       `schema_version` floor; confirm `v_cycle_ranking`'s actual behaviour
       (docstring says latest-only, SQL returns all runs); list contract gaps

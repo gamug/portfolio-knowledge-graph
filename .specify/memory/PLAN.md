@@ -329,7 +329,9 @@ scope fixed as purely integrative, the build-vs-delegate question resolves to
 topological runner (Strands-era), not LangGraph, and **no scheduler or
 cross-module orchestrator exists in any repo** (upstream `SPEC.md` §13 item 3,
 §14). Delegating therefore moves the cycle *logic*, not a running cadence —
-who triggers quarterly/daily runs is unassigned (T-108).
+who triggers quarterly/daily runs was unassigned until the maintainer
+(2026-10-02) assigned it to the future `portfolio-app` repo, which will call
+the upstream endpoints as needed (T-108).
 
 **What remains here**:
 
@@ -447,8 +449,9 @@ decision may be "keep ours, translate on projection"):
   passes and `schema/README.md`'s counts are updated (NR-001).
 - No Work item 4 task starts before this one's items 1–4 are decided.
 
-**Blocked on**: nothing for the decisions; maintainer sign-off on D4 (which
-rule catalog is authoritative) and D11 (quant scope).
+**Blocked on**: nothing for the decisions. Maintainer decisions so far
+(2026-10-02): D4 — upstream's rule catalog is final; D9 — `portfolio-app`
+triggers the cycles. Still open: D11 (which quant outputs become individuals).
 
 ## Sequencing
 
