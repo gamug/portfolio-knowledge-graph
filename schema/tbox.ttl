@@ -96,6 +96,11 @@
     rdfs:label "Executive" ;
     rdfs:comment "A named director/officer extracted from DEF 14A filings, used by the VETO_RED_01 contagion rule (v1 §4). canonicalId is populated by the entity-resolution service (roadmap step 7)." .
 
+:AssetCoOccurrence
+    a owl:Class ;
+    rdfs:label "Asset Co-occurrence" ;
+    rdfs:comment "T-107 (D10): one method-versioned, weighted CANDIDATE link between two assets derived from news co-occurrence (upstream shared_executive_edge, method news-per-cooccurrence-v1; or the media_cooccurrence table once populated). Reified because the link carries method/weight. It is NOT a verified shared directorship and never implies :sharedExecutiveWith." .
+
 :Veto
     a owl:Class ;
     rdfs:label "Veto" ;
@@ -262,6 +267,8 @@
 :RiskEvent rdfs:subClassOf :RiskAndDecision .
 :Veto rdfs:subClassOf :RiskAndDecision .
 
+:AssetCoOccurrence rdfs:subClassOf :Observation .
+
 :RuleDefinition rdfs:subClassOf :RuleSystem .
 :RuleClause rdfs:subClassOf :RuleSystem .
 :AttractivenessWeightScheme rdfs:subClassOf :AttractivenessScheme .
@@ -276,7 +283,7 @@
 
 #################################################################
 # 1.3 DISJOINTNESS — every individual belongs to exactly one of
-# these 25 classes. EvidenceSource/RuleOperand/ObservationSnapshot
+# these 26 classes. EvidenceSource/RuleOperand/ObservationSnapshot
 # (§1.1) and every §1.2 taxonomy class are deliberately excluded --
 # they're superclasses of members of this list, and a superclass is
 # never disjoint from its own subclasses.
@@ -284,7 +291,7 @@
 
 [] a owl:AllDisjointClasses ;
    owl:members ( :Asset :Sector :Industry :Universe :UniverseMembership :ScoreSnapshot
-                 :RiskEvent :NewsArticle :SECFiling :SECFilingSection :DataQualityIssue :Executive :Veto
+                 :RiskEvent :NewsArticle :SECFiling :SECFilingSection :DataQualityIssue :Executive :Veto :AssetCoOccurrence
                  :RuleDefinition :RuleClause :ThresholdComparison :CategoricalComparison
                  :GraphPredicate :Portfolio :PortfolioPosition :PriceObservation
                  :SectorAggregateSnapshot :AttractivenessSnapshot :AttractivenessWeightScheme
@@ -343,7 +350,7 @@
     rdfs:comment "Extracted from DEF 14A (v1 §2B)." .
 
 :sharedExecutiveWith a owl:ObjectProperty, owl:SymmetricProperty ; rdfs:domain :Asset ; rdfs:range :Asset ;
-    rdfs:comment "Derived/asserted by the entity-resolution service (roadmap step 7), never hand-authored. Backs VETO_RED_01's HasSharedPrimaryVetoExecutive(A) check (v1 §4)." .
+    rdfs:comment "Derived/asserted by the entity-resolution service (roadmap step 7), never hand-authored. Backs VETO_RED_01's HasSharedPrimaryVetoExecutive(A) check (v1 §4). T-107 (D10): reserved for VERIFIED shared directorships (e.g. from DEF 14A). Upstream's news co-occurrence candidates are projected as :AssetCoOccurrence individuals instead and must never be written as this property." .
 
 :partOfFiling a owl:ObjectProperty, owl:FunctionalProperty ; rdfs:domain :SECFilingSection ; rdfs:range :SECFiling .
 :filingOfAsset a owl:ObjectProperty, owl:FunctionalProperty ; rdfs:domain :SECFiling ; rdfs:range :Asset .
@@ -399,7 +406,7 @@
 
 # T-106 (D7): upstream run provenance. No rdfs:domain on purpose (like :provenanceId): D7 says every upstream row carries run_id, and a domain would
 # entail :ScoreSnapshot on a :Veto/:PortfolioPosition, contradicting AllDisjointClasses. Per-class use is constrained by SHACL (ScoreSnapshot,
-# SectorAggregateSnapshot, Veto, PortfolioPosition, DataQualityIssue); all optional -- ETL-built SEMANTIC snapshots have no upstream run.
+# SectorAggregateSnapshot, Veto, PortfolioPosition, DataQualityIssue, AssetCoOccurrence); all optional -- ETL-built SEMANTIC snapshots have no upstream run.
 # On stint / valid-time individuals (Veto, PortfolioPosition) later cycles append to the SAME individual, so these four record only the run that OPENED
 # the record (raised it / validFrom); later cycles must not re-emit them (maxCount 1 / FunctionalProperty would break) and the closing run is not recorded.
 :runId a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:range xsd:string ;
@@ -414,6 +421,18 @@
 # --- RiskEvent / Veto ---
 :category a owl:DatatypeProperty ; rdfs:range xsd:string ;
     rdfs:comment "On RiskEvent: LEGAL | FINANCIAL | MARKET | NETWORK. On RuleDefinition: free-text category label (v1's catalog table for the superseded rules; upstream's FINANCIAL | MARKET | DATA_QUALITY for the active six)." .
+# --- AssetCoOccurrence (T-107, D10) ---
+:coOccurrenceAsset a owl:ObjectProperty ; rdfs:domain :AssetCoOccurrence ; rdfs:range :Asset ;
+    rdfs:comment "The two assets linked (SHACL: exactly 2). Unordered, so no direction is implied." .
+:coOccurrenceKind a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :AssetCoOccurrence ; rdfs:range xsd:string ;
+    rdfs:comment "SHARED_EXECUTIVE_CANDIDATE (upstream shared_executive_edge). The MEDIA kind for media_cooccurrence (non-executive; table unpopulated until upstream's T-082, endpoints unknown) is deliberately NOT enumerated yet: add it, and its own shape rules, once the columns are known (T-109)." .
+:coOccurrenceMethod a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :AssetCoOccurrence ; rdfs:range xsd:string ;
+    rdfs:comment "Upstream method id, e.g. news-per-cooccurrence-v1. Upstream recomputes per method, so different methods are different individuals; readers must filter on it." .
+:coOccurrenceWeight a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :AssetCoOccurrence ; rdfs:range xsd:decimal ;
+    rdfs:comment "Upstream's edge weight, in the method's own unit (not normalized, not comparable across methods). Upstream emits no separate confidence; none is invented here." .
+:coOccurrenceComputedOn a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :AssetCoOccurrence ; rdfs:range xsd:date ;
+    rdfs:comment "Optional date the edge set was computed (not confirmed to be exposed by upstream's v_shared_executive_edge, T-109; runAsOf/runId can carry it). The individual is immutable and a recompute is a new individual in a new dated graph." .
+
 # --- DataQualityIssue (T-104) ---
 :dqIssueOfAsset a owl:ObjectProperty, owl:FunctionalProperty ; rdfs:domain :DataQualityIssue ; rdfs:range :Asset .
 :dqGateCode a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :DataQualityIssue ; rdfs:range xsd:string ;

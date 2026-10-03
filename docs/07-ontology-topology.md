@@ -25,7 +25,7 @@ special query language feature.
 | `urn:graph:ingest:FUNDAMENTAL:{year}-Q{n}` | One graph per quarterly Fundamental Agent run — new `UniverseMembership` records, fundamental `ScoreSnapshot`s, and `DataQualityIssue` evidence from the Ring-1 gates (T-104; dated by `dqRaisedOn`, optionally linked to the gated `SECFiling` and metric) (v1's slow cycle, §2A) | Append-only. |
 | `urn:graph:ingest:ORCHESTRATOR:{date}` | The Orchestrator's own decisions — `Veto` individuals and any `RiskEvent`s it directly produced; also `AttractivenessSnapshot` individuals (added 2026-08-13) — the Orchestrator's ranking output, alongside its veto output | Append-only. A `Veto` stint is closed by a `clearedOn` triple written in the clearing cycle's graph (T-102), never deleted. |
 | `urn:graph:ingest:EDGAR:{date-or-quarter}` | `SECFiling`/`SECFilingSection` individuals from the EDGAR batch pipeline (roadmap step 4), including restated sections | Append-only — see the restatement pattern below. |
-| `urn:graph:derived:entity-resolution:{date}` | `sharedExecutiveWith` and other entity-resolution-service output (roadmap step 7) | Append-only; kept separate from the EDGAR graphs it draws on since it's a different service's output. |
+| `urn:graph:derived:entity-resolution:{date}` | `AssetCoOccurrence` candidate edges (T-107; news co-occurrence, method/weight) and other entity-resolution-service output (roadmap step 7); `sharedExecutiveWith` only if verified | Append-only; kept separate from the EDGAR graphs it draws on since it's a different service's output. |
 | `urn:graph:universe:{year}-Q{n}` | The `Universe` individual + its membership boundary for that quarter | Append-only, closed by writing `validTo` on the *previous* quarter's memberships (never by deleting them). |
 | `urn:graph:portfolio:current` | Live `PortfolioPosition` individuals — the actively-held book | The one graph that's genuinely mutated in place, but even here, closing a position sets `validTo` rather than deleting the triple, preserving history in place. |
 
@@ -49,7 +49,7 @@ section. Worked example (JNJ's Item 1A, original + restated) in `schema/instance
 
 > **As-of reads (T-101).** The graph date is the ingest batch, not the usable date. `ScoreSnapshot.availableAt` is the look-ahead guard: as-of-D queries over `ScoreSnapshot`s filter `availableAt <= D`, never `eventTime` or `timestamp`. `SectorAggregateSnapshot` and `AttractivenessSnapshot` are same-cycle derived outputs with no separate clock: they are usable from the date of their `timestamp`/`computedAt`.
 >
-> **Run provenance (T-106, D7).** Upstream rows (`ScoreSnapshot`, `SectorAggregateSnapshot`, `Veto`, `PortfolioPosition`, `DataQualityIssue`) may carry the run that wrote them as plain optional properties: `runId`, `runAsOf`, `codeVersion`, `engineVersion` (no `rdfs:domain`, like `provenanceId`; SHACL scopes them per class). There is no `Run` class and the run log (params, dirty-tree reason, `schema_version`) stays upstream, reachable through `runId` and the `v_*_run` views. Per-score-type extras `forensic_flags_json`, `prompt_hash` and `correction_rule` are deliberately not projected (see `schema/README.md`).
+> **Run provenance (T-106, D7).** Upstream rows (`ScoreSnapshot`, `SectorAggregateSnapshot`, `Veto`, `PortfolioPosition`, `DataQualityIssue`, and since T-107 `AssetCoOccurrence`) may carry the run that wrote them as plain optional properties: `runId`, `runAsOf`, `codeVersion`, `engineVersion` (no `rdfs:domain`, like `provenanceId`; SHACL scopes them per class). There is no `Run` class and the run log (params, dirty-tree reason, `schema_version`) stays upstream, reachable through `runId` and the `v_*_run` views. Per-score-type extras `forensic_flags_json`, `prompt_hash` and `correction_rule` are deliberately not projected (see `schema/README.md`).
 >
 > - **Stints and valid-time records record the opener.** A `Veto` (stint) and a `PortfolioPosition` (valid-time) are appended to by later cycles (`lastSeenOn`, `clearedOn`/`validTo`, often from another run). On them the four properties record only the run that **opened** the record (`raisedOn`/`validFrom`); later cycles must not re-emit them (that would give two values, violating `maxCount 1` and the functional property, which OWL2-RL reads as an inconsistency) and the closing run is not recorded. Immutable observations (`ScoreSnapshot`, `SectorAggregateSnapshot`) and `DataQualityIssue` rows are written once, so no such rule is needed.
 > - **Three dates, three jobs.** `eventTime` = what the observation is about; `availableAt` = the **only** as-of read filter; `runAsOf` = the date the producing run was evaluated for, informational. For TECHNICAL/VALORIZATION/SECTOR it equals `eventTime` (so omit it); it can differ for FUNDAMENTAL and for `backfill` replays.
@@ -115,7 +115,7 @@ Recommend **OWL 2 RL / RDFS+ only** — not a full OWL DL reasoner:
 - **Turn on:** `rdfs:subClassOf` transitivity — this now pays off in two places, not one. The GICS
   `Industry → Sector` roll-up ("give me every `Asset` in the Information Technology sector",
   ~11 sectors/~70 industries) is cheap to materialize, as before. As of the 2026-08-23 taxonomy
-  revision (`06-ontology-definition.md` §1.2), the ontology's own 25 domain classes also have
+  revision (`06-ontology-definition.md` §1.2), the ontology's own 26 domain classes also have
   `subClassOf` structure to reason over — e.g. `?x a :ObservationSnapshot` now correctly returns
   every `ScoreSnapshot`, `SectorAggregateSnapshot`, and `AttractivenessSnapshot` individual without
   the query author enumerating all three types by hand. Before that revision this setting only ever
@@ -124,8 +124,7 @@ Recommend **OWL 2 RL / RDFS+ only** — not a full OWL DL reasoner:
   the same reasoning cost.
 - **Leave off:** full OWL DL / property-chain reasoning. In particular, `sharedExecutiveWith`
   (used by the superseded `VETO_RED_01`'s contagion check, dropped from the target catalog by T-103) is deliberately **not** something the reasoner
-  computes automatically via property chains — it's written explicitly by the entity-resolution
-  service (roadmap step 7) as application logic, not inferred transitively across the graph.
+  computes automatically via property chains — it would be written explicitly as application logic (upstream's news candidates are `AssetCoOccurrence`, not this property, and no upstream source of *verified* edges exists today, so the closed `VETO_RED_01` has nothing feeding it), not inferred transitively across the graph.
   Materializing deep inference chains over tens of millions of `ScoreSnapshot` triples would blow
   up both load time and result-set size for a benefit that, for this rule specifically, needs
   controlled/auditable logic anyway — an inferred edge is harder to explain in an audit trail than
