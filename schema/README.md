@@ -24,6 +24,8 @@ from within `instances.trig` like every other per-agent ingest graph.
 Two more files live in this directory but load into nothing (neither is part of the load order
 above):
 
+- `graphdb-repo-config.ttl` — **not data**: the GraphDB repository configuration (reasoning profile),
+  never loaded into a graph. See `docs/graphdb-setup.md`.
 - `protege-view.ttl` — a **generated**, flattened plain-Turtle bundle for Protégé (which can't
   open `.trig`), derived from the four authoritative sources plus a `:sourceNamedGraph` annotation
   that exists only in this file. Never hand-edit it; regenerate it from a Protégé session after a
