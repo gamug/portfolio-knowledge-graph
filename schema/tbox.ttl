@@ -514,20 +514,20 @@
 :portfolioKind a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :Portfolio ; rdfs:range xsd:string ;
     rdfs:comment "LIVE | BENCHMARK, required. Set by which upstream view the book was read from, a fixed mapping and not a judgement: LIVE for the book built from v_portfolio_position (the cycle's selected book), BENCHMARK for books from v_quant_portfolio. The projection writes it explicitly; nothing relies on absence." .
 :benchmarkObjective a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :Portfolio ; rdfs:range xsd:string ;
-    rdfs:comment "Upstream's objective label for a BENCHMARK book, carried verbatim and not interpreted (column name pending, T-109)." .
+    rdfs:comment "Upstream's objective label for a BENCHMARK book, carried verbatim and not interpreted: the objective column of v_quant_portfolio (min_var, tangency, target_vol, risk_parity; T-109)." .
 # --- BenchmarkObservation (T-108, D11) ---
 :quantPortfolio a owl:ObjectProperty, owl:FunctionalProperty ; rdfs:domain :BenchmarkObservation ; rdfs:range :Portfolio ;
     rdfs:comment "The benchmark Portfolio the number is about." .
 :quantMetric a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :BenchmarkObservation ; rdfs:range xsd:string ;
-    rdfs:comment "Upstream's metric name, verbatim (e.g. the performance column or active_weight); no vocabulary is imposed until the view columns are known (T-109)." .
+    rdfs:comment "Upstream's metric name, verbatim (e.g. the performance column or active_weight); no vocabulary is imposed. Upstream's columns (T-109): v_quant_portfolio expected_return, expected_vol, sharpe, rf_annual, n_positions, turnover; v_quant_benchmark_performance realized_return, cumulative_return, benchmark_return, active_return; v_quant_vs_live active_weight." .
 :quantValue a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :BenchmarkObservation ; rdfs:range xsd:decimal ;
     rdfs:comment "Upstream's value, in its own unit." .
 :quantUnit a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :BenchmarkObservation ; rdfs:range xsd:string ;
-    rdfs:comment "Optional unit of quantValue as upstream states it (e.g. percentage_points, fraction). Never converted here. benchmark weightPct is 0-100: if upstream sends fractions the projection must scale them, which T-109 pins down." .
+    rdfs:comment "Optional unit of quantValue as upstream states it (fraction for every number T-109 found). Never converted here. Upstream's weights and returns are fractions (0.05 = 5%), so those values carry unit fraction. Only quant_position weights are scaled by the projection, x100, because weightPct is 0-100 (T-109)." .
 :quantAsset a owl:ObjectProperty, owl:FunctionalProperty ; rdfs:domain :BenchmarkObservation ; rdfs:range :Asset ;
     rdfs:comment "Only for per-asset numbers (active weight vs the live book); absent for whole-book metrics." .
 :quantAsOf a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :BenchmarkObservation ; rdfs:range xsd:date ;
-    rdfs:comment "Optional date the number refers to (not confirmed as a view column, T-109; runAsOf can carry it). Immutable: a recompute is a new individual." .
+    rdfs:comment "Optional date the number refers to: v_quant_portfolio.as_of for a book metric, v_quant_benchmark_performance.date for a performance row (T-109). Immutable: a recompute is a new individual." .
 :weightPct     a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :PortfolioPosition ; rdfs:range xsd:decimal .
 
 # --- PriceObservation (derived daily summary only) ---
