@@ -129,7 +129,7 @@ vocabulary, this would have failed.
 **Re-verified 2026-10-03 (T-103, rule catalog migration):** the same combined-graph parse and
 `pyshacl` check — **1718 quads; conforms: True**. The migration added the six upstream
 `RuleDefinition`s, closed the seven tree rules with `validTo`, added `:ruleSeverity` and widened
-`ThresholdComparisonShape`'s `metricName` list; no new class, so the 24-member `AllDisjointClasses` (25 since T-104)
+`ThresholdComparisonShape`'s `metricName` list; no new class, so the then-24-member `AllDisjointClasses` (25 since T-104)
 block and the 14 node shapes are unchanged.
 
 **T-102 (veto stints), same day:** `:Veto` gains `raisedOn` (required), `clearedOn`, `lastSeenOn`
@@ -142,7 +142,7 @@ A stint is closed by writing `clearedOn` in the clearing cycle's graph, never by
 `Veto_XOM_MKT_20260805` a SOFT `vetoSeverity`. Upstream's wall-clock `cleared_at` is dropped.
 **1771 quads; conforms: True.**
 
-**T-104 (D5, decided 2026-10-03: model it).** `:DataQualityIssue` is an `EvidenceSource` leaf — one row of upstream's `data_quality_issue` (`dqGateCode`, `dqSeverity`, `quarantined`, `gatedValue`, `dqIssueOfAsset`) — so a HARD gate that raises the `DATA_QUALITY` veto has an evidence target: a `RiskEvent` is `backedBy` it. Written to the FUNDAMENTAL ingest graph (the Ring-1 gates run in the fundamental agent). `DataQualityIssueShape` is the 16th shape; `dqSeverity` is not enumerated because only HARD is documented upstream. The 25th class joins `AllDisjointClasses`. **1832 quads; conforms: True.**
+**T-104 (D5, decided 2026-10-03: model it).** `:DataQualityIssue` is an `EvidenceSource` leaf — one row of upstream's `data_quality_issue` (`dqGateCode`, `dqSeverity`, `quarantined`, `gatedValue`, `dqIssueOfAsset`) — so a HARD gate that raises the `DATA_QUALITY` veto has an evidence target: a `RiskEvent` is `backedBy` it. Written to the FUNDAMENTAL ingest graph (the Ring-1 gates run in the fundamental agent). `DataQualityIssueShape` is the 16th shape; `dqSeverity` is not enumerated because only HARD is documented upstream. The 25th class joins `AllDisjointClasses`. Review follow-up: the issue also carries `dqRaisedOn` (required, the as-of key), optional `dqIssueOfFiling`/`dqMetricName`/`provenanceId`, and the worked example is a HARD issue on JNJ backing a `DATA_QUALITY` veto through a `RiskEvent` (so the 2026-08-05 active set gains `Veto_JNJ_DQ_20260805`; the gate code and values are illustrative). `protege-view.ttl` has no generator in this repo and is stale (it predates T-102–T-104); regenerate it before relying on it in Protégé. **1881 quads; conforms: True.**
 
 "Active at cutoff" is the general predicate; the **T-1 lag is the same query with `?cutoff` bound to
 the previous cycle date**. It needs the store to query the union of the named graphs (GraphDB does
@@ -167,7 +167,7 @@ point: `RuleClause`'s taxonomic parentage. The doc and diagram both specified `R
 dual-parented (`RuleSystem` direct + `RuleOperand`, since a clause can nest inside another clause);
 `tbox.ttl` only had the `RuleOperand` edge. Fixed by adding the missing
 `:RuleClause rdfs:subClassOf :RuleSystem .` triple — **1608 quads, conforms: True** after the fix.
-Full audit results (0 cycles, 0 self-loops, all 37 classes reach one of the 6 taxonomy roots, all
+Full audit results (0 cycles, 0 self-loops, all 37 classes (38 since T-104, `DataQualityIssue` under `EvidenceSource`) reach one of the 6 taxonomy roots, all
 24 leaves have ≥1 taxonomy parent, exactly 3 classes are legitimately multi-parented —
 `RuleClause`, and `Sector`/`Industry` via a pre-existing `skos:Concept` edge unrelated to this
 taxonomy) are recorded in the conversation that produced this pass, not re-derived here.

@@ -1,8 +1,8 @@
 # Ontology Definition — Portfolio Knowledge Graph (v2)
 
 **Implementation:** [`schema/`](../schema/) — the formal OWL/SHACL/TriG implementation of
-everything described below, split into `tbox.ttl` (classes/properties, **37 classes total** as of
-this revision — 24 mutually-disjoint leaf/domain classes plus a 13-class `rdfs:subClassOf`
+everything described below, split into `tbox.ttl` (classes/properties, **38 classes total** as of
+this revision — 25 mutually-disjoint leaf/domain classes plus a 13-class `rdfs:subClassOf`
 taxonomic backbone, see §1.2), `shapes.ttl` (SHACL, 16 shapes), `reference.ttl` (GICS taxonomy +
 asset master data + the new `MetricType` controlled vocabulary, §1.9), `rules.ttl` (all 7 veto
 rules as trees), and `instances.trig` (a worked, multi-graph, multi-asset dataset). Parsed clean
@@ -80,7 +80,8 @@ Portfolio Knowledge Graph
 │   │   └── SECFiling
 │   └── Evidence Source
 │       ├── NewsArticle
-│       └── SECFilingSection
+│       ├── SECFilingSection
+│       └── DataQualityIssue
 ├── Risk And Decision
 │   ├── RiskEvent
 │   └── Veto
@@ -107,6 +108,7 @@ Portfolio Knowledge Graph
 | `PriceObservation` | Observation | scope requirement (daily pricing) | **New in v2, derived-summary only** — see the topology document for why raw OHLCV ticks do *not* belong in the triple store. |
 | `SECFiling` | Evidence → Source Document | v1 §2B | One EDGAR filing (10-K/10-Q/8-K/DEF 14A) for one `Asset`. |
 | `NewsArticle`, `SECFilingSection` | Evidence → Evidence Source | v1 §3B | Evidence leaves cited by `backedBy`; cross-referenced to `portfolio-data-mining`'s news pipeline (`news_collector`/`extractor`, `urls.db`) via `provenanceId` (see §1.6 and `09-nlp-finbert-architecture.md`). |
+| `DataQualityIssue` | Evidence → Evidence Source | T-104 (upstream D5) | One Ring-1 `DQ_*` gate firing (upstream `data_quality_issue` row): `dqGateCode`, `dqSeverity`, `quarantined`, `dqRaisedOn`, optional `dqIssueOfFiling`/`dqMetricName`/`gatedValue`/`provenanceId`. HARD ones back the `DATA_QUALITY` veto via a `RiskEvent`. |
 | `RiskEvent`, `Veto` | Risk And Decision | v1 §3B/§4 | A flagged event, SHACL-required to carry evidence (closes critique #5); and the orchestrator's per-cycle exclusion decision. |
 | `RuleDefinition`, `RuleClause` | Rule System | v1 §4, critique #1 & #6 | The veto catalog's tree structure, versioned as graph data — see §1.5. |
 | `ThresholdComparison`, `CategoricalComparison`, `GraphPredicate` | Rule System → Rule Operand | v1 §4, critique #1 | The three leaf-operand kinds a `RuleClause` can compare — see §1.5. |
@@ -173,6 +175,7 @@ excluded-union design could never support. Everything else here is new.
 :SECFiling        rdfs:subClassOf :SourceDocument .
 :NewsArticle       rdfs:subClassOf :EvidenceSource .
 :SECFilingSection  rdfs:subClassOf :EvidenceSource .
+:DataQualityIssue  rdfs:subClassOf :EvidenceSource .
 
 :RiskEvent rdfs:subClassOf :RiskAndDecision .
 :Veto      rdfs:subClassOf :RiskAndDecision .
@@ -198,14 +201,14 @@ reasoner to traverse.
 The full domain/range table is the `.ttl` file itself (§2–3 of that file); the properties worth
 calling out here are the ones that encode a design decision, not just a field:
 
-- **`backedBy`** (`RiskEvent → NewsArticle | SECFilingSection`) has `sh:minCount 1` in the SHACL
+- **`backedBy`** (`RiskEvent → NewsArticle | SECFilingSection | DataQualityIssue`) has `sh:minCount 1` in the SHACL
   shapes (§1.6) — a `RiskEvent` cannot exist in the store without evidence. This turns critique
   gap #5 ("no null/missing-data policy") from a prose recommendation into an enforced constraint.
 - **`appliesRule`** vs **`primaryRule`** — both present on `Veto`, matching v1's own distinction
   ("Mapeo de Activaciones Multiples", §4): the full trigger list plus a computed lowest-`priorityRank`
   primary reason for audit queries.
 - **`Veto` is a stint** (T-102, 2026-10-03): `raisedOn` (required), `clearedOn`, `lastSeenOn` are cycle
-  dates mirroring upstream's `veto` rows; `vetoSeverity` (HARD | SOFT) is the per-stint severity.
+  dates mirroring upstream's `veto` rows; `vetoSeverity` (HARD | SOFT) is the per-stint severity. Four severity-like properties now coexist, deliberately: `severity` (`RiskEvent`, CRITICAL…LOW), `ruleSeverity` (`RuleDefinition`, the catalog default), `vetoSeverity` (`Veto`, per stint) and `dqSeverity` (`DataQualityIssue`, upstream's gate severity, unenumerated).
   Active at cutoff C iff `raisedOn <= C` and (no `clearedOn` or `clearedOn > C`); the T-1 lag is that
   predicate at read time (SPARQL in `schema/README.md`). Stints are closed by writing `clearedOn`.
 - **`sharedExecutiveWith`** is declared `owl:SymmetricProperty` but is explicitly commented as
@@ -334,7 +337,7 @@ attractiveness-ranking feature, see §1.8, plus `VetoShape` added 2026-10-03 for
 | `RuleClauseShape` | `clauseType` ∈ `{AND, OR}`; both operands required | Structural half of the critique #1 fix — a clause literally cannot be built with a missing operand or an unrecognized operator. |
 | `ThresholdComparisonShape` / `CategoricalComparisonShape` / `GraphPredicateShape` | Each leaf kind's required fields (`metricName`/`operator`/`thresholdValue`; `attributeName`/`expectedValue`; `predicateName`) | Completes the structural half of the critique #1 fix across all rule leaf kinds, not just numeric ones (the 7 original rules; upstream's six single-leaf rules reuse the same shapes, T-103). |
 | `UniverseMembershipShape` | both endpoints + `validFrom` required | Keeps §1.4's n-ary relation pattern from degrading into a dangling record. |
-| `DataQualityIssueShape` | gate code, severity, `quarantined` and asset required; `gatedValue` optional decimal | Evidence for the `DATA_QUALITY` veto (T-104): an upstream `data_quality_issue` row, an `EvidenceSource` leaf. |
+| `DataQualityIssueShape` | gate code, severity, `quarantined`, `dqRaisedOn` and asset required; filing, metric name, `gatedValue`, `provenanceId` optional | Evidence for the `DATA_QUALITY` veto (T-104): an upstream `data_quality_issue` row, an `EvidenceSource` leaf. |
 | `VetoShape` | `raisedOn` required; `clearedOn`/`lastSeenOn` optional, never before `raisedOn`; `vetoSeverity` ∈ {HARD, SOFT} | Veto stints (T-102): a stint is closed by `clearedOn`, never deleted. |
 
 Validated end-to-end with `pyshacl` against the full worked dataset below: **conforms = True**.

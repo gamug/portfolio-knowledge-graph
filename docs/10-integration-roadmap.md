@@ -46,7 +46,7 @@ before it, and which repo owns it.
 
 **0. Formalize ontology TBox + SHACL shapes.** ✅ **Implemented.**
 `schema/tbox.ttl` + `schema/shapes.ttl` + `schema/reference.ttl` + `schema/rules.ttl` (this
-series' §1) — 37 classes (24 mutually disjoint leaf/domain classes under a 13-class taxonomic
+series' §1) — 38 classes (25 mutually disjoint leaf/domain classes under a 13-class taxonomic
 backbone added 2026-08-23), 16 SHACL shapes, the full 7-rule veto catalog as unambiguous trees, and a
 5-asset worked dataset (`schema/instances.trig`) that's been parsed, SHACL-validated
 (`pyshacl`: conforms = True), and independently re-evaluated in Python to confirm the rule trees

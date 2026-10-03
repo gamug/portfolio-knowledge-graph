@@ -81,9 +81,11 @@ GRAPH <urn:graph:ingest:FUNDAMENTAL:2026-Q3> {
     :Snap_PG_Fin_2026Q3 a :ScoreSnapshot ; :agentOrigin "FUNDAMENTAL" ; :metricType "ScoreFinanciero" ;
         :rawValue "3.05"^^xsd:decimal ; :normalizedScore "0.20"^^xsd:decimal ; :timestamp "2026-07-05T06:00:00"^^xsd:dateTime .
 
-    # T-104: a Ring-1 gate firing is evidence, not a score. HARD would back a DATA_QUALITY veto; this one is SOFT.
-    :DQ_PG_20260705 a :DataQualityIssue ; :dqIssueOfAsset :PG ; :dqGateCode "DQ_CURRENT_RATIO_RANGE" ;
-        :dqSeverity "SOFT" ; :quarantined true ; :gatedValue "412.7"^^xsd:decimal .
+    # T-104: a Ring-1 gate firing is evidence, not a score. This HARD issue backs the DATA_QUALITY veto below
+    # (via Event_JNJ_DQ_20260805). The gate code and values are ILLUSTRATIVE -- upstream's real DQ_* codes are unconfirmed (T-030).
+    :DQ_JNJ_20260705 a :DataQualityIssue ; :dqIssueOfAsset :JNJ ; :dqIssueOfFiling :Filing_JNJ_10K_2026 ;
+        :dqGateCode "DQ_ILLUSTRATIVE_RANGE" ; :dqMetricName "liquidity.current_ratio" ; :dqRaisedOn "2026-07-05"^^xsd:date ;
+        :dqSeverity "HARD" ; :quarantined true ; :gatedValue "412.7"^^xsd:decimal ; :provenanceId "v_data_quality_issue:illustrative-1" .
 
     :AAPL :hasScoreObservation :Snap_AAPL_Fin_2026Q3 .
     :JPM  :hasScoreObservation :Snap_JPM_Fin_2026Q3 .
@@ -267,6 +269,13 @@ GRAPH <urn:graph:ingest:ORCHESTRATOR:2026-08-04> {
 }
 
 GRAPH <urn:graph:ingest:ORCHESTRATOR:2026-08-05> {
+    :Event_JNJ_DQ_20260805 a :RiskEvent ; :category "FINANCIAL" ; :severity "HIGH" ;
+        :detectedAt "2026-08-05T09:06:00"^^xsd:dateTime ; :backedBy :DQ_JNJ_20260705 ;
+        rdfs:comment "T-104 worked chain: HARD DataQualityIssue -> RiskEvent -> DATA_QUALITY Veto." .
+    :Veto_JNJ_DQ_20260805 a :Veto ; :raisedOn "2026-08-05"^^xsd:date ; :lastSeenOn "2026-08-05"^^xsd:date ; :triggeredBy :Event_JNJ_DQ_20260805 ;
+        :appliesRule :Rule_DATA_QUALITY ; :primaryRule :Rule_DATA_QUALITY ; :decidedAt "2026-08-05T09:11:00"^^xsd:dateTime .
+    :JNJ :triggeredVeto :Veto_JNJ_DQ_20260805 .
+
     :Veto_AAPL_20260805 a :Veto ; :raisedOn "2026-08-05"^^xsd:date ; :lastSeenOn "2026-08-05"^^xsd:date ; :triggeredBy :Event_AAPL_20260805 ;
         :appliesRule :Rule_VETO_COMP_01 ; :primaryRule :Rule_VETO_COMP_01 ;
         :decidedAt "2026-08-05T09:10:00"^^xsd:dateTime .

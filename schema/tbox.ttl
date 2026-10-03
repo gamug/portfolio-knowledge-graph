@@ -400,12 +400,18 @@
 :dqIssueOfAsset a owl:ObjectProperty, owl:FunctionalProperty ; rdfs:domain :DataQualityIssue ; rdfs:range :Asset .
 :dqGateCode a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :DataQualityIssue ; rdfs:range xsd:string ;
     rdfs:comment "The Ring-1 gate that fired, e.g. DQ_* code from upstream's data_quality_issue." .
+:dqRaisedOn a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :DataQualityIssue ; rdfs:range xsd:date ;
+    rdfs:comment "Cycle date the gate fired (as-of key for the issue, like :raisedOn on a Veto)." .
+:dqIssueOfFiling a owl:ObjectProperty, owl:FunctionalProperty ; rdfs:domain :DataQualityIssue ; rdfs:range :SECFiling ;
+    rdfs:comment "Optional: the filing whose data the gate fired on (what DATA_QUALITY's 'latest filing' refers to)." .
+:dqMetricName a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :DataQualityIssue ; rdfs:range xsd:string ;
+    rdfs:comment "Optional: the gated metric (a ThresholdComparison metricName-style id). Provenance back to upstream's row uses :provenanceId." .
 :dqSeverity a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :DataQualityIssue ; rdfs:range xsd:string ;
     rdfs:comment "Upstream's issue severity; HARD escalates to the DATA_QUALITY veto. Other values pass through unconstrained." .
 :quarantined a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :DataQualityIssue ; rdfs:range xsd:boolean ;
     rdfs:comment "True when the gated metric was quarantined (reads as NULL upstream)." .
 :gatedValue a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :DataQualityIssue ; rdfs:range xsd:decimal ;
-    rdfs:comment "The value the gate rejected; absent when it was not numeric." .
+    rdfs:comment "The value the gate rejected, when numeric (upstream's type is unconfirmed, T-030); a non-numeric value is carried as :dqMetricName context only, not here." .
 
 :severity a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :RiskEvent ; rdfs:range xsd:string ;
     rdfs:comment "CRITICAL | HIGH | MODERATE | LOW." .
