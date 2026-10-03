@@ -17,7 +17,7 @@ renumber of the next work item's block.
 
 ## Work item 3 — Stand up a triple store and wire the SHACL ingest gate (roadmap step 1)
 
-- [ ] **T-020** *(maintainer)* Choose GraphDB or Fuseki and its hosting
+- [x] **T-020** *(maintainer)* Choose GraphDB or Fuseki and its hosting
       (devcontainer service vs. separate). → `PLAN.md` Work item 3, step 1.
 - [ ] **T-021** Containerize/configure the chosen store; load
       `tbox.ttl → shapes.ttl → reference.ttl → rules.ttl → instances.trig`
@@ -26,7 +26,7 @@ renumber of the next work item's block.
       `07-ontology-topology.md`) in the store's config. → step 3.
 - [ ] **T-023** Wire a `pyshacl`-based ingest gate in front of write access.
       → step 4.
-- [ ] **T-024** Document connection details in `.env.example`/`docs/`. →
+- [x] **T-024** Document connection details in `.env.example`/`docs/`. →
       step 5.
 - [ ] **T-025** Verify: a basic SPARQL query returns real results; a
       deliberately-malformed write is rejected before reaching the store;
