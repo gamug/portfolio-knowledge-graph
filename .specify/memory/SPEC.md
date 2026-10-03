@@ -94,14 +94,14 @@ above (`08-agent-architecture.md`, designed but unbuilt — roadmap steps 1 and
 
 ### 2.1 In scope
 
-- The formal ontology bundle in `schema/`: `tbox.ttl` (37 classes — 24
+- The formal ontology bundle in `schema/`: `tbox.ttl` (38 classes — 25
   mutually-disjoint leaves under a 13-class `rdfs:subClassOf` backbone),
-  `shapes.ttl` (15 SHACL node shapes), `reference.ttl` (GICS taxonomy + 5
+  `shapes.ttl` (16 SHACL node shapes), `reference.ttl` (GICS taxonomy + 5
   worked-example assets + the `MetricType` vocabulary), `rules.ttl` (a
   6 active upstream veto rules as single-leaf `RuleDefinition`s, the 7 original tree rules kept
   closed with `validTo`, + `AttractivenessWeightScheme`),
-  `instances.trig` (a 12-named-graph worked-example ABox) — roadmap step 0,
-  done and verified (**1771 quads, `pyshacl` conforms: True**).
+  `instances.trig` (a 14-named-graph worked-example ABox) — roadmap step 0,
+  done and verified (**1881 quads, `pyshacl` conforms: True**).
 - The five numbered architecture/spec docs (`06`–`10`) plus
   `critique-and-evolution.md` as the traceability anchor every class/
   property/graph-placement decision elsewhere cites back to.
@@ -156,7 +156,7 @@ above (`08-agent-architecture.md`, designed but unbuilt — roadmap steps 1 and
 
 | ID | Requirement | Acceptance criteria |
 |---|---|---|
-| **FR-001** | The `tbox.ttl`/`shapes.ttl`/`reference.ttl`/`rules.ttl`/`instances.trig` bundle parses as a single `rdflib.Dataset` in the documented load order and `pyshacl`-conforms against `shapes.ttl`. | The `schema/README.md` parse script reports `quads: 1771`; a `pyshacl.validate` run over the same combined graph reports `conforms: True` — both required after any schema edit. |
+| **FR-001** | The `tbox.ttl`/`shapes.ttl`/`reference.ttl`/`rules.ttl`/`instances.trig` bundle parses as a single `rdflib.Dataset` in the documented load order and `pyshacl`-conforms against `shapes.ttl`. | The `schema/README.md` parse script reports `quads: 1881`; a `pyshacl.validate` run over the same combined graph reports `conforms: True` — both required after any schema edit. |
 | **FR-002** | Every domain class in `tbox.ttl` that is not a shared-property superclass (`ObservationSnapshot`/`EvidenceSource`/`RuleOperand`) belongs to exactly one `AllDisjointClasses` set and reaches at least one of the 6 taxonomy roots via `rdfs:subClassOf`. | `tbox.ttl`'s `AllDisjointClasses` block lists exactly 24 leaf classes; a taxonomy audit (cycle/orphan/multi-parent detection over the `subClassOf` graph) reports 0 cycles, 0 self-loops, all 37 classes reaching a root, exactly 3 legitimately multi-parented classes (`schema/README.md`'s implementation addendum). |
 | **FR-003** | Every `RuleDefinition` in `rules.ttl` expresses its veto condition as an explicit `RuleClause` tree (`AND`/`OR` of `ThresholdComparison`/`CategoricalComparison`/`GraphPredicate` leaves), never as an infix boolean string. | No `RuleDefinition` in `rules.ttl` carries a rule condition as a literal string to be re-parsed; every `hasClause` path terminates in one of the three documented leaf operand kinds. A single leaf (upstream's six rules, T-103) is a valid tree. |
 | **FR-004** | `cli/build_data_ttl.py` projects the Wikipedia S&P 500 table into `:Asset`/`:classifiedAs` individuals, skipping any ticker `reference.ttl` already declares as an `:Asset` (so `cikNumber` never collides under the functional-property `sh:maxCount 1` contract). | A full run's known-ticker count equals the fetched Wikipedia row count minus `reference.ttl`'s worked-example tickers; none of those tickers appear as a second `:Asset` declaration in `data.ttl`. |
@@ -238,7 +238,7 @@ names the decision it forces; none is decided here — they are PLAN Work item
 | D2 | **Two-clock model with look-ahead guard.** Rows carry `event_time` (what the row is about) and `available_at` (when usable: first NYSE trading day *after* the filing date, T-107) alongside `computed_at`/`ingested_at`; every as-of reader filters on `available_at`, never `event_time`; `v_score_snapshot.event_time` = filing period-end (FUNDAMENTAL), cycle date (TECHNICAL/VALORIZATION), article-day (SEMANTIC). | `ScoreSnapshot` has `timestamp`/`detectedAt`/`provenanceId`; bitemporality is expressed only by dated named graphs (`07`). No `availableAt`/`eventTime` property. | A projection that stamps FUNDAMENTAL scores by filing date or period-end would leak look-ahead into every "as of D" query. Decide whether `availableAt` becomes a property (tbox/shapes change) or is encoded in the ingest-graph date (T-101). |
 | D3 | **Veto stints, not events.** `veto` rows are stints (`raised_on`, `cleared_on`, `last_seen_on` = cycle dates; `detected_at`/`cleared_at` wall-clock only); closed, never deleted; a HARD veto *clears* when its rule re-evaluates clean; a SOFT stint charges `soft_veto_penalty` once; active at cutoff `C` iff `raised_on <= C AND (cleared_on IS NULL OR cleared_on > C)`; the T-1 lag is this predicate applied at read time. | `Veto` has `decidedAt`/`detectedAt`; the T-1 lag was designed as a LangGraph checkpointer mechanism (`08`). | Needs `raisedOn`/`clearedOn`/`lastSeenOn` (or `validFrom`/`validTo`) on `:Veto`, and the T-1 predicate as a SPARQL pattern, not an orchestrator feature (T-102). **Implemented (T-102, 2026-10-03):** `:Veto` carries `raisedOn` (required), `clearedOn`, `lastSeenOn` (multi-valued, current = MAX) and per-stint `vetoSeverity`; `VetoShape` enforces date order; the active-at-cutoff SPARQL is in `schema/README.md`. Upstream `cleared_at` is dropped. |
 | D4 | **Different rule catalog.** Six flat threshold rules in `cycle/rules/builtin.py`: `LEVERAGE_EXTREME` (D/E > 3, HARD), `NEGATIVE_FCF` (HARD), `LIQUIDITY_DISTRESS` (current ratio < 1, SOFT), `PRICE_CRASH` (90d drawdown < −35%, SOFT), `EARNINGS_MISSING` (FUNDAMENTAL score aged > 400d, SOFT), `DATA_QUALITY` (a HARD Ring-1 gate fired, HARD); plus a non-veto `UNSCORED` exclusion in `rank` (T-119). No AND/OR tree (their §13 item 6 accepts that) and **no contagion/`sharedExecutiveWith` rule**. | `rules.ttl` holds 7 `RuleClause`-tree rules (`VETO_FIN_01`, `VETO_LEG_01`, `VETO_COMP_01..03`, `VETO_MKT_02`, `VETO_RED_01`) — different ids, different logic. | `v_veto.rule_id` values (`LEVERAGE_EXTREME`, …) resolve to no `:RuleDefinition`, so a projected `:Veto` would violate `:appliesRule` conformance. Our catalog is a design; upstream's is what actually runs. Decide: add the six as (flat-leaf) `RuleDefinition`s and mark ours as design-only, or reconcile the other way (T-103). **Disposition (maintainer, 2026-10-02): upstream's catalog is final and authoritative** — `portfolio-financial-analysis`'s six rules are preserved as implemented; `rules.ttl`'s seven tree rules are superseded (design history, not a target). **Implemented (T-103, 2026-10-03):** `rules.ttl` carries the six as `RuleDefinition`s whose `hasClause` is a single leaf (`ThresholdComparison`, or a `GraphPredicate` for `DATA_QUALITY`); added `:ruleSeverity` (HARD/SOFT) and the upstream metric ids to `ThresholdComparisonShape`. The seven tree rules are closed with `validTo 2026-10-02` and kept as design history (the worked example in `instances.trig` still resolves them); `VETO_RED_01`'s contagion rule has no upstream counterpart and is dropped from the target. `priorityRank` follows upstream's list order (upstream has none); branch logic that does not fit one leaf (LEVERAGE_EXTREME's negative-equity guard) stays upstream and is described in `rdfs:comment`. |
-| D5 | **Data-quality gate.** Ring-1 `DQ_*` gates (`dq-v2`) write `data_quality_issue` (`severity`, `quarantined`, gated value); a quarantined metric reads as NULL; HARD → the `DATA_QUALITY` veto. Exposed as `v_data_quality_issue`. | No class or property for it. | Either model `:DataQualityIssue` (evidence for the `DATA_QUALITY` veto) or consciously drop it; at minimum a `DATA_QUALITY` veto needs an evidence target (T-104). |
+| D5 | **Data-quality gate.** Ring-1 `DQ_*` gates (`dq-v2`) write `data_quality_issue` (`severity`, `quarantined`, gated value); a quarantined metric reads as NULL; HARD → the `DATA_QUALITY` veto. Exposed as `v_data_quality_issue`. | No class or property for it. | Either model `:DataQualityIssue` (evidence for the `DATA_QUALITY` veto) or consciously drop it; at minimum a `DATA_QUALITY` veto needs an evidence target (T-104). **Implemented (T-104, 2026-10-03):** modelled as `:DataQualityIssue`, an `EvidenceSource` leaf (`dqGateCode`, `dqSeverity`, `quarantined`, `gatedValue`, `dqIssueOfAsset`, plus `dqRaisedOn` (required) and optional `dqIssueOfFiling`/`dqMetricName`/`provenanceId`) with `DataQualityIssueShape`. |
 | D6 | **Score-type vocabulary.** `score_type` ∈ {FUNDAMENTAL, VALORIZATION, TECHNICAL, SEMANTIC, SECTOR}; `QUANTITATIVE` was **renamed `VALORIZATION`** by migration m006 (and `SECTOR` = SectorRelativeMomentum, not in the blend). Extra provenance: `forensic_flags_json`, `prompt_hash` (FUNDAMENTAL), `correction_rule` (`financial_facts`). | `shapes.ttl` `agentOrigin` is `sh:in ("FUNDAMENTAL" "SEMANTIC" "QUANTITATIVE" "TECHNICAL" "SECTOR")`; `MetricType` vocabulary has `ScoreCuantitativo`. | A projected `VALORIZATION` row fails SHACL today; `QUANTITATIVE` never appears upstream (T-105). |
 | D7 | **Provenance and versioning.** Every row carries `run_id`; run logs (`v_analysis_run`/`v_pricing_run`/`v_quant_run`/`v_cycle_run`) record `as_of`, `code_version` (git SHA, `-dirty` refused unless `--allow-dirty` with a recorded reason), params; `engine_version` (parallel rows; `v_*` views pick the newest per key), metric-version manifests, a monotonic `schema_version` floor. | One opaque `provenanceId` per individual. | The audit trail the ontology promises ("why is this true and when") has a concrete upstream shape that `provenanceId` can't carry (T-106); pin and assert the `schema_version` floor (T-109). |
 | D8 | **Replay and cycle types.** `cycle_type` ∈ {SELECTION, MONITORING, ENTITY_RESOLUTION, REPLAY}; `cycle backfill` writes a simulated book to `portfolio_position_replay` (never in `v_portfolio_position`) but its scores/vetoes/rankings land in the **shared** tables, indistinguishable from live ones (upstream's own caveat), against a throwaway DB. `v_cycle_ranking`'s docstring says "latest cycle per cycle_type" but its SQL returns every `cycle_run`'s rows — docstring and code disagree. | `ORCHESTRATOR` lane assumed one dated graph per cycle (`07`/`instances.trig`). | Project only against a production DB; confirm `v_cycle_ranking`'s real behaviour before relying on per-date ranking graphs (T-109). |
@@ -297,7 +297,7 @@ re-litigated without a constitution amendment:
 
 ```mermaid
 flowchart TB
-    SCHEMA["schema/ -- step 0, DONE<br/>tbox+shapes+reference+rules+instances<br/>1771 quads * pyshacl conforms"]
+    SCHEMA["schema/ -- step 0, DONE<br/>tbox+shapes+reference+rules+instances<br/>1881 quads * pyshacl conforms"]
     STORE["triple store -- step 1<br/>GraphDB / Fuseki<br/>NOT STOOD UP"]
     GRAPHS["named graphs -- step 1<br/>static: tbox/reference/rules<br/>ingest:{agent}:{date} * portfolio:current<br/>NOT STOOD UP"]
     GATE["SHACL ingest gate -- step 2<br/>pyshacl<br/>NOT BUILT"]
@@ -336,11 +336,11 @@ Authoritative map: `schema/README.md`. File → named graph → format:
 
 | File | Format | Named graph | Contents |
 |---|---|---|---|
-| `tbox.ttl` | Turtle | `urn:graph:tbox` | 37 classes (24 disjoint leaves + 13-class backbone), properties, cardinality restrictions |
-| `shapes.ttl` | Turtle | `urn:graph:tbox` | 15 SHACL node shapes (the closed-world ingest gate) |
+| `tbox.ttl` | Turtle | `urn:graph:tbox` | 38 classes (25 disjoint leaves + 13-class backbone), properties, cardinality restrictions |
+| `shapes.ttl` | Turtle | `urn:graph:tbox` | 16 SHACL node shapes (the closed-world ingest gate) |
 | `reference.ttl` | Turtle | `urn:graph:reference` | GICS sector/industry taxonomy + 5 worked-example assets + `MetricType` vocab |
 | `rules.ttl` | Turtle | `urn:graph:rules:catalog` | 6 active upstream veto rules (single-leaf `RuleDefinition`s) + the 7 superseded tree rules (closed, `validTo`) + `AttractivenessWeightScheme` |
-| `instances.trig` | TriG | 12 `GRAPH` blocks | Dated toy ABox: membership, snapshots, evidence, vetoes, filings, portfolio, rankings |
+| `instances.trig` | TriG | 14 `GRAPH` blocks | Dated toy ABox: membership, snapshots, evidence, vetoes, filings, portfolio, rankings |
 | `06`–`10` | Markdown | — | Ontology definition · topology · agent architecture · NLP pipeline · integration roadmap |
 
 **ETL output** (`data.ttl`, git-ignored, not committed): a flat Turtle file
@@ -368,7 +368,7 @@ the shape or a normalization step is agreed.
 **Schema validation** (`schema/README.md`, run from inside `schema/`):
 
 1. Parse `tbox.ttl → shapes.ttl → reference.ttl → rules.ttl` then
-   `instances.trig` into one `rdflib.Dataset`; assert `quads: 1771`.
+   `instances.trig` into one `rdflib.Dataset`; assert `quads: 1881`.
 2. `pyshacl.validate` the same combined graph against `shapes.ttl`; assert
    `conforms: True`.
 3. Run after **every** schema edit — `tbox.ttl`'s `AllDisjointClasses` block
