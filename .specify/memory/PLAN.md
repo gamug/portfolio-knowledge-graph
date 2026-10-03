@@ -181,8 +181,8 @@ to `portfolio-common` v1.2.0.
 
 **Why**: every downstream piece of the target architecture in `SPEC.md` §4
 — named graphs, the reasoner, SPARQL, the agent layer — needs somewhere to
-run against. Nothing is stood up today; `schema/` is validated only as flat
-files on disk (FR-001).
+run against. (At planning time nothing was stood up and `schema/` was validated
+only as flat files on disk, FR-001; this work item has since delivered the store.)
 
 **This is partly an infrastructure decision, not purely a code task** —
 similar in kind to `portfolio-nlp`'s `PLAN.md` Work item 2 (a runnable CI

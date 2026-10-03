@@ -69,9 +69,13 @@ def check_reasoning(db: GraphDB) -> str:
     explicit = int(db.select(PREFIX + query.format(from_=f"FROM <{EXPLICIT_GRAPH}>"))[0]["n"])
     if not (inferred > 0 and explicit == 0):
         raise AssertionError(f"inferred={inferred} explicit={explicit}")
+    # PriceObservation is one hop below :Observation; a ScoreSnapshot is two (via
+    # :ObservationSnapshot), so a hit proves transitivity, not just single-step entailment.
+    if not db.select(PREFIX + "SELECT ?x WHERE { ?x a :ScoreSnapshot, :Observation } LIMIT 1"):
+        raise AssertionError("no :ScoreSnapshot is also an :Observation: no transitive inference")
     return (
         f"ruleset {ruleset}, disableSameAs {same_as}; ?x a :Observation = {inferred} inferred, "
-        f"{explicit} asserted (two subClassOf steps above the asserted leaf types)"
+        f"{explicit} asserted (a :ScoreSnapshot is an :Observation via two subClassOf steps)"
     )
 
 

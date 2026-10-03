@@ -15,48 +15,10 @@ in decades by work item (`T-00x` → Work item 1, `T-01x` → Work item 2, `T-02
 → Work item 3, …) so a later-inserted task within a work item doesn't force a
 renumber of the next work item's block.
 
-## Work item 3 — Stand up a triple store and wire the SHACL ingest gate (roadmap step 1)
-
-- [x] **T-020** *(maintainer)* Choose GraphDB or Fuseki and its hosting
-      (devcontainer service vs. separate). → `PLAN.md` Work item 3, step 1.
-- [x] **T-021** Containerize/configure the chosen store; load
-      `tbox.ttl → shapes.ttl → reference.ttl → rules.ttl → instances.trig`
-      into a fresh repository/dataset. `cli/load_schema.py` (`src/kg_store/`) does it
-      idempotently and verifies per-graph asserted counts against an `rdflib` parse
-      (15 graphs, 1608 triples). Scope is `schema/` only; `data.ttl` and projected
-      upstream data belong to Work item 4. → step 2.
-- [x] **T-022** Lock the reasoning profile (OWL 2 RL/RDFS+ per
-      `07-ontology-topology.md`) in the store's config. Config in
-      `schema/graphdb-repo-config.ttl`; on loaded data `?x a :ObservationSnapshot`
-      returns 35 = 25 `ScoreSnapshot` + 5 `SectorAggregateSnapshot` + 5
-      `AttractivenessSnapshot`, so `subClassOf` inference works. → step 3.
-- [x] **T-023** Wire a `pyshacl`-based ingest gate in front of write access.
-      `kg_store.gate` / `cli/ingest.py`: the six checks in `docs/graphdb-setup.md`
-      (§ Ingest gate); a rejected batch writes nothing. Every graph in
-      `instances.trig` passes it on its own. → step 4.
-- [x] **T-024** Document connection details in `.env.example`/`docs/`. →
-      step 5.
-- [x] **T-025** Verify: a basic SPARQL query returns real results; a
-      deliberately-malformed write is rejected before reaching the store;
-      the reasoning profile matches `07`'s documented choice. → `PLAN.md`
-      acceptance criteria. Run: `cli/verify_store.py` (`docs/graphdb-setup.md` § Acceptance check).
-- [x] **T-026** Rename the database environment variables to the maintainer's new
-      scheme. The names are the maintainer's to choose and may change again, so
-      read the final ones from the maintainer's `.env` when starting (as of
-      2026-10-03: `SQL_URLS_DB`, `SQL_NLP_DB`, `SQL_FINANCIAL_DB`, `SQL_UNIVERSE_DB`,
-      replacing `KG_URLS_DB`, `KG_RESULTS_DB`, `KG_FINANCIAL_DB`, `KG_UNIVERSE_DB`).
-      Update every reader and every mention: `src/etl/config.py`, `src/etl/README.md`,
-      `.env.example`, `constitution.md`, `SPEC.md`, `PLAN.md` and `TASKS.md` (the
-      `KG_*` GraphDB variables keep their names). Leave `docs/portfolio-common-v1.2-engine-agnostic.md`
-      alone (a dated decision record) and upstream's own variable names. Run the
-      ETL's config load, then `rg --hidden 'KG_(URLS|RESULTS|FINANCIAL|UNIVERSE)_DB' --glob '!.git' --glob '!.env' --glob '!.specify/memory/TASKS.md' --glob '!docs/portfolio-common-v1.2-engine-agnostic.md'`
-      to confirm no old name remains. Matches in those two excluded files are
-      expected (T-026 itself lists the old names; the decision record is left as is). → `PLAN.md` Work item 3, step 5.
-
 ## Work item 4 — Build the real step-2 projection (roadmap step 2)
 
-*Needs from Work item 3 only a running store, the schema loader (T-021) and the
-ingest gate (T-023), not its acceptance check; also blocked on Work item 11's
+*Work item 3 (closed, see `CHANGELOG.md`) provides the running store, the schema
+loader (T-021) and the ingest gate (T-023); also blocked on Work item 11's
 decisions (T-100–T-104).*
 
 - [ ] **T-030** *(after Work item 11's T-100–T-104)* Confirm the `financial-analysis` `v_*` views' actual column
@@ -185,11 +147,10 @@ decisions (T-100–T-104).*
 
 ## Status
 
-Closed Work items 1, 2, 5, 7 (superseded/decided by T-007) and 10 are in
+Closed Work items 1, 2, 3, 5, 7 (superseded/decided by T-007) and 10 are in
 `CHANGELOG.md` (Work item 1 closed with T-006 deprecated in favor of T-009).
-Work item 9 (T-080–T-083) has no blockers. Work item 3 (T-020–T-026) is done:
-GraphDB is up, `schema/` is loaded and ABox writes pass the SHACL gate. Work items 4 and 6 (T-030–T-035, T-050–T-053)
-follow in dependency order after it; Work item 11 (T-100–T-113, decisions
+Work item 9 (T-080–T-083) has no blockers. Work items 4 and 6 (T-030–T-035, T-050–T-053)
+follow in dependency order (Work item 3 is closed); Work item 11 (T-100–T-113, decisions
 from the T-007 rescan) gates Work item 4 and has no store dependency.
 Work item 8 (T-070–T-071) is independent but needs a human at a Protégé
 session, not a coding session.
