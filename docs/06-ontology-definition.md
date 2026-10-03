@@ -3,7 +3,7 @@
 **Implementation:** [`schema/`](../schema/) — the formal OWL/SHACL/TriG implementation of
 everything described below, split into `tbox.ttl` (classes/properties, **39 classes total** as of
 this revision — 26 mutually-disjoint leaf/domain classes plus a 13-class `rdfs:subClassOf`
-taxonomic backbone, see §1.2), `shapes.ttl` (SHACL, 16 shapes), `reference.ttl` (GICS taxonomy +
+taxonomic backbone, see §1.2), `shapes.ttl` (SHACL, 17 shapes), `reference.ttl` (GICS taxonomy +
 asset master data + the new `MetricType` controlled vocabulary, §1.9), `rules.ttl` (all 7 veto
 rules as trees), and `instances.trig` (a worked, multi-graph, multi-asset dataset). Parsed clean
 with `rdflib` and SHACL-validated with `pyshacl` (**conforms: True**); the veto rule trees were
@@ -326,7 +326,7 @@ own tree structure and reproduced the intended firings exactly — see `schema/R
 ## 1.6 SHACL shapes for data-quality enforcement
 
 SHACL (Shapes Constraint Language) is RDF's declarative validator — the world-view equivalent of
-a schema/type checker, but expressed as data rather than code. 16 shapes are defined
+a schema/type checker, but expressed as data rather than code. 17 shapes are defined
 (`schema/shapes.ttl`; 10 before 2026-08-13, including `ThresholdComparisonShape`,
 `CategoricalComparisonShape`, and `GraphPredicateShape` added during implementation to cover the
 two new leaf types from the addendum above, plus four more added 2026-08-13 for the

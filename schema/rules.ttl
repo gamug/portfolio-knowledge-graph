@@ -189,7 +189,7 @@
     :operand1 :Pred_RED01_SharedExec ; :operand2 :Clause_RED01_Inner .
 
 :Pred_RED01_SharedExec a :GraphPredicate ; :predicateName "HasSharedPrimaryVetoExecutive" ;
-    rdfs:comment "Evaluated by the Orchestrator against sharedExecutiveWith + the T-1 checkpointed prior-cycle Veto state (08-agent-architecture.md), excluding primary vetoes triggered by VETO_RED_01 itself (de-recursion, v1 §4)." .
+    rdfs:comment "Evaluated by the Orchestrator against sharedExecutiveWith + the T-1 checkpointed prior-cycle Veto state (08-agent-architecture.md), excluding primary vetoes triggered by VETO_RED_01 itself (de-recursion, v1 §4). T-107: sharedExecutiveWith is now reserved for VERIFIED edges and no upstream source produces them, so this closed design-history predicate has no feed; upstream's news candidates (:AssetCoOccurrence) do not drive it." .
 
 :Clause_RED01_Inner a :RuleClause ; :clauseType "OR" ;
     :operand1 :Cmp_RED01_SentLow ; :operand2 :Cmp_RED01_FinHigh .

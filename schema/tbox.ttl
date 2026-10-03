@@ -406,7 +406,7 @@
 
 # T-106 (D7): upstream run provenance. No rdfs:domain on purpose (like :provenanceId): D7 says every upstream row carries run_id, and a domain would
 # entail :ScoreSnapshot on a :Veto/:PortfolioPosition, contradicting AllDisjointClasses. Per-class use is constrained by SHACL (ScoreSnapshot,
-# SectorAggregateSnapshot, Veto, PortfolioPosition, DataQualityIssue); all optional -- ETL-built SEMANTIC snapshots have no upstream run.
+# SectorAggregateSnapshot, Veto, PortfolioPosition, DataQualityIssue, AssetCoOccurrence); all optional -- ETL-built SEMANTIC snapshots have no upstream run.
 # On stint / valid-time individuals (Veto, PortfolioPosition) later cycles append to the SAME individual, so these four record only the run that OPENED
 # the record (raised it / validFrom); later cycles must not re-emit them (maxCount 1 / FunctionalProperty would break) and the closing run is not recorded.
 :runId a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:range xsd:string ;
@@ -425,13 +425,13 @@
 :coOccurrenceAsset a owl:ObjectProperty ; rdfs:domain :AssetCoOccurrence ; rdfs:range :Asset ;
     rdfs:comment "The two assets linked (SHACL: exactly 2). Unordered, so no direction is implied." .
 :coOccurrenceKind a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :AssetCoOccurrence ; rdfs:range xsd:string ;
-    rdfs:comment "SHARED_EXECUTIVE_CANDIDATE (upstream shared_executive_edge) | MEDIA (media_cooccurrence, non-executive; no data until upstream's T-082 lands)." .
+    rdfs:comment "SHARED_EXECUTIVE_CANDIDATE (upstream shared_executive_edge). The MEDIA kind for media_cooccurrence (non-executive; table unpopulated until upstream's T-082, endpoints unknown) is deliberately NOT enumerated yet: add it, and its own shape rules, once the columns are known (T-109)." .
 :coOccurrenceMethod a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :AssetCoOccurrence ; rdfs:range xsd:string ;
     rdfs:comment "Upstream method id, e.g. news-per-cooccurrence-v1. Upstream recomputes per method, so different methods are different individuals; readers must filter on it." .
 :coOccurrenceWeight a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :AssetCoOccurrence ; rdfs:range xsd:decimal ;
     rdfs:comment "Upstream's edge weight, in the method's own unit (not normalized, not comparable across methods). Upstream emits no separate confidence; none is invented here." .
 :coOccurrenceComputedOn a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :AssetCoOccurrence ; rdfs:range xsd:date ;
-    rdfs:comment "Date the edge set was computed; the individual is immutable and a recompute is a new individual in a new dated graph." .
+    rdfs:comment "Optional date the edge set was computed (not confirmed to be exposed by upstream's v_shared_executive_edge, T-109; runAsOf/runId can carry it). The individual is immutable and a recompute is a new individual in a new dated graph." .
 
 # --- DataQualityIssue (T-104) ---
 :dqIssueOfAsset a owl:ObjectProperty, owl:FunctionalProperty ; rdfs:domain :DataQualityIssue ; rdfs:range :Asset .

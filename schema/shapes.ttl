@@ -77,12 +77,19 @@
 :AssetCoOccurrenceShape
     a sh:NodeShape ;
     sh:targetClass :AssetCoOccurrence ;
-    # T-107 (D10): candidate, not verified. Exactly two assets; method and weight mandatory.
+    # T-107 (D10): candidate, not verified. Exactly two assets; method and weight mandatory. Kind is limited to
+    # SHARED_EXECUTIVE_CANDIDATE until media_cooccurrence's columns are known (T-109). computedOn is optional:
+    # no upstream computed-at column is confirmed for v_shared_executive_edge (T-109); runId/runAsOf can carry it.
+    # T-106: optional upstream run provenance (D7).
+    sh:property [ sh:path :runId ; sh:datatype xsd:string ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :runAsOf ; sh:datatype xsd:date ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :codeVersion ; sh:datatype xsd:string ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :engineVersion ; sh:datatype xsd:string ; sh:maxCount 1 ] ;
     sh:property [ sh:path :coOccurrenceAsset ; sh:class :Asset ; sh:minCount 2 ; sh:maxCount 2 ] ;
-    sh:property [ sh:path :coOccurrenceKind ; sh:in ("SHARED_EXECUTIVE_CANDIDATE" "MEDIA") ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :coOccurrenceKind ; sh:in ("SHARED_EXECUTIVE_CANDIDATE") ; sh:minCount 1 ; sh:maxCount 1 ] ;
     sh:property [ sh:path :coOccurrenceMethod ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ] ;
     sh:property [ sh:path :coOccurrenceWeight ; sh:datatype xsd:decimal ; sh:minCount 1 ; sh:maxCount 1 ] ;
-    sh:property [ sh:path :coOccurrenceComputedOn ; sh:datatype xsd:date ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :coOccurrenceComputedOn ; sh:datatype xsd:date ; sh:maxCount 1 ] ;
     sh:property [ sh:path :provenanceId ; sh:datatype xsd:string ; sh:maxCount 1 ] .
 
 :RuleDefinitionShape
