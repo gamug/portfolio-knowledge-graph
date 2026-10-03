@@ -110,7 +110,10 @@ decisions (T-100–T-104).*
       `shapes.ttl`/`reference.ttl` (MetricType) and docs; document each score
       type's `event_time` meaning and the extra provenance fields. → step 4.
 - [ ] **T-106** *(D7)* Decide how upstream `run_id`/`as_of`/`code_version`/
-      `engine_version` map onto `provenanceId` (or a `Run` class). → step 4.
+      `engine_version` map onto `provenanceId` (or a `Run` class), and record a
+      disposition for the per-score-type extras `forensic_flags_json`,
+      `prompt_hash` (FUNDAMENTAL) and `correction_rule` (`financial_facts`)
+      handed over by T-105. → step 4.
 - [ ] **T-107** *(D10)* Give projected `sharedExecutiveWith` a
       method/weight/confidence (or a separate candidate property) so news
       co-occurrence is not asserted as fact; decide `media_cooccurrence`. →

@@ -75,7 +75,7 @@ by IRI, only by (`asset`, `date range`) scans that a columnar/relational store a
 `PriceObservation` individuals (`06-ontology-definition.md` §1.2) are explicitly **derived summaries
 only** — closing price, daily return, ATR — projected into the graph for the bounded window the
 veto rules actually need (e.g. a rolling 90-day window), while the full historical OHLCV panel
-lives in a separate columnar store (Parquet/SQLite/Postgres) that the Quantitative/Technical agents
+lives in a separate columnar store (Parquet/SQLite/Postgres) that the Valorization/Technical agents
 query directly. This is the single design call in this document most likely to be silently
 violated by a future implementer reaching for "just put everything in the graph" — it's called out
 here explicitly so it isn't.

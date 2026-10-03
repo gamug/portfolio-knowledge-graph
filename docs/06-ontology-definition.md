@@ -331,7 +331,7 @@ attractiveness-ranking feature, see §1.8, plus `VetoShape` added 2026-10-03 for
 
 | Shape | Constraint | Closes |
 |---|---|---|
-| `ScoreSnapshotShape` | `normalizedScore` ∈ `[0.0, 1.0]`; `agentOrigin` ∈ the 4 known agents; `metricType`/`timestamp`/`availableAt` required (T-101); `eventTime` optional and ≤ `availableAt` | Prevents a malformed snapshot from silently entering veto evaluation. |
+| `ScoreSnapshotShape` | `normalizedScore` ∈ `[0.0, 1.0]`; `agentOrigin` ∈ the 5 known agents (`FUNDAMENTAL`, `SEMANTIC`, `VALORIZATION`, `TECHNICAL`, `SECTOR`); `metricType`/`timestamp`/`availableAt` required (T-101); `eventTime` optional and ≤ `availableAt` | Prevents a malformed snapshot from silently entering veto evaluation. |
 | `RiskEventShape` | `backedBy` `sh:minCount 1`; `severity`/`category` from closed vocabularies | Critique #5 (no null-handling policy) — evidence-free risk events are now a validation failure, not a silent gap. |
 | `RuleDefinitionShape` | `validFrom` required; exactly one `hasClause`; `priorityRank` ∈ `[1,7]`; `ruleSeverity` ∈ `{HARD, SOFT}`, required unless the rule is closed with `validTo` (T-103) | Critique #6 — a rule can't be persisted without being properly temporal and ranked. |
 | `RuleClauseShape` | `clauseType` ∈ `{AND, OR}`; both operands required | Structural half of the critique #1 fix — a clause literally cannot be built with a missing operand or an unrecognized operator. |
@@ -479,7 +479,7 @@ that cost.
 :MetricTypeScheme a skos:ConceptScheme ; skos:prefLabel "Portfolio KG Metric Types"@en .
 
 :ScoreFinanciero        a skos:Concept ; skos:inScheme :MetricTypeScheme ; skos:prefLabel "ScoreFinanciero"@es ; skos:altLabel "Financial Score"@en ; rdfs:comment "FUNDAMENTAL agent, v1 §2A." .
-:ScoreCuantitativo      a skos:Concept ; skos:inScheme :MetricTypeScheme ; skos:prefLabel "ScoreCuantitativo"@es ; skos:altLabel "Quantitative Score"@en .
+:ScoreCuantitativo      a skos:Concept ; skos:inScheme :MetricTypeScheme ; skos:prefLabel "ScoreCuantitativo"@es ; skos:altLabel "Quantitative Score"@en, "Valorization Score"@en ; rdfs:comment "VALORIZATION agent (T-105, D6; agentOrigin was QUANTITATIVE in v1). The metric id keeps its v1 Spanish name: rules.ttl and the blend weights reference it, and upstream's metric id is still to be pinned (T-109)." .
 :ScoreTecnico           a skos:Concept ; skos:inScheme :MetricTypeScheme ; skos:prefLabel "ScoreTecnico"@es ; skos:altLabel "Technical Score"@en .
 :Sentiment              a skos:Concept ; skos:inScheme :MetricTypeScheme ; skos:prefLabel "Sentiment"@en ; rdfs:comment "rawValue-compared, not normalizedScore — see §1.5's dispatch convention." .
 :SectorRelativeMomentum a skos:Concept ; skos:inScheme :MetricTypeScheme ; skos:prefLabel "SectorRelativeMomentum"@en ; rdfs:comment "Added 2026-08-13 with the Sector Agent; the metricType that leaves normalizedScore unset (§1.8)." .
