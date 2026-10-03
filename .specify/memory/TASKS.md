@@ -106,7 +106,7 @@ decisions (T-100–T-104).*
       and the FR-001 counts. → step 3.
 - [x] **T-104** *(D5; done 2026-10-03: modelled as an `EvidenceSource` leaf, `DataQualityIssueShape`)* Decide `:DataQualityIssue` (evidence for the
       `DATA_QUALITY` veto) vs. dropping it. → step 3.
-- [ ] **T-105** *(D6)* `agentOrigin` `QUANTITATIVE` → `VALORIZATION` in
+- [x] **T-105** *(D6; done 2026-10-03: `agentOrigin` `VALORIZATION`, graph/gate renamed; metric id `ScoreCuantitativo` kept until T-109)* `agentOrigin` `QUANTITATIVE` → `VALORIZATION` in
       `shapes.ttl`/`reference.ttl` (MetricType) and docs; document each score
       type's `event_time` meaning and the extra provenance fields. → step 4.
 - [ ] **T-106** *(D7)* Decide how upstream `run_id`/`as_of`/`code_version`/

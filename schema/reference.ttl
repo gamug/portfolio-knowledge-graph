@@ -123,7 +123,7 @@
 :MetricTypeScheme a skos:ConceptScheme ; skos:prefLabel "Portfolio KG Metric Types"@en .
 
 :ScoreFinanciero        a skos:Concept ; skos:inScheme :MetricTypeScheme ; skos:prefLabel "ScoreFinanciero"@es ; skos:altLabel "Financial Score"@en ; rdfs:comment "FUNDAMENTAL agent, v1 §2A." .
-:ScoreCuantitativo      a skos:Concept ; skos:inScheme :MetricTypeScheme ; skos:prefLabel "ScoreCuantitativo"@es ; skos:altLabel "Quantitative Score"@en .
+:ScoreCuantitativo      a skos:Concept ; skos:inScheme :MetricTypeScheme ; skos:prefLabel "ScoreCuantitativo"@es ; skos:altLabel "Quantitative Score"@en, "Valorization Score"@en ; rdfs:comment "VALORIZATION agent (T-105, D6; agentOrigin was QUANTITATIVE in v1). The metric id keeps its v1 Spanish name: rules.ttl and the blend weights reference it, and upstream's metric id is still to be pinned (T-109)." .
 :ScoreTecnico           a skos:Concept ; skos:inScheme :MetricTypeScheme ; skos:prefLabel "ScoreTecnico"@es ; skos:altLabel "Technical Score"@en .
 :Sentiment              a skos:Concept ; skos:inScheme :MetricTypeScheme ; skos:prefLabel "Sentiment"@en ; rdfs:comment "rawValue-compared, not normalizedScore — see 06-ontology-definition.md §1.5's dispatch convention." .
 :SectorRelativeMomentum a skos:Concept ; skos:inScheme :MetricTypeScheme ; skos:prefLabel "SectorRelativeMomentum"@en ; rdfs:comment "Added 2026-08-13 with the Sector Agent; the metricType that leaves normalizedScore unset (see ScoreSnapshotShape's sh:or clause in shapes.ttl)." .

@@ -61,7 +61,7 @@ _QUARTER = r"\d{4}-Q[1-4]"
 #: quarter; EDGAR and entity resolution take a date or a quarter; universes are quarterly.
 APPEND_ONLY_PATTERNS = (
     re.compile(
-        rf"urn:graph:ingest:(SEMANTIC|QUANTITATIVE|TECHNICAL|SECTOR|ORCHESTRATOR):({_DATE})"
+        rf"urn:graph:ingest:(SEMANTIC|VALORIZATION|TECHNICAL|SECTOR|ORCHESTRATOR):({_DATE})"
     ),
     re.compile(rf"urn:graph:ingest:FUNDAMENTAL:({_QUARTER})"),
     re.compile(rf"urn:graph:ingest:EDGAR:({_DATE}|{_QUARTER})"),
@@ -89,7 +89,7 @@ def check_target(graph: str) -> bool:
             return True
     raise IngestRejected(
         f"{graph} is not an ingest target. Allowed: urn:graph:ingest:"
-        "{SEMANTIC|QUANTITATIVE|TECHNICAL|SECTOR|ORCHESTRATOR}:YYYY-MM-DD, "
+        "{SEMANTIC|VALORIZATION|TECHNICAL|SECTOR|ORCHESTRATOR}:YYYY-MM-DD, "
         "urn:graph:ingest:FUNDAMENTAL:YYYY-Qn, urn:graph:ingest:EDGAR:{date|quarter}, "
         "urn:graph:derived:entity-resolution:{date|quarter}, urn:graph:universe:YYYY-Qn, "
         f"{', '.join(MUTABLE_GRAPHS)}"
