@@ -13,7 +13,8 @@ to depend on and ``portfolio-common`` shipped no shared alternative -- see
 resolved. Writes:
 
 * ``:NewsArticle``   -- ``provenanceId``, ``publishedDate``
-* ``:ScoreSnapshot`` -- ``agentOrigin = "SEMANTIC"``, ``metricType = "Sentiment"``, ``rawValue``
+* ``:ScoreSnapshot`` -- ``agentOrigin = "SEMANTIC"``, ``metricType = "Sentiment"``, ``rawValue``,
+  ``timestamp``, ``eventTime`` (article day), ``availableAt`` (day the score existed; T-101)
 * ``:RiskEvent``     -- ``category``, ``severity``, ``detectedAt``, ``backedBy`` (gated)
 
 Explicitly NOT read/written this phase:
@@ -130,13 +131,23 @@ def _write_news_article(out_fh: TextIO, art: _Article, pub_date: str) -> None:
 
 
 def _write_score_snapshot(
-    out_fh: TextIO, art: _Article, raw_value: float, asset_iri: str | None
+    out_fh: TextIO,
+    art: _Article,
+    raw_value: float,
+    asset_iri: str | None,
+    pub_date: str,
 ) -> None:
     out_fh.write(f":SentSnap_{art.id}\n    a :ScoreSnapshot ;\n")
     out_fh.write('    :agentOrigin "SEMANTIC" ;\n')
     out_fh.write('    :metricType "Sentiment" ;\n')
     out_fh.write(f"    :rawValue {decimal_lit(raw_value)} ;\n")
-    out_fh.write(f"    :timestamp {datetime_lit(art.sent_processed_at)} ")
+    out_fh.write(f"    :timestamp {datetime_lit(art.sent_processed_at)} ;\n")
+    # T-101 two-clock guard: eventTime = the article day; availableAt = the day the score
+    # existed (never before eventTime, which ScoreSnapshotShape enforces).
+    out_fh.write(f"    :eventTime {date_lit(pub_date)} ;\n")
+    out_fh.write(
+        f"    :availableAt {date_lit(max(pub_date, art.sent_processed_at[:_ISO_DATE_LEN]))} "
+    )
     if asset_iri:
         out_fh.write(f";\n    :scoreSnapshotOfAsset {asset_iri} .\n\n")
     else:
@@ -172,7 +183,7 @@ def _process_row(
         unresolved = art.ticker
 
     raw_value = sentiment_raw_value(art.positive, art.negative)
-    _write_score_snapshot(out_fh, art, raw_value, asset_iri)
+    _write_score_snapshot(out_fh, art, raw_value, asset_iri, pub_date)
     counts.score_snapshots += 1
 
     bucket, top_score = winning_category_and_score(art.cat_label, art.cat_score)
