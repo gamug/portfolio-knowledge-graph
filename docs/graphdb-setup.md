@@ -67,6 +67,27 @@ counted in a closing note; a graph removed from `schema/` has to be dropped by h
 Needs write access (`WRITE_REPO_portfolio`). It loads `schema/` only; the ETL's `data.ttl` and
 projected upstream data belong to Work item 4.
 
+## Ingest gate (T-023)
+
+```bash
+uv run python cli/ingest.py batch.ttl --graph urn:graph:ingest:SEMANTIC:2026-08-06 [--check]
+```
+
+The sanctioned way to write an ABox batch. [`kg_store.gate`](../src/kg_store/gate.py) writes a
+Turtle batch only if all of these hold, and otherwise raises `IngestRejected` (exit status 2) with
+nothing written:
+
+1. the target is `urn:graph:ingest:*`, `urn:graph:derived:*`, `urn:graph:universe:*` or
+   `urn:graph:portfolio:current` (TBox, reference and rules go through `cli/load_schema.py`);
+2. an append-only graph (all but `portfolio:current`) does not exist yet, per `07`;
+3. every `rdf:type` used is a class in `tbox.ttl`, so a typo can't dodge the shapes;
+4. the batch conforms to `shapes.ttl` under `pyshacl`. The shapes target by class and reference no
+   other individuals, so a batch is validated on its own.
+
+`--check` runs the same checks without touching the store. Limit: this is a code path, not a
+server-side lock; anyone holding the write credentials can still write around it. The existence
+check and the write are two requests, so two simultaneous writers could both pass it.
+
 ## Connecting
 
 Variables are documented in [`.env.example`](../.env.example); real values live in the gitignored
