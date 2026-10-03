@@ -16,7 +16,7 @@ an error (marked as such where it happens).
 
 ## Q: You said there are "eleven" named graphs to query — what does that actually mean?
 
-> *Counts updated since the question was first asked: the example has since grown from 11 to 14 `GRAPH` blocks (17 concrete graphs loaded).*
+> *Counts updated since the question was first asked: the example has since grown from 11 to 16 `GRAPH` blocks (19 concrete graphs loaded, after T-107/T-108).*
 
 **Short answer:** it's an artifact of the worked example, not a fixed number. Four graphs
 have permanent, fixed names and exist exactly once. Everything else is a *template* that
@@ -49,7 +49,7 @@ That's an undercount of what's actually loaded, though: `tbox.ttl`, `reference.t
 `rules.ttl` each load wholesale into their own named graph (`urn:graph:tbox`,
 `urn:graph:reference`, `urn:graph:rules:catalog`) per `schema/README.md`'s load order — but
 because those are plain Turtle, not TriG, they never appear as a `GRAPH { }` block inside
-`instances.trig`. So "everything currently loaded" is **17 concrete graphs**, not 14.
+`instances.trig`. So "everything currently loaded" is **19 concrete graphs**, not 16.
 
 More importantly, `07-ontology-topology.md`'s design table doesn't define graphs — it defines
 10 graph *name patterns*, split into two very different kinds:

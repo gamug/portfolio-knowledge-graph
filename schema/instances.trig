@@ -28,7 +28,7 @@
 #     asserted in the graph where the correction becomes known —
 #     not by editing the original graph.
 #
-# TWO MORE TOPOLOGY ADDENDA found while building this (in addition
+# THREE MORE TOPOLOGY ADDENDA found while building this (in addition
 # to the reference-graph placement noted in reference.ttl):
 #
 #   1. Veto/RiskEvent decisions — the Orchestrator's OWN output —
@@ -37,6 +37,8 @@
 #      Resolved: urn:graph:ingest:ORCHESTRATOR:{date}, treating the
 #      Orchestrator as another daily writer for transaction-time
 #      purposes, consistent with the existing per-agent pattern.
+#   3. (T-108) Benchmark books, their weights and quant numbers (the quant module's output) go in
+#      urn:graph:derived:quant:{date}, apart from urn:graph:portfolio:current (the live book).
 #   2. sharedExecutiveWith and (T-107) the news-derived AssetCoOccurrence
 #      candidates (entity resolution's output, not an
 #      ingestion agent's) get their own graphs too, rather than being
@@ -302,13 +304,14 @@ GRAPH <urn:graph:derived:entity-resolution:2026-08-05> {
 
 GRAPH <urn:graph:derived:quant:2026-08-05> {
     # T-108 (D11): a benchmark book, its weights and finished quant numbers, projected as upstream hands them over (v_quant_portfolio /
-    # v_quant_position / v_quant_benchmark_performance / v_quant_vs_live). ILLUSTRATIVE names, metrics and values; no returns, mu or Sigma.
-    :Bench_MinVar_20260805 a :Portfolio ; :portfolioName "Benchmark min-variance (illustrative)" ; :portfolioKind "BENCHMARK" ; :benchmarkObjective "min_variance" ;
+    # v_quant_position / v_quant_benchmark_performance / v_quant_vs_live). ILLUSTRATIVE names, metrics, units and values (copied verbatim from the view, not
+    # derived: the active-weight figure is a placeholder); no returns, mu or Sigma. The book has one stable IRI; a later run closes old weights by validTo.
+    :Bench_MinVar a :Portfolio ; :portfolioName "Benchmark min-variance (illustrative)" ; :portfolioKind "BENCHMARK" ; :benchmarkObjective "min_variance" ;
         :holdsPosition :BPos_AAPL_20260805, :BPos_JPM_20260805 .
     :BPos_AAPL_20260805 a :PortfolioPosition ; :positionAsset :AAPL ; :weightPct "4.0"^^xsd:decimal ; :validFrom "2026-08-05"^^xsd:date .
     :BPos_JPM_20260805  a :PortfolioPosition ; :positionAsset :JPM  ; :weightPct "3.0"^^xsd:decimal ; :validFrom "2026-08-05"^^xsd:date .
-    :BObs_Perf_20260805 a :BenchmarkObservation ; :quantPortfolio :Bench_MinVar_20260805 ; :quantMetric "annualised_volatility" ; :quantValue "0.14"^^xsd:decimal ; :quantAsOf "2026-08-05"^^xsd:date .
-    :BObs_Active_AAPL_20260805 a :BenchmarkObservation ; :quantPortfolio :Bench_MinVar_20260805 ; :quantMetric "active_weight" ; :quantAsset :AAPL ; :quantValue "0.8"^^xsd:decimal ; :quantAsOf "2026-08-05"^^xsd:date .
+    :BObs_Perf_20260805 a :BenchmarkObservation ; :quantPortfolio :Bench_MinVar ; :quantMetric "annualised_volatility" ; :quantValue "0.14"^^xsd:decimal ; :quantUnit "fraction" ; :quantAsOf "2026-08-05"^^xsd:date .
+    :BObs_Active_AAPL_20260805 a :BenchmarkObservation ; :quantPortfolio :Bench_MinVar ; :quantMetric "active_weight" ; :quantAsset :AAPL ; :quantValue "0.9"^^xsd:decimal ; :quantUnit "percentage_points" ; :quantAsOf "2026-08-05"^^xsd:date .
 }
 
 GRAPH <urn:graph:ingest:ORCHESTRATOR:2026-08-04> {
@@ -388,7 +391,7 @@ GRAPH <urn:graph:ingest:ORCHESTRATOR:2026-10-05> {
 }
 
 GRAPH <urn:graph:portfolio:current> {
-    :MainPortfolio_2026 a :Portfolio ; :portfolioName "Thesis Demo Portfolio 2026" .
+    :MainPortfolio_2026 a :Portfolio ; :portfolioName "Thesis Demo Portfolio 2026" ; :portfolioKind "LIVE" .
 
     :Pos_AAPL_2026 a :PortfolioPosition ; :positionAsset :AAPL ; :weightPct "3.2"^^xsd:decimal ; :validFrom "2026-07-05"^^xsd:date .
     :Pos_JPM_2026  a :PortfolioPosition ; :positionAsset :JPM  ; :weightPct "2.8"^^xsd:decimal ; :validFrom "2026-07-05"^^xsd:date .
