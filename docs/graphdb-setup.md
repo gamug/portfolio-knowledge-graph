@@ -86,13 +86,18 @@ nothing written:
    `owl:AllDisjointClasses` members), so neither a typo nor a bare abstract category can dodge the
    shapes;
 4. a subject with no `rdf:type` in the batch, which no shape can see, only gets relations to other
-   individuals (object properties such as `:hasScoreObservation`, `:supersededBy`) or `:validTo`;
-   adding a value to an existing observation is refused;
+   individuals (object properties such as `:hasScoreObservation`, `:supersededBy`; the object must
+   be an IRI, not a literal) or an `xsd:date` `:validTo`; adding a value to an existing observation
+   is refused;
 5. the batch conforms to `shapes.ttl` under `pyshacl`. The shapes target by class and reference no
-   other individuals, so a batch is validated on its own.
+   other individuals, so a batch is validated on its own;
+6. no typed individual in the batch already exists in the store (explicit statements, any graph):
+   a batch may only introduce new individuals, so re-declaring a stored observation with another
+   value is refused. Closing a record is the untyped `:validTo` path (check 4).
 
 What is written is the validated triples as N-Triples, not the submitted text. `--check` runs
-checks 1, 3, 4 and 5 without contacting the store, so it cannot see an existing graph (check 2).
+checks 1, 3, 4 and 5 without contacting the store, so it cannot see an existing graph (check 2)
+or an existing individual (check 6).
 Validation reads `tbox.ttl` and `shapes.ttl` from `schema/` on disk (once per process); reload with
 `cli/load_schema.py` after a schema edit so the store's copy matches. Limits: this is a code path,
 not a server-side lock, so anyone holding the write credentials can still write around it; and the

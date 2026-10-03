@@ -14,9 +14,13 @@ A batch is Turtle destined for one named graph. It is written only if
    and be accepted unchecked;
 4. a subject with no ``rdf:type`` in the batch, which no shape can see, is only given
    relations to other individuals (object properties, e.g. ``:hasScoreObservation``,
-   ``:supersededBy``) or ``:validTo`` (closing a record). Anything else would let a batch
-   quietly add values to an existing, immutable observation; and
-5. it conforms to ``shapes.ttl`` under ``pyshacl``.
+   ``:supersededBy``; the object must be an IRI) or an ``xsd:date`` ``:validTo`` (closing a
+   record). Anything else would let a batch quietly add values to an existing, immutable
+   observation;
+5. it conforms to ``shapes.ttl`` under ``pyshacl``; and
+6. no typed individual in it already exists in the store (any graph, explicit statements):
+   a batch only introduces new individuals, so an immutable observation cannot be
+   re-declared with a second value.
 
 Anything else raises :class:`IngestRejected` with the reason and nothing reaches the
 store. What is written is the validated triples (as N-Triples), not the submitted text.
@@ -42,7 +46,7 @@ from pathlib import Path
 import pyshacl
 import rdflib
 from rdflib.collection import Collection
-from rdflib.namespace import OWL, RDF, RDFS
+from rdflib.namespace import OWL, RDF, RDFS, XSD
 
 from kg_store.graphdb import GraphDB, schema_dir
 
@@ -151,11 +155,22 @@ def unknown_types(batch: rdflib.Graph, schema: GateSchema) -> set[str]:
 def untyped_writes(batch: rdflib.Graph, schema: GateSchema) -> list[str]:
     """Triples about a subject with no ``rdf:type`` here, other than relations or closing."""
     typed = set(batch.subjects(RDF.type, None))
-    return sorted(
-        f"{s.n3(batch.namespace_manager)} {p.n3(batch.namespace_manager)}"
-        for s, p, _ in batch
-        if s not in typed and p not in schema.relations and p != CLOSING_PROPERTY
-    )
+    nm = batch.namespace_manager
+    problems: list[str] = []
+    for s, p, o in batch:
+        if s in typed:
+            continue
+        if p in schema.relations:
+            if isinstance(o, rdflib.Literal):
+                problems.append(
+                    f"{s.n3(nm)} {p.n3(nm)} {o.n3(nm)} (a relation needs an individual, not a literal)"
+                )
+        elif p == CLOSING_PROPERTY:
+            if not (isinstance(o, rdflib.Literal) and o.datatype == XSD.date and _date_ok(str(o))):
+                problems.append(f"{s.n3(nm)} {p.n3(nm)} {o.n3(nm)} (must be an xsd:date literal)")
+        else:
+            problems.append(f"{s.n3(nm)} {p.n3(nm)}")
+    return sorted(problems)
 
 
 def with_superclass_types(batch: rdflib.Graph, schema: GateSchema) -> rdflib.Graph:
@@ -185,14 +200,31 @@ def validate(batch: rdflib.Graph, directory: Path | None = None) -> None:
     stray = untyped_writes(batch, schema)
     if stray:
         raise IngestRejected(
-            "properties on a subject with no rdf:type in the batch (only relations between "
-            "individuals and :validTo are allowed there): " + ", ".join(stray)
+            "triples about a subject with no rdf:type in the batch (only relations between "
+            "individuals and an xsd:date :validTo are allowed there): " + ", ".join(stray)
         )
     conforms, _, report = pyshacl.validate(
         with_superclass_types(batch, schema), shacl_graph=schema.shapes, inference="none"
     )
     if not conforms:
         raise IngestRejected("SHACL validation failed:\n" + str(report))
+
+
+def existing_subjects(db: GraphDB, batch: rdflib.Graph) -> list[str]:
+    """Typed IRI subjects of ``batch`` that already have statements in the store."""
+    iris = sorted({str(s) for s in batch.subjects(RDF.type, None) if isinstance(s, rdflib.URIRef)})
+    bad = [iri for iri in iris if re.search(r'[\s<>"{}|^`\\]', iri)]
+    if bad:
+        raise IngestRejected("IRIs with characters that are illegal in an IRI: " + ", ".join(bad))
+    found: list[str] = []
+    for i in range(0, len(iris), 200):
+        values = " ".join(f"<{iri}>" for iri in iris[i : i + 200])
+        rows = db.select(
+            "SELECT DISTINCT ?s FROM <http://www.ontotext.com/explicit> "  # noqa: S608 - IRIs checked above
+            f"WHERE {{ VALUES ?s {{ {values} }} ?s ?p ?o }}"
+        )
+        found.extend(r["s"] for r in rows)
+    return found
 
 
 def ingest(db: GraphDB, data: bytes, graph: str, directory: Path | None = None) -> int:
@@ -202,5 +234,11 @@ def ingest(db: GraphDB, data: bytes, graph: str, directory: Path | None = None) 
     validate(batch, directory)
     if append_only and db.select(f"SELECT * WHERE {{ GRAPH <{graph}> {{ ?s ?p ?o }} }} LIMIT 1"):
         raise IngestRejected(f"{graph} already exists and is append-only; write a new dated graph")
+    taken = existing_subjects(db, batch)
+    if taken:
+        raise IngestRejected(
+            "individuals that already exist in the store (observations are immutable; use a "
+            "new IRI, or :validTo to close one): " + ", ".join(taken)
+        )
     db.add(batch.serialize(format="nt").encode(), "application/n-triples", graph)
     return len(batch)

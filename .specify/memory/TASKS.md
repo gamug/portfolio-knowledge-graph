@@ -31,8 +31,8 @@ renumber of the next work item's block.
       returns 35 = 25 `ScoreSnapshot` + 5 `SectorAggregateSnapshot` + 5
       `AttractivenessSnapshot`, so `subClassOf` inference works. → step 3.
 - [x] **T-023** Wire a `pyshacl`-based ingest gate in front of write access.
-      `kg_store.gate` / `cli/ingest.py`: checks the target graph, append-only, tbox
-      types, then `shapes.ttl`; a rejected batch writes nothing. Every graph in
+      `kg_store.gate` / `cli/ingest.py`: the six checks in `docs/graphdb-setup.md`
+      (§ Ingest gate); a rejected batch writes nothing. Every graph in
       `instances.trig` passes it on its own. → step 4.
 - [x] **T-024** Document connection details in `.env.example`/`docs/`. →
       step 5.
