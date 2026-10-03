@@ -91,7 +91,7 @@ decisions (T-100–T-104).*
       (`validFrom`/`validTo`); document the stale-between-snapshots risk and
       that `universe.db` is now a direct upstream. → `PLAN.md` Work item 11,
       step 1.
-- [ ] **T-101** *(D2)* Decide how `available_at` vs. `event_time` is modelled
+- [x] **T-101** *(D2; done 2026-10-03: `availableAt` required + `eventTime` optional on `ScoreSnapshot`)* Decide how `available_at` vs. `event_time` is modelled
       (new properties, or encoded in the ingest-graph date) so as-of queries
       cannot leak look-ahead; update `tbox.ttl`/`shapes.ttl` and `07`. → step 2.
 - [x] **T-102** *(D3; done 2026-10-03: `raisedOn`/`clearedOn`/`lastSeenOn` + `vetoSeverity`, `VetoShape`)* Model veto stints (`raisedOn`/`clearedOn`/`lastSeenOn`

@@ -392,6 +392,10 @@
 :agentOrigin a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :ObservationSnapshot ; rdfs:range xsd:string ;
     rdfs:comment "One of FUNDAMENTAL | SEMANTIC | QUANTITATIVE | TECHNICAL | SECTOR. SHACL sh:in enforced." .
 :timestamp   a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :ObservationSnapshot ; rdfs:range xsd:dateTime .
+:eventTime   a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :ScoreSnapshot ; rdfs:range xsd:date ;
+    rdfs:comment "T-101 (D2): what the observation is ABOUT -- filing period-end (FUNDAMENTAL), cycle date (TECHNICAL/QUANTITATIVE), article day (SEMANTIC). Never used to filter as-of reads; see availableAt." .
+:availableAt a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :ScoreSnapshot ; rdfs:range xsd:date ;
+    rdfs:comment "T-101 (D2): first date the observation may be used by a reader (look-ahead guard; for FUNDAMENTAL, the first NYSE trading day after the filing date). Every as-of-D query MUST filter availableAt <= D, never eventTime or timestamp. Distinct from timestamp, which is when the row was computed/ingested." .
 
 # --- RiskEvent / Veto ---
 :category a owl:DatatypeProperty ; rdfs:range xsd:string ;
