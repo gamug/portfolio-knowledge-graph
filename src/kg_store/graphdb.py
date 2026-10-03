@@ -153,6 +153,22 @@ class GraphDB:
             raise
         self._request("PUT", f"{location}?action=COMMIT")
 
+    def size(self) -> int:
+        """Number of explicit statements in the repository (``/size``)."""
+        return int(self._request("GET", f"{self._repo_url}/size").decode().strip())
+
+    def repository_params(self) -> dict[str, str]:
+        """The repository's configuration parameters (ruleset, ``disableSameAs``, ...) by name."""
+        raw = self._request(
+            "GET",
+            f"{self.host}/rest/repositories/{urllib.parse.quote(self.repository)}",
+            accept="application/json",
+        )
+        try:
+            return {k: str(v["value"]) for k, v in json.loads(raw)["params"].items()}
+        except (ValueError, KeyError, TypeError, AttributeError) as exc:
+            raise GraphDBError(f"unexpected repository configuration from {self.host}") from exc
+
     def explicit_graph_sizes(self) -> dict[str, int]:
         """Asserted triple count per named graph (inferred statements excluded)."""
         rows = self.select(

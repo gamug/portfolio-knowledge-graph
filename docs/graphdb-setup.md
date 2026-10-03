@@ -103,6 +103,21 @@ Validation reads `tbox.ttl` and `shapes.ttl` from `schema/` on disk (once per pr
 not a server-side lock, so anyone holding the write credentials can still write around it; and the
 existence check and the write are two requests, so two simultaneous writers could both pass it.
 
+## Acceptance check (T-025)
+
+```bash
+uv run python cli/verify_store.py
+```
+
+Runs the three checks Work item 3 requires of a running store with `schema/` loaded, and exits
+non-zero if any fails ([`kg_store.acceptance`](../src/kg_store/acceptance.py)). It writes nothing.
+
+| Check | What it proves |
+|---|---|
+| SPARQL query | `SELECT ?s WHERE { ?s a :Asset } LIMIT 5` over HTTP returns individuals |
+| Malformed write | a `ScoreSnapshot` that is valid except for the missing `:timestamp` is refused by the gate with a SHACL `minCount` violation on `:timestamp` (a rejection for any other reason fails the check); the store's size is unchanged and the target graph does not exist |
+| Reasoning profile | the repository reports `rdfsplus-optimized` and `disableSameAs` true, and `?x a :Observation` is answered by inference (nothing is asserted with it) and includes a `ScoreSnapshot`, which is two `rdfs:subClassOf` steps below it, so the chain is followed and not just one hop |
+
 ## Connecting
 
 Variables are documented in [`.env.example`](../.env.example); real values live in the gitignored

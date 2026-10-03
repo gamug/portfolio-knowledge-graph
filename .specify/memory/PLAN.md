@@ -19,8 +19,8 @@ larger roadmap steps are broken into work items with a stated goal, approach,
 and acceptance criteria, but — like `portfolio-nlp`'s `PLAN.md` treats an
 infrastructure-blocked item — left coarse-grained where the actual
 implementation depends on a scope or architecture decision nobody has made
-yet (Work item 3; Work items 5 and 7 were resolved by the 2026-10-02 scope
-decision).
+yet (Work item 3 was one until the maintainer chose GraphDB; Work items 5 and 7
+were resolved by the 2026-10-02 scope decision).
 
 ## Goal
 
@@ -181,8 +181,8 @@ to `portfolio-common` v1.2.0.
 
 **Why**: every downstream piece of the target architecture in `SPEC.md` §4
 — named graphs, the reasoner, SPARQL, the agent layer — needs somewhere to
-run against. Nothing is stood up today; `schema/` is validated only as flat
-files on disk (FR-001).
+run against. (At planning time nothing was stood up and `schema/` was validated
+only as flat files on disk, FR-001; this work item has since delivered the store.)
 
 **This is partly an infrastructure decision, not purely a code task** —
 similar in kind to `portfolio-nlp`'s `PLAN.md` Work item 2 (a runnable CI
@@ -214,8 +214,8 @@ detail can be planned further.
 - The reasoning profile matches `07-ontology-topology.md`'s documented
   choice, not a store's un-configured default.
 
-**Blocked on**: the maintainer's store choice (step 1) — everything after it
-can proceed once that's made.
+**Status**: done (T-020–T-026). The store choice was GraphDB; see
+`docs/graphdb-setup.md`.
 
 ## Work item 4 — Build the real step-2 projection (roadmap step 2, supersedes the `src/etl/` shortcut)
 
@@ -279,7 +279,7 @@ projection before D1–D8 and D10 are decided would encode wrong semantics.
 - `src/etl/`'s role after this lands is explicitly documented (retired,
   folded in, or kept as a separate smoke-test path) — not left ambiguous.
 
-**Blocked on**: Work item 3 (needs a store to write into).
+**Blocked on**: Work item 11 (the store from Work item 3 is in place).
 
 ## Work item 5 — ~~Implement the SEMANTIC score's per-`(asset, day)` aggregation~~ (SUPERSEDED — reassigned upstream)
 

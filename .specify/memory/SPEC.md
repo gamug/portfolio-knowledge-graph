@@ -539,9 +539,13 @@ artifact](https://claude.ai/code/artifact/d5d59284-9565-4bf6-8a54-3d2d1549863f))
 and this document's own drafting — resolve or explicitly accept before
 treating a related FR/NR as done:
 
-1. **The integrative layer (roadmap steps 1–2 and the query surface) is
-   unbuilt.** No triple store, no SHACL ingest gate, no dated named-graph
-   partitioning, no OWL RL reasoner, no SPARQL surface. The *compute* steps
+1. **The integrative layer is only partly built (roadmap step 1 done, step 2
+   and the query surface not).** The store exists (GraphDB, repository
+   `portfolio`, `rdfsplus-optimized`, T-020–T-026), loaded with `schema/`, with a
+   SHACL ingest gate that enforces the dated named-graph names. What is
+   missing is the data and the surface on top: no projected upstream data
+   (Work item 4) and no query surface beyond the store's raw SPARQL endpoint
+   (Work item 6). The *compute* steps
    the roadmap numbers 3–9 (pricing, EDGAR batch, NLP, agents, entity
    resolution, sector/construction, backtesting) are not this repo's to build:
    per the T-007 scan they are owned upstream (§2.5) — what is missing here is

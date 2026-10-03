@@ -116,6 +116,44 @@ acceptance criteria. Ordered by work item number.
       touched no fact either artifact currently states (verified by reading
       both; still content-consistent with the repo's actual state).
 
+## Work item 3 — Stand up a triple store and wire the SHACL ingest gate (roadmap step 1)
+
+- [x] **T-020** *(maintainer)* Choose GraphDB or Fuseki and its hosting
+      (devcontainer service vs. separate). → `PLAN.md` Work item 3, step 1.
+- [x] **T-021** Containerize/configure the chosen store; load
+      `tbox.ttl → shapes.ttl → reference.ttl → rules.ttl → instances.trig`
+      into a fresh repository/dataset. `cli/load_schema.py` (`src/kg_store/`) does it
+      idempotently and verifies per-graph asserted counts against an `rdflib` parse
+      (15 graphs, 1608 triples). Scope is `schema/` only; `data.ttl` and projected
+      upstream data belong to Work item 4. → step 2.
+- [x] **T-022** Lock the reasoning profile (OWL 2 RL/RDFS+ per
+      `07-ontology-topology.md`) in the store's config. Config in
+      `schema/graphdb-repo-config.ttl`; on loaded data `?x a :ObservationSnapshot`
+      returns 35 = 25 `ScoreSnapshot` + 5 `SectorAggregateSnapshot` + 5
+      `AttractivenessSnapshot`, so `subClassOf` inference works. → step 3.
+- [x] **T-023** Wire a `pyshacl`-based ingest gate in front of write access.
+      `kg_store.gate` / `cli/ingest.py`: the six checks in `docs/graphdb-setup.md`
+      (§ Ingest gate); a rejected batch writes nothing. Every graph in
+      `instances.trig` passes it on its own. → step 4.
+- [x] **T-024** Document connection details in `.env.example`/`docs/`. →
+      step 5.
+- [x] **T-025** Verify: a basic SPARQL query returns real results; a
+      deliberately-malformed write is rejected before reaching the store;
+      the reasoning profile matches `07`'s documented choice. → `PLAN.md`
+      acceptance criteria. Run: `cli/verify_store.py` (`docs/graphdb-setup.md` § Acceptance check).
+- [x] **T-026** Rename the database environment variables to the maintainer's new
+      scheme. The names are the maintainer's to choose and may change again, so
+      read the final ones from the maintainer's `.env` when starting (as of
+      2026-10-03: `SQL_URLS_DB`, `SQL_NLP_DB`, `SQL_FINANCIAL_DB`, `SQL_UNIVERSE_DB`,
+      replacing `KG_URLS_DB`, `KG_RESULTS_DB`, `KG_FINANCIAL_DB`, `KG_UNIVERSE_DB`).
+      Update every reader and every mention: `src/etl/config.py`, `src/etl/README.md`,
+      `.env.example`, `constitution.md`, `SPEC.md`, `PLAN.md` and `TASKS.md` (the
+      `KG_*` GraphDB variables keep their names). Leave `docs/portfolio-common-v1.2-engine-agnostic.md`
+      alone (a dated decision record) and upstream's own variable names. Run the
+      ETL's config load, then `rg --hidden 'KG_(URLS|RESULTS|FINANCIAL|UNIVERSE)_DB' --glob '!.git' --glob '!.env' --glob '!.specify/memory/TASKS.md' --glob '!docs/portfolio-common-v1.2-engine-agnostic.md'`
+      to confirm no old name remains. Matches in those two excluded files are
+      expected (T-026 itself lists the old names; the decision record is left as is). → `PLAN.md` Work item 3, step 5.
+
 ## Work item 5 — ~~Implement the SEMANTIC score's per-`(asset, day)` aggregation~~ (SUPERSEDED, reassigned upstream)
 
 **CLOSED (2026-10-02)**, superseded by the T-007 scope decision.
