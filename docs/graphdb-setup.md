@@ -59,8 +59,11 @@ uv run python cli/load_schema.py [--dir path/to/schema]
 Loads `tbox → shapes → reference → rules → instances.trig` per the graph map in
 [`schema/README.md`](../schema/README.md). It first drops every graph it is about to write, so a
 re-run (for example after a schema edit) replaces rather than duplicates. It then parses the same
-files with `rdflib` and compares the asserted triple count of each graph with the store's
-(inferred statements excluded), exiting non-zero on any mismatch. Currently 15 graphs, 1608 triples.
+files with `rdflib` and compares the asserted triple count of each of those graphs with the store's
+(inferred statements excluded), exiting non-zero on any mismatch; the counts are printed, not
+hard-coded here. The drops and uploads run in one transaction, so a failed load changes nothing.
+Graphs that are not in `schema/` (for example ingest graphs written later) are left alone and only
+counted in a closing note; a graph removed from `schema/` has to be dropped by hand.
 Needs write access (`WRITE_REPO_portfolio`). It loads `schema/` only; the ETL's `data.ttl` and
 projected upstream data belong to Work item 4.
 
