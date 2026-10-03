@@ -482,7 +482,7 @@ There is no CD pipeline and no CI workflow for this repo
 
 1. `uv sync`.
 2. Configure `.env` (from `.env.example`) with at least `SQL_URLS_DB`; the
-   remaining `KG_*` variables have documented defaults.
+   remaining ETL variables have documented defaults.
 3. Run the schema validation check (constitution §Executable cmds) after any
    `schema/` edit.
 4. Run `uv run python cli/build_data_ttl.py [--limit N]` to (re)build
