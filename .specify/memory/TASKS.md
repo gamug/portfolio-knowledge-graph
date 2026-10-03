@@ -114,7 +114,7 @@ decisions (T-100–T-104).*
       disposition for the per-score-type extras `forensic_flags_json`,
       `prompt_hash` (FUNDAMENTAL) and `correction_rule` (`financial_facts`)
       handed over by T-105. → step 4.
-- [ ] **T-107** *(D10)* Give projected `sharedExecutiveWith` a
+- [x] **T-107** *(D10; done 2026-10-03: `AssetCoOccurrence` + `AssetCoOccurrenceShape`)* Give projected `sharedExecutiveWith` a
       method/weight/confidence (or a separate candidate property) so news
       co-occurrence is not asserted as fact; decide `media_cooccurrence`. →
       step 5.

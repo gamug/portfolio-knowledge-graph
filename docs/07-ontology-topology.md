@@ -25,7 +25,7 @@ special query language feature.
 | `urn:graph:ingest:FUNDAMENTAL:{year}-Q{n}` | One graph per quarterly Fundamental Agent run — new `UniverseMembership` records, fundamental `ScoreSnapshot`s, and `DataQualityIssue` evidence from the Ring-1 gates (T-104; dated by `dqRaisedOn`, optionally linked to the gated `SECFiling` and metric) (v1's slow cycle, §2A) | Append-only. |
 | `urn:graph:ingest:ORCHESTRATOR:{date}` | The Orchestrator's own decisions — `Veto` individuals and any `RiskEvent`s it directly produced; also `AttractivenessSnapshot` individuals (added 2026-08-13) — the Orchestrator's ranking output, alongside its veto output | Append-only. A `Veto` stint is closed by a `clearedOn` triple written in the clearing cycle's graph (T-102), never deleted. |
 | `urn:graph:ingest:EDGAR:{date-or-quarter}` | `SECFiling`/`SECFilingSection` individuals from the EDGAR batch pipeline (roadmap step 4), including restated sections | Append-only — see the restatement pattern below. |
-| `urn:graph:derived:entity-resolution:{date}` | `sharedExecutiveWith` and other entity-resolution-service output (roadmap step 7) | Append-only; kept separate from the EDGAR graphs it draws on since it's a different service's output. |
+| `urn:graph:derived:entity-resolution:{date}` | `AssetCoOccurrence` candidate edges (T-107; news co-occurrence, method/weight) and other entity-resolution-service output (roadmap step 7); `sharedExecutiveWith` only if verified | Append-only; kept separate from the EDGAR graphs it draws on since it's a different service's output. |
 | `urn:graph:universe:{year}-Q{n}` | The `Universe` individual + its membership boundary for that quarter | Append-only, closed by writing `validTo` on the *previous* quarter's memberships (never by deleting them). |
 | `urn:graph:portfolio:current` | Live `PortfolioPosition` individuals — the actively-held book | The one graph that's genuinely mutated in place, but even here, closing a position sets `validTo` rather than deleting the triple, preserving history in place. |
 
@@ -115,7 +115,7 @@ Recommend **OWL 2 RL / RDFS+ only** — not a full OWL DL reasoner:
 - **Turn on:** `rdfs:subClassOf` transitivity — this now pays off in two places, not one. The GICS
   `Industry → Sector` roll-up ("give me every `Asset` in the Information Technology sector",
   ~11 sectors/~70 industries) is cheap to materialize, as before. As of the 2026-08-23 taxonomy
-  revision (`06-ontology-definition.md` §1.2), the ontology's own 25 domain classes also have
+  revision (`06-ontology-definition.md` §1.2), the ontology's own 26 domain classes also have
   `subClassOf` structure to reason over — e.g. `?x a :ObservationSnapshot` now correctly returns
   every `ScoreSnapshot`, `SectorAggregateSnapshot`, and `AttractivenessSnapshot` individual without
   the query author enumerating all three types by hand. Before that revision this setting only ever

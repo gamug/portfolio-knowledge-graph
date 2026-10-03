@@ -74,6 +74,17 @@
     sh:property [ sh:path :quarantined ; sh:datatype xsd:boolean ; sh:minCount 1 ; sh:maxCount 1 ] ;
     sh:property [ sh:path :gatedValue ; sh:datatype xsd:decimal ; sh:maxCount 1 ] .
 
+:AssetCoOccurrenceShape
+    a sh:NodeShape ;
+    sh:targetClass :AssetCoOccurrence ;
+    # T-107 (D10): candidate, not verified. Exactly two assets; method and weight mandatory.
+    sh:property [ sh:path :coOccurrenceAsset ; sh:class :Asset ; sh:minCount 2 ; sh:maxCount 2 ] ;
+    sh:property [ sh:path :coOccurrenceKind ; sh:in ("SHARED_EXECUTIVE_CANDIDATE" "MEDIA") ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :coOccurrenceMethod ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :coOccurrenceWeight ; sh:datatype xsd:decimal ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :coOccurrenceComputedOn ; sh:datatype xsd:date ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :provenanceId ; sh:datatype xsd:string ; sh:maxCount 1 ] .
+
 :RuleDefinitionShape
     a sh:NodeShape ;
     sh:targetClass :RuleDefinition ;
