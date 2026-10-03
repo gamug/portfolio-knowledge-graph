@@ -32,6 +32,17 @@ renumber of the next work item's block.
       deliberately-malformed write is rejected before reaching the store;
       the reasoning profile matches `07`'s documented choice. → `PLAN.md`
       acceptance criteria.
+- [ ] **T-026** Rename the database environment variables to the maintainer's new
+      scheme. The names are the maintainer's to choose and may change again, so
+      read the final ones from the maintainer's `.env` when starting (as of
+      2026-10-03: `SQL_URLS_DB`, `SQL_NLP_DB`, `SQL_FINANCIAL_DB`, `SQL_UNIVERSE_DB`,
+      replacing `KG_URLS_DB`, `KG_RESULTS_DB`, `KG_FINANCIAL_DB`, `KG_UNIVERSE_DB`).
+      Update every reader and every mention: `src/etl/config.py`, `src/etl/README.md`,
+      `.env.example`, `constitution.md`, `SPEC.md`, `PLAN.md` and `TASKS.md` (the
+      `KG_*` GraphDB variables keep their names). Leave `docs/portfolio-common-v1.2-engine-agnostic.md`
+      alone (a dated decision record) and upstream's own variable names. Run the
+      ETL's config load and `rg 'KG_(URLS|RESULTS|FINANCIAL|UNIVERSE)_DB'` to confirm
+      no old name remains. → `PLAN.md` Work item 3, step 5.
 
 ## Work item 4 — Build the real step-2 projection (roadmap step 2)
 
