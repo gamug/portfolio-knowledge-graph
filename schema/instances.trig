@@ -69,17 +69,24 @@ GRAPH <urn:graph:universe:2026-Q3> {
 }
 
 GRAPH <urn:graph:ingest:FUNDAMENTAL:2026-Q3> {
+    # T-101: eventTime = period-end; availableAt = first NYSE trading day after the (illustrative) filing date
+    # -- 2026-07-06, since 07-03 is the observed holiday and 07-05 a Sunday.
     :Snap_AAPL_Fin_2026Q3 a :ScoreSnapshot ; :agentOrigin "FUNDAMENTAL" ; :metricType "ScoreFinanciero" ;
-        :rawValue "1.15"^^xsd:decimal ; :normalizedScore "0.70"^^xsd:decimal ; :timestamp "2026-07-05T06:00:00"^^xsd:dateTime .
+        :rawValue "1.15"^^xsd:decimal ; :normalizedScore "0.70"^^xsd:decimal ; :timestamp "2026-07-05T06:00:00"^^xsd:dateTime ;
+        :eventTime "2026-06-30"^^xsd:date ; :availableAt "2026-07-06"^^xsd:date .
     :Snap_JPM_Fin_2026Q3 a :ScoreSnapshot ; :agentOrigin "FUNDAMENTAL" ; :metricType "ScoreFinanciero" ;
-        :rawValue "2.10"^^xsd:decimal ; :normalizedScore "0.30"^^xsd:decimal ; :timestamp "2026-07-05T06:00:00"^^xsd:dateTime .
+        :rawValue "2.10"^^xsd:decimal ; :normalizedScore "0.30"^^xsd:decimal ; :timestamp "2026-07-05T06:00:00"^^xsd:dateTime ;
+        :eventTime "2026-06-30"^^xsd:date ; :availableAt "2026-07-06"^^xsd:date .
     :Snap_XOM_Fin_2026Q3 a :ScoreSnapshot ; :agentOrigin "FUNDAMENTAL" ; :metricType "ScoreFinanciero" ;
         :rawValue "0.40"^^xsd:decimal ; :normalizedScore "0.90"^^xsd:decimal ; :timestamp "2026-07-05T06:00:00"^^xsd:dateTime ;
+        :eventTime "2026-06-30"^^xsd:date ; :availableAt "2026-07-06"^^xsd:date ;
         rdfs:comment "0.90 > VETO_FIN_01's 0.85 threshold -- feeds XOM's primary veto on 2026-08-04 below." .
     :Snap_JNJ_Fin_2026Q3 a :ScoreSnapshot ; :agentOrigin "FUNDAMENTAL" ; :metricType "ScoreFinanciero" ;
-        :rawValue "2.85"^^xsd:decimal ; :normalizedScore "0.25"^^xsd:decimal ; :timestamp "2026-07-05T06:00:00"^^xsd:dateTime .
+        :rawValue "2.85"^^xsd:decimal ; :normalizedScore "0.25"^^xsd:decimal ; :timestamp "2026-07-05T06:00:00"^^xsd:dateTime ;
+        :eventTime "2026-06-30"^^xsd:date ; :availableAt "2026-07-06"^^xsd:date .
     :Snap_PG_Fin_2026Q3 a :ScoreSnapshot ; :agentOrigin "FUNDAMENTAL" ; :metricType "ScoreFinanciero" ;
-        :rawValue "3.05"^^xsd:decimal ; :normalizedScore "0.20"^^xsd:decimal ; :timestamp "2026-07-05T06:00:00"^^xsd:dateTime .
+        :rawValue "3.05"^^xsd:decimal ; :normalizedScore "0.20"^^xsd:decimal ; :timestamp "2026-07-05T06:00:00"^^xsd:dateTime ;
+        :eventTime "2026-06-30"^^xsd:date ; :availableAt "2026-07-06"^^xsd:date .
 
     :AAPL :hasScoreObservation :Snap_AAPL_Fin_2026Q3 .
     :JPM  :hasScoreObservation :Snap_JPM_Fin_2026Q3 .
@@ -90,15 +97,20 @@ GRAPH <urn:graph:ingest:FUNDAMENTAL:2026-Q3> {
 
 GRAPH <urn:graph:ingest:QUANTITATIVE:2026-08-05> {
     :Snap_AAPL_Quant_20260805 a :ScoreSnapshot ; :agentOrigin "QUANTITATIVE" ; :metricType "ScoreCuantitativo" ;
-        :rawValue "0.40"^^xsd:decimal ; :normalizedScore "0.40"^^xsd:decimal ; :timestamp "2026-08-05T07:00:00"^^xsd:dateTime .
+        :rawValue "0.40"^^xsd:decimal ; :normalizedScore "0.40"^^xsd:decimal ; :timestamp "2026-08-05T07:00:00"^^xsd:dateTime ;
+        :eventTime "2026-08-05"^^xsd:date ; :availableAt "2026-08-05"^^xsd:date .
     :Snap_JPM_Quant_20260805 a :ScoreSnapshot ; :agentOrigin "QUANTITATIVE" ; :metricType "ScoreCuantitativo" ;
-        :rawValue "0.55"^^xsd:decimal ; :normalizedScore "0.55"^^xsd:decimal ; :timestamp "2026-08-05T07:00:00"^^xsd:dateTime .
+        :rawValue "0.55"^^xsd:decimal ; :normalizedScore "0.55"^^xsd:decimal ; :timestamp "2026-08-05T07:00:00"^^xsd:dateTime ;
+        :eventTime "2026-08-05"^^xsd:date ; :availableAt "2026-08-05"^^xsd:date .
     :Snap_XOM_Quant_20260805 a :ScoreSnapshot ; :agentOrigin "QUANTITATIVE" ; :metricType "ScoreCuantitativo" ;
-        :rawValue "0.45"^^xsd:decimal ; :normalizedScore "0.45"^^xsd:decimal ; :timestamp "2026-08-05T07:00:00"^^xsd:dateTime .
+        :rawValue "0.45"^^xsd:decimal ; :normalizedScore "0.45"^^xsd:decimal ; :timestamp "2026-08-05T07:00:00"^^xsd:dateTime ;
+        :eventTime "2026-08-05"^^xsd:date ; :availableAt "2026-08-05"^^xsd:date .
     :Snap_JNJ_Quant_20260805 a :ScoreSnapshot ; :agentOrigin "QUANTITATIVE" ; :metricType "ScoreCuantitativo" ;
-        :rawValue "0.30"^^xsd:decimal ; :normalizedScore "0.30"^^xsd:decimal ; :timestamp "2026-08-05T07:00:00"^^xsd:dateTime .
+        :rawValue "0.30"^^xsd:decimal ; :normalizedScore "0.30"^^xsd:decimal ; :timestamp "2026-08-05T07:00:00"^^xsd:dateTime ;
+        :eventTime "2026-08-05"^^xsd:date ; :availableAt "2026-08-05"^^xsd:date .
     :Snap_PG_Quant_20260805 a :ScoreSnapshot ; :agentOrigin "QUANTITATIVE" ; :metricType "ScoreCuantitativo" ;
-        :rawValue "0.25"^^xsd:decimal ; :normalizedScore "0.25"^^xsd:decimal ; :timestamp "2026-08-05T07:00:00"^^xsd:dateTime .
+        :rawValue "0.25"^^xsd:decimal ; :normalizedScore "0.25"^^xsd:decimal ; :timestamp "2026-08-05T07:00:00"^^xsd:dateTime ;
+        :eventTime "2026-08-05"^^xsd:date ; :availableAt "2026-08-05"^^xsd:date .
 
     :AAPL :hasScoreObservation :Snap_AAPL_Quant_20260805 .
     :JPM  :hasScoreObservation :Snap_JPM_Quant_20260805 .
@@ -109,15 +121,20 @@ GRAPH <urn:graph:ingest:QUANTITATIVE:2026-08-05> {
 
 GRAPH <urn:graph:ingest:TECHNICAL:2026-08-05> {
     :Snap_AAPL_Tec_20260805 a :ScoreSnapshot ; :agentOrigin "TECHNICAL" ; :metricType "ScoreTecnico" ;
-        :rawValue "0.50"^^xsd:decimal ; :normalizedScore "0.50"^^xsd:decimal ; :timestamp "2026-08-05T07:05:00"^^xsd:dateTime .
+        :rawValue "0.50"^^xsd:decimal ; :normalizedScore "0.50"^^xsd:decimal ; :timestamp "2026-08-05T07:05:00"^^xsd:dateTime ;
+        :eventTime "2026-08-05"^^xsd:date ; :availableAt "2026-08-05"^^xsd:date .
     :Snap_JPM_Tec_20260805 a :ScoreSnapshot ; :agentOrigin "TECHNICAL" ; :metricType "ScoreTecnico" ;
-        :rawValue "0.40"^^xsd:decimal ; :normalizedScore "0.40"^^xsd:decimal ; :timestamp "2026-08-05T07:05:00"^^xsd:dateTime .
+        :rawValue "0.40"^^xsd:decimal ; :normalizedScore "0.40"^^xsd:decimal ; :timestamp "2026-08-05T07:05:00"^^xsd:dateTime ;
+        :eventTime "2026-08-05"^^xsd:date ; :availableAt "2026-08-05"^^xsd:date .
     :Snap_XOM_Tec_20260805 a :ScoreSnapshot ; :agentOrigin "TECHNICAL" ; :metricType "ScoreTecnico" ;
-        :rawValue "0.35"^^xsd:decimal ; :normalizedScore "0.35"^^xsd:decimal ; :timestamp "2026-08-05T07:05:00"^^xsd:dateTime .
+        :rawValue "0.35"^^xsd:decimal ; :normalizedScore "0.35"^^xsd:decimal ; :timestamp "2026-08-05T07:05:00"^^xsd:dateTime ;
+        :eventTime "2026-08-05"^^xsd:date ; :availableAt "2026-08-05"^^xsd:date .
     :Snap_JNJ_Tec_20260805 a :ScoreSnapshot ; :agentOrigin "TECHNICAL" ; :metricType "ScoreTecnico" ;
-        :rawValue "0.30"^^xsd:decimal ; :normalizedScore "0.30"^^xsd:decimal ; :timestamp "2026-08-05T07:05:00"^^xsd:dateTime .
+        :rawValue "0.30"^^xsd:decimal ; :normalizedScore "0.30"^^xsd:decimal ; :timestamp "2026-08-05T07:05:00"^^xsd:dateTime ;
+        :eventTime "2026-08-05"^^xsd:date ; :availableAt "2026-08-05"^^xsd:date .
     :Snap_PG_Tec_20260805 a :ScoreSnapshot ; :agentOrigin "TECHNICAL" ; :metricType "ScoreTecnico" ;
-        :rawValue "0.28"^^xsd:decimal ; :normalizedScore "0.28"^^xsd:decimal ; :timestamp "2026-08-05T07:05:00"^^xsd:dateTime .
+        :rawValue "0.28"^^xsd:decimal ; :normalizedScore "0.28"^^xsd:decimal ; :timestamp "2026-08-05T07:05:00"^^xsd:dateTime ;
+        :eventTime "2026-08-05"^^xsd:date ; :availableAt "2026-08-05"^^xsd:date .
 
     :AAPL :hasScoreObservation :Snap_AAPL_Tec_20260805 .
     :JPM  :hasScoreObservation :Snap_JPM_Tec_20260805 .
@@ -134,16 +151,21 @@ GRAPH <urn:graph:ingest:TECHNICAL:2026-08-05> {
 GRAPH <urn:graph:ingest:SEMANTIC:2026-08-05> {
     :Snap_AAPL_Sent_20260805 a :ScoreSnapshot ; :agentOrigin "SEMANTIC" ; :metricType "Sentiment" ;
         :rawValue "-0.65"^^xsd:decimal ; :normalizedScore "0.83"^^xsd:decimal ; :timestamp "2026-08-05T09:00:00"^^xsd:dateTime ;
+        :eventTime "2026-08-05"^^xsd:date ; :availableAt "2026-08-05"^^xsd:date ;
         rdfs:comment "rawValue -0.65 < VETO_COMP_01's -0.60 threshold -- compared via rawValue, not normalizedScore (see file header note)." .
     :Snap_JPM_Sent_20260805 a :ScoreSnapshot ; :agentOrigin "SEMANTIC" ; :metricType "Sentiment" ;
         :rawValue "-0.55"^^xsd:decimal ; :normalizedScore "0.75"^^xsd:decimal ; :timestamp "2026-08-05T09:00:00"^^xsd:dateTime ;
+        :eventTime "2026-08-05"^^xsd:date ; :availableAt "2026-08-05"^^xsd:date ;
         rdfs:comment "rawValue -0.55 < VETO_RED_01's -0.50 threshold -- the OR-branch signal that lets contagion fire for JPM below." .
     :Snap_XOM_Sent_20260805 a :ScoreSnapshot ; :agentOrigin "SEMANTIC" ; :metricType "Sentiment" ;
-        :rawValue "-0.10"^^xsd:decimal ; :normalizedScore "0.20"^^xsd:decimal ; :timestamp "2026-08-05T09:00:00"^^xsd:dateTime .
+        :rawValue "-0.10"^^xsd:decimal ; :normalizedScore "0.20"^^xsd:decimal ; :timestamp "2026-08-05T09:00:00"^^xsd:dateTime ;
+        :eventTime "2026-08-05"^^xsd:date ; :availableAt "2026-08-05"^^xsd:date .
     :Snap_JNJ_Sent_20260805 a :ScoreSnapshot ; :agentOrigin "SEMANTIC" ; :metricType "Sentiment" ;
-        :rawValue "0.05"^^xsd:decimal ; :normalizedScore "0.10"^^xsd:decimal ; :timestamp "2026-08-05T09:00:00"^^xsd:dateTime .
+        :rawValue "0.05"^^xsd:decimal ; :normalizedScore "0.10"^^xsd:decimal ; :timestamp "2026-08-05T09:00:00"^^xsd:dateTime ;
+        :eventTime "2026-08-05"^^xsd:date ; :availableAt "2026-08-05"^^xsd:date .
     :Snap_PG_Sent_20260805 a :ScoreSnapshot ; :agentOrigin "SEMANTIC" ; :metricType "Sentiment" ;
-        :rawValue "0.10"^^xsd:decimal ; :normalizedScore "0.08"^^xsd:decimal ; :timestamp "2026-08-05T09:00:00"^^xsd:dateTime .
+        :rawValue "0.10"^^xsd:decimal ; :normalizedScore "0.08"^^xsd:decimal ; :timestamp "2026-08-05T09:00:00"^^xsd:dateTime ;
+        :eventTime "2026-08-05"^^xsd:date ; :availableAt "2026-08-05"^^xsd:date .
 
     :AAPL :hasScoreObservation :Snap_AAPL_Sent_20260805 .
     :JPM  :hasScoreObservation :Snap_JPM_Sent_20260805 .
@@ -194,18 +216,23 @@ GRAPH <urn:graph:ingest:SECTOR:2026-08-05> {
     # of a signed delta); validates the amended ScoreSnapshotShape's sh:or clause (Task 2).
     :Snap_AAPL_SectMom_20260805 a :ScoreSnapshot ; :agentOrigin "SECTOR" ; :metricType "SectorRelativeMomentum" ;
         :rawValue "0.00"^^xsd:decimal ; :timestamp "2026-08-05T07:15:00"^^xsd:dateTime ;
+        :eventTime "2026-08-05"^^xsd:date ; :availableAt "2026-08-05"^^xsd:date ;
         rdfs:comment "0.50 (AAPL ScoreTecnico) - 0.50 (Sec_InformationTechnology aggregate) = 0.00." .
     :Snap_JPM_SectMom_20260805 a :ScoreSnapshot ; :agentOrigin "SECTOR" ; :metricType "SectorRelativeMomentum" ;
         :rawValue "0.00"^^xsd:decimal ; :timestamp "2026-08-05T07:15:00"^^xsd:dateTime ;
+        :eventTime "2026-08-05"^^xsd:date ; :availableAt "2026-08-05"^^xsd:date ;
         rdfs:comment "0.40 (JPM) - 0.40 (Sec_Financials aggregate) = 0.00." .
     :Snap_XOM_SectMom_20260805 a :ScoreSnapshot ; :agentOrigin "SECTOR" ; :metricType "SectorRelativeMomentum" ;
         :rawValue "-0.55"^^xsd:decimal ; :timestamp "2026-08-05T07:15:00"^^xsd:dateTime ;
+        :eventTime "2026-08-05"^^xsd:date ; :availableAt "2026-08-05"^^xsd:date ;
         rdfs:comment "0.35 (XOM ScoreTecnico, Snap_XOM_Tec_20260805) - 0.90 (Sec_Energy aggregate) = -0.55 — below VETO_MKT_02's -0.50 threshold." .
     :Snap_JNJ_SectMom_20260805 a :ScoreSnapshot ; :agentOrigin "SECTOR" ; :metricType "SectorRelativeMomentum" ;
         :rawValue "0.00"^^xsd:decimal ; :timestamp "2026-08-05T07:15:00"^^xsd:dateTime ;
+        :eventTime "2026-08-05"^^xsd:date ; :availableAt "2026-08-05"^^xsd:date ;
         rdfs:comment "0.30 (JNJ) - 0.30 (Sec_HealthCare aggregate) = 0.00." .
     :Snap_PG_SectMom_20260805 a :ScoreSnapshot ; :agentOrigin "SECTOR" ; :metricType "SectorRelativeMomentum" ;
         :rawValue "0.00"^^xsd:decimal ; :timestamp "2026-08-05T07:15:00"^^xsd:dateTime ;
+        :eventTime "2026-08-05"^^xsd:date ; :availableAt "2026-08-05"^^xsd:date ;
         rdfs:comment "0.28 (PG) - 0.28 (Sec_ConsumerStaples aggregate) = 0.00." .
 
     :AAPL :hasScoreObservation :Snap_AAPL_SectMom_20260805 .

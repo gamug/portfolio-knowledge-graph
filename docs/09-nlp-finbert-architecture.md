@@ -137,7 +137,8 @@ The pipeline writes via SPARQL `INSERT DATA`:
 ```turtle
 :Snap_AAPL_Sent_20260805 a :ScoreSnapshot ;
     :agentOrigin "SEMANTIC" ; :metricType "Sentiment" ;
-    :normalizedScore "0.83"^^xsd:decimal ; :timestamp "2026-08-05T09:00:00"^^xsd:dateTime .
+    :normalizedScore "0.83"^^xsd:decimal ; :timestamp "2026-08-05T09:00:00"^^xsd:dateTime ;
+    :eventTime "2026-08-05"^^xsd:date ; :availableAt "2026-08-05"^^xsd:date .  # T-101: required two-clock guard
     # Corrected 2026-08-23: this example previously showed metricType "NEWS_SENTIMENT_FINBERT",
     # a value never actually used anywhere in schema/rules.ttl or instances.trig -- every real
     # Sentiment ScoreSnapshot uses plain "Sentiment" (now enforced by shapes.ttl's sh:in on

@@ -47,6 +47,8 @@ is tracked at the individual level, and no separate metadata graph is needed at 
 stay queryable; only the "current best understanding" view filters to the latest non-superseded
 section. Worked example (JNJ's Item 1A, original + restated) in `schema/instances.trig`.
 
+> **As-of reads (T-101).** The graph date is the ingest batch, not the usable date. `ScoreSnapshot.availableAt` is the look-ahead guard: as-of-D queries over `ScoreSnapshot`s filter `availableAt <= D`, never `eventTime` or `timestamp`. `SectorAggregateSnapshot` and `AttractivenessSnapshot` are same-cycle derived outputs with no separate clock: they are usable from the date of their `timestamp`/`computedAt`.
+
 ## Scale estimate
 
 Back-of-envelope for a full 2022–present backfill (~4 years, ~1,008 trading days), 500 `Asset`s:

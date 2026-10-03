@@ -21,6 +21,9 @@
     sh:property [ sh:path :metricType ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ;
                   sh:in ("ScoreFinanciero" "ScoreCuantitativo" "ScoreTecnico" "Sentiment" "SectorRelativeMomentum") ] ;
     sh:property [ sh:path :timestamp ; sh:datatype xsd:dateTime ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    # T-101: two-clock look-ahead guard. availableAt is mandatory; eventTime is optional but can never postdate it.
+    sh:property [ sh:path :availableAt ; sh:datatype xsd:date ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :eventTime ; sh:datatype xsd:date ; sh:maxCount 1 ; sh:lessThanOrEquals :availableAt ] ;
     sh:or ( [ sh:path :metricType ; sh:hasValue "SectorRelativeMomentum" ]
             [ sh:path :normalizedScore ; sh:minCount 1 ] ) .
 

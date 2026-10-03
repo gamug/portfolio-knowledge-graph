@@ -331,7 +331,7 @@ attractiveness-ranking feature, see §1.8, plus `VetoShape` added 2026-10-03 for
 
 | Shape | Constraint | Closes |
 |---|---|---|
-| `ScoreSnapshotShape` | `normalizedScore` ∈ `[0.0, 1.0]`; `agentOrigin` ∈ the 4 known agents; `metricType`/`timestamp` required | Prevents a malformed snapshot from silently entering veto evaluation. |
+| `ScoreSnapshotShape` | `normalizedScore` ∈ `[0.0, 1.0]`; `agentOrigin` ∈ the 4 known agents; `metricType`/`timestamp`/`availableAt` required (T-101); `eventTime` optional and ≤ `availableAt` | Prevents a malformed snapshot from silently entering veto evaluation. |
 | `RiskEventShape` | `backedBy` `sh:minCount 1`; `severity`/`category` from closed vocabularies | Critique #5 (no null-handling policy) — evidence-free risk events are now a validation failure, not a silent gap. |
 | `RuleDefinitionShape` | `validFrom` required; exactly one `hasClause`; `priorityRank` ∈ `[1,7]`; `ruleSeverity` ∈ `{HARD, SOFT}`, required unless the rule is closed with `validTo` (T-103) | Critique #6 — a rule can't be persisted without being properly temporal and ranked. |
 | `RuleClauseShape` | `clauseType` ∈ `{AND, OR}`; both operands required | Structural half of the critique #1 fix — a clause literally cannot be built with a missing operand or an unrecognized operator. |
