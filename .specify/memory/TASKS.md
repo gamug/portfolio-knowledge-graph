@@ -109,7 +109,7 @@ decisions (T-100–T-104).*
 - [x] **T-105** *(D6; done 2026-10-03: `agentOrigin` `VALORIZATION`, graph/gate renamed; metric id `ScoreCuantitativo` kept until T-109)* `agentOrigin` `QUANTITATIVE` → `VALORIZATION` in
       `shapes.ttl`/`reference.ttl` (MetricType) and docs; document each score
       type's `event_time` meaning and the extra provenance fields. → step 4.
-- [ ] **T-106** *(D7)* Decide how upstream `run_id`/`as_of`/`code_version`/
+- [x] **T-106** *(D7; done 2026-10-03: `runId`/`runAsOf`/`codeVersion`/`engineVersion` on `ScoreSnapshot`, no `Run` class; extras not projected)* Decide how upstream `run_id`/`as_of`/`code_version`/
       `engine_version` map onto `provenanceId` (or a `Run` class), and record a
       disposition for the per-score-type extras `forensic_flags_json`,
       `prompt_hash` (FUNDAMENTAL) and `correction_rule` (`financial_facts`)

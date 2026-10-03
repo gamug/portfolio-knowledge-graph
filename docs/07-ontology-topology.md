@@ -48,6 +48,8 @@ stay queryable; only the "current best understanding" view filters to the latest
 section. Worked example (JNJ's Item 1A, original + restated) in `schema/instances.trig`.
 
 > **As-of reads (T-101).** The graph date is the ingest batch, not the usable date. `ScoreSnapshot.availableAt` is the look-ahead guard: as-of-D queries over `ScoreSnapshot`s filter `availableAt <= D`, never `eventTime` or `timestamp`. `SectorAggregateSnapshot` and `AttractivenessSnapshot` are same-cycle derived outputs with no separate clock: they are usable from the date of their `timestamp`/`computedAt`.
+>
+> **Run provenance (T-106, D7).** A `ScoreSnapshot` may carry the upstream run that wrote it as plain properties (`runId`, `runAsOf`, `codeVersion`, `engineVersion`); there is no `Run` class and the run log (params, dirty-tree reason, `schema_version`) stays upstream, reachable through `runId` and the `v_*_run` views. `runAsOf` is not a read filter (use `availableAt`). Per-score-type extras `forensic_flags_json`, `prompt_hash` and `correction_rule` are deliberately not projected (see `schema/README.md`).
 
 ## Scale estimate
 
