@@ -41,8 +41,9 @@ renumber of the next work item's block.
       `.env.example`, `constitution.md`, `SPEC.md`, `PLAN.md` and `TASKS.md` (the
       `KG_*` GraphDB variables keep their names). Leave `docs/portfolio-common-v1.2-engine-agnostic.md`
       alone (a dated decision record) and upstream's own variable names. Run the
-      ETL's config load and `rg 'KG_(URLS|RESULTS|FINANCIAL|UNIVERSE)_DB'` to confirm
-      no old name remains. → `PLAN.md` Work item 3, step 5.
+      ETL's config load, then `rg 'KG_(URLS|RESULTS|FINANCIAL|UNIVERSE)_DB' --glob '!.specify/memory/TASKS.md' --glob '!docs/portfolio-common-v1.2-engine-agnostic.md'`
+      to confirm no old name remains. Matches in those two excluded files are
+      expected (T-026 itself lists the old names; the decision record is left as is). → `PLAN.md` Work item 3, step 5.
 
 ## Work item 4 — Build the real step-2 projection (roadmap step 2)
 
