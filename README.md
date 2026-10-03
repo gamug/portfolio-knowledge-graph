@@ -93,7 +93,7 @@ from a real Protégé session, not something this pass could safely hand-patch.
 | `shapes.ttl` | Turtle | `urn:graph:tbox` | 16 SHACL node shapes |
 | `reference.ttl` | Turtle | `urn:graph:reference` | GICS sector/industry taxonomy + 5 worked-example asset tickers |
 | `rules.ttl` | Turtle | `urn:graph:rules:catalog` | 6 active upstream veto rules (single-leaf `RuleDefinition`s) + 7 superseded `RuleClause`-tree rules kept as history + `AttractivenessWeightScheme` |
-| `instances.trig` | TriG | *(self-describing — 11 `GRAPH` blocks)* | Dated ABox: universe membership, agent snapshots, evidence, vetoes, filings, portfolio, sector-aggregate and attractiveness-ranking output |
+| `instances.trig` | TriG | *(self-describing — 14 `GRAPH` blocks)* | Dated ABox: universe membership, agent snapshots, evidence, vetoes, filings, portfolio, sector-aggregate and attractiveness-ranking output |
 
 Load order: `tbox.ttl` → `shapes.ttl` → `reference.ttl` → `rules.ttl` → `instances.trig`.
 
