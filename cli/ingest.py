@@ -4,7 +4,7 @@
     python cli/ingest.py batch.ttl --graph urn:graph:ingest:SEMANTIC:2026-08-06
     python cli/ingest.py batch.ttl --graph urn:graph:ingest:SEMANTIC:2026-08-06 --check
 
-``--check`` validates without touching the store. Exit status is 0 when the batch was
+``--check`` validates without contacting the store (so it cannot see an existing graph). Exit status is 0 when the batch was
 accepted (or would be), 2 when it was rejected, 1 on any other error. See
 ``kg_store.gate`` for what is checked.
 """
@@ -33,7 +33,9 @@ def main(argv: list[str] | None = None) -> int:
             check_target(args.graph)
             batch = parse_batch(data)
             validate(batch)
-            print(f"accepted (check only): {len(batch)} triples for {args.graph}")
+            print(
+                f"accepted (check only, store not contacted): {len(batch)} triples for {args.graph}"
+            )
         else:
             n = ingest(GraphDB.from_env(), data, args.graph)
             print(f"written: {n} triples to {args.graph}")

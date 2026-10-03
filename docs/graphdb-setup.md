@@ -77,16 +77,26 @@ The sanctioned way to write an ABox batch. [`kg_store.gate`](../src/kg_store/gat
 Turtle batch only if all of these hold, and otherwise raises `IngestRejected` (exit status 2) with
 nothing written:
 
-1. the target is `urn:graph:ingest:*`, `urn:graph:derived:*`, `urn:graph:universe:*` or
-   `urn:graph:portfolio:current` (TBox, reference and rules go through `cli/load_schema.py`);
-2. an append-only graph (all but `portfolio:current`) does not exist yet, per `07`;
-3. every `rdf:type` used is a class in `tbox.ttl`, so a typo can't dodge the shapes;
-4. the batch conforms to `shapes.ttl` under `pyshacl`. The shapes target by class and reference no
+1. the target is named as `07` prescribes: `urn:graph:ingest:{agent}:{date}` (`FUNDAMENTAL` by
+   quarter, `EDGAR` by date or quarter), `urn:graph:derived:entity-resolution:{date|quarter}`,
+   `urn:graph:universe:{year}-Q{n}` or `urn:graph:portfolio:current` (TBox, reference and rules go
+   through `cli/load_schema.py`);
+2. an append-only graph (all but `portfolio:current`) does not exist yet;
+3. every IRI is absolute and every `rdf:type` is one of the 24 leaf classes (the
+   `owl:AllDisjointClasses` members), so neither a typo nor a bare abstract category can dodge the
+   shapes;
+4. a subject with no `rdf:type` in the batch, which no shape can see, only gets relations to other
+   individuals (object properties such as `:hasScoreObservation`, `:supersededBy`) or `:validTo`;
+   adding a value to an existing observation is refused;
+5. the batch conforms to `shapes.ttl` under `pyshacl`. The shapes target by class and reference no
    other individuals, so a batch is validated on its own.
 
-`--check` runs the same checks without touching the store. Limit: this is a code path, not a
-server-side lock; anyone holding the write credentials can still write around it. The existence
-check and the write are two requests, so two simultaneous writers could both pass it.
+What is written is the validated triples as N-Triples, not the submitted text. `--check` runs
+checks 1, 3, 4 and 5 without contacting the store, so it cannot see an existing graph (check 2).
+Validation reads `tbox.ttl` and `shapes.ttl` from `schema/` on disk (once per process); reload with
+`cli/load_schema.py` after a schema edit so the store's copy matches. Limits: this is a code path,
+not a server-side lock, so anyone holding the write credentials can still write around it; and the
+existence check and the write are two requests, so two simultaneous writers could both pass it.
 
 ## Connecting
 

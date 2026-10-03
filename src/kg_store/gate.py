@@ -2,18 +2,30 @@
 
 A batch is Turtle destined for one named graph. It is written only if
 
-1. the target graph is one a batch may be written to (``urn:graph:ingest:*``,
-   ``urn:graph:derived:*``, ``urn:graph:universe:*``, ``urn:graph:portfolio:current``);
-   the TBox, reference and rule-catalog graphs are loaded by ``cli/load_schema.py``;
-2. the graph is new, for the append-only ones (``07-ontology-topology.md``: an ingest graph
-   is never edited after creation; only ``portfolio:current`` is mutated in place);
-3. every ``rdf:type`` it uses is a class defined in ``tbox.ttl`` (a typo such as
-   ``:ScoreSnapshott`` would otherwise match no shape and be accepted unchecked); and
-4. it conforms to ``shapes.ttl`` under ``pyshacl``.
+1. the target graph is named as ``07-ontology-topology.md`` prescribes
+   (``urn:graph:ingest:{agent}:{date}``, ``urn:graph:derived:entity-resolution:{date}``,
+   ``urn:graph:universe:{year}-Q{n}``, or ``urn:graph:portfolio:current``); the TBox,
+   reference and rule-catalog graphs are loaded by ``cli/load_schema.py``;
+2. the graph is new, for the append-only ones (an ingest graph is never edited after
+   creation; only ``portfolio:current`` is mutated in place);
+3. every IRI is absolute, and every ``rdf:type`` is one of the 24 leaf classes of the
+   ontology (the ``owl:AllDisjointClasses`` members). A typo such as ``:ScoreSnapshott``,
+   or an individual typed only as an abstract category, would otherwise match no shape
+   and be accepted unchecked;
+4. a subject with no ``rdf:type`` in the batch, which no shape can see, is only given
+   relations to other individuals (object properties, e.g. ``:hasScoreObservation``,
+   ``:supersededBy``) or ``:validTo`` (closing a record). Anything else would let a batch
+   quietly add values to an existing, immutable observation; and
+5. it conforms to ``shapes.ttl`` under ``pyshacl``.
 
 Anything else raises :class:`IngestRejected` with the reason and nothing reaches the
-store. Shapes target by class and never reference other individuals, so a batch is
-validated on its own, without the data already in the store.
+store. What is written is the validated triples (as N-Triples), not the submitted text.
+Shapes target by class and never reference other individuals, so a batch is validated
+on its own, without the data already in the store.
+
+Validation uses ``tbox.ttl``/``shapes.ttl`` from ``schema/`` on disk, the versioned
+source, read once per process. ``cli/load_schema.py`` is what brings the store's copy
+in line; reload after a schema edit.
 
 Limit: this is a code path, not a server-side lock. A client holding the GraphDB
 write credentials can still write around it; run ingestion through this module.
@@ -21,21 +33,40 @@ write credentials can still write around it; run ingestion through this module.
 
 from __future__ import annotations
 
+import datetime
+import functools
 import re
+from dataclasses import dataclass
 from pathlib import Path
 
 import pyshacl
 import rdflib
-from rdflib.namespace import OWL, RDF
+from rdflib.collection import Collection
+from rdflib.namespace import OWL, RDF, RDFS
 
 from kg_store.graphdb import GraphDB, schema_dir
 
-#: Graph name prefixes a batch may be written to, and whether each is append-only.
-APPEND_ONLY_PREFIXES = ("urn:graph:ingest:", "urn:graph:derived:", "urn:graph:universe:")
-MUTABLE_GRAPHS = ("urn:graph:portfolio:current",)
+_PORTFOLIO = rdflib.Namespace("https://thesis.local/kg/portfolio#")
+#: The one datatype property allowed on a subject untyped in the batch (closing a record).
+CLOSING_PROPERTY = _PORTFOLIO.validTo
 
-#: The graph name is interpolated into SPARQL, so allow only characters legal in an IRI.
-_SAFE_IRI = re.compile(r"[A-Za-z0-9:._~/@!$&'()*+,;=%-]+")
+MUTABLE_GRAPHS = ("urn:graph:portfolio:current",)
+_DATE = r"\d{4}-\d{2}-\d{2}"
+_QUARTER = r"\d{4}-Q[1-4]"
+#: Append-only graph names (``07``): agents write a dated graph; FUNDAMENTAL writes per
+#: quarter; EDGAR and entity resolution take a date or a quarter; universes are quarterly.
+APPEND_ONLY_PATTERNS = (
+    re.compile(
+        rf"urn:graph:ingest:(SEMANTIC|QUANTITATIVE|TECHNICAL|SECTOR|ORCHESTRATOR):({_DATE})"
+    ),
+    re.compile(rf"urn:graph:ingest:FUNDAMENTAL:({_QUARTER})"),
+    re.compile(rf"urn:graph:ingest:EDGAR:({_DATE}|{_QUARTER})"),
+    re.compile(rf"urn:graph:derived:entity-resolution:({_DATE}|{_QUARTER})"),
+    re.compile(rf"urn:graph:universe:({_QUARTER})"),
+)
+
+#: Base IRI given to the parser so that relative IRIs can be recognised and refused.
+_RELATIVE_BASE = "http://relative.invalid/"
 
 
 class IngestRejected(RuntimeError):
@@ -44,44 +75,122 @@ class IngestRejected(RuntimeError):
 
 def check_target(graph: str) -> bool:
     """Validate the target graph name; return True if it is append-only."""
-    if not _SAFE_IRI.fullmatch(graph):
-        raise IngestRejected(f"{graph!r} is not a valid graph IRI")
     if graph in MUTABLE_GRAPHS:
         return False
-    if graph.startswith(APPEND_ONLY_PREFIXES):
-        return True
+    for pattern in APPEND_ONLY_PATTERNS:
+        m = pattern.fullmatch(graph)
+        if m:
+            if not _date_ok(m.group(m.lastindex or 0)):
+                raise IngestRejected(f"{graph} has an impossible date")
+            return True
     raise IngestRejected(
-        f"{graph} is not an ingest target; allowed: "
-        f"{', '.join(p + '*' for p in APPEND_ONLY_PREFIXES)}, {', '.join(MUTABLE_GRAPHS)}"
+        f"{graph} is not an ingest target. Allowed: urn:graph:ingest:"
+        "{SEMANTIC|QUANTITATIVE|TECHNICAL|SECTOR|ORCHESTRATOR}:YYYY-MM-DD, "
+        "urn:graph:ingest:FUNDAMENTAL:YYYY-Qn, urn:graph:ingest:EDGAR:{date|quarter}, "
+        "urn:graph:derived:entity-resolution:{date|quarter}, urn:graph:universe:YYYY-Qn, "
+        f"{', '.join(MUTABLE_GRAPHS)}"
     )
+
+
+def _date_ok(text: str) -> bool:
+    """True for a quarter label or a real calendar date."""
+    if "Q" in text:
+        return True
+    try:
+        datetime.date.fromisoformat(text)
+    except ValueError:
+        return False
+    return True
 
 
 def parse_batch(data: bytes, fmt: str = "turtle") -> rdflib.Graph:
     g = rdflib.Graph()
     try:
-        g.parse(data=data, format=fmt)
+        g.parse(data=data, format=fmt, publicID=_RELATIVE_BASE)
     except Exception as exc:  # rdflib raises a different parser error per syntax
         raise IngestRejected(f"cannot parse batch as {fmt}: {exc}") from exc
     if not len(g):
         raise IngestRejected("batch is empty")
+    relative = {str(t) for t in {x for tr in g for x in tr} if str(t).startswith(_RELATIVE_BASE)}
+    if relative:
+        raise IngestRejected("relative IRIs are not allowed: " + ", ".join(sorted(relative)))
     return g
 
 
-def unknown_types(batch: rdflib.Graph, tbox: rdflib.Graph) -> set[str]:
-    """``rdf:type`` objects in the batch that ``tbox.ttl`` does not define as classes."""
-    known = set(tbox.subjects(RDF.type, OWL.Class))
-    return {str(t) for t in set(batch.objects(None, RDF.type)) if t not in known}
+@dataclass(frozen=True)
+class GateSchema:
+    """What the gate needs from ``tbox.ttl``/``shapes.ttl``, read once."""
+
+    tbox: rdflib.Graph
+    shapes: rdflib.Graph
+    leaf_classes: frozenset[rdflib.term.Node]
+    relations: frozenset[rdflib.term.Node]
+
+
+@functools.cache
+def load_gate_schema(directory: Path) -> GateSchema:
+    tbox = rdflib.Graph().parse(directory / "tbox.ttl", format="turtle")
+    shapes = rdflib.Graph().parse(directory / "shapes.ttl", format="turtle")
+    leaves: set[rdflib.term.Node] = set()
+    for decl in tbox.subjects(RDF.type, OWL.AllDisjointClasses):
+        for members in tbox.objects(decl, OWL.members):
+            leaves.update(Collection(tbox, members))
+    return GateSchema(
+        tbox,
+        shapes,
+        frozenset(leaves),
+        frozenset(tbox.subjects(RDF.type, OWL.ObjectProperty)),
+    )
+
+
+def unknown_types(batch: rdflib.Graph, schema: GateSchema) -> set[str]:
+    """``rdf:type`` objects in the batch that are not leaf classes of the ontology."""
+    return {str(t) for t in set(batch.objects(None, RDF.type)) if t not in schema.leaf_classes}
+
+
+def untyped_writes(batch: rdflib.Graph, schema: GateSchema) -> list[str]:
+    """Triples about a subject with no ``rdf:type`` here, other than relations or closing."""
+    typed = set(batch.subjects(RDF.type, None))
+    return sorted(
+        f"{s.n3(batch.namespace_manager)} {p.n3(batch.namespace_manager)}"
+        for s, p, _ in batch
+        if s not in typed and p not in schema.relations and p != CLOSING_PROPERTY
+    )
+
+
+def with_superclass_types(batch: rdflib.Graph, schema: GateSchema) -> rdflib.Graph:
+    """Copy of ``batch`` where each typed individual also has its superclasses' types.
+
+    SHACL targets a class's subclass instances only if the subclass triples are in the data
+    graph; the batch carries no TBox, so add just those (no domain/range inference, which
+    could target individuals the batch never typed).
+    """
+    expanded = rdflib.Graph()
+    expanded += batch
+    for s, t in set(batch.subject_objects(RDF.type)):
+        for sup in schema.tbox.transitive_objects(t, RDFS.subClassOf):
+            if sup is not None:
+                expanded.add((s, RDF.type, sup))
+    return expanded
 
 
 def validate(batch: rdflib.Graph, directory: Path | None = None) -> None:
-    """Raise :class:`IngestRejected` unless ``batch`` passes the type check and the shapes."""
-    directory = directory or schema_dir()
-    tbox = rdflib.Graph().parse(directory / "tbox.ttl", format="turtle")
-    shapes = rdflib.Graph().parse(directory / "shapes.ttl", format="turtle")
-    unknown = unknown_types(batch, tbox)
+    """Raise :class:`IngestRejected` unless ``batch`` passes the type, untyped-subject and shape checks."""
+    schema = load_gate_schema((directory or schema_dir()).resolve())
+    unknown = unknown_types(batch, schema)
     if unknown:
-        raise IngestRejected("types not defined in tbox.ttl: " + ", ".join(sorted(unknown)))
-    conforms, _, report = pyshacl.validate(batch, shacl_graph=shapes, inference="none")
+        raise IngestRejected(
+            "types that are not leaf classes of the ontology: " + ", ".join(sorted(unknown))
+        )
+    stray = untyped_writes(batch, schema)
+    if stray:
+        raise IngestRejected(
+            "properties on a subject with no rdf:type in the batch (only relations between "
+            "individuals and :validTo are allowed there): " + ", ".join(stray)
+        )
+    conforms, _, report = pyshacl.validate(
+        with_superclass_types(batch, schema), shacl_graph=schema.shapes, inference="none"
+    )
     if not conforms:
         raise IngestRejected("SHACL validation failed:\n" + str(report))
 
@@ -93,5 +202,5 @@ def ingest(db: GraphDB, data: bytes, graph: str, directory: Path | None = None) 
     validate(batch, directory)
     if append_only and db.select(f"SELECT * WHERE {{ GRAPH <{graph}> {{ ?s ?p ?o }} }} LIMIT 1"):
         raise IngestRejected(f"{graph} already exists and is append-only; write a new dated graph")
-    db.add(data, "text/turtle", graph)
+    db.add(batch.serialize(format="nt").encode(), "application/n-triples", graph)
     return len(batch)
