@@ -97,7 +97,7 @@ decisions (T-100–T-104).*
 - [ ] **T-102** *(D3)* Model veto stints (`raisedOn`/`clearedOn`/`lastSeenOn`
       or `validFrom`/`validTo`) and write the "active at cutoff C" predicate
       as the T-1-lag SPARQL pattern. → step 3.
-- [ ] **T-103** *(D4 — decided 2026-10-02: upstream's catalog is final)*
+- [x] **T-103** *(D4 — decided 2026-10-02: upstream's catalog is final; done 2026-10-03)*
       Implement it: add upstream's six rules (`LEVERAGE_EXTREME`, `NEGATIVE_FCF`,
       `LIQUIDITY_DISTRESS`, `PRICE_CRASH`, `EARNINGS_MISSING`,
       `DATA_QUALITY`) as `RuleDefinition`s (single-leaf `RuleClause`s) so

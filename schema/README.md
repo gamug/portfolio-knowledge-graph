@@ -12,7 +12,7 @@ actually building it (each flagged inline in the file that surfaced it, and summ
 | `tbox.ttl` | Turtle | `urn:graph:tbox` | Classes, properties, OWL cardinality restrictions. |
 | `shapes.ttl` | Turtle | `urn:graph:tbox` | SHACL data-quality shapes (kept as a separate file/concern from `tbox.ttl` — OWL semantics vs. SHACL validation, see below). |
 | `reference.ttl` | Turtle | `urn:graph:reference` | GICS sector/industry taxonomy + asset master data (5 worked-example tickers). |
-| `rules.ttl` | Turtle | `urn:graph:rules:catalog` | The 7-rule veto catalog: v1's original 6 rules plus `VETO_MKT_02` (added 2026-08-13), as unambiguous `RuleClause` trees. |
+| `rules.ttl` | Turtle | `urn:graph:rules:catalog` | The active veto catalog: upstream's 6 rules (T-103) as single-leaf `RuleDefinition`s; v1's original 6 plus `VETO_MKT_02` (7 `RuleClause`-tree rules) are kept closed with `validTo 2026-10-02` as design history; and the `AttractivenessWeightScheme`. The superseded rules are the original, unambiguous `RuleClause` trees. |
 | `instances.trig` | **TriG** | *(self-describing — see below)* | Dated ABox: universe membership, agent snapshots, evidence, vetoes, filings, portfolio; sector-aggregate and attractiveness-ranking output (added 2026-08-13). |
 
 `instances.trig` is TriG, not Turtle — it contains explicit `GRAPH <urn:graph:...> { ... }` blocks,
@@ -66,7 +66,10 @@ what the store *enforces*.
    an explicit answer to a question the ontology alone doesn't resolve: `Score*` metrics compare
    via `normalizedScore` ([0,1]), but `Sentiment` compares via `rawValue` ([-1,1]) — v1's own
    thresholds (`-0.50`, `-0.60`) are only meaningful on the raw scale. Documented on
-   `ThresholdComparison` in `tbox.ttl`.
+   `ThresholdComparison` in `tbox.ttl`. T-103 (2026-10-03) extended the convention to upstream's own
+   metrics (`leverage.debt_to_equity`, `cashflow.free_cash_flow_margin`, `liquidity.current_ratio`,
+   `max_drawdown_90d`, `fundamental_score_age_days`): they are not `ScoreSnapshot` types, carry
+   upstream's identifiers, and compare on the raw value (they have no `normalizedScore`).
 3. **Two more named-graph placements.** `07-ontology-topology.md` assigned graphs to every
    *agent's* daily output but not to the Orchestrator's own decisions or to entity resolution's
    derived facts. Resolved: `urn:graph:ingest:ORCHESTRATOR:{date}` and
@@ -122,6 +125,12 @@ quads; conforms: True**, including the three newly-added `sh:in`/`sh:hasValue` c
 `metricType`/`metricName`/`weightMetricName`. The `sh:in` tightening is a real, non-vacuous check
 here (not just syntax validation): if any actual data value had fallen outside the 5-member
 vocabulary, this would have failed.
+
+**Re-verified 2026-10-03 (T-103, rule catalog migration):** the same combined-graph parse and
+`pyshacl` check — **1709 quads; conforms: True**. The migration added the six upstream
+`RuleDefinition`s, closed the seven tree rules with `validTo`, added `:ruleSeverity` and widened
+`ThresholdComparisonShape`'s `metricName` list; no new class, so the 24-member `AllDisjointClasses`
+block and the 14 node shapes are unchanged.
 
 **Second re-verification, same day, taxonomy-quality review pass:** a programmatic audit of the
 `rdfs:subClassOf` graph (cycle detection, orphan detection, multi-parent detection — all via

@@ -292,6 +292,15 @@ active ruleset from the graph at evaluation time instead of from hardcoded Pytho
 decision can always be reproduced against the exact rule tree that was active when it was made,
 which is the auditability guarantee v1 §3B was already aiming for elsewhere in the design.
 
+**Addendum (T-103, 2026-10-03) — the active catalog is upstream's.** The seven tree rules this
+section designs are superseded as the target by `portfolio-financial-analysis`'s six flat rules
+(`LEVERAGE_EXTREME`, `NEGATIVE_FCF`, `LIQUIDITY_DISTRESS`, `PRICE_CRASH`, `EARNINGS_MISSING`,
+`DATA_QUALITY`; `SPEC.md` §2.6 D4). They are `RuleDefinition`s whose `hasClause` is a single leaf —
+the tree representation is unchanged, it just degenerates. The seven originals stay in
+`rules.ttl` closed with `validTo 2026-10-02`. `:ruleSeverity` (HARD/SOFT) was added to
+`RuleDefinition`; upstream's metric ids are `ThresholdComparison.metricName` values compared on the
+raw value.
+
 **Addendum — implementation surfaced a gap in this section.** Encoding all 6 rules from v1's
 catalog (`schema/rules.ttl`), not just `VETO_COMP_01`, revealed that `ThresholdComparison` alone
 doesn't cover the catalog: `VETO_LEG_01`/`VETO_COMP_02` gate on `RiskEvent.category`/`severity`

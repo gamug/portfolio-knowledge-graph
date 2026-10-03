@@ -51,7 +51,7 @@ backbone added 2026-08-23), 14 SHACL shapes, the full 7-rule veto catalog as una
 5-asset worked dataset (`schema/instances.trig`) that's been parsed, SHACL-validated
 (`pyshacl`: conforms = True), and independently re-evaluated in Python to confirm the rule trees
 fire exactly as intended (that 7-rule catalog is superseded as the target by `portfolio-financial-analysis`'s
-six-rule catalog — `.specify/memory/SPEC.md` §2.6 D4; migrating `rules.ttl` is task T-103). Everything downstream needs real classes to write into — this is why it
+six-rule catalog — `.specify/memory/SPEC.md` §2.6 D4; `rules.ttl` now carries those six as the active catalog and keeps the seven as closed design history — T-103, done 2026-10-03). Everything downstream needs real classes to write into — this is why it
 was built first, not last, in this whole engagement. Extended 2026-08-13 with an
 attractiveness-ranking + sector-relative-momentum feature (4 new classes, a 7th veto rule, a
 versioned weight scheme) — see docs/superpowers/specs/2026-08-13-attractiveness-sector-momentum-design.md.

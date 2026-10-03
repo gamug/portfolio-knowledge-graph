@@ -78,7 +78,7 @@ written up in prose. The real files (`tbox.ttl`, `shapes.ttl`, `reference.ttl`, 
 class taxonomy (§1.2 in `06-ontology-definition.md`) and MetricType vocabulary (§1.9) were merged
 directly into `tbox.ttl`/`reference.ttl`/`shapes.ttl` — not left as separate addendum files. Full
 `rdflib` parse + `pyshacl` conformance re-verified against the real files after the merge: **parses
-clean (1608 quads — `schema/taxonomy-quality-review-2026-08-23.md` has the +1 delta from a
+clean (1709 quads as of T-103; 1608 at that date — `schema/taxonomy-quality-review-2026-08-23.md` has the +1 delta from a
 same-day `RuleClause` fix), conforms: True** (`schema/README.md`'s Validation section has the exact
 command). `protege-view.ttl` is the one file *not* re-verified — it's a generated bundle
 (`schema/README.md`: "never hand-edit") that predates this revision's edits and needs regenerating
@@ -92,7 +92,7 @@ from a real Protégé session, not something this pass could safely hand-patch.
 | `tbox.ttl` | Turtle | `urn:graph:tbox` | 37 classes (24 mutually disjoint leaf/domain classes + a 13-class `rdfs:subClassOf` taxonomic backbone), properties, cardinality restrictions |
 | `shapes.ttl` | Turtle | `urn:graph:tbox` | 14 SHACL node shapes |
 | `reference.ttl` | Turtle | `urn:graph:reference` | GICS sector/industry taxonomy + 5 worked-example asset tickers |
-| `rules.ttl` | Turtle | `urn:graph:rules:catalog` | 7-rule veto catalog as unambiguous `RuleClause` trees |
+| `rules.ttl` | Turtle | `urn:graph:rules:catalog` | 6 active upstream veto rules (single-leaf `RuleDefinition`s) + 7 superseded `RuleClause`-tree rules kept as history |
 | `instances.trig` | TriG | *(self-describing — 11 `GRAPH` blocks)* | Dated ABox: universe membership, agent snapshots, evidence, vetoes, filings, portfolio, sector-aggregate and attractiveness-ranking output |
 
 Load order: `tbox.ttl` → `shapes.ttl` → `reference.ttl` → `rules.ttl` → `instances.trig`.
