@@ -17,6 +17,7 @@
 # every other reference-like dataset in this system is — see
 # schema/README.md.
 #
+# (Original header, now describing only the seven SUPERSEDED rules.)
 # All 6 rules from v1's catalog table (§4), corrected for the
 # unparenthesized ∧/∨ precedence ambiguity (critique #1): every
 # confluent rule below is AND(primary_signal, OR(secondary_signals))
@@ -32,7 +33,7 @@
 #################################################################
 
 #################################################################
-# ACTIVE RULE CATALOG (T-103, 2026-10-02) — upstream's six rules
+# ACTIVE RULE CATALOG (T-103, implemented 2026-10-03) — upstream's six rules
 #
 # Maintainer decision (SPEC.md §2.6 D4): portfolio-financial-analysis's
 # cycle/rules/builtin.py is the final catalog. Each rule is a flat
@@ -84,7 +85,7 @@
     :ruleId "PRICE_CRASH" ; :category "MARKET" ; :priorityRank 4 ;
     :ruleSeverity "SOFT" ; :validFrom "2026-10-02"^^xsd:date ;
     :hasClause :Cmp_PRICE_CRASH_Drawdown90d ;
-    rdfs:comment "90-day maximum drawdown worse than -35%. The metric is a PriceObservation summary (max_drawdown_90d), not a ScoreSnapshot." .
+    rdfs:comment "90-day maximum drawdown worse than -35%. max_drawdown_90d is a price-derived metric computed upstream (not a ScoreSnapshot, and not a :PriceObservation property)." .
 :Cmp_PRICE_CRASH_Drawdown90d a :ThresholdComparison ;
     :metricName "max_drawdown_90d" ; :operator "<" ; :thresholdValue "-0.35"^^xsd:decimal .
 
@@ -111,7 +112,8 @@
 # convention) so the dated worked example in instances.trig keeps
 # resolving :appliesRule. They are no longer the target catalog and
 # must not be extended; VETO_RED_01's contagion rule has no upstream
-# counterpart and is dropped. The text below is the original header.
+# counterpart and is dropped. The original header (v1 catalog, AND/OR
+# trees) is at the top of this file and describes only these seven.
 #################################################################
 
 # --- Rank 1: VETO_LEG_01 — Legal, single rule, AND of two categorical checks ---

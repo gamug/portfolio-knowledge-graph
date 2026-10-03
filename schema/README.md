@@ -12,7 +12,7 @@ actually building it (each flagged inline in the file that surfaced it, and summ
 | `tbox.ttl` | Turtle | `urn:graph:tbox` | Classes, properties, OWL cardinality restrictions. |
 | `shapes.ttl` | Turtle | `urn:graph:tbox` | SHACL data-quality shapes (kept as a separate file/concern from `tbox.ttl` — OWL semantics vs. SHACL validation, see below). |
 | `reference.ttl` | Turtle | `urn:graph:reference` | GICS sector/industry taxonomy + asset master data (5 worked-example tickers). |
-| `rules.ttl` | Turtle | `urn:graph:rules:catalog` | The active veto catalog: upstream's 6 rules (T-103) as single-leaf `RuleDefinition`s; v1's original 6 plus `VETO_MKT_02` (7 `RuleClause`-tree rules) are kept closed with `validTo 2026-10-02` as design history; and the `AttractivenessWeightScheme`. The superseded rules are the original, unambiguous `RuleClause` trees. |
+| `rules.ttl` | Turtle | `urn:graph:rules:catalog` | The active veto catalog: upstream's 6 rules (T-103) as single-leaf `RuleDefinition`s; v1's original 6 plus `VETO_MKT_02` (7 unambiguous `RuleClause`-tree rules) are kept closed with `validTo 2026-10-02` as design history; and the `AttractivenessWeightScheme`. |
 | `instances.trig` | **TriG** | *(self-describing — see below)* | Dated ABox: universe membership, agent snapshots, evidence, vetoes, filings, portfolio; sector-aggregate and attractiveness-ranking output (added 2026-08-13). |
 
 `instances.trig` is TriG, not Turtle — it contains explicit `GRAPH <urn:graph:...> { ... }` blocks,
@@ -127,7 +127,7 @@ here (not just syntax validation): if any actual data value had fallen outside t
 vocabulary, this would have failed.
 
 **Re-verified 2026-10-03 (T-103, rule catalog migration):** the same combined-graph parse and
-`pyshacl` check — **1709 quads; conforms: True**. The migration added the six upstream
+`pyshacl` check — **1718 quads; conforms: True**. The migration added the six upstream
 `RuleDefinition`s, closed the seven tree rules with `validTo`, added `:ruleSeverity` and widened
 `ThresholdComparisonShape`'s `metricName` list; no new class, so the 24-member `AllDisjointClasses`
 block and the 14 node shapes are unchanged.
