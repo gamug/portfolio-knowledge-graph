@@ -19,11 +19,17 @@ renumber of the next work item's block.
 
 - [x] **T-020** *(maintainer)* Choose GraphDB or Fuseki and its hosting
       (devcontainer service vs. separate). → `PLAN.md` Work item 3, step 1.
-- [ ] **T-021** Containerize/configure the chosen store; load
+- [x] **T-021** Containerize/configure the chosen store; load
       `tbox.ttl → shapes.ttl → reference.ttl → rules.ttl → instances.trig`
-      into a fresh repository/dataset. → step 2.
-- [ ] **T-022** Lock the reasoning profile (OWL 2 RL/RDFS+ per
-      `07-ontology-topology.md`) in the store's config. → step 3.
+      into a fresh repository/dataset. `cli/load_schema.py` (`src/kg_store/`) does it
+      idempotently and verifies per-graph asserted counts against an `rdflib` parse
+      (15 graphs, 1608 triples). Scope is `schema/` only; `data.ttl` and projected
+      upstream data belong to Work item 4. → step 2.
+- [x] **T-022** Lock the reasoning profile (OWL 2 RL/RDFS+ per
+      `07-ontology-topology.md`) in the store's config. Config in
+      `schema/graphdb-repo-config.ttl`; on loaded data `?x a :ObservationSnapshot`
+      returns 35 = 25 `ScoreSnapshot` + 5 `SectorAggregateSnapshot` + 5
+      `AttractivenessSnapshot`, so `subClassOf` inference works. → step 3.
 - [ ] **T-023** Wire a `pyshacl`-based ingest gate in front of write access.
       → step 4.
 - [x] **T-024** Document connection details in `.env.example`/`docs/`. →
@@ -47,8 +53,9 @@ renumber of the next work item's block.
 
 ## Work item 4 — Build the real step-2 projection (roadmap step 2)
 
-*Blocked on Work item 3 (T-020–T-025) and on Work item 11's decisions
-(T-100–T-104).*
+*Needs from Work item 3 only a running store, the schema loader (T-021) and the
+ingest gate (T-023), not its acceptance check; also blocked on Work item 11's
+decisions (T-100–T-104).*
 
 - [ ] **T-030** *(after Work item 11's T-100–T-104)* Confirm the `financial-analysis` `v_*` views' actual column
       shapes (view list in `SPEC.md` §2.5; definitions in that repo's
@@ -178,8 +185,8 @@ renumber of the next work item's block.
 
 Closed Work items 1, 2, 5, 7 (superseded/decided by T-007) and 10 are in
 `CHANGELOG.md` (Work item 1 closed with T-006 deprecated in favor of T-009).
-Work item 9 (T-080–T-083) has no blockers. Work item 3 (T-020–T-025) is blocked on
-a maintainer store choice; Work items 4 and 6 (T-030–T-035, T-050–T-053)
+Work item 9 (T-080–T-083) has no blockers. Work item 3 (T-020–T-025) has the store
+chosen and the schema loaded; T-023 and T-025 remain. Work items 4 and 6 (T-030–T-035, T-050–T-053)
 follow in dependency order after it; Work item 11 (T-100–T-113, decisions
 from the T-007 rescan) gates Work item 4 and has no store dependency.
 Work item 8 (T-070–T-071) is independent but needs a human at a Protégé

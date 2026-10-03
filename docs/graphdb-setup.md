@@ -50,6 +50,20 @@ OWL restrictions and `AllDisjointClasses` are **not** enforced by the store; `py
 them (T-023). Note: `enable-context-index` is `false`, as created; revisit if named-graph-scoped
 queries prove slow.
 
+## Loading `schema/` (T-021)
+
+```bash
+uv run python cli/load_schema.py [--dir path/to/schema]
+```
+
+Loads `tbox → shapes → reference → rules → instances.trig` per the graph map in
+[`schema/README.md`](../schema/README.md). It first drops every graph it is about to write, so a
+re-run (for example after a schema edit) replaces rather than duplicates. It then parses the same
+files with `rdflib` and compares the asserted triple count of each graph with the store's
+(inferred statements excluded), exiting non-zero on any mismatch. Currently 15 graphs, 1608 triples.
+Needs write access (`WRITE_REPO_portfolio`). It loads `schema/` only; the ETL's `data.ttl` and
+projected upstream data belong to Work item 4.
+
 ## Connecting
 
 Variables are documented in [`.env.example`](../.env.example); real values live in the gitignored
