@@ -86,6 +86,11 @@
     rdfs:label "SEC Filing Section" ;
     rdfs:comment "Evidence leaf: an extracted section of a SECFiling (Item 1A, Item 3, DEF 14A director list — v1 §2B). May be supersededBy a later corrected section (restatement — closes critique #8, see 07-ontology-topology.md)." .
 
+:DataQualityIssue
+    a owl:Class ;
+    rdfs:label "Data Quality Issue" ;
+    rdfs:comment "Evidence leaf (T-104): one Ring-1 DQ_* gate firing (upstream's data_quality_issue row, dq-v2) on an asset's filing data. A quarantined gated metric reads as NULL upstream. A HARD issue is what the DATA_QUALITY veto cites: a RiskEvent is backedBy it, or the veto's rule evaluates the HasHardDataQualityIssue predicate over it." .
+
 :Executive
     a owl:Class ;
     rdfs:label "Executive" ;
@@ -94,7 +99,7 @@
 :Veto
     a owl:Class ;
     rdfs:label "Veto" ;
-    rdfs:comment "The orchestrator's decision node for one Asset in one cycle: which rule(s) fired and why (v1 §4)." .
+    rdfs:comment "The orchestrator's decision node for one Asset: which rule(s) fired and why (v1 §4). Since T-102 a Veto is a stint (raisedOn..clearedOn, upstream veto rows), not a single-cycle event." .
 
 :RuleDefinition
     a owl:Class ;
@@ -188,6 +193,7 @@
     rdfs:comment "Anything a RiskEvent can be backedBy." .
 :NewsArticle rdfs:subClassOf :EvidenceSource .
 :SECFilingSection rdfs:subClassOf :EvidenceSource .
+:DataQualityIssue rdfs:subClassOf :EvidenceSource .
 
 :RuleOperand
     a owl:Class ;
@@ -270,7 +276,7 @@
 
 #################################################################
 # 1.3 DISJOINTNESS — every individual belongs to exactly one of
-# these 24 classes. EvidenceSource/RuleOperand/ObservationSnapshot
+# these 25 classes. EvidenceSource/RuleOperand/ObservationSnapshot
 # (§1.1) and every §1.2 taxonomy class are deliberately excluded --
 # they're superclasses of members of this list, and a superclass is
 # never disjoint from its own subclasses.
@@ -278,7 +284,7 @@
 
 [] a owl:AllDisjointClasses ;
    owl:members ( :Asset :Sector :Industry :Universe :UniverseMembership :ScoreSnapshot
-                 :RiskEvent :NewsArticle :SECFiling :SECFilingSection :Executive :Veto
+                 :RiskEvent :NewsArticle :SECFiling :SECFilingSection :DataQualityIssue :Executive :Veto
                  :RuleDefinition :RuleClause :ThresholdComparison :CategoricalComparison
                  :GraphPredicate :Portfolio :PortfolioPosition :PriceObservation
                  :SectorAggregateSnapshot :AttractivenessSnapshot :AttractivenessWeightScheme
@@ -390,15 +396,42 @@
 # --- RiskEvent / Veto ---
 :category a owl:DatatypeProperty ; rdfs:range xsd:string ;
     rdfs:comment "On RiskEvent: LEGAL | FINANCIAL | MARKET | NETWORK. On RuleDefinition: free-text category label (v1's catalog table for the superseded rules; upstream's FINANCIAL | MARKET | DATA_QUALITY for the active six)." .
+# --- DataQualityIssue (T-104) ---
+:dqIssueOfAsset a owl:ObjectProperty, owl:FunctionalProperty ; rdfs:domain :DataQualityIssue ; rdfs:range :Asset .
+:dqGateCode a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :DataQualityIssue ; rdfs:range xsd:string ;
+    rdfs:comment "The Ring-1 gate that fired, e.g. DQ_* code from upstream's data_quality_issue." .
+:dqRaisedOn a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :DataQualityIssue ; rdfs:range xsd:date ;
+    rdfs:comment "Cycle date the gate fired (as-of key for the issue, like :raisedOn on a Veto)." .
+:dqIssueOfFiling a owl:ObjectProperty, owl:FunctionalProperty ; rdfs:domain :DataQualityIssue ; rdfs:range :SECFiling ;
+    rdfs:comment "Optional: the filing whose data the gate fired on (what DATA_QUALITY's 'latest filing' refers to)." .
+:dqMetricName a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :DataQualityIssue ; rdfs:range xsd:string ;
+    rdfs:comment "Optional: the gated metric (a ThresholdComparison metricName-style id). Provenance back to upstream's row uses :provenanceId." .
+:dqSeverity a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :DataQualityIssue ; rdfs:range xsd:string ;
+    rdfs:comment "Upstream's issue severity; HARD escalates to the DATA_QUALITY veto. Other values pass through unconstrained." .
+:quarantined a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :DataQualityIssue ; rdfs:range xsd:boolean ;
+    rdfs:comment "True when the gated metric was quarantined (reads as NULL upstream)." .
+:gatedValue a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :DataQualityIssue ; rdfs:range xsd:decimal ;
+    rdfs:comment "The value the gate rejected, when numeric (upstream's type is unconfirmed, T-030); a non-numeric value is carried as :dqMetricName context only, not here." .
+
 :severity a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :RiskEvent ; rdfs:range xsd:string ;
     rdfs:comment "CRITICAL | HIGH | MODERATE | LOW." .
 :detectedAt a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :RiskEvent ; rdfs:range xsd:dateTime .
 :decidedAt  a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :Veto ; rdfs:range xsd:dateTime .
+# T-102: a :Veto is a STINT (upstream's `veto` rows), not a one-cycle event. Dates are cycle dates (xsd:date);
+# decidedAt stays the wall-clock detection time (upstream `detected_at`); upstream `cleared_at` (wall-clock close time) is deliberately dropped -- clearedOn is the only close marker.
+:raisedOn   a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :Veto ; rdfs:range xsd:date ;
+    rdfs:comment "Cycle date on which the stint began (upstream raised_on). Required. Active at cutoff C iff raisedOn <= C AND (no clearedOn OR clearedOn > C); the T-1 lag is this predicate applied at read time (schema/README.md has the SPARQL), not an orchestrator feature. Added 2026-10-03 (T-102)." .
+:clearedOn  a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :Veto ; rdfs:range xsd:date ;
+    rdfs:comment "Cycle date on which the stint closed (upstream cleared_on): a HARD veto clears when its rule re-evaluates clean. Absent = still active. Closed by writing this triple (in the clearing cycle's ORCHESTRATOR graph), never by deleting the Veto. Added 2026-10-03 (T-102)." .
+:lastSeenOn a owl:DatatypeProperty ; rdfs:domain :Veto ; rdfs:range xsd:date ;
+    rdfs:comment "Most recent cycle date on which the rule still fired for this stint (upstream last_seen_on). Optional and deliberately NOT functional: ORCHESTRATOR graphs are append-only, so each cycle adds a new value in its own graph and the current one is MAX(?lastSeenOn). Added 2026-10-03 (T-102)." .
+:vetoSeverity a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :Veto ; rdfs:range xsd:string ;
+    rdfs:comment "HARD | SOFT -- this stint's severity, which can differ from its rule's :ruleSeverity (LEVERAGE_EXTREME emits SOFT for a negative-equity firm). A SOFT stint charges soft_veto_penalty once. Optional: absent means the severity of the stint's :primaryRule (:ruleSeverity; the superseded design-history rules carry none). Added 2026-10-03 (T-102)." .
 
 # --- RuleDefinition / RuleClause / leaf comparisons ---
 :ruleId       a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :RuleDefinition ; rdfs:range xsd:string .
 :ruleSeverity a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :RuleDefinition ; rdfs:range xsd:string ;
-    rdfs:comment "HARD | SOFT — the severity upstream's rule_catalog assigns the rule (T-103). An individual veto stint's severity can differ (LEVERAGE_EXTREME emits SOFT for a negative-equity firm with no corroborating metric); :Veto has no severity property yet -- modelling stints is T-102. Distinct from :severity, which is a RiskEvent field." .
+    rdfs:comment "HARD | SOFT — the severity upstream's rule_catalog assigns the rule (T-103). An individual veto stint's severity can differ (LEVERAGE_EXTREME emits SOFT for a negative-equity firm with no corroborating metric); :Veto carries the per-stint value as :vetoSeverity (T-102). Distinct from :severity, which is a RiskEvent field." .
 :priorityRank a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :RuleDefinition ; rdfs:range xsd:integer ;
     rdfs:comment "1 (highest) .. 7 (lowest), used to pick primaryRule (v1 §4). (Comment corrected 2026-08-23: stale '6' predates VETO_MKT_02, added 2026-08-13 as the 7th rule -- shapes.ttl's RuleDefinitionShape already had priorityRank's range as [1,7] correctly.)" .
 :clauseType   a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :RuleClause ; rdfs:range xsd:string ;

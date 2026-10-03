@@ -22,8 +22,8 @@ special query language feature.
 | `urn:graph:rules:catalog` | The versioned veto rule catalog (`schema/rules.ttl`) | Rarely changes; each `RuleDefinition` is already self-temporal via `validFrom`/`validTo`. |
 | `urn:graph:ingest:{agent}:{date}` | One graph per (agent, day) ingestion batch — that day's `ScoreSnapshot`s and `RiskEvent`s from `SEMANTIC`/`QUANTITATIVE`/`TECHNICAL` agents (v1's fast cycle, §2B) | **Append-only.** Never edited after creation — this is what makes it a faithful transaction-time record. |
 | `urn:graph:ingest:SECTOR:{date}` | One graph per Sector Agent daily run — `SectorAggregateSnapshot`s and per-asset `SectorRelativeMomentum` `ScoreSnapshot`s (added 2026-08-13, see spec) | **Append-only**, same convention as the other per-agent ingest graphs. |
-| `urn:graph:ingest:FUNDAMENTAL:{year}-Q{n}` | One graph per quarterly Fundamental Agent run — new `UniverseMembership` records, fundamental `ScoreSnapshot`s (v1's slow cycle, §2A) | Append-only. |
-| `urn:graph:ingest:ORCHESTRATOR:{date}` | The Orchestrator's own decisions — `Veto` individuals and any `RiskEvent`s it directly produced; also `AttractivenessSnapshot` individuals (added 2026-08-13) — the Orchestrator's ranking output, alongside its veto output | Append-only. |
+| `urn:graph:ingest:FUNDAMENTAL:{year}-Q{n}` | One graph per quarterly Fundamental Agent run — new `UniverseMembership` records, fundamental `ScoreSnapshot`s, and `DataQualityIssue` evidence from the Ring-1 gates (T-104; dated by `dqRaisedOn`, optionally linked to the gated `SECFiling` and metric) (v1's slow cycle, §2A) | Append-only. |
+| `urn:graph:ingest:ORCHESTRATOR:{date}` | The Orchestrator's own decisions — `Veto` individuals and any `RiskEvent`s it directly produced; also `AttractivenessSnapshot` individuals (added 2026-08-13) — the Orchestrator's ranking output, alongside its veto output | Append-only. A `Veto` stint is closed by a `clearedOn` triple written in the clearing cycle's graph (T-102), never deleted. |
 | `urn:graph:ingest:EDGAR:{date-or-quarter}` | `SECFiling`/`SECFilingSection` individuals from the EDGAR batch pipeline (roadmap step 4), including restated sections | Append-only — see the restatement pattern below. |
 | `urn:graph:derived:entity-resolution:{date}` | `sharedExecutiveWith` and other entity-resolution-service output (roadmap step 7) | Append-only; kept separate from the EDGAR graphs it draws on since it's a different service's output. |
 | `urn:graph:universe:{year}-Q{n}` | The `Universe` individual + its membership boundary for that quarter | Append-only, closed by writing `validTo` on the *previous* quarter's memberships (never by deleting them). |
@@ -96,11 +96,11 @@ Recommend **OWL 2 RL / RDFS+ only** — not a full OWL DL reasoner:
 - **Turn on:** `rdfs:subClassOf` transitivity — this now pays off in two places, not one. The GICS
   `Industry → Sector` roll-up ("give me every `Asset` in the Information Technology sector",
   ~11 sectors/~70 industries) is cheap to materialize, as before. As of the 2026-08-23 taxonomy
-  revision (`06-ontology-definition.md` §1.2), the ontology's own 24 domain classes also have
+  revision (`06-ontology-definition.md` §1.2), the ontology's own 25 domain classes also have
   `subClassOf` structure to reason over — e.g. `?x a :ObservationSnapshot` now correctly returns
   every `ScoreSnapshot`, `SectorAggregateSnapshot`, and `AttractivenessSnapshot` individual without
   the query author enumerating all three types by hand. Before that revision this setting only ever
-  did work for GICS, since the 24 domain classes had no `subClassOf` edges among themselves at all —
+  did work for GICS, since the 25 domain classes had no `subClassOf` edges among themselves at all —
   worth noting since it means this section's recommendation is now doing more than it used to for
   the same reasoning cost.
 - **Leave off:** full OWL DL / property-chain reasoning. In particular, `sharedExecutiveWith`

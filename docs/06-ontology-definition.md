@@ -1,9 +1,9 @@
 # Ontology Definition — Portfolio Knowledge Graph (v2)
 
 **Implementation:** [`schema/`](../schema/) — the formal OWL/SHACL/TriG implementation of
-everything described below, split into `tbox.ttl` (classes/properties, **37 classes total** as of
-this revision — 24 mutually-disjoint leaf/domain classes plus a 13-class `rdfs:subClassOf`
-taxonomic backbone, see §1.2), `shapes.ttl` (SHACL, 14 shapes), `reference.ttl` (GICS taxonomy +
+everything described below, split into `tbox.ttl` (classes/properties, **38 classes total** as of
+this revision — 25 mutually-disjoint leaf/domain classes plus a 13-class `rdfs:subClassOf`
+taxonomic backbone, see §1.2), `shapes.ttl` (SHACL, 16 shapes), `reference.ttl` (GICS taxonomy +
 asset master data + the new `MetricType` controlled vocabulary, §1.9), `rules.ttl` (all 7 veto
 rules as trees), and `instances.trig` (a worked, multi-graph, multi-asset dataset). Parsed clean
 with `rdflib` and SHACL-validated with `pyshacl` (**conforms: True**); the veto rule trees were
@@ -19,7 +19,7 @@ inventory with an explicit taxonomy, and closes a second, smaller gap (untyped `
 strings) the same way GICS sectors were already handled. Neither change renames, removes, or
 redefines any existing class, property, or SHACL shape — the prior design's entity/relationship
 modeling, temporal handling, and rule-as-data pattern were reviewed and found sound; only the
-*taxonomic structure* (or lack of it) among the 24 domain classes needed fixing. See §1.2 and §1.9.
+*taxonomic structure* (or lack of it) among the 25 domain classes needed fixing. See §1.2 and §1.9.
 
 **Store target:** RDF triple/quad store (GraphDB or Apache Jena Fuseki). This is the single
 decision that shapes everything in this document — it means the ontology has to be formal OWL
@@ -48,7 +48,7 @@ academic grounding — it signals the class design isn't arbitrary, without payi
 
 ## 1.2 Class taxonomy
 
-Replaces the earlier flat, disjointness-only inventory. The 24 leaf/domain classes are organized
+Replaces the earlier flat, disjointness-only inventory. The 25 leaf/domain classes are organized
 under 6 broad categories and, in 4 cases, an intervening mid-level category — placement was decided
 by **shared property shape**, a structural criterion, not by theme (e.g. `AttractivenessSnapshot`
 sits under `Observation Snapshot`, not next to `Veto`, because it shares `ScoreSnapshot`'s
@@ -80,7 +80,8 @@ Portfolio Knowledge Graph
 │   │   └── SECFiling
 │   └── Evidence Source
 │       ├── NewsArticle
-│       └── SECFilingSection
+│       ├── SECFilingSection
+│       └── DataQualityIssue
 ├── Risk And Decision
 │   ├── RiskEvent
 │   └── Veto
@@ -107,6 +108,7 @@ Portfolio Knowledge Graph
 | `PriceObservation` | Observation | scope requirement (daily pricing) | **New in v2, derived-summary only** — see the topology document for why raw OHLCV ticks do *not* belong in the triple store. |
 | `SECFiling` | Evidence → Source Document | v1 §2B | One EDGAR filing (10-K/10-Q/8-K/DEF 14A) for one `Asset`. |
 | `NewsArticle`, `SECFilingSection` | Evidence → Evidence Source | v1 §3B | Evidence leaves cited by `backedBy`; cross-referenced to `portfolio-data-mining`'s news pipeline (`news_collector`/`extractor`, `urls.db`) via `provenanceId` (see §1.6 and `09-nlp-finbert-architecture.md`). |
+| `DataQualityIssue` | Evidence → Evidence Source | T-104 (upstream D5) | One Ring-1 `DQ_*` gate firing (upstream `data_quality_issue` row): `dqGateCode`, `dqSeverity`, `quarantined`, `dqRaisedOn`, optional `dqIssueOfFiling`/`dqMetricName`/`gatedValue`/`provenanceId`. HARD ones back the `DATA_QUALITY` veto via a `RiskEvent`. |
 | `RiskEvent`, `Veto` | Risk And Decision | v1 §3B/§4 | A flagged event, SHACL-required to carry evidence (closes critique #5); and the orchestrator's per-cycle exclusion decision. |
 | `RuleDefinition`, `RuleClause` | Rule System | v1 §4, critique #1 & #6 | The veto catalog's tree structure, versioned as graph data — see §1.5. |
 | `ThresholdComparison`, `CategoricalComparison`, `GraphPredicate` | Rule System → Rule Operand | v1 §4, critique #1 | The three leaf-operand kinds a `RuleClause` can compare — see §1.5. |
@@ -152,7 +154,7 @@ excluded-union design could never support. Everything else here is new.
 :RuleOperand a owl:Class ; rdfs:subClassOf :RuleSystem ;
     rdfs:label "Rule Operand"@en .
 
-### The 24 leaf/domain classes — additive subClassOf edges only. No class's own declaration,
+### The 25 leaf/domain classes — additive subClassOf edges only. No class's own declaration,
 ### properties, or membership in AllDisjointClasses changes; subClassOf (vertical) and
 ### AllDisjointClasses (horizontal, sibling-only) are orthogonal OWL constructs.
 :Asset     rdfs:subClassOf :DomainEntity .
@@ -173,6 +175,7 @@ excluded-union design could never support. Everything else here is new.
 :SECFiling        rdfs:subClassOf :SourceDocument .
 :NewsArticle       rdfs:subClassOf :EvidenceSource .
 :SECFilingSection  rdfs:subClassOf :EvidenceSource .
+:DataQualityIssue  rdfs:subClassOf :EvidenceSource .
 
 :RiskEvent rdfs:subClassOf :RiskAndDecision .
 :Veto      rdfs:subClassOf :RiskAndDecision .
@@ -190,7 +193,7 @@ excluded-union design could never support. Everything else here is new.
 `rdfs:subClassOf` transitivity, previously to serve the GICS taxonomy only. This backbone means
 that same setting now also makes `?x a :ObservationSnapshot`, `?x a :Evidence`, `?x a :RuleOperand`,
 etc. valid, reasoner-answered queries over the ontology's own domain classes — impossible before
-this revision, since there was no `subClassOf` structure among the 24 domain classes for the
+this revision, since there was no `subClassOf` structure among the 25 domain classes for the
 reasoner to traverse.
 
 ## 1.3 Object & datatype properties
@@ -198,12 +201,16 @@ reasoner to traverse.
 The full domain/range table is the `.ttl` file itself (§2–3 of that file); the properties worth
 calling out here are the ones that encode a design decision, not just a field:
 
-- **`backedBy`** (`RiskEvent → NewsArticle | SECFilingSection`) has `sh:minCount 1` in the SHACL
+- **`backedBy`** (`RiskEvent → NewsArticle | SECFilingSection | DataQualityIssue`) has `sh:minCount 1` in the SHACL
   shapes (§1.6) — a `RiskEvent` cannot exist in the store without evidence. This turns critique
   gap #5 ("no null/missing-data policy") from a prose recommendation into an enforced constraint.
 - **`appliesRule`** vs **`primaryRule`** — both present on `Veto`, matching v1's own distinction
   ("Mapeo de Activaciones Multiples", §4): the full trigger list plus a computed lowest-`priorityRank`
   primary reason for audit queries.
+- **`Veto` is a stint** (T-102, 2026-10-03): `raisedOn` (required), `clearedOn`, `lastSeenOn` are cycle
+  dates mirroring upstream's `veto` rows; `vetoSeverity` (HARD | SOFT) is the per-stint severity. Four severity-like properties now coexist, deliberately: `severity` (`RiskEvent`, CRITICAL…LOW), `ruleSeverity` (`RuleDefinition`, the catalog default), `vetoSeverity` (`Veto`, per stint) and `dqSeverity` (`DataQualityIssue`, upstream's gate severity, unenumerated).
+  Active at cutoff C iff `raisedOn <= C` and (no `clearedOn` or `clearedOn > C`); the T-1 lag is that
+  predicate at read time (SPARQL in `schema/README.md`). Stints are closed by writing `clearedOn`.
 - **`sharedExecutiveWith`** is declared `owl:SymmetricProperty` but is explicitly commented as
   *derived*, not hand-authored — it is written by the entity-resolution service (roadmap step 7),
   not by any ingestion agent directly. Marking this in the ontology itself prevents a future
@@ -316,11 +323,11 @@ own tree structure and reproduced the intended firings exactly — see `schema/R
 ## 1.6 SHACL shapes for data-quality enforcement
 
 SHACL (Shapes Constraint Language) is RDF's declarative validator — the world-view equivalent of
-a schema/type checker, but expressed as data rather than code. 14 shapes are defined
+a schema/type checker, but expressed as data rather than code. 16 shapes are defined
 (`schema/shapes.ttl`; 10 before 2026-08-13, including `ThresholdComparisonShape`,
 `CategoricalComparisonShape`, and `GraphPredicateShape` added during implementation to cover the
 two new leaf types from the addendum above, plus four more added 2026-08-13 for the
-attractiveness-ranking feature, see §1.8), each closing a specific gap:
+attractiveness-ranking feature, see §1.8, plus `VetoShape` added 2026-10-03 for T-102 and `DataQualityIssueShape` for T-104), each closing a specific gap:
 
 | Shape | Constraint | Closes |
 |---|---|---|
@@ -330,6 +337,8 @@ attractiveness-ranking feature, see §1.8), each closing a specific gap:
 | `RuleClauseShape` | `clauseType` ∈ `{AND, OR}`; both operands required | Structural half of the critique #1 fix — a clause literally cannot be built with a missing operand or an unrecognized operator. |
 | `ThresholdComparisonShape` / `CategoricalComparisonShape` / `GraphPredicateShape` | Each leaf kind's required fields (`metricName`/`operator`/`thresholdValue`; `attributeName`/`expectedValue`; `predicateName`) | Completes the structural half of the critique #1 fix across all rule leaf kinds, not just numeric ones (the 7 original rules; upstream's six single-leaf rules reuse the same shapes, T-103). |
 | `UniverseMembershipShape` | both endpoints + `validFrom` required | Keeps §1.4's n-ary relation pattern from degrading into a dangling record. |
+| `DataQualityIssueShape` | gate code, severity, `quarantined`, `dqRaisedOn` and asset required; filing, metric name, `gatedValue`, `provenanceId` optional | Evidence for the `DATA_QUALITY` veto (T-104): an upstream `data_quality_issue` row, an `EvidenceSource` leaf. |
+| `VetoShape` | `raisedOn` required; `clearedOn`/`lastSeenOn` optional, never before `raisedOn`; `vetoSeverity` ∈ {HARD, SOFT} | Veto stints (T-102): a stint is closed by `clearedOn`, never deleted. |
 
 Validated end-to-end with `pyshacl` against the full worked dataset below: **conforms = True**.
 
@@ -359,7 +368,7 @@ ontology its first sector-level signal (critique #3, layer B2's momentum half). 
 including the arithmetic worked example, lives in
 `docs/superpowers/specs/2026-08-13-attractiveness-sector-momentum-design.md`; this section
 summarizes what changed in the TBox. Four new classes were added, bringing the ontology to 27
-total classes (`AllDisjointClasses` grew from 20 to 24 members, where it still stands — the
+total classes (`AllDisjointClasses` grew from 20 to 24 members, then to 25 with `DataQualityIssue` (T-104) — the
 taxonomic backbone added 2026-08-23, §1.2, brings the *overall* class count to 37, but adds no new
 disjoint leaf types) and `shapes.ttl` to 14 shapes (§1.6):
 

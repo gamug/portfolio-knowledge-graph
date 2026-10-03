@@ -94,7 +94,7 @@ decisions (T-100–T-104).*
 - [ ] **T-101** *(D2)* Decide how `available_at` vs. `event_time` is modelled
       (new properties, or encoded in the ingest-graph date) so as-of queries
       cannot leak look-ahead; update `tbox.ttl`/`shapes.ttl` and `07`. → step 2.
-- [ ] **T-102** *(D3)* Model veto stints (`raisedOn`/`clearedOn`/`lastSeenOn`
+- [x] **T-102** *(D3; done 2026-10-03: `raisedOn`/`clearedOn`/`lastSeenOn` + `vetoSeverity`, `VetoShape`)* Model veto stints (`raisedOn`/`clearedOn`/`lastSeenOn`
       or `validFrom`/`validTo`) and write the "active at cutoff C" predicate
       as the T-1-lag SPARQL pattern. → step 3.
 - [x] **T-103** *(D4 — decided 2026-10-02: upstream's catalog is final; done 2026-10-03)*
@@ -104,7 +104,7 @@ decisions (T-100–T-104).*
       `:appliesRule` resolves, supersede `rules.ttl`'s seven tree rules
       (including `VETO_RED_01`), and update FR-003, `06`/`07`, `schema/README.md`
       and the FR-001 counts. → step 3.
-- [ ] **T-104** *(D5)* Decide `:DataQualityIssue` (evidence for the
+- [x] **T-104** *(D5; done 2026-10-03: modelled as an `EvidenceSource` leaf, `DataQualityIssueShape`)* Decide `:DataQualityIssue` (evidence for the
       `DATA_QUALITY` veto) vs. dropping it. → step 3.
 - [ ] **T-105** *(D6)* `agentOrigin` `QUANTITATIVE` → `VALORIZATION` in
       `shapes.ttl`/`reference.ttl` (MetricType) and docs; document each score

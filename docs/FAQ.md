@@ -16,6 +16,8 @@ an error (marked as such where it happens).
 
 ## Q: You said there are "eleven" named graphs to query — what does that actually mean?
 
+> *Counts updated since the question was first asked: the example has since grown from 11 to 14 `GRAPH` blocks (17 concrete graphs loaded).*
+
 **Short answer:** it's an artifact of the worked example, not a fixed number. Four graphs
 have permanent, fixed names and exist exactly once. Everything else is a *template* that
 mints a brand-new graph every time an agent runs — the count grows without bound as the
@@ -23,7 +25,7 @@ system operates.
 
 **Full answer:**
 
-`schema/instances.trig` — the 5-asset worked example — happens to contain exactly 11
+`schema/instances.trig` — the 5-asset worked example — happens to contain exactly 14
 `GRAPH <urn:graph:...> { }` blocks:
 
 ```
@@ -32,11 +34,14 @@ urn:graph:ingest:FUNDAMENTAL:2026-Q3
 urn:graph:ingest:QUANTITATIVE:2026-08-05
 urn:graph:ingest:TECHNICAL:2026-08-05
 urn:graph:ingest:SEMANTIC:2026-08-05
+urn:graph:ingest:SECTOR:2026-08-05
 urn:graph:ingest:EDGAR:2026-Q3
 urn:graph:ingest:EDGAR:2026-08-10
 urn:graph:derived:entity-resolution:2026-Q3
 urn:graph:ingest:ORCHESTRATOR:2026-08-04
 urn:graph:ingest:ORCHESTRATOR:2026-08-05
+urn:graph:ingest:FUNDAMENTAL:2026-Q4
+urn:graph:ingest:ORCHESTRATOR:2026-10-05
 urn:graph:portfolio:current
 ```
 
@@ -44,7 +49,7 @@ That's an undercount of what's actually loaded, though: `tbox.ttl`, `reference.t
 `rules.ttl` each load wholesale into their own named graph (`urn:graph:tbox`,
 `urn:graph:reference`, `urn:graph:rules:catalog`) per `schema/README.md`'s load order — but
 because those are plain Turtle, not TriG, they never appear as a `GRAPH { }` block inside
-`instances.trig`. So "everything currently loaded" is **14 concrete graphs**, not 11.
+`instances.trig`. So "everything currently loaded" is **17 concrete graphs**, not 14.
 
 More importantly, `07-ontology-topology.md`'s design table doesn't define graphs — it defines
 10 graph *name patterns*, split into two very different kinds:
@@ -54,8 +59,8 @@ More importantly, `07-ontology-topology.md`'s design table doesn't define graphs
 | Fixed, one instance ever | `tbox`, `reference`, `rules:catalog`, `portfolio:current` | Same URI forever; `portfolio:current` is the one graph mutated in place (via `validTo`-closing). |
 | Templated, spawns a new graph every batch | `ingest:{agent}:{date}`, `ingest:FUNDAMENTAL:{year}-Q{n}`, `ingest:ORCHESTRATOR:{date}`, `ingest:EDGAR:{date-or-quarter}`, `derived:entity-resolution:{date}`, `universe:{year}-Q{n}` | A new concrete URI is minted every time an agent runs. |
 
-The 11-block count in `instances.trig` is just what those templated patterns look like after
-one quarter plus two days. Run the `MonitoringCycleGraph` for a full year and
+The 14-block count in `instances.trig` is just what those templated patterns look like after
+two quarters of worked data (the 2026-Q3 batch, the August daily runs and the 2026-Q4 / 2026-10-05 data-quality example). Run the `MonitoringCycleGraph` for a full year and
 `ingest:TECHNICAL:{date}` alone mints ~250 distinct graphs — one per trading day. There is no
 ceiling on the real number.
 

@@ -46,8 +46,8 @@ before it, and which repo owns it.
 
 **0. Formalize ontology TBox + SHACL shapes.** ✅ **Implemented.**
 `schema/tbox.ttl` + `schema/shapes.ttl` + `schema/reference.ttl` + `schema/rules.ttl` (this
-series' §1) — 37 classes (24 mutually disjoint leaf/domain classes under a 13-class taxonomic
-backbone added 2026-08-23), 14 SHACL shapes, the full 7-rule veto catalog as unambiguous trees, and a
+series' §1) — 38 classes (25 mutually disjoint leaf/domain classes under a 13-class taxonomic
+backbone added 2026-08-23), 16 SHACL shapes, the full 7-rule veto catalog as unambiguous trees, and a
 5-asset worked dataset (`schema/instances.trig`) that's been parsed, SHACL-validated
 (`pyshacl`: conforms = True), and independently re-evaluated in Python to confirm the rule trees
 fire exactly as intended (that 7-rule catalog is superseded as the target by `portfolio-financial-analysis`'s
@@ -60,7 +60,7 @@ See `schema/README.md`.
 **1. Stand up the triple store.**
 GraphDB or Fuseki, with the named-graph topology from `07-ontology-topology.md` (TBox graph,
 per-batch ABox graphs, quarterly Universe snapshots). `schema/instances.trig` already demonstrates
-the target shape end to end (12 named graphs) against 5 example tickers — standing up a real store
+the target shape end to end (14 named graphs) against 5 example tickers — standing up a real store
 is now a load operation (`schema/README.md`'s load order), not a from-scratch design exercise.
 **Owner: this repo.**
 
