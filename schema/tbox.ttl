@@ -101,6 +101,11 @@
     rdfs:label "Asset Co-occurrence" ;
     rdfs:comment "T-107 (D10): one method-versioned, weighted CANDIDATE link between two assets derived from news co-occurrence (upstream shared_executive_edge, method news-per-cooccurrence-v1; or the media_cooccurrence table once populated). Reified because the link carries method/weight. It is NOT a verified shared directorship and never implies :sharedExecutiveWith." .
 
+:BenchmarkObservation
+    a owl:Class ;
+    rdfs:label "Benchmark Observation" ;
+    rdfs:comment "T-108 (D11): one finished number that upstream's quant module computed about a Portfolio -- a benchmark book's performance metric (v_quant_benchmark_performance) or a per-asset active weight against the live book (v_quant_vs_live, with quantAsset). Projected as handed over, never computed here; returns, mu and Sigma are not projected." .
+
 :Veto
     a owl:Class ;
     rdfs:label "Veto" ;
@@ -268,6 +273,7 @@
 :Veto rdfs:subClassOf :RiskAndDecision .
 
 :AssetCoOccurrence rdfs:subClassOf :Observation .
+:BenchmarkObservation rdfs:subClassOf :Observation .
 
 :RuleDefinition rdfs:subClassOf :RuleSystem .
 :RuleClause rdfs:subClassOf :RuleSystem .
@@ -283,7 +289,7 @@
 
 #################################################################
 # 1.3 DISJOINTNESS — every individual belongs to exactly one of
-# these 26 classes. EvidenceSource/RuleOperand/ObservationSnapshot
+# these 27 classes. EvidenceSource/RuleOperand/ObservationSnapshot
 # (§1.1) and every §1.2 taxonomy class are deliberately excluded --
 # they're superclasses of members of this list, and a superclass is
 # never disjoint from its own subclasses.
@@ -291,7 +297,7 @@
 
 [] a owl:AllDisjointClasses ;
    owl:members ( :Asset :Sector :Industry :Universe :UniverseMembership :ScoreSnapshot
-                 :RiskEvent :NewsArticle :SECFiling :SECFilingSection :DataQualityIssue :Executive :Veto :AssetCoOccurrence
+                 :RiskEvent :NewsArticle :SECFiling :SECFilingSection :DataQualityIssue :Executive :Veto :AssetCoOccurrence :BenchmarkObservation
                  :RuleDefinition :RuleClause :ThresholdComparison :CategoricalComparison
                  :GraphPredicate :Portfolio :PortfolioPosition :PriceObservation
                  :SectorAggregateSnapshot :AttractivenessSnapshot :AttractivenessWeightScheme
@@ -406,7 +412,7 @@
 
 # T-106 (D7): upstream run provenance. No rdfs:domain on purpose (like :provenanceId): D7 says every upstream row carries run_id, and a domain would
 # entail :ScoreSnapshot on a :Veto/:PortfolioPosition, contradicting AllDisjointClasses. Per-class use is constrained by SHACL (ScoreSnapshot,
-# SectorAggregateSnapshot, Veto, PortfolioPosition, DataQualityIssue, AssetCoOccurrence); all optional -- ETL-built SEMANTIC snapshots have no upstream run.
+# SectorAggregateSnapshot, Veto, PortfolioPosition, DataQualityIssue, AssetCoOccurrence, BenchmarkObservation); all optional -- ETL-built SEMANTIC snapshots have no upstream run.
 # On stint / valid-time individuals (Veto, PortfolioPosition) later cycles append to the SAME individual, so these four record only the run that OPENED
 # the record (raised it / validFrom); later cycles must not re-emit them (maxCount 1 / FunctionalProperty would break) and the closing run is not recorded.
 :runId a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:range xsd:string ;
@@ -503,6 +509,22 @@
 
 # --- Portfolio / PortfolioPosition ---
 :portfolioName a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :Portfolio ; rdfs:range xsd:string .
+# T-108 (D11): benchmark books are Portfolios too; their weights are ordinary PortfolioPositions.
+:portfolioKind a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :Portfolio ; rdfs:range xsd:string ;
+    rdfs:comment "LIVE (the book upstream's cycle selects) | BENCHMARK (a quant_portfolio book). Absent means LIVE. Taken from upstream's own field, never decided here." .
+:benchmarkObjective a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :Portfolio ; rdfs:range xsd:string ;
+    rdfs:comment "Upstream's objective label for a BENCHMARK book, carried verbatim and not interpreted (column name pending, T-109)." .
+# --- BenchmarkObservation (T-108, D11) ---
+:quantPortfolio a owl:ObjectProperty, owl:FunctionalProperty ; rdfs:domain :BenchmarkObservation ; rdfs:range :Portfolio ;
+    rdfs:comment "The benchmark Portfolio the number is about." .
+:quantMetric a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :BenchmarkObservation ; rdfs:range xsd:string ;
+    rdfs:comment "Upstream's metric name, verbatim (e.g. the performance column or active_weight); no vocabulary is imposed until the view columns are known (T-109)." .
+:quantValue a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :BenchmarkObservation ; rdfs:range xsd:decimal ;
+    rdfs:comment "Upstream's value, in its own unit." .
+:quantAsset a owl:ObjectProperty, owl:FunctionalProperty ; rdfs:domain :BenchmarkObservation ; rdfs:range :Asset ;
+    rdfs:comment "Only for per-asset numbers (active weight vs the live book); absent for whole-book metrics." .
+:quantAsOf a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :BenchmarkObservation ; rdfs:range xsd:date ;
+    rdfs:comment "Optional date the number refers to (not confirmed as a view column, T-109; runAsOf can carry it). Immutable: a recompute is a new individual." .
 :weightPct     a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :PortfolioPosition ; rdfs:range xsd:decimal .
 
 # --- PriceObservation (derived daily summary only) ---
