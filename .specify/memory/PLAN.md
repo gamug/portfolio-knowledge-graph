@@ -201,7 +201,7 @@ detail can be planned further.
 4. Wire a `pyshacl`-based ingest gate in front of write access — reject,
    don't silently accept, a write that fails `shapes.ttl` conformance.
 5. Document the running store's connection details in `.env.example` and
-   `docs/` the way `KG_URLS_DB`/`KG_RESULTS_DB` are documented today.
+   `docs/` the way `SQL_URLS_DB`/`SQL_NLP_DB` are documented today.
 
 **Acceptance criteria**:
 

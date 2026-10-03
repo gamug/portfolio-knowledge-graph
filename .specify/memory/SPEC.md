@@ -182,7 +182,7 @@ Established by the T-007 scan (2026-10-02) of `portfolio-data-mining`,
 |---|---|---|---|
 | `portfolio-data-mining` | News URL discovery and article text extraction (`news_collector`, `extractor` → `urls.db`); Finnhub/yfinance pricing HTTP service (`pricing`: `GET /pricing/{ticker}`, `/pricing/{ticker}/actions`, `/universe`); SEC EDGAR HTTP service (`sec_edgar`); the S&P 500 universe, live (`data_mining.portfolio`) and **point-in-time** (`data_mining.universe_history` → `universe.db`, SCD-2 `universe_membership`) | `universe.db` — the point-in-time membership every upstream agent already reads read-only (D1); its HTTP services and `urls.db` are consumed by the other two repos, not here | No — `universe.db` should be (D1); the rest stays indirect (§12) |
 | `portfolio-nlp` | Sentiment (FinBERT), NER, category, summaries → `nlp.db` (`article_sentiment`/`article_entities`/`article_category`/`article_summary`/`sector_summary`); proposed owner of the per-`(asset, day)` SEMANTIC aggregation (not built) | `nlp.db` RESULTS, read-only | Yes — `src/etl/` via `portfolio_common.news_export` |
-| `portfolio-financial-analysis` | `fundamental_agent` (EDGAR ratios + LLM assessment, Ring-1 `DQ_*` data-quality gates), `pricing_agent`, `cycle` (a checkpointed topological runner — Strands-era, not LangGraph: TECHNICAL/VALORIZATION/SECTOR scores, veto stints, ranking, positions, `backfill` replay), `entity_resolution` (news-co-occurrence `sharedExecutiveWith` *candidates*), `quant` (Markowitz benchmark books, forward evaluation), read-only HTTP `api/` (:8010); passive `kg_schema` (DDL, migrations, `schema_version`, views) | The 31 `v_*` read-contract views over `KG_FINANCIAL_DB` (SQLite, `mode=ro`): `v_score_snapshot`, `v_sector`, `v_industry`, `v_sector_aggregate_snapshot`, `v_price_observation`, `v_corporate_action`, `v_quant_return_daily`, `v_risk_free_rate`, `v_benchmark_series`, `v_sec_filing`, `v_sec_filing_section`, `v_veto`, `v_rule_catalog`, `v_data_quality_issue`, `v_portfolio_position`, `v_shared_executive_edge`, `v_cycle_ranking`, `v_weight_scheme`, `v_weight_component`, `v_quant_risk_model`, `v_quant_portfolio`, `v_quant_position`, `v_quant_frontier_point`, `v_quant_benchmark_performance`, `v_quant_vs_live`, run logs `v_analysis_run`/`v_pricing_run`/`v_quant_run`/`v_cycle_run`, `v_universe_coverage`, and `v_universe_membership` (**frozen** — use `universe.db`). No view exposes `fundamental_metrics`, `financial_facts` or `filing_cover_shares` | No — designed source, unread (§13 item 2) |
+| `portfolio-financial-analysis` | `fundamental_agent` (EDGAR ratios + LLM assessment, Ring-1 `DQ_*` data-quality gates), `pricing_agent`, `cycle` (a checkpointed topological runner — Strands-era, not LangGraph: TECHNICAL/VALORIZATION/SECTOR scores, veto stints, ranking, positions, `backfill` replay), `entity_resolution` (news-co-occurrence `sharedExecutiveWith` *candidates*), `quant` (Markowitz benchmark books, forward evaluation), read-only HTTP `api/` (:8010); passive `kg_schema` (DDL, migrations, `schema_version`, views) | The 31 `v_*` read-contract views over `SQL_FINANCIAL_DB` (SQLite, `mode=ro`): `v_score_snapshot`, `v_sector`, `v_industry`, `v_sector_aggregate_snapshot`, `v_price_observation`, `v_corporate_action`, `v_quant_return_daily`, `v_risk_free_rate`, `v_benchmark_series`, `v_sec_filing`, `v_sec_filing_section`, `v_veto`, `v_rule_catalog`, `v_data_quality_issue`, `v_portfolio_position`, `v_shared_executive_edge`, `v_cycle_ranking`, `v_weight_scheme`, `v_weight_component`, `v_quant_risk_model`, `v_quant_portfolio`, `v_quant_position`, `v_quant_frontier_point`, `v_quant_benchmark_performance`, `v_quant_vs_live`, run logs `v_analysis_run`/`v_pricing_run`/`v_quant_run`/`v_cycle_run`, `v_universe_coverage`, and `v_universe_membership` (**frozen** — use `universe.db`). No view exposes `fundamental_metrics`, `financial_facts` or `filing_cover_shares` | No — designed source, unread (§13 item 2) |
 | `portfolio-knowledge-graph` (this repo) | The ontology (`schema/`); the projection of the above into SHACL-validated, dated named graphs; the store, reasoner and SPARQL surface over them | — | — |
 
 Consequences for this repo's scope:
@@ -246,8 +246,8 @@ names the decision it forces; none is decided here — they are PLAN Work item
 | D11 | **A whole quant domain.** `corporate_action`, `quant_return_daily`, `risk_free_rate`, `benchmark_series`, `quant_risk_model` (μ/Σ stay internal), `quant_portfolio`/`quant_position`/`quant_frontier_point`, `quant_benchmark_performance`, `v_quant_vs_live` (active weight vs the live book). Upstream's own critical gap: μ carries no cross-sectional signal, so the return-aware objectives are not defensible (their §13 item 1). | Only `Portfolio`/`PortfolioPosition`; NR-003 keeps raw price/tick data out. | Decide which of it is in the graph at all — plausibly benchmark books and their positions/performance as `:Portfolio` individuals of a benchmark kind; never the return series, μ or Σ (T-108). **Disposition: trigger half decided (D9); which quant outputs become individuals is still open** (T-108). |
 | D12 | **Ratios are not in the read contract.** Rules read `fundamental_metrics` ratios (debt-to-equity, FCF margin, current ratio, drawdown), but no `v_*` view exposes `fundamental_metrics`, `financial_facts` or `filing_cover_shares` (market cap). Only the 0–100 FUNDAMENTAL score, filings/sections, vetoes (with `evidence_json`) and DQ hits are projectable. | Our rule trees compare metrics via `ThresholdComparison` over `ScoreSnapshot`s. | Re-evaluating upstream's rules in the graph is impossible from the views; vetoes arrive as upstream *outcomes* with evidence, not as recomputable rules. Ask upstream for a view, or accept outcome-only (T-109). |
 | D13 | **Weight schemes are per run.** `v_weight_scheme` = one row per `cycle_run` that recorded a blend (scheme id + `top_n`, name/sector caps, soft-veto penalty); `v_weight_component` = one row per `(cycle_run, score_type)`; no `valid_from`/`valid_to` ("a later run with a changed blend is a new row"). Defaults FUND .4 / VALOR .3 / TECH .2 / SEM .1, renormalized over present types; upstream plans to hold SEMANTIC at 0 until `portfolio-nlp` has a labelled eval. Pending upstream WI 18 (T-134–T-139) will make the caps depend on N. | `AttractivenessWeightScheme`/`WeightComponent` (versioned weight schemes, `computedWithScheme`). | Mapping needs checking, not assuming (T-030). |
-| D14 | **SEMANTIC is still unbuilt on both sides, and wrongly attributed to this repo.** `portfolio-nlp` has no per-`(asset, day)` stage and no `as_of`; `financial-analysis` has no `KG_NLP_DB` reader (its `cycle` `semantic_read` step is a no-op "noting the aggregation runs in the integration repo"); its `README.md`/`docs/README.md` still name this repo as the SEMANTIC writer. Their rollout step 4 asks **this repo** to remove its SEMANTIC write path, add a `score_method` discriminator, and update docs. This repo's ETL emits Turtle only and never wrote to `KG_FINANCIAL_DB`, so there is no write-back *code* to remove. | `src/etl/` emits per-article Sentiment `ScoreSnapshot`s (agentOrigin `SEMANTIC`). | The stale attribution is upstream docs; our part is a `score_method` discriminator and wording (T-111). |
-| D15 | **Two access paths, one sufficient.** SQLite views over `KG_FINANCIAL_DB` (opened `mode=ro`; a view whose base table is absent is dropped, so a partial DB has *missing views*, not errors) or the HTTP `api/` — which serves only `/runs`, `/universe`, `/universe/coverage`, `/scores`, `/portfolio/positions`, `/portfolio/ranking`. | Unread. | The API cannot feed the projection (no vetoes, filings, sections, rules, DQ, quant); read SQLite via `portfolio_common.db` (`read_only`), not raw `sqlite3` (NR-002). |
+| D14 | **SEMANTIC is still unbuilt on both sides, and wrongly attributed to this repo.** `portfolio-nlp` has no per-`(asset, day)` stage and no `as_of`; `financial-analysis` has no `KG_NLP_DB` reader (its `cycle` `semantic_read` step is a no-op "noting the aggregation runs in the integration repo"); its `README.md`/`docs/README.md` still name this repo as the SEMANTIC writer. Their rollout step 4 asks **this repo** to remove its SEMANTIC write path, add a `score_method` discriminator, and update docs. This repo's ETL emits Turtle only and never wrote to `SQL_FINANCIAL_DB`, so there is no write-back *code* to remove. | `src/etl/` emits per-article Sentiment `ScoreSnapshot`s (agentOrigin `SEMANTIC`). | The stale attribution is upstream docs; our part is a `score_method` discriminator and wording (T-111). |
+| D15 | **Two access paths, one sufficient.** SQLite views over `SQL_FINANCIAL_DB` (opened `mode=ro`; a view whose base table is absent is dropped, so a partial DB has *missing views*, not errors) or the HTTP `api/` — which serves only `/runs`, `/universe`, `/universe/coverage`, `/scores`, `/portfolio/positions`, `/portfolio/ranking`. | Unread. | The API cannot feed the projection (no vetoes, filings, sections, rules, DQ, quant); read SQLite via `portfolio_common.db` (`read_only`), not raw `sqlite3` (NR-002). |
 | D16 | **Contracts still moving.** Upstream open items that change view contents: cross-module orchestrator (WI 2), SEMANTIC half (WI 4), technical/valorization redesign + EBITDA + forensic flags + Carhart (WI 8), entity-resolution sanitization and `media_cooccurrence` routing (WI 9), N-driven weight caps (WI 18), full-universe production run (WI 12). Also: `portfolio-common` is pinned `v1.2.1` in both `financial-analysis` and `data-mining` but `v1.2.0` here and in `portfolio-nlp`. | Pin `v1.2.0`. | Treat the views as a versioned contract: assert `schema_version`, re-pin deliberately (T-109, T-110). |
 
 ## 3. Technology Stack & Architecture Decisions
@@ -481,8 +481,8 @@ There is no CD pipeline and no CI workflow for this repo
 (`.github/workflows/` is empty); what exists:
 
 1. `uv sync`.
-2. Configure `.env` (from `.env.example`) with at least `KG_URLS_DB`; the
-   remaining `KG_*` variables have documented defaults.
+2. Configure `.env` (from `.env.example`) with at least `SQL_URLS_DB`; the
+   remaining ETL variables have documented defaults.
 3. Run the schema validation check (constitution §Executable cmds) after any
    `schema/` edit.
 4. Run `uv run python cli/build_data_ttl.py [--limit N]` to (re)build
@@ -506,11 +506,11 @@ There is no CD pipeline and no CI workflow for this repo
   a floating version.
 - **Upstream (data, read-only, designed — not yet read)**:
   `portfolio-financial-analysis`'s `v_*` read-contract views over
-  `KG_FINANCIAL_DB` (opened `mode=ro` through `portfolio_common.db`; list in
+  `SQL_FINANCIAL_DB` (opened `mode=ro` through `portfolio_common.db`; list in
   §2.5) — the contract through which fundamentals, pricing summaries, vetoes,
   rankings, positions, executive-edge candidates and the SEMANTIC score reach
   this repo — **and `universe.db`** (`portfolio-data-mining`'s point-in-time
-  S&P 500 membership, `KG_UNIVERSE_DB`, read-only), because
+  S&P 500 membership, `SQL_UNIVERSE_DB`, read-only), because
   `v_universe_membership` is frozen upstream (§2.6 D1). Both are versioned
   contracts that are still moving (§2.6 D16).
 - **Downstream (intended, not yet built)**: a standing triple store, the
@@ -522,7 +522,7 @@ There is no CD pipeline and no CI workflow for this repo
   and `portfolio-app` sit further downstream still, per the six-repo diagram
   in §1.
 - **Upstream (data, read-only, transitional)**: `portfolio-data-mining`'s
-  `urls.db` (SOURCE, `KG_URLS_DB`) — read today by `src/etl/` through
+  `urls.db` (SOURCE, `SQL_URLS_DB`) — read today by `src/etl/` through
   `portfolio_common.news_export` alongside the RESULTS store, because the
   ETL's severity step scans `articles.body_text` (§13 item 12). The real
   projection should not need it.
@@ -612,7 +612,7 @@ treating a related FR/NR as done:
     4–5).
 12. **FR-005 and the code disagree.** FR-005 and §2.2 say the ETL never
     reads `body_text`; `src/etl/news_to_rdf.py` and `config.py` do — SOURCE
-    `urls.db` (`KG_URLS_DB`) is a required input and `compute_severity`
+    `urls.db` (`SQL_URLS_DB`) is a required input and `compute_severity`
     keyword-scans the text to escalate severity. Found while handling review
     on PR #22; the acceptance grep (`body_text` in `src/etl`) fails today.
     Decision pending (PLAN Work item 11, T-113): drop the escalation or amend

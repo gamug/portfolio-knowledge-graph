@@ -10,11 +10,11 @@ The news stage reads two databases -- the same two-tier SOURCE/RESULTS
 contract ``portfolio-nlp``'s ``news_nlp`` package implements (see
 ``portfolio_common.news_export`` and ``portfolio-nlp/docs/db-topology.md``):
 
-* ``KG_URLS_DB`` (SOURCE) -- the external ``news-collector`` SQLite database,
+* ``SQL_URLS_DB`` (SOURCE) -- the external ``news-collector`` SQLite database,
   which has ``articles.body_text``. No useful default; in this dev container
   it is bind-mounted at ``/workspaces/thesis/data/urls.db``, so it must be
   supplied via ``.env``.
-* ``KG_RESULTS_DB`` (RESULTS) -- the ``portfolio-nlp`` results store
+* ``SQL_NLP_DB`` (RESULTS) -- the ``portfolio-nlp`` results store
   (``article_sentiment``/``article_category``, no ``body_text``), e.g. that
   repo's ``nlp.db``. Defaults to ``<repo>/data/nlp.db``, matching
   ``portfolio-nlp``'s own ``news_nlp.env.results_db_path()`` default, but
@@ -59,13 +59,13 @@ def schema_dir() -> Path:
 def urls_db_path() -> Path:
     """SOURCE database path: the external ``news-collector`` SQLite database
     (``urls.db``), which has ``articles.body_text``."""
-    return _env_path("KG_URLS_DB", REPO_ROOT / "data" / "urls.db")
+    return _env_path("SQL_URLS_DB", REPO_ROOT / "data" / "urls.db")
 
 
 def results_db_path() -> Path:
     """RESULTS database path: the ``portfolio-nlp`` results store
     (``article_sentiment``/``article_category``, no ``body_text``)."""
-    return _env_path("KG_RESULTS_DB", REPO_ROOT / "data" / "nlp.db")
+    return _env_path("SQL_NLP_DB", REPO_ROOT / "data" / "nlp.db")
 
 
 def output_path() -> Path:
