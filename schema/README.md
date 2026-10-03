@@ -129,7 +129,7 @@ vocabulary, this would have failed.
 **Re-verified 2026-10-03 (T-103, rule catalog migration):** the same combined-graph parse and
 `pyshacl` check — **1718 quads; conforms: True**. The migration added the six upstream
 `RuleDefinition`s, closed the seven tree rules with `validTo`, added `:ruleSeverity` and widened
-`ThresholdComparisonShape`'s `metricName` list; no new class, so the 24-member `AllDisjointClasses`
+`ThresholdComparisonShape`'s `metricName` list; no new class, so the 24-member `AllDisjointClasses` (25 since T-104)
 block and the 14 node shapes are unchanged.
 
 **T-102 (veto stints), same day:** `:Veto` gains `raisedOn` (required), `clearedOn`, `lastSeenOn`
@@ -141,6 +141,8 @@ A stint is closed by writing `clearedOn` in the clearing cycle's graph, never by
 `Veto`; the worked example closes `Veto_XOM_20260804` on 2026-08-05 and gives
 `Veto_XOM_MKT_20260805` a SOFT `vetoSeverity`. Upstream's wall-clock `cleared_at` is dropped.
 **1771 quads; conforms: True.**
+
+**T-104 (D5, decided 2026-10-03: model it).** `:DataQualityIssue` is an `EvidenceSource` leaf — one row of upstream's `data_quality_issue` (`dqGateCode`, `dqSeverity`, `quarantined`, `gatedValue`, `dqIssueOfAsset`) — so a HARD gate that raises the `DATA_QUALITY` veto has an evidence target: a `RiskEvent` is `backedBy` it. Written to the FUNDAMENTAL ingest graph (the Ring-1 gates run in the fundamental agent). `DataQualityIssueShape` is the 16th shape; `dqSeverity` is not enumerated because only HARD is documented upstream. The 25th class joins `AllDisjointClasses`. **1832 quads; conforms: True.**
 
 "Active at cutoff" is the general predicate; the **T-1 lag is the same query with `?cutoff` bound to
 the previous cycle date**. It needs the store to query the union of the named graphs (GraphDB does

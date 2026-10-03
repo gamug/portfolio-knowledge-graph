@@ -3,7 +3,7 @@
 **Implementation:** [`schema/`](../schema/) — the formal OWL/SHACL/TriG implementation of
 everything described below, split into `tbox.ttl` (classes/properties, **37 classes total** as of
 this revision — 24 mutually-disjoint leaf/domain classes plus a 13-class `rdfs:subClassOf`
-taxonomic backbone, see §1.2), `shapes.ttl` (SHACL, 15 shapes), `reference.ttl` (GICS taxonomy +
+taxonomic backbone, see §1.2), `shapes.ttl` (SHACL, 16 shapes), `reference.ttl` (GICS taxonomy +
 asset master data + the new `MetricType` controlled vocabulary, §1.9), `rules.ttl` (all 7 veto
 rules as trees), and `instances.trig` (a worked, multi-graph, multi-asset dataset). Parsed clean
 with `rdflib` and SHACL-validated with `pyshacl` (**conforms: True**); the veto rule trees were
@@ -19,7 +19,7 @@ inventory with an explicit taxonomy, and closes a second, smaller gap (untyped `
 strings) the same way GICS sectors were already handled. Neither change renames, removes, or
 redefines any existing class, property, or SHACL shape — the prior design's entity/relationship
 modeling, temporal handling, and rule-as-data pattern were reviewed and found sound; only the
-*taxonomic structure* (or lack of it) among the 24 domain classes needed fixing. See §1.2 and §1.9.
+*taxonomic structure* (or lack of it) among the 25 domain classes needed fixing. See §1.2 and §1.9.
 
 **Store target:** RDF triple/quad store (GraphDB or Apache Jena Fuseki). This is the single
 decision that shapes everything in this document — it means the ontology has to be formal OWL
@@ -48,7 +48,7 @@ academic grounding — it signals the class design isn't arbitrary, without payi
 
 ## 1.2 Class taxonomy
 
-Replaces the earlier flat, disjointness-only inventory. The 24 leaf/domain classes are organized
+Replaces the earlier flat, disjointness-only inventory. The 25 leaf/domain classes are organized
 under 6 broad categories and, in 4 cases, an intervening mid-level category — placement was decided
 by **shared property shape**, a structural criterion, not by theme (e.g. `AttractivenessSnapshot`
 sits under `Observation Snapshot`, not next to `Veto`, because it shares `ScoreSnapshot`'s
@@ -152,7 +152,7 @@ excluded-union design could never support. Everything else here is new.
 :RuleOperand a owl:Class ; rdfs:subClassOf :RuleSystem ;
     rdfs:label "Rule Operand"@en .
 
-### The 24 leaf/domain classes — additive subClassOf edges only. No class's own declaration,
+### The 25 leaf/domain classes — additive subClassOf edges only. No class's own declaration,
 ### properties, or membership in AllDisjointClasses changes; subClassOf (vertical) and
 ### AllDisjointClasses (horizontal, sibling-only) are orthogonal OWL constructs.
 :Asset     rdfs:subClassOf :DomainEntity .
@@ -190,7 +190,7 @@ excluded-union design could never support. Everything else here is new.
 `rdfs:subClassOf` transitivity, previously to serve the GICS taxonomy only. This backbone means
 that same setting now also makes `?x a :ObservationSnapshot`, `?x a :Evidence`, `?x a :RuleOperand`,
 etc. valid, reasoner-answered queries over the ontology's own domain classes — impossible before
-this revision, since there was no `subClassOf` structure among the 24 domain classes for the
+this revision, since there was no `subClassOf` structure among the 25 domain classes for the
 reasoner to traverse.
 
 ## 1.3 Object & datatype properties
@@ -320,11 +320,11 @@ own tree structure and reproduced the intended firings exactly — see `schema/R
 ## 1.6 SHACL shapes for data-quality enforcement
 
 SHACL (Shapes Constraint Language) is RDF's declarative validator — the world-view equivalent of
-a schema/type checker, but expressed as data rather than code. 15 shapes are defined
+a schema/type checker, but expressed as data rather than code. 16 shapes are defined
 (`schema/shapes.ttl`; 10 before 2026-08-13, including `ThresholdComparisonShape`,
 `CategoricalComparisonShape`, and `GraphPredicateShape` added during implementation to cover the
 two new leaf types from the addendum above, plus four more added 2026-08-13 for the
-attractiveness-ranking feature, see §1.8, plus `VetoShape` added 2026-10-03 for T-102), each closing a specific gap:
+attractiveness-ranking feature, see §1.8, plus `VetoShape` added 2026-10-03 for T-102 and `DataQualityIssueShape` for T-104), each closing a specific gap:
 
 | Shape | Constraint | Closes |
 |---|---|---|
@@ -334,6 +334,7 @@ attractiveness-ranking feature, see §1.8, plus `VetoShape` added 2026-10-03 for
 | `RuleClauseShape` | `clauseType` ∈ `{AND, OR}`; both operands required | Structural half of the critique #1 fix — a clause literally cannot be built with a missing operand or an unrecognized operator. |
 | `ThresholdComparisonShape` / `CategoricalComparisonShape` / `GraphPredicateShape` | Each leaf kind's required fields (`metricName`/`operator`/`thresholdValue`; `attributeName`/`expectedValue`; `predicateName`) | Completes the structural half of the critique #1 fix across all rule leaf kinds, not just numeric ones (the 7 original rules; upstream's six single-leaf rules reuse the same shapes, T-103). |
 | `UniverseMembershipShape` | both endpoints + `validFrom` required | Keeps §1.4's n-ary relation pattern from degrading into a dangling record. |
+| `DataQualityIssueShape` | gate code, severity, `quarantined` and asset required; `gatedValue` optional decimal | Evidence for the `DATA_QUALITY` veto (T-104): an upstream `data_quality_issue` row, an `EvidenceSource` leaf. |
 | `VetoShape` | `raisedOn` required; `clearedOn`/`lastSeenOn` optional, never before `raisedOn`; `vetoSeverity` ∈ {HARD, SOFT} | Veto stints (T-102): a stint is closed by `clearedOn`, never deleted. |
 
 Validated end-to-end with `pyshacl` against the full worked dataset below: **conforms = True**.
@@ -364,7 +365,7 @@ ontology its first sector-level signal (critique #3, layer B2's momentum half). 
 including the arithmetic worked example, lives in
 `docs/superpowers/specs/2026-08-13-attractiveness-sector-momentum-design.md`; this section
 summarizes what changed in the TBox. Four new classes were added, bringing the ontology to 27
-total classes (`AllDisjointClasses` grew from 20 to 24 members, where it still stands — the
+total classes (`AllDisjointClasses` grew from 20 to 24 members, then to 25 with `DataQualityIssue` (T-104) — the
 taxonomic backbone added 2026-08-23, §1.2, brings the *overall* class count to 37, but adds no new
 disjoint leaf types) and `shapes.ttl` to 14 shapes (§1.6):
 

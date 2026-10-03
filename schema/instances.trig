@@ -81,6 +81,10 @@ GRAPH <urn:graph:ingest:FUNDAMENTAL:2026-Q3> {
     :Snap_PG_Fin_2026Q3 a :ScoreSnapshot ; :agentOrigin "FUNDAMENTAL" ; :metricType "ScoreFinanciero" ;
         :rawValue "3.05"^^xsd:decimal ; :normalizedScore "0.20"^^xsd:decimal ; :timestamp "2026-07-05T06:00:00"^^xsd:dateTime .
 
+    # T-104: a Ring-1 gate firing is evidence, not a score. HARD would back a DATA_QUALITY veto; this one is SOFT.
+    :DQ_PG_20260705 a :DataQualityIssue ; :dqIssueOfAsset :PG ; :dqGateCode "DQ_CURRENT_RATIO_RANGE" ;
+        :dqSeverity "SOFT" ; :quarantined true ; :gatedValue "412.7"^^xsd:decimal .
+
     :AAPL :hasScoreObservation :Snap_AAPL_Fin_2026Q3 .
     :JPM  :hasScoreObservation :Snap_JPM_Fin_2026Q3 .
     :XOM  :hasScoreObservation :Snap_XOM_Fin_2026Q3 .

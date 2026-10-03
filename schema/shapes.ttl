@@ -42,6 +42,15 @@
     sh:property [ sh:path :lastSeenOn ; sh:datatype xsd:date ] ;
     sh:property [ sh:path :vetoSeverity ; sh:in ("HARD" "SOFT") ; sh:maxCount 1 ] .
 
+:DataQualityIssueShape
+    a sh:NodeShape ;
+    sh:targetClass :DataQualityIssue ;
+    sh:property [ sh:path :dqIssueOfAsset ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :dqGateCode ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :dqSeverity ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :quarantined ; sh:datatype xsd:boolean ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :gatedValue ; sh:datatype xsd:decimal ; sh:maxCount 1 ] .
+
 :RuleDefinitionShape
     a sh:NodeShape ;
     sh:targetClass :RuleDefinition ;

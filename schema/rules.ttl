@@ -101,7 +101,7 @@
     :ruleId "DATA_QUALITY" ; :category "DATA_QUALITY" ; :priorityRank 6 ;
     :ruleSeverity "HARD" ; :validFrom "2026-10-02"^^xsd:date ;
     :hasClause :Pred_DATA_QUALITY_HardGate ;
-    rdfs:comment "A HARD Ring-1 DQ_* gate fired on the asset's latest filing. Evidence is upstream's data_quality_issue rows; whether those become :DataQualityIssue individuals is T-104." .
+    rdfs:comment "A HARD Ring-1 DQ_* gate fired on the asset's latest filing. Evidence is upstream's data_quality_issue rows; they are projected as :DataQualityIssue individuals (T-104)." .
 :Pred_DATA_QUALITY_HardGate a :GraphPredicate ; :predicateName "HasHardDataQualityIssue" ;
     rdfs:comment "Upstream params: source=data_quality_issue, severity=HARD. Evaluated upstream." .
 

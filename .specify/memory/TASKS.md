@@ -104,7 +104,7 @@ decisions (T-100–T-104).*
       `:appliesRule` resolves, supersede `rules.ttl`'s seven tree rules
       (including `VETO_RED_01`), and update FR-003, `06`/`07`, `schema/README.md`
       and the FR-001 counts. → step 3.
-- [ ] **T-104** *(D5)* Decide `:DataQualityIssue` (evidence for the
+- [x] **T-104** *(D5; done 2026-10-03: modelled as an `EvidenceSource` leaf, `DataQualityIssueShape`)* Decide `:DataQualityIssue` (evidence for the
       `DATA_QUALITY` veto) vs. dropping it. → step 3.
 - [ ] **T-105** *(D6)* `agentOrigin` `QUANTITATIVE` → `VALORIZATION` in
       `shapes.ttl`/`reference.ttl` (MetricType) and docs; document each score
