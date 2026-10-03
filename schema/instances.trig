@@ -95,20 +95,21 @@ GRAPH <urn:graph:ingest:FUNDAMENTAL:2026-Q3> {
     :PG   :hasScoreObservation :Snap_PG_Fin_2026Q3 .
 }
 
-GRAPH <urn:graph:ingest:QUANTITATIVE:2026-08-05> {
-    :Snap_AAPL_Quant_20260805 a :ScoreSnapshot ; :agentOrigin "QUANTITATIVE" ; :metricType "ScoreCuantitativo" ;
+# T-105: formerly urn:graph:ingest:QUANTITATIVE:...; the `_Quant_` IRI stems below are historical.
+GRAPH <urn:graph:ingest:VALORIZATION:2026-08-05> {
+    :Snap_AAPL_Quant_20260805 a :ScoreSnapshot ; :agentOrigin "VALORIZATION" ; :metricType "ScoreCuantitativo" ;
         :rawValue "0.40"^^xsd:decimal ; :normalizedScore "0.40"^^xsd:decimal ; :timestamp "2026-08-05T07:00:00"^^xsd:dateTime ;
         :eventTime "2026-08-05"^^xsd:date ; :availableAt "2026-08-05"^^xsd:date .
-    :Snap_JPM_Quant_20260805 a :ScoreSnapshot ; :agentOrigin "QUANTITATIVE" ; :metricType "ScoreCuantitativo" ;
+    :Snap_JPM_Quant_20260805 a :ScoreSnapshot ; :agentOrigin "VALORIZATION" ; :metricType "ScoreCuantitativo" ;
         :rawValue "0.55"^^xsd:decimal ; :normalizedScore "0.55"^^xsd:decimal ; :timestamp "2026-08-05T07:00:00"^^xsd:dateTime ;
         :eventTime "2026-08-05"^^xsd:date ; :availableAt "2026-08-05"^^xsd:date .
-    :Snap_XOM_Quant_20260805 a :ScoreSnapshot ; :agentOrigin "QUANTITATIVE" ; :metricType "ScoreCuantitativo" ;
+    :Snap_XOM_Quant_20260805 a :ScoreSnapshot ; :agentOrigin "VALORIZATION" ; :metricType "ScoreCuantitativo" ;
         :rawValue "0.45"^^xsd:decimal ; :normalizedScore "0.45"^^xsd:decimal ; :timestamp "2026-08-05T07:00:00"^^xsd:dateTime ;
         :eventTime "2026-08-05"^^xsd:date ; :availableAt "2026-08-05"^^xsd:date .
-    :Snap_JNJ_Quant_20260805 a :ScoreSnapshot ; :agentOrigin "QUANTITATIVE" ; :metricType "ScoreCuantitativo" ;
+    :Snap_JNJ_Quant_20260805 a :ScoreSnapshot ; :agentOrigin "VALORIZATION" ; :metricType "ScoreCuantitativo" ;
         :rawValue "0.30"^^xsd:decimal ; :normalizedScore "0.30"^^xsd:decimal ; :timestamp "2026-08-05T07:00:00"^^xsd:dateTime ;
         :eventTime "2026-08-05"^^xsd:date ; :availableAt "2026-08-05"^^xsd:date .
-    :Snap_PG_Quant_20260805 a :ScoreSnapshot ; :agentOrigin "QUANTITATIVE" ; :metricType "ScoreCuantitativo" ;
+    :Snap_PG_Quant_20260805 a :ScoreSnapshot ; :agentOrigin "VALORIZATION" ; :metricType "ScoreCuantitativo" ;
         :rawValue "0.25"^^xsd:decimal ; :normalizedScore "0.25"^^xsd:decimal ; :timestamp "2026-08-05T07:00:00"^^xsd:dateTime ;
         :eventTime "2026-08-05"^^xsd:date ; :availableAt "2026-08-05"^^xsd:date .
 

@@ -63,7 +63,7 @@ files with `rdflib` and compares the asserted triple count of each of those grap
 (inferred statements excluded), exiting non-zero on any mismatch; the counts are printed, not
 hard-coded here. The drops and uploads run in one transaction, so a failed load changes nothing.
 Graphs that are not in `schema/` (for example ingest graphs written later) are left alone and only
-counted in a closing note; a graph removed from `schema/` has to be dropped by hand.
+counted in a closing note; a graph removed from `schema/` has to be dropped by hand. **T-105 migration:** a repository loaded before T-105 still holds `urn:graph:ingest:QUANTITATIVE:2026-08-05`; run `DROP GRAPH <urn:graph:ingest:QUANTITATIVE:2026-08-05>` once, or the same snapshots will exist under both `agentOrigin` values and fail `ScoreSnapshotShape`.
 Needs write access (`WRITE_REPO_portfolio`). It loads `schema/` only; the ETL's `data.ttl` and
 projected upstream data belong to Work item 4.
 

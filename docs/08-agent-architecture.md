@@ -39,7 +39,7 @@ because its state-graph model plus built-in checkpointing map onto the two-speed
    {orchestrator, compute_attractiveness}` (spec §7), i.e. one join (`sector_agent`) feeding two
    independent sibling joins:
    - `quantitative_agent` — reads the price panel (external columnar store, **not** the graph —
-     see `07-ontology-topology.md`'s price-panel warning) and writes `ScoreSnapshot('QUANTITATIVE')`.
+     see `07-ontology-topology.md`'s price-panel warning) and writes `ScoreSnapshot('VALORIZATION')` (v1 name: QUANTITATIVE).
    - `technical_agent` — computes momentum/ATR and writes `ScoreSnapshot('TECHNICAL')` plus a
      derived `PriceObservation`.
    - `semantic_agent` — pulls new rows from `portfolio-data-mining`'s `articles` table (via

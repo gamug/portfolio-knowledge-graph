@@ -31,7 +31,7 @@ system operates.
 ```
 urn:graph:universe:2026-Q3
 urn:graph:ingest:FUNDAMENTAL:2026-Q3
-urn:graph:ingest:QUANTITATIVE:2026-08-05
+urn:graph:ingest:VALORIZATION:2026-08-05
 urn:graph:ingest:TECHNICAL:2026-08-05
 urn:graph:ingest:SEMANTIC:2026-08-05
 urn:graph:ingest:SECTOR:2026-08-05

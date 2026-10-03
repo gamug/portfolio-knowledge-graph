@@ -20,7 +20,7 @@ special query language feature.
 | `urn:graph:tbox` | The ontology itself — classes, properties from `schema/tbox.ttl`, SHACL shapes from `schema/shapes.ttl` | Rarely changes; versioned like code. |
 | `urn:graph:reference` | Static reference data: GICS `Sector`/`Industry` SKOS scheme, FIBO alignment annotations, Asset master data (`schema/reference.ttl`) | Rarely changes. |
 | `urn:graph:rules:catalog` | The versioned veto rule catalog (`schema/rules.ttl`) | Rarely changes; each `RuleDefinition` is already self-temporal via `validFrom`/`validTo`. |
-| `urn:graph:ingest:{agent}:{date}` | One graph per (agent, day) ingestion batch — that day's `ScoreSnapshot`s and `RiskEvent`s from `SEMANTIC`/`QUANTITATIVE`/`TECHNICAL` agents (v1's fast cycle, §2B) | **Append-only.** Never edited after creation — this is what makes it a faithful transaction-time record. |
+| `urn:graph:ingest:{agent}:{date}` | One graph per (agent, day) ingestion batch — that day's `ScoreSnapshot`s and `RiskEvent`s from `SEMANTIC`/`VALORIZATION`/`TECHNICAL` agents (v1's fast cycle, §2B) | **Append-only.** Never edited after creation — this is what makes it a faithful transaction-time record. |
 | `urn:graph:ingest:SECTOR:{date}` | One graph per Sector Agent daily run — `SectorAggregateSnapshot`s and per-asset `SectorRelativeMomentum` `ScoreSnapshot`s (added 2026-08-13, see spec) | **Append-only**, same convention as the other per-agent ingest graphs. |
 | `urn:graph:ingest:FUNDAMENTAL:{year}-Q{n}` | One graph per quarterly Fundamental Agent run — new `UniverseMembership` records, fundamental `ScoreSnapshot`s, and `DataQualityIssue` evidence from the Ring-1 gates (T-104; dated by `dqRaisedOn`, optionally linked to the gated `SECFiling` and metric) (v1's slow cycle, §2A) | Append-only. |
 | `urn:graph:ingest:ORCHESTRATOR:{date}` | The Orchestrator's own decisions — `Veto` individuals and any `RiskEvent`s it directly produced; also `AttractivenessSnapshot` individuals (added 2026-08-13) — the Orchestrator's ranking output, alongside its veto output | Append-only. A `Veto` stint is closed by a `clearedOn` triple written in the clearing cycle's graph (T-102), never deleted. |
@@ -55,7 +55,7 @@ Back-of-envelope for a full 2022–present backfill (~4 years, ~1,008 trading da
 
 | Source | Rough volume | Why |
 |---|---|---|
-| `ScoreSnapshot` (QUANTITATIVE + TECHNICAL) | ~2.0M individuals | Daily metrics × 500 assets × ~1,000 trading days × 2 agents × ~2 metrics each. |
+| `ScoreSnapshot` (VALORIZATION + TECHNICAL) | ~2.0M individuals | Daily metrics × 500 assets × ~1,000 trading days × 2 agents × ~2 metrics each. |
 | `ScoreSnapshot` (SEMANTIC) | ~200K individuals | News-driven, not every company every day — roughly matches the density already observed in `portfolio-data-mining`'s extracted-article corpus (2,289 articles from just 8 tickers in a sample window) scaled to 500 tickers over 4 years. |
 | `ScoreSnapshot` (FUNDAMENTAL) | ~25K individuals | Quarterly × 500 assets × ~16 quarters × ~3 metrics. |
 | `NewsArticle` | ~100K–150K individuals | Scaling the existing extracted-article corpus density (§ above) to the full S&P 500. |
@@ -75,7 +75,7 @@ by IRI, only by (`asset`, `date range`) scans that a columnar/relational store a
 `PriceObservation` individuals (`06-ontology-definition.md` §1.2) are explicitly **derived summaries
 only** — closing price, daily return, ATR — projected into the graph for the bounded window the
 veto rules actually need (e.g. a rolling 90-day window), while the full historical OHLCV panel
-lives in a separate columnar store (Parquet/SQLite/Postgres) that the Quantitative/Technical agents
+lives in a separate columnar store (Parquet/SQLite/Postgres) that the Valorization/Technical agents
 query directly. This is the single design call in this document most likely to be silently
 violated by a future implementer reaching for "just put everything in the graph" — it's called out
 here explicitly so it isn't.
