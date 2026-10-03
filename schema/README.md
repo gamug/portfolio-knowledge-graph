@@ -127,10 +127,25 @@ here (not just syntax validation): if any actual data value had fallen outside t
 vocabulary, this would have failed.
 
 **Re-verified 2026-10-03 (T-103, rule catalog migration):** the same combined-graph parse and
-`pyshacl` check — **1718 quads; conforms: True**. The migration added the six upstream
+`pyshacl` check — **1769 quads; conforms: True**. The migration added the six upstream
 `RuleDefinition`s, closed the seven tree rules with `validTo`, added `:ruleSeverity` and widened
 `ThresholdComparisonShape`'s `metricName` list; no new class, so the 24-member `AllDisjointClasses`
-block and the 14 node shapes are unchanged.
+block is unchanged; the node shapes go 14 → 15.
+
+**T-102 (veto stints), same day:** `:Veto` gains `raisedOn` (required), `clearedOn`, `lastSeenOn`
+(`xsd:date` cycle dates) and `vetoSeverity` (HARD | SOFT, per stint), enforced by a new
+`VetoShape`; the four worked-example vetoes carry `raisedOn`/`lastSeenOn`. **1769 quads;
+conforms: True.** A stint is closed by writing `clearedOn` (in the clearing cycle's ORCHESTRATOR
+graph), never by deleting the `Veto`. "Active at cutoff `?cutoff`" — the T-1 lag as a read-time
+predicate (checked: cutoff 2026-08-04 returns only `Veto_XOM_20260804`):
+
+```sparql
+SELECT ?asset ?veto WHERE {
+  ?asset :triggeredVeto ?veto . ?veto :raisedOn ?r .
+  OPTIONAL { ?veto :clearedOn ?c }
+  FILTER (?r <= ?cutoff && (!BOUND(?c) || ?c > ?cutoff))
+}
+```
 
 **Second re-verification, same day, taxonomy-quality review pass:** a programmatic audit of the
 `rdfs:subClassOf` graph (cycle detection, orphan detection, multi-parent detection — all via

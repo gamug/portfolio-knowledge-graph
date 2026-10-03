@@ -131,8 +131,8 @@ code; not run here. Differences from the design above:
 | `compute_attractiveness` → `AttractivenessSnapshot` | `rank` blends the score types by per-run weights into `cycle_ranking` and capped `portfolio_position` stints; no attractiveness individual |
 | Universe from a Wikipedia fetch / SPARQL on `UniverseMembership` | Point-in-time `universe.db` as of `--analysis-date` |
 
-The T-1 mechanism, the stint model and the rule catalog are decisions still to be reflected in
-`schema/` (`.specify/memory/PLAN.md` Work item 11, T-102/T-103).
+The stint model and the T-1 predicate (T-102) and the rule catalog (T-103) are reflected in
+`schema/`; see `schema/README.md` for the SPARQL pattern.
 
 ---
 

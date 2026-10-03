@@ -3,7 +3,7 @@
 **Implementation:** [`schema/`](../schema/) — the formal OWL/SHACL/TriG implementation of
 everything described below, split into `tbox.ttl` (classes/properties, **37 classes total** as of
 this revision — 24 mutually-disjoint leaf/domain classes plus a 13-class `rdfs:subClassOf`
-taxonomic backbone, see §1.2), `shapes.ttl` (SHACL, 14 shapes), `reference.ttl` (GICS taxonomy +
+taxonomic backbone, see §1.2), `shapes.ttl` (SHACL, 15 shapes), `reference.ttl` (GICS taxonomy +
 asset master data + the new `MetricType` controlled vocabulary, §1.9), `rules.ttl` (all 7 veto
 rules as trees), and `instances.trig` (a worked, multi-graph, multi-asset dataset). Parsed clean
 with `rdflib` and SHACL-validated with `pyshacl` (**conforms: True**); the veto rule trees were
@@ -204,6 +204,10 @@ calling out here are the ones that encode a design decision, not just a field:
 - **`appliesRule`** vs **`primaryRule`** — both present on `Veto`, matching v1's own distinction
   ("Mapeo de Activaciones Multiples", §4): the full trigger list plus a computed lowest-`priorityRank`
   primary reason for audit queries.
+- **`Veto` is a stint** (T-102, 2026-10-03): `raisedOn` (required), `clearedOn`, `lastSeenOn` are cycle
+  dates mirroring upstream's `veto` rows; `vetoSeverity` (HARD | SOFT) is the per-stint severity.
+  Active at cutoff C iff `raisedOn <= C` and (no `clearedOn` or `clearedOn > C`); the T-1 lag is that
+  predicate at read time (SPARQL in `schema/README.md`). Stints are closed by writing `clearedOn`.
 - **`sharedExecutiveWith`** is declared `owl:SymmetricProperty` but is explicitly commented as
   *derived*, not hand-authored — it is written by the entity-resolution service (roadmap step 7),
   not by any ingestion agent directly. Marking this in the ontology itself prevents a future
@@ -316,7 +320,7 @@ own tree structure and reproduced the intended firings exactly — see `schema/R
 ## 1.6 SHACL shapes for data-quality enforcement
 
 SHACL (Shapes Constraint Language) is RDF's declarative validator — the world-view equivalent of
-a schema/type checker, but expressed as data rather than code. 14 shapes are defined
+a schema/type checker, but expressed as data rather than code. 15 shapes are defined
 (`schema/shapes.ttl`; 10 before 2026-08-13, including `ThresholdComparisonShape`,
 `CategoricalComparisonShape`, and `GraphPredicateShape` added during implementation to cover the
 two new leaf types from the addendum above, plus four more added 2026-08-13 for the

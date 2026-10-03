@@ -94,7 +94,7 @@
 :Veto
     a owl:Class ;
     rdfs:label "Veto" ;
-    rdfs:comment "The orchestrator's decision node for one Asset in one cycle: which rule(s) fired and why (v1 §4)." .
+    rdfs:comment "The orchestrator's decision node for one Asset: which rule(s) fired and why (v1 §4). Since T-102 a Veto is a stint (raisedOn..clearedOn, upstream veto rows), not a single-cycle event." .
 
 :RuleDefinition
     a owl:Class ;
@@ -394,11 +394,21 @@
     rdfs:comment "CRITICAL | HIGH | MODERATE | LOW." .
 :detectedAt a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :RiskEvent ; rdfs:range xsd:dateTime .
 :decidedAt  a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :Veto ; rdfs:range xsd:dateTime .
+# T-102: a :Veto is a STINT (upstream's `veto` rows), not a one-cycle event. Dates are cycle dates (xsd:date);
+# decidedAt stays the wall-clock detection time (upstream `detected_at`).
+:raisedOn   a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :Veto ; rdfs:range xsd:date ;
+    rdfs:comment "Cycle date on which the stint began (upstream raised_on). Required. Active at cutoff C iff raisedOn <= C AND (no clearedOn OR clearedOn > C); the T-1 lag is this predicate applied at read time (schema/README.md has the SPARQL), not an orchestrator feature. Added 2026-10-03 (T-102)." .
+:clearedOn  a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :Veto ; rdfs:range xsd:date ;
+    rdfs:comment "Cycle date on which the stint closed (upstream cleared_on): a HARD veto clears when its rule re-evaluates clean. Absent = still active. Closed by writing this triple (in the clearing cycle's ORCHESTRATOR graph), never by deleting the Veto. Added 2026-10-03 (T-102)." .
+:lastSeenOn a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :Veto ; rdfs:range xsd:date ;
+    rdfs:comment "Most recent cycle date on which the rule still fired for this stint (upstream last_seen_on). Optional. Added 2026-10-03 (T-102)." .
+:vetoSeverity a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :Veto ; rdfs:range xsd:string ;
+    rdfs:comment "HARD | SOFT -- this stint's severity, which can differ from its rule's :ruleSeverity (LEVERAGE_EXTREME emits SOFT for a negative-equity firm). A SOFT stint charges soft_veto_penalty once. Optional: absent means the rule's severity. Added 2026-10-03 (T-102)." .
 
 # --- RuleDefinition / RuleClause / leaf comparisons ---
 :ruleId       a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :RuleDefinition ; rdfs:range xsd:string .
 :ruleSeverity a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :RuleDefinition ; rdfs:range xsd:string ;
-    rdfs:comment "HARD | SOFT — the severity upstream's rule_catalog assigns the rule (T-103). An individual veto stint's severity can differ (LEVERAGE_EXTREME emits SOFT for a negative-equity firm with no corroborating metric); :Veto has no severity property yet -- modelling stints is T-102. Distinct from :severity, which is a RiskEvent field." .
+    rdfs:comment "HARD | SOFT — the severity upstream's rule_catalog assigns the rule (T-103). An individual veto stint's severity can differ (LEVERAGE_EXTREME emits SOFT for a negative-equity firm with no corroborating metric); :Veto carries the per-stint value as :vetoSeverity (T-102). Distinct from :severity, which is a RiskEvent field." .
 :priorityRank a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :RuleDefinition ; rdfs:range xsd:integer ;
     rdfs:comment "1 (highest) .. 7 (lowest), used to pick primaryRule (v1 §4). (Comment corrected 2026-08-23: stale '6' predates VETO_MKT_02, added 2026-08-13 as the 7th rule -- shapes.ttl's RuleDefinitionShape already had priorityRank's range as [1,7] correctly.)" .
 :clauseType   a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :RuleClause ; rdfs:range xsd:string ;

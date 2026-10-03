@@ -256,24 +256,24 @@ GRAPH <urn:graph:derived:entity-resolution:2026-Q3> {
 }
 
 GRAPH <urn:graph:ingest:ORCHESTRATOR:2026-08-04> {
-    :Veto_XOM_20260804 a :Veto ; :appliesRule :Rule_VETO_FIN_01 ; :primaryRule :Rule_VETO_FIN_01 ;
+    :Veto_XOM_20260804 a :Veto ; :raisedOn "2026-08-04"^^xsd:date ; :lastSeenOn "2026-08-04"^^xsd:date ; :appliesRule :Rule_VETO_FIN_01 ; :primaryRule :Rule_VETO_FIN_01 ;
         :decidedAt "2026-08-04T09:10:00"^^xsd:dateTime ;
         rdfs:comment "Single-signal rule -- no RiskEvent needed; evidence is the FUNDAMENTAL ScoreSnapshot itself (Snap_XOM_Fin_2026Q3, normalizedScore 0.90 > 0.85)." .
     :XOM :triggeredVeto :Veto_XOM_20260804 .
 }
 
 GRAPH <urn:graph:ingest:ORCHESTRATOR:2026-08-05> {
-    :Veto_AAPL_20260805 a :Veto ; :triggeredBy :Event_AAPL_20260805 ;
+    :Veto_AAPL_20260805 a :Veto ; :raisedOn "2026-08-05"^^xsd:date ; :lastSeenOn "2026-08-05"^^xsd:date ; :triggeredBy :Event_AAPL_20260805 ;
         :appliesRule :Rule_VETO_COMP_01 ; :primaryRule :Rule_VETO_COMP_01 ;
         :decidedAt "2026-08-05T09:10:00"^^xsd:dateTime .
     :AAPL :triggeredVeto :Veto_AAPL_20260805 .
 
-    :Veto_JPM_20260805 a :Veto ; :appliesRule :Rule_VETO_RED_01 ; :primaryRule :Rule_VETO_RED_01 ;
+    :Veto_JPM_20260805 a :Veto ; :raisedOn "2026-08-05"^^xsd:date ; :lastSeenOn "2026-08-05"^^xsd:date ; :appliesRule :Rule_VETO_RED_01 ; :primaryRule :Rule_VETO_RED_01 ;
         :decidedAt "2026-08-05T09:12:00"^^xsd:dateTime ;
         rdfs:comment "Contagion: JPM sharedExecutiveWith XOM (Jane R. Doe), and XOM carries a T-1 (2026-08-04) primary veto triggered by VETO_FIN_01 -- a rule other than VETO_RED_01 itself, satisfying the de-recursion exclusion (v1 SS4). JPM's own OR-branch signal is Sentiment=-0.55 < -0.50." .
     :JPM :triggeredVeto :Veto_JPM_20260805 .
 
-    :Veto_XOM_MKT_20260805 a :Veto ; :appliesRule :Rule_VETO_MKT_02 ; :primaryRule :Rule_VETO_MKT_02 ;
+    :Veto_XOM_MKT_20260805 a :Veto ; :raisedOn "2026-08-05"^^xsd:date ; :lastSeenOn "2026-08-05"^^xsd:date ; :appliesRule :Rule_VETO_MKT_02 ; :primaryRule :Rule_VETO_MKT_02 ;
         :decidedAt "2026-08-05T09:15:00"^^xsd:dateTime ;
         rdfs:comment "Single-signal rule (rank 7, added 2026-08-13) — evidence is Snap_XOM_SectMom_20260805's rawValue -0.55 < -0.50. A second, independent veto for XOM alongside 2026-08-04's VETO_FIN_01 — different dates, both legitimately on record." .
     :XOM :triggeredVeto :Veto_XOM_MKT_20260805 .

@@ -94,7 +94,7 @@ decisions (T-100–T-104).*
 - [ ] **T-101** *(D2)* Decide how `available_at` vs. `event_time` is modelled
       (new properties, or encoded in the ingest-graph date) so as-of queries
       cannot leak look-ahead; update `tbox.ttl`/`shapes.ttl` and `07`. → step 2.
-- [ ] **T-102** *(D3)* Model veto stints (`raisedOn`/`clearedOn`/`lastSeenOn`
+- [x] **T-102** *(D3; done 2026-10-03: `raisedOn`/`clearedOn`/`lastSeenOn` + `vetoSeverity`, `VetoShape`)* Model veto stints (`raisedOn`/`clearedOn`/`lastSeenOn`
       or `validFrom`/`validTo`) and write the "active at cutoff C" predicate
       as the T-1-lag SPARQL pattern. → step 3.
 - [x] **T-103** *(D4 — decided 2026-10-02: upstream's catalog is final; done 2026-10-03)*

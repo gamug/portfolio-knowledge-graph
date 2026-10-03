@@ -31,6 +31,15 @@
     sh:property [ sh:path :severity ; sh:in ("CRITICAL" "HIGH" "MODERATE" "LOW") ; sh:minCount 1 ; sh:maxCount 1 ] ;
     sh:property [ sh:path :category ; sh:in ("LEGAL" "FINANCIAL" "MARKET" "NETWORK") ; sh:minCount 1 ; sh:maxCount 1 ] .
 
+:VetoShape
+    a sh:NodeShape ;
+    sh:targetClass :Veto ;
+    # T-102: a Veto is a stint. raisedOn is required; clearedOn absent = still active.
+    sh:property [ sh:path :raisedOn ; sh:datatype xsd:date ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :clearedOn ; sh:datatype xsd:date ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :lastSeenOn ; sh:datatype xsd:date ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :vetoSeverity ; sh:in ("HARD" "SOFT") ; sh:maxCount 1 ] .
+
 :RuleDefinitionShape
     a sh:NodeShape ;
     sh:targetClass :RuleDefinition ;
