@@ -118,18 +118,21 @@ decisions (T-100–T-104).*
       method/weight/confidence (or a separate candidate property) so news
       co-occurrence is not asserted as fact; decide `media_cooccurrence`. →
       step 5.
-- [ ] **T-108** *(D9 decided 2026-10-02; D11 open, maintainer sign-off)*
+- [ ] **T-108** *(D9 decided 2026-10-02; D11 decided and (b) done 2026-10-03; (a) still open, outward-facing)*
       (a) ~~Who triggers the quarterly/daily cycles~~ — **`portfolio-app`**
       (not yet created) calls the upstream endpoints; raise with upstream that
       `api/` is read-only with no run-trigger endpoint and that their docs name
-      `portfolio-reports` as the trigger. (b) Still to decide: which `quant`
-      outputs become individuals (benchmark books/positions/performance; never
-      returns, μ or Σ — NR-003). → steps 5–6.
+      `portfolio-reports` as the trigger. (b) **Done 2026-10-03:** only finished numbers
+      upstream exposes through a `v_*` view become individuals: benchmark
+      books/positions/performance and `v_quant_vs_live` active weight
+      (`Portfolio.portfolioKind`, `BenchmarkObservation`, graph
+      `urn:graph:derived:quant:{date}`); never returns, μ, Σ, frontier
+      points — NR-003. Remaining: (a)'s note to upstream, not yet sent. → steps 5–6.
 - [ ] **T-109** *(D8, D12, D13, D15, D16)* Pin and assert upstream's
       `schema_version` floor; confirm `v_cycle_ranking`'s actual behaviour
       (docstring says latest-only, SQL returns all runs); list contract gaps
       for upstream (no `fundamental_metrics`/market-cap view; REPLAY
-      exclusion; whether `v_score_snapshot` exposes `forensic_flags_json`/`prompt_hash`, and the missing `financial_facts`/`correction_rule`; upstream's real `run_id` format, to replace T-106's placeholders; T-107's open questions: whether `v_shared_executive_edge` exposes a computed-at date, and `media_cooccurrence`'s columns/endpoints before a `MEDIA` kind is added); check D13's weight-scheme mapping. → step 6.
+      exclusion; whether `v_score_snapshot` exposes `forensic_flags_json`/`prompt_hash`, and the missing `financial_facts`/`correction_rule`; upstream's real `run_id` format, to replace T-106's placeholders; T-107's open questions: whether `v_shared_executive_edge` exposes a computed-at date, and `media_cooccurrence`'s columns/endpoints before a `MEDIA` kind is added; T-108's: the `v_quant_portfolio`/`v_quant_position`/`v_quant_benchmark_performance`/`v_quant_vs_live` columns, to fix `quantMetric`'s vocabulary, the source of `portfolioKind`/`benchmarkObjective` whether `quantAsOf` exists, the unit of each `quantValue` (`quantUnit`) and whether `quant_position` weights are fractions that the projection must scale to `weightPct`'s 0–100); check D13's weight-scheme mapping. → step 6.
 - [ ] **T-110** *(D16)* Reconcile the `portfolio-common` pin (`v1.2.0` here and
       in `portfolio-nlp`; `v1.2.1` in `financial-analysis` and
       `portfolio-data-mining`) — verify compatibility, then re-pin or record

@@ -446,7 +446,7 @@ decision may be "keep ours, translate on projection"):
 4. Vocabulary (D6, D7): `QUANTITATIVE` → `VALORIZATION` in shapes/reference,
    run-provenance modelling incl. the `forensic_flags_json`/`prompt_hash`/`correction_rule` extras (T-105, T-106; both done).
 5. Edges and quant scope (D10, D11): candidate-edge semantics (T-107 done); which quant
-   outputs become individuals (T-108).
+   outputs become individuals (T-108 done).
 6. Read-contract gaps and moving parts (D8, D12, D13, D15, D16): list for
    upstream, assert `schema_version`, reconcile the `portfolio-common` pin
    (T-109, T-110); SEMANTIC `score_method` discriminator and wording (D14,
@@ -462,7 +462,7 @@ decision may be "keep ours, translate on projection"):
 
 **Blocked on**: nothing for the decisions. Maintainer decisions so far
 (2026-10-02): D4 — upstream's rule catalog is final; D9 — `portfolio-app`
-triggers the cycles. Still open: D11 (which quant outputs become individuals).
+triggers the cycles. D11 — only finished, view-exposed quant numbers become individuals (T-108 done).
 
 ## Sequencing
 

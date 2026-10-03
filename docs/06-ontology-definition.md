@@ -1,9 +1,9 @@
 # Ontology Definition — Portfolio Knowledge Graph (v2)
 
 **Implementation:** [`schema/`](../schema/) — the formal OWL/SHACL/TriG implementation of
-everything described below, split into `tbox.ttl` (classes/properties, **39 classes total** as of
-this revision — 26 mutually-disjoint leaf/domain classes plus a 13-class `rdfs:subClassOf`
-taxonomic backbone, see §1.2), `shapes.ttl` (SHACL, 17 shapes), `reference.ttl` (GICS taxonomy +
+everything described below, split into `tbox.ttl` (classes/properties, **40 classes total** as of
+this revision — 27 mutually-disjoint leaf/domain classes plus a 13-class `rdfs:subClassOf`
+taxonomic backbone, see §1.2), `shapes.ttl` (SHACL, 20 shapes), `reference.ttl` (GICS taxonomy +
 asset master data + the new `MetricType` controlled vocabulary, §1.9), `rules.ttl` (all 7 veto
 rules as trees), and `instances.trig` (a worked, multi-graph, multi-asset dataset). Parsed clean
 with `rdflib` and SHACL-validated with `pyshacl` (**conforms: True**); the veto rule trees were
@@ -75,7 +75,8 @@ Portfolio Knowledge Graph
 │   │   ├── SectorAggregateSnapshot   (§1.8)
 │   │   └── AttractivenessSnapshot    (§1.8)
 │   ├── PriceObservation
-│   └── AssetCoOccurrence             (T-107)
+│   ├── AssetCoOccurrence             (T-107)
+│   └── BenchmarkObservation          (T-108)
 ├── Evidence
 │   ├── Source Document
 │   │   └── SECFiling
@@ -103,11 +104,12 @@ Portfolio Knowledge Graph
 | `Asset` | Domain Entity | v1 §2A/§3A | An S&P 500 constituent tracked by the system. |
 | `Executive` | Domain Entity | v1 §4 | Extracted from DEF 14A; `canonicalId` populated once entity resolution (roadmap step 7) exists. |
 | `Sector`, `Industry` | Domain Entity → Classification Concept | critique #3 | GICS-aligned SKOS concepts; `Industry` rolls up to exactly one `Sector`. **New in v2** — v1 had no sector layer at all despite it being in the thesis's own stated scope. |
-| `Universe`, `Portfolio` | Domain Entity → Collection | v1 §2A, critique #2 | Named pools — a candidate watchlist and the live holding book, respectively. `Portfolio` is **new in v2** (v1 specified exclusion only, no inclusion/holding model). |
+| `Universe`, `Portfolio` | Domain Entity → Collection | v1 §2A, critique #2 | Named pools — a candidate watchlist and a holding book (the live book, or since T-108 an upstream benchmark book, told apart by `portfolioKind`), respectively. `Portfolio` is **new in v2** (v1 specified exclusion only, no inclusion/holding model). |
 | `UniverseMembership`, `PortfolioPosition` | Temporal Relation | v1 §2A formalized, critique #2 | Reified n-ary relations carrying `validFrom`/`validTo` — see §1.4. |
 | `ScoreSnapshot`, `SectorAggregateSnapshot`, `AttractivenessSnapshot` | Observation → Observation Snapshot | v1 §3A; §1.8 | Immutable, timestamped metrics sharing one property shape (`metricType`/`agentOrigin`/`timestamp`/`normalizedScore`). |
 | `PriceObservation` | Observation | scope requirement (daily pricing) | **New in v2, derived-summary only** — see the topology document for why raw OHLCV ticks do *not* belong in the triple store. |
 | `AssetCoOccurrence` | Observation | T-107 (upstream D10) | A method-versioned, weighted *candidate* link between two assets from news co-occurrence (`coOccurrenceKind`/`Method`/`Weight`/`ComputedOn`, exactly two `coOccurrenceAsset`). Not a verified directorship; `sharedExecutiveWith` stays reserved for verified edges. |
+| `BenchmarkObservation` | Observation | T-108 (upstream D11) | One finished number upstream's `quant` computed about a benchmark `Portfolio`: a performance metric (`v_quant_benchmark_performance`) or a per-asset active weight against the live book (`v_quant_vs_live`, with `quantAsset`). Projected as handed over, never computed here; returns, μ and Σ are not projected. `Portfolio` also gains required `portfolioKind` (`LIVE`/`BENCHMARK`, set by source view) and `benchmarkObjective`; benchmark weights are ordinary `PortfolioPosition`s. |
 | `SECFiling` | Evidence → Source Document | v1 §2B | One EDGAR filing (10-K/10-Q/8-K/DEF 14A) for one `Asset`. |
 | `NewsArticle`, `SECFilingSection` | Evidence → Evidence Source | v1 §3B | Evidence leaves cited by `backedBy`; cross-referenced to `portfolio-data-mining`'s news pipeline (`news_collector`/`extractor`, `urls.db`) via `provenanceId` (see §1.6 and `09-nlp-finbert-architecture.md`). |
 | `DataQualityIssue` | Evidence → Evidence Source | T-104 (upstream D5) | One Ring-1 `DQ_*` gate firing (upstream `data_quality_issue` row): `dqGateCode`, `dqSeverity`, `quarantined`, `dqRaisedOn`, optional `dqIssueOfFiling`/`dqMetricName`/`gatedValue`/`provenanceId`. HARD ones back the `DATA_QUALITY` veto via a `RiskEvent`. |
@@ -326,7 +328,7 @@ own tree structure and reproduced the intended firings exactly — see `schema/R
 ## 1.6 SHACL shapes for data-quality enforcement
 
 SHACL (Shapes Constraint Language) is RDF's declarative validator — the world-view equivalent of
-a schema/type checker, but expressed as data rather than code. 17 shapes are defined
+a schema/type checker, but expressed as data rather than code. 20 shapes are defined
 (`schema/shapes.ttl`; 10 before 2026-08-13, including `ThresholdComparisonShape`,
 `CategoricalComparisonShape`, and `GraphPredicateShape` added during implementation to cover the
 two new leaf types from the addendum above, plus four more added 2026-08-13 for the
@@ -342,6 +344,8 @@ attractiveness-ranking feature, see §1.8, plus `VetoShape` added 2026-10-03 for
 | `UniverseMembershipShape` | both endpoints + `validFrom` required | Keeps §1.4's n-ary relation pattern from degrading into a dangling record. |
 | `DataQualityIssueShape` | gate code, severity, `quarantined`, `dqRaisedOn` and asset required; filing, metric name, `gatedValue`, `provenanceId` optional | Evidence for the `DATA_QUALITY` veto (T-104): an upstream `data_quality_issue` row, an `EvidenceSource` leaf. |
 | `AssetCoOccurrenceShape` | exactly two assets; kind (`SHARED_EXECUTIVE_CANDIDATE`), method and weight required; `coOccurrenceComputedOn` and T-106 run provenance optional | Keeps news candidates carrying their method/weight (T-107) |
+| `PortfolioShape` | name and `portfolioKind` ∈ {LIVE, BENCHMARK} required; `benchmarkObjective` optional | Lets benchmark books share `Portfolio` with the live book (T-108). |
+| `BenchmarkObservationShape` (+ `BenchmarkBookShape`) | portfolio, metric (free text) and value required; `quantPortfolio` must be a BENCHMARK book; `quantAsset`, `quantUnit`, `quantAsOf` and T-106 run provenance optional | Carries upstream's finished quant numbers without interpreting them (T-108); metric vocabulary and columns pending (T-109). |
 | `VetoShape` | `raisedOn` required; `clearedOn`/`lastSeenOn` optional, never before `raisedOn`; `vetoSeverity` ∈ {HARD, SOFT} | Veto stints (T-102): a stint is closed by `clearedOn`, never deleted. |
 
 Validated end-to-end with `pyshacl` against the full worked dataset below: **conforms = True**.
@@ -372,7 +376,7 @@ ontology its first sector-level signal (critique #3, layer B2's momentum half). 
 including the arithmetic worked example, lives in
 `docs/superpowers/specs/2026-08-13-attractiveness-sector-momentum-design.md`; this section
 summarizes what changed in the TBox. Four new classes were added, bringing the ontology to 27
-total classes (`AllDisjointClasses` grew from 20 to 24 members, then to 25 with `DataQualityIssue` (T-104), then 26 with `AssetCoOccurrence` (T-107) — the
+total classes (`AllDisjointClasses` grew from 20 to 24 members, then to 25 with `DataQualityIssue` (T-104), then 26 with `AssetCoOccurrence` (T-107), then 27 with `BenchmarkObservation` (T-108) — the
 taxonomic backbone added 2026-08-23, §1.2, brings the *overall* class count to 37, but adds no new
 disjoint leaf types) and `shapes.ttl` to 14 shapes (§1.6):
 

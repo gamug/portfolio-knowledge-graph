@@ -82,7 +82,7 @@ nothing written:
    `urn:graph:universe:{year}-Q{n}` or `urn:graph:portfolio:current` (TBox, reference and rules go
    through `cli/load_schema.py`);
 2. an append-only graph (all but `portfolio:current`) does not exist yet;
-3. every IRI is absolute and every `rdf:type` is one of the 26 leaf classes (the
+3. every IRI is absolute and every `rdf:type` is one of the 27 leaf classes (the
    `owl:AllDisjointClasses` members), so neither a typo nor a bare abstract category can dodge the
    shapes;
 4. a subject with no `rdf:type` in the batch, which no shape can see, only gets relations to other

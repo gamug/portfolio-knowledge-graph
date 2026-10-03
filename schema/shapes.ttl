@@ -92,6 +92,36 @@
     sh:property [ sh:path :coOccurrenceComputedOn ; sh:datatype xsd:date ; sh:maxCount 1 ] ;
     sh:property [ sh:path :provenanceId ; sh:datatype xsd:string ; sh:maxCount 1 ] .
 
+:PortfolioShape
+    a sh:NodeShape ;
+    sh:targetClass :Portfolio ;
+    # T-108 (D11): kind required (written explicitly by the projection, by source view).
+    sh:property [ sh:path :portfolioName ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :portfolioKind ; sh:in ("LIVE" "BENCHMARK") ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :benchmarkObjective ; sh:datatype xsd:string ; sh:maxCount 1 ] .
+
+:BenchmarkBookShape
+    a sh:NodeShape ;
+    # T-108: a BenchmarkObservation is only about a BENCHMARK book, never the live book.
+    sh:property [ sh:path :portfolioKind ; sh:hasValue "BENCHMARK" ] .
+
+:BenchmarkObservationShape
+    a sh:NodeShape ;
+    sh:targetClass :BenchmarkObservation ;
+    # T-108 (D11): a finished upstream quant number about a BENCHMARK book. Metric is free text and asOf optional until
+    # the v_quant_* columns are pinned (T-109). T-106: optional run provenance.
+    sh:property [ sh:path :runId ; sh:datatype xsd:string ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :runAsOf ; sh:datatype xsd:date ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :codeVersion ; sh:datatype xsd:string ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :engineVersion ; sh:datatype xsd:string ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :quantPortfolio ; sh:class :Portfolio ; sh:node :BenchmarkBookShape ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :quantMetric ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :quantValue ; sh:datatype xsd:decimal ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :quantAsset ; sh:class :Asset ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :quantUnit ; sh:datatype xsd:string ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :quantAsOf ; sh:datatype xsd:date ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :provenanceId ; sh:datatype xsd:string ; sh:maxCount 1 ] .
+
 :RuleDefinitionShape
     a sh:NodeShape ;
     sh:targetClass :RuleDefinition ;
