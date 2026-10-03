@@ -63,12 +63,12 @@ it was resolved.
 ## Configuration
 
 `config.py` loads a repo-root `.env` (via `python-dotenv`). Copy `.env.example`
-to `.env` and set at least `KG_URLS_DB`:
+to `.env` and set at least `SQL_URLS_DB`:
 
 | Key | Default | Meaning |
 |---|---|---|
-| `KG_URLS_DB` | `<repo>/data/urls.db` | SOURCE: external `news-collector` SQLite DB, has `articles.body_text`. In this dev container it is bind-mounted at `/workspaces/thesis/data/urls.db` (see `.devcontainer/devcontainer.json`). |
-| `KG_RESULTS_DB` | `<repo>/data/nlp.db` | RESULTS: the `portfolio-nlp` results store (`article_sentiment`/`article_category`, no `body_text`). In this dev container, `/workspaces/thesis/data/nlp.db`. |
+| `SQL_URLS_DB` | `<repo>/data/urls.db` | SOURCE: external `news-collector` SQLite DB, has `articles.body_text`. In this dev container it is bind-mounted at `/workspaces/thesis/data/urls.db` (see `.devcontainer/devcontainer.json`). |
+| `SQL_NLP_DB` | `<repo>/data/nlp.db` | RESULTS: the `portfolio-nlp` results store (`article_sentiment`/`article_category`, no `body_text`). In this dev container, `/workspaces/thesis/data/nlp.db`. |
 | `KG_SCHEMA_DIR` | `<repo>/schema` | dir holding `tbox.ttl` / `shapes.ttl` / `reference.ttl` / `rules.ttl` |
 | `KG_DATA_TTL` | `<repo>/data.ttl` | output path (git-ignored) |
 | `KG_SP500_SOURCE_URL` | Wikipedia S&P 500 list | constituent table to parse |

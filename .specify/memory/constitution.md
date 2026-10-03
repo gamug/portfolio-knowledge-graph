@@ -94,7 +94,7 @@ assumes the stack actually pinned in `pyproject.toml`.
    `.code_quality/mypy.ini`. Don't fork a second config file for a tool that
    already has one.
 7. **Environment**: `.env` (git-ignored) holds the ETL's `KG_*` variables
-   (`KG_URLS_DB`, `KG_RESULTS_DB`, `KG_SCHEMA_DIR`, `KG_DATA_TTL`,
+   (`SQL_URLS_DB`, `SQL_NLP_DB`, `KG_SCHEMA_DIR`, `KG_DATA_TTL`,
    `KG_SP500_SOURCE_URL`, `KG_SAMPLE_NEWS_ROWS`); `.env.example` is the
    committed template — keep it in sync with every env var a new ETL feature
    reads. `src/etl/config.py`'s `load_dotenv()` at import is the single place
@@ -265,7 +265,7 @@ print('quads:', len(list(g.quads())))
 "
 uv run pyshacl -s shapes.ttl -m -a -f human tbox.ttl reference.ttl instances.trig
 
-# ETL (needs KG_URLS_DB / KG_RESULTS_DB set, see .env.example)
+# ETL (needs SQL_URLS_DB / SQL_NLP_DB set, see .env.example)
 uv run python cli/build_data_ttl.py --limit 500   # smoke test
 uv run python cli/build_data_ttl.py               # full run -> data.ttl (git-ignored)
 

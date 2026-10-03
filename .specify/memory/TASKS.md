@@ -32,7 +32,7 @@ renumber of the next work item's block.
       deliberately-malformed write is rejected before reaching the store;
       the reasoning profile matches `07`'s documented choice. → `PLAN.md`
       acceptance criteria.
-- [ ] **T-026** Rename the database environment variables to the maintainer's new
+- [x] **T-026** Rename the database environment variables to the maintainer's new
       scheme. The names are the maintainer's to choose and may change again, so
       read the final ones from the maintainer's `.env` when starting (as of
       2026-10-03: `SQL_URLS_DB`, `SQL_NLP_DB`, `SQL_FINANCIAL_DB`, `SQL_UNIVERSE_DB`,
@@ -41,7 +41,7 @@ renumber of the next work item's block.
       `.env.example`, `constitution.md`, `SPEC.md`, `PLAN.md` and `TASKS.md` (the
       `KG_*` GraphDB variables keep their names). Leave `docs/portfolio-common-v1.2-engine-agnostic.md`
       alone (a dated decision record) and upstream's own variable names. Run the
-      ETL's config load, then `rg 'KG_(URLS|RESULTS|FINANCIAL|UNIVERSE)_DB' --glob '!.specify/memory/TASKS.md' --glob '!docs/portfolio-common-v1.2-engine-agnostic.md'`
+      ETL's config load, then `rg --hidden 'KG_(URLS|RESULTS|FINANCIAL|UNIVERSE)_DB' --glob '!.git' --glob '!.env' --glob '!.specify/memory/TASKS.md' --glob '!docs/portfolio-common-v1.2-engine-agnostic.md'`
       to confirm no old name remains. Matches in those two excluded files are
       expected (T-026 itself lists the old names; the decision record is left as is). → `PLAN.md` Work item 3, step 5.
 
@@ -115,7 +115,7 @@ renumber of the next work item's block.
 `SPEC.md` §2.6.*
 
 - [ ] **T-100** *(D1)* Replace the ETL's live-Wikipedia asset master
-      (FR-004) with `universe.db` as-of reads (`KG_UNIVERSE_DB`, read-only via
+      (FR-004) with `universe.db` as-of reads (`SQL_UNIVERSE_DB`, read-only via
       `portfolio_common.db`), emitting `:Asset` + `:UniverseMembership`
       (`validFrom`/`validTo`); document the stale-between-snapshots risk and
       that `universe.db` is now a direct upstream. → `PLAN.md` Work item 11,
