@@ -306,12 +306,12 @@ GRAPH <urn:graph:derived:quant:2026-08-05> {
     # T-108 (D11): a benchmark book, its weights and finished quant numbers, projected as upstream hands them over (v_quant_portfolio /
     # v_quant_position / v_quant_benchmark_performance / v_quant_vs_live). ILLUSTRATIVE names, metrics, units and values (copied verbatim from the view, not
     # derived: the active-weight figure is a placeholder); no returns, mu or Sigma. The book has one stable IRI; a later run closes old weights by validTo.
-    :Bench_MinVar a :Portfolio ; :portfolioName "Benchmark min-variance (illustrative)" ; :portfolioKind "BENCHMARK" ; :benchmarkObjective "min_variance" ;
+    :Bench_MinVar a :Portfolio ; :portfolioName "Benchmark min-variance (illustrative)" ; :portfolioKind "BENCHMARK" ; :benchmarkObjective "min_var" ;
         :holdsPosition :BPos_AAPL_20260805, :BPos_JPM_20260805 .
     :BPos_AAPL_20260805 a :PortfolioPosition ; :positionAsset :AAPL ; :weightPct "4.0"^^xsd:decimal ; :validFrom "2026-08-05"^^xsd:date .
     :BPos_JPM_20260805  a :PortfolioPosition ; :positionAsset :JPM  ; :weightPct "3.0"^^xsd:decimal ; :validFrom "2026-08-05"^^xsd:date .
-    :BObs_Perf_20260805 a :BenchmarkObservation ; :quantPortfolio :Bench_MinVar ; :quantMetric "annualised_volatility" ; :quantValue "0.14"^^xsd:decimal ; :quantUnit "fraction" ; :quantAsOf "2026-08-05"^^xsd:date .
-    :BObs_Active_AAPL_20260805 a :BenchmarkObservation ; :quantPortfolio :Bench_MinVar ; :quantMetric "active_weight" ; :quantAsset :AAPL ; :quantValue "0.9"^^xsd:decimal ; :quantUnit "percentage_points" ; :quantAsOf "2026-08-05"^^xsd:date .
+    :BObs_Perf_20260805 a :BenchmarkObservation ; :quantPortfolio :Bench_MinVar ; :quantMetric "expected_vol" ; :quantValue "0.14"^^xsd:decimal ; :quantUnit "fraction" ; :quantAsOf "2026-08-05"^^xsd:date .
+    :BObs_Active_AAPL_20260805 a :BenchmarkObservation ; :quantPortfolio :Bench_MinVar ; :quantMetric "active_weight" ; :quantAsset :AAPL ; :quantValue "0.009"^^xsd:decimal ; :quantUnit "fraction" ; :quantAsOf "2026-08-05"^^xsd:date .
 }
 
 GRAPH <urn:graph:ingest:ORCHESTRATOR:2026-08-04> {
