@@ -104,7 +104,7 @@ Recommend **OWL 2 RL / RDFS+ only** — not a full OWL DL reasoner:
   worth noting since it means this section's recommendation is now doing more than it used to for
   the same reasoning cost.
 - **Leave off:** full OWL DL / property-chain reasoning. In particular, `sharedExecutiveWith`
-  (used by `VETO_RED_01`'s contagion check) is deliberately **not** something the reasoner
+  (used by the superseded `VETO_RED_01`'s contagion check, dropped from the target catalog by T-103) is deliberately **not** something the reasoner
   computes automatically via property chains — it's written explicitly by the entity-resolution
   service (roadmap step 7) as application logic, not inferred transitively across the graph.
   Materializing deep inference chains over tens of millions of `ScoreSnapshot` triples would blow

@@ -292,6 +292,15 @@ active ruleset from the graph at evaluation time instead of from hardcoded Pytho
 decision can always be reproduced against the exact rule tree that was active when it was made,
 which is the auditability guarantee v1 §3B was already aiming for elsewhere in the design.
 
+**Addendum (T-103, 2026-10-03) — the active catalog is upstream's.** The seven tree rules this
+section designs are superseded as the target by `portfolio-financial-analysis`'s six flat rules
+(`LEVERAGE_EXTREME`, `NEGATIVE_FCF`, `LIQUIDITY_DISTRESS`, `PRICE_CRASH`, `EARNINGS_MISSING`,
+`DATA_QUALITY`; `SPEC.md` §2.6 D4). They are `RuleDefinition`s whose `hasClause` is a single leaf —
+the tree representation is unchanged, it just degenerates. The seven originals stay in
+`rules.ttl` closed with `validTo 2026-10-02`. `:ruleSeverity` (HARD/SOFT) was added to
+`RuleDefinition`; upstream's metric ids are `ThresholdComparison.metricName` values compared on the
+raw value.
+
 **Addendum — implementation surfaced a gap in this section.** Encoding all 6 rules from v1's
 catalog (`schema/rules.ttl`), not just `VETO_COMP_01`, revealed that `ThresholdComparison` alone
 doesn't cover the catalog: `VETO_LEG_01`/`VETO_COMP_02` gate on `RiskEvent.category`/`severity`
@@ -317,9 +326,9 @@ attractiveness-ranking feature, see §1.8), each closing a specific gap:
 |---|---|---|
 | `ScoreSnapshotShape` | `normalizedScore` ∈ `[0.0, 1.0]`; `agentOrigin` ∈ the 4 known agents; `metricType`/`timestamp` required | Prevents a malformed snapshot from silently entering veto evaluation. |
 | `RiskEventShape` | `backedBy` `sh:minCount 1`; `severity`/`category` from closed vocabularies | Critique #5 (no null-handling policy) — evidence-free risk events are now a validation failure, not a silent gap. |
-| `RuleDefinitionShape` | `validFrom` required; exactly one `hasClause`; `priorityRank` ∈ `[1,7]` | Critique #6 — a rule can't be persisted without being properly temporal and ranked. |
+| `RuleDefinitionShape` | `validFrom` required; exactly one `hasClause`; `priorityRank` ∈ `[1,7]`; `ruleSeverity` ∈ `{HARD, SOFT}`, required unless the rule is closed with `validTo` (T-103) | Critique #6 — a rule can't be persisted without being properly temporal and ranked. |
 | `RuleClauseShape` | `clauseType` ∈ `{AND, OR}`; both operands required | Structural half of the critique #1 fix — a clause literally cannot be built with a missing operand or an unrecognized operator. |
-| `ThresholdComparisonShape` / `CategoricalComparisonShape` / `GraphPredicateShape` | Each leaf kind's required fields (`metricName`/`operator`/`thresholdValue`; `attributeName`/`expectedValue`; `predicateName`) | Completes the structural half of the critique #1 fix across all 7 rules, not just numeric ones. |
+| `ThresholdComparisonShape` / `CategoricalComparisonShape` / `GraphPredicateShape` | Each leaf kind's required fields (`metricName`/`operator`/`thresholdValue`; `attributeName`/`expectedValue`; `predicateName`) | Completes the structural half of the critique #1 fix across all rule leaf kinds, not just numeric ones (the 7 original rules; upstream's six single-leaf rules reuse the same shapes, T-103). |
 | `UniverseMembershipShape` | both endpoints + `validFrom` required | Keeps §1.4's n-ary relation pattern from degrading into a dangling record. |
 
 Validated end-to-end with `pyshacl` against the full worked dataset below: **conforms = True**.

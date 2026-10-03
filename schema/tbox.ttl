@@ -109,7 +109,7 @@
 :ThresholdComparison
     a owl:Class ;
     rdfs:label "Threshold Comparison" ;
-    rdfs:comment "A leaf RuleClause operand: one numeric metric/operator/threshold triple, e.g. (ScoreFinanciero, '>', 0.65). CONVENTION (found while populating instances.trig, not stated in 06-ontology-definition.md): the Orchestrator's tree-walker compares Score* metrics (ScoreFinanciero/ScoreTecnico/ScoreCuantitativo) against ScoreSnapshot.normalizedScore ([0.0,1.0], matches v1's 0.65-0.90 thresholds), but compares the Sentiment metric against ScoreSnapshot.rawValue ([-1.0,1.0], matches v1's -0.50/-0.60 thresholds, which are out of range on the normalized scale). This per-metric dispatch has to be hardcoded in the evaluator; it is not derivable from the ontology alone. Added 2026-08-13: SectorRelativeMomentum (a ScoreSnapshot metricType, not a new class) is a third entry in this same dispatch table, compared via rawValue like Sentiment -- see rules.ttl's VETO_MKT_02." .
+    rdfs:comment "A leaf RuleClause operand: one numeric metric/operator/threshold triple, e.g. (ScoreFinanciero, '>', 0.65). CONVENTION (found while populating instances.trig, not stated in 06-ontology-definition.md): the Orchestrator's tree-walker compares Score* metrics (ScoreFinanciero/ScoreTecnico/ScoreCuantitativo) against ScoreSnapshot.normalizedScore ([0.0,1.0], matches v1's 0.65-0.90 thresholds), but compares the Sentiment metric against ScoreSnapshot.rawValue ([-1.0,1.0], matches v1's -0.50/-0.60 thresholds, which are out of range on the normalized scale). This per-metric dispatch has to be hardcoded in the evaluator; it is not derivable from the ontology alone. Added 2026-08-13: SectorRelativeMomentum (a ScoreSnapshot metricType, not a new class) is a third entry in this same dispatch table, compared via rawValue like Sentiment -- see rules.ttl's VETO_MKT_02. Added 2026-10-03 (T-103): upstream's catalog uses metrics that are not ScoreSnapshot types (leverage.debt_to_equity, cashflow.free_cash_flow_margin, liquidity.current_ratio — fundamental ratios; max_drawdown_90d — a price-derived metric computed upstream, not a :PriceObservation property; fundamental_score_age_days — derived). They carry upstream's own identifiers and compare against the metric's raw value; there is no normalizedScore for them." .
 
 :CategoricalComparison
     a owl:Class ;
@@ -389,7 +389,7 @@
 
 # --- RiskEvent / Veto ---
 :category a owl:DatatypeProperty ; rdfs:range xsd:string ;
-    rdfs:comment "On RiskEvent: LEGAL | FINANCIAL | MARKET | NETWORK. On RuleDefinition: free-text category label matching v1's catalog table." .
+    rdfs:comment "On RiskEvent: LEGAL | FINANCIAL | MARKET | NETWORK. On RuleDefinition: free-text category label (v1's catalog table for the superseded rules; upstream's FINANCIAL | MARKET | DATA_QUALITY for the active six)." .
 :severity a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :RiskEvent ; rdfs:range xsd:string ;
     rdfs:comment "CRITICAL | HIGH | MODERATE | LOW." .
 :detectedAt a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :RiskEvent ; rdfs:range xsd:dateTime .
@@ -397,6 +397,8 @@
 
 # --- RuleDefinition / RuleClause / leaf comparisons ---
 :ruleId       a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :RuleDefinition ; rdfs:range xsd:string .
+:ruleSeverity a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :RuleDefinition ; rdfs:range xsd:string ;
+    rdfs:comment "HARD | SOFT — the severity upstream's rule_catalog assigns the rule (T-103). An individual veto stint's severity can differ (LEVERAGE_EXTREME emits SOFT for a negative-equity firm with no corroborating metric); :Veto has no severity property yet -- modelling stints is T-102. Distinct from :severity, which is a RiskEvent field." .
 :priorityRank a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :RuleDefinition ; rdfs:range xsd:integer ;
     rdfs:comment "1 (highest) .. 7 (lowest), used to pick primaryRule (v1 §4). (Comment corrected 2026-08-23: stale '6' predates VETO_MKT_02, added 2026-08-13 as the 7th rule -- shapes.ttl's RuleDefinitionShape already had priorityRank's range as [1,7] correctly.)" .
 :clauseType   a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :RuleClause ; rdfs:range xsd:string ;

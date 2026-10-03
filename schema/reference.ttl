@@ -100,9 +100,11 @@
 # MetricType controlled vocabulary (added 2026-08-23) — closes the
 # same untyped-string gap this file already closed for GICS sectors,
 # now for ScoreSnapshot.metricType / ThresholdComparison.metricName /
-# WeightComponent.weightMetricName. Exactly the 5 values actually
-# used across rules.ttl and instances.trig (verified by grep, not
-# assumed) -- NOT 6: 09-nlp-finbert-architecture.md's worked example
+# WeightComponent.weightMetricName. Exactly the 5 ScoreSnapshot metric
+# types actually used across rules.ttl and instances.trig (verified by grep, not
+# assumed). Upstream's non-score metric ids (T-103: leverage.debt_to_equity, etc.)
+# are NOT concepts here -- they are not ScoreSnapshot types; the closed
+# list for those lives in ThresholdComparisonShape (shapes.ttl) -- NOT 6: 09-nlp-finbert-architecture.md's worked example
 # shows a metricType of "NEWS_SENTIMENT_FINBERT" that is NEVER
 # actually used anywhere in this schema -- every real Sentiment
 # ScoreSnapshot, in rules.ttl's VETO_COMP_01/02/RED_01 thresholds and
