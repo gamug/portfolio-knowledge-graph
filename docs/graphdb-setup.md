@@ -115,8 +115,8 @@ non-zero if any fails ([`kg_store.acceptance`](../src/kg_store/acceptance.py)). 
 | Check | What it proves |
 |---|---|
 | SPARQL query | `SELECT ?s WHERE { ?s a :Asset } LIMIT 5` over HTTP returns individuals |
-| Malformed write | a `ScoreSnapshot` with no `:timestamp` and a score of 7.5 is refused by the gate; the store's size is unchanged and the target graph does not exist |
-| Reasoning profile | the repository reports `rdfsplus-optimized` and `disableSameAs` true, and `?x a :ObservationSnapshot` is answered by inference (no individual is asserted with that superclass) |
+| Malformed write | a `ScoreSnapshot` that is valid except for the missing `:timestamp` is refused by the gate with a SHACL `minCount` violation on `:timestamp` (a rejection for any other reason fails the check); the store's size is unchanged and the target graph does not exist |
+| Reasoning profile | the repository reports `rdfsplus-optimized` and `disableSameAs` true, and `?x a :Observation` is answered by inference (no individual is asserted with it; the leaf types are two `rdfs:subClassOf` steps below) |
 
 ## Connecting
 

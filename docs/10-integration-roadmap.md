@@ -19,7 +19,7 @@ before it, and which repo owns it.
 | Step | What | Owner repo | Status |
 |---|---|---|---|
 | 0 | Ontology TBox + SHACL | this repo (`schema/`) | ✅ Done |
-| 1 | Triple store | this repo | Not started |
+| 1 | Triple store | this repo (`src/kg_store/`, `docs/graphdb-setup.md`) | ✅ Done — GraphDB 11.5.1, `schema/` loaded, ABox writes pass the SHACL gate (PLAN Work item 3) |
 | 2 | Ingestion / projection into the graph | this repo (`src/etl/` shortcut; real projection = PLAN Work item 4) | Shortcut built (assets from Wikipedia + news from `portfolio-nlp`); the real `v_*` projection not started |
 | 3 | Daily pricing collector | `portfolio-data-mining` (pricing service) + `portfolio-financial-analysis` (`pricing_agent`); this repo projects `v_price_observation` | Built upstream |
 | 4 | EDGAR batch pipeline | `portfolio-data-mining` (`sec_edgar` service) + `portfolio-financial-analysis` (`fundamental_agent`); this repo projects scores/filings/sections | Built upstream |
@@ -40,7 +40,7 @@ before it, and which repo owns it.
 | `portfolio-data-mining` (pricing service) | Built — Finnhub/yfinance daily OHLCV, corporate actions and an as-of universe over HTTP (`GET /pricing/{ticker}`); consumed by `portfolio-financial-analysis`'s `pricing_agent` (step 3). |
 | `portfolio-data-mining` (`universe.db`) | Built — point-in-time S&P 500 membership (valid-from/valid-to), read by every upstream agent; a direct input for this repo's projection. |
 | `gdelt_news_full.csv` | Real historical GDELT data — usable as calibration/backtest fuel (step 9). |
-| No triple/graph store anywhere | Target of step 1. |
+| GraphDB repository `portfolio` | Built (step 1) — `schema/` loaded, reasoning profile `rdfsplus-optimized`, `cli/ingest.py` gate in front of writes. The ABox is still only the `instances.trig` worked example; real projection is PLAN Work item 4. |
 
 ## The steps
 

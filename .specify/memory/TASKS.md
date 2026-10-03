@@ -187,8 +187,8 @@ decisions (T-100–T-104).*
 
 Closed Work items 1, 2, 5, 7 (superseded/decided by T-007) and 10 are in
 `CHANGELOG.md` (Work item 1 closed with T-006 deprecated in favor of T-009).
-Work item 9 (T-080–T-083) has no blockers. Work item 3 (T-020–T-025) has the store
-chosen and the schema loaded and gated; Work item 3 is complete. Work items 4 and 6 (T-030–T-035, T-050–T-053)
+Work item 9 (T-080–T-083) has no blockers. Work item 3 (T-020–T-026) is done:
+GraphDB is up, `schema/` is loaded and ABox writes pass the SHACL gate. Work items 4 and 6 (T-030–T-035, T-050–T-053)
 follow in dependency order after it; Work item 11 (T-100–T-113, decisions
 from the T-007 rescan) gates Work item 4 and has no store dependency.
 Work item 8 (T-070–T-071) is independent but needs a human at a Protégé
