@@ -42,6 +42,11 @@
 :VetoShape
     a sh:NodeShape ;
     sh:targetClass :Veto ;
+    # T-106: optional upstream run provenance (D7).
+    sh:property [ sh:path :runId ; sh:datatype xsd:string ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :runAsOf ; sh:datatype xsd:date ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :codeVersion ; sh:datatype xsd:string ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :engineVersion ; sh:datatype xsd:string ; sh:maxCount 1 ] ;
     # T-102: a Veto is a stint. raisedOn is required; clearedOn absent = still active.
     sh:property [ sh:path :raisedOn ; sh:datatype xsd:date ; sh:minCount 1 ; sh:maxCount 1 ;
                   sh:lessThan :clearedOn ; sh:lessThanOrEquals :lastSeenOn ] ;
@@ -53,6 +58,11 @@
 :DataQualityIssueShape
     a sh:NodeShape ;
     sh:targetClass :DataQualityIssue ;
+    # T-106: optional upstream run provenance (D7).
+    sh:property [ sh:path :runId ; sh:datatype xsd:string ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :runAsOf ; sh:datatype xsd:date ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :codeVersion ; sh:datatype xsd:string ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :engineVersion ; sh:datatype xsd:string ; sh:maxCount 1 ] ;
     sh:property [ sh:path :dqIssueOfAsset ; sh:minCount 1 ; sh:maxCount 1 ] ;
     sh:property [ sh:path :dqRaisedOn ; sh:datatype xsd:date ; sh:minCount 1 ; sh:maxCount 1 ] ;
     sh:property [ sh:path :dqIssueOfFiling ; sh:maxCount 1 ] ;
@@ -112,6 +122,11 @@
 :PortfolioPositionShape
     a sh:NodeShape ;
     sh:targetClass :PortfolioPosition ;
+    # T-106: optional upstream run provenance (D7).
+    sh:property [ sh:path :runId ; sh:datatype xsd:string ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :runAsOf ; sh:datatype xsd:date ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :codeVersion ; sh:datatype xsd:string ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :engineVersion ; sh:datatype xsd:string ; sh:maxCount 1 ] ;
     sh:property [ sh:path :positionAsset ; sh:minCount 1 ; sh:maxCount 1 ] ;
     sh:property [ sh:path :weightPct ; sh:datatype xsd:decimal ; sh:minInclusive 0.0 ; sh:maxInclusive 100.0 ; sh:minCount 1 ; sh:maxCount 1 ] ;
     sh:property [ sh:path :validFrom ; sh:datatype xsd:date ; sh:minCount 1 ; sh:maxCount 1 ] .
@@ -125,6 +140,11 @@
 :SectorAggregateSnapshotShape
     a sh:NodeShape ;
     sh:targetClass :SectorAggregateSnapshot ;
+    # T-106: optional upstream run provenance (D7).
+    sh:property [ sh:path :runId ; sh:datatype xsd:string ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :runAsOf ; sh:datatype xsd:date ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :codeVersion ; sh:datatype xsd:string ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :engineVersion ; sh:datatype xsd:string ; sh:maxCount 1 ] ;
     sh:property [ sh:path :sectorSnapshotOfSector ; sh:minCount 1 ; sh:maxCount 1 ] ;
     sh:property [ sh:path :normalizedScore ; sh:datatype xsd:decimal ; sh:minInclusive 0.0 ; sh:maxInclusive 1.0 ; sh:minCount 1 ; sh:maxCount 1 ] ;
     sh:property [ sh:path :metricType ; sh:hasValue "ScoreTecnico" ; sh:minCount 1 ; sh:maxCount 1 ] ;

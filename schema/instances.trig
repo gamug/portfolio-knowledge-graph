@@ -96,6 +96,7 @@ GRAPH <urn:graph:ingest:FUNDAMENTAL:2026-Q3> {
 }
 
 # T-105: formerly urn:graph:ingest:QUANTITATIVE:...; the `_Quant_` IRI stems below are historical.
+# T-106: the :runId/:codeVersion/:engineVersion values below are PLACEHOLDERS -- upstream's real run_id format was not checked (see T-109).
 GRAPH <urn:graph:ingest:VALORIZATION:2026-08-05> {
     :Snap_AAPL_Quant_20260805 a :ScoreSnapshot ; :agentOrigin "VALORIZATION" ; :metricType "ScoreCuantitativo" ;
         :rawValue "0.40"^^xsd:decimal ; :normalizedScore "0.40"^^xsd:decimal ; :timestamp "2026-08-05T07:00:00"^^xsd:dateTime ;

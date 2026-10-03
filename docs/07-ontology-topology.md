@@ -49,7 +49,20 @@ section. Worked example (JNJ's Item 1A, original + restated) in `schema/instance
 
 > **As-of reads (T-101).** The graph date is the ingest batch, not the usable date. `ScoreSnapshot.availableAt` is the look-ahead guard: as-of-D queries over `ScoreSnapshot`s filter `availableAt <= D`, never `eventTime` or `timestamp`. `SectorAggregateSnapshot` and `AttractivenessSnapshot` are same-cycle derived outputs with no separate clock: they are usable from the date of their `timestamp`/`computedAt`.
 >
-> **Run provenance (T-106, D7).** A `ScoreSnapshot` may carry the upstream run that wrote it as plain properties (`runId`, `runAsOf`, `codeVersion`, `engineVersion`); there is no `Run` class and the run log (params, dirty-tree reason, `schema_version`) stays upstream, reachable through `runId` and the `v_*_run` views. `runAsOf` is not a read filter (use `availableAt`). Per-score-type extras `forensic_flags_json`, `prompt_hash` and `correction_rule` are deliberately not projected (see `schema/README.md`).
+> **Run provenance (T-106, D7).** Upstream rows (`ScoreSnapshot`, `SectorAggregateSnapshot`, `Veto`, `PortfolioPosition`, `DataQualityIssue`) may carry the run that wrote them as plain optional properties: `runId`, `runAsOf`, `codeVersion`, `engineVersion` (no `rdfs:domain`, like `provenanceId`; SHACL scopes them per class). There is no `Run` class and the run log (params, dirty-tree reason, `schema_version`) stays upstream, reachable through `runId` and the `v_*_run` views. Per-score-type extras `forensic_flags_json`, `prompt_hash` and `correction_rule` are deliberately not projected (see `schema/README.md`).
+>
+> - **Three dates, three jobs.** `eventTime` = what the observation is about; `availableAt` = the **only** as-of read filter; `runAsOf` = the date the producing run was evaluated for, informational. For TECHNICAL/VALORIZATION/SECTOR it equals `eventTime` (so omit it); it can differ for FUNDAMENTAL and for `backfill` replays.
+> - **Re-projection / several engine versions.** Upstream writes parallel rows per `engine_version` and its views return the newest, so a later projection can add a second snapshot for a key already loaded (graphs are append-only). Projectors should skip a key already present with the same `runId`+`engineVersion`. Readers must collapse duplicates per (asset, `metricType`, `eventTime`) by **latest `timestamp` among rows with `availableAt <= D`** -- never by comparing `engineVersion`, which is an unordered string:
+>
+>   ```sparql
+>   SELECT ?s WHERE {
+>     ?a :hasScoreObservation ?s . ?s :metricType ?m ; :eventTime ?e ; :timestamp ?t ; :availableAt ?av .
+>     FILTER (?av <= "2026-08-05"^^xsd:date)
+>     FILTER NOT EXISTS { ?a :hasScoreObservation ?s2 . ?s2 :metricType ?m ; :eventTime ?e ; :timestamp ?t2 ; :availableAt ?av2 .
+>                         FILTER (?av2 <= "2026-08-05"^^xsd:date && ?t2 > ?t) }
+>   }
+>   ```
+> - **Cost.** Four optional triples on up to ~2.2M `ScoreSnapshot`s is up to ~9M extra triples (literals are dictionary-encoded, so the cost is statements, not strings); `runAsOf` is omitted on cycle types, cutting it to ~6.6M. See the scale table.
 
 ## Scale estimate
 
@@ -62,10 +75,11 @@ Back-of-envelope for a full 2022–present backfill (~4 years, ~1,008 trading da
 | `ScoreSnapshot` (FUNDAMENTAL) | ~25K individuals | Quarterly × 500 assets × ~16 quarters × ~3 metrics. |
 | `NewsArticle` | ~100K–150K individuals | Scaling the existing extracted-article corpus density (§ above) to the full S&P 500. |
 | `SECFilingSection` | ~30K individuals | 500 companies × ~20 filings (10-K/10-Q/DEF 14A) over 4 years × ~3 sections each. |
+| Run provenance (T-106) | ~6–9M triples | Up to four optional properties (`runId`, `codeVersion`, `engineVersion`, `runAsOf`) per upstream-row individual, ~2.2M `ScoreSnapshot`s dominating. A `Run` node would be a few thousand triples plus one link each, but run values are identical across a run's rows and stay upstream, so denormalising was accepted; revisit if the store grows past single-node scale. |
 | `RiskEvent`, `Veto` | Low tens of thousands | Only fires when a threshold is actually crossed — a small fraction of `ScoreSnapshot` volume. |
 | `SectorAggregateSnapshot` + `SectorRelativeMomentum` + `AttractivenessSnapshot` (added 2026-08-13) | Low tens of millions combined at full backfill scale | ~11 sectors × 500 assets × ~1,000 trading days — comparable order of magnitude to the existing daily `ScoreSnapshot` volume above; does not change this table's headline order-of-magnitude conclusion below, it's absorbed within it. |
 
-**Total: on the order of 15–20 million triples** over the full historical backfill, dominated by
+**Total: on the order of 15–20 million triples (about 22–29 million with T-106's run provenance)** over the full historical backfill, dominated by
 the daily fast-cycle `ScoreSnapshot` volume. That is comfortably within a single-node GraphDB or
 Fuseki+TDB2 deployment — no clustering or distributed store is warranted at this scale, which
 matters for a thesis-scope, single-researcher environment.

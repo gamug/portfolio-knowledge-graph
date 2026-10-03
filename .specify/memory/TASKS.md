@@ -109,7 +109,7 @@ decisions (T-100–T-104).*
 - [x] **T-105** *(D6; done 2026-10-03: `agentOrigin` `VALORIZATION`, graph/gate renamed; metric id `ScoreCuantitativo` kept until T-109)* `agentOrigin` `QUANTITATIVE` → `VALORIZATION` in
       `shapes.ttl`/`reference.ttl` (MetricType) and docs; document each score
       type's `event_time` meaning and the extra provenance fields. → step 4.
-- [x] **T-106** *(D7; done 2026-10-03: `runId`/`runAsOf`/`codeVersion`/`engineVersion` on `ScoreSnapshot`, no `Run` class; extras not projected)* Decide how upstream `run_id`/`as_of`/`code_version`/
+- [x] **T-106** *(D7; done 2026-10-03: optional `runId`/`runAsOf`/`codeVersion`/`engineVersion` (no domain; SHACL on 5 classes), no `Run` class; extras not projected)* Decide how upstream `run_id`/`as_of`/`code_version`/
       `engine_version` map onto `provenanceId` (or a `Run` class), and record a
       disposition for the per-score-type extras `forensic_flags_json`,
       `prompt_hash` (FUNDAMENTAL) and `correction_rule` (`financial_facts`)
@@ -129,7 +129,7 @@ decisions (T-100–T-104).*
       `schema_version` floor; confirm `v_cycle_ranking`'s actual behaviour
       (docstring says latest-only, SQL returns all runs); list contract gaps
       for upstream (no `fundamental_metrics`/market-cap view; REPLAY
-      exclusion); check D13's weight-scheme mapping. → step 6.
+      exclusion; whether `v_score_snapshot` exposes `forensic_flags_json`/`prompt_hash`, and the missing `financial_facts`/`correction_rule`; upstream's real `run_id` format, to replace T-106's placeholders); check D13's weight-scheme mapping. → step 6.
 - [ ] **T-110** *(D16)* Reconcile the `portfolio-common` pin (`v1.2.0` here and
       in `portfolio-nlp`; `v1.2.1` in `financial-analysis` and
       `portfolio-data-mining`) — verify compatibility, then re-pin or record
