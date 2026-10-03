@@ -36,10 +36,10 @@ renumber of the next work item's block.
       `instances.trig` passes it on its own. → step 4.
 - [x] **T-024** Document connection details in `.env.example`/`docs/`. →
       step 5.
-- [ ] **T-025** Verify: a basic SPARQL query returns real results; a
+- [x] **T-025** Verify: a basic SPARQL query returns real results; a
       deliberately-malformed write is rejected before reaching the store;
       the reasoning profile matches `07`'s documented choice. → `PLAN.md`
-      acceptance criteria.
+      acceptance criteria. Run: `cli/verify_store.py` (`docs/graphdb-setup.md` § Acceptance check).
 - [x] **T-026** Rename the database environment variables to the maintainer's new
       scheme. The names are the maintainer's to choose and may change again, so
       read the final ones from the maintainer's `.env` when starting (as of
@@ -188,7 +188,7 @@ decisions (T-100–T-104).*
 Closed Work items 1, 2, 5, 7 (superseded/decided by T-007) and 10 are in
 `CHANGELOG.md` (Work item 1 closed with T-006 deprecated in favor of T-009).
 Work item 9 (T-080–T-083) has no blockers. Work item 3 (T-020–T-025) has the store
-chosen and the schema loaded; T-023 and T-025 remain. Work items 4 and 6 (T-030–T-035, T-050–T-053)
+chosen and the schema loaded and gated; Work item 3 is complete. Work items 4 and 6 (T-030–T-035, T-050–T-053)
 follow in dependency order after it; Work item 11 (T-100–T-113, decisions
 from the T-007 rescan) gates Work item 4 and has no store dependency.
 Work item 8 (T-070–T-071) is independent but needs a human at a Protégé
