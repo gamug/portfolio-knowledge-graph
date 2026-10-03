@@ -42,7 +42,8 @@
 :VetoShape
     a sh:NodeShape ;
     sh:targetClass :Veto ;
-    # T-106: optional upstream run provenance (D7).
+    # T-106: optional upstream run provenance (D7). A Veto is a stint appended to by later cycles: these four record the run that OPENED it (raisedOn);
+    # later cycles must not re-emit them and the closing run is not recorded.
     sh:property [ sh:path :runId ; sh:datatype xsd:string ; sh:maxCount 1 ] ;
     sh:property [ sh:path :runAsOf ; sh:datatype xsd:date ; sh:maxCount 1 ] ;
     sh:property [ sh:path :codeVersion ; sh:datatype xsd:string ; sh:maxCount 1 ] ;
@@ -122,7 +123,8 @@
 :PortfolioPositionShape
     a sh:NodeShape ;
     sh:targetClass :PortfolioPosition ;
-    # T-106: optional upstream run provenance (D7).
+    # T-106: optional upstream run provenance (D7). Valid-time record closed later by validTo: these four record the run that OPENED it (validFrom);
+    # later runs must not re-emit them and the closing run is not recorded.
     sh:property [ sh:path :runId ; sh:datatype xsd:string ; sh:maxCount 1 ] ;
     sh:property [ sh:path :runAsOf ; sh:datatype xsd:date ; sh:maxCount 1 ] ;
     sh:property [ sh:path :codeVersion ; sh:datatype xsd:string ; sh:maxCount 1 ] ;

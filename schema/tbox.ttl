@@ -400,6 +400,8 @@
 # T-106 (D7): upstream run provenance. No rdfs:domain on purpose (like :provenanceId): D7 says every upstream row carries run_id, and a domain would
 # entail :ScoreSnapshot on a :Veto/:PortfolioPosition, contradicting AllDisjointClasses. Per-class use is constrained by SHACL (ScoreSnapshot,
 # SectorAggregateSnapshot, Veto, PortfolioPosition, DataQualityIssue); all optional -- ETL-built SEMANTIC snapshots have no upstream run.
+# On stint / valid-time individuals (Veto, PortfolioPosition) later cycles append to the SAME individual, so these four record only the run that OPENED
+# the record (raised it / validFrom); later cycles must not re-emit them (maxCount 1 / FunctionalProperty would break) and the closing run is not recorded.
 :runId a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:range xsd:string ;
     rdfs:comment "T-106 (D7): upstream run_id of the analysis/pricing/cycle run that wrote the row. Joins to the v_analysis_run / v_pricing_run / v_cycle_run log (params, dirty-tree reason) which stays upstream; no Run class is modelled." .
 :runAsOf a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:range xsd:date ;
