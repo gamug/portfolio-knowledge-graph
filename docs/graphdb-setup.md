@@ -20,7 +20,13 @@ docker run -d --name portfolio -p 127.0.0.1:7200:7200 -v "%THESIS_HOST_DIR%:/opt
 ```
 
 (Windows `cmd` syntax; in bash use `"$THESIS_HOST_DIR"`.) Port 7200 is bound to the host's loopback
-only.
+only, which is what was tested: Docker Desktop (WSL2) forwards `host.docker.internal` to it.
+
+On a **native Linux** Docker host that name resolves to the bridge gateway, not loopback, so the
+loopback bind is unreachable from the devcontainer. Do not widen it to `0.0.0.0` (that exposes the
+store on every interface). Instead bind to the bridge address, `-p 172.17.0.1:7200:7200`, and add
+`"--add-host=host.docker.internal:host-gateway"` to `runArgs` in `.devcontainer/devcontainer.json`.
+This path is untested here.
 
 On a **fresh** mount, once:
 
@@ -29,7 +35,7 @@ On a **fresh** mount, once:
    (Setup → Repositories → Create → upload RDF config). It carries the reasoning profile.
 3. Enable security (Setup → Users and Access) and create the application user `portfolio.app` with
    read, write and maintain on `portfolio` (`READ_REPO_portfolio`, `WRITE_REPO_portfolio`,
-   `MAINTAIN_REPO_portfolio`). Without repository roles the user gets 403 on every query.
+   `MAINTAIN_REPO_portfolio`; the Workbench lists these as Read / Write / Repository admin). Without repository roles the user gets 403 on every query.
 
 ## Reasoning profile (T-022)
 
