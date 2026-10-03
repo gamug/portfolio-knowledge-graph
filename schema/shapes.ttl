@@ -24,6 +24,11 @@
     # T-101: two-clock look-ahead guard. availableAt is mandatory; eventTime is optional but can never postdate it.
     sh:property [ sh:path :availableAt ; sh:datatype xsd:date ; sh:minCount 1 ; sh:maxCount 1 ] ;
     sh:property [ sh:path :eventTime ; sh:datatype xsd:date ; sh:maxCount 1 ; sh:lessThanOrEquals :availableAt ] ;
+    # T-106: optional upstream run provenance (run log itself stays upstream).
+    sh:property [ sh:path :runId ; sh:datatype xsd:string ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :runAsOf ; sh:datatype xsd:date ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :codeVersion ; sh:datatype xsd:string ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :engineVersion ; sh:datatype xsd:string ; sh:maxCount 1 ] ;
     sh:or ( [ sh:path :metricType ; sh:hasValue "SectorRelativeMomentum" ]
             [ sh:path :normalizedScore ; sh:minCount 1 ] ) .
 
@@ -37,6 +42,12 @@
 :VetoShape
     a sh:NodeShape ;
     sh:targetClass :Veto ;
+    # T-106: optional upstream run provenance (D7). A Veto is a stint appended to by later cycles: these four record the run that OPENED it (raisedOn);
+    # later cycles must not re-emit them and the closing run is not recorded.
+    sh:property [ sh:path :runId ; sh:datatype xsd:string ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :runAsOf ; sh:datatype xsd:date ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :codeVersion ; sh:datatype xsd:string ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :engineVersion ; sh:datatype xsd:string ; sh:maxCount 1 ] ;
     # T-102: a Veto is a stint. raisedOn is required; clearedOn absent = still active.
     sh:property [ sh:path :raisedOn ; sh:datatype xsd:date ; sh:minCount 1 ; sh:maxCount 1 ;
                   sh:lessThan :clearedOn ; sh:lessThanOrEquals :lastSeenOn ] ;
@@ -48,6 +59,11 @@
 :DataQualityIssueShape
     a sh:NodeShape ;
     sh:targetClass :DataQualityIssue ;
+    # T-106: optional upstream run provenance (D7).
+    sh:property [ sh:path :runId ; sh:datatype xsd:string ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :runAsOf ; sh:datatype xsd:date ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :codeVersion ; sh:datatype xsd:string ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :engineVersion ; sh:datatype xsd:string ; sh:maxCount 1 ] ;
     sh:property [ sh:path :dqIssueOfAsset ; sh:minCount 1 ; sh:maxCount 1 ] ;
     sh:property [ sh:path :dqRaisedOn ; sh:datatype xsd:date ; sh:minCount 1 ; sh:maxCount 1 ] ;
     sh:property [ sh:path :dqIssueOfFiling ; sh:maxCount 1 ] ;
@@ -107,6 +123,12 @@
 :PortfolioPositionShape
     a sh:NodeShape ;
     sh:targetClass :PortfolioPosition ;
+    # T-106: optional upstream run provenance (D7). Valid-time record closed later by validTo: these four record the run that OPENED it (validFrom);
+    # later runs must not re-emit them and the closing run is not recorded.
+    sh:property [ sh:path :runId ; sh:datatype xsd:string ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :runAsOf ; sh:datatype xsd:date ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :codeVersion ; sh:datatype xsd:string ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :engineVersion ; sh:datatype xsd:string ; sh:maxCount 1 ] ;
     sh:property [ sh:path :positionAsset ; sh:minCount 1 ; sh:maxCount 1 ] ;
     sh:property [ sh:path :weightPct ; sh:datatype xsd:decimal ; sh:minInclusive 0.0 ; sh:maxInclusive 100.0 ; sh:minCount 1 ; sh:maxCount 1 ] ;
     sh:property [ sh:path :validFrom ; sh:datatype xsd:date ; sh:minCount 1 ; sh:maxCount 1 ] .
@@ -120,6 +142,11 @@
 :SectorAggregateSnapshotShape
     a sh:NodeShape ;
     sh:targetClass :SectorAggregateSnapshot ;
+    # T-106: optional upstream run provenance (D7).
+    sh:property [ sh:path :runId ; sh:datatype xsd:string ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :runAsOf ; sh:datatype xsd:date ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :codeVersion ; sh:datatype xsd:string ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :engineVersion ; sh:datatype xsd:string ; sh:maxCount 1 ] ;
     sh:property [ sh:path :sectorSnapshotOfSector ; sh:minCount 1 ; sh:maxCount 1 ] ;
     sh:property [ sh:path :normalizedScore ; sh:datatype xsd:decimal ; sh:minInclusive 0.0 ; sh:maxInclusive 1.0 ; sh:minCount 1 ; sh:maxCount 1 ] ;
     sh:property [ sh:path :metricType ; sh:hasValue "ScoreTecnico" ; sh:minCount 1 ; sh:maxCount 1 ] ;

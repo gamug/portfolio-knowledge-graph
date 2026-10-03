@@ -444,7 +444,7 @@ decision may be "keep ours, translate on projection"):
    predicate as SPARQL, upstream's six rules as `RuleDefinition`s, a
    `DataQualityIssue` decision (T-102–T-104).
 4. Vocabulary (D6, D7): `QUANTITATIVE` → `VALORIZATION` in shapes/reference,
-   run-provenance modelling incl. the `forensic_flags_json`/`prompt_hash`/`correction_rule` extras (T-105, T-106).
+   run-provenance modelling incl. the `forensic_flags_json`/`prompt_hash`/`correction_rule` extras (T-105, T-106; both done).
 5. Edges and quant scope (D10, D11): candidate-edge semantics; which quant
    outputs become individuals (T-107, T-108).
 6. Read-contract gaps and moving parts (D8, D12, D13, D15, D16): list for

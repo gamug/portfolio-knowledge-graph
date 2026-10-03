@@ -397,6 +397,20 @@
 :availableAt a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :ScoreSnapshot ; rdfs:range xsd:date ;
     rdfs:comment "T-101 (D2): first date the observation may be used by a reader (look-ahead guard; for FUNDAMENTAL, the first NYSE trading day after the filing date). Every as-of-D query MUST filter availableAt <= D, never eventTime or timestamp. Distinct from timestamp, which is when the row was computed/ingested." .
 
+# T-106 (D7): upstream run provenance. No rdfs:domain on purpose (like :provenanceId): D7 says every upstream row carries run_id, and a domain would
+# entail :ScoreSnapshot on a :Veto/:PortfolioPosition, contradicting AllDisjointClasses. Per-class use is constrained by SHACL (ScoreSnapshot,
+# SectorAggregateSnapshot, Veto, PortfolioPosition, DataQualityIssue); all optional -- ETL-built SEMANTIC snapshots have no upstream run.
+# On stint / valid-time individuals (Veto, PortfolioPosition) later cycles append to the SAME individual, so these four record only the run that OPENED
+# the record (raised it / validFrom); later cycles must not re-emit them (maxCount 1 / FunctionalProperty would break) and the closing run is not recorded.
+:runId a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:range xsd:string ;
+    rdfs:comment "T-106 (D7): upstream run_id of the analysis/pricing/cycle run that wrote the row. Joins to the v_analysis_run / v_pricing_run / v_cycle_run log (params, dirty-tree reason) which stays upstream; no Run class is modelled." .
+:runAsOf a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:range xsd:date ;
+    rdfs:comment "T-106 (D7): the run log's as_of (the date the run was evaluated for). NOT a read filter -- as-of reads use availableAt (T-101). Emit it only where it can differ from eventTime (FUNDAMENTAL, backfill replays); for cycle types it equals eventTime." .
+:codeVersion a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:range xsd:string ;
+    rdfs:comment "T-106 (D7): upstream git SHA of the code that produced the row ('-dirty' suffix only when upstream ran with --allow-dirty)." .
+:engineVersion a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:range xsd:string ;
+    rdfs:comment "T-106 (D7): upstream engine_version. Upstream writes parallel rows per engine_version and its v_* views pick the newest per key; this records which one was projected. It is a free string with no defined order: readers must NOT rank by it (docs/07 'Run provenance' gives the read rule)." .
+
 # --- RiskEvent / Veto ---
 :category a owl:DatatypeProperty ; rdfs:range xsd:string ;
     rdfs:comment "On RiskEvent: LEGAL | FINANCIAL | MARKET | NETWORK. On RuleDefinition: free-text category label (v1's catalog table for the superseded rules; upstream's FINANCIAL | MARKET | DATA_QUALITY for the active six)." .
