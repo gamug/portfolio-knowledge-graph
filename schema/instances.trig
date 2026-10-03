@@ -37,13 +37,13 @@
 #      Resolved: urn:graph:ingest:ORCHESTRATOR:{date}, treating the
 #      Orchestrator as another daily writer for transaction-time
 #      purposes, consistent with the existing per-agent pattern.
-#   3. (T-108) Benchmark books, their weights and quant numbers (the quant module's output) go in
-#      urn:graph:derived:quant:{date}, apart from urn:graph:portfolio:current (the live book).
 #   2. sharedExecutiveWith and (T-107) the news-derived AssetCoOccurrence
 #      candidates (entity resolution's output, not an
 #      ingestion agent's) get their own graphs too, rather than being
 #      folded into an EDGAR ingest graph it didn't come from:
 #      urn:graph:derived:entity-resolution:{date}.
+#   3. (T-108) Benchmark books, their weights and quant numbers (the quant module's output) go in
+#      urn:graph:derived:quant:{date}, apart from urn:graph:portfolio:current (the live book).
 #
 # NOTE ON RAW VS. NORMALIZED COMPARISON (discovered while picking
 # real numbers for this file, not stated in 06-ontology-definition.md):

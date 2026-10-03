@@ -345,7 +345,7 @@ attractiveness-ranking feature, see §1.8, plus `VetoShape` added 2026-10-03 for
 | `DataQualityIssueShape` | gate code, severity, `quarantined`, `dqRaisedOn` and asset required; filing, metric name, `gatedValue`, `provenanceId` optional | Evidence for the `DATA_QUALITY` veto (T-104): an upstream `data_quality_issue` row, an `EvidenceSource` leaf. |
 | `AssetCoOccurrenceShape` | exactly two assets; kind (`SHARED_EXECUTIVE_CANDIDATE`), method and weight required; `coOccurrenceComputedOn` and T-106 run provenance optional | Keeps news candidates carrying their method/weight (T-107) |
 | `PortfolioShape` | name and `portfolioKind` ∈ {LIVE, BENCHMARK} required; `benchmarkObjective` optional | Lets benchmark books share `Portfolio` with the live book (T-108). |
-| `BenchmarkObservationShape` | portfolio, metric (free text) and value required; `quantPortfolio` must be a BENCHMARK book; `quantAsset`, `quantUnit`, `quantAsOf` and T-106 run provenance optional | Carries upstream's finished quant numbers without interpreting them (T-108); metric vocabulary and columns pending (T-109). |
+| `BenchmarkObservationShape` (+ `BenchmarkBookShape`) | portfolio, metric (free text) and value required; `quantPortfolio` must be a BENCHMARK book; `quantAsset`, `quantUnit`, `quantAsOf` and T-106 run provenance optional | Carries upstream's finished quant numbers without interpreting them (T-108); metric vocabulary and columns pending (T-109). |
 | `VetoShape` | `raisedOn` required; `clearedOn`/`lastSeenOn` optional, never before `raisedOn`; `vetoSeverity` ∈ {HARD, SOFT} | Veto stints (T-102): a stint is closed by `clearedOn`, never deleted. |
 
 Validated end-to-end with `pyshacl` against the full worked dataset below: **conforms = True**.

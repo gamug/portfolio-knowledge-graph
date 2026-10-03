@@ -70,7 +70,7 @@ what the store *enforces*.
    metrics (`leverage.debt_to_equity`, `cashflow.free_cash_flow_margin`, `liquidity.current_ratio`,
    `max_drawdown_90d`, `fundamental_score_age_days`): they are not `ScoreSnapshot` types, carry
    upstream's identifiers, and compare on the raw value (they have no `normalizedScore`).
-3. **Two more named-graph placements.** `07-ontology-topology.md` assigned graphs to every
+3. **Two more named-graph placements (a third added by T-108).** `07-ontology-topology.md` assigned graphs to every
    *agent's* daily output but not to the Orchestrator's own decisions or to entity resolution's
    derived facts. Resolved: `urn:graph:ingest:ORCHESTRATOR:{date}` and
    `urn:graph:derived:entity-resolution:{date}` (and, since T-108, `urn:graph:derived:quant:{date}`; documented in `instances.trig`'s header).
