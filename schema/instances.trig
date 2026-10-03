@@ -273,10 +273,15 @@ GRAPH <urn:graph:ingest:ORCHESTRATOR:2026-08-05> {
         rdfs:comment "Contagion: JPM sharedExecutiveWith XOM (Jane R. Doe), and XOM carries a T-1 (2026-08-04) primary veto triggered by VETO_FIN_01 -- a rule other than VETO_RED_01 itself, satisfying the de-recursion exclusion (v1 SS4). JPM's own OR-branch signal is Sentiment=-0.55 < -0.50." .
     :JPM :triggeredVeto :Veto_JPM_20260805 .
 
-    :Veto_XOM_MKT_20260805 a :Veto ; :raisedOn "2026-08-05"^^xsd:date ; :lastSeenOn "2026-08-05"^^xsd:date ; :appliesRule :Rule_VETO_MKT_02 ; :primaryRule :Rule_VETO_MKT_02 ;
+    :Veto_XOM_MKT_20260805 a :Veto ; :vetoSeverity "SOFT" ; :raisedOn "2026-08-05"^^xsd:date ; :lastSeenOn "2026-08-05"^^xsd:date ; :appliesRule :Rule_VETO_MKT_02 ; :primaryRule :Rule_VETO_MKT_02 ;
         :decidedAt "2026-08-05T09:15:00"^^xsd:dateTime ;
         rdfs:comment "Single-signal rule (rank 7, added 2026-08-13) — evidence is Snap_XOM_SectMom_20260805's rawValue -0.55 < -0.50. A second, independent veto for XOM alongside 2026-08-04's VETO_FIN_01 — different dates, both legitimately on record." .
     :XOM :triggeredVeto :Veto_XOM_MKT_20260805 .
+
+    # T-102 worked stint closure: the FIN_01 stint re-evaluated clean on 2026-08-05, so it is closed
+    # by writing clearedOn here (never by deleting it). Still active at cutoff 2026-08-04, which is
+    # what JPM's T-1 contagion check reads above.
+    :Veto_XOM_20260804 :clearedOn "2026-08-05"^^xsd:date .
 
     # Attractiveness ranking (added 2026-08-13) — computed for every monitored asset regardless
     # of veto status; portfolio construction (roadmap step 8, not yet built) is what would act on

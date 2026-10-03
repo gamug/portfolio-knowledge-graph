@@ -395,15 +395,15 @@
 :detectedAt a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :RiskEvent ; rdfs:range xsd:dateTime .
 :decidedAt  a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :Veto ; rdfs:range xsd:dateTime .
 # T-102: a :Veto is a STINT (upstream's `veto` rows), not a one-cycle event. Dates are cycle dates (xsd:date);
-# decidedAt stays the wall-clock detection time (upstream `detected_at`).
+# decidedAt stays the wall-clock detection time (upstream `detected_at`); upstream `cleared_at` (wall-clock close time) is deliberately dropped -- clearedOn is the only close marker.
 :raisedOn   a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :Veto ; rdfs:range xsd:date ;
     rdfs:comment "Cycle date on which the stint began (upstream raised_on). Required. Active at cutoff C iff raisedOn <= C AND (no clearedOn OR clearedOn > C); the T-1 lag is this predicate applied at read time (schema/README.md has the SPARQL), not an orchestrator feature. Added 2026-10-03 (T-102)." .
 :clearedOn  a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :Veto ; rdfs:range xsd:date ;
     rdfs:comment "Cycle date on which the stint closed (upstream cleared_on): a HARD veto clears when its rule re-evaluates clean. Absent = still active. Closed by writing this triple (in the clearing cycle's ORCHESTRATOR graph), never by deleting the Veto. Added 2026-10-03 (T-102)." .
-:lastSeenOn a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :Veto ; rdfs:range xsd:date ;
-    rdfs:comment "Most recent cycle date on which the rule still fired for this stint (upstream last_seen_on). Optional. Added 2026-10-03 (T-102)." .
+:lastSeenOn a owl:DatatypeProperty ; rdfs:domain :Veto ; rdfs:range xsd:date ;
+    rdfs:comment "Most recent cycle date on which the rule still fired for this stint (upstream last_seen_on). Optional and deliberately NOT functional: ORCHESTRATOR graphs are append-only, so each cycle adds a new value in its own graph and the current one is MAX(?lastSeenOn). Added 2026-10-03 (T-102)." .
 :vetoSeverity a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :Veto ; rdfs:range xsd:string ;
-    rdfs:comment "HARD | SOFT -- this stint's severity, which can differ from its rule's :ruleSeverity (LEVERAGE_EXTREME emits SOFT for a negative-equity firm). A SOFT stint charges soft_veto_penalty once. Optional: absent means the rule's severity. Added 2026-10-03 (T-102)." .
+    rdfs:comment "HARD | SOFT -- this stint's severity, which can differ from its rule's :ruleSeverity (LEVERAGE_EXTREME emits SOFT for a negative-equity firm). A SOFT stint charges soft_veto_penalty once. Optional: absent means the severity of the stint's :primaryRule (:ruleSeverity; the superseded design-history rules carry none). Added 2026-10-03 (T-102)." .
 
 # --- RuleDefinition / RuleClause / leaf comparisons ---
 :ruleId       a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :RuleDefinition ; rdfs:range xsd:string .

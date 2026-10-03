@@ -127,19 +127,29 @@ here (not just syntax validation): if any actual data value had fallen outside t
 vocabulary, this would have failed.
 
 **Re-verified 2026-10-03 (T-103, rule catalog migration):** the same combined-graph parse and
-`pyshacl` check — **1769 quads; conforms: True**. The migration added the six upstream
+`pyshacl` check — **1718 quads; conforms: True**. The migration added the six upstream
 `RuleDefinition`s, closed the seven tree rules with `validTo`, added `:ruleSeverity` and widened
 `ThresholdComparisonShape`'s `metricName` list; no new class, so the 24-member `AllDisjointClasses`
-block is unchanged; the node shapes go 14 → 15.
+block and the 14 node shapes are unchanged.
 
 **T-102 (veto stints), same day:** `:Veto` gains `raisedOn` (required), `clearedOn`, `lastSeenOn`
-(`xsd:date` cycle dates) and `vetoSeverity` (HARD | SOFT, per stint), enforced by a new
-`VetoShape`; the four worked-example vetoes carry `raisedOn`/`lastSeenOn`. **1769 quads;
-conforms: True.** A stint is closed by writing `clearedOn` (in the clearing cycle's ORCHESTRATOR
-graph), never by deleting the `Veto`. "Active at cutoff `?cutoff`" — the T-1 lag as a read-time
-predicate (checked: cutoff 2026-08-04 returns only `Veto_XOM_20260804`):
+(`xsd:date` cycle dates) and `vetoSeverity` (HARD | SOFT, per stint; absent = the `primaryRule`'s
+`ruleSeverity`), enforced by a new `VetoShape` (node shapes 14 → 15) that also rejects a
+`clearedOn`/`lastSeenOn` earlier than `raisedOn`. `lastSeenOn` is deliberately multi-valued
+because the ORCHESTRATOR graphs are append-only: each cycle adds its own value, current = `MAX`.
+A stint is closed by writing `clearedOn` in the clearing cycle's graph, never by deleting the
+`Veto`; the worked example closes `Veto_XOM_20260804` on 2026-08-05 and gives
+`Veto_XOM_MKT_20260805` a SOFT `vetoSeverity`. Upstream's wall-clock `cleared_at` is dropped.
+**1771 quads; conforms: True.**
+
+"Active at cutoff" is the general predicate; the **T-1 lag is the same query with `?cutoff` bound to
+the previous cycle date**. It needs the store to query the union of the named graphs (GraphDB does
+by default; Fuseki needs `unionDefaultGraph`). Checked on the worked data: cutoff 2026-08-03 →
+none; 2026-08-04 → `Veto_XOM_20260804` only; 2026-08-05 → the three others (XOM's FIN_01 stint is
+closed that day).
 
 ```sparql
+PREFIX : <https://thesis.local/kg/portfolio#>
 SELECT ?asset ?veto WHERE {
   ?asset :triggeredVeto ?veto . ?veto :raisedOn ?r .
   OPTIONAL { ?veto :clearedOn ?c }
