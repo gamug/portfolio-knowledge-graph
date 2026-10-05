@@ -464,6 +464,19 @@ decision may be "keep ours, translate on projection"):
 (2026-10-02): D4 — upstream's rule catalog is final; D9 — `portfolio-app`
 triggers the cycles. D11 — only finished, view-exposed quant numbers become individuals (T-108 done).
 
+## Work item 12 — Integrate `portfolio-app`/`portfolio-reports` and model per-run weight schemes
+
+**Why**: the two parts of Work item 11 that could not close there. (a) T-120: upstream's `api/` has
+no run trigger and its docs name `portfolio-reports` as the trigger, while D9 names `portfolio-app`;
+the split needs agreeing with upstream. (b) T-121: the D13 check found that upstream's weight
+schemes (one per `cycle_run`, keyed by `score_type`, plus scalar knobs) do not map onto
+`AttractivenessWeightScheme`/`WeightComponent` as modelled.
+
+**Acceptance**: T-120's outcome is recorded in `SPEC.md` D9 and `docs/10`; T-121 changes pass the
+FR-001 parse + `pyshacl` check and update `schema/README.md`'s counts (NR-001).
+
+**Blocked on**: T-120, an answer from the upstream maintainer (`missing_views.md`); T-121, nothing.
+
 ## Sequencing
 
 ```
@@ -481,6 +494,7 @@ Work item 4 (real projection; absorbs the SEMANTIC and ORCHESTRATOR lanes)
 Work item 6 (reasoner + SPARQL)
 
 Work item 11 (reconcile with upstream contracts) ──► gates Work item 4
+Work item 12 (app/reports integration, per-run weight schemes) — pending parts of 11, independent
 
 Work item 5 (SEMANTIC aggregation) — superseded, reassigned upstream
 Work item 7 (orchestrator)         — decided: delegate to financial-analysis `cycle`
