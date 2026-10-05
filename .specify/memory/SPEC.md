@@ -623,8 +623,8 @@ treating a related FR/NR as done:
    conduct" #2 — reconcile against `origin/master`'s actual `HEAD` before
    trusting `CLAUDE.md`'s dependency description in any given working copy.
 6. ~~**`ScoreSnapshotShape`'s `normalizedScore` requirement doesn't fit
-   Sentiment snapshots**~~ — resolved by T-081 (a `rawValue`-only branch for
-   `Sentiment`; §5's former known divergence).
+   Sentiment snapshots**~~ — resolved by T-081 (`Sentiment` is exempt from
+   `normalizedScore` and must carry `rawValue`; §5's former known divergence).
 7. **No test suite exists for `src/etl/`** (NR-005/§10) — the severity
    formulas, ticker skip-set logic, and provenance-ID formatting are
    exercised only indirectly by the end-to-end SHACL check.
@@ -741,7 +741,7 @@ of what this project is, not a gap someone forgot to close:
 | 3 — roadmap names superseded repos | **Pending development** (cheap, no blockers) | `PLAN.md` Work item 1 |
 | 4 — `protege-view.ttl` stale | **Pending development** (manual, needs a real Protégé session) | `PLAN.md` Work item 8 |
 | 5 — `CLAUDE.md` can lag `origin/master` | **Resolved** for this checkout; general risk stays covered by constitution conduct #2 | `PLAN.md` Work item 2 — done |
-| 6 — `ScoreSnapshotShape` vs. Sentiment `rawValue` | **Resolved** (T-081: a `rawValue`-only branch for `Sentiment`) | `PLAN.md` Work item 9 — done |
+| 6 — `ScoreSnapshotShape` vs. Sentiment `rawValue` | **Resolved** (T-081: `Sentiment` exempt from `normalizedScore`, `rawValue` required) | `PLAN.md` Work item 9 — done |
 | 7 — no test suite for `src/etl/` | **Permanently out of scope** at current scale | See above |
 | 8 — uncalibrated severity formulas | **Permanently out of scope** (research task) | See above |
 | 9 — no pinned SOURCE/RESULTS contract | **Permanently out of scope** (accepted risk) | See above |
