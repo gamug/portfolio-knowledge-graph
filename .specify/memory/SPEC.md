@@ -186,7 +186,7 @@ Established by the T-007 scan (2026-10-02) of `portfolio-data-mining`,
 
 | Repo | Computes / owns | Surface this repo may consume | Consumed today? |
 |---|---|---|---|
-| `portfolio-data-mining` | News URL discovery and article text extraction (`news_collector`, `extractor` → `urls.db`); Finnhub/yfinance pricing HTTP service (`pricing`: `GET /pricing/{ticker}`, `/pricing/{ticker}/actions`, `/universe`); SEC EDGAR HTTP service (`sec_edgar`); the S&P 500 universe, live (`data_mining.portfolio`) and **point-in-time** (`data_mining.universe_history` → `universe.db`, SCD-2 `universe_membership`) | `universe.db` — the point-in-time membership every upstream agent already reads read-only (D1); its HTTP services and `urls.db` are consumed by the other two repos; `src/etl/` also reads `urls.db` through `news_export` (FR-005, §13 item 12) | No — `universe.db` should be (D1); the rest stays indirect (§12) |
+| `portfolio-data-mining` | News URL discovery and article text extraction (`news_collector`, `extractor` → `urls.db`); Finnhub/yfinance pricing HTTP service (`pricing`: `GET /pricing/{ticker}`, `/pricing/{ticker}/actions`, `/universe`); SEC EDGAR HTTP service (`sec_edgar`); the S&P 500 universe, live (`data_mining.portfolio`) and **point-in-time** (`data_mining.universe_history` → `universe.db`, SCD-2 `universe_membership`) | `universe.db` — the point-in-time membership every upstream agent already reads read-only (D1); its HTTP services and `urls.db` are consumed by the other two repos; `src/etl/` also reads `urls.db` through `news_export` (FR-005, §13 item 12) | Yes, transitionally — `urls.db` by `src/etl/` via `news_export` (FR-005); `universe.db` should be (D1); the HTTP services stay indirect (§12) |
 | `portfolio-nlp` | Sentiment (FinBERT), NER, category, summaries → `nlp.db` (`article_sentiment`/`article_entities`/`article_category`/`article_summary`/`sector_summary`); proposed owner of the per-`(asset, day)` SEMANTIC aggregation (not built) | `nlp.db` RESULTS, read-only | Yes — `src/etl/` via `portfolio_common.news_export` |
 | `portfolio-financial-analysis` | `fundamental_agent` (EDGAR ratios + LLM assessment, Ring-1 `DQ_*` data-quality gates), `pricing_agent`, `cycle` (a checkpointed topological runner — Strands-era, not LangGraph: TECHNICAL/VALORIZATION/SECTOR scores, veto stints, ranking, positions, `backfill` replay), `entity_resolution` (news-co-occurrence *candidates*, projected as `AssetCoOccurrence`, T-107), `quant` (Markowitz benchmark books, forward evaluation; finished view-exposed numbers projected as benchmark `Portfolio`s and `BenchmarkObservation`s, T-108), read-only HTTP `api/` (:8010); passive `kg_schema` (DDL, migrations, `schema_version`, views) | The 31 `v_*` read-contract views over `SQL_FINANCIAL_DB` (SQLite, `mode=ro`): `v_score_snapshot`, `v_sector`, `v_industry`, `v_sector_aggregate_snapshot`, `v_price_observation`, `v_corporate_action`, `v_quant_return_daily`, `v_risk_free_rate`, `v_benchmark_series`, `v_sec_filing`, `v_sec_filing_section`, `v_veto`, `v_rule_catalog`, `v_data_quality_issue`, `v_portfolio_position`, `v_shared_executive_edge`, `v_cycle_ranking`, `v_weight_scheme`, `v_weight_component`, `v_quant_risk_model`, `v_quant_portfolio`, `v_quant_position`, `v_quant_frontier_point`, `v_quant_benchmark_performance`, `v_quant_vs_live`, run logs `v_analysis_run`/`v_pricing_run`/`v_quant_run`/`v_cycle_run`, `v_universe_coverage`, and `v_universe_membership` (**frozen** — use `universe.db`). No view exposes `fundamental_metrics`, `financial_facts` or `filing_cover_shares` | No — designed source, unread (§13 item 2) |
 | `portfolio-knowledge-graph` (this repo) | The ontology (`schema/`); the projection of the above into SHACL-validated, dated named graphs; the store, reasoner and SPARQL surface over them | — | — |
@@ -200,8 +200,8 @@ Consequences for this repo's scope:
 2. **Read upstream through its published contract only** — `nlp.db` RESULTS
    via `portfolio_common.news_export`, and `financial-analysis`'s `v_*` views
    opened read-only (`mode=ro`). Never read an upstream's SOURCE or raw
-   tables for something its processed stores already publish, and never open
-   a database directly (NR-002 spirit). SOURCE `urls.db` through
+   tables for something its processed stores already publish, and never
+   through a raw connection (NR-002 spirit). SOURCE `urls.db` through
    `news_export` is allowed for a signal no processed store has, flagged
    provisional (FR-005; today only G3's keyword bump, §13 item 12). The
    Wikipedia scrape behind FR-004 is the other known exception, pending D1
@@ -565,8 +565,9 @@ There is no CD pipeline and no CI workflow for this repo
   should not need it.
 - **No direct dependency on**: `portfolio-data-mining`'s pricing/EDGAR HTTP
   services (consumed by `portfolio-nlp` and `portfolio-financial-analysis`,
-  not here — §2.5). The one direct
-  `portfolio-data-mining` artifact this repo needs is `universe.db` (above). `portfolio-financial-analysis` is a designed, not-yet-wired source
+  not here — §2.5). In the target state, the one direct
+  `portfolio-data-mining` artifact this repo needs is `universe.db` (above);
+  `urls.db` is the transitional read listed just above. `portfolio-financial-analysis` is a designed, not-yet-wired source
   (§13 item 2), not a non-dependency.
 
 ## 13. Open Questions & Risks
