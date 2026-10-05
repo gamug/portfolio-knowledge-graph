@@ -32,7 +32,7 @@ implementation back to requirement and requirement back to test.
 top of a knowledge graph. Data flows in one direction through the system:
 
 ```
-sources (Wikipedia/news/Finnhub/SEC EDGAR)
+sources (Wikipedia, via `portfolio-data-mining`/news/Finnhub/SEC EDGAR)
   → portfolio-data-mining      (acquisition: discovers URLs, extracts article text)
   → portfolio-nlp              (semantic layer: sentiment/NER/category/summaries)
   → portfolio-financial-analysis (fundamentals/pricing/cycle/quant → SEMANTIC score input)

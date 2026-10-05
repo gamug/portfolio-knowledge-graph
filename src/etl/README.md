@@ -100,8 +100,9 @@ articles that is not a practical validation step. Instead it builds a
 - `article_summary` / `sector_summary` — the "summary" feature
 - `discovered_urls`, `article_entities`, `discovery_progress`
 - Computed / orchestrator-layer classes (`:Veto`, `:AttractivenessSnapshot`,
-  `:Universe`, `:UniverseMembership`, `:Portfolio`, `:PortfolioPosition`) —
-  these *consume* this ETL's output, they are not populated by it.
+  `:Portfolio`, `:PortfolioPosition`) — these *consume* this ETL's output, they
+  are not populated by it. (`:Universe` and `:UniverseMembership` ARE populated,
+  from `universe.db`.)
 
 ## Provisional formulas requiring sign-off
 
