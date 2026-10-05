@@ -255,11 +255,13 @@ and their dispositions are in the table after the register (T-112).
 model taken as is), **translated** (kept in this ontology's own form, mapped on
 projection), **rejected** (deliberately not projected), **raised upstream**
 (needs an answer or a change in another repo; none has been answered yet).
-A row may have a second label for a part it leaves open.
+**Proposed** means no decision is recorded yet. A row may have a second label
+for a part it leaves open; "raised upstream" appears whenever an open part
+waits on another repo.
 
 | # | Disposition | What was done | Still open |
 |---|---|---|---|
-| D1 | Adopted | `universe.db` as-of reads replace the live-Wikipedia asset master. | Implementation: T-100 (ETL not changed yet). |
+| D1 | Proposed | Retire the live-Wikipedia asset master in favour of `universe.db` as-of reads (T-100). No maintainer decision is recorded yet, unlike D4, D9 and D11. | The decision itself, then the implementation (T-100); the ETL is unchanged. |
 | D2 | Adopted | `availableAt` (required) / `eventTime` on `ScoreSnapshot` (T-101). | — |
 | D3 | Adopted | Veto stints `raisedOn`/`clearedOn`/`lastSeenOn`, active-at-cutoff SPARQL (T-102). | — |
 | D4 | Adopted | Upstream's six rules are the catalog, written as single-leaf `RuleDefinition`s; the seven tree rules closed with `validTo` (T-103). | — |
@@ -267,14 +269,14 @@ A row may have a second label for a part it leaves open.
 | D6 | Adopted | `agentOrigin` `VALORIZATION` (T-105); metric id `ScoreCuantitativo` kept (no upstream id exists, T-109). | — |
 | D7 | Translated; extras rejected | Optional `runId`/`runAsOf`/`codeVersion`/`engineVersion`, no `Run` class (T-106); `forensic_flags_json`/`prompt_hash`/`correction_rule` not projected. | — |
 | D8 | Translated; raised upstream | Filter `v_cycle_ranking` by `cycle_run_id`/`cycle_date`, exclude `REPLAY`, production DB only (T-109). | Docstring/SQL mismatch and a replay flag, raised upstream. |
-| D9 | Adopted; raised upstream | No scheduler here; `portfolio-app` triggers the cycles (maintainer, 2026-10-02). | Run-trigger endpoint and `portfolio-reports` wording: T-120. |
+| D9 | Adopted; raised upstream | No scheduler here; `portfolio-app` triggers the cycles (maintainer, 2026-10-02). | Run-trigger endpoint and `portfolio-reports` wording, raised upstream: T-120. |
 | D10 | Translated; raised upstream | Reified `:AssetCoOccurrence`; `:sharedExecutiveWith` kept for verified edges (T-107). | `MEDIA` kind waits for a `media_cooccurrence` view, raised upstream. |
-| D11 | Translated; rest rejected | Only view-exposed finished numbers: BENCHMARK `Portfolio`s, positions, `BenchmarkObservation`s (T-108, T-109). Return series, μ, Σ, frontier points rejected (NR-003). | Confirm the `live_book` reading and the `equal_weight`/`cap_weight` names, raised upstream. |
+| D11 | Translated; rest rejected; raised upstream | Only view-exposed finished numbers: BENCHMARK `Portfolio`s, positions, `BenchmarkObservation`s (T-108, T-109). Return series, μ, Σ, frontier points rejected (NR-003). | Confirm the `live_book` reading and the `equal_weight`/`cap_weight` names, raised upstream. |
 | D12 | Rejected for now; raised upstream | Vetoes projected as outcomes with evidence; upstream's rules are not re-evaluated in the graph. | Views for `fundamental_metrics`, market cap, forensic flags, `prompt_hash`, raised upstream. |
 | D13 | Translated; raised upstream | Mapping checked against `v_weight_scheme`/`v_weight_component` (T-109). | Schema work: T-121. Confirm `score_weights` contents, raised upstream. |
 | D14 | Adopted; raised upstream | `:scoreMethod` discriminator; no write-back code existed to remove (T-111). | Upstream's method value (replaces `ASSET_DAY_AGGREGATE`) and its stale docs, raised upstream. |
 | D15 | Adopted | Read the SQLite `v_*` views via `portfolio_common.db` read-only; the HTTP `api/` is not a source. | Implementation: Work item 4's projector. |
-| D16 | Adopted | `schema_version` floor 9 (T-109); `portfolio-common` re-pinned to `v1.2.1` (T-110). | Assert the floor in the future projector; `portfolio-nlp`'s pin is upstream's, raised upstream. |
+| D16 | Adopted; raised upstream | `schema_version` floor 9 (T-109); `portfolio-common` re-pinned to `v1.2.1` (T-110). | Assert the floor in the future projector; `portfolio-nlp` is still on `v1.2.0` (theirs to move). |
 
 ## 3. Technology Stack & Architecture Decisions
 
@@ -713,7 +715,7 @@ of what this project is, not a gap someone forgot to close:
 |---|---|---|
 | 1 — integrative layer unbuilt (steps 1–2, query surface); compute steps owned upstream | **Pending development** (integrative layer only) | The actual backlog — `PLAN.md` Work items 3, 4, 6; Work items 5 and 7 are now scope-reassigned upstream (§2.5) |
 | 12 — FR-005 vs. the ETL's `body_text` read | **Pending development** (cheap: a spec/code reconciliation) | `PLAN.md` Work item 11, T-113 |
-| 10 — `kg_schema`/`schema/` vocabulary and semantic drift | **Pending development** | `PLAN.md` Work item 11 (decisions, T-100–T-111) then Work item 4, T-030; register in §2.6 |
+| 10 — `kg_schema`/`schema/` vocabulary and semantic drift | **Pending development** | `PLAN.md` Work item 11 (decisions, T-100–T-112; dispositions recorded in §2.6) then Work item 4, T-030 |
 | 11 — SEMANTIC score not computed here | **Ownership resolved; cut-over pending** (upstream aggregation + local replacement) | `PLAN.md` Work items 4–5 (reassigned), §2.5 |
 | 2 — no `v_*`-views projection | **Pending development** | Folded into `PLAN.md` Work item 4 (the real step-2 projection); today's `src/etl/` shortcut stays live until that lands |
 | 3 — roadmap names superseded repos | **Pending development** (cheap, no blockers) | `PLAN.md` Work item 1 |

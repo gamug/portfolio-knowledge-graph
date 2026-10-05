@@ -449,13 +449,13 @@ decision may be "keep ours, translate on projection"):
    outputs become individuals (T-108 done).
 6. Read-contract gaps and moving parts (D8, D12, D13, D15, D16): list for
    upstream, assert `schema_version`, reconcile the `portfolio-common` pin
-   (T-109, T-110, both done 2026-10-05; the D13 schema work moved to T-121, in Work item 12, and the read-contract gaps go to the upstream maintainer); SEMANTIC `score_method` discriminator and wording (D14,
+   (T-109, T-110, both done 2026-10-05; the D13 schema work moved to T-121, in Work item 12, and the read-contract gaps are to go to the upstream maintainer); SEMANTIC `score_method` discriminator and wording (D14,
    T-111, done 2026-10-05: `:scoreMethod`).
 
 **Acceptance criteria**:
 
 - Each of D1–D16 has a recorded disposition (adopted / translated /
-  rejected / raised upstream) in `SPEC.md` §2.6. **Met (T-112, 2026-10-05).**
+  rejected / raised upstream) in `SPEC.md` §2.6. **Met (T-112, 2026-10-05); D1 is recorded as *Proposed* until T-100 decides it.**
 - Where a decision changes `schema/`, the FR-001 parse + `pyshacl` check
   passes and `schema/README.md`'s counts are updated (NR-001).
 - No Work item 4 task starts before this one's items 1–4 are decided.
