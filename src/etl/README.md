@@ -160,5 +160,5 @@ are answered in the graph by `validFrom <= D` and (no `validTo` or
 
 The Sentiment snapshots emitted here carry only `rawValue` (the scale v1's `-0.50` /
 `-0.60` thresholds are defined on — see `tbox.ttl`'s `ThresholdComparison` comment).
-`schema/shapes.ttl`'s `ScoreSnapshotShape` accepts that: a `Sentiment` snapshot with a
-`rawValue` in `[-1, 1]` needs no `normalizedScore` (T-081).
+`schema/shapes.ttl`'s `ScoreSnapshotShape` accepts that: a `Sentiment` snapshot needs no
+`normalizedScore`, but must carry a `rawValue` in `[-1, 1]` (T-081).

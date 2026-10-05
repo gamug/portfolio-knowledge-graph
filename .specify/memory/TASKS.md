@@ -24,7 +24,10 @@ are closed (see `CHANGELOG.md`).*
 - [ ] **T-030** *(Work item 11 is closed)* Confirm the `financial-analysis` `v_*` views' actual column
       shapes (view list in `SPEC.md` §2.5; definitions in that repo's
       `src/kg_schema/views.py`), pin the columns this repo reads, and add a
-      check that fails on drift (`SPEC.md` §13 item 10). → `PLAN.md` Work item 4,
+      check that fails on drift (`SPEC.md` §13 item 10). Include the score scale:
+      upstream's `score_snapshot.normalized_score` is on 0–100 (FUNDAMENTAL, VALORIZATION,
+      TECHNICAL, SECTOR) while `ScoreSnapshotShape` bounds `normalizedScore` to [0, 1], so a
+      projection must rescale (or the shape must change). → `PLAN.md` Work item 4,
       step 1.
 - [ ] **T-031** Design and implement the SHACL-validated-on-write path into
       fresh `urn:graph:ingest:{agent}:{date}` graphs. → step 2.

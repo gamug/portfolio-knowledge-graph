@@ -201,17 +201,18 @@ reused.*
       for `metricType = Sentiment`, or add a normalization step to the ETL.
       → `PLAN.md` Work item 9, approach. **Done 2026-10-05 (maintainer
       decision: option 1, the shape branch).**
-- [x] **T-081** Implement the chosen fix. → same. **Done 2026-10-05:** a third
-      `sh:or` branch in `ScoreSnapshotShape` (`Sentiment` with `rawValue` ∈ [-1, 1]).
+- [x] **T-081** Implement the chosen fix. → same. **Done 2026-10-05:** `ScoreSnapshotShape`
+      exempts `Sentiment` from `normalizedScore` and requires `rawValue` ∈ [-1, 1] on every
+      `Sentiment` snapshot (two `sh:or` constraints).
 - [x] **T-082** Verify: the FR-001/FR-006 parse+`pyshacl` checks show zero
       violations for Sentiment snapshots in a sample run. → `PLAN.md`
       acceptance criteria. **Done 2026-10-05:** real ETL smoke run
       (`--limit 3000`) had 3000 Sentiment violations on the old shape and
-      `SHACL conforms: True` on the new one; five synthetic cases behave as
-      intended; full schema 2397 quads, conforms: True.
+      `SHACL conforms: True` on the new one; eight synthetic cases behave as
+      intended; full schema 2400 quads, conforms: True.
 - [x] **T-083** Document which option was chosen and why in
       `schema/README.md`'s gap list, alongside its three existing gaps. →
-      `PLAN.md` acceptance criteria. **Done 2026-10-05.**
+      `PLAN.md` acceptance criteria. **Done 2026-10-05** (in refinement 2 of the list).
 
 ## Work item 10 — Complete `schema/README.md`'s directory map
 

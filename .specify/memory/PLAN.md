@@ -373,11 +373,11 @@ confirmed by a diff review, not just a regenerate-and-forget.
 
 ## Work item 9 — Resolve the `ScoreSnapshotShape`/Sentiment `rawValue` divergence
 
-**Why**: `ScoreSnapshotShape` requires `normalizedScore` for every
+**Why**: `ScoreSnapshotShape` required `normalizedScore` for every
 non-`SectorRelativeMomentum` snapshot, but the ETL's Sentiment snapshots
 carry only `rawValue` — the scale the veto-rule thresholds are defined on
-(`SPEC.md` §5/§7). This produces one SHACL violation per Sentiment snapshot
-in the sample/smoke check today.
+(`SPEC.md` §5/§7). This produced one SHACL violation per Sentiment snapshot
+in the sample/smoke check.
 
 **Approach** (pick one, this is a schema decision — record which in
 `schema/README.md`'s gap list the same way the other three implementation-
@@ -399,7 +399,7 @@ time gaps are documented):
   gaps.
 
 **Status**: done 2026-10-05 (T-080–T-083). Maintainer chose option 1 (shape branch); see
-`schema/README.md`.
+`schema/README.md`, refinement 2.
 
 ## Work item 10 — Complete `schema/README.md`'s directory map
 
