@@ -480,6 +480,29 @@ FR-001 parse + `pyshacl` check and update `schema/README.md`'s counts (NR-001).
 
 **Blocked on**: T-120, an answer from the upstream maintainer; T-121, nothing.
 
+## Work item 14 — `ScoreSnapshotShape` and store-gate follow-ups (PR #48 post-merge review)
+
+**Why**: the post-merge review of PR #48 (Work item 9) found three gaps in the shape it rewrote and two
+follow-ups its third review raised as optional but nobody filed: a `SectorRelativeMomentum` snapshot
+with no value at all conformed; `rawValue` (an `owl:FunctionalProperty`) could appear twice; nothing
+tied `agentOrigin` to `metricType`; `cli/verify_store.py` has never run against a live GraphDB with the
+new acceptance probe; and `acceptance.check_gate` counts violations by matching pyshacl's text report.
+
+**Approach**:
+
+1. Tighten `ScoreSnapshotShape` (T-140): `rawValue` required for `SectorRelativeMomentum` (range left to
+   T-031), `sh:maxCount 1` on `rawValue`, an `sh:xone` pairing each `agentOrigin` with its one
+   `metricType`. Update `docs/06`, `schema/README.md` and every quad count (NR-001).
+2. Run `cli/verify_store.py` once against the live repository (T-141).
+3. Make `gate.validate` expose the results graph, and count `sh:ValidationResult` nodes in
+   `check_gate` instead of matching text (T-142).
+
+**Acceptance**: FR-001 parse + `pyshacl` pass with the new count; the store acceptance probe still
+yields exactly one violation (`:timestamp`); T-141's run is recorded in `docs/graphdb-setup.md`; T-142's
+`check_gate` does not depend on pyshacl's report wording.
+
+**Blocked on**: T-141 needs a running GraphDB; nothing else.
+
 ## Sequencing
 
 ```
@@ -503,6 +526,7 @@ Work item 5 (SEMANTIC aggregation) — superseded, reassigned upstream
 Work item 7 (orchestrator)         — decided: delegate to financial-analysis `cycle`
 
 Work item 8 (protege-view.ttl) — independent, manual, land whenever convenient
+Work item 14 (PR #48 follow-ups) — independent; T-140 done, T-141 needs a live GraphDB
 ```
 
 Work items 1, 2, and 9 have no dependencies and no blockers — they can land

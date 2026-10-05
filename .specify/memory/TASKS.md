@@ -78,6 +78,19 @@ D13 check recorded in `SPEC.md` §2.6, T-120 needs an answer from the upstream m
 - [ ] **T-120** *(moved from T-108(a); D9)* `portfolio-app` and `portfolio-reports` integration. Upstream's `api/` is read-only with no run-trigger endpoint, and its docs name `portfolio-reports` as the trigger, while this repo's SPEC names `portfolio-app` (not yet created). Agree with upstream who triggers `cycle select`/`cycle monitor`, and what `portfolio-app` and `portfolio-reports` each read: `portfolio-reports` reads the run-log `v_*` views (`v_*_run`), `portfolio-app` should read this repo's query surface. Record the outcome in SPEC D9 and `docs/10`. Open question for the upstream maintainer. → steps 5–6.
 - [ ] **T-121** *(moved from T-109(ii); D13)* Extend the weight-scheme model to what upstream records per run: one `AttractivenessWeightScheme` per `cycle_run` (`schemeId` = `scheme_id`, `validFrom` = `cycle_date`, no `validTo`), a component per `score_type` (`weightMetricName` ← `agentOrigin`: FUNDAMENTAL, VALORIZATION, TECHNICAL, SEMANTIC), and the scalar knobs (`top_n`, `max_name_weight`, `max_sector_weight`, `soft_veto_penalty`) as new properties; decide what to do with `inverted` and `SectorRelativeMomentum`, which upstream does not weight. **Decide first:** a per-run scheme with `validFrom` and no `validTo` reads as "still active" for every run (the valid-time convention), so either close the previous run's scheme with `validTo` when the next run is projected, or stop treating a per-run scheme as a valid-time record (a run-date property linked to the run, and relax `validFrom` `minCount 1` in `AttractivenessWeightSchemeShape`). Update `tbox.ttl`, `shapes.ttl`, `rules.ttl`'s `WeightScheme_v1`, docs 06/07 and `schema/README.md` counts. → step 6.
 
+## Work item 14 — `ScoreSnapshotShape` and store-gate follow-ups (PR #48 post-merge review)
+
+- [x] **T-140** *(done 2026-10-05)* Tighten `ScoreSnapshotShape`: `SectorRelativeMomentum` requires
+      `rawValue` (range left to T-031); `rawValue` at most once (`owl:FunctionalProperty` in `tbox.ttl`);
+      `agentOrigin` ↔ `metricType` one-to-one via `sh:xone`. 2455 quads, conforms; 17 synthetic cases,
+      the acceptance probe (one violation), `docs/09`'s example and the ETL smoke run agree. → `PLAN.md`
+      Work item 14, step 1.
+- [ ] **T-141** Run `cli/verify_store.py` against the live GraphDB repository with the current
+      acceptance probe and record the result in `docs/graphdb-setup.md`. → step 2.
+- [ ] **T-142** Have `kg_store.gate.validate` expose pyshacl's results graph and make
+      `acceptance.check_gate` count `sh:ValidationResult` nodes instead of matching
+      `"Constraint Violation in"` in the text report. → step 3.
+
 ## Status
 
 Closed Work items 1, 2, 3, 5, 7 (superseded/decided by T-007), 9, 10 and 11 are in
@@ -85,5 +98,6 @@ Closed Work items 1, 2, 3, 5, 7 (superseded/decided by T-007), 9, 10 and 11 are 
 Work items 4 and 6 (T-030–T-035, T-050–T-053)
 follow in dependency order (Work items 3 and 11 are closed, so Work item 4 is unblocked).
 Work item 12 (T-120–T-121): T-120 is blocked on an upstream answer, T-121 is unblocked.
+Work item 14 (T-140–T-142): T-140 done; T-141 needs a live GraphDB; T-142 is unblocked.
 Work item 8 (T-070–T-071) is independent but needs a human at a Protégé
 session, not a coding session.
