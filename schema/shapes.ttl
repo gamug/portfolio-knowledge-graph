@@ -25,6 +25,8 @@
     sh:property [ sh:path :availableAt ; sh:datatype xsd:date ; sh:minCount 1 ; sh:maxCount 1 ] ;
     sh:property [ sh:path :eventTime ; sh:datatype xsd:date ; sh:maxCount 1 ; sh:lessThanOrEquals :availableAt ] ;
     # T-106: optional upstream run provenance (run log itself stays upstream).
+    # T-111 (D14): optional method discriminator; open vocabulary (see tbox.ttl).
+    sh:property [ sh:path :scoreMethod ; sh:datatype xsd:string ; sh:maxCount 1 ] ;
     sh:property [ sh:path :runId ; sh:datatype xsd:string ; sh:maxCount 1 ] ;
     sh:property [ sh:path :runAsOf ; sh:datatype xsd:date ; sh:maxCount 1 ] ;
     sh:property [ sh:path :codeVersion ; sh:datatype xsd:string ; sh:maxCount 1 ] ;
