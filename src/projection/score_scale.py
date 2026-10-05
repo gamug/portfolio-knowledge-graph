@@ -15,6 +15,12 @@ polarity for every lane that carries a ``normalizedScore``. Upstream's separate
 ``raw_value`` column (the score before cross-sectional normalization) is what maps to
 ``:rawValue``; its range per ``score_type`` is decided with the write path (T-031).
 
+The same conversion applies to ``v_sector_aggregate_snapshot.mean_normalized`` (the mean of
+a sector's members' TECHNICAL ``normalized_score``, so the same 0-100 strength reading), which
+becomes a ``:SectorAggregateSnapshot``'s ``normalizedScore``: call
+``to_normalized_score("TECHNICAL", mean_normalized)``. The map is linear, so flipping the mean
+equals the mean of the flipped scores.
+
 Only the three lanes in :data:`RESCALED_SCORE_TYPES` are converted. Upstream ``SECTOR``
 is ``SectorRelativeMomentum`` (``SPEC.md`` D6) and SEMANTIC snapshots are ``Sentiment``
 (FR-005): both compare on ``rawValue`` and carry no ``normalizedScore``, so how their
@@ -23,7 +29,7 @@ is ``SectorRelativeMomentum`` (``SPEC.md`` D6) and SEMANTIC snapshots are ``Sent
 
 from __future__ import annotations
 
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 
 UPSTREAM_MIN = Decimal(0)
 UPSTREAM_MAX = Decimal(100)
@@ -49,7 +55,10 @@ def to_normalized_score(score_type: str, upstream: float | Decimal | None) -> De
         raise ValueError(f"score_type {score_type!r} carries no normalizedScore here")
     if upstream is None:
         return None
-    value = Decimal(str(upstream))
+    try:
+        value = Decimal(str(upstream))
+    except InvalidOperation as exc:
+        raise ValueError(f"upstream normalized_score {upstream!r} is not a number") from exc
     if not value.is_finite() or not UPSTREAM_MIN <= value <= UPSTREAM_MAX:
         raise ValueError(f"upstream normalized_score {upstream!r} outside [0, 100]")
     return (UPSTREAM_MAX - value) / UPSTREAM_MAX

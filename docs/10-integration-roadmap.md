@@ -20,7 +20,7 @@ before it, and which repo owns it.
 |---|---|---|---|
 | 0 | Ontology TBox + SHACL | this repo (`schema/`) | ✅ Done |
 | 1 | Triple store | this repo (`src/kg_store/`, `docs/graphdb-setup.md`) | ✅ Done — GraphDB 11.5.1, `schema/` loaded, ABox writes pass the SHACL gate (PLAN Work item 3) |
-| 2 | Ingestion / projection into the graph | this repo (`src/etl/` shortcut; real projection = PLAN Work item 4) | Shortcut built (assets and membership history from `universe.db` + news from `portfolio-nlp`); the real `v_*` projection not started |
+| 2 | Ingestion / projection into the graph | this repo (`src/etl/` shortcut; real projection = PLAN Work item 4, `src/projection/`) | Shortcut built (assets and membership history from `universe.db` + news from `portfolio-nlp`); the real `v_*` projection started (T-030: read contract pinned, score conversion; write path T-031 next) |
 | 3 | Daily pricing collector | `portfolio-data-mining` (pricing service) + `portfolio-financial-analysis` (`pricing_agent`); this repo projects `v_price_observation` | Built upstream |
 | 4 | EDGAR batch pipeline | `portfolio-data-mining` (`sec_edgar` service) + `portfolio-financial-analysis` (`fundamental_agent`); this repo projects scores/filings/sections | Built upstream |
 | 5 | NLP / sentiment service | `portfolio-nlp` | Partly built — per-article sentiment/NER/category shipped; per-asset-per-day aggregation not built |

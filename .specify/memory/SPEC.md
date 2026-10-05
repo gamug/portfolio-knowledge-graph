@@ -295,7 +295,9 @@ reads by name. Upstream's `normalized_score` is a 0–100 *strength* score (50 =
 average, higher = better), while `:normalizedScore` is a [0, 1] *risk* reading
 (`docs/06-ontology-definition.md` §1.8; flagged as `schema/README.md` refinement 6). For
 FUNDAMENTAL, VALORIZATION and TECHNICAL (`ScoreFinanciero`/`ScoreCuantitativo`/`ScoreTecnico`)
-the projection writes `1 − normalized_score/100` (`src/projection/score_scale.py`); a
+the projection writes `1 − normalized_score/100` (`src/projection/score_scale.py`), and does the
+same for `v_sector_aggregate_snapshot.mean_normalized` (the mean of members' TECHNICAL score,
+same scale and polarity) into `:SectorAggregateSnapshot`'s required `normalizedScore`; a
 non-finite value or one outside [0, 100] is an error, not clipped. Upstream's separate
 `raw_value` (the score before normalization) is what maps to `:rawValue`; its range per lane
 is decided in T-031. SECTOR (= `SectorRelativeMomentum`, D6) and SEMANTIC (= `Sentiment`,
@@ -527,7 +529,7 @@ production system this project isn't. What exists instead:
   an actual test suite.
 - **New requirement → new test first** (once a test suite exists) is the
   aspirational standard this repo has not yet built infrastructure for — a
-  `pytest` suite for `src/etl/` is accepted as permanently out of scope at
+  `pytest` suite for `src/etl/` (being revisited: `PLAN.md` Work item 13) is accepted as permanently out of scope at
   current scale (§14), not a pending backlog item, unless Work item 4's
   larger projection changes that calculus.
 
@@ -747,7 +749,7 @@ of what this project is, not a gap someone forgot to close:
   the shared `fetch_processed_articles` join shape (§13 item 9) — accepted
   at this scale; a `portfolio-nlp` schema change breaking this repo silently
   is a known, accepted risk.
-- **A `pytest` suite for `src/etl/`** (§13 item 7) — accepted at current
+- **A `pytest` suite for `src/etl/`** (§13 item 7; being revisited by `PLAN.md` Work item 13) — accepted at current
   scale; the end-to-end SHACL check is judged a sufficient substitute for
   now, not upgraded just because the surrounding architecture grows.
 
@@ -764,7 +766,7 @@ of what this project is, not a gap someone forgot to close:
 | 4 — `protege-view.ttl` stale | **Pending development** (manual, needs a real Protégé session) | `PLAN.md` Work item 8 |
 | 5 — `CLAUDE.md` can lag `origin/master` | **Resolved** for this checkout; general risk stays covered by constitution conduct #2 | `PLAN.md` Work item 2 — done |
 | 6 — `ScoreSnapshotShape` vs. Sentiment `rawValue` | **Resolved** (T-081: `Sentiment` exempt from `normalizedScore`, `rawValue` required) | `PLAN.md` Work item 9 — done |
-| 7 — no test suite for `src/etl/` | **Permanently out of scope** at current scale | See above |
+| 7 — no test suite for `src/etl/` | **Permanently out of scope** at current scale — **being revisited:** `PLAN.md` Work item 13 (T-130 reverses this row, §10, §13 item 7 and NR-005) | See above |
 | 8 — uncalibrated severity formulas | **Permanently out of scope** (research task) | See above |
 | 9 — no pinned SOURCE/RESULTS contract | **Permanently out of scope** (accepted risk) | See above |
 

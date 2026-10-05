@@ -31,7 +31,12 @@ are closed (see `CHANGELOG.md`).*
       projection must rescale (or the shape must change). → `PLAN.md` Work item 4,
       step 1.
 - [ ] **T-031** Design and implement the SHACL-validated-on-write path into
-      fresh `urn:graph:ingest:{agent}:{date}` graphs. → step 2.
+      fresh `urn:graph:ingest:{agent}:{date}` graphs. Also: trim `view_contract.py` to the
+      columns read; decide the `:rawValue` range per lane and how SECTOR/SEMANTIC's 0–100
+      `normalized_score` maps (`SPEC.md` §2.6); and guard against a change of *meaning* the
+      column-name check cannot see (e.g. upstream moving `normalized_score` to [0, 1] would pass
+      the [0, 100] check and become ~0.99 risk), for instance a per-lane cohort mean near 50,
+      upstream's documented centre. → step 2.
 - [ ] **T-032** Decide and implement `:supersededBy` semantics for a
       restatement. → step 3.
 - [ ] **T-033** Retire or explicitly fold in today's `src/etl/` shortcut
@@ -93,7 +98,8 @@ first. T-131–T-134 are independent of each other once it lands.*
 - [ ] **T-132** Tests for `src/projection/score_scale.py` (0, 50, 100, `None`, out of range, decimal
       exactness) and `contract_check.py` against a synthetic miniature upstream (removed column, new
       unlisted view and view that did not build are drift; added or reordered columns are notes),
-      plus a `kg_schema` already in `sys.modules` not being reused. → Approach 3.
+      plus a `kg_schema` already in `sys.modules` not being reused; `to_normalized_score` on a
+      `bool` or a non-numeric string raises `ValueError`. → Approach 3.
 - [ ] **T-133** Tests for `src/etl/common` (severity/G1–G3, GICS rollup, provenance IDs, Turtle
       literals) and the ticker skip-set logic (`SPEC.md` §10). → Approach 3.
 - [ ] **T-134** The FR-001 parse + `pyshacl` conformance gate as a test, so `uv run pytest` covers
