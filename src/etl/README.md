@@ -152,6 +152,7 @@ are answered in the graph by `validFrom <= D` and (no `validTo` or
   its latest stint.
 - **Dirty symbols.** Two rows carry a stray `|` (`JCP |`, `ITT |`) from upstream's
   change-log scrape; the ETL strips it and reports it as a warning.
+- **Empty stints.** Two rows (`HNG`, `AYE`) have `valid_from = valid_to = 1976-06-30`; `validTo` is exclusive, so they hold on no date. The ETL skips them with a warning, and `UniverseMembershipShape` rejects `validTo <= validFrom`.
 - **News tickers `universe.db` lacks** (`EQR` today) stay unresolved
   (`scoreSnapshotOfAsset` unset) and are counted in the run's warning.
 

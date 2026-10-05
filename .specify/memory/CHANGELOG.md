@@ -220,11 +220,11 @@ reused.*
       `:UniverseMembership` per stint in `:SP500Index`; `AssetShape` makes `cikNumber`
       optional only when every membership is closed (checked with five cases); each run prints
       `universe.db`'s latest recorded change and file date; `KG_SP500_SOURCE_URL` removed,
-      `SQL_UNIVERSE_DB` added. Full run on the real data: 98.5 s, 853 `:Asset` (+ 5 in
-      `reference.ttl`), 879 memberships (503 open, 376 closed), 459,112 articles, 216,596
+      `SQL_UNIVERSE_DB` added. Full run on the real data: 98.5 s, 852 `:Asset` (+ 5 in
+      `reference.ttl`), 877 memberships (503 open, 374 closed), 459,112 articles, 216,596
       `:RiskEvent`s; the only unresolved news ticker is `EQR` (1,104 rows, absent from
-      `universe.db`; the live table lacked it too). 2378 quads, conforms: True. Open parts are in
-      `SPEC.md` §2.6's D1 row (upstream's `EQR` gap, hand-refreshed file, stray `|` in two symbols,
+      `universe.db`; the live table lacked it too). 2383 quads, conforms: True (the PR review added `validFrom < validTo` to `UniverseMembershipShape`). Open parts are in
+      `SPEC.md` §2.6's D1 row (upstream's `EQR` gap, hand-refreshed file, stray `|` in two symbols, two empty stints (`HNG`, `AYE`),
       no CIK on closed stints; nine symbols with several company names).
 - [x] **T-101** *(D2; done 2026-10-03: `availableAt` required + `eventTime` optional on `ScoreSnapshot`)* Decide how `available_at` vs. `event_time` is modelled
       (new properties, or encoded in the ingest-graph date) so as-of queries

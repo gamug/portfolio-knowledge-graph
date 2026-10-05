@@ -118,17 +118,23 @@ def read_stints(db_path: str | Path, warnings: list[str] | None = None) -> list[
     """Read every membership stint from ``universe.db``, read-only.
 
     A symbol that is still not a plain ticker after :func:`_clean_symbol` is
-    skipped (it cannot be a Turtle local name) and reported in ``warnings``.
+    skipped (it cannot be a Turtle local name) and reported in ``warnings``. So
+    is a stint with ``valid_to <= valid_from``: ``validTo`` is exclusive, so it
+    holds on no date.
     """
     stints: list[Stint] = []
     cleaned: set[str] = set()
     skipped: set[str] = set()
+    empty: set[str] = set()
     db = Database.connect(db_path, read_only=True)
     try:
         for row in db.execute(_SQL_STINTS).fetchall():
             symbol = _clean_symbol(row["symbol"])
             if not _TICKER_RE.fullmatch(symbol):
                 skipped.add(row["symbol"])
+                continue
+            if row["valid_to"] is not None and row["valid_to"] <= row["valid_from"]:
+                empty.add(f"{symbol} ({row['valid_from']}..{row['valid_to']})")
                 continue
             if symbol != row["symbol"]:
                 cleaned.add(f"{row['symbol']!r}->{symbol!r}")
@@ -155,6 +161,12 @@ def read_stints(db_path: str | Path, warnings: list[str] | None = None) -> list[
             warnings.append(
                 f"asset_master: {len(skipped)} universe.db symbol(s) are not plain tickers and "
                 f"were skipped: " + ", ".join(sorted(map(repr, skipped)))
+            )
+        if empty:
+            warnings.append(
+                f"asset_master: {len(empty)} universe.db stint(s) end on or before they start "
+                f"(validTo is exclusive, so they hold on no date) and were skipped: "
+                + ", ".join(sorted(empty))
             )
     return sorted(stints, key=lambda st: (st.symbol, st.valid_from))
 

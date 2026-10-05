@@ -177,7 +177,9 @@
     sh:targetClass :UniverseMembership ;
     sh:property [ sh:path :membershipAsset ; sh:minCount 1 ; sh:maxCount 1 ] ;
     sh:property [ sh:path :membershipUniverse ; sh:minCount 1 ; sh:maxCount 1 ] ;
-    sh:property [ sh:path :validFrom ; sh:datatype xsd:date ; sh:minCount 1 ; sh:maxCount 1 ] .
+    sh:property [ sh:path :validFrom ; sh:datatype xsd:date ; sh:minCount 1 ; sh:maxCount 1 ; sh:lessThan :validTo ] ;
+    # T-100: validTo is exclusive, so a stint with validTo <= validFrom would hold on no date.
+    sh:property [ sh:path :validTo ; sh:datatype xsd:date ; sh:maxCount 1 ] .
 
 :PortfolioPositionShape
     a sh:NodeShape ;
