@@ -336,7 +336,7 @@ attractiveness-ranking feature, see §1.8, plus `VetoShape` added 2026-10-03 for
 
 | Shape | Constraint | Closes |
 |---|---|---|
-| `ScoreSnapshotShape` | `normalizedScore` ∈ `[0.0, 1.0]`; `agentOrigin` ∈ the 5 known agents (`FUNDAMENTAL`, `SEMANTIC`, `VALORIZATION`, `TECHNICAL`, `SECTOR`); `metricType`/`timestamp`/`availableAt` required (T-101); `eventTime` optional and ≤ `availableAt`; optional `runId`/`runAsOf`/`codeVersion`/`engineVersion` (T-106; the same four are optional on `SectorAggregateSnapshotShape`, `VetoShape`, `PortfolioPositionShape` and `DataQualityIssueShape`); optional `scoreMethod`, at most one, open vocabulary (T-111; set on every SEMANTIC snapshot) | Prevents a malformed snapshot from silently entering veto evaluation. |
+| `ScoreSnapshotShape` | `normalizedScore` ∈ `[0.0, 1.0]`, required unless `metricType` is `SectorRelativeMomentum` or `Sentiment`; every `Sentiment` snapshot requires a `rawValue` ∈ `[-1.0, 1.0]` (T-081); `agentOrigin` ∈ the 5 known agents (`FUNDAMENTAL`, `SEMANTIC`, `VALORIZATION`, `TECHNICAL`, `SECTOR`); `metricType`/`timestamp`/`availableAt` required (T-101); `eventTime` optional and ≤ `availableAt`; optional `runId`/`runAsOf`/`codeVersion`/`engineVersion` (T-106; the same four are optional on `SectorAggregateSnapshotShape`, `VetoShape`, `PortfolioPositionShape` and `DataQualityIssueShape`); optional `scoreMethod`, at most one, open vocabulary (T-111; set on every SEMANTIC snapshot) | Prevents a malformed snapshot from silently entering veto evaluation. |
 | `RiskEventShape` | `backedBy` `sh:minCount 1`; `severity`/`category` from closed vocabularies | Critique #5 (no null-handling policy) — evidence-free risk events are now a validation failure, not a silent gap. |
 | `RuleDefinitionShape` | `validFrom` required; exactly one `hasClause`; `priorityRank` ∈ `[1,7]`; `ruleSeverity` ∈ `{HARD, SOFT}`, required unless the rule is closed with `validTo` (T-103) | Critique #6 — a rule can't be persisted without being properly temporal and ranked. |
 | `RuleClauseShape` | `clauseType` ∈ `{AND, OR}`; both operands required | Structural half of the critique #1 fix — a clause literally cannot be built with a missing operand or an unrecognized operator. |
@@ -390,7 +390,7 @@ disjoint leaf types) and `shapes.ttl` to 14 shapes (§1.6):
   the existing `ScoreSnapshot`, computed as that asset's `ScoreTecnico` minus its sector's
   aggregate and stored in `rawValue` (signed, `[-1.0, 1.0]`); it is the first `ScoreSnapshot`
   `metricType` that leaves `normalizedScore` unset, which required relaxing `ScoreSnapshotShape`'s
-  `sh:minCount 1` on that field to a conditional (`sh:xone`) exempting this one `metricType`.
+  `sh:minCount 1` on that field to a conditional exempting this one `metricType`; T-081 added the same exemption for `Sentiment`, and requires every `Sentiment` snapshot to carry a `rawValue` in `[-1.0, 1.0]`.
 - **`AttractivenessSnapshot`** — the Orchestrator's computed ranking output for one `Asset` in one
   cycle: the positive counterpart to `Veto` (v1 modeled exclusion only). Closes part of critique
   #2/evolution layer B3's ranking half, not the position-sizing half. Carries `attractivenessScore`

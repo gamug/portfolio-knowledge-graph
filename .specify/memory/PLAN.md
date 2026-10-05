@@ -373,11 +373,11 @@ confirmed by a diff review, not just a regenerate-and-forget.
 
 ## Work item 9 — Resolve the `ScoreSnapshotShape`/Sentiment `rawValue` divergence
 
-**Why**: `ScoreSnapshotShape` requires `normalizedScore` for every
+**Why**: `ScoreSnapshotShape` required `normalizedScore` for every
 non-`SectorRelativeMomentum` snapshot, but the ETL's Sentiment snapshots
 carry only `rawValue` — the scale the veto-rule thresholds are defined on
-(`SPEC.md` §5/§7). This produces one SHACL violation per Sentiment snapshot
-in the sample/smoke check today.
+(`SPEC.md` §5/§7). This produced one SHACL violation per Sentiment snapshot
+in the sample/smoke check.
 
 **Approach** (pick one, this is a schema decision — record which in
 `schema/README.md`'s gap list the same way the other three implementation-
@@ -397,6 +397,9 @@ time gaps are documented):
 - `schema/README.md`'s gap list documents which of the two options was
   chosen and why, alongside its three existing worked-during-population
   gaps.
+
+**Status**: done 2026-10-05 (T-080–T-083). Maintainer chose option 1 (shape branch); see
+`schema/README.md`, refinement 2.
 
 ## Work item 10 — Complete `schema/README.md`'s directory map
 
@@ -482,7 +485,7 @@ FR-001 parse + `pyshacl` check and update `schema/README.md`'s counts (NR-001).
 ```
 Work item 1 (roadmap doc)   ─┐
 Work item 2 (CLAUDE.md)      ├─ independent, cheap, no blockers — land first
-Work item 9 (shape fix)      │  (2 and 10 done)
+Work item 9 (shape fix)      │  (2, 9 and 10 done)
 Work item 10 (README map)   ─┘
 
 Work item 3 (triple store)

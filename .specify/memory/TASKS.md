@@ -24,7 +24,10 @@ are closed (see `CHANGELOG.md`).*
 - [ ] **T-030** *(Work item 11 is closed)* Confirm the `financial-analysis` `v_*` views' actual column
       shapes (view list in `SPEC.md` §2.5; definitions in that repo's
       `src/kg_schema/views.py`), pin the columns this repo reads, and add a
-      check that fails on drift (`SPEC.md` §13 item 10). → `PLAN.md` Work item 4,
+      check that fails on drift (`SPEC.md` §13 item 10). Include the score scale:
+      upstream's `score_snapshot.normalized_score` is on 0–100 (FUNDAMENTAL, VALORIZATION,
+      TECHNICAL, SECTOR) while `ScoreSnapshotShape` bounds `normalizedScore` to [0, 1], so a
+      projection must rescale (or the shape must change). → `PLAN.md` Work item 4,
       step 1.
 - [ ] **T-031** Design and implement the SHACL-validated-on-write path into
       fresh `urn:graph:ingest:{agent}:{date}` graphs. → step 2.
@@ -67,19 +70,6 @@ are closed (see `CHANGELOG.md`).*
       current schema content, not a stale regenerate-and-forget. → `PLAN.md`
       acceptance criteria.
 
-## Work item 9 — Resolve the `ScoreSnapshotShape`/Sentiment `rawValue` divergence
-
-- [ ] **T-080** Decide: add a `rawValue`-only branch to `ScoreSnapshotShape`
-      for `metricType = Sentiment`, or add a normalization step to the ETL.
-      → `PLAN.md` Work item 9, approach.
-- [ ] **T-081** Implement the chosen fix. → same.
-- [ ] **T-082** Verify: the FR-001/FR-006 parse+`pyshacl` checks show zero
-      violations for Sentiment snapshots in a sample run. → `PLAN.md`
-      acceptance criteria.
-- [ ] **T-083** Document which option was chosen and why in
-      `schema/README.md`'s gap list, alongside its three existing gaps. →
-      `PLAN.md` acceptance criteria.
-
 ## Work item 12 — Integrate `portfolio-app`/`portfolio-reports` and model per-run weight schemes
 
 *Pending parts of Work item 11's T-108 and T-109. Independent of each other; T-121 follows the
@@ -90,9 +80,9 @@ D13 check recorded in `SPEC.md` §2.6, T-120 needs an answer from the upstream m
 
 ## Status
 
-Closed Work items 1, 2, 3, 5, 7 (superseded/decided by T-007), 10 and 11 are in
+Closed Work items 1, 2, 3, 5, 7 (superseded/decided by T-007), 9, 10 and 11 are in
 `CHANGELOG.md` (Work item 1 closed with T-006 deprecated in favor of T-009).
-Work item 9 (T-080–T-083) has no blockers. Work items 4 and 6 (T-030–T-035, T-050–T-053)
+Work items 4 and 6 (T-030–T-035, T-050–T-053)
 follow in dependency order (Work items 3 and 11 are closed, so Work item 4 is unblocked).
 Work item 12 (T-120–T-121): T-120 is blocked on an upstream answer, T-121 is unblocked.
 Work item 8 (T-070–T-071) is independent but needs a human at a Protégé

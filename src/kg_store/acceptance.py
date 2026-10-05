@@ -24,7 +24,8 @@ PROBE_GRAPH = "urn:graph:ingest:SEMANTIC:2099-01-01"
 MALFORMED = b"""@prefix : <https://thesis.local/kg/portfolio#> .
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
 :acceptance_probe a :ScoreSnapshot ;
-    :agentOrigin "SEMANTIC" ; :metricType "Sentiment" ; :normalizedScore "0.5"^^xsd:decimal .
+    :agentOrigin "SEMANTIC" ; :metricType "Sentiment" ; :rawValue "-0.5"^^xsd:decimal ;
+    :availableAt "2099-01-01"^^xsd:date .
 """
 
 
@@ -51,6 +52,13 @@ def check_gate(db: GraphDB) -> str:
         raise AssertionError(f"rejected, but not for the missing property: {report[:200]}")
     if "timestamp" not in report:
         raise AssertionError(f"the SHACL report does not name :timestamp: {report[:200]}")
+    # "Valid except for :timestamp" means that is the only violation, so a shape change that
+    # makes the probe fail for another reason is caught here instead of passing silently.
+    violations = report.count("Constraint Violation in")
+    if violations != 1:
+        raise AssertionError(
+            f"expected :timestamp to be the only violation, got {violations}: {report[:400]}"
+        )
     after = db.size()
     if before != after:
         raise AssertionError(f"store size changed {before} -> {after}")

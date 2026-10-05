@@ -156,11 +156,9 @@ are answered in the graph by `validFrom <= D` and (no `validTo` or
 - **News tickers `universe.db` lacks** (`EQR` today) stay unresolved
   (`scoreSnapshotOfAsset` unset) and are counted in the run's warning.
 
-## Known divergence (schema decision, not an ETL bug)
+## Sentiment snapshots carry `rawValue` only (resolved, T-081)
 
-`schema/shapes.ttl`'s `ScoreSnapshotShape` requires `normalizedScore` for every
-non-`SectorRelativeMomentum` snapshot, but the Sentiment snapshots emitted here
-carry only `rawValue` (the scale v1's `-0.50` / `-0.60` thresholds are defined
-on — see `tbox.ttl`'s `ThresholdComparison` comment). The post-build SHACL
-check reports one violation per Sentiment snapshot until either a `rawValue`-only
-branch is added to the shape or a normalisation step is agreed.
+The Sentiment snapshots emitted here carry only `rawValue` (the scale v1's `-0.50` /
+`-0.60` thresholds are defined on — see `tbox.ttl`'s `ThresholdComparison` comment).
+`schema/shapes.ttl`'s `ScoreSnapshotShape` accepts that: a `Sentiment` snapshot needs no
+`normalizedScore`, but must carry a `rawValue` in `[-1, 1]` (T-081).

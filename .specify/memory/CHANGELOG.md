@@ -195,6 +195,25 @@ reused.*
       T-035, that `cycle`'s `v_veto`/`v_cycle_ranking`/`v_portfolio_position`
       rows project into dated `ingest:ORCHESTRATOR:{date}` graphs.
 
+## Work item 9 — Resolve the `ScoreSnapshotShape`/Sentiment `rawValue` divergence
+
+- [x] **T-080** Decide: add a `rawValue`-only branch to `ScoreSnapshotShape`
+      for `metricType = Sentiment`, or add a normalization step to the ETL.
+      → `PLAN.md` Work item 9, approach. **Done 2026-10-05 (maintainer
+      decision: option 1, the shape branch).**
+- [x] **T-081** Implement the chosen fix. → same. **Done 2026-10-05:** `ScoreSnapshotShape`
+      exempts `Sentiment` from `normalizedScore` and requires `rawValue` ∈ [-1, 1] on every
+      `Sentiment` snapshot (two `sh:or` constraints).
+- [x] **T-082** Verify: the FR-001/FR-006 parse+`pyshacl` checks show zero
+      violations for Sentiment snapshots in a sample run. → `PLAN.md`
+      acceptance criteria. **Done 2026-10-05:** real ETL smoke run
+      (`--limit 3000`) had 3000 Sentiment violations on the old shape and
+      `SHACL conforms: True` on the new one; eight synthetic cases behave as
+      intended; full schema 2400 quads, conforms: True.
+- [x] **T-083** Document which option was chosen and why in
+      `schema/README.md`'s gap list, alongside its three existing gaps. →
+      `PLAN.md` acceptance criteria. **Done 2026-10-05** (in refinement 2 of the list).
+
 ## Work item 10 — Complete `schema/README.md`'s directory map
 
 **DONE (2026-09-12)**, closed by the constitution-compliance pass.

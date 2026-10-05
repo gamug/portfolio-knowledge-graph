@@ -70,6 +70,19 @@ what the store *enforces*.
    metrics (`leverage.debt_to_equity`, `cashflow.free_cash_flow_margin`, `liquidity.current_ratio`,
    `max_drawdown_90d`, `fundamental_score_age_days`): they are not `ScoreSnapshot` types, carry
    upstream's identifiers, and compare on the raw value (they have no `normalizedScore`).
+   **T-081 (Work item 9, 2026-10-05: the shape now enforces it for `Sentiment`).** `ScoreSnapshotShape`
+   no longer demands `normalizedScore` of a `Sentiment` snapshot (as for `SectorRelativeMomentum`), and
+   instead demands `rawValue`, an `xsd:decimal` in `[-1, 1]`, of every `Sentiment` snapshot, whatever else
+   it carries (two `sh:or` constraints). Chosen over normalizing in the ETL because it keeps this one
+   convention instead of a second, derived scale for the same metric, touches only `shapes.ttl`, and
+   survives T-033 retiring the per-article snapshots; it would also cover upstream's future per-`(asset, day)`
+   SEMANTIC aggregate if that carries a `[-1, 1]` raw value, but its scale is not defined upstream
+   (`score_snapshot` has no `SEMANTIC` rows as of 2026-10-05, and the score types it does hold are on a
+   0–100 scale), so T-033 will have to check it. Eight synthetic cases (rawValue-only, both values and
+   `SectorRelativeMomentum` pass; neither value, `rawValue` 1.5, `normalizedScore` without `rawValue`, and
+   a `ScoreTecnico` with only `rawValue` fail) and a real ETL smoke run (`--limit 3000`: 3000 violations on the
+   old shape, none on the new) agree. No new class or property; `AllDisjointClasses` is unchanged.
+   **2400 quads; conforms: True.**
 3. **Two more named-graph placements (a third added by T-108).** `07-ontology-topology.md` assigned graphs to every
    *agent's* daily output but not to the Orchestrator's own decisions or to entity resolution's
    derived facts. Resolved: `urn:graph:ingest:ORCHESTRATOR:{date}` and
