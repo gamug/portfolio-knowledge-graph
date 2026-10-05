@@ -167,8 +167,10 @@ decisions (T-100–T-104).*
       reads `body_text`. Either drop the body-text escalation or amend FR-005,
       §2.2 and §12. → `PLAN.md` Work item 11. **Done 2026-10-05 (maintainer
       decision: amend the spec, keep the escalation as provisional G3).**
-      FR-005 (statement and acceptance grep), §2.2, §12 and §13 item 12 now
-      say `body_text` is read only for the G3 keyword bump. They also say
+      FR-005 (statement and acceptance criteria) and §2.2 now forbid reading
+      source data for anything the processed stores (`nlp`, `financial`)
+      already publish, instead of forbidding SOURCE reads. §12 and §13 item 12
+      say the G3 keyword bump is the one SOURCE-derived signal today, and that
       `urls.db` stays required whatever happens to the bump, because the
       shared join reads `articles` from SOURCE. Measured on the full data: the bump raises
       20,363 of 216,596 `:RiskEvent`s one tier. No code change.

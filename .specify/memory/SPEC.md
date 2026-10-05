@@ -125,13 +125,13 @@ above (`08-agent-architecture.md`, designed but unbuilt — roadmap steps 1 and
   designed in `07`/`08`, not built (roadmap steps within 1–2 and beyond).
 - Computing fundamentals, pricing, cycle rankings, or quant scores
   (`portfolio-financial-analysis`).
-- Running any NLP model, discovering/crawling article URLs, or processing
-  article `body_text` (`portfolio-data-mining`/`portfolio-nlp`) — this repo
-  reads `portfolio-nlp`'s already-published RESULTS tables plus the SOURCE
-  `articles` rows they join to, read-only. **One exception (FR-005, §13
-  item 12, decided 2026-10-05):** the transitional ETL's provisional G3 step
-  scans SOURCE `urls.db`'s `body_text` for hard-trigger keywords to raise a
-  `:RiskEvent`'s severity one tier. Nothing else reads the text.
+- Running any NLP model, discovering/crawling article URLs, or re-deriving
+  from source data anything the processed stores already publish
+  (`portfolio-nlp`'s RESULTS, `portfolio-financial-analysis`'s `v_*` views):
+  this repo reads those outputs where they exist (FR-005). Reading SOURCE
+  itself is allowed, read-only. Today the transitional ETL reads `articles`
+  through the shared join and scans `body_text` for its provisional G3
+  hard-trigger keyword bump, which no processed store publishes (§13 item 12).
 - The two LangGraph agent cycles (`SelectionCycleGraph` quarterly,
   `MonitoringCycleGraph` daily) and any scheduler — the two-speed cycle is
   already implemented upstream as `portfolio-financial-analysis`'s `cycle`
@@ -162,7 +162,7 @@ above (`08-agent-architecture.md`, designed but unbuilt — roadmap steps 1 and
 | **FR-002** | Every domain class in `tbox.ttl` that is not a shared-property superclass (`ObservationSnapshot`/`EvidenceSource`/`RuleOperand`) belongs to exactly one `AllDisjointClasses` set and reaches at least one of the 6 taxonomy roots via `rdfs:subClassOf`. | `tbox.ttl`'s `AllDisjointClasses` block lists exactly 25 leaf classes; a taxonomy audit (cycle/orphan/multi-parent detection over the `subClassOf` graph) reports 0 cycles, 0 self-loops, all 38 classes reaching a root, exactly 3 legitimately multi-parented classes (`schema/README.md`'s implementation addendum). |
 | **FR-003** | Every `RuleDefinition` in `rules.ttl` expresses its veto condition as an explicit `RuleClause` tree (`AND`/`OR` of `ThresholdComparison`/`CategoricalComparison`/`GraphPredicate` leaves), never as an infix boolean string. | No `RuleDefinition` in `rules.ttl` carries a rule condition as a literal string to be re-parsed; every `hasClause` path terminates in one of the three documented leaf operand kinds. A single leaf (upstream's six rules, T-103) is a valid tree. |
 | **FR-004** | `cli/build_data_ttl.py` projects the Wikipedia S&P 500 table into `:Asset`/`:classifiedAs` individuals, skipping any ticker `reference.ttl` already declares as an `:Asset` (so `cikNumber` never collides under the functional-property `sh:maxCount 1` contract). | A full run's known-ticker count equals the fetched Wikipedia row count minus `reference.ttl`'s worked-example tickers; none of those tickers appear as a second `:Asset` declaration in `data.ttl`. |
-| **FR-005** | `cli/build_data_ttl.py` projects `portfolio-nlp`'s RESULTS rows (`articles ⋈ article_sentiment ⋈ article_category`, `fetch_status = 'ok'`) into `:NewsArticle` + `:ScoreSnapshot` (`agentOrigin = SEMANTIC`, `metricType = Sentiment`) + a gated `:RiskEvent`, via `portfolio_common.news_export`'s read-only connect — never a raw `sqlite3` connection. The shared join reads `articles` from SOURCE `urls.db`, so both tiers are required inputs. SOURCE `body_text` is used only by `compute_severity`'s provisional G3 hard-trigger keyword bump (one tier up; constitution §7), and by nothing else (§13 item 12). | `grep -rn "import sqlite3" src/etl` returns nothing; `grep -rn "body_text" src/etl --include='*.py'` matches only docstrings, `news_to_rdf.py`'s `_Article` field and its `compute_severity` call, and `common/severity.py`; every `:NewsArticle` emitted in a sample run traces to a source row with `fetch_status = 'ok'`. |
+| **FR-005** | `cli/build_data_ttl.py` projects `portfolio-nlp`'s RESULTS rows (`articles ⋈ article_sentiment ⋈ article_category`, `fetch_status = 'ok'`) into `:NewsArticle` + `:ScoreSnapshot` (`agentOrigin = SEMANTIC`, `metricType = Sentiment`) + a gated `:RiskEvent`, via `portfolio_common.news_export`'s read-only connect — never a raw `sqlite3` connection. Reading SOURCE (`urls.db`, `body_text` included) is allowed. What is forbidden is reading a source or raw database for something the processed stores already publish (`portfolio-nlp`'s RESULTS, `portfolio-financial-analysis`'s `financial.db` / `v_*` views), or re-deriving it there: sentiment, category, entities, fundamentals, prices, scores. Those are read from the processed store. A SOURCE-derived signal with no processed equivalent is allowed if it is flagged provisional (constitution §7); today that is only G3's hard-trigger keyword bump (§13 item 12). | `grep -rn "import sqlite3" src/etl` returns nothing; every value `src/etl/` derives from a SOURCE column other than identity and metadata (`id`, `ticker`, `pub_date`, `fetched_at`, `fetch_status`) is a row in `src/etl/README.md`'s provisional-formulas table, which says why no processed store publishes it; every `:NewsArticle` emitted in a sample run traces to a source row with `fetch_status = 'ok'`. |
 | **FR-006** | The post-build validation step SHACL-checks either the full output (`--limit` given) or a fresh `KG_SAMPLE_NEWS_ROWS`-row sample against the real `tbox.ttl` + `shapes.ttl` + `reference.ttl` — never a full `pyshacl` pass over the unsampled, multi-million-triple `data.ttl`. | `uv run cli/build_data_ttl.py --limit 500` prints `SHACL conforms: <bool>`; an unsampled default run builds and discards a `KG_SAMPLE_NEWS_ROWS`-row sample file rather than validating `data.ttl` directly. |
 
 ### 2.4 Non-functional requirements
@@ -650,8 +650,10 @@ treating a related FR/NR as done:
     `body_text`. The code always did: SOURCE `urls.db` (`SQL_URLS_DB`) is a
     required input, and `compute_severity` keyword-scans the text to raise
     severity one tier. Found while handling review on PR #22. Decision (maintainer): keep the
-    escalation, flagged provisional (constitution §7), and amend FR-005 and
-    §2.2 to say so. Measured on the full `urls.db`/`nlp.db` pair, it raises
+    escalation, flagged provisional (constitution §7). FR-005 and §2.2 now
+    forbid reading source data for something a processed store (`nlp`,
+    `financial`) already publishes, instead of forbidding SOURCE reads; no
+    processed store publishes a keyword escalation, so the bump is allowed. Measured on the full `urls.db`/`nlp.db` pair, it raises
     20,363 of 216,596 `:RiskEvent`s one tier (LOW→MODERATE 12,230,
     MODERATE→HIGH 2,939, HIGH→CRITICAL 5,194). `urls.db` would stay required
     even without it, because the shared join reads `articles` from SOURCE.
