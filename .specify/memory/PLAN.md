@@ -449,13 +449,13 @@ decision may be "keep ours, translate on projection"):
    outputs become individuals (T-108 done).
 6. Read-contract gaps and moving parts (D8, D12, D13, D15, D16): list for
    upstream, assert `schema_version`, reconcile the `portfolio-common` pin
-   (T-109, T-110, both done 2026-10-05; the D13 schema work moved to T-121 and the upstream note is `missing_views.md`, both in Work item 12); SEMANTIC `score_method` discriminator and wording (D14,
+   (T-109, T-110, both done 2026-10-05; the D13 schema work moved to T-121, in Work item 12, and the read-contract gaps are to go to the upstream maintainer); SEMANTIC `score_method` discriminator and wording (D14,
    T-111, done 2026-10-05: `:scoreMethod`).
 
 **Acceptance criteria**:
 
 - Each of D1–D16 has a recorded disposition (adopted / translated /
-  rejected / raised upstream) in `SPEC.md` §2.6.
+  rejected / raised upstream) in `SPEC.md` §2.6. **Met for D2–D16 (T-112, 2026-10-05); D1 open until T-100 decides it.**
 - Where a decision changes `schema/`, the FR-001 parse + `pyshacl` check
   passes and `schema/README.md`'s counts are updated (NR-001).
 - No Work item 4 task starts before this one's items 1–4 are decided.
@@ -475,7 +475,7 @@ schemes (one per `cycle_run`, keyed by `score_type`, plus scalar knobs) do not m
 **Acceptance**: T-120's outcome is recorded in `SPEC.md` D9 and `docs/10`; T-121 changes pass the
 FR-001 parse + `pyshacl` check and update `schema/README.md`'s counts (NR-001).
 
-**Blocked on**: T-120, an answer from the upstream maintainer (`missing_views.md`, kept untracked and shared out of band); T-121, nothing.
+**Blocked on**: T-120, an answer from the upstream maintainer; T-121, nothing.
 
 ## Sequencing
 
