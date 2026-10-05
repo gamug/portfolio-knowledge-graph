@@ -449,7 +449,7 @@ decision may be "keep ours, translate on projection"):
    outputs become individuals (T-108 done).
 6. Read-contract gaps and moving parts (D8, D12, D13, D15, D16): list for
    upstream, assert `schema_version`, reconcile the `portfolio-common` pin
-   (T-109, T-110; T-109 mostly resolved 2026-10-05 from upstream's code, with the D13 mapping and the upstream note still open); SEMANTIC `score_method` discriminator and wording (D14,
+   (T-109, T-110, both done 2026-10-05; the D13 schema work moved to T-121 and the upstream note is `missing_views.md`, both in Work item 12); SEMANTIC `score_method` discriminator and wording (D14,
    T-111).
 
 **Acceptance criteria**:
@@ -463,6 +463,19 @@ decision may be "keep ours, translate on projection"):
 **Blocked on**: nothing for the decisions. Maintainer decisions so far
 (2026-10-02): D4 — upstream's rule catalog is final; D9 — `portfolio-app`
 triggers the cycles. D11 — only finished, view-exposed quant numbers become individuals (T-108 done).
+
+## Work item 12 — Integrate `portfolio-app`/`portfolio-reports` and model per-run weight schemes
+
+**Why**: the two parts of Work item 11 that could not close there. (a) T-120: upstream's `api/` has
+no run trigger and its docs name `portfolio-reports` as the trigger, while D9 names `portfolio-app`;
+the split needs agreeing with upstream. (b) T-121: the D13 check found that upstream's weight
+schemes (one per `cycle_run`, keyed by `score_type`, plus scalar knobs) do not map onto
+`AttractivenessWeightScheme`/`WeightComponent` as modelled.
+
+**Acceptance**: T-120's outcome is recorded in `SPEC.md` D9 and `docs/10`; T-121 changes pass the
+FR-001 parse + `pyshacl` check and update `schema/README.md`'s counts (NR-001).
+
+**Blocked on**: T-120, an answer from the upstream maintainer (`missing_views.md`, kept untracked and shared out of band); T-121, nothing.
 
 ## Sequencing
 
@@ -481,6 +494,7 @@ Work item 4 (real projection; absorbs the SEMANTIC and ORCHESTRATOR lanes)
 Work item 6 (reasoner + SPARQL)
 
 Work item 11 (reconcile with upstream contracts) ──► gates Work item 4
+Work item 12 (app/reports integration, per-run weight schemes) — pending parts of 11, independent
 
 Work item 5 (SEMANTIC aggregation) — superseded, reassigned upstream
 Work item 7 (orchestrator)         — decided: delegate to financial-analysis `cycle`

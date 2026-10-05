@@ -28,7 +28,7 @@ assumes the stack actually pinned in `pyproject.toml`.
    ATTACHed read-only, `portfolio-nlp`'s RESULTS `nlp.db` read-only) through
    `portfolio_common.news_export.connect_readonly` /
    `fetch_processed_articles` — never a raw `sqlite3.connect()` — git-tag-pinned
-   (`portfolio-common @ tag v1.2.0` in `[tool.uv.sources]`) so a DB-engine or
+   (`portfolio-common @ tag v1.2.1` in `[tool.uv.sources]`) so a DB-engine or
    results-contract change is an explicit, reviewed re-pin, never a floating
    version. This repo owns no SQL of its own for that join; see
    `docs/portfolio-common-v1-migration-plan.md` for the decision history and

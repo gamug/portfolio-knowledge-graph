@@ -118,7 +118,7 @@ decisions (T-100–T-104).*
       method/weight/confidence (or a separate candidate property) so news
       co-occurrence is not asserted as fact; decide `media_cooccurrence`. →
       step 5.
-- [ ] **T-108** *(D9 decided 2026-10-02; D11 decided and (b) done 2026-10-03; (a) still open, outward-facing)*
+- [x] **T-108** *(D9 decided 2026-10-02; D11 decided and (b) done 2026-10-03; (a) moved to T-120 on 2026-10-05; task closed)*
       (a) ~~Who triggers the quarterly/daily cycles~~ — **`portfolio-app`**
       (not yet created) calls the upstream endpoints; raise with upstream that
       `api/` is read-only with no run-trigger endpoint and that their docs name
@@ -127,14 +127,19 @@ decisions (T-100–T-104).*
       books/positions/performance and `v_quant_vs_live` active weight
       (`Portfolio.portfolioKind`, `BenchmarkObservation`, graph
       `urn:graph:derived:quant:{date}`); never returns, μ, Σ, frontier
-      points — NR-003. Remaining: (a)'s note to upstream, not yet sent. → steps 5–6.
-- [ ] **T-109** *(D8, D12, D13, D15, D16; read from upstream `8da3868`, 2026-10-02; finished except the outward note and D13)*
+      points — NR-003. (a)'s trigger/integration questions are now tracked by T-120. → steps 5–6.
+- [x] **T-109** *(D8, D12, D13, D15, D16; read from upstream `8da3868`, 2026-10-02; done 2026-10-05; D13's schema work moved to T-121, the outward note is `missing_views.md`)*
       Resolved by reading `kg_schema` upstream (incl. T-105's deferred question: no upstream metric id exists to rename `ScoreCuantitativo` to, so it stays): **`schema_version` floor is 9** (migrations 1–9; the projector must refuse a DB below it. No projector exists yet, and `src/etl/` does not read upstream's `v_*` views (it reads `urls.db`/`nlp.db`), so the check belongs to the future `v_*` projector, not `src/etl/`). **`v_cycle_ranking`**: SQL returns every `cycle_run`'s rows, docstring ("latest cycle per cycle_type") is wrong, so per-date ranking graphs must filter by `cycle_run_id`/`cycle_date`. **`run_id` is an integer** (`INTEGER` column, `v_*_run.run_id`), replacing T-106's placeholders. **`v_score_snapshot`** exposes neither `forensic_flags_json` nor `prompt_hash`; no view carries `financial_facts`/`correction_rule`/`fundamental_metrics`/market cap (D12 stays outcome-only). **`REPLAY`**: `cycle_type` marks it in `v_cycle_run`/`v_cycle_ranking`, but its scores/vetoes land in shared tables, so project against a production DB only. **T-108's**: columns, `quantMetric` names, `benchmarkObjective` = `v_quant_portfolio.objective` (`min_var`, `tangency`, `target_vol`, `risk_parity`), `quantAsOf` = `as_of` / performance `date`, values are fractions, with `quantUnit` `fraction` / `fraction_annual` (`expected_*`) / `fraction_daily` (`realized_return`, `active_return`, …) / `ratio` (`sharpe`) / `count`, only `quant_position` weights scaled ×100 into `weightPct` (done in `tbox.ttl`/`instances.trig`). **`live_book` decision (maintainer, option B, 2026-10-05):** `v_quant_portfolio` also holds `kind='live_book'` (a snapshot of the live book, `objective='live'`); it is not projected as a `Portfolio`, and its performance numbers attach to the LIVE `Portfolio` (`quantPortfolio` accepts LIVE or BENCHMARK; `QuantSubjectShape`). `equal_weight`/`cap_weight` (excluded by `v_quant_vs_live`; no writer seen in `quant/`) would be BENCHMARK with `benchmarkKind` recorded. `quantUnit` vocabulary: fraction/fraction_annual/fraction_daily/ratio/count; `quantBenchmark` keeps the reference index; `kind='LIVE_ONLY'` rows have NULL `benchmark_weight`.
-      Still open: (i) T-107's follow-up (answered: `v_shared_executive_edge` has `first_seen`/`last_seen` but no computed-at column, and `media_cooccurrence` has no view): `computedOn` stays optional and no `MEDIA` kind is added until a view exists; (ii) check D13's weight-scheme mapping (T-030); (iii) outward note to upstream: no `v_*` for `fundamental_metrics`/market cap/`forensic_flags_json`/`prompt_hash`, ranking docstring wrong, `api/` has no run trigger (T-108a), `v_shared_executive_edge` has no computed-at column (only `first_seen`/`last_seen`). → step 6.
-- [ ] **T-110** *(D16)* Reconcile the `portfolio-common` pin (`v1.2.0` here and
+      Closed 2026-10-05: (i) T-107's follow-up (answered: `v_shared_executive_edge` has `first_seen`/`last_seen` but no computed-at column, and `media_cooccurrence` has no view): `computedOn` stays optional and no `MEDIA` kind is added until a view exists (`MEDIA` = the proposed second kind of co-occurrence edge, non-executive, for `media_cooccurrence`); (ii) D13's weight-scheme mapping checked against `v_weight_scheme`/`v_weight_component` (findings in SPEC D13; the schema changes it implies are T-121); (iii) the outward findings are written up in `missing_views.md` (repository root, untracked on purpose, to share with the upstream maintainer). → step 6.
+- [x] **T-110** *(D16)* Reconcile the `portfolio-common` pin (`v1.2.0` here and
       in `portfolio-nlp`; `v1.2.1` in `financial-analysis` and
       `portfolio-data-mining`) — verify compatibility, then re-pin or record
-      why not. → step 6.
+      why not. → step 6. **Done 2026-10-05:** re-pinned to `v1.2.1`; the diff
+      v1.2.0→v1.2.1 is additive (`Dialect.upsert` options, `json_extract`/
+      `json_each`, `Database.relation_exists`/`schema_version`, `DatabaseError`)
+      and `news_export` is untouched; `uv sync` OK, imports of `Row`/
+      `connect_readonly`/`fetch_processed_articles` OK. Only `portfolio-nlp`
+      stays on `v1.2.0` (upstream's call).
 - [ ] **T-111** *(D14)* Add a `score_method` discriminator for SEMANTIC and
       correct the wording upstream still attributes to this repo (their
       rollout step 4); no write-back code exists here to remove. → step 6.
@@ -149,6 +154,15 @@ decisions (T-100–T-104).*
       reads `body_text`. Either drop the body-text escalation or amend FR-005,
       §2.2 and §12. → `PLAN.md` Work item 11.
 
+## Work item 12 — Integrate `portfolio-app`/`portfolio-reports` and model per-run weight schemes
+
+*Pending parts of Work item 11's T-108 and T-109. Independent of each other; T-121 follows the
+D13 check recorded in `SPEC.md` §2.6, T-120 needs an answer from the upstream maintainer
+(`missing_views.md`, untracked and shared out of band; section 4).*
+
+- [ ] **T-120** *(moved from T-108(a); D9)* `portfolio-app` and `portfolio-reports` integration. Upstream's `api/` is read-only with no run-trigger endpoint, and its docs name `portfolio-reports` as the trigger, while this repo's SPEC names `portfolio-app` (not yet created). Agree with upstream who triggers `cycle select`/`cycle monitor`, and what `portfolio-app` and `portfolio-reports` each read: `portfolio-reports` reads the run-log `v_*` views (`v_*_run`), `portfolio-app` should read this repo's query surface. Record the outcome in SPEC D9 and `docs/10`. Open question raised in `missing_views.md`. → steps 5–6.
+- [ ] **T-121** *(moved from T-109(ii); D13)* Extend the weight-scheme model to what upstream records per run: one `AttractivenessWeightScheme` per `cycle_run` (`schemeId` = `scheme_id`, `validFrom` = `cycle_date`, no `validTo`), a component per `score_type` (`weightMetricName` ← `agentOrigin`: FUNDAMENTAL, VALORIZATION, TECHNICAL, SEMANTIC), and the scalar knobs (`top_n`, `max_name_weight`, `max_sector_weight`, `soft_veto_penalty`) as new properties; decide what to do with `inverted` and `SectorRelativeMomentum`, which upstream does not weight. **Decide first:** a per-run scheme with `validFrom` and no `validTo` reads as "still active" for every run (the valid-time convention), so either close the previous run's scheme with `validTo` when the next run is projected, or stop treating a per-run scheme as a valid-time record (a run-date property linked to the run, and relax `validFrom` `minCount 1` in `AttractivenessWeightSchemeShape`). Update `tbox.ttl`, `shapes.ttl`, `rules.ttl`'s `WeightScheme_v1`, docs 06/07 and `schema/README.md` counts. → step 6.
+
 ## Status
 
 Closed Work items 1, 2, 3, 5, 7 (superseded/decided by T-007) and 10 are in
@@ -156,5 +170,6 @@ Closed Work items 1, 2, 3, 5, 7 (superseded/decided by T-007) and 10 are in
 Work item 9 (T-080–T-083) has no blockers. Work items 4 and 6 (T-030–T-035, T-050–T-053)
 follow in dependency order (Work item 3 is closed); Work item 11 (T-100–T-113, decisions
 from the T-007 rescan) gates Work item 4 and has no store dependency.
+Work item 12 (T-120–T-121): T-120 is blocked on an upstream answer, T-121 is unblocked.
 Work item 8 (T-070–T-071) is independent but needs a human at a Protégé
 session, not a coding session.
