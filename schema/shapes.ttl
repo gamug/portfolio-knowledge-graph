@@ -99,12 +99,14 @@
     sh:property [ sh:path :portfolioName ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ] ;
     sh:property [ sh:path :portfolioKind ; sh:in ("LIVE" "BENCHMARK") ; sh:minCount 1 ; sh:maxCount 1 ] ;
     sh:property [ sh:path :benchmarkObjective ; sh:datatype xsd:string ; sh:maxCount 1 ] ;
-    sh:property [ sh:path :benchmarkKind ; sh:datatype xsd:string ; sh:maxCount 1 ] .
+    # live_book is upstream's snapshot of the live book and is never projected as a Portfolio (T-109).
+    sh:property [ sh:path :benchmarkKind ; sh:datatype xsd:string ; sh:maxCount 1 ; sh:not [ sh:in ("live_book") ] ] .
 
 :QuantSubjectShape
     a sh:NodeShape ;
     # T-108/T-109: a BenchmarkObservation is about a BENCHMARK book, or about the LIVE book (performance upstream measured on its
-    # live_book snapshot). Any other kind is rejected.
+    # live_book snapshot). Any other kind is rejected. Today this restates PortfolioShape's own sh:in; it is kept as the
+    # single place to widen or narrow what a quant number may be about if a third kind is added.
     sh:property [ sh:path :portfolioKind ; sh:in ("LIVE" "BENCHMARK") ] .
 
 :BenchmarkObservationShape
@@ -122,6 +124,10 @@
     sh:property [ sh:path :quantAsset ; sh:class :Asset ; sh:maxCount 1 ] ;
     sh:property [ sh:path :quantUnit ; sh:datatype xsd:string ; sh:maxCount 1 ] ;
     sh:property [ sh:path :quantAsOf ; sh:datatype xsd:date ; sh:maxCount 1 ] ;
+    # T-109: a LIVE subject only carries performance numbers measured on upstream's live_book snapshot; book metrics
+    # (expected_*, sharpe) and active_weight are about optimizer books.
+    sh:or ( [ sh:path :quantPortfolio ; sh:node [ sh:property [ sh:path :portfolioKind ; sh:hasValue "BENCHMARK" ] ] ]
+            [ sh:path :quantMetric ; sh:in ("realized_return" "cumulative_return" "benchmark_return" "active_return") ] ) ;
     sh:property [ sh:path :quantBenchmark ; sh:datatype xsd:string ; sh:maxCount 1 ] ;
     sh:property [ sh:path :provenanceId ; sh:datatype xsd:string ; sh:maxCount 1 ] .
 

@@ -416,7 +416,7 @@
 # On stint / valid-time individuals (Veto, PortfolioPosition) later cycles append to the SAME individual, so these four record only the run that OPENED
 # the record (raised it / validFrom); later cycles must not re-emit them (maxCount 1 / FunctionalProperty would break) and the closing run is not recorded.
 :runId a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:range xsd:string ;
-    rdfs:comment "T-106 (D7): upstream run_id of the analysis/pricing/quant/cycle run that wrote the row. Upstream's run_id is an INTEGER numbered separately in each run table (analysis_run, pricing_run, quant_run, cycle_run), so a bare number is ambiguous: write it as '<run table>:<id>' (e.g. cycle_run:42; T-109). Joins to the v_analysis_run / v_pricing_run / v_cycle_run log (params, dirty-tree reason) which stays upstream; no Run class is modelled." .
+    rdfs:comment "T-106 (D7): upstream run_id of the analysis/pricing/quant/cycle run that wrote the row. Upstream's run_id is an INTEGER numbered separately in each run table (analysis_run, pricing_run, quant_run, cycle_run), so a bare number is ambiguous: write it as '<run table>:<id>' (e.g. cycle_run:42; T-109). Joins to the v_analysis_run / v_pricing_run / v_quant_run / v_cycle_run log (params, dirty-tree reason) which stays upstream; no Run class is modelled." .
 :runAsOf a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:range xsd:date ;
     rdfs:comment "T-106 (D7): the run log's as_of (the date the run was evaluated for). NOT a read filter -- as-of reads use availableAt (T-101). Emit it only where it can differ from eventTime (FUNDAMENTAL, backfill replays); for cycle types it equals eventTime." .
 :codeVersion a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:range xsd:string ;
