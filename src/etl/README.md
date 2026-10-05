@@ -156,7 +156,7 @@ are answered in the graph by `validFrom <= D` and (no `validTo` or
 - **News tickers `universe.db` lacks** (`EQR` today) stay unresolved
   (`scoreSnapshotOfAsset` unset) and are counted in the run's warning.
 
-## Known divergence (schema decision, not an ETL bug)
+## Sentiment snapshots carry `rawValue` only (resolved, T-081)
 
 The Sentiment snapshots emitted here carry only `rawValue` (the scale v1's `-0.50` /
 `-0.60` thresholds are defined on — see `tbox.ttl`'s `ThresholdComparison` comment).
