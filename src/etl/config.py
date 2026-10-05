@@ -6,6 +6,10 @@ Every path/URL the ETL needs is resolved here, in this precedence order:
 2. an environment variable, loaded from a repo-root ``.env`` by ``python-dotenv``,
 3. a documented default rooted at the repository.
 
+The asset master reads ``SQL_UNIVERSE_DB`` -- ``portfolio-data-mining``'s
+point-in-time ``universe.db`` (SCD-2 ``universe_membership``), read-only. It is
+refreshed by hand upstream, so it can lag the index (``SPEC.md`` §2.6 D1).
+
 The news stage reads two databases -- the same two-tier SOURCE/RESULTS
 contract ``portfolio-nlp``'s ``news_nlp`` package implements (see
 ``portfolio_common.news_export`` and ``portfolio-nlp/docs/db-topology.md``):
@@ -37,9 +41,6 @@ REPO_ROOT: Path = Path(__file__).resolve().parent.parent.parent
 # Load ``<repo>/.env`` if present. ``override=False`` keeps any value already
 # exported in the real environment authoritative over the file.
 load_dotenv(REPO_ROOT / ".env", override=False)
-
-#: Default Wikipedia source for the S&P 500 constituent table.
-DEFAULT_SP500_SOURCE_URL: str = "https://en.wikipedia.org/wiki/List_of_S%26P_500_companies"
 
 #: Rows the validation-sample build in :mod:`etl.build_data_ttl` reads.
 DEFAULT_SAMPLE_NEWS_ROWS: int = 500
@@ -73,9 +74,10 @@ def output_path() -> Path:
     return _env_path("KG_DATA_TTL", REPO_ROOT / "data.ttl")
 
 
-def sp500_source_url() -> str:
-    """URL of the S&P 500 constituent table to parse for the ``:Asset`` population."""
-    return os.environ.get("KG_SP500_SOURCE_URL", DEFAULT_SP500_SOURCE_URL)
+def universe_db_path() -> Path:
+    """Point-in-time universe database (``portfolio-data-mining``'s ``universe.db``)
+    the ``:Asset`` / ``:UniverseMembership`` population is read from."""
+    return _env_path("SQL_UNIVERSE_DB", REPO_ROOT / "data" / "universe.db")
 
 
 def sample_news_rows() -> int:

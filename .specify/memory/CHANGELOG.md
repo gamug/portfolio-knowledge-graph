@@ -205,3 +205,106 @@ reused.*
 - [x] **T-091** Verify: both files are now listed; the schema parse+`pyshacl`
       check still passes (docs-only change). → `PLAN.md` acceptance
       criteria.
+
+## Work item 11 — Reconcile the ontology and ETL with the upstream contracts (T-007 rescan)
+
+*Decisions first; Work item 4 is gated on T-100–T-104. D-numbers refer to
+`SPEC.md` §2.6.*
+
+- [x] **T-100** *(D1; done 2026-10-05, maintainer decision: adopt `universe.db`)* Replace the ETL's
+      live-Wikipedia asset master (FR-004) with `universe.db` (`SQL_UNIVERSE_DB`, read-only via
+      `portfolio_common.db`), emitting `:Asset` + `:UniverseMembership`
+      (`validFrom`/`validTo`); document the stale-between-snapshots risk and
+      that `universe.db` is now a direct upstream. → `PLAN.md` Work item 11,
+      step 1. **Done:** `etl/asset_master.py` reads every stint; one `:Asset` per symbol, one
+      `:UniverseMembership` per stint in `:SP500Index`; `AssetShape` makes `cikNumber`
+      optional only when every membership is closed (checked with five cases); each run prints
+      `universe.db`'s latest recorded change and file date; `KG_SP500_SOURCE_URL` removed,
+      `SQL_UNIVERSE_DB` added. Full run on the real data: 98.5 s, 853 `:Asset` (+ 5 in
+      `reference.ttl`), 879 memberships (503 open, 376 closed), 459,112 articles, 216,596
+      `:RiskEvent`s; the only unresolved news ticker is `EQR` (1,104 rows, absent from
+      `universe.db`; the live table lacked it too). 2378 quads, conforms: True. Open parts are in
+      `SPEC.md` §2.6's D1 row (upstream's `EQR` gap, hand-refreshed file, stray `|` in two symbols,
+      no CIK on closed stints; nine symbols with several company names).
+- [x] **T-101** *(D2; done 2026-10-03: `availableAt` required + `eventTime` optional on `ScoreSnapshot`)* Decide how `available_at` vs. `event_time` is modelled
+      (new properties, or encoded in the ingest-graph date) so as-of queries
+      cannot leak look-ahead; update `tbox.ttl`/`shapes.ttl` and `07`. → step 2.
+- [x] **T-102** *(D3; done 2026-10-03: `raisedOn`/`clearedOn`/`lastSeenOn` + `vetoSeverity`, `VetoShape`)* Model veto stints (`raisedOn`/`clearedOn`/`lastSeenOn`
+      or `validFrom`/`validTo`) and write the "active at cutoff C" predicate
+      as the T-1-lag SPARQL pattern. → step 3.
+- [x] **T-103** *(D4 — decided 2026-10-02: upstream's catalog is final; done 2026-10-03)*
+      Implement it: add upstream's six rules (`LEVERAGE_EXTREME`, `NEGATIVE_FCF`,
+      `LIQUIDITY_DISTRESS`, `PRICE_CRASH`, `EARNINGS_MISSING`,
+      `DATA_QUALITY`) as `RuleDefinition`s (single-leaf `RuleClause`s) so
+      `:appliesRule` resolves, supersede `rules.ttl`'s seven tree rules
+      (including `VETO_RED_01`), and update FR-003, `06`/`07`, `schema/README.md`
+      and the FR-001 counts. → step 3.
+- [x] **T-104** *(D5; done 2026-10-03: modelled as an `EvidenceSource` leaf, `DataQualityIssueShape`)* Decide `:DataQualityIssue` (evidence for the
+      `DATA_QUALITY` veto) vs. dropping it. → step 3.
+- [x] **T-105** *(D6; done 2026-10-03: `agentOrigin` `VALORIZATION`, graph/gate renamed; metric id `ScoreCuantitativo` kept; rename dropped 2026-10-05 (T-109): upstream has no metric id for a score beyond `score_type`, which is `agentOrigin`)* `agentOrigin` `QUANTITATIVE` → `VALORIZATION` in
+      `shapes.ttl`/`reference.ttl` (MetricType) and docs; document each score
+      type's `event_time` meaning and the extra provenance fields. → step 4.
+- [x] **T-106** *(D7; done 2026-10-03: optional `runId`/`runAsOf`/`codeVersion`/`engineVersion` (no domain; SHACL on 5 classes, 6 since T-107), no `Run` class; extras not projected)* Decide how upstream `run_id`/`as_of`/`code_version`/
+      `engine_version` map onto `provenanceId` (or a `Run` class), and record a
+      disposition for the per-score-type extras `forensic_flags_json`,
+      `prompt_hash` (FUNDAMENTAL) and `correction_rule` (`financial_facts`)
+      handed over by T-105. → step 4.
+- [x] **T-107** *(D10; done 2026-10-03: `AssetCoOccurrence` + `AssetCoOccurrenceShape`)* Give projected `sharedExecutiveWith` a
+      method/weight/confidence (or a separate candidate property) so news
+      co-occurrence is not asserted as fact; decide `media_cooccurrence`. →
+      step 5.
+- [x] **T-108** *(D9 decided 2026-10-02; D11 decided and (b) done 2026-10-03; (a) moved to T-120 on 2026-10-05; task closed)*
+      (a) ~~Who triggers the quarterly/daily cycles~~ — **`portfolio-app`**
+      (not yet created) calls the upstream endpoints; raise with upstream that
+      `api/` is read-only with no run-trigger endpoint and that their docs name
+      `portfolio-reports` as the trigger. (b) **Done 2026-10-03:** only finished numbers
+      upstream exposes through a `v_*` view become individuals: benchmark
+      books/positions/performance and `v_quant_vs_live` active weight
+      (`Portfolio.portfolioKind`, `BenchmarkObservation`, graph
+      `urn:graph:derived:quant:{date}`); never returns, μ, Σ, frontier
+      points — NR-003. (a)'s trigger/integration questions are now tracked by T-120. → steps 5–6.
+- [x] **T-109** *(D8, D12, D13, D15, D16; read from upstream `8da3868`, 2026-10-02; done 2026-10-05; D13's schema work moved to T-121; the read-contract gaps are to be raised with the upstream maintainer)*
+      Resolved by reading `kg_schema` upstream (incl. T-105's deferred question: no upstream metric id exists to rename `ScoreCuantitativo` to, so it stays): **`schema_version` floor is 9** (migrations 1–9; the projector must refuse a DB below it. No projector exists yet, and `src/etl/` does not read upstream's `v_*` views (it reads `urls.db`/`nlp.db`), so the check belongs to the future `v_*` projector, not `src/etl/`). **`v_cycle_ranking`**: SQL returns every `cycle_run`'s rows, docstring ("latest cycle per cycle_type") is wrong, so per-date ranking graphs must filter by `cycle_run_id`/`cycle_date`. **`run_id` is an integer** (`INTEGER` column, `v_*_run.run_id`), replacing T-106's placeholders. **`v_score_snapshot`** exposes neither `forensic_flags_json` nor `prompt_hash`; no view carries `financial_facts`/`correction_rule`/`fundamental_metrics`/market cap (D12 stays outcome-only). **`REPLAY`**: `cycle_type` marks it in `v_cycle_run`/`v_cycle_ranking`, but its scores/vetoes land in shared tables, so project against a production DB only. **T-108's**: columns, `quantMetric` names, `benchmarkObjective` = `v_quant_portfolio.objective` (`min_var`, `tangency`, `target_vol`, `risk_parity`), `quantAsOf` = `as_of` / performance `date`, values are fractions, with `quantUnit` `fraction` / `fraction_annual` (`expected_*`) / `fraction_daily` (`realized_return`, `active_return`, …) / `ratio` (`sharpe`) / `count`, only `quant_position` weights scaled ×100 into `weightPct` (done in `tbox.ttl`/`instances.trig`). **`live_book` decision (maintainer, option B, 2026-10-05):** `v_quant_portfolio` also holds `kind='live_book'` (a snapshot of the live book, `objective='live'`); it is not projected as a `Portfolio`, and its performance numbers attach to the LIVE `Portfolio` (`quantPortfolio` accepts LIVE or BENCHMARK; `QuantSubjectShape`). `equal_weight`/`cap_weight` (excluded by `v_quant_vs_live`; no writer seen in `quant/`) would be BENCHMARK with `benchmarkKind` recorded. `quantUnit` vocabulary: fraction/fraction_annual/fraction_daily/ratio/count; `quantBenchmark` keeps the reference index; `kind='LIVE_ONLY'` rows have NULL `benchmark_weight`.
+      Closed 2026-10-05: (i) T-107's follow-up (answered: `v_shared_executive_edge` has `first_seen`/`last_seen` but no computed-at column, and `media_cooccurrence` has no view): `computedOn` stays optional and no `MEDIA` kind is added until a view exists (`MEDIA` = the proposed second kind of co-occurrence edge, non-executive, for `media_cooccurrence`); (ii) D13's weight-scheme mapping checked against `v_weight_scheme`/`v_weight_component` (findings in SPEC D13; the schema changes it implies are T-121); (iii) the read-contract gaps found are to be raised with the upstream maintainer. → step 6.
+- [x] **T-110** *(D16)* Reconcile the `portfolio-common` pin (`v1.2.0` here and
+      in `portfolio-nlp`; `v1.2.1` in `financial-analysis` and
+      `portfolio-data-mining`) — verify compatibility, then re-pin or record
+      why not. → step 6. **Done 2026-10-05:** re-pinned to `v1.2.1`; the diff
+      v1.2.0→v1.2.1 is additive (`Dialect.upsert` options, `json_extract`/
+      `json_each`, `Database.relation_exists`/`schema_version`, `DatabaseError`)
+      and `news_export` is untouched; `uv sync` OK, imports of `Row`/
+      `connect_readonly`/`fetch_processed_articles` OK. Only `portfolio-nlp`
+      stays on `v1.2.0` (upstream's call).
+- [x] **T-111** *(D14)* Add a `score_method` discriminator for SEMANTIC and
+      correct the wording upstream still attributes to this repo (their
+      rollout step 4); no write-back code exists here to remove. → step 6.
+      **Done 2026-10-05:** optional open-vocabulary `:scoreMethod` on
+      `ScoreSnapshot` (`tbox.ttl`, `ScoreSnapshotShape`); `src/etl/` emits
+      `ARTICLE_SENTIMENT`, the worked asset-day snapshots carry the
+      placeholder `ASSET_DAY_AGGREGATE`; D14 and `schema/README.md` updated. The stale
+      "KG writes SEMANTIC" text is in upstream's `README.md`,
+      `docs/README.md` and `docs/kg_schema.md`: not ours to edit, listed in
+      the next upstream note.
+- [x] **T-112** Record each D1–D16 disposition (adopted / translated /
+      rejected / raised upstream) in `SPEC.md` §2.6; re-run FR-001 and update
+      `schema/README.md` counts if `schema/` changed. → `PLAN.md` acceptance
+      criteria. **Done 2026-10-05:** disposition table after the §2.6
+      register; FR-001 re-run (2366 quads, conforms: True; `schema/README.md`
+      already had it from T-111), and the stale 2352 in `SPEC.md` (§2.1, FR-001,
+      §4 diagram, §6) and the root `README.md` updated. D1 is recorded as *Proposed*: no
+      decision is on record, so T-100 starts by deciding it. Other open parts stay with
+      T-120, T-121 and the upstream maintainer's answers.
+- [x] **T-113** *(found while handling review on PR #22)* Reconcile FR-005
+      with the code: `src/etl/news_to_rdf.py` reads SOURCE `urls.db`
+      `body_text` (via `news_export`) for `compute_severity`'s hard-trigger
+      keyword scan, but FR-005, §2.2 and its acceptance grep say the ETL never
+      reads `body_text`. Either drop the body-text escalation or amend FR-005,
+      §2.2 and §12. → `PLAN.md` Work item 11. **Done 2026-10-05 (maintainer
+      decision: amend the spec, keep the escalation as provisional G3).**
+      FR-005 (statement and acceptance criteria) and §2.2 now forbid reading
+      source data for anything the processed stores (`nlp`, `financial`)
+      already publish, instead of forbidding SOURCE reads. §12 and §13 item 12
+      say the G3 keyword bump is the one SOURCE-derived signal today, and that
+      `urls.db` stays required whatever happens to the bump, because the
+      shared join reads `articles` from SOURCE. Measured on the full data: the bump raises
+      20,363 of 216,596 `:RiskEvent`s one tier. No code change.

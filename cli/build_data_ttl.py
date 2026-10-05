@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Entry point: build ``data.ttl`` from Wikipedia + urls.db/nlp.db.
+"""Entry point: build ``data.ttl`` from universe.db + urls.db/nlp.db.
 
     python cli/build_data_ttl.py              # full run
     python cli/build_data_ttl.py --limit 500  # smoke test (caps news rows)

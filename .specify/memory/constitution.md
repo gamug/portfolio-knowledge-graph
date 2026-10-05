@@ -94,8 +94,8 @@ assumes the stack actually pinned in `pyproject.toml`.
    `.code_quality/mypy.ini`. Don't fork a second config file for a tool that
    already has one.
 7. **Environment**: `.env` (git-ignored) holds the ETL's variables — the
-   `SQL_*_DB` database paths (`SQL_URLS_DB`, `SQL_NLP_DB`) and the `KG_*`
-   settings (`KG_SCHEMA_DIR`, `KG_DATA_TTL`, `KG_SP500_SOURCE_URL`,
+   `SQL_*_DB` database paths (`SQL_URLS_DB`, `SQL_NLP_DB`, `SQL_UNIVERSE_DB`) and
+   the `KG_*` settings (`KG_SCHEMA_DIR`, `KG_DATA_TTL`,
    `KG_SAMPLE_NEWS_ROWS`) — plus the GraphDB `KG_*` connection variables; `.env.example` is the
    committed template — keep it in sync with every env var a new ETL feature
    reads. `src/etl/config.py`'s `load_dotenv()` at import is the single place

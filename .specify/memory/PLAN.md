@@ -265,8 +265,8 @@ architecture, and not partitioned for the bitemporal audit trail
    demonstrates one dated graph per lane for) once this projection can
    produce them.
 
-**Prerequisite**: Work item 11 (the §2.6 drift decisions) — writing the
-projection before D1–D8 and D10 are decided would encode wrong semantics.
+**Prerequisite**: Work item 11 (the §2.6 drift decisions) — met: it closed
+2026-10-05 (see `CHANGELOG.md`).
 
 **Acceptance criteria**:
 
@@ -279,7 +279,7 @@ projection before D1–D8 and D10 are decided would encode wrong semantics.
 - `src/etl/`'s role after this lands is explicitly documented (retired,
   folded in, or kept as a separate smoke-test path) — not left ambiguous.
 
-**Blocked on**: Work item 11 (the store from Work item 3 is in place).
+**Blocked on**: nothing (Work item 11 closed 2026-10-05; the store from Work item 3 is in place).
 
 ## Work item 5 — ~~Implement the SEMANTIC score's per-`(asset, day)` aggregation~~ (SUPERSEDED — reassigned upstream)
 
@@ -437,7 +437,7 @@ encode them wrongly.
 decision may be "keep ours, translate on projection"):
 
 1. Universe (D1): replace the ETL's live-Wikipedia asset master by
-   `universe.db` as-of reads → `:UniverseMembership` (T-100).
+   `universe.db` → `:UniverseMembership` (T-100, done 2026-10-05).
 2. Temporal model (D2): `availableAt`/`eventTime` properties vs. ingest-graph
    dates (T-101).
 3. Veto lifecycle and rule catalog (D3, D4, D5): stint properties, the T-1
@@ -455,14 +455,14 @@ decision may be "keep ours, translate on projection"):
 **Acceptance criteria**:
 
 - Each of D1–D16 has a recorded disposition (adopted / translated /
-  rejected / raised upstream) in `SPEC.md` §2.6. **Met for D2–D16 (T-112, 2026-10-05); D1 open until T-100 decides it.**
+  rejected / raised upstream) in `SPEC.md` §2.6. **Met for D1–D16 (T-112 and T-100, 2026-10-05).**
 - Where a decision changes `schema/`, the FR-001 parse + `pyshacl` check
   passes and `schema/README.md`'s counts are updated (NR-001).
 - No Work item 4 task starts before this one's items 1–4 are decided.
 
-**Blocked on**: nothing for the decisions. Maintainer decisions so far
+**Status**: closed 2026-10-05 (T-100–T-113 done; its tasks are in `CHANGELOG.md`; the parts that could not close moved to Work item 12). Maintainer decisions
 (2026-10-02): D4 — upstream's rule catalog is final; D9 — `portfolio-app`
-triggers the cycles. D11 — only finished, view-exposed quant numbers become individuals (T-108 done).
+triggers the cycles. D11 — only finished, view-exposed quant numbers become individuals (T-108 done). D1 (2026-10-05) — `universe.db` is the asset master and the universe's source (T-100).
 
 ## Work item 12 — Integrate `portfolio-app`/`portfolio-reports` and model per-run weight schemes
 
@@ -493,7 +493,7 @@ Work item 4 (real projection; absorbs the SEMANTIC and ORCHESTRATOR lanes)
         ▼
 Work item 6 (reasoner + SPARQL)
 
-Work item 11 (reconcile with upstream contracts) ──► gates Work item 4
+Work item 11 (reconcile with upstream contracts) — closed 2026-10-05; it gated Work item 4
 Work item 12 (app/reports integration, per-run weight schemes) — pending parts of 11, independent
 
 Work item 5 (SEMANTIC aggregation) — superseded, reassigned upstream

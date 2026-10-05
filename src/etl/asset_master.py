@@ -1,171 +1,269 @@
-"""Populate the full S&P 500 ``:Asset`` / ``:classifiedAs`` population.
+"""Populate the ``:Asset`` / ``:classifiedAs`` / ``:UniverseMembership`` population.
 
-Reads the "List of S&P 500 companies" table (Symbol, Security, GICS Sector,
-GICS Sub-Industry, CIK) from Wikipedia and extends the 5 worked-example Assets
-in ``schema/reference.ttl`` to the real ~503-constituent universe. This is the
-"canonical population" step, not a replacement for ``reference.ttl`` (which
-still owns the GICS Sector/Industry taxonomy these Assets classify against).
+Reads ``portfolio-data-mining``'s point-in-time ``universe.db`` (SCD-2
+``universe_membership``: one row per membership stint with ``valid_from`` /
+``valid_to``) and emits, for every symbol ever in the S&P 500 index:
 
-Deliberately does NOT touch SEC EDGAR or any pricing/trading source -- the CIK
-value used here is Wikipedia's own CIK column (originally sourced from SEC, but
-read from the table this ETL parses, not fetched from an EDGAR service). No
-filing or pricing data is fetched.
+* one ``:Asset`` (skipped when ``schema/reference.ttl`` already declares it),
+* one ``:UniverseMembership`` per stint, in the single ``:SP500Index``
+  ``:Universe``, with ``validFrom`` and (for a closed stint) ``validTo``.
+
+``validTo`` is exclusive, matching upstream's own predicate
+``valid_from <= D AND (valid_to IS NULL OR valid_to > D)``. ``valid_from`` is
+written as upstream has it: ``1976-07-01`` on a current member means "in the
+index before upstream's records begin", not a literal join date.
+
+This is the "canonical population" step, not a replacement for
+``reference.ttl`` (which still owns the GICS Sector/Industry taxonomy these
+Assets classify against). It reads the file read-only through
+``portfolio_common.db`` and touches no SEC EDGAR or pricing source.
+
+Known limits (``SPEC.md`` §2.6 D1):
+
+* ``universe.db`` is refreshed by hand upstream, so it can lag the index;
+  :class:`UniverseSummary` carries what the caller needs to show that.
+* A closed stint has no CIK, sector or sub-industry upstream. An ``:Asset``
+  for a symbol that left the index has only ``tickerSymbol`` and
+  ``companyName`` (``AssetShape`` allows that only when every membership is
+  closed).
+* One ``:Asset`` per symbol, so a ticker reused by different companies over
+  time (``Q``, ``CEG``, ``DELL``, ...) is one ``:Asset``, described by its most
+  recent stint.
 """
 
 from __future__ import annotations
 
-import urllib.request
-from html.parser import HTMLParser
+import re
+import time
+from dataclasses import dataclass
+from pathlib import Path
 from typing import TextIO
 
+from portfolio_common.db import Database
+
 from etl.common import gics_rollup
-from etl.common.turtle_util import str_lit
+from etl.common.turtle_util import date_lit, str_lit
 
-#: Minimum cell count for a row of the constituent table to be treated as data
-#: (Symbol, Security, GICS Sector, GICS Sub-Industry, HQ, Date added, CIK, ...).
-_MIN_TABLE_COLS = 7
+#: ``:Universe`` individual every emitted membership belongs to.
+UNIVERSE_IRI = ":SP500Index"
 
-#: Column indices within a data row.
-_COL_TICKER = 0
-_COL_COMPANY = 1
-_COL_SECTOR = 2
-_COL_SUB_INDUSTRY = 3
-_COL_CIK = 6
+_SQL_STINTS = """
+    SELECT symbol, security, gics_sector, gics_sub_industry, cik, valid_from, valid_to
+    FROM universe_membership
+    ORDER BY symbol, valid_from
+"""
 
+_SECONDS_PER_DAY = 86_400
 
-class _SP500TableParser(HTMLParser):
-    """Extracts the first ``wikitable``-classed table's rows as lists of cell text."""
-
-    def __init__(self) -> None:
-        super().__init__()
-        self.in_target_table: bool = False
-        self.found_first_table: bool = False
-        self.rows: list[list[str]] = []
-        self.cur_row: list[str] | None = None
-        self.cur_cell: list[str] | None = None
-
-    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
-        attr_map = dict(attrs)
-        cls = attr_map.get("class") or ""
-        if tag == "table" and not self.found_first_table and "wikitable" in cls:
-            self.in_target_table = True
-            self.found_first_table = True
-        elif tag == "tr" and self.in_target_table:
-            self.cur_row = []
-        elif tag in ("td", "th") and self.in_target_table:
-            self.cur_cell = []
-
-    def handle_endtag(self, tag: str) -> None:
-        if tag == "table" and self.in_target_table:
-            self.in_target_table = False
-        elif tag == "tr" and self.in_target_table and self.cur_row is not None:
-            self.rows.append(self.cur_row)
-            self.cur_row = None
-        elif tag in ("td", "th") and self.in_target_table and self.cur_cell is not None:
-            if self.cur_row is not None:
-                self.cur_row.append("".join(self.cur_cell).strip())
-            self.cur_cell = None
-
-    def handle_data(self, data: str) -> None:
-        if self.in_target_table and self.cur_cell is not None:
-            self.cur_cell.append(data)
+#: A symbol that is safe to use as a Turtle local name: letters/digits plus an
+#: optional ``.X`` share-class suffix (``BRK.B``).
+_TICKER_RE = re.compile(r"[A-Z0-9]{1,6}(\.[A-Z])?")
 
 
-def fetch_sp500_rows(source_url: str) -> list[dict[str, str]]:
-    """Return one dict per constituent: ``ticker, company, sector, sub_industry, cik``."""
-    if not source_url.startswith(("http://", "https://")):
-        raise ValueError(f"source_url must be an http(s) URL, got: {source_url!r}")
+@dataclass(frozen=True, slots=True)
+class Stint:
+    """One ``universe_membership`` row: ``symbol`` was in the index over
+    ``[valid_from, valid_to)``; ``valid_to`` is ``None`` while it still is."""
 
-    req = urllib.request.Request(  # noqa: S310 - scheme validated just above
-        source_url, headers={"User-Agent": "Mozilla/5.0 (thesis research script)"}
-    )
-    with urllib.request.urlopen(req, timeout=30) as resp:  # noqa: S310 - same guard
-        html = resp.read().decode("utf-8", errors="replace")
-
-    parser = _SP500TableParser()
-    parser.feed(html)
-    data_rows = [r for r in parser.rows if len(r) >= _MIN_TABLE_COLS][1:]  # drop header
-
-    return [
-        {
-            "ticker": r[_COL_TICKER].strip(),
-            "company": r[_COL_COMPANY].strip(),
-            "sector": r[_COL_SECTOR].strip(),
-            "sub_industry": r[_COL_SUB_INDUSTRY].strip(),
-            "cik": r[_COL_CIK].strip(),
-        }
-        for r in data_rows
-    ]
+    symbol: str
+    security: str
+    sector: str | None
+    sub_industry: str | None
+    cik: str | None
+    valid_from: str
+    valid_to: str | None
 
 
-def _asset_triples(row: dict[str, str], industry_local: str | None) -> list[str]:
+@dataclass(frozen=True, slots=True)
+class UniverseSummary:
+    """What :func:`build_assets` wrote, plus how fresh ``universe.db`` is."""
+
+    tickers: set[str]
+    assets_written: int
+    memberships: int
+    open_memberships: int
+    latest_valid_from: str | None
+    file_mtime: float | None
+
+    @property
+    def closed_memberships(self) -> int:
+        return self.memberships - self.open_memberships
+
+    def freshness_line(self, now: float | None = None) -> str:
+        """One line for the end-of-run summary.
+
+        ``latest_valid_from`` is the latest recorded index *change*, not the
+        refresh date: a quiet stretch with no changes looks the same as a
+        stale file, so the file's modification date is shown beside it.
+        """
+        now = time.time() if now is None else now
+        latest = self.latest_valid_from or "n/a"
+        if self.file_mtime is None:
+            return f"universe.db latest recorded change (valid_from): {latest}"
+        modified = time.strftime("%Y-%m-%d", time.localtime(self.file_mtime))
+        age_days = int((now - self.file_mtime) // _SECONDS_PER_DAY)
+        return (
+            f"universe.db latest recorded change (valid_from): {latest}; "
+            f"file last modified {modified} ({age_days} days ago)"
+        )
+
+
+def _clean_symbol(raw: str) -> str:
+    """Drop the stray `` |`` that upstream's change-log scrape left on a few
+    symbols (``'JCP |'``, ``'ITT |'``)."""
+    return raw.strip().rstrip("|").strip()
+
+
+def read_stints(db_path: str | Path, warnings: list[str] | None = None) -> list[Stint]:
+    """Read every membership stint from ``universe.db``, read-only.
+
+    A symbol that is still not a plain ticker after :func:`_clean_symbol` is
+    skipped (it cannot be a Turtle local name) and reported in ``warnings``.
+    """
+    stints: list[Stint] = []
+    cleaned: set[str] = set()
+    skipped: set[str] = set()
+    db = Database.connect(db_path, read_only=True)
+    try:
+        for row in db.execute(_SQL_STINTS).fetchall():
+            symbol = _clean_symbol(row["symbol"])
+            if not _TICKER_RE.fullmatch(symbol):
+                skipped.add(row["symbol"])
+                continue
+            if symbol != row["symbol"]:
+                cleaned.add(f"{row['symbol']!r}->{symbol!r}")
+            stints.append(
+                Stint(
+                    symbol=symbol,
+                    security=row["security"],
+                    sector=row["gics_sector"],
+                    sub_industry=row["gics_sub_industry"],
+                    cik=row["cik"] or None,
+                    valid_from=row["valid_from"],
+                    valid_to=row["valid_to"],
+                )
+            )
+    finally:
+        db.close()
+    if warnings is not None:
+        if cleaned:
+            warnings.append(
+                f"asset_master: {len(cleaned)} universe.db symbol(s) carried a stray '|' from "
+                f"upstream's change-log scrape and were cleaned: " + ", ".join(sorted(cleaned))
+            )
+        if skipped:
+            warnings.append(
+                f"asset_master: {len(skipped)} universe.db symbol(s) are not plain tickers and "
+                f"were skipped: " + ", ".join(sorted(map(repr, skipped)))
+            )
+    return sorted(stints, key=lambda st: (st.symbol, st.valid_from))
+
+
+def _latest_stint(stints: list[Stint]) -> Stint:
+    """The stint that describes the asset today: the latest ``valid_from``."""
+    return max(stints, key=lambda s: s.valid_from)
+
+
+def _asset_triples(latest: Stint, industry_local: str | None) -> list[str]:
     """Build the predicate-object lines for one ``:Asset`` block."""
     triples = [
-        f"    :tickerSymbol {str_lit(row['ticker'])}",
-        f"    :companyName {str_lit(row['company'])}",
+        f"    :tickerSymbol {str_lit(latest.symbol)}",
+        f"    :companyName {str_lit(latest.security)}",
     ]
-    if row["cik"]:
-        triples.append(f"    :cikNumber {str_lit(row['cik'])}")
+    if latest.cik:
+        triples.append(f"    :cikNumber {str_lit(latest.cik)}")
     if industry_local is not None:
         triples.append(f"    :classifiedAs :{industry_local}")
     return triples
 
 
+def _membership_iri(stint: Stint) -> str:
+    return f":UM_{stint.symbol}_{stint.valid_from}"
+
+
+def _write_membership(out_fh: TextIO, stint: Stint) -> None:
+    iri = _membership_iri(stint)
+    lines = [
+        f"{iri}\n    a :UniverseMembership ;\n",
+        f"    :membershipAsset :{stint.symbol} ;\n",
+        f"    :membershipUniverse {UNIVERSE_IRI} ;\n",
+        f"    :validFrom {date_lit(stint.valid_from)}",
+    ]
+    if stint.valid_to is not None:
+        lines.append(f" ;\n    :validTo {date_lit(stint.valid_to)}")
+    lines.append(f" .\n:{stint.symbol} :hasUniverseMembership {iri} .\n\n")
+    out_fh.write("".join(lines))
+
+
 def build_assets(
-    rows: list[dict[str, str]],
+    stints: list[Stint],
     out_fh: TextIO,
     warnings: list[str],
     already_defined: set[str] | None = None,
-) -> set[str]:
-    """Write one Turtle block per ``:Asset`` to ``out_fh``.
+    file_mtime: float | None = None,
+) -> UniverseSummary:
+    """Write the ``:Universe``, one ``:Asset`` per symbol and one
+    ``:UniverseMembership`` per stint to ``out_fh``.
 
     Tickers in ``already_defined`` (those ``schema/reference.ttl`` already
-    declares as ``:Asset`` individuals) are NOT re-emitted -- ``reference.ttl``
-    stays authoritative for them, so re-stating a divergent ``cikNumber`` or
-    ``companyName`` here can't raise a functional-property / ``sh:maxCount 1``
-    conflict once both files load together. They are still returned in the
-    written-tickers set so :mod:`etl.news_to_rdf` can resolve
-    ``scoreSnapshotOfAsset`` against them.
-
-    Returns the set of tickers usable as ``:Asset`` targets.
+    declares as ``:Asset`` individuals) get their memberships but are NOT
+    re-emitted as ``:Asset`` -- ``reference.ttl`` stays authoritative for them,
+    so re-stating a divergent ``cikNumber`` or ``companyName`` here can't raise
+    a functional-property / ``sh:maxCount 1`` conflict once both files load
+    together. They are still returned in ``tickers`` so :mod:`etl.news_to_rdf`
+    can resolve ``scoreSnapshotOfAsset`` against them.
     """
     already_defined = already_defined or set()
-    written_tickers: set[str] = set()
-    unmapped_sub_industries: set[str] = set()
-    sector_mismatches: list[tuple[str, str, str, str]] = []
-    skipped = 0
+    by_symbol: dict[str, list[Stint]] = {}
+    for stint in stints:
+        by_symbol.setdefault(stint.symbol, []).append(stint)
 
     out_fh.write("#################################################################\n")
-    out_fh.write("# Section A: Asset / Sector-Industry classification\n")
-    out_fh.write('# Source: Wikipedia "List of S&P 500 companies" (fetched at build time).\n')
-    out_fh.write("# Extends schema/reference.ttl's worked-example Assets to the full\n")
-    out_fh.write("# current S&P 500 constituent list. :Sector/:Industry individuals\n")
-    out_fh.write("# (:Sec_*/:Ind_*) referenced below are declared in reference.ttl,\n")
-    out_fh.write("# NOT redeclared here -- load reference.ttl first. Tickers already\n")
-    out_fh.write("# defined as :Asset in reference.ttl are skipped below by design.\n")
+    out_fh.write("# Section A: Asset / Sector-Industry classification / UniverseMembership\n")
+    out_fh.write("# Source: portfolio-data-mining's universe.db (point-in-time, read-only).\n")
+    out_fh.write("# One :Asset per symbol ever in the index, one :UniverseMembership per\n")
+    out_fh.write("# stint (validTo exclusive). :Sector/:Industry individuals (:Sec_*/:Ind_*)\n")
+    out_fh.write("# referenced below are declared in reference.ttl, NOT redeclared here --\n")
+    out_fh.write("# load reference.ttl first. Tickers already defined as :Asset in\n")
+    out_fh.write("# reference.ttl get memberships but are not re-emitted as :Asset.\n")
     out_fh.write("#################################################################\n\n")
+    out_fh.write(f"{UNIVERSE_IRI}\n    a :Universe ;\n")
+    out_fh.write('    rdfs:label "S&P 500 index membership (universe.db)" .\n\n')
 
-    for row in rows:
-        ticker = row["ticker"]
-        written_tickers.add(ticker)
-        if ticker in already_defined:
-            skipped += 1
-            continue
+    unmapped_sub_industries: set[str] = set()
+    sector_mismatches: list[tuple[str, str, str, str]] = []
+    assets_written = 0
 
-        industry_local = gics_rollup.lookup(row["sub_industry"])
-        if industry_local is None:
-            unmapped_sub_industries.add(row["sub_industry"])
-        elif not gics_rollup.sector_matches(industry_local, row["sector"]):
-            sector_mismatches.append((ticker, row["sub_industry"], industry_local, row["sector"]))
+    for symbol, symbol_stints in by_symbol.items():
+        if symbol not in already_defined:
+            latest = _latest_stint(symbol_stints)
+            industry_local = None
+            if latest.sub_industry:
+                industry_local = gics_rollup.lookup(latest.sub_industry)
+                if industry_local is None:
+                    unmapped_sub_industries.add(latest.sub_industry)
+                elif latest.sector and not gics_rollup.sector_matches(
+                    industry_local, latest.sector
+                ):
+                    sector_mismatches.append(
+                        (symbol, latest.sub_industry, industry_local, latest.sector)
+                    )
+            out_fh.write(f":{symbol}\n    a :Asset ;\n")
+            out_fh.write(" ;\n".join(_asset_triples(latest, industry_local)))
+            out_fh.write(" .\n\n")
+            assets_written += 1
+        for stint in symbol_stints:
+            _write_membership(out_fh, stint)
 
-        out_fh.write(f":{ticker}\n    a :Asset ;\n")
-        out_fh.write(" ;\n".join(_asset_triples(row, industry_local)))
-        out_fh.write(" .\n\n")
-
-    if skipped:
-        out_fh.write(f"# ({skipped} ticker(s) already in reference.ttl were not re-emitted.)\n\n")
     _record_warnings(warnings, unmapped_sub_industries, sector_mismatches)
-    return written_tickers
+    return UniverseSummary(
+        tickers=set(by_symbol),
+        assets_written=assets_written,
+        memberships=len(stints),
+        open_memberships=sum(1 for s in stints if s.valid_to is None),
+        latest_valid_from=max((s.valid_from for s in stints), default=None),
+        file_mtime=file_mtime,
+    )
 
 
 def _record_warnings(

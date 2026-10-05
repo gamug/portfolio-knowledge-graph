@@ -7,7 +7,7 @@ this repo owns the ontology, the projection of its siblings' outputs into it, an
 all computation — news acquisition and EDGAR/pricing services (`portfolio-data-mining`), NLP
 (`portfolio-nlp`), and fundamentals/pricing/scoring/vetoes/ranking/portfolio construction
 (`portfolio-financial-analysis`) — lives in those repos. The only application code here is a small
-ETL (`src/etl/`, entry `cli/build_data_ttl.py`) that turns Wikipedia's constituent table and
+ETL (`src/etl/`, entry `cli/build_data_ttl.py`) that turns `portfolio-data-mining`'s point-in-time `universe.db` and
 `portfolio-nlp`'s results into a flat `data.ttl` loadable on top of `schema/`; the triple store
 (GraphDB / Fuseki) is not yet stood up. Scope detail: `.specify/memory/SPEC.md` §2.5–§2.6.
 
@@ -49,7 +49,7 @@ storage location assigned in `07` and its writer assigned in `08`.
 │   ├── rules.ttl                          veto rule catalog + AttractivenessWeightScheme, as RuleClause/weight trees
 │   ├── instances.trig                     worked-example ABox (TriG, multiple named graphs)
 │   └── protege-view.ttl                   generated flat Turtle bundle for Protégé — STALE as of 2026-08-23, not regenerated after the tbox.ttl/reference.ttl/shapes.ttl edits below; regenerate before using in Protégé
-├── src/etl/, cli/build_data_ttl.py         the only application code: Wikipedia + portfolio-nlp results → flat data.ttl (roadmap step 2 shortcut)
+├── src/etl/, cli/build_data_ttl.py         the only application code: universe.db + portfolio-nlp results → flat data.ttl (roadmap step 2 shortcut)
 └── docs/                                  all Markdown design documents
     ├── critique-and-evolution.md          v1 critique + v2 evolution layers
     ├── 06-ontology-definition.md          ontology design rationale
@@ -79,7 +79,7 @@ class taxonomy (§1.2 in `06-ontology-definition.md`) and MetricType vocabulary 
 directly into `tbox.ttl`/`reference.ttl`/`shapes.ttl` — not left as separate addendum files. Full
 `rdflib` parse + `pyshacl` conformance re-verified against the real files after the merge: **parses
 clean (1608 quads at the 2026-08-23 revision — `schema/taxonomy-quality-review-2026-08-23.md` has the +1 delta from a
-same-day `RuleClause` fix; 1771 after T-102/T-103, 1881 after T-104, 1951 after T-101, 1953 after T-105, 2064 after T-106, 2150 after T-107, 2298 after T-108, 2352 after T-109, 2366 after T-111), conforms: True** (`schema/README.md`'s Validation section has the exact
+same-day `RuleClause` fix; 1771 after T-102/T-103, 1881 after T-104, 1951 after T-101, 1953 after T-105, 2064 after T-106, 2150 after T-107, 2298 after T-108, 2352 after T-109, 2366 after T-111, 2378 after T-100), conforms: True** (`schema/README.md`'s Validation section has the exact
 command). `protege-view.ttl` is the one file *not* re-verified — it's a generated bundle
 (`schema/README.md`: "never hand-edit") that predates this revision's edits and needs regenerating
 from a real Protégé session, not something this pass could safely hand-patch.
@@ -141,7 +141,7 @@ of configuration:
 |---|---|
 | 0 — Ontology + SHACL shapes (this repo's `schema/`) | ✅ Done |
 | 1 — Stand up the triple store | ✅ Done — GraphDB repository `portfolio` with the reasoning profile of `07`, `schema/` loaded (`cli/load_schema.py`), ABox writes pass a SHACL gate (`cli/ingest.py`); see `docs/graphdb-setup.md`. Only the `instances.trig` worked example is loaded so far |
-| 2 — Ingest already-collected data into the graph | Shortcut built — `src/etl/` projects assets (Wikipedia) and news (`portfolio-nlp` results) to a flat `data.ttl`; the real projection (`financial-analysis` `v_*` views, dated named graphs) not started |
+| 2 — Ingest already-collected data into the graph | Shortcut built — `src/etl/` projects the universe (`universe.db`: assets and membership history) and news (`portfolio-nlp` results) to a flat `data.ttl`; the real projection (`financial-analysis` `v_*` views, dated named graphs) not started |
 | 3–9 — Pricing collector, EDGAR batch pipeline, NLP service, agent cycles, entity resolution, sector/portfolio construction, backtesting | Not this repo's to build — owned by `portfolio-data-mining`, `portfolio-nlp`, `portfolio-financial-analysis` (built or partly built there, per their docs; per-step owner table in the roadmap). This repo's part is projecting their outputs (step 2) |
 
 Full dependency-ordered detail in [`docs/10-integration-roadmap.md`](docs/10-integration-roadmap.md).

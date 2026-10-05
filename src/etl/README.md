@@ -8,7 +8,7 @@ external sources into a flat Turtle `data.ttl` that loads on top of this repo's
 
 | Source | Produces |
 |---|---|
-| Wikipedia "List of S&P 500 companies" table | `:Asset` + `:classifiedAs` (full ~503-constituent universe) |
+| `universe.db` — `portfolio-data-mining`'s point-in-time S&P 500 membership (`SQL_UNIVERSE_DB`, read-only) | `:Universe` (`:SP500Index`), `:Asset` + `:classifiedAs` (every symbol ever in the index), `:UniverseMembership` (one per stint) |
 | `urls.db`/`nlp.db` — a two-tier SOURCE/RESULTS pair (see below) | `:NewsArticle`, `:ScoreSnapshot` (Sentiment), `:RiskEvent` (gated) |
 
 It is an **MVP single-shot load**, not the named-graph-partitioned target
@@ -24,8 +24,8 @@ The news source's connection goes through **`portfolio-common`**'s
 
 ```
 src/etl/
-  config.py          # resolves DB paths / schema dir / output path / source URL from .env
-  asset_master.py    # Wikipedia table  -> :Asset / :classifiedAs
+  config.py          # resolves DB paths / schema dir / output path from .env
+  asset_master.py    # universe.db      -> :Universe / :Asset / :classifiedAs / :UniverseMembership
   news_to_rdf.py     # urls.db/nlp.db   -> :NewsArticle / :ScoreSnapshot / :RiskEvent
   build_data_ttl.py  # orchestrates the two + a sample SHACL check
   common/
@@ -63,15 +63,15 @@ it was resolved.
 ## Configuration
 
 `config.py` loads a repo-root `.env` (via `python-dotenv`). Copy `.env.example`
-to `.env` and set at least `SQL_URLS_DB`:
+to `.env` and set at least `SQL_URLS_DB` and `SQL_UNIVERSE_DB`:
 
 | Key | Default | Meaning |
 |---|---|---|
 | `SQL_URLS_DB` | `<repo>/data/urls.db` | SOURCE: external `news-collector` SQLite DB, has `articles.body_text`. In this dev container it is bind-mounted at `/workspaces/thesis/data/urls.db` (see `.devcontainer/devcontainer.json`). |
+| `SQL_UNIVERSE_DB` | `<repo>/data/universe.db` | `portfolio-data-mining`'s point-in-time `universe.db` (SCD-2 `universe_membership`), read-only through `portfolio_common.db`. In this dev container, `/workspaces/thesis/data/universe.db`. |
 | `SQL_NLP_DB` | `<repo>/data/nlp.db` | RESULTS: the `portfolio-nlp` results store (`article_sentiment`/`article_category`, no `body_text`). In this dev container, `/workspaces/thesis/data/nlp.db`. |
 | `KG_SCHEMA_DIR` | `<repo>/schema` | dir holding `tbox.ttl` / `shapes.ttl` / `reference.ttl` / `rules.ttl` |
 | `KG_DATA_TTL` | `<repo>/data.ttl` | output path (git-ignored) |
-| `KG_SP500_SOURCE_URL` | Wikipedia S&P 500 list | constituent table to parse |
 | `KG_SAMPLE_NEWS_ROWS` | `500` | rows in the post-build SHACL validation sample |
 
 ## Running
@@ -120,11 +120,39 @@ against ground truth:
 - **`reference.ttl` stays authoritative for its own `:Asset`s.** Any ticker
   already declared as an `:Asset` individual in `schema/reference.ttl` (the 5
   worked-example tickers today) is *not* re-emitted in `data.ttl` — otherwise a
-  divergent `cikNumber` (e.g. `:XOM`'s post-reincorporation CIK on Wikipedia)
-  would collide with `reference.ttl`'s value under the functional-property /
-  `sh:maxCount 1` contract once both files load. Those tickers are still
-  resolvable as `scoreSnapshotOfAsset` targets. The skip set is read from
+  divergent `cikNumber` (e.g. `:XOM`'s post-reincorporation CIK) would
+  collide with `reference.ttl`'s value under the functional-property /
+  `sh:maxCount 1` contract once both files load. Those tickers still get
+  their `:UniverseMembership`s and are resolvable as `scoreSnapshotOfAsset`
+  targets. The skip set is read from
   `reference.ttl` at build time (`reference_asset_tickers()`), not hard-coded.
+
+## The asset master and its limits (`SPEC.md` FR-004, §2.6 D1)
+
+`asset_master.py` reads every stint of `universe.db`'s `universe_membership`
+and writes the `:SP500Index` `:Universe`, one `:Asset` per symbol and one
+`:UniverseMembership` per stint. As-of questions ("who was in the index on D")
+are answered in the graph by `validFrom <= D` and (no `validTo` or
+`validTo > D`), the same predicate upstream uses; `validTo` is exclusive.
+
+- **Freshness.** Upstream refreshes `universe.db` by hand. Every run prints the
+  latest `valid_from` in the file (the latest recorded index *change*) and the
+  file's modification date; a quiet stretch looks like a stale file, so read
+  both. Nothing stops a run on an old file.
+- **`validFrom = 1976-07-01`** on a current member means "in the index before
+  upstream's records begin", not a join date (`date_added` is not projected).
+- **Closed stints carry only a symbol and a name.** Upstream has no CIK, sector
+  or sub-industry for a company that has left the index, so its `:Asset` has
+  `tickerSymbol` and `companyName` only. `AssetShape` accepts a missing
+  `cikNumber` only when every membership of the asset is closed.
+- **One `:Asset` per symbol.** Nine symbols (`BMS`, `CEG`, `DELL`, `DOW`, `JBL`,
+  `MXIM`, `PCG`, `Q`, `SNDK`) carry different company names across stints; some
+  are renames, some are different companies. Each is one `:Asset`, described by
+  its latest stint.
+- **Dirty symbols.** Two rows carry a stray `|` (`JCP |`, `ITT |`) from upstream's
+  change-log scrape; the ETL strips it and reports it as a warning.
+- **News tickers `universe.db` lacks** (`EQR` today) stay unresolved
+  (`scoreSnapshotOfAsset` unset) and are counted in the run's warning.
 
 ## Known divergence (schema decision, not an ETL bug)
 

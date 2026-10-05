@@ -15,8 +15,8 @@ If Wikipedia's table ever adds a Sub-Industry not in this dict (a GICS revision,
 or a new constituent in a sub-industry not currently represented),
 :func:`lookup` returns ``None`` rather than guessing -- the caller skips
 ``classifiedAs`` for that Asset and logs it. ``classifiedAs`` is NOT
-SHACL-required (see ``AssetShape`` in ``shapes.ttl``: only
-``tickerSymbol``/``cikNumber`` are ``sh:minCount 1``), so an unmapped
+SHACL-required (see ``AssetShape`` in ``shapes.ttl``: only ``tickerSymbol``
+and, unless every membership is closed, ``cikNumber``), so an unmapped
 sub-industry degrades gracefully instead of blocking the whole batch.
 """
 
