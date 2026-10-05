@@ -106,7 +106,12 @@ def upstream_view_columns(upstream_repo: Path) -> dict[str, list[str]]:
             db.execute(ddl)
         kg_schema.ensure(db, run_migrations=True)
         return {
-            v: [r[1] for r in db.execute(f"PRAGMA table_info({v})").fetchall()]
+            v: [
+                r[0]
+                for r in db.execute(
+                    "SELECT name FROM pragma_table_info(?) ORDER BY cid", (v,)
+                ).fetchall()
+            ]
             for v in kg_schema.views.VIEWS
         }
     finally:
