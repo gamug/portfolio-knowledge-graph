@@ -284,6 +284,17 @@ open part waits on another repo.
 | D15 | Adopted | Read the SQLite `v_*` views via `portfolio_common.db` read-only; the HTTP `api/` is not a source. | Implementation: Work item 4's projector. |
 | D16 | Adopted; raised upstream | `schema_version` floor 9 (T-109); `portfolio-common` re-pinned to `v1.2.1` (T-110). | Assert the floor in the future projector; `portfolio-nlp` is still on `v1.2.0` (theirs to move). |
 
+**Read contract and score scale (T-030, 2026-10-05).** The columns this repo reads from
+each of upstream's 31 `v_*` views are pinned in `src/projection/view_contract.py` (taken from
+`portfolio-financial-analysis` at `0a528be`; `v_universe_membership` is the one view listed as
+not read, being frozen). `cli/check_view_contract.py <upstream checkout>` fails on any removed,
+added or reordered column, or a new unlisted view (§13 item 10). Upstream's `normalized_score`
+is a 0–100 *strength* score (50 = cohort average, higher = better), while `:normalizedScore`
+is a [0, 1] *risk* reading (`docs/06-ontology-definition.md` §1.8). The projection writes
+`1 − score/100` (`src/projection/score_scale.py`) and keeps the upstream value as `:rawValue`,
+so the graph keeps one polarity across agent lanes; a value outside [0, 100] is an error, not
+clipped. Neither `ScoreSnapshotShape` nor `WeightComponent.inverted` changes.
+
 ## 3. Technology Stack & Architecture Decisions
 
 Full stack and rationale: `.specify/memory/constitution.md` §Technological

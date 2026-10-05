@@ -22,7 +22,7 @@ renumber of the next work item's block.
 loader (T-021) and the ingest gate (T-023); Work item 11's decisions (T-100–T-113)
 are closed (see `CHANGELOG.md`).*
 
-- [ ] **T-030** *(Work item 11 is closed)* Confirm the `financial-analysis` `v_*` views' actual column
+- [x] **T-030** *(done 2026-10-05: columns pinned in `src/projection/view_contract.py`, drift check `cli/check_view_contract.py`, score rescale `src/projection/score_scale.py`; decision in `SPEC.md` §2.6)* Confirm the `financial-analysis` `v_*` views' actual column
       shapes (view list in `SPEC.md` §2.5; definitions in that repo's
       `src/kg_schema/views.py`), pin the columns this repo reads, and add a
       check that fails on drift (`SPEC.md` §13 item 10). Include the score scale:
