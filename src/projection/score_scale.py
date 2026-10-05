@@ -1,6 +1,6 @@
 """Upstream ``score_snapshot.normalized_score`` (0-100) -> ``:normalizedScore`` ([0, 1]).
 
-Two conventions differ (T-030, ``SPEC.md`` D12 / §2.6):
+Two conventions differ (T-030, ``SPEC.md`` §2.6; ``schema/README.md`` refinement 6):
 
 * **Scale.** Upstream (``portfolio-financial-analysis``, ``cycle.scores.normalize``)
   writes a 0-100 point score, 50 = cohort average. ``ScoreSnapshotShape`` bounds
@@ -10,13 +10,15 @@ Two conventions differ (T-030, ``SPEC.md`` D12 / §2.6):
   reading (0 = no risk, 1 = critical; ``docs/06-ontology-definition.md`` §1.8), and the
   attractiveness formula inverts risk inputs via ``WeightComponent.inverted``.
 
-The projection therefore writes ``1 - score / 100``, so the graph keeps one polarity for
-every agent lane. The upstream value is not lost: the caller also writes it as
-``:rawValue`` (0-100).
+The projection therefore writes ``1 - normalized_score / 100``, so the graph keeps one
+polarity for every lane that carries a ``normalizedScore``. Upstream's separate
+``raw_value`` column (the score before cross-sectional normalization) is what maps to
+``:rawValue``; its range per ``score_type`` is decided with the write path (T-031).
 
-This applies to the FUNDAMENTAL, VALORIZATION, TECHNICAL, SECTOR and SEMANTIC
-``score_type``s only; ``Sentiment`` and ``SectorRelativeMomentum`` compare on ``rawValue``
-and carry no ``normalizedScore``.
+Only the three lanes in :data:`RESCALED_SCORE_TYPES` are converted. Upstream ``SECTOR``
+is ``SectorRelativeMomentum`` (``SPEC.md`` D6) and SEMANTIC snapshots are ``Sentiment``
+(FR-005): both compare on ``rawValue`` and carry no ``normalizedScore``, so how their
+0-100 ``normalized_score`` maps (if at all) is open, also for T-031.
 """
 
 from __future__ import annotations
@@ -26,17 +28,28 @@ from decimal import Decimal
 UPSTREAM_MIN = Decimal(0)
 UPSTREAM_MAX = Decimal(100)
 
+# score_type (= agentOrigin) -> metricType, for the lanes whose normalized_score is projected.
+RESCALED_SCORE_TYPES: dict[str, str] = {
+    "FUNDAMENTAL": "ScoreFinanciero",
+    "VALORIZATION": "ScoreCuantitativo",
+    "TECHNICAL": "ScoreTecnico",
+}
 
-def to_normalized_score(upstream: float | Decimal | None) -> Decimal | None:
-    """Return the ``:normalizedScore`` for an upstream 0-100 strength score.
+
+def to_normalized_score(score_type: str, upstream: float | Decimal | None) -> Decimal | None:
+    """Return the ``:normalizedScore`` for an upstream 0-100 strength score of *score_type*.
 
     ``None`` in -> ``None`` out (upstream leaves ``normalized_score`` NULL until the
-    cohort is normalized). A value outside [0, 100] raises ``ValueError``: upstream clamps,
-    so one means the contract drifted and must not be silently clipped into the graph.
+    cohort is normalized). Raises ``ValueError`` for a ``score_type`` outside
+    :data:`RESCALED_SCORE_TYPES`, and for a non-finite value or one outside [0, 100]:
+    upstream clamps, so either means the contract drifted and must not be silently
+    clipped into the graph.
     """
+    if score_type not in RESCALED_SCORE_TYPES:
+        raise ValueError(f"score_type {score_type!r} carries no normalizedScore here")
     if upstream is None:
         return None
     value = Decimal(str(upstream))
-    if not UPSTREAM_MIN <= value <= UPSTREAM_MAX:
+    if not value.is_finite() or not UPSTREAM_MIN <= value <= UPSTREAM_MAX:
         raise ValueError(f"upstream normalized_score {upstream!r} outside [0, 100]")
     return (UPSTREAM_MAX - value) / UPSTREAM_MAX

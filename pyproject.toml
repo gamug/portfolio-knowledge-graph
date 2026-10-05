@@ -37,10 +37,10 @@ dev = [
 
 [tool.uv]
 # This repo is mostly an ontology plus Markdown docs (see CLAUDE.md "Validating
-# the schema"), but src/etl/ is a real importable package (the KG-population
-# ETL, run via cli/build_data_ttl.py) -- package = false because it's still not
-# built/installed as a wheel; src/ is put on sys.path by that entrypoint script
-# instead (see cli/build_data_ttl.py).
+# the schema"), but src/ holds real importable packages (etl/, kg_store/,
+# projection/; constitution Project structure #3) -- package = false because
+# they're still not built/installed as a wheel; src/ is put on sys.path by each
+# cli/*.py entrypoint script instead (see cli/build_data_ttl.py).
 package = false
 
 [tool.uv.sources]

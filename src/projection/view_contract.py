@@ -1,7 +1,11 @@
-"""The pinned read contract: the columns this repo depends on, per upstream ``v_*`` view.
+"""The pinned read contract for upstream's ``v_*`` views.
 
-Taken from ``portfolio-financial-analysis`` ``src/kg_schema/views.py`` (commit 0a528be, 2026-10-05).
-Checked by ``cli/check_view_contract.py`` (T-030). Update both when upstream changes a view on purpose.
+A full snapshot of every column of every view this repo may read, taken from
+``portfolio-financial-analysis`` ``src/kg_schema/views.py`` (commit 0a528be, 2026-10-05). No
+projector reads them yet, so this is wider than what the projection will depend on: trim
+each view to the columns the write path actually reads when it lands (T-031). Checked by
+``cli/check_view_contract.py`` (T-030): a pinned column that disappears is drift, a column
+upstream adds is only a note. Update the pin when upstream changes a view on purpose.
 """
 
 from __future__ import annotations

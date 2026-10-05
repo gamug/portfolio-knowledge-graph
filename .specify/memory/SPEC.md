@@ -284,16 +284,24 @@ open part waits on another repo.
 | D15 | Adopted | Read the SQLite `v_*` views via `portfolio_common.db` read-only; the HTTP `api/` is not a source. | Implementation: Work item 4's projector. |
 | D16 | Adopted; raised upstream | `schema_version` floor 9 (T-109); `portfolio-common` re-pinned to `v1.2.1` (T-110). | Assert the floor in the future projector; `portfolio-nlp` is still on `v1.2.0` (theirs to move). |
 
-**Read contract and score scale (T-030, 2026-10-05).** The columns this repo reads from
-each of upstream's 31 `v_*` views are pinned in `src/projection/view_contract.py` (taken from
-`portfolio-financial-analysis` at `0a528be`; `v_universe_membership` is the one view listed as
-not read, being frozen). `cli/check_view_contract.py <upstream checkout>` fails on any removed,
-added or reordered column, or a new unlisted view (§13 item 10). Upstream's `normalized_score`
-is a 0–100 *strength* score (50 = cohort average, higher = better), while `:normalizedScore`
-is a [0, 1] *risk* reading (`docs/06-ontology-definition.md` §1.8). The projection writes
-`1 − score/100` (`src/projection/score_scale.py`) and keeps the upstream value as `:rawValue`,
-so the graph keeps one polarity across agent lanes; a value outside [0, 100] is an error, not
-clipped. Neither `ScoreSnapshotShape` nor `WeightComponent.inverted` changes.
+**Read contract and score scale (T-030, 2026-10-05).** `src/projection/view_contract.py`
+pins a full snapshot of the columns of 30 of upstream's 31 `v_*` views (taken from
+`portfolio-financial-analysis` at `0a528be`; `v_universe_membership` is listed as not read,
+being frozen); T-031 trims each view to the columns the write path reads.
+`cli/check_view_contract.py <upstream checkout>` fails when a pinned column or view is gone or
+no longer builds, or a new view is neither pinned nor listed as not read (§13 item 10); a
+column upstream adds, or a changed column order, is reported as a note, since the projector
+reads by name. Upstream's `normalized_score` is a 0–100 *strength* score (50 = cohort
+average, higher = better), while `:normalizedScore` is a [0, 1] *risk* reading
+(`docs/06-ontology-definition.md` §1.8; flagged as `schema/README.md` refinement 6). For
+FUNDAMENTAL, VALORIZATION and TECHNICAL (`ScoreFinanciero`/`ScoreCuantitativo`/`ScoreTecnico`)
+the projection writes `1 − normalized_score/100` (`src/projection/score_scale.py`); a
+non-finite value or one outside [0, 100] is an error, not clipped. Upstream's separate
+`raw_value` (the score before normalization) is what maps to `:rawValue`; its range per lane
+is decided in T-031. SECTOR (= `SectorRelativeMomentum`, D6) and SEMANTIC (= `Sentiment`,
+FR-005) carry no `normalizedScore` and compare on a `rawValue` the shape bounds to [-1, 1] for
+`Sentiment`, so how their 0–100 `normalized_score` maps, if at all, is open (T-031).
+Neither `ScoreSnapshotShape` nor `WeightComponent.inverted` changes.
 
 ## 3. Technology Stack & Architecture Decisions
 
@@ -652,7 +660,10 @@ treating a related FR/NR as done:
     catalog, score-type names, edge evidence, quant — several of which would
     make a naive projection wrong, not merely incomplete. Mitigation: PLAN
     Work item 11 decides each before Work item 4 writes the projection; Work
-    item 4 then pins and checks the view columns it reads (T-030). No
+    item 4 then pins and checks the view columns it reads: T-030 added the
+    pin (`src/projection/view_contract.py`) and `cli/check_view_contract.py`,
+    which fails on a removed column or view against an upstream checkout
+    (§2.6). It runs manually today; where it runs automatically is T-135. No
     cross-repo schema generation is planned.
 11. **The ownership decision is resolved: the SEMANTIC score is not computed
     here; the cut-over is still pending.** The earlier plan to
@@ -746,7 +757,7 @@ of what this project is, not a gap someone forgot to close:
 |---|---|---|
 | 1 — integrative layer unbuilt (steps 1–2, query surface); compute steps owned upstream | **Pending development** (integrative layer only) | The actual backlog — `PLAN.md` Work items 3, 4, 6; Work items 5 and 7 are now scope-reassigned upstream (§2.5) |
 | 12 — FR-005 vs. the ETL's `body_text` read | **Resolved** (spec amended to match the code, 2026-10-05) | `PLAN.md` Work item 11, T-113 — done |
-| 10 — `kg_schema`/`schema/` vocabulary and semantic drift | **Pending development** | `PLAN.md` Work item 11 (decisions closed 2026-10-05, T-100–T-113; dispositions in §2.6), then Work item 4, T-030 |
+| 10 — `kg_schema`/`schema/` vocabulary and semantic drift | **Mitigated; automation pending** | `PLAN.md` Work item 11 (decisions closed 2026-10-05, T-100–T-113; dispositions in §2.6); Work item 4, T-030 done (pin + manual drift check); where the check runs automatically: T-135 |
 | 11 — SEMANTIC score not computed here | **Ownership resolved; cut-over pending** (upstream aggregation + local replacement) | `PLAN.md` Work items 4–5 (reassigned), §2.5 |
 | 2 — no `v_*`-views projection | **Pending development** | Folded into `PLAN.md` Work item 4 (the real step-2 projection); today's `src/etl/` shortcut stays live until that lands |
 | 3 — roadmap names superseded repos | **Pending development** (cheap, no blockers) | `PLAN.md` Work item 1 |

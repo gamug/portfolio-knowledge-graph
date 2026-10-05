@@ -1,20 +1,28 @@
 """Drift check: the pinned ``v_*`` read contract vs. upstream's ``kg_schema/views.py``.
 
-Builds upstream's views in an in-memory database from an ``portfolio-financial-analysis``
-checkout and compares each view's columns, in order, with
-:data:`projection.view_contract.VIEW_COLUMNS` (``SPEC.md`` §13 item 10).
+Builds upstream's views in an in-memory database from a ``portfolio-financial-analysis``
+checkout and compares each view's columns with
+:data:`projection.view_contract.VIEW_COLUMNS` (``SPEC.md`` §13 item 10). A pinned column
+that is gone, a pinned view that is gone or no longer builds, and a new view that is
+neither pinned nor in ``NOT_READ`` are drift. A column upstream *added*, or a changed
+column order, is reported as a note only: the projector reads columns by name.
 
-Only ``kg_schema`` is imported from upstream (it needs nothing but ``portfolio_common``).
-The three agent-owned run tables (``analysis_run``, ``pricing_run``, ``quant_run``) are
-created by agent modules with heavier dependencies, so they are stubbed here with just the
-columns their views select; a renamed column then makes SQLite reject the view and it is
-reported as missing -- still a failure, with a less precise message.
+Only ``kg_schema`` is loaded from upstream (it needs nothing but ``portfolio_common``),
+under a private module name and without touching ``sys.path``, so a ``kg_schema`` already
+imported from elsewhere is never reused. The three agent-owned run tables
+(``analysis_run``, ``pricing_run``, ``quant_run``) are created by agent modules with
+heavier dependencies, so they are stubbed here with just the columns their views select;
+a renamed column then makes SQLite reject the view and it is reported as not building --
+still drift, with a less precise message.
 """
 
 from __future__ import annotations
 
+import importlib.util
 import sys
+from dataclasses import dataclass, field
 from pathlib import Path
+from types import ModuleType
 
 from portfolio_common.db import Database
 
@@ -67,36 +75,71 @@ _LEGACY_TABLES = (
 )
 
 
+_UPSTREAM_MODULE = "_upstream_kg_schema"
+
+
+def _load_kg_schema(upstream_repo: Path) -> ModuleType:
+    """Load the checkout's ``kg_schema`` package under :data:`_UPSTREAM_MODULE`."""
+    init = upstream_repo / "src" / "kg_schema" / "__init__.py"
+    spec = importlib.util.spec_from_file_location(
+        _UPSTREAM_MODULE, init, submodule_search_locations=[str(init.parent)]
+    )
+    if spec is None or spec.loader is None:
+        raise FileNotFoundError(f"no kg_schema package at {init.parent}")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[_UPSTREAM_MODULE] = module  # its relative imports resolve through this entry
+    spec.loader.exec_module(module)
+    return module
+
+
+def _unload_kg_schema() -> None:
+    for name in [m for m in sys.modules if m.split(".")[0] == _UPSTREAM_MODULE]:
+        del sys.modules[name]
+
+
 def upstream_view_columns(upstream_repo: Path) -> dict[str, list[str]]:
     """Every upstream ``v_*`` view -> its column names in order ([] if it did not build)."""
-    sys.path.insert(0, str(upstream_repo / "src"))
     try:
-        import kg_schema  # noqa: PLC0415 - importable only once the checkout is on sys.path
-        from kg_schema.views import VIEWS  # noqa: PLC0415 - same: upstream is path-injected
-
+        kg_schema = _load_kg_schema(upstream_repo)
         db = Database.connect(":memory:")
         for ddl in (*_LEGACY_TABLES, *_STUB_TABLES):
             db.execute(ddl)
         kg_schema.ensure(db, run_migrations=True)
-        return {v: [r[1] for r in db.execute(f"PRAGMA table_info({v})").fetchall()] for v in VIEWS}
+        return {
+            v: [r[1] for r in db.execute(f"PRAGMA table_info({v})").fetchall()]
+            for v in kg_schema.views.VIEWS
+        }
     finally:
-        sys.path.remove(str(upstream_repo / "src"))
+        _unload_kg_schema()
 
 
-def check(upstream_repo: Path) -> list[str]:
-    """Return one message per drift between the pin and upstream (empty = no drift)."""
+@dataclass
+class ContractReport:
+    """``drift`` fails the check; ``notes`` are additive changes worth a look."""
+
+    drift: list[str] = field(default_factory=list)
+    notes: list[str] = field(default_factory=list)
+
+
+def check(upstream_repo: Path) -> ContractReport:
+    """Compare the pin with upstream's views (see the module docstring for what is drift)."""
     actual = upstream_view_columns(upstream_repo)
-    problems: list[str] = []
+    report = ContractReport()
     for view, pinned in VIEW_COLUMNS.items():
         got = actual.get(view)
         if got is None:
-            problems.append(f"{view}: no longer defined upstream")
+            report.drift.append(f"{view}: no longer defined upstream")
         elif not got:
-            problems.append(f"{view}: did not build (a base table or column it selects changed)")
-        elif got != list(pinned):
-            gone, new = sorted(set(pinned) - set(got)), sorted(set(got) - set(pinned))
-            order = "" if (gone or new) else " (same columns, different order)"
-            problems.append(f"{view}: removed {gone}, added {new}{order}")
+            report.drift.append(
+                f"{view}: did not build (a base table or column it selects changed)"
+            )
+        else:
+            if gone := [c for c in pinned if c not in got]:
+                report.drift.append(f"{view}: pinned columns removed {gone}")
+            if new := [c for c in got if c not in pinned]:
+                report.notes.append(f"{view}: columns added upstream {new}")
+            if not gone and [c for c in got if c in pinned] != list(pinned):
+                report.notes.append(f"{view}: column order changed")
     for view in sorted(set(actual) - set(VIEW_COLUMNS) - set(NOT_READ)):
-        problems.append(f"{view}: new upstream view, neither pinned nor listed in NOT_READ")
-    return problems
+        report.drift.append(f"{view}: new upstream view, neither pinned nor listed in NOT_READ")
+    return report

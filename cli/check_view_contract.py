@@ -17,11 +17,15 @@ from projection.contract_check import check
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("upstream", type=Path, help="checkout of portfolio-financial-analysis")
-    problems = check(parser.parse_args().upstream)
-    for line in problems:
+    report = check(parser.parse_args().upstream)
+    for line in report.notes:
+        print(f"NOTE  {line}")
+    for line in report.drift:
         print(f"DRIFT {line}")
-    print("view contract: OK" if not problems else f"view contract: {len(problems)} drift(s)")
-    return 1 if problems else 0
+    print(
+        "view contract: OK" if not report.drift else f"view contract: {len(report.drift)} drift(s)"
+    )
+    return 1 if report.drift else 0
 
 
 if __name__ == "__main__":
