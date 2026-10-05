@@ -19,7 +19,8 @@ dependencies = [
     # added news_export as the one deliberate exception -- this repo used to
     # carry a local copy of the query instead (see
     # docs/portfolio-common-v1-migration-plan.md for that decision record).
-    # v1.2.0 makes the engine swappable in one place: news_to_rdf.py annotates
+    # v1.2.0 makes the engine swappable in one place (v1.2.1 is additive over
+    # it and changes nothing this repo calls): news_to_rdf.py annotates
     # rows with portfolio_common.db.Row (not sqlite3.Row) and names no engine.
     # Pinned by tag in [tool.uv.sources] -- bump the tag there to adopt a new
     # engine/news_export contract.
@@ -48,7 +49,7 @@ package = false
 # local work against a checkout next to this repo, override with an editable
 # path source:
 #   portfolio-common = { path = "../portfolio-common", editable = true }
-portfolio-common = { git = "https://github.com/gamug/portfolio-common", tag = "v1.2.0" }
+portfolio-common = { git = "https://github.com/gamug/portfolio-common", tag = "v1.2.1" }
 
 [tool.commitizen]
 name = "cz_conventional_commits"

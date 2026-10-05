@@ -249,7 +249,7 @@ names the decision it forces; none is decided here — they are PLAN Work item
 | D13 | **Weight schemes are per run.** `v_weight_scheme` = one row per `cycle_run` that recorded a blend (scheme id + `top_n`, name/sector caps, soft-veto penalty); `v_weight_component` = one row per `(cycle_run, score_type)`; no `valid_from`/`valid_to` ("a later run with a changed blend is a new row"). Defaults FUND .4 / VALOR .3 / TECH .2 / SEM .1, renormalized over present types; upstream plans to hold SEMANTIC at 0 until `portfolio-nlp` has a labelled eval. Pending upstream WI 18 (T-134–T-139) will make the caps depend on N. | `AttractivenessWeightScheme`/`WeightComponent` (versioned weight schemes, `computedWithScheme`). | **Checked 2026-10-05 against `v_weight_scheme`/`v_weight_component`: does not map as is.** (1) Ours is a standing, versioned scheme (`validFrom`/`validTo`); upstream's is one row per `cycle_run` with no validity interval, so a snapshot's `computedWithScheme` should point at a per-run scheme individual. (2) Our components are keyed by metric name (`ScoreFinanciero`, …) plus `SectorRelativeMomentum`; upstream's by `score_type` (= `agentOrigin`), with no weight for sector momentum. (3) Our placeholder weights (.25/.20/.20/.20/.15) are not upstream's (.4/.3/.2/.1, renormalized over present types, SEMANTIC possibly 0). (4) `inverted` has no upstream counterpart. (5) The scalar knobs (`top_n`, `max_name_weight`, `max_sector_weight`, `soft_veto_penalty`) have no property here. The schema work is T-121 (Work item 12). |
 | D14 | **SEMANTIC is still unbuilt on both sides, and wrongly attributed to this repo.** `portfolio-nlp` has no per-`(asset, day)` stage and no `as_of`; `financial-analysis` has no `KG_NLP_DB` reader (its `cycle` `semantic_read` step is a no-op "noting the aggregation runs in the integration repo"); its `README.md`/`docs/README.md` still name this repo as the SEMANTIC writer. Their rollout step 4 asks **this repo** to remove its SEMANTIC write path, add a `score_method` discriminator, and update docs. This repo's ETL emits Turtle only and never wrote to `SQL_FINANCIAL_DB`, so there is no write-back *code* to remove. | `src/etl/` emits per-article Sentiment `ScoreSnapshot`s (agentOrigin `SEMANTIC`). | The stale attribution is upstream docs; our part is a `score_method` discriminator and wording (T-111). |
 | D15 | **Two access paths, one sufficient.** SQLite views over `SQL_FINANCIAL_DB` (opened `mode=ro`; a view whose base table is absent is dropped, so a partial DB has *missing views*, not errors) or the HTTP `api/` — which serves only `/runs`, `/universe`, `/universe/coverage`, `/scores`, `/portfolio/positions`, `/portfolio/ranking`. | Unread. | The API cannot feed the projection (no vetoes, filings, sections, rules, DQ, quant); read SQLite via `portfolio_common.db` (`read_only`), not raw `sqlite3` (NR-002). |
-| D16 | **Contracts still moving.** Upstream open items that change view contents: cross-module orchestrator (WI 2), SEMANTIC half (WI 4), technical/valorization redesign + EBITDA + forensic flags + Carhart (WI 8), entity-resolution sanitization and `media_cooccurrence` routing (WI 9), N-driven weight caps (WI 18), full-universe production run (WI 12). Also: `portfolio-common` is pinned `v1.2.1` in both `financial-analysis` and `data-mining` but `v1.2.0` here and in `portfolio-nlp`. | Pin `v1.2.0`. | Treat the views as a versioned contract: assert `schema_version` >= 9 (T-109), re-pin deliberately (T-110). |
+| D16 | **Contracts still moving.** Upstream open items that change view contents: cross-module orchestrator (WI 2), SEMANTIC half (WI 4), technical/valorization redesign + EBITDA + forensic flags + Carhart (WI 8), entity-resolution sanitization and `media_cooccurrence` routing (WI 9), N-driven weight caps (WI 18), full-universe production run (WI 12). Also: `portfolio-common` is pinned `v1.2.1` in both `financial-analysis` and `data-mining` but `v1.2.0` here and in `portfolio-nlp`. | Pin `v1.2.0`. | Treat the views as a versioned contract: assert `schema_version` >= 9 (T-109); re-pinned to `v1.2.1` (T-110, additive diff). |
 
 ## 3. Technology Stack & Architecture Decisions
 
@@ -266,7 +266,7 @@ stock. Summary for traceability:
 - **Storage (ETL only)**: SQLite, two-tier SOURCE (`urls.db`)/RESULTS
   (`nlp.db`), accessed exclusively through
   `portfolio_common.news_export.connect_readonly`/`fetch_processed_articles`
-  (git-tag-pinned `portfolio-common @ v1.2.0`) — no raw `sqlite3` anywhere in
+  (git-tag-pinned `portfolio-common @ v1.2.1`) — no raw `sqlite3` anywhere in
   `src`/`cli` (NR-002).
 
 Architecture decisions this repo has already made and should not be
@@ -502,7 +502,7 @@ There is no CD pipeline and no CI workflow for this repo
   that shared join's shape; a `portfolio-nlp` schema change could silently
   break the ETL (§13).
 - **Upstream (library)**: `portfolio-common`, git-tag-pinned in
-  `pyproject.toml` (`[tool.uv.sources]`, currently `v1.2.0`) — a DB-engine or
+  `pyproject.toml` (`[tool.uv.sources]`, currently `v1.2.1`) — a DB-engine or
   `news_export` contract change here is an explicit, reviewed re-pin, never
   a floating version.
 - **Upstream (data, read-only, designed — not yet read)**:
