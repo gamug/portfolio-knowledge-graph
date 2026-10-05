@@ -449,7 +449,7 @@ decision may be "keep ours, translate on projection"):
    outputs become individuals (T-108 done).
 6. Read-contract gaps and moving parts (D8, D12, D13, D15, D16): list for
    upstream, assert `schema_version`, reconcile the `portfolio-common` pin
-   (T-109, T-110); SEMANTIC `score_method` discriminator and wording (D14,
+   (T-109, T-110; T-109 mostly resolved 2026-10-05 from upstream's code, with the D13 mapping and the upstream note still open); SEMANTIC `score_method` discriminator and wording (D14,
    T-111).
 
 **Acceptance criteria**:

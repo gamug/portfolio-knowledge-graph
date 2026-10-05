@@ -99,28 +99,28 @@ GRAPH <urn:graph:ingest:FUNDAMENTAL:2026-Q3> {
 }
 
 # T-105: formerly urn:graph:ingest:QUANTITATIVE:...; the `_Quant_` IRI stems below are historical.
-# T-106: the :runId/:codeVersion/:engineVersion values below are PLACEHOLDERS -- upstream's real run_id format was not checked (see T-109).
+# T-106: the :runId/:codeVersion/:engineVersion values below are PLACEHOLDERS -- upstream's run_id is an integer per run table (T-109); the strings below follow this repo's '<run table>:<id>' convention with an invented id.
 GRAPH <urn:graph:ingest:VALORIZATION:2026-08-05> {
     :Snap_AAPL_Quant_20260805 a :ScoreSnapshot ; :agentOrigin "VALORIZATION" ; :metricType "ScoreCuantitativo" ;
         :rawValue "0.40"^^xsd:decimal ; :normalizedScore "0.40"^^xsd:decimal ; :timestamp "2026-08-05T07:00:00"^^xsd:dateTime ;
         :eventTime "2026-08-05"^^xsd:date ; :availableAt "2026-08-05"^^xsd:date ;
-        :runId "cycle:2026-08-05:illustrative" ; :codeVersion "0000000" ; :engineVersion "illustrative-1" .
+        :runId "cycle_run:42" ; :codeVersion "0000000" ; :engineVersion "illustrative-1" .
     :Snap_JPM_Quant_20260805 a :ScoreSnapshot ; :agentOrigin "VALORIZATION" ; :metricType "ScoreCuantitativo" ;
         :rawValue "0.55"^^xsd:decimal ; :normalizedScore "0.55"^^xsd:decimal ; :timestamp "2026-08-05T07:00:00"^^xsd:dateTime ;
         :eventTime "2026-08-05"^^xsd:date ; :availableAt "2026-08-05"^^xsd:date ;
-        :runId "cycle:2026-08-05:illustrative" ; :codeVersion "0000000" ; :engineVersion "illustrative-1" .
+        :runId "cycle_run:42" ; :codeVersion "0000000" ; :engineVersion "illustrative-1" .
     :Snap_XOM_Quant_20260805 a :ScoreSnapshot ; :agentOrigin "VALORIZATION" ; :metricType "ScoreCuantitativo" ;
         :rawValue "0.45"^^xsd:decimal ; :normalizedScore "0.45"^^xsd:decimal ; :timestamp "2026-08-05T07:00:00"^^xsd:dateTime ;
         :eventTime "2026-08-05"^^xsd:date ; :availableAt "2026-08-05"^^xsd:date ;
-        :runId "cycle:2026-08-05:illustrative" ; :codeVersion "0000000" ; :engineVersion "illustrative-1" .
+        :runId "cycle_run:42" ; :codeVersion "0000000" ; :engineVersion "illustrative-1" .
     :Snap_JNJ_Quant_20260805 a :ScoreSnapshot ; :agentOrigin "VALORIZATION" ; :metricType "ScoreCuantitativo" ;
         :rawValue "0.30"^^xsd:decimal ; :normalizedScore "0.30"^^xsd:decimal ; :timestamp "2026-08-05T07:00:00"^^xsd:dateTime ;
         :eventTime "2026-08-05"^^xsd:date ; :availableAt "2026-08-05"^^xsd:date ;
-        :runId "cycle:2026-08-05:illustrative" ; :codeVersion "0000000" ; :engineVersion "illustrative-1" .
+        :runId "cycle_run:42" ; :codeVersion "0000000" ; :engineVersion "illustrative-1" .
     :Snap_PG_Quant_20260805 a :ScoreSnapshot ; :agentOrigin "VALORIZATION" ; :metricType "ScoreCuantitativo" ;
         :rawValue "0.25"^^xsd:decimal ; :normalizedScore "0.25"^^xsd:decimal ; :timestamp "2026-08-05T07:00:00"^^xsd:dateTime ;
         :eventTime "2026-08-05"^^xsd:date ; :availableAt "2026-08-05"^^xsd:date ;
-        :runId "cycle:2026-08-05:illustrative" ; :codeVersion "0000000" ; :engineVersion "illustrative-1" .
+        :runId "cycle_run:42" ; :codeVersion "0000000" ; :engineVersion "illustrative-1" .
 
     :AAPL :hasScoreObservation :Snap_AAPL_Quant_20260805 .
     :JPM  :hasScoreObservation :Snap_JPM_Quant_20260805 .
@@ -305,13 +305,15 @@ GRAPH <urn:graph:derived:entity-resolution:2026-08-05> {
 GRAPH <urn:graph:derived:quant:2026-08-05> {
     # T-108 (D11): a benchmark book, its weights and finished quant numbers, projected as upstream hands them over (v_quant_portfolio /
     # v_quant_position / v_quant_benchmark_performance / v_quant_vs_live). ILLUSTRATIVE names, metrics, units and values (copied verbatim from the view, not
-    # derived: the active-weight figure is a placeholder); no returns, mu or Sigma. The book has one stable IRI; a later run closes old weights by validTo.
-    :Bench_MinVar a :Portfolio ; :portfolioName "Benchmark min-variance (illustrative)" ; :portfolioKind "BENCHMARK" ; :benchmarkObjective "min_variance" ;
+    # derived: active weight = benchmark 4.0% - live 3.2% = 0.008, as v_quant_vs_live computes it); no returns, mu or Sigma. The book has one stable IRI; a later run closes old weights by validTo.
+    :Bench_MinVar a :Portfolio ; :portfolioName "Benchmark min-variance (illustrative)" ; :portfolioKind "BENCHMARK" ; :benchmarkObjective "min_var" ; :benchmarkKind "min_var" ;
         :holdsPosition :BPos_AAPL_20260805, :BPos_JPM_20260805 .
     :BPos_AAPL_20260805 a :PortfolioPosition ; :positionAsset :AAPL ; :weightPct "4.0"^^xsd:decimal ; :validFrom "2026-08-05"^^xsd:date .
     :BPos_JPM_20260805  a :PortfolioPosition ; :positionAsset :JPM  ; :weightPct "3.0"^^xsd:decimal ; :validFrom "2026-08-05"^^xsd:date .
-    :BObs_Perf_20260805 a :BenchmarkObservation ; :quantPortfolio :Bench_MinVar ; :quantMetric "annualised_volatility" ; :quantValue "0.14"^^xsd:decimal ; :quantUnit "fraction" ; :quantAsOf "2026-08-05"^^xsd:date .
-    :BObs_Active_AAPL_20260805 a :BenchmarkObservation ; :quantPortfolio :Bench_MinVar ; :quantMetric "active_weight" ; :quantAsset :AAPL ; :quantValue "0.9"^^xsd:decimal ; :quantUnit "percentage_points" ; :quantAsOf "2026-08-05"^^xsd:date .
+    :BObs_Perf_20260805 a :BenchmarkObservation ; :quantPortfolio :Bench_MinVar ; :quantMetric "expected_vol" ; :quantValue "0.14"^^xsd:decimal ; :quantUnit "fraction_annual" ; :quantAsOf "2026-08-05"^^xsd:date .
+    :BObs_Active_AAPL_20260805 a :BenchmarkObservation ; :quantPortfolio :Bench_MinVar ; :quantMetric "active_weight" ; :quantAsset :AAPL ; :quantValue "0.008"^^xsd:decimal ; :quantUnit "fraction" ; :quantAsOf "2026-08-05"^^xsd:date .
+    # T-109 review: performance upstream measured on its kind='live_book' snapshot attaches to the LIVE Portfolio; the snapshot's holdings are NOT re-projected.
+    :BObs_LiveActive_20260805 a :BenchmarkObservation ; :quantPortfolio :MainPortfolio_2026 ; :quantMetric "active_return" ; :quantValue "0.0004"^^xsd:decimal ; :quantUnit "fraction_daily" ; :quantBenchmark "bench-v2" ; :quantAsOf "2026-08-05"^^xsd:date .
 }
 
 GRAPH <urn:graph:ingest:ORCHESTRATOR:2026-08-04> {
