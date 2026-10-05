@@ -66,7 +66,7 @@ is now a load operation (`schema/README.md`'s load order), not a from-scratch de
 
 **2. Ingestion adapters for already-collected data.**
 Before building anything new, get the graph populated with what already exists, for early
-validation: a small ETL script reading both tiers of the news databases through `portfolio_common.news_export` — the SOURCE `urls.db` (for `articles.body_text`, which the ETL's severity step scans) and `portfolio-nlp`'s results store (`nlp.db`) — and, for the real projection, `portfolio-financial-analysis`'s `v_*` views and `portfolio-data-mining`'s point-in-time `universe.db` — writing them as `NewsArticle`/evidence
+validation: a small ETL script reading both tiers of the news databases through `portfolio_common.news_export` — the SOURCE `urls.db` (for the `articles` rows the shared join reads, and `articles.body_text`, which the ETL's severity step scans) and `portfolio-nlp`'s results store (`nlp.db`) — and, for the real projection, `portfolio-financial-analysis`'s `v_*` views and `portfolio-data-mining`'s point-in-time `universe.db` — writing them as `NewsArticle`/evidence
 individuals with `provenanceId` set (per `09-nlp-finbert-architecture.md`'s output contract). This
 step deliberately comes *before* any new agent or NLP code — it's the fastest way to get a
 SHACL-validated, non-trivial graph to test §0/§1's design against real data.

@@ -132,6 +132,9 @@ above (`08-agent-architecture.md`, designed but unbuilt — roadmap steps 1 and
   itself is allowed, read-only. Today the transitional ETL reads `articles`
   through the shared join and scans `body_text` for its provisional G3
   hard-trigger keyword bump, which no processed store publishes (§13 item 12).
+  FR-004's Wikipedia asset master, which `universe.db` and `financial.db`'s
+  `v_sector`/`v_industry` could replace, is the other known exception,
+  pending D1 (T-100).
 - The two LangGraph agent cycles (`SelectionCycleGraph` quarterly,
   `MonitoringCycleGraph` daily) and any scheduler — the two-speed cycle is
   already implemented upstream as `portfolio-financial-analysis`'s `cycle`
@@ -162,7 +165,7 @@ above (`08-agent-architecture.md`, designed but unbuilt — roadmap steps 1 and
 | **FR-002** | Every domain class in `tbox.ttl` that is not a shared-property superclass (`ObservationSnapshot`/`EvidenceSource`/`RuleOperand`) belongs to exactly one `AllDisjointClasses` set and reaches at least one of the 6 taxonomy roots via `rdfs:subClassOf`. | `tbox.ttl`'s `AllDisjointClasses` block lists exactly 25 leaf classes; a taxonomy audit (cycle/orphan/multi-parent detection over the `subClassOf` graph) reports 0 cycles, 0 self-loops, all 38 classes reaching a root, exactly 3 legitimately multi-parented classes (`schema/README.md`'s implementation addendum). |
 | **FR-003** | Every `RuleDefinition` in `rules.ttl` expresses its veto condition as an explicit `RuleClause` tree (`AND`/`OR` of `ThresholdComparison`/`CategoricalComparison`/`GraphPredicate` leaves), never as an infix boolean string. | No `RuleDefinition` in `rules.ttl` carries a rule condition as a literal string to be re-parsed; every `hasClause` path terminates in one of the three documented leaf operand kinds. A single leaf (upstream's six rules, T-103) is a valid tree. |
 | **FR-004** | `cli/build_data_ttl.py` projects the Wikipedia S&P 500 table into `:Asset`/`:classifiedAs` individuals, skipping any ticker `reference.ttl` already declares as an `:Asset` (so `cikNumber` never collides under the functional-property `sh:maxCount 1` contract). | A full run's known-ticker count equals the fetched Wikipedia row count minus `reference.ttl`'s worked-example tickers; none of those tickers appear as a second `:Asset` declaration in `data.ttl`. |
-| **FR-005** | `cli/build_data_ttl.py` projects `portfolio-nlp`'s RESULTS rows (`articles ⋈ article_sentiment ⋈ article_category`, `fetch_status = 'ok'`) into `:NewsArticle` + `:ScoreSnapshot` (`agentOrigin = SEMANTIC`, `metricType = Sentiment`) + a gated `:RiskEvent`, via `portfolio_common.news_export`'s read-only connect — never a raw `sqlite3` connection. Reading SOURCE (`urls.db`, `body_text` included) is allowed. What is forbidden is reading a source or raw database for something the processed stores already publish (`portfolio-nlp`'s RESULTS, `portfolio-financial-analysis`'s `financial.db` / `v_*` views), or re-deriving it there: sentiment, category, entities, fundamentals, prices, scores. Those are read from the processed store. A SOURCE-derived signal with no processed equivalent is allowed if it is flagged provisional (constitution §7); today that is only G3's hard-trigger keyword bump (§13 item 12). | `grep -rn "import sqlite3" src/etl` returns nothing; every value `src/etl/` derives from a SOURCE column other than identity and metadata (`id`, `ticker`, `pub_date`, `fetched_at`, `fetch_status`) is a row in `src/etl/README.md`'s provisional-formulas table, which says why no processed store publishes it; every `:NewsArticle` emitted in a sample run traces to a source row with `fetch_status = 'ok'`. |
+| **FR-005** | `cli/build_data_ttl.py` projects the shared join of SOURCE `articles` with `portfolio-nlp`'s RESULTS `article_sentiment`/`article_category` (`fetch_status = 'ok'`) into `:NewsArticle` + `:ScoreSnapshot` (`agentOrigin = SEMANTIC`, `metricType = Sentiment`) + a gated `:RiskEvent`, via `portfolio_common.news_export`'s read-only connect — never a raw `sqlite3` connection. Reading SOURCE (`urls.db`, `body_text` included) is allowed. What is forbidden is reading a source or raw database for something the processed stores already publish (`portfolio-nlp`'s RESULTS, `portfolio-financial-analysis`'s `financial.db` / `v_*` views), or re-deriving it there: sentiment, category, entities, fundamentals, prices, scores. Those are read from the processed store. A SOURCE-derived signal with no processed equivalent is allowed if it is flagged provisional (constitution §7); today that is only G3's hard-trigger keyword bump (§13 item 12); FR-004's Wikipedia scrape is a separate known exception pending D1 (T-100). | `grep -rn "import sqlite3" src/etl` returns nothing; every value `src/etl/` derives from a SOURCE column other than identity and metadata (`id`, `ticker`, `pub_date`, `fetched_at`, `fetch_status`) is a row in `src/etl/README.md`'s provisional-formulas table, which says why no processed store publishes it; every `:NewsArticle` emitted in a sample run traces to a source row with `fetch_status = 'ok'`. |
 | **FR-006** | The post-build validation step SHACL-checks either the full output (`--limit` given) or a fresh `KG_SAMPLE_NEWS_ROWS`-row sample against the real `tbox.ttl` + `shapes.ttl` + `reference.ttl` — never a full `pyshacl` pass over the unsampled, multi-million-triple `data.ttl`. | `uv run cli/build_data_ttl.py --limit 500` prints `SHACL conforms: <bool>`; an unsampled default run builds and discards a `KG_SAMPLE_NEWS_ROWS`-row sample file rather than validating `data.ttl` directly. |
 
 ### 2.4 Non-functional requirements
@@ -183,7 +186,7 @@ Established by the T-007 scan (2026-10-02) of `portfolio-data-mining`,
 
 | Repo | Computes / owns | Surface this repo may consume | Consumed today? |
 |---|---|---|---|
-| `portfolio-data-mining` | News URL discovery and article text extraction (`news_collector`, `extractor` → `urls.db`); Finnhub/yfinance pricing HTTP service (`pricing`: `GET /pricing/{ticker}`, `/pricing/{ticker}/actions`, `/universe`); SEC EDGAR HTTP service (`sec_edgar`); the S&P 500 universe, live (`data_mining.portfolio`) and **point-in-time** (`data_mining.universe_history` → `universe.db`, SCD-2 `universe_membership`) | `universe.db` — the point-in-time membership every upstream agent already reads read-only (D1); its HTTP services and `urls.db` are consumed by the other two repos, not here | No — `universe.db` should be (D1); the rest stays indirect (§12) |
+| `portfolio-data-mining` | News URL discovery and article text extraction (`news_collector`, `extractor` → `urls.db`); Finnhub/yfinance pricing HTTP service (`pricing`: `GET /pricing/{ticker}`, `/pricing/{ticker}/actions`, `/universe`); SEC EDGAR HTTP service (`sec_edgar`); the S&P 500 universe, live (`data_mining.portfolio`) and **point-in-time** (`data_mining.universe_history` → `universe.db`, SCD-2 `universe_membership`) | `universe.db` — the point-in-time membership every upstream agent already reads read-only (D1); its HTTP services and `urls.db` are consumed by the other two repos; `src/etl/` also reads `urls.db` through `news_export` (FR-005, §13 item 12) | No — `universe.db` should be (D1); the rest stays indirect (§12) |
 | `portfolio-nlp` | Sentiment (FinBERT), NER, category, summaries → `nlp.db` (`article_sentiment`/`article_entities`/`article_category`/`article_summary`/`sector_summary`); proposed owner of the per-`(asset, day)` SEMANTIC aggregation (not built) | `nlp.db` RESULTS, read-only | Yes — `src/etl/` via `portfolio_common.news_export` |
 | `portfolio-financial-analysis` | `fundamental_agent` (EDGAR ratios + LLM assessment, Ring-1 `DQ_*` data-quality gates), `pricing_agent`, `cycle` (a checkpointed topological runner — Strands-era, not LangGraph: TECHNICAL/VALORIZATION/SECTOR scores, veto stints, ranking, positions, `backfill` replay), `entity_resolution` (news-co-occurrence *candidates*, projected as `AssetCoOccurrence`, T-107), `quant` (Markowitz benchmark books, forward evaluation; finished view-exposed numbers projected as benchmark `Portfolio`s and `BenchmarkObservation`s, T-108), read-only HTTP `api/` (:8010); passive `kg_schema` (DDL, migrations, `schema_version`, views) | The 31 `v_*` read-contract views over `SQL_FINANCIAL_DB` (SQLite, `mode=ro`): `v_score_snapshot`, `v_sector`, `v_industry`, `v_sector_aggregate_snapshot`, `v_price_observation`, `v_corporate_action`, `v_quant_return_daily`, `v_risk_free_rate`, `v_benchmark_series`, `v_sec_filing`, `v_sec_filing_section`, `v_veto`, `v_rule_catalog`, `v_data_quality_issue`, `v_portfolio_position`, `v_shared_executive_edge`, `v_cycle_ranking`, `v_weight_scheme`, `v_weight_component`, `v_quant_risk_model`, `v_quant_portfolio`, `v_quant_position`, `v_quant_frontier_point`, `v_quant_benchmark_performance`, `v_quant_vs_live`, run logs `v_analysis_run`/`v_pricing_run`/`v_quant_run`/`v_cycle_run`, `v_universe_coverage`, and `v_universe_membership` (**frozen** — use `universe.db`). No view exposes `fundamental_metrics`, `financial_facts` or `filing_cover_shares` | No — designed source, unread (§13 item 2) |
 | `portfolio-knowledge-graph` (this repo) | The ontology (`schema/`); the projection of the above into SHACL-validated, dated named graphs; the store, reasoner and SPARQL surface over them | — | — |
@@ -196,10 +199,13 @@ Consequences for this repo's scope:
    provenance back to the upstream `run_id`/`as_of`/`code_version`.
 2. **Read upstream through its published contract only** — `nlp.db` RESULTS
    via `portfolio_common.news_export`, and `financial-analysis`'s `v_*` views
-   opened read-only (`mode=ro`). Never an upstream's SOURCE tables, never a
-   raw table, never `urls.db` directly (NR-002 spirit). *Today's ETL is the
-   exception: it also reads SOURCE `urls.db` through `news_export` (§13 item
-   12); the transitional exception in §1 covers it until Work item 4.*
+   opened read-only (`mode=ro`). Never read an upstream's SOURCE or raw
+   tables for something its processed stores already publish, and never open
+   a database directly (NR-002 spirit). SOURCE `urls.db` through
+   `news_export` is allowed for a signal no processed store has, flagged
+   provisional (FR-005; today only G3's keyword bump, §13 item 12). The
+   Wikipedia scrape behind FR-004 is the other known exception, pending D1
+   (T-100); the transitional exception in §1 covers both until Work item 4.
 3. **The pricing endpoint exists** (`portfolio-data-mining`
    `apps/pricing_api.py`, `GET /pricing/{ticker}`; consumed by
    `portfolio-financial-analysis`'s `pricing_agent`). The roadmap's earlier
@@ -649,11 +655,12 @@ treating a related FR/NR as done:
     2026-10-05).** FR-005 and §2.2 used to say the ETL never reads
     `body_text`. The code always did: SOURCE `urls.db` (`SQL_URLS_DB`) is a
     required input, and `compute_severity` keyword-scans the text to raise
-    severity one tier. Found while handling review on PR #22. Decision (maintainer): keep the
-    escalation, flagged provisional (constitution §7). FR-005 and §2.2 now
-    forbid reading source data for something a processed store (`nlp`,
-    `financial`) already publishes, instead of forbidding SOURCE reads; no
-    processed store publishes a keyword escalation, so the bump is allowed. Measured on the full `urls.db`/`nlp.db` pair, it raises
+    severity one tier. Found while handling review on PR #22. Decision
+    (maintainer): keep the escalation, flagged provisional (constitution §7).
+    FR-005 and §2.2 now forbid reading source data for something a processed
+    store (`nlp`, `financial`) already publishes, instead of forbidding
+    SOURCE reads; no processed store publishes a keyword escalation, so the
+    bump is allowed. Measured on the full `urls.db`/`nlp.db` pair, it raises
     20,363 of 216,596 `:RiskEvent`s one tier (LOW→MODERATE 12,230,
     MODERATE→HIGH 2,939, HIGH→CRITICAL 5,194). `urls.db` would stay required
     even without it, because the shared join reads `articles` from SOURCE.
