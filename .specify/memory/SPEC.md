@@ -101,7 +101,7 @@ above (`08-agent-architecture.md`, designed but unbuilt — roadmap steps 1 and
   6 active upstream veto rules as single-leaf `RuleDefinition`s, the 7 original tree rules kept
   closed with `validTo`, + `AttractivenessWeightScheme`),
   `instances.trig` (a 15-named-graph worked-example ABox) — roadmap step 0,
-  done and verified (**2383 quads, `pyshacl conforms: True**).
+  done and verified (**2397 quads, `pyshacl conforms: True**).
 - The five numbered architecture/spec docs (`06`–`10`) plus
   `critique-and-evolution.md` as the traceability anchor every class/
   property/graph-placement decision elsewhere cites back to.
@@ -159,7 +159,7 @@ above (`08-agent-architecture.md`, designed but unbuilt — roadmap steps 1 and
 
 | ID | Requirement | Acceptance criteria |
 |---|---|---|
-| **FR-001** | The `tbox.ttl`/`shapes.ttl`/`reference.ttl`/`rules.ttl`/`instances.trig` bundle parses as a single `rdflib.Dataset` in the documented load order and `pyshacl`-conforms against `shapes.ttl`. | The `schema/README.md` parse script reports `quads: 2383`; a `pyshacl.validate` run over the same combined graph reports `conforms: True` — both required after any schema edit. |
+| **FR-001** | The `tbox.ttl`/`shapes.ttl`/`reference.ttl`/`rules.ttl`/`instances.trig` bundle parses as a single `rdflib.Dataset` in the documented load order and `pyshacl`-conforms against `shapes.ttl`. | The `schema/README.md` parse script reports `quads: 2397`; a `pyshacl.validate` run over the same combined graph reports `conforms: True` — both required after any schema edit. |
 | **FR-002** | Every domain class in `tbox.ttl` that is not a shared-property superclass (`ObservationSnapshot`/`EvidenceSource`/`RuleOperand`) belongs to exactly one `AllDisjointClasses` set and reaches at least one of the 6 taxonomy roots via `rdfs:subClassOf`. | `tbox.ttl`'s `AllDisjointClasses` block lists exactly 25 leaf classes; a taxonomy audit (cycle/orphan/multi-parent detection over the `subClassOf` graph) reports 0 cycles, 0 self-loops, all 38 classes reaching a root, exactly 3 legitimately multi-parented classes (`schema/README.md`'s implementation addendum). |
 | **FR-003** | Every `RuleDefinition` in `rules.ttl` expresses its veto condition as an explicit `RuleClause` tree (`AND`/`OR` of `ThresholdComparison`/`CategoricalComparison`/`GraphPredicate` leaves), never as an infix boolean string. | No `RuleDefinition` in `rules.ttl` carries a rule condition as a literal string to be re-parsed; every `hasClause` path terminates in one of the three documented leaf operand kinds. A single leaf (upstream's six rules, T-103) is a valid tree. |
 | **FR-004** | `cli/build_data_ttl.py` projects `portfolio-data-mining`'s point-in-time `universe.db` (`SQL_UNIVERSE_DB`, read-only through `portfolio_common.db`) into one `:UniverseMembership` per `universe_membership` stint (`validFrom` = `valid_from`; `validTo` = `valid_to`, exclusive, absent while the stint is open) in the single `:SP500Index` `:Universe`, and one `:Asset` per symbol with `:classifiedAs` when upstream has a sub-industry. A symbol whose stints are all closed has only `tickerSymbol` and `companyName`: upstream has no CIK or sector for it, and none is invented (`AssetShape` allows a missing `cikNumber` only then). Tickers `reference.ttl` already declares as `:Asset` get memberships but are not re-emitted (so `cikNumber` never collides under the functional-property `sh:maxCount 1` contract). Each run prints `universe.db`'s latest recorded change and its file modification date, because upstream refreshes it by hand. | A full run's `:Asset` count plus `reference.ttl`'s tickers equals `universe.db`'s distinct symbols; its `:UniverseMembership` count equals `universe_membership`'s rows; none of `reference.ttl`'s tickers appears as a second `:Asset` declaration in `data.ttl`; the run summary prints the freshness line. |
@@ -330,7 +330,7 @@ re-litigated without a constitution amendment:
 
 ```mermaid
 flowchart TB
-    SCHEMA["schema/ -- step 0, DONE<br/>tbox+shapes+reference+rules+instances<br/>2383 quads * pyshacl conforms"]
+    SCHEMA["schema/ -- step 0, DONE<br/>tbox+shapes+reference+rules+instances<br/>2397 quads * pyshacl conforms"]
     STORE["triple store -- step 1<br/>GraphDB / Fuseki<br/>NOT STOOD UP"]
     GRAPHS["named graphs -- step 1<br/>static: tbox/reference/rules<br/>ingest:{agent}:{date} * portfolio:current<br/>NOT STOOD UP"]
     GATE["SHACL ingest gate -- step 2<br/>pyshacl<br/>NOT BUILT"]
@@ -389,19 +389,17 @@ not projected this phase.
 are alternatives, not both loaded together, since `data.ttl` re-derives a
 subset of what `instances.trig` hand-authors).
 
-**Known divergence** (schema decision, not a bug — §13): `ScoreSnapshotShape`
-requires `normalizedScore` for every non-`SectorRelativeMomentum` snapshot,
-but the ETL's Sentiment snapshots carry only `rawValue` — the scale the
-veto-rule thresholds are defined on. The post-build SHACL check reports one
-violation per Sentiment snapshot until a `rawValue`-only branch is added to
-the shape or a normalization step is agreed.
+**Resolved divergence** (T-080/T-081, 2026-10-05): the Sentiment snapshots carry only
+`rawValue`, the scale the veto-rule thresholds are defined on, so `ScoreSnapshotShape`
+accepts a `Sentiment` snapshot with a `rawValue` in `[-1, 1]` and no `normalizedScore`
+(option 1; see `schema/README.md`). The post-build SHACL check no longer reports them.
 
 ## 6. Core Workflows
 
 **Schema validation** (`schema/README.md`, run from inside `schema/`):
 
 1. Parse `tbox.ttl → shapes.ttl → reference.ttl → rules.ttl` then
-   `instances.trig` into one `rdflib.Dataset`; assert `quads: 2383`.
+   `instances.trig` into one `rdflib.Dataset`; assert `quads: 2397`.
 2. `pyshacl.validate` the same combined graph against `shapes.ttl`; assert
    `conforms: True`.
 3. Run after **every** schema edit — `tbox.ttl`'s `AllDisjointClasses` block
@@ -624,10 +622,9 @@ treating a related FR/NR as done:
    fix and stays covered by constitution "Claude Code / coding-agent
    conduct" #2 — reconcile against `origin/master`'s actual `HEAD` before
    trusting `CLAUDE.md`'s dependency description in any given working copy.
-6. **`ScoreSnapshotShape`'s `normalizedScore` requirement doesn't fit
-   Sentiment snapshots** (§5's known divergence) — a documented schema
-   decision producing one SHACL violation per Sentiment snapshot in the
-   sample/smoke check today, not yet resolved either direction.
+6. ~~**`ScoreSnapshotShape`'s `normalizedScore` requirement doesn't fit
+   Sentiment snapshots**~~ — resolved by T-081 (a `rawValue`-only branch for
+   `Sentiment`; §5's former known divergence).
 7. **No test suite exists for `src/etl/`** (NR-005/§10) — the severity
    formulas, ticker skip-set logic, and provenance-ID formatting are
    exercised only indirectly by the end-to-end SHACL check.
@@ -744,7 +741,7 @@ of what this project is, not a gap someone forgot to close:
 | 3 — roadmap names superseded repos | **Pending development** (cheap, no blockers) | `PLAN.md` Work item 1 |
 | 4 — `protege-view.ttl` stale | **Pending development** (manual, needs a real Protégé session) | `PLAN.md` Work item 8 |
 | 5 — `CLAUDE.md` can lag `origin/master` | **Resolved** for this checkout; general risk stays covered by constitution conduct #2 | `PLAN.md` Work item 2 — done |
-| 6 — `ScoreSnapshotShape` vs. Sentiment `rawValue` | **Pending development** (cheap, a schema decision + small edit) | `PLAN.md` Work item 9 |
+| 6 — `ScoreSnapshotShape` vs. Sentiment `rawValue` | **Resolved** (T-081: a `rawValue`-only branch for `Sentiment`) | `PLAN.md` Work item 9 — done |
 | 7 — no test suite for `src/etl/` | **Permanently out of scope** at current scale | See above |
 | 8 — uncalibrated severity formulas | **Permanently out of scope** (research task) | See above |
 | 9 — no pinned SOURCE/RESULTS contract | **Permanently out of scope** (accepted risk) | See above |

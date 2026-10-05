@@ -31,8 +31,11 @@
     sh:property [ sh:path :runAsOf ; sh:datatype xsd:date ; sh:maxCount 1 ] ;
     sh:property [ sh:path :codeVersion ; sh:datatype xsd:string ; sh:maxCount 1 ] ;
     sh:property [ sh:path :engineVersion ; sh:datatype xsd:string ; sh:maxCount 1 ] ;
+    # T-080/T-081: Sentiment compares on rawValue ([-1,1]), so a Sentiment snapshot may carry rawValue alone (the ETL's per-article ones do).
     sh:or ( [ sh:path :metricType ; sh:hasValue "SectorRelativeMomentum" ]
-            [ sh:path :normalizedScore ; sh:minCount 1 ] ) .
+            [ sh:path :normalizedScore ; sh:minCount 1 ]
+            [ sh:and ( [ sh:path :metricType ; sh:hasValue "Sentiment" ]
+                       [ sh:path :rawValue ; sh:datatype xsd:decimal ; sh:minCount 1 ; sh:minInclusive -1.0 ; sh:maxInclusive 1.0 ] ) ] ) .
 
 :RiskEventShape
     a sh:NodeShape ;

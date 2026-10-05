@@ -398,6 +398,9 @@ time gaps are documented):
   chosen and why, alongside its three existing worked-during-population
   gaps.
 
+**Status**: done 2026-10-05 (T-080–T-083). Maintainer chose option 1 (shape branch); see
+`schema/README.md`.
+
 ## Work item 10 — Complete `schema/README.md`'s directory map
 
 **Status: DONE (2026-09-12).**
@@ -482,7 +485,7 @@ FR-001 parse + `pyshacl` check and update `schema/README.md`'s counts (NR-001).
 ```
 Work item 1 (roadmap doc)   ─┐
 Work item 2 (CLAUDE.md)      ├─ independent, cheap, no blockers — land first
-Work item 9 (shape fix)      │  (2 and 10 done)
+Work item 9 (shape fix)      │  (2, 9 and 10 done)
 Work item 10 (README map)   ─┘
 
 Work item 3 (triple store)
