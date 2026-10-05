@@ -39,9 +39,9 @@ assumes the stack actually pinned in `pyproject.toml`.
    projection. Don't add a full OHLCV panel class to `tbox.ttl` or a raw-bar
    field to `src/etl/`.
 5. **Licensing**: this repo has no ML model checkpoints of its own to vet —
-   it only ever reads `portfolio-nlp`'s already-published RESULTS rows. Flag
-   anything copyleft or usage-restricted in the PR that adds a new dependency
-   regardless.
+   it runs no model and reads `portfolio-nlp`'s already-published RESULTS
+   rows plus the SOURCE article rows they join to. Flag anything copyleft or
+   usage-restricted in the PR that adds a new dependency regardless.
 6. **Adopting a new library/framework is a constitution-level change**: add it
    to `pyproject.toml` with a rationale in the PR, and if it changes a rule
    above, amend this section (see Governance). Standing up a triple store

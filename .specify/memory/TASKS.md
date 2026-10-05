@@ -160,12 +160,20 @@ decisions (T-100–T-104).*
       §4 diagram, §6) and the root `README.md` updated. D1 is recorded as *Proposed*: no
       decision is on record, so T-100 starts by deciding it. Other open parts stay with
       T-120, T-121 and the upstream maintainer's answers.
-- [ ] **T-113** *(found while handling review on PR #22)* Reconcile FR-005
+- [x] **T-113** *(found while handling review on PR #22)* Reconcile FR-005
       with the code: `src/etl/news_to_rdf.py` reads SOURCE `urls.db`
       `body_text` (via `news_export`) for `compute_severity`'s hard-trigger
       keyword scan, but FR-005, §2.2 and its acceptance grep say the ETL never
       reads `body_text`. Either drop the body-text escalation or amend FR-005,
-      §2.2 and §12. → `PLAN.md` Work item 11.
+      §2.2 and §12. → `PLAN.md` Work item 11. **Done 2026-10-05 (maintainer
+      decision: amend the spec, keep the escalation as provisional G3).**
+      FR-005 (statement and acceptance criteria) and §2.2 now forbid reading
+      source data for anything the processed stores (`nlp`, `financial`)
+      already publish, instead of forbidding SOURCE reads. §12 and §13 item 12
+      say the G3 keyword bump is the one SOURCE-derived signal today, and that
+      `urls.db` stays required whatever happens to the bump, because the
+      shared join reads `articles` from SOURCE. Measured on the full data: the bump raises
+      20,363 of 216,596 `:RiskEvent`s one tier. No code change.
 
 ## Work item 12 — Integrate `portfolio-app`/`portfolio-reports` and model per-run weight schemes
 
