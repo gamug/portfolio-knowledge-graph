@@ -254,10 +254,8 @@ and their dispositions are in the table after the register (T-112).
 **Dispositions (T-112, 2026-10-05).** One label per row: **adopted** (upstream's
 model taken as is), **translated** (kept in this ontology's own form, mapped on
 projection), **rejected** (deliberately not projected), **raised upstream**
-(needs an answer or a change in another repo). "Raised upstream" items are
-written up in `missing_views.md` (repository root, untracked, shared out of
-band); none has been answered yet. A row may have a second label for a part it
-leaves open.
+(needs an answer or a change in another repo; none has been answered yet).
+A row may have a second label for a part it leaves open.
 
 | # | Disposition | What was done | Still open |
 |---|---|---|---|
@@ -268,15 +266,15 @@ leaves open.
 | D5 | Adopted | `:DataQualityIssue` as an `EvidenceSource` leaf (T-104). | — |
 | D6 | Adopted | `agentOrigin` `VALORIZATION` (T-105); metric id `ScoreCuantitativo` kept (no upstream id exists, T-109). | — |
 | D7 | Translated; extras rejected | Optional `runId`/`runAsOf`/`codeVersion`/`engineVersion`, no `Run` class (T-106); `forensic_flags_json`/`prompt_hash`/`correction_rule` not projected. | — |
-| D8 | Translated; raised upstream | Filter `v_cycle_ranking` by `cycle_run_id`/`cycle_date`, exclude `REPLAY`, production DB only (T-109). | Docstring/SQL mismatch and a replay flag (`missing_views.md` §2.1, §2.3). |
-| D9 | Adopted; raised upstream | No scheduler here; `portfolio-app` triggers the cycles (maintainer, 2026-10-02). | Run-trigger endpoint and `portfolio-reports` wording: T-120 (`missing_views.md` §4). |
-| D10 | Translated; raised upstream | Reified `:AssetCoOccurrence`; `:sharedExecutiveWith` kept for verified edges (T-107). | `MEDIA` kind waits for a `media_cooccurrence` view (`missing_views.md` §1). |
-| D11 | Translated; rest rejected | Only view-exposed finished numbers: BENCHMARK `Portfolio`s, positions, `BenchmarkObservation`s (T-108, T-109). Return series, μ, Σ, frontier points rejected (NR-003). | Confirm the `live_book` reading and the `equal_weight`/`cap_weight` names (`missing_views.md` §3). |
-| D12 | Rejected for now; raised upstream | Vetoes projected as outcomes with evidence; upstream's rules are not re-evaluated in the graph. | Views for `fundamental_metrics`, market cap, forensic flags, `prompt_hash` (`missing_views.md` §1). |
-| D13 | Translated; raised upstream | Mapping checked against `v_weight_scheme`/`v_weight_component` (T-109). | Schema work: T-121. Confirm `score_weights` contents (`missing_views.md` §2.4). |
-| D14 | Adopted; raised upstream | `:scoreMethod` discriminator; no write-back code existed to remove (T-111). | Upstream's method value (replaces `ASSET_DAY_AGGREGATE`) and its stale docs (`missing_views.md` §5). |
+| D8 | Translated; raised upstream | Filter `v_cycle_ranking` by `cycle_run_id`/`cycle_date`, exclude `REPLAY`, production DB only (T-109). | Docstring/SQL mismatch and a replay flag, raised upstream. |
+| D9 | Adopted; raised upstream | No scheduler here; `portfolio-app` triggers the cycles (maintainer, 2026-10-02). | Run-trigger endpoint and `portfolio-reports` wording: T-120. |
+| D10 | Translated; raised upstream | Reified `:AssetCoOccurrence`; `:sharedExecutiveWith` kept for verified edges (T-107). | `MEDIA` kind waits for a `media_cooccurrence` view, raised upstream. |
+| D11 | Translated; rest rejected | Only view-exposed finished numbers: BENCHMARK `Portfolio`s, positions, `BenchmarkObservation`s (T-108, T-109). Return series, μ, Σ, frontier points rejected (NR-003). | Confirm the `live_book` reading and the `equal_weight`/`cap_weight` names, raised upstream. |
+| D12 | Rejected for now; raised upstream | Vetoes projected as outcomes with evidence; upstream's rules are not re-evaluated in the graph. | Views for `fundamental_metrics`, market cap, forensic flags, `prompt_hash`, raised upstream. |
+| D13 | Translated; raised upstream | Mapping checked against `v_weight_scheme`/`v_weight_component` (T-109). | Schema work: T-121. Confirm `score_weights` contents, raised upstream. |
+| D14 | Adopted; raised upstream | `:scoreMethod` discriminator; no write-back code existed to remove (T-111). | Upstream's method value (replaces `ASSET_DAY_AGGREGATE`) and its stale docs, raised upstream. |
 | D15 | Adopted | Read the SQLite `v_*` views via `portfolio_common.db` read-only; the HTTP `api/` is not a source. | Implementation: Work item 4's projector. |
-| D16 | Adopted | `schema_version` floor 9 (T-109); `portfolio-common` re-pinned to `v1.2.1` (T-110). | Assert the floor in the future projector; `portfolio-nlp`'s pin is upstream's (`missing_views.md` §5). |
+| D16 | Adopted | `schema_version` floor 9 (T-109); `portfolio-common` re-pinned to `v1.2.1` (T-110). | Assert the floor in the future projector; `portfolio-nlp`'s pin is upstream's, raised upstream. |
 
 ## 3. Technology Stack & Architecture Decisions
 
