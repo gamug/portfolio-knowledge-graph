@@ -125,11 +125,13 @@ above (`08-agent-architecture.md`, designed but unbuilt — roadmap steps 1 and
   designed in `07`/`08`, not built (roadmap steps within 1–2 and beyond).
 - Computing fundamentals, pricing, cycle rankings, or quant scores
   (`portfolio-financial-analysis`).
-- Running any NLP model, discovering/crawling article URLs, or reading
+- Running any NLP model, discovering/crawling article URLs, or processing
   article `body_text` (`portfolio-data-mining`/`portfolio-nlp`) — this repo
-  only ever reads `portfolio-nlp`'s already-published RESULTS tables,
-  read-only. **Known deviation (§13 item 12):** today's ETL also reads the
-  SOURCE `urls.db`'s `body_text` for its severity keyword scan.
+  reads `portfolio-nlp`'s already-published RESULTS tables plus the SOURCE
+  `articles` rows they join to, read-only. **One exception (FR-005, §13
+  item 12, decided 2026-10-05):** the transitional ETL's provisional G3 step
+  scans SOURCE `urls.db`'s `body_text` for hard-trigger keywords to raise a
+  `:RiskEvent`'s severity one tier. Nothing else reads the text.
 - The two LangGraph agent cycles (`SelectionCycleGraph` quarterly,
   `MonitoringCycleGraph` daily) and any scheduler — the two-speed cycle is
   already implemented upstream as `portfolio-financial-analysis`'s `cycle`
@@ -160,7 +162,7 @@ above (`08-agent-architecture.md`, designed but unbuilt — roadmap steps 1 and
 | **FR-002** | Every domain class in `tbox.ttl` that is not a shared-property superclass (`ObservationSnapshot`/`EvidenceSource`/`RuleOperand`) belongs to exactly one `AllDisjointClasses` set and reaches at least one of the 6 taxonomy roots via `rdfs:subClassOf`. | `tbox.ttl`'s `AllDisjointClasses` block lists exactly 25 leaf classes; a taxonomy audit (cycle/orphan/multi-parent detection over the `subClassOf` graph) reports 0 cycles, 0 self-loops, all 38 classes reaching a root, exactly 3 legitimately multi-parented classes (`schema/README.md`'s implementation addendum). |
 | **FR-003** | Every `RuleDefinition` in `rules.ttl` expresses its veto condition as an explicit `RuleClause` tree (`AND`/`OR` of `ThresholdComparison`/`CategoricalComparison`/`GraphPredicate` leaves), never as an infix boolean string. | No `RuleDefinition` in `rules.ttl` carries a rule condition as a literal string to be re-parsed; every `hasClause` path terminates in one of the three documented leaf operand kinds. A single leaf (upstream's six rules, T-103) is a valid tree. |
 | **FR-004** | `cli/build_data_ttl.py` projects the Wikipedia S&P 500 table into `:Asset`/`:classifiedAs` individuals, skipping any ticker `reference.ttl` already declares as an `:Asset` (so `cikNumber` never collides under the functional-property `sh:maxCount 1` contract). | A full run's known-ticker count equals the fetched Wikipedia row count minus `reference.ttl`'s worked-example tickers; none of those tickers appear as a second `:Asset` declaration in `data.ttl`. |
-| **FR-005** | `cli/build_data_ttl.py` projects `portfolio-nlp`'s RESULTS rows (`articles ⋈ article_sentiment ⋈ article_category`, `fetch_status = 'ok'`) into `:NewsArticle` + `:ScoreSnapshot` (`agentOrigin = SEMANTIC`, `metricType = Sentiment`) + a gated `:RiskEvent`, via `portfolio_common.news_export`'s read-only connect — never a raw `sqlite3` connection and never `portfolio-nlp`'s SOURCE `body_text` (**not what the code does today** — see §13 item 12). | `grep -rn "import sqlite3\|body_text" src/etl` returns nothing; every `:NewsArticle` emitted in a sample run traces to a source row with `fetch_status = 'ok'`. |
+| **FR-005** | `cli/build_data_ttl.py` projects `portfolio-nlp`'s RESULTS rows (`articles ⋈ article_sentiment ⋈ article_category`, `fetch_status = 'ok'`) into `:NewsArticle` + `:ScoreSnapshot` (`agentOrigin = SEMANTIC`, `metricType = Sentiment`) + a gated `:RiskEvent`, via `portfolio_common.news_export`'s read-only connect — never a raw `sqlite3` connection. The shared join reads `articles` from SOURCE `urls.db`, so both tiers are required inputs. SOURCE `body_text` is used only by `compute_severity`'s provisional G3 hard-trigger keyword bump (one tier up; constitution §7), and by nothing else (§13 item 12). | `grep -rn "import sqlite3" src/etl` returns nothing; `grep -rn "body_text" src/etl --include='*.py'` matches only docstrings, `news_to_rdf.py`'s `_Article` field and its `compute_severity` call, and `common/severity.py`; every `:NewsArticle` emitted in a sample run traces to a source row with `fetch_status = 'ok'`. |
 | **FR-006** | The post-build validation step SHACL-checks either the full output (`--limit` given) or a fresh `KG_SAMPLE_NEWS_ROWS`-row sample against the real `tbox.ttl` + `shapes.ttl` + `reference.ttl` — never a full `pyshacl` pass over the unsampled, multi-million-triple `data.ttl`. | `uv run cli/build_data_ttl.py --limit 500` prints `SHACL conforms: <bool>`; an unsampled default run builds and discards a `KG_SAMPLE_NEWS_ROWS`-row sample file rather than validating `data.ttl` directly. |
 
 ### 2.4 Non-functional requirements
@@ -552,8 +554,9 @@ There is no CD pipeline and no CI workflow for this repo
 - **Upstream (data, read-only, transitional)**: `portfolio-data-mining`'s
   `urls.db` (SOURCE, `SQL_URLS_DB`) — read today by `src/etl/` through
   `portfolio_common.news_export` alongside the RESULTS store, because the
-  ETL's severity step scans `articles.body_text` (§13 item 12). The real
-  projection should not need it.
+  ETL reads `articles` from it through the shared join, and its severity step
+  scans `articles.body_text` (FR-005, §13 item 12). The real projection
+  should not need it.
 - **No direct dependency on**: `portfolio-data-mining`'s pricing/EDGAR HTTP
   services (consumed by `portfolio-nlp` and `portfolio-financial-analysis`,
   not here — §2.5). The one direct
@@ -642,13 +645,17 @@ treating a related FR/NR as done:
     materialization (`financial-analysis`) and the replacement of this local
     path by the projected row remain pending integration work (PLAN Work items
     4–5).
-12. **FR-005 and the code disagree.** FR-005 and §2.2 say the ETL never
-    reads `body_text`; `src/etl/news_to_rdf.py` and `config.py` do — SOURCE
-    `urls.db` (`SQL_URLS_DB`) is a required input and `compute_severity`
-    keyword-scans the text to escalate severity. Found while handling review
-    on PR #22; the acceptance grep (`body_text` in `src/etl`) fails today.
-    Decision pending (PLAN Work item 11, T-113): drop the escalation or amend
-    the spec.
+12. **The ETL scans SOURCE `body_text` (resolved: spec amended, T-113,
+    2026-10-05).** FR-005 and §2.2 used to say the ETL never reads
+    `body_text`. The code always did: SOURCE `urls.db` (`SQL_URLS_DB`) is a
+    required input, and `compute_severity` keyword-scans the text to raise
+    severity one tier. Found while handling review on PR #22. Decision (maintainer): keep the
+    escalation, flagged provisional (constitution §7), and amend FR-005 and
+    §2.2 to say so. Measured on the full `urls.db`/`nlp.db` pair, it raises
+    20,363 of 216,596 `:RiskEvent`s one tier (LOW→MODERATE 12,230,
+    MODERATE→HIGH 2,939, HIGH→CRITICAL 5,194). `urls.db` would stay required
+    even without it, because the shared join reads `articles` from SOURCE.
+    The real projection (Work item 4) should not need it.
 
 ## 14. Scope Boundaries
 
@@ -714,7 +721,7 @@ of what this project is, not a gap someone forgot to close:
 | §13 item | Category | Disposition |
 |---|---|---|
 | 1 — integrative layer unbuilt (steps 1–2, query surface); compute steps owned upstream | **Pending development** (integrative layer only) | The actual backlog — `PLAN.md` Work items 3, 4, 6; Work items 5 and 7 are now scope-reassigned upstream (§2.5) |
-| 12 — FR-005 vs. the ETL's `body_text` read | **Pending development** (cheap: a spec/code reconciliation) | `PLAN.md` Work item 11, T-113 |
+| 12 — FR-005 vs. the ETL's `body_text` read | **Resolved** (spec amended to match the code, 2026-10-05) | `PLAN.md` Work item 11, T-113 — done |
 | 10 — `kg_schema`/`schema/` vocabulary and semantic drift | **Pending development** | `PLAN.md` Work item 11 (decisions, T-100–T-112; dispositions recorded in §2.6) then Work item 4, T-030 |
 | 11 — SEMANTIC score not computed here | **Ownership resolved; cut-over pending** (upstream aggregation + local replacement) | `PLAN.md` Work items 4–5 (reassigned), §2.5 |
 | 2 — no `v_*`-views projection | **Pending development** | Folded into `PLAN.md` Work item 4 (the real step-2 projection); today's `src/etl/` shortcut stays live until that lands |

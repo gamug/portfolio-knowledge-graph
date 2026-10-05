@@ -112,7 +112,7 @@ against ground truth:
 |---|---|
 | G1 | `rawValue = clamp(positive - negative, -1, 1)` |
 | G2 | 9-dimension `article_category` → 4-value `RiskEvent.category` bucket table (`'other'` → no RiskEvent) |
-| G3 | `creation_gate` bars (`negative ≥ 0.50` **or** `cat_score ≥ 0.70`); severity ladder + hard-trigger keyword bump. A category-confidence-only RiskEvent with `negative` below every tier is mapped to `LOW`. |
+| G3 | `creation_gate` bars (`negative ≥ 0.50` **or** `cat_score ≥ 0.70`); severity ladder + hard-trigger keyword bump (one tier up when SOURCE `articles.body_text` contains a keyword; the ETL's only use of the text, `SPEC.md` FR-005). A category-confidence-only RiskEvent with `negative` below every tier is mapped to `LOW`. |
 | G9 | `publishedDate = pub_date`, falling back to `fetched_at` when `pub_date` is null; rows with neither are skipped |
 
 ## Coupling notes
