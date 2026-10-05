@@ -32,7 +32,7 @@ implementation back to requirement and requirement back to test.
 top of a knowledge graph. Data flows in one direction through the system:
 
 ```
-sources (Wikipedia/news/Finnhub/SEC EDGAR)
+sources (Wikipedia, via `portfolio-data-mining`/news/Finnhub/SEC EDGAR)
   → portfolio-data-mining      (acquisition: discovers URLs, extracts article text)
   → portfolio-nlp              (semantic layer: sentiment/NER/category/summaries)
   → portfolio-financial-analysis (fundamentals/pricing/cycle/quant → SEMANTIC score input)
@@ -54,7 +54,7 @@ projected into (roadmap step 0, done), the named-graph topology and reasoning
 profile that makes that projection queryable and bitemporal
 (`07-ontology-topology.md`, designed), and — as a first, narrower cut ahead of
 the full projection (roadmap step 2, partially begun) — an ETL
-(`src/etl/`) that turns Wikipedia's S&P 500 constituent table plus
+(`src/etl/`) that turns `portfolio-data-mining`'s point-in-time `universe.db` plus
 `portfolio-nlp`'s already-published sentiment/category results into a
 single-shot, flat `data.ttl` load, so that the ontology has *some* real data
 to validate against before the target architecture (a standing triple store,
@@ -101,13 +101,14 @@ above (`08-agent-architecture.md`, designed but unbuilt — roadmap steps 1 and
   6 active upstream veto rules as single-leaf `RuleDefinition`s, the 7 original tree rules kept
   closed with `validTo`, + `AttractivenessWeightScheme`),
   `instances.trig` (a 15-named-graph worked-example ABox) — roadmap step 0,
-  done and verified (**2366 quads, `pyshacl conforms: True**).
+  done and verified (**2383 quads, `pyshacl conforms: True**).
 - The five numbered architecture/spec docs (`06`–`10`) plus
   `critique-and-evolution.md` as the traceability anchor every class/
   property/graph-placement decision elsewhere cites back to.
-- The step-2 ETL (`src/etl/`, entry `cli/build_data_ttl.py`): Wikipedia's
-  S&P 500 table → `:Asset`/`:classifiedAs` (the full ~503-constituent
-  universe, minus tickers `reference.ttl` already declares) + `portfolio-nlp`'s
+- The step-2 ETL (`src/etl/`, entry `cli/build_data_ttl.py`):
+  `portfolio-data-mining`'s `universe.db` → `:Asset`/`:classifiedAs` (every
+  symbol ever in the index, minus tickers `reference.ttl` already declares) and
+  one `:UniverseMembership` per membership stint + `portfolio-nlp`'s
   RESULTS store (via `portfolio_common.news_export`, read-only) →
   `:NewsArticle` / `:ScoreSnapshot` (Sentiment) / `:RiskEvent` (gated) — a
   single-shot flat `data.ttl`, not the named-graph-partitioned target
@@ -132,9 +133,6 @@ above (`08-agent-architecture.md`, designed but unbuilt — roadmap steps 1 and
   itself is allowed, read-only. Today the transitional ETL reads `articles`
   through the shared join and scans `body_text` for its provisional G3
   hard-trigger keyword bump, which no processed store publishes (§13 item 12).
-  FR-004's Wikipedia asset master, which `universe.db` and `financial.db`'s
-  `v_sector`/`v_industry` could replace, is the other known exception,
-  pending D1 (T-100).
 - The two LangGraph agent cycles (`SelectionCycleGraph` quarterly,
   `MonitoringCycleGraph` daily) and any scheduler — the two-speed cycle is
   already implemented upstream as `portfolio-financial-analysis`'s `cycle`
@@ -161,11 +159,11 @@ above (`08-agent-architecture.md`, designed but unbuilt — roadmap steps 1 and
 
 | ID | Requirement | Acceptance criteria |
 |---|---|---|
-| **FR-001** | The `tbox.ttl`/`shapes.ttl`/`reference.ttl`/`rules.ttl`/`instances.trig` bundle parses as a single `rdflib.Dataset` in the documented load order and `pyshacl`-conforms against `shapes.ttl`. | The `schema/README.md` parse script reports `quads: 2366`; a `pyshacl.validate` run over the same combined graph reports `conforms: True` — both required after any schema edit. |
+| **FR-001** | The `tbox.ttl`/`shapes.ttl`/`reference.ttl`/`rules.ttl`/`instances.trig` bundle parses as a single `rdflib.Dataset` in the documented load order and `pyshacl`-conforms against `shapes.ttl`. | The `schema/README.md` parse script reports `quads: 2383`; a `pyshacl.validate` run over the same combined graph reports `conforms: True` — both required after any schema edit. |
 | **FR-002** | Every domain class in `tbox.ttl` that is not a shared-property superclass (`ObservationSnapshot`/`EvidenceSource`/`RuleOperand`) belongs to exactly one `AllDisjointClasses` set and reaches at least one of the 6 taxonomy roots via `rdfs:subClassOf`. | `tbox.ttl`'s `AllDisjointClasses` block lists exactly 25 leaf classes; a taxonomy audit (cycle/orphan/multi-parent detection over the `subClassOf` graph) reports 0 cycles, 0 self-loops, all 38 classes reaching a root, exactly 3 legitimately multi-parented classes (`schema/README.md`'s implementation addendum). |
 | **FR-003** | Every `RuleDefinition` in `rules.ttl` expresses its veto condition as an explicit `RuleClause` tree (`AND`/`OR` of `ThresholdComparison`/`CategoricalComparison`/`GraphPredicate` leaves), never as an infix boolean string. | No `RuleDefinition` in `rules.ttl` carries a rule condition as a literal string to be re-parsed; every `hasClause` path terminates in one of the three documented leaf operand kinds. A single leaf (upstream's six rules, T-103) is a valid tree. |
-| **FR-004** | `cli/build_data_ttl.py` projects the Wikipedia S&P 500 table into `:Asset`/`:classifiedAs` individuals, skipping any ticker `reference.ttl` already declares as an `:Asset` (so `cikNumber` never collides under the functional-property `sh:maxCount 1` contract). | A full run's known-ticker count equals the fetched Wikipedia row count minus `reference.ttl`'s worked-example tickers; none of those tickers appear as a second `:Asset` declaration in `data.ttl`. |
-| **FR-005** | `cli/build_data_ttl.py` projects the shared join of SOURCE `articles` with `portfolio-nlp`'s RESULTS `article_sentiment`/`article_category` (`fetch_status = 'ok'`) into `:NewsArticle` + `:ScoreSnapshot` (`agentOrigin = SEMANTIC`, `metricType = Sentiment`) + a gated `:RiskEvent`, via `portfolio_common.news_export`'s read-only connect — never a raw `sqlite3` connection. Reading SOURCE (`urls.db`, `body_text` included) is allowed. What is forbidden is reading a source or raw database for something the processed stores already publish (`portfolio-nlp`'s RESULTS, `portfolio-financial-analysis`'s `financial.db` / `v_*` views), or re-deriving it there: sentiment, category, entities, fundamentals, prices, scores. Those are read from the processed store. A SOURCE-derived signal with no processed equivalent is allowed if it is flagged provisional (constitution §7); today that is only G3's hard-trigger keyword bump (§13 item 12); FR-004's Wikipedia scrape is a separate known exception pending D1 (T-100). | `grep -rn "import sqlite3" src/etl` returns nothing; every value `src/etl/` derives from a SOURCE column other than identity and metadata (`id`, `ticker`, `pub_date`, `fetched_at`, `fetch_status`) is a row in `src/etl/README.md`'s provisional-formulas table, which says why no processed store publishes it; every `:NewsArticle` emitted in a sample run traces to a source row with `fetch_status = 'ok'`. |
+| **FR-004** | `cli/build_data_ttl.py` projects `portfolio-data-mining`'s point-in-time `universe.db` (`SQL_UNIVERSE_DB`, read-only through `portfolio_common.db`) into one `:UniverseMembership` per `universe_membership` stint (`validFrom` = `valid_from`; `validTo` = `valid_to`, exclusive, absent while the stint is open) in the single `:SP500Index` `:Universe`, and one `:Asset` per symbol with `:classifiedAs` when upstream has a sub-industry. A symbol whose stints are all closed has only `tickerSymbol` and `companyName`: upstream has no CIK or sector for it, and none is invented (`AssetShape` allows a missing `cikNumber` only then). Tickers `reference.ttl` already declares as `:Asset` get memberships but are not re-emitted (so `cikNumber` never collides under the functional-property `sh:maxCount 1` contract). Each run prints `universe.db`'s latest recorded change and its file modification date, because upstream refreshes it by hand. | A full run's `:Asset` count plus `reference.ttl`'s tickers equals `universe.db`'s distinct symbols; its `:UniverseMembership` count equals `universe_membership`'s rows; none of `reference.ttl`'s tickers appears as a second `:Asset` declaration in `data.ttl`; the run summary prints the freshness line. |
+| **FR-005** | `cli/build_data_ttl.py` projects the shared join of SOURCE `articles` with `portfolio-nlp`'s RESULTS `article_sentiment`/`article_category` (`fetch_status = 'ok'`) into `:NewsArticle` + `:ScoreSnapshot` (`agentOrigin = SEMANTIC`, `metricType = Sentiment`) + a gated `:RiskEvent`, via `portfolio_common.news_export`'s read-only connect — never a raw `sqlite3` connection. Reading SOURCE (`urls.db`, `body_text` included) is allowed. What is forbidden is reading a source or raw database for something the processed stores already publish (`portfolio-nlp`'s RESULTS, `portfolio-financial-analysis`'s `financial.db` / `v_*` views), or re-deriving it there: sentiment, category, entities, fundamentals, prices, scores. Those are read from the processed store. A SOURCE-derived signal with no processed equivalent is allowed if it is flagged provisional (constitution §7); today that is only G3's hard-trigger keyword bump (§13 item 12) | `grep -rn "import sqlite3" src/etl` returns nothing; every value `src/etl/` derives from a SOURCE column other than identity and metadata (`id`, `ticker`, `pub_date`, `fetched_at`, `fetch_status`) is a row in `src/etl/README.md`'s provisional-formulas table, which says why no processed store publishes it; every `:NewsArticle` emitted in a sample run traces to a source row with `fetch_status = 'ok'`. |
 | **FR-006** | The post-build validation step SHACL-checks either the full output (`--limit` given) or a fresh `KG_SAMPLE_NEWS_ROWS`-row sample against the real `tbox.ttl` + `shapes.ttl` + `reference.ttl` — never a full `pyshacl` pass over the unsampled, multi-million-triple `data.ttl`. | `uv run cli/build_data_ttl.py --limit 500` prints `SHACL conforms: <bool>`; an unsampled default run builds and discards a `KG_SAMPLE_NEWS_ROWS`-row sample file rather than validating `data.ttl` directly. |
 
 ### 2.4 Non-functional requirements
@@ -186,7 +184,7 @@ Established by the T-007 scan (2026-10-02) of `portfolio-data-mining`,
 
 | Repo | Computes / owns | Surface this repo may consume | Consumed today? |
 |---|---|---|---|
-| `portfolio-data-mining` | News URL discovery and article text extraction (`news_collector`, `extractor` → `urls.db`); Finnhub/yfinance pricing HTTP service (`pricing`: `GET /pricing/{ticker}`, `/pricing/{ticker}/actions`, `/universe`); SEC EDGAR HTTP service (`sec_edgar`); the S&P 500 universe, live (`data_mining.portfolio`) and **point-in-time** (`data_mining.universe_history` → `universe.db`, SCD-2 `universe_membership`) | `universe.db` — the point-in-time membership every upstream agent already reads read-only (D1); its HTTP services and `urls.db` are consumed by the other two repos; `src/etl/` also reads `urls.db` through `news_export` (FR-005, §13 item 12) | Yes, transitionally — `urls.db` by `src/etl/` via `news_export` (FR-005); `universe.db` should be (D1); the HTTP services stay indirect (§12) |
+| `portfolio-data-mining` | News URL discovery and article text extraction (`news_collector`, `extractor` → `urls.db`); Finnhub/yfinance pricing HTTP service (`pricing`: `GET /pricing/{ticker}`, `/pricing/{ticker}/actions`, `/universe`); SEC EDGAR HTTP service (`sec_edgar`); the S&P 500 universe, live (`data_mining.portfolio`) and **point-in-time** (`data_mining.universe_history` → `universe.db`, SCD-2 `universe_membership`) | `universe.db` — the point-in-time membership every upstream agent already reads read-only (D1); its HTTP services and `urls.db` are consumed by the other two repos; `src/etl/` also reads `urls.db` through `news_export` (FR-005, §13 item 12) | Yes — `universe.db` by `src/etl/` (FR-004, T-100); `urls.db` transitionally via `news_export` (FR-005); the HTTP services stay indirect (§12) |
 | `portfolio-nlp` | Sentiment (FinBERT), NER, category, summaries → `nlp.db` (`article_sentiment`/`article_entities`/`article_category`/`article_summary`/`sector_summary`); proposed owner of the per-`(asset, day)` SEMANTIC aggregation (not built) | `nlp.db` RESULTS, read-only | Yes — `src/etl/` via `portfolio_common.news_export` |
 | `portfolio-financial-analysis` | `fundamental_agent` (EDGAR ratios + LLM assessment, Ring-1 `DQ_*` data-quality gates), `pricing_agent`, `cycle` (a checkpointed topological runner — Strands-era, not LangGraph: TECHNICAL/VALORIZATION/SECTOR scores, veto stints, ranking, positions, `backfill` replay), `entity_resolution` (news-co-occurrence *candidates*, projected as `AssetCoOccurrence`, T-107), `quant` (Markowitz benchmark books, forward evaluation; finished view-exposed numbers projected as benchmark `Portfolio`s and `BenchmarkObservation`s, T-108), read-only HTTP `api/` (:8010); passive `kg_schema` (DDL, migrations, `schema_version`, views) | The 31 `v_*` read-contract views over `SQL_FINANCIAL_DB` (SQLite, `mode=ro`): `v_score_snapshot`, `v_sector`, `v_industry`, `v_sector_aggregate_snapshot`, `v_price_observation`, `v_corporate_action`, `v_quant_return_daily`, `v_risk_free_rate`, `v_benchmark_series`, `v_sec_filing`, `v_sec_filing_section`, `v_veto`, `v_rule_catalog`, `v_data_quality_issue`, `v_portfolio_position`, `v_shared_executive_edge`, `v_cycle_ranking`, `v_weight_scheme`, `v_weight_component`, `v_quant_risk_model`, `v_quant_portfolio`, `v_quant_position`, `v_quant_frontier_point`, `v_quant_benchmark_performance`, `v_quant_vs_live`, run logs `v_analysis_run`/`v_pricing_run`/`v_quant_run`/`v_cycle_run`, `v_universe_coverage`, and `v_universe_membership` (**frozen** — use `universe.db`). No view exposes `fundamental_metrics`, `financial_facts` or `filing_cover_shares` | No — designed source, unread (§13 item 2) |
 | `portfolio-knowledge-graph` (this repo) | The ontology (`schema/`); the projection of the above into SHACL-validated, dated named graphs; the store, reasoner and SPARQL surface over them | — | — |
@@ -203,9 +201,9 @@ Consequences for this repo's scope:
    tables for something its processed stores already publish, and never
    through a raw connection (NR-002 spirit). SOURCE `urls.db` through
    `news_export` is allowed for a signal no processed store has, flagged
-   provisional (FR-005; today only G3's keyword bump, §13 item 12). The
-   Wikipedia scrape behind FR-004 is the other known exception, pending D1
-   (T-100); the transitional exception in §1 covers both until Work item 4.
+   provisional (FR-005; today only G3's keyword bump, §13 item 12); the
+   transitional exception in §1 covers it until Work item 4. `universe.db`
+   is a direct, read-only upstream contract (FR-004, §2.6 D1).
 3. **The pricing endpoint exists** (`portfolio-data-mining`
    `apps/pricing_api.py`, `GET /pricing/{ticker}`; consumed by
    `portfolio-financial-analysis`'s `pricing_agent`). The roadmap's earlier
@@ -242,7 +240,7 @@ and their dispositions are in the table after the register (T-112).
 
 | # | Upstream fact | This repo today | Why it matters / decision forced |
 |---|---|---|---|
-| D1 | **Point-in-time S&P 500 universe.** `portfolio-data-mining` keeps `universe.db` (SCD-2 `universe_membership`: `symbol, security, gics_sector, gics_sub_industry, hq_location, date_added, cik, founded, valid_from, valid_to, source`), reconstructed from Wikipedia's "Historical components" change log (`source` = `wikipedia_changes_backfill` \| `live_snapshot`) and refreshed only by manual `universe-backfill`/`universe-snapshot`. Every upstream agent takes `--analysis-date D` and reads membership with `valid_from <= D AND (valid_to IS NULL OR valid_to > D)`, deduped by symbol keeping the latest stint; `financial-analysis`'s own `universe_membership` table and `v_universe_membership` are **frozen**. | FR-004 builds `:Asset`s from Wikipedia's *live* constituent table at ETL run time; no `:UniverseMembership` individual is produced; §12 declared no dependency on `portfolio-data-mining`. `UniverseMembership` (with `validFrom`/`validTo`) already exists in `tbox.ttl`. | The ontology's bitemporal universe has a real source; the ETL ignores it and so cannot represent who was in the index on any past date (survivorship bias). `universe.db` is therefore a **direct upstream contract** (read-only), and a stale `universe.db` between manual snapshots is a known upstream risk. Decide: retire the live-scrape asset master in favour of `universe.db` as-of reads (T-100). |
+| D1 | **Point-in-time S&P 500 universe.** `portfolio-data-mining` keeps `universe.db` (SCD-2 `universe_membership`: `symbol, security, gics_sector, gics_sub_industry, hq_location, date_added, cik, founded, valid_from, valid_to, source`), reconstructed from Wikipedia's "Historical components" change log (`source` = `wikipedia_changes_backfill` \| `live_snapshot`) and refreshed only by manual `universe-backfill`/`universe-snapshot`. Every upstream agent takes `--analysis-date D` and reads membership with `valid_from <= D AND (valid_to IS NULL OR valid_to > D)`, deduped by symbol keeping the latest stint; `financial-analysis`'s own `universe_membership` table and `v_universe_membership` are **frozen**. | FR-004 builds `:Asset`s from Wikipedia's *live* constituent table at ETL run time; no `:UniverseMembership` individual is produced; §12 declared no dependency on `portfolio-data-mining`. `UniverseMembership` (with `validFrom`/`validTo`) already exists in `tbox.ttl`. | The ontology's bitemporal universe has a real source; the ETL ignores it and so cannot represent who was in the index on any past date (survivorship bias). `universe.db` is therefore a **direct upstream contract** (read-only), and a stale `universe.db` between manual snapshots is a known upstream risk. **Decision (maintainer, 2026-10-05): adopt.** The live-scrape asset master is retired in favour of `universe.db` (T-100): every stint becomes a `:UniverseMembership`, every symbol an `:Asset`, and as-of reads are queries over `validFrom`/`validTo` in the graph. Chosen with it: `cikNumber` is optional only for an `:Asset` whose memberships are all closed (no CIK is invented); upstream's `valid_from` is kept as is (`1976-07-01` means "before upstream's records begin"); a news ticker `universe.db` lacks (`EQR`) stays unresolved and is raised upstream; each run prints `universe.db`'s freshness. |
 | D2 | **Two-clock model with look-ahead guard.** Rows carry `event_time` (what the row is about) and `available_at` (when usable: first NYSE trading day *after* the filing date, T-107) alongside `computed_at`/`ingested_at`; every as-of reader filters on `available_at`, never `event_time`; `v_score_snapshot.event_time` = filing period-end (FUNDAMENTAL), cycle date (TECHNICAL/VALORIZATION), article-day (SEMANTIC). | `ScoreSnapshot` has `timestamp`/`detectedAt`/`provenanceId`; bitemporality is expressed only by dated named graphs (`07`). No `availableAt`/`eventTime` property. | A projection that stamps FUNDAMENTAL scores by filing date or period-end would leak look-ahead into every "as of D" query. **Decided and implemented (T-101, 2026-10-03):** `availableAt` (required) and `eventTime` (optional) are `ScoreSnapshot` properties; `timestamp` is unchanged. |
 | D3 | **Veto stints, not events.** `veto` rows are stints (`raised_on`, `cleared_on`, `last_seen_on` = cycle dates; `detected_at`/`cleared_at` wall-clock only); closed, never deleted; a HARD veto *clears* when its rule re-evaluates clean; a SOFT stint charges `soft_veto_penalty` once; active at cutoff `C` iff `raised_on <= C AND (cleared_on IS NULL OR cleared_on > C)`; the T-1 lag is this predicate applied at read time. | `Veto` has `decidedAt`/`detectedAt`; the T-1 lag was designed as a LangGraph checkpointer mechanism (`08`). | Needs `raisedOn`/`clearedOn`/`lastSeenOn` (or `validFrom`/`validTo`) on `:Veto`, and the T-1 predicate as a SPARQL pattern, not an orchestrator feature (T-102). **Implemented (T-102, 2026-10-03):** `:Veto` carries `raisedOn` (required), `clearedOn`, `lastSeenOn` (multi-valued, current = MAX) and per-stint `vetoSeverity`; `VetoShape` enforces date order; the active-at-cutoff SPARQL is in `schema/README.md`. Upstream `cleared_at` is dropped. |
 | D4 | **Different rule catalog.** Six flat threshold rules in `cycle/rules/builtin.py`: `LEVERAGE_EXTREME` (D/E > 3, HARD), `NEGATIVE_FCF` (HARD), `LIQUIDITY_DISTRESS` (current ratio < 1, SOFT), `PRICE_CRASH` (90d drawdown < −35%, SOFT), `EARNINGS_MISSING` (FUNDAMENTAL score aged > 400d, SOFT), `DATA_QUALITY` (a HARD Ring-1 gate fired, HARD); plus a non-veto `UNSCORED` exclusion in `rank` (T-119). No AND/OR tree (their §13 item 6 accepts that) and **no contagion/`sharedExecutiveWith` rule**. | `rules.ttl` holds 7 `RuleClause`-tree rules (`VETO_FIN_01`, `VETO_LEG_01`, `VETO_COMP_01..03`, `VETO_MKT_02`, `VETO_RED_01`) — different ids, different logic. | `v_veto.rule_id` values (`LEVERAGE_EXTREME`, …) resolve to no `:RuleDefinition`, so a projected `:Veto` would violate `:appliesRule` conformance. Our catalog is a design; upstream's is what actually runs. Decide: add the six as (flat-leaf) `RuleDefinition`s and mark ours as design-only, or reconcile the other way (T-103). **Disposition (maintainer, 2026-10-02): upstream's catalog is final and authoritative** — `portfolio-financial-analysis`'s six rules are preserved as implemented; `rules.ttl`'s seven tree rules are superseded (design history, not a target). **Implemented (T-103, 2026-10-03):** `rules.ttl` carries the six as `RuleDefinition`s whose `hasClause` is a single leaf (`ThresholdComparison`, or a `GraphPredicate` for `DATA_QUALITY`); added `:ruleSeverity` (HARD/SOFT) and the upstream metric ids to `ThresholdComparisonShape`. The seven tree rules are closed with `validTo 2026-10-02` and kept as design history (the worked example in `instances.trig` still resolves them); `VETO_RED_01`'s contagion rule has no upstream counterpart and is dropped from the target. `priorityRank` follows upstream's list order (upstream has none); branch logic that does not fit one leaf (LEVERAGE_EXTREME's negative-equity guard) stays upstream and is described in `rdfs:comment`. |
@@ -269,7 +267,7 @@ open part waits on another repo.
 
 | # | Disposition | What was done | Still open |
 |---|---|---|---|
-| D1 | Proposed | Retire the live-Wikipedia asset master in favour of `universe.db` as-of reads (T-100). No maintainer decision is recorded yet, unlike D4, D9 and D11. | The decision itself, then the implementation (T-100); the ETL is unchanged. |
+| D1 | Adopted; raised upstream | `universe.db` is the asset master and the universe's source, read-only through `portfolio_common.db` (T-100, maintainer decision 2026-10-05): one `:Asset` per symbol, one `:UniverseMembership` per stint in `:SP500Index`. `AssetShape` makes `cikNumber` optional only when every membership is closed. Each run prints `universe.db`'s latest recorded change and file date. Wikipedia is no longer read. | Upstream's: `EQR` has no row (1,104 news rows tagged `EQR` stay unresolved); `universe.db` is refreshed by hand; two symbols carry a stray `\|` (`JCP \|`, `ITT \|`; cleaned here); two stints (`HNG`, `AYE`) start and end on 1976-06-30 and are skipped here; closed stints have no CIK, sector or sub-industry. Ours: nine symbols (`BMS`, `CEG`, `DELL`, `DOW`, `JBL`, `MXIM`, `PCG`, `Q`, `SNDK`) carry different company names across stints (some renames, some different companies) and are one `:Asset` each, described by the latest stint. |
 | D2 | Adopted | `availableAt` (required) / `eventTime` on `ScoreSnapshot` (T-101). | — |
 | D3 | Adopted | Veto stints `raisedOn`/`clearedOn`/`lastSeenOn`, active-at-cutoff SPARQL (T-102). | — |
 | D4 | Adopted | Upstream's six rules are the catalog, written as single-leaf `RuleDefinition`s; the seven tree rules closed with `validTo` (T-103). | — |
@@ -332,7 +330,7 @@ re-litigated without a constitution amendment:
 
 ```mermaid
 flowchart TB
-    SCHEMA["schema/ -- step 0, DONE<br/>tbox+shapes+reference+rules+instances<br/>2366 quads * pyshacl conforms"]
+    SCHEMA["schema/ -- step 0, DONE<br/>tbox+shapes+reference+rules+instances<br/>2383 quads * pyshacl conforms"]
     STORE["triple store -- step 1<br/>GraphDB / Fuseki<br/>NOT STOOD UP"]
     GRAPHS["named graphs -- step 1<br/>static: tbox/reference/rules<br/>ingest:{agent}:{date} * portfolio:current<br/>NOT STOOD UP"]
     GATE["SHACL ingest gate -- step 2<br/>pyshacl<br/>NOT BUILT"]
@@ -403,7 +401,7 @@ the shape or a normalization step is agreed.
 **Schema validation** (`schema/README.md`, run from inside `schema/`):
 
 1. Parse `tbox.ttl → shapes.ttl → reference.ttl → rules.ttl` then
-   `instances.trig` into one `rdflib.Dataset`; assert `quads: 2366`.
+   `instances.trig` into one `rdflib.Dataset`; assert `quads: 2383`.
 2. `pyshacl.validate` the same combined graph against `shapes.ttl`; assert
    `conforms: True`.
 3. Run after **every** schema edit — `tbox.ttl`'s `AllDisjointClasses` block
@@ -413,9 +411,10 @@ the shape or a normalization step is agreed.
 
 **ETL build** (`cli/build_data_ttl.py` → `etl.build_data_ttl.generate`):
 
-1. Fetch the Wikipedia S&P 500 constituent table; read `reference.ttl` for
-   the ticker skip-set.
-2. Write `:Asset`/`:classifiedAs` for every non-skipped ticker
+1. Read every membership stint from `universe.db` (read-only, through
+   `portfolio_common.db`); read `reference.ttl` for the ticker skip-set.
+2. Write the `:SP500Index` `:Universe`, `:Asset`/`:classifiedAs` for every
+   non-skipped symbol and one `:UniverseMembership` per stint
    (`etl.asset_master`).
 3. Stream `portfolio-nlp`'s RESULTS store (via `portfolio_common.news_export`,
    `--limit`-bounded if given) into `:NewsArticle`/`:ScoreSnapshot`/
@@ -462,6 +461,10 @@ the shape or a normalization step is agreed.
   it already declares is never re-emitted by the ETL, avoiding a
   `cikNumber` collision under the functional-property `sh:maxCount 1`
   contract once both files load (FR-004).
+- **A stale `universe.db` is visible, not silent**: every run prints the
+  latest `valid_from` in the file (the latest recorded index change, not the
+  refresh date; a quiet stretch looks like a stale file) beside the file's
+  modification date. Nothing stops a run on an old file.
 - **SHACL is the closed-world gate**, but today only exercised against a
   sample or a `--limit`-bounded smoke run (FR-006) — the full, unsampled
   `data.ttl` is never `pyshacl`-checked directly; a violation outside the
@@ -528,9 +531,12 @@ There is no CD pipeline and no CI workflow for this repo
 
 ## 12. Dependencies & Integrations
 
-- **Upstream (data, unpinned)**: Wikipedia's "List of S&P 500 companies"
-  page, fetched live at ETL run time — no version/commit pin, no contract
-  beyond the table's current column layout (`etl.asset_master`).
+- **Upstream (data, read-only)**: `portfolio-data-mining`'s `universe.db`
+  (`SQL_UNIVERSE_DB`; SCD-2 `universe_membership`), read by `src/etl/` through
+  `portfolio_common.db` (`etl.asset_master`, FR-004). It is refreshed by hand
+  upstream (`universe-backfill`/`universe-snapshot`), so it can lag the index
+  (on 2026-10-05 it differed from Wikipedia's table by three companies each
+  way); there is no pinned schema beyond its column list.
 - **Upstream (data, read-only)**: `portfolio-nlp`'s RESULTS store
   (`article_sentiment`/`article_category`, `fetch_status = 'ok'`), read via
   `portfolio_common.news_export` — this repo pins no schema contract beyond
@@ -565,9 +571,9 @@ There is no CD pipeline and no CI workflow for this repo
   should not need it.
 - **No direct dependency on**: `portfolio-data-mining`'s pricing/EDGAR HTTP
   services (consumed by `portfolio-nlp` and `portfolio-financial-analysis`,
-  not here — §2.5). In the target state, the one direct
-  `portfolio-data-mining` artifact this repo needs is `universe.db` (above);
-  `urls.db` is the transitional read listed just above. `portfolio-financial-analysis` is a designed, not-yet-wired source
+  not here — §2.5). The one direct `portfolio-data-mining` artifact this repo
+  needs is `universe.db` (above); `urls.db` is the transitional read listed
+  just above. `portfolio-financial-analysis` is a designed, not-yet-wired source
   (§13 item 2), not a non-dependency.
 
 ## 13. Open Questions & Risks
@@ -732,7 +738,7 @@ of what this project is, not a gap someone forgot to close:
 |---|---|---|
 | 1 — integrative layer unbuilt (steps 1–2, query surface); compute steps owned upstream | **Pending development** (integrative layer only) | The actual backlog — `PLAN.md` Work items 3, 4, 6; Work items 5 and 7 are now scope-reassigned upstream (§2.5) |
 | 12 — FR-005 vs. the ETL's `body_text` read | **Resolved** (spec amended to match the code, 2026-10-05) | `PLAN.md` Work item 11, T-113 — done |
-| 10 — `kg_schema`/`schema/` vocabulary and semantic drift | **Pending development** | `PLAN.md` Work item 11 (decisions, T-100–T-112; dispositions recorded in §2.6) then Work item 4, T-030 |
+| 10 — `kg_schema`/`schema/` vocabulary and semantic drift | **Pending development** | `PLAN.md` Work item 11 (decisions closed 2026-10-05, T-100–T-113; dispositions in §2.6), then Work item 4, T-030 |
 | 11 — SEMANTIC score not computed here | **Ownership resolved; cut-over pending** (upstream aggregation + local replacement) | `PLAN.md` Work items 4–5 (reassigned), §2.5 |
 | 2 — no `v_*`-views projection | **Pending development** | Folded into `PLAN.md` Work item 4 (the real step-2 projection); today's `src/etl/` shortcut stays live until that lands |
 | 3 — roadmap names superseded repos | **Pending development** (cheap, no blockers) | `PLAN.md` Work item 1 |

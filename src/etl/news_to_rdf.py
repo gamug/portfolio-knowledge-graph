@@ -237,10 +237,10 @@ def _record_warnings(warnings: list[str], counts: _Counts, unresolved_tickers: s
     if counts.unresolved_ticker_rows:
         sample = ", ".join(sorted(unresolved_tickers)[:_MAX_UNRESOLVED_TICKERS_LOGGED])
         warnings.append(
-            f"news_to_rdf: {counts.unresolved_ticker_rows} article row(s) had a ticker not in the "
-            f"current S&P 500 list ({len(unresolved_tickers)} distinct, e.g. {sample}) -- "
+            f"news_to_rdf: {counts.unresolved_ticker_rows} article row(s) had a ticker with no "
+            f"membership in universe.db ({len(unresolved_tickers)} distinct, e.g. {sample}) -- "
             f"NewsArticle/ScoreSnapshot were still written, but scoreSnapshotOfAsset was left unset. "
-            f"Likely a historical ticker/constituent change since the article was published."
+            f"Either the symbol was never recorded in universe.db or it was renamed."
         )
     if counts.missing_date_rows:
         warnings.append(

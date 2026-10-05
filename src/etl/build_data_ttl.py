@@ -1,9 +1,10 @@
-"""Entry point: build ``data.ttl`` from Wikipedia + urls.db/nlp.db.
+"""Entry point: build ``data.ttl`` from universe.db + urls.db/nlp.db.
 
     python cli/build_data_ttl.py              # full run
     python cli/build_data_ttl.py --limit 500  # smoke test (caps news rows)
 
-Orchestrates :mod:`etl.asset_master` (Wikipedia -> ``:Asset``/``:classifiedAs``)
+Orchestrates :mod:`etl.asset_master` (universe.db -> ``:Asset``/``:classifiedAs``/
+``:UniverseMembership``)
 and :mod:`etl.news_to_rdf` (urls.db/nlp.db -> ``:NewsArticle``/``:ScoreSnapshot``/
 ``:RiskEvent``). Scope is news + company/sector structuring only; SEC EDGAR,
 pricing, executives, and the summary tables are out of scope for this phase
@@ -34,7 +35,8 @@ from etl import asset_master, config, news_to_rdf
 
 _PREFIXES = (
     "@prefix :      <https://thesis.local/kg/portfolio#> .\n"
-    "@prefix xsd:   <http://www.w3.org/2001/XMLSchema#> .\n\n"
+    "@prefix xsd:   <http://www.w3.org/2001/XMLSchema#> .\n"
+    "@prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .\n\n"
 )
 
 _HEADER_TEMPLATE = """# Portfolio Knowledge Graph -- data.ttl
@@ -60,8 +62,9 @@ _HEADER_TEMPLATE = """# Portfolio Knowledge Graph -- data.ttl
 #   - article_summary / sector_summary -- the "summary" feature
 #   - discovered_urls, article_entities, discovery_progress
 #   - Computed/orchestrator-layer classes (:Veto, :AttractivenessSnapshot,
-#     :Universe, :UniverseMembership, :Portfolio, :PortfolioPosition) -- these
-#     consume this ETL's output, they are not populated by it
+#     :Portfolio, :PortfolioPosition) -- these consume this ETL's output, they
+#     are not populated by it. (:Universe/:UniverseMembership ARE populated,
+#     from universe.db -- T-100.)
 #
 # Provisional formulas applied without calibration sign-off (etl/common/severity.py):
 #   G1 rawValue = clamp(positive - negative, -1, 1)
@@ -94,21 +97,24 @@ def reference_asset_tickers() -> set[str]:
 
 def generate(
     out_path: Path, news_limit: int | None = None, *, with_header: bool = True
-) -> tuple[set[str], dict[str, int], list[str]]:
-    """Write a Turtle dataset to ``out_path``. Returns ``(tickers, stats, warnings)``."""
+) -> tuple[asset_master.UniverseSummary, dict[str, int], list[str]]:
+    """Write a Turtle dataset to ``out_path``. Returns ``(universe, stats, warnings)``."""
     warnings: list[str] = []
-    sp500_rows = asset_master.fetch_sp500_rows(config.sp500_source_url())
+    universe_db = config.universe_db_path()
+    stints = asset_master.read_stints(universe_db, warnings)
     already_defined = reference_asset_tickers()
     with out_path.open("w", encoding="utf-8") as out:
         if with_header:
             _write_header(out)
         out.write(_PREFIXES)
-        known_tickers = asset_master.build_assets(sp500_rows, out, warnings, already_defined)
+        universe = asset_master.build_assets(
+            stints, out, warnings, already_defined, file_mtime=universe_db.stat().st_mtime
+        )
         db_paths = news_to_rdf.NewsDbPaths(
             source=config.urls_db_path(), results=config.results_db_path()
         )
-        stats = news_to_rdf.stream_news(db_paths, known_tickers, out, warnings, limit=news_limit)
-    return known_tickers, stats, warnings
+        stats = news_to_rdf.stream_news(db_paths, universe.tickers, out, warnings, limit=news_limit)
+    return universe, stats, warnings
 
 
 def _shacl_check(ttl_path: Path) -> None:
@@ -141,7 +147,9 @@ def _validate_sample() -> None:
 
 
 def _parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Build data.ttl from Wikipedia + urls.db.")
+    parser = argparse.ArgumentParser(
+        description="Build data.ttl from universe.db + urls.db/nlp.db."
+    )
     parser.add_argument(
         "--limit",
         type=int,
@@ -166,16 +174,22 @@ def main() -> None:
 
     t0 = time.time()
     print(
-        f"Fetching S&P 500 constituents and streaming {config.urls_db_path()} "
+        f"Reading {config.universe_db_path()} (universe) and streaming {config.urls_db_path()} "
         f"(SOURCE) + {config.results_db_path()} (RESULTS) ..."
     )
-    known_tickers, stats, warnings = generate(
-        out_path, news_limit=args.limit, with_header=not smoke
-    )
+    universe, stats, warnings = generate(out_path, news_limit=args.limit, with_header=not smoke)
     elapsed = time.time() - t0
 
     print(f"\n{out_path} written in {elapsed:.1f}s")
-    print(f"  Assets:         {len(known_tickers)}")
+    print(
+        f"  Assets:         {universe.assets_written} "
+        f"(+ {len(universe.tickers) - universe.assets_written} declared in reference.ttl)"
+    )
+    print(
+        f"  Memberships:    {universe.memberships} "
+        f"({universe.open_memberships} open, {universe.closed_memberships} closed)"
+    )
+    print(f"  {universe.freshness_line()}")
     print(f"  NewsArticles:   {stats['articles']}")
     print(f"  ScoreSnapshots: {stats['score_snapshots']}")
     print(f"  RiskEvents:     {stats['risk_events']}")

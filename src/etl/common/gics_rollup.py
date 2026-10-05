@@ -4,25 +4,25 @@ WHY THIS EXISTS (Gap G5): ``reference.ttl``'s 26 ``:Ind_*`` individuals sit at
 the GICS Industry-Group tier for every sector except Energy (which uses the
 Industry tier -- ``07-ontology-topology.md`` / ``reference.ttl``'s own comments
 flag this as a pre-existing inconsistency, not something this ETL invented or
-silently "fixed"). The Wikipedia S&P 500 table gives Sub-Industry (a finer
+silently "fixed"). `universe.db` (whose strings come from Wikipedia's S&P 500 table) gives Sub-Industry (a finer
 tier: ~127 distinct values currently in use), never Industry-Group directly.
 This table is the missing rollup, built from the public GICS classification
 structure and verified against every Sub-Industry string present in the live
-Wikipedia table as of 2026-08-26 -- not reconstructed from memory the way
+Wikipedia table as of 2026-08-26 (the strings `universe.db` carries) -- not reconstructed from memory the way
 ``reference.ttl``'s own taxonomy was.
 
-If Wikipedia's table ever adds a Sub-Industry not in this dict (a GICS revision,
+If `universe.db` ever carries a Sub-Industry not in this dict (a GICS revision,
 or a new constituent in a sub-industry not currently represented),
 :func:`lookup` returns ``None`` rather than guessing -- the caller skips
 ``classifiedAs`` for that Asset and logs it. ``classifiedAs`` is NOT
-SHACL-required (see ``AssetShape`` in ``shapes.ttl``: only
-``tickerSymbol``/``cikNumber`` are ``sh:minCount 1``), so an unmapped
+SHACL-required (see ``AssetShape`` in ``shapes.ttl``: only ``tickerSymbol``
+and, unless every membership is closed, ``cikNumber``), so an unmapped
 sub-industry degrades gracefully instead of blocking the whole batch.
 """
 
 from __future__ import annotations
 
-# Sub-Industry (Wikipedia's exact string) -> reference.ttl :Ind_* local name
+# Sub-Industry (the exact string `universe.db` carries) -> reference.ttl :Ind_* local name
 SUB_INDUSTRY_TO_INDUSTRY = {
     # --- Energy ---
     "Oil & Gas Equipment & Services": "Ind_EnergyEquipServices",
@@ -58,7 +58,7 @@ SUB_INDUSTRY_TO_INDUSTRY = {
     "Human Resource & Employment Services": "Ind_CommercialServices",
     "Research & Consulting Services": "Ind_CommercialServices",
     # Confirmed via the sector_matches() cross-check against the live Wikipedia row
-    # (ticker BR / Broadridge): this sub-industry's own GICS Sector is Industrials,
+    # (ticker BR / Broadridge, as `universe.db` carries it): this sub-industry's own GICS Sector is Industrials,
     # not Information Technology -- corrected from an initial IT-sector guess.
     "Data Processing & Outsourced Services": "Ind_CommercialServices",
     # --- Industrials: Transportation ---
@@ -182,7 +182,7 @@ SUB_INDUSTRY_TO_INDUSTRY = {
 }
 
 # reference.ttl :Ind_* local name -> reference.ttl :Sec_* local name, used
-# only as a runtime cross-check against the Wikipedia row's own GICS Sector
+# only as a runtime cross-check against the stint's own GICS Sector
 # column (defense against a mapping typo above, not load-bearing logic).
 INDUSTRY_TO_SECTOR = {
     "Ind_EnergyEquipServices": "Sec_Energy",
@@ -213,7 +213,7 @@ INDUSTRY_TO_SECTOR = {
     "Ind_RealEstateMgmtDev": "Sec_RealEstate",
 }
 
-# Wikipedia's "GICS Sector" column string -> reference.ttl :Sec_* local name
+# `universe.db`'s `gics_sector` string (Wikipedia's "GICS Sector" column) -> reference.ttl :Sec_* local name
 # (verified identical to articles.gics_sector strings in urls.db too).
 SECTOR_LOCAL_NAME = {
     "Energy": "Sec_Energy",
@@ -235,7 +235,7 @@ def lookup(sub_industry: str) -> str | None:
     return SUB_INDUSTRY_TO_INDUSTRY.get(sub_industry)
 
 
-def sector_matches(industry_local: str, wikipedia_sector: str) -> bool:
+def sector_matches(industry_local: str, sector: str) -> bool:
     """Cross-check a rolled-up Industry against the row's own GICS Sector column."""
-    expected_sector = SECTOR_LOCAL_NAME.get(wikipedia_sector)
+    expected_sector = SECTOR_LOCAL_NAME.get(sector)
     return INDUSTRY_TO_SECTOR.get(industry_local) == expected_sector

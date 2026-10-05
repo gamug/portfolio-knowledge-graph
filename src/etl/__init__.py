@@ -1,7 +1,7 @@
 """KG-population ETL for the portfolio knowledge graph.
 
 Turns the external ``news-collector``/``news-crawler`` SQLite database
-(``urls.db``) plus the live Wikipedia S&P 500 constituent table into a flat
+(``urls.db``) plus ``portfolio-data-mining``'s point-in-time ``universe.db`` into a flat
 Turtle ``data.ttl`` that loads on top of this repo's ``schema/`` files
 (``tbox.ttl`` -> ``shapes.ttl`` -> ``reference.ttl`` -> ``rules.ttl`` ->
 ``data.ttl``).

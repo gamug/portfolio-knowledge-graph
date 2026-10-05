@@ -177,7 +177,9 @@
     sh:targetClass :UniverseMembership ;
     sh:property [ sh:path :membershipAsset ; sh:minCount 1 ; sh:maxCount 1 ] ;
     sh:property [ sh:path :membershipUniverse ; sh:minCount 1 ; sh:maxCount 1 ] ;
-    sh:property [ sh:path :validFrom ; sh:datatype xsd:date ; sh:minCount 1 ; sh:maxCount 1 ] .
+    sh:property [ sh:path :validFrom ; sh:datatype xsd:date ; sh:minCount 1 ; sh:maxCount 1 ; sh:lessThan :validTo ] ;
+    # T-100: validTo is exclusive, so a stint with validTo <= validFrom would hold on no date.
+    sh:property [ sh:path :validTo ; sh:datatype xsd:date ; sh:maxCount 1 ] .
 
 :PortfolioPositionShape
     a sh:NodeShape ;
@@ -196,7 +198,15 @@
     a sh:NodeShape ;
     sh:targetClass :Asset ;
     sh:property [ sh:path :tickerSymbol ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ] ;
-    sh:property [ sh:path :cikNumber ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ] .
+    sh:property [ sh:path :cikNumber ; sh:datatype xsd:string ; sh:maxCount 1 ] ;
+    # T-100 (D1): upstream's universe.db has no CIK for a company that has left the index. cikNumber is therefore
+    # required unless the Asset has at least one UniverseMembership and EVERY one of them is closed (has a validTo):
+    # a current (open-membership) Asset without a CIK still fails.
+    sh:or (
+        [ sh:path :cikNumber ; sh:minCount 1 ]
+        [ sh:path :hasUniverseMembership ; sh:minCount 1 ;
+          sh:node [ sh:property [ sh:path :validTo ; sh:minCount 1 ] ] ]
+    ) .
 
 :SectorAggregateSnapshotShape
     a sh:NodeShape ;
