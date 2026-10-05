@@ -101,7 +101,7 @@ above (`08-agent-architecture.md`, designed but unbuilt — roadmap steps 1 and
   6 active upstream veto rules as single-leaf `RuleDefinition`s, the 7 original tree rules kept
   closed with `validTo`, + `AttractivenessWeightScheme`),
   `instances.trig` (a 15-named-graph worked-example ABox) — roadmap step 0,
-  done and verified (**2352 quads, `pyshacl conforms: True**).
+  done and verified (**2366 quads, `pyshacl conforms: True**).
 - The five numbered architecture/spec docs (`06`–`10`) plus
   `critique-and-evolution.md` as the traceability anchor every class/
   property/graph-placement decision elsewhere cites back to.
@@ -156,7 +156,7 @@ above (`08-agent-architecture.md`, designed but unbuilt — roadmap steps 1 and
 
 | ID | Requirement | Acceptance criteria |
 |---|---|---|
-| **FR-001** | The `tbox.ttl`/`shapes.ttl`/`reference.ttl`/`rules.ttl`/`instances.trig` bundle parses as a single `rdflib.Dataset` in the documented load order and `pyshacl`-conforms against `shapes.ttl`. | The `schema/README.md` parse script reports `quads: 2352`; a `pyshacl.validate` run over the same combined graph reports `conforms: True` — both required after any schema edit. |
+| **FR-001** | The `tbox.ttl`/`shapes.ttl`/`reference.ttl`/`rules.ttl`/`instances.trig` bundle parses as a single `rdflib.Dataset` in the documented load order and `pyshacl`-conforms against `shapes.ttl`. | The `schema/README.md` parse script reports `quads: 2366`; a `pyshacl.validate` run over the same combined graph reports `conforms: True` — both required after any schema edit. |
 | **FR-002** | Every domain class in `tbox.ttl` that is not a shared-property superclass (`ObservationSnapshot`/`EvidenceSource`/`RuleOperand`) belongs to exactly one `AllDisjointClasses` set and reaches at least one of the 6 taxonomy roots via `rdfs:subClassOf`. | `tbox.ttl`'s `AllDisjointClasses` block lists exactly 25 leaf classes; a taxonomy audit (cycle/orphan/multi-parent detection over the `subClassOf` graph) reports 0 cycles, 0 self-loops, all 38 classes reaching a root, exactly 3 legitimately multi-parented classes (`schema/README.md`'s implementation addendum). |
 | **FR-003** | Every `RuleDefinition` in `rules.ttl` expresses its veto condition as an explicit `RuleClause` tree (`AND`/`OR` of `ThresholdComparison`/`CategoricalComparison`/`GraphPredicate` leaves), never as an infix boolean string. | No `RuleDefinition` in `rules.ttl` carries a rule condition as a literal string to be re-parsed; every `hasClause` path terminates in one of the three documented leaf operand kinds. A single leaf (upstream's six rules, T-103) is a valid tree. |
 | **FR-004** | `cli/build_data_ttl.py` projects the Wikipedia S&P 500 table into `:Asset`/`:classifiedAs` individuals, skipping any ticker `reference.ttl` already declares as an `:Asset` (so `cikNumber` never collides under the functional-property `sh:maxCount 1` contract). | A full run's known-ticker count equals the fetched Wikipedia row count minus `reference.ttl`'s worked-example tickers; none of those tickers appear as a second `:Asset` declaration in `data.ttl`. |
@@ -229,8 +229,8 @@ designed. Sources: those repos' `.specify/memory/SPEC.md`, `docs/*.md`,
 `src/kg_schema/{views,ddl,migrations}.py`, `src/cycle/rules/builtin.py`
 (read in a shallow clone; **nothing was executed**, so every row is a
 documentation/code-reading claim, not a runtime-verified one). Each row
-names the decision it forces; none is decided here — they are PLAN Work item
-11's backlog.
+names the decision it forces; the decisions were PLAN Work item 11's backlog
+and their dispositions are in the table after the register (T-112).
 
 | # | Upstream fact | This repo today | Why it matters / decision forced |
 |---|---|---|---|
@@ -250,6 +250,33 @@ names the decision it forces; none is decided here — they are PLAN Work item
 | D14 | **SEMANTIC is still unbuilt on both sides, and wrongly attributed to this repo.** `portfolio-nlp` has no per-`(asset, day)` stage and no `as_of`; `financial-analysis` has no `KG_NLP_DB` reader (its `cycle` `semantic_read` step is a no-op "noting the aggregation runs in the integration repo"); its `README.md`/`docs/README.md` still name this repo as the SEMANTIC writer. Their rollout step 4 asks **this repo** to remove its SEMANTIC write path, add a `score_method` discriminator, and update docs. This repo's ETL emits Turtle only and never wrote to `SQL_FINANCIAL_DB`, so there is no write-back *code* to remove. | `src/etl/` emits per-article Sentiment `ScoreSnapshot`s (agentOrigin `SEMANTIC`). | The stale attribution is upstream docs. **Done (T-111, 2026-10-05):** optional open-vocabulary `:scoreMethod` on `ScoreSnapshot` (SHACL `maxCount 1`); every SEMANTIC snapshot carries one (the ETL's per-article rows `ARTICLE_SENTIMENT`; the worked per-`(asset, day)` rows the placeholder `ASSET_DAY_AGGREGATE` until upstream names its value). Nothing to remove in code. The wording fix upstream asks for is in their docs, not ours. |
 | D15 | **Two access paths, one sufficient.** SQLite views over `SQL_FINANCIAL_DB` (opened `mode=ro`; a view whose base table is absent is dropped, so a partial DB has *missing views*, not errors) or the HTTP `api/` — which serves only `/runs`, `/universe`, `/universe/coverage`, `/scores`, `/portfolio/positions`, `/portfolio/ranking`. | Unread. | The API cannot feed the projection (no vetoes, filings, sections, rules, DQ, quant); read SQLite via `portfolio_common.db` (`read_only`), not raw `sqlite3` (NR-002). |
 | D16 | **Contracts still moving.** Upstream open items that change view contents: cross-module orchestrator (WI 2), SEMANTIC half (WI 4), technical/valorization redesign + EBITDA + forensic flags + Carhart (WI 8), entity-resolution sanitization and `media_cooccurrence` routing (WI 9), N-driven weight caps (WI 18), full-universe production run (WI 12). Also: `portfolio-common` is pinned `v1.2.1` in both `financial-analysis` and `data-mining` but `v1.2.0` here and in `portfolio-nlp` (at the time of the rescan; this repo moved to `v1.2.1` in T-110). | Pinned `v1.2.0` at the rescan. | Treat the views as a versioned contract: assert `schema_version` >= 9 (T-109); re-pinned to `v1.2.1` (T-110, additive diff). |
+
+**Dispositions (T-112, 2026-10-05).** One label per row: **adopted** (upstream's
+model taken as is), **translated** (kept in this ontology's own form, mapped on
+projection), **rejected** (deliberately not projected), **raised upstream**
+(needs an answer or a change in another repo). "Raised upstream" items are
+written up in `missing_views.md` (repository root, untracked, shared out of
+band); none has been answered yet. A row may have a second label for a part it
+leaves open.
+
+| # | Disposition | What was done | Still open |
+|---|---|---|---|
+| D1 | Adopted | `universe.db` as-of reads replace the live-Wikipedia asset master. | Implementation: T-100 (ETL not changed yet). |
+| D2 | Adopted | `availableAt` (required) / `eventTime` on `ScoreSnapshot` (T-101). | — |
+| D3 | Adopted | Veto stints `raisedOn`/`clearedOn`/`lastSeenOn`, active-at-cutoff SPARQL (T-102). | — |
+| D4 | Adopted | Upstream's six rules are the catalog, written as single-leaf `RuleDefinition`s; the seven tree rules closed with `validTo` (T-103). | — |
+| D5 | Adopted | `:DataQualityIssue` as an `EvidenceSource` leaf (T-104). | — |
+| D6 | Adopted | `agentOrigin` `VALORIZATION` (T-105); metric id `ScoreCuantitativo` kept (no upstream id exists, T-109). | — |
+| D7 | Translated; extras rejected | Optional `runId`/`runAsOf`/`codeVersion`/`engineVersion`, no `Run` class (T-106); `forensic_flags_json`/`prompt_hash`/`correction_rule` not projected. | — |
+| D8 | Translated; raised upstream | Filter `v_cycle_ranking` by `cycle_run_id`/`cycle_date`, exclude `REPLAY`, production DB only (T-109). | Docstring/SQL mismatch and a replay flag (`missing_views.md` §2.1, §2.3). |
+| D9 | Adopted; raised upstream | No scheduler here; `portfolio-app` triggers the cycles (maintainer, 2026-10-02). | Run-trigger endpoint and `portfolio-reports` wording: T-120 (`missing_views.md` §4). |
+| D10 | Translated; raised upstream | Reified `:AssetCoOccurrence`; `:sharedExecutiveWith` kept for verified edges (T-107). | `MEDIA` kind waits for a `media_cooccurrence` view (`missing_views.md` §1). |
+| D11 | Translated; rest rejected | Only view-exposed finished numbers: BENCHMARK `Portfolio`s, positions, `BenchmarkObservation`s (T-108, T-109). Return series, μ, Σ, frontier points rejected (NR-003). | Confirm the `live_book` reading and the `equal_weight`/`cap_weight` names (`missing_views.md` §3). |
+| D12 | Rejected for now; raised upstream | Vetoes projected as outcomes with evidence; upstream's rules are not re-evaluated in the graph. | Views for `fundamental_metrics`, market cap, forensic flags, `prompt_hash` (`missing_views.md` §1). |
+| D13 | Translated; raised upstream | Mapping checked against `v_weight_scheme`/`v_weight_component` (T-109). | Schema work: T-121. Confirm `score_weights` contents (`missing_views.md` §2.4). |
+| D14 | Adopted; raised upstream | `:scoreMethod` discriminator; no write-back code existed to remove (T-111). | Upstream's method value (replaces `ASSET_DAY_AGGREGATE`) and its stale docs (`missing_views.md` §5). |
+| D15 | Adopted | Read the SQLite `v_*` views via `portfolio_common.db` read-only; the HTTP `api/` is not a source. | Implementation: Work item 4's projector. |
+| D16 | Adopted | `schema_version` floor 9 (T-109); `portfolio-common` re-pinned to `v1.2.1` (T-110). | Assert the floor in the future projector; `portfolio-nlp`'s pin is upstream's (`missing_views.md` §5). |
 
 ## 3. Technology Stack & Architecture Decisions
 
@@ -297,7 +324,7 @@ re-litigated without a constitution amendment:
 
 ```mermaid
 flowchart TB
-    SCHEMA["schema/ -- step 0, DONE<br/>tbox+shapes+reference+rules+instances<br/>2352 quads * pyshacl conforms"]
+    SCHEMA["schema/ -- step 0, DONE<br/>tbox+shapes+reference+rules+instances<br/>2366 quads * pyshacl conforms"]
     STORE["triple store -- step 1<br/>GraphDB / Fuseki<br/>NOT STOOD UP"]
     GRAPHS["named graphs -- step 1<br/>static: tbox/reference/rules<br/>ingest:{agent}:{date} * portfolio:current<br/>NOT STOOD UP"]
     GATE["SHACL ingest gate -- step 2<br/>pyshacl<br/>NOT BUILT"]
@@ -368,7 +395,7 @@ the shape or a normalization step is agreed.
 **Schema validation** (`schema/README.md`, run from inside `schema/`):
 
 1. Parse `tbox.ttl → shapes.ttl → reference.ttl → rules.ttl` then
-   `instances.trig` into one `rdflib.Dataset`; assert `quads: 2352`.
+   `instances.trig` into one `rdflib.Dataset`; assert `quads: 2366`.
 2. `pyshacl.validate` the same combined graph against `shapes.ttl`; assert
    `conforms: True`.
 3. Run after **every** schema edit — `tbox.ttl`'s `AllDisjointClasses` block

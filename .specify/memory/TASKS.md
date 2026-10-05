@@ -150,10 +150,14 @@ decisions (T-100–T-104).*
       "KG writes SEMANTIC" text is in upstream's `README.md`,
       `docs/README.md` and `docs/kg_schema.md`: not ours to edit, listed in
       the next upstream note.
-- [ ] **T-112** Record each D1–D16 disposition (adopted / translated /
+- [x] **T-112** Record each D1–D16 disposition (adopted / translated /
       rejected / raised upstream) in `SPEC.md` §2.6; re-run FR-001 and update
       `schema/README.md` counts if `schema/` changed. → `PLAN.md` acceptance
-      criteria.
+      criteria. **Done 2026-10-05:** disposition table after the §2.6
+      register; FR-001 re-run (2366 quads, conforms: True; `schema/README.md`
+      already had it from T-111), and the stale 2352 in `SPEC.md` (§2.1, FR-001,
+      §4 diagram, §6) and the root `README.md` updated. Open parts stay with
+      T-100, T-120, T-121 and the unsent `missing_views.md`.
 - [ ] **T-113** *(found while handling review on PR #22)* Reconcile FR-005
       with the code: `src/etl/news_to_rdf.py` reads SOURCE `urls.db`
       `body_text` (via `news_export`) for `compute_severity`'s hard-trigger
