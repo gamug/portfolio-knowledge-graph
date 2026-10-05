@@ -140,9 +140,16 @@ decisions (T-100–T-104).*
       and `news_export` is untouched; `uv sync` OK, imports of `Row`/
       `connect_readonly`/`fetch_processed_articles` OK. Only `portfolio-nlp`
       stays on `v1.2.0` (upstream's call).
-- [ ] **T-111** *(D14)* Add a `score_method` discriminator for SEMANTIC and
+- [x] **T-111** *(D14)* Add a `score_method` discriminator for SEMANTIC and
       correct the wording upstream still attributes to this repo (their
       rollout step 4); no write-back code exists here to remove. → step 6.
+      **Done 2026-10-05:** optional open-vocabulary `:scoreMethod` on
+      `ScoreSnapshot` (`tbox.ttl`, `ScoreSnapshotShape`); `src/etl/` emits
+      `ARTICLE_SENTIMENT`, the worked asset-day snapshots carry the
+      placeholder `ASSET_DAY_AGGREGATE`; D14 and `schema/README.md` updated. The stale
+      "KG writes SEMANTIC" text is in upstream's `README.md`,
+      `docs/README.md` and `docs/kg_schema.md`: not ours to edit, listed in
+      the next upstream note.
 - [ ] **T-112** Record each D1–D16 disposition (adopted / translated /
       rejected / raised upstream) in `SPEC.md` §2.6; re-run FR-001 and update
       `schema/README.md` counts if `schema/` changed. → `PLAN.md` acceptance

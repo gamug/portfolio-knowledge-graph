@@ -13,8 +13,9 @@ to depend on and ``portfolio-common`` shipped no shared alternative -- see
 resolved. Writes:
 
 * ``:NewsArticle``   -- ``provenanceId``, ``publishedDate``
-* ``:ScoreSnapshot`` -- ``agentOrigin = "SEMANTIC"``, ``metricType = "Sentiment"``, ``rawValue``,
-  ``timestamp``, ``eventTime`` (article day), ``availableAt`` (day the score existed; T-101)
+* ``:ScoreSnapshot`` -- ``agentOrigin = "SEMANTIC"``, ``metricType = "Sentiment"``,
+  ``scoreMethod = "ARTICLE_SENTIMENT"`` (T-111), ``rawValue``, ``timestamp``,
+  ``eventTime`` (article day), ``availableAt`` (day the score existed; T-101)
 * ``:RiskEvent``     -- ``category``, ``severity``, ``detectedAt``, ``backedBy`` (gated)
 
 Explicitly NOT read/written this phase:
@@ -140,6 +141,7 @@ def _write_score_snapshot(
     out_fh.write(f":SentSnap_{art.id}\n    a :ScoreSnapshot ;\n")
     out_fh.write('    :agentOrigin "SEMANTIC" ;\n')
     out_fh.write('    :metricType "Sentiment" ;\n')
+    out_fh.write('    :scoreMethod "ARTICLE_SENTIMENT" ;\n')
     out_fh.write(f"    :rawValue {decimal_lit(raw_value)} ;\n")
     out_fh.write(f"    :timestamp {datetime_lit(art.sent_processed_at)} ;\n")
     # T-101 two-clock guard: eventTime = the article day; availableAt = the day the score

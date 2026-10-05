@@ -450,7 +450,7 @@ decision may be "keep ours, translate on projection"):
 6. Read-contract gaps and moving parts (D8, D12, D13, D15, D16): list for
    upstream, assert `schema_version`, reconcile the `portfolio-common` pin
    (T-109, T-110, both done 2026-10-05; the D13 schema work moved to T-121 and the upstream note is `missing_views.md`, both in Work item 12); SEMANTIC `score_method` discriminator and wording (D14,
-   T-111).
+   T-111, done 2026-10-05: `:scoreMethod`).
 
 **Acceptance criteria**:
 
