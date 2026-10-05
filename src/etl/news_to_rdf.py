@@ -14,7 +14,8 @@ resolved. Writes:
 
 * ``:NewsArticle``   -- ``provenanceId``, ``publishedDate``
 * ``:ScoreSnapshot`` -- ``agentOrigin = "SEMANTIC"``, ``metricType = "Sentiment"``,
-  ``scoreMethod = "ARTICLE_SENTIMENT"`` (T-111), ``rawValue``, ``timestamp``, ``eventTime`` (article day), ``availableAt`` (day the score existed; T-101)
+  ``scoreMethod = "ARTICLE_SENTIMENT"`` (T-111), ``rawValue``, ``timestamp``,
+  ``eventTime`` (article day), ``availableAt`` (day the score existed; T-101)
 * ``:RiskEvent``     -- ``category``, ``severity``, ``detectedAt``, ``backedBy`` (gated)
 
 Explicitly NOT read/written this phase:

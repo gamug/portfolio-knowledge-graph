@@ -158,22 +158,25 @@ GRAPH <urn:graph:ingest:TECHNICAL:2026-08-05> {
         :observationDate "2026-08-05"^^xsd:date ; :closePrice "108.42"^^xsd:decimal ; :dailyReturnPct "-0.6"^^xsd:decimal ; :atr14 "1.9"^^xsd:decimal .
 }
 
+# T-111 (D14): these five are per-(asset, day) SEMANTIC scores (the shape upstream will materialize),
+# so they carry a scoreMethod. "ASSET_DAY_AGGREGATE" is an ILLUSTRATIVE placeholder until upstream
+# names its value; src/etl/'s per-article rows carry "ARTICLE_SENTIMENT".
 GRAPH <urn:graph:ingest:SEMANTIC:2026-08-05> {
-    :Snap_AAPL_Sent_20260805 a :ScoreSnapshot ; :agentOrigin "SEMANTIC" ; :metricType "Sentiment" ;
+    :Snap_AAPL_Sent_20260805 a :ScoreSnapshot ; :agentOrigin "SEMANTIC" ; :metricType "Sentiment" ; :scoreMethod "ASSET_DAY_AGGREGATE" ;
         :rawValue "-0.65"^^xsd:decimal ; :normalizedScore "0.83"^^xsd:decimal ; :timestamp "2026-08-05T09:00:00"^^xsd:dateTime ;
         :eventTime "2026-08-05"^^xsd:date ; :availableAt "2026-08-05"^^xsd:date ;
         rdfs:comment "rawValue -0.65 < VETO_COMP_01's -0.60 threshold -- compared via rawValue, not normalizedScore (see file header note)." .
-    :Snap_JPM_Sent_20260805 a :ScoreSnapshot ; :agentOrigin "SEMANTIC" ; :metricType "Sentiment" ;
+    :Snap_JPM_Sent_20260805 a :ScoreSnapshot ; :agentOrigin "SEMANTIC" ; :metricType "Sentiment" ; :scoreMethod "ASSET_DAY_AGGREGATE" ;
         :rawValue "-0.55"^^xsd:decimal ; :normalizedScore "0.75"^^xsd:decimal ; :timestamp "2026-08-05T09:00:00"^^xsd:dateTime ;
         :eventTime "2026-08-05"^^xsd:date ; :availableAt "2026-08-05"^^xsd:date ;
         rdfs:comment "rawValue -0.55 < VETO_RED_01's -0.50 threshold -- the OR-branch signal that lets contagion fire for JPM below." .
-    :Snap_XOM_Sent_20260805 a :ScoreSnapshot ; :agentOrigin "SEMANTIC" ; :metricType "Sentiment" ;
+    :Snap_XOM_Sent_20260805 a :ScoreSnapshot ; :agentOrigin "SEMANTIC" ; :metricType "Sentiment" ; :scoreMethod "ASSET_DAY_AGGREGATE" ;
         :rawValue "-0.10"^^xsd:decimal ; :normalizedScore "0.20"^^xsd:decimal ; :timestamp "2026-08-05T09:00:00"^^xsd:dateTime ;
         :eventTime "2026-08-05"^^xsd:date ; :availableAt "2026-08-05"^^xsd:date .
-    :Snap_JNJ_Sent_20260805 a :ScoreSnapshot ; :agentOrigin "SEMANTIC" ; :metricType "Sentiment" ;
+    :Snap_JNJ_Sent_20260805 a :ScoreSnapshot ; :agentOrigin "SEMANTIC" ; :metricType "Sentiment" ; :scoreMethod "ASSET_DAY_AGGREGATE" ;
         :rawValue "0.05"^^xsd:decimal ; :normalizedScore "0.10"^^xsd:decimal ; :timestamp "2026-08-05T09:00:00"^^xsd:dateTime ;
         :eventTime "2026-08-05"^^xsd:date ; :availableAt "2026-08-05"^^xsd:date .
-    :Snap_PG_Sent_20260805 a :ScoreSnapshot ; :agentOrigin "SEMANTIC" ; :metricType "Sentiment" ;
+    :Snap_PG_Sent_20260805 a :ScoreSnapshot ; :agentOrigin "SEMANTIC" ; :metricType "Sentiment" ; :scoreMethod "ASSET_DAY_AGGREGATE" ;
         :rawValue "0.10"^^xsd:decimal ; :normalizedScore "0.08"^^xsd:decimal ; :timestamp "2026-08-05T09:00:00"^^xsd:dateTime ;
         :eventTime "2026-08-05"^^xsd:date ; :availableAt "2026-08-05"^^xsd:date .
 

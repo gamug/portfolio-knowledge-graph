@@ -145,7 +145,8 @@ decisions (T-100–T-104).*
       rollout step 4); no write-back code exists here to remove. → step 6.
       **Done 2026-10-05:** optional open-vocabulary `:scoreMethod` on
       `ScoreSnapshot` (`tbox.ttl`, `ScoreSnapshotShape`); `src/etl/` emits
-      `ARTICLE_SENTIMENT`; D14 and `schema/README.md` updated. The stale
+      `ARTICLE_SENTIMENT`, the worked asset-day snapshots carry the
+      placeholder `ASSET_DAY_AGGREGATE`; D14 and `schema/README.md` updated. The stale
       "KG writes SEMANTIC" text is in upstream's `README.md`,
       `docs/README.md` and `docs/kg_schema.md`: not ours to edit, listed in
       the next upstream note.
