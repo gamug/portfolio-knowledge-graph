@@ -251,13 +251,13 @@ and their dispositions are in the table after the register (T-112).
 | D15 | **Two access paths, one sufficient.** SQLite views over `SQL_FINANCIAL_DB` (opened `mode=ro`; a view whose base table is absent is dropped, so a partial DB has *missing views*, not errors) or the HTTP `api/` — which serves only `/runs`, `/universe`, `/universe/coverage`, `/scores`, `/portfolio/positions`, `/portfolio/ranking`. | Unread. | The API cannot feed the projection (no vetoes, filings, sections, rules, DQ, quant); read SQLite via `portfolio_common.db` (`read_only`), not raw `sqlite3` (NR-002). |
 | D16 | **Contracts still moving.** Upstream open items that change view contents: cross-module orchestrator (WI 2), SEMANTIC half (WI 4), technical/valorization redesign + EBITDA + forensic flags + Carhart (WI 8), entity-resolution sanitization and `media_cooccurrence` routing (WI 9), N-driven weight caps (WI 18), full-universe production run (WI 12). Also: `portfolio-common` is pinned `v1.2.1` in both `financial-analysis` and `data-mining` but `v1.2.0` here and in `portfolio-nlp` (at the time of the rescan; this repo moved to `v1.2.1` in T-110). | Pinned `v1.2.0` at the rescan. | Treat the views as a versioned contract: assert `schema_version` >= 9 (T-109); re-pinned to `v1.2.1` (T-110, additive diff). |
 
-**Dispositions (T-112, 2026-10-05).** One label per row: **adopted** (upstream's
+**Dispositions (T-112, 2026-10-05).** Each row has a main label: **adopted** (upstream's
 model taken as is), **translated** (kept in this ontology's own form, mapped on
 projection), **rejected** (deliberately not projected), **raised upstream**
 (needs an answer or a change in another repo; none has been answered yet).
-**Proposed** means no decision is recorded yet. A row may have a second label
-for a part it leaves open; "raised upstream" appears whenever an open part
-waits on another repo.
+**Proposed** means no decision is recorded yet. A row adds a second (or
+third) label for a part it leaves open; "raised upstream" appears whenever an
+open part waits on another repo.
 
 | # | Disposition | What was done | Still open |
 |---|---|---|---|

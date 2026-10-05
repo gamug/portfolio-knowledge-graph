@@ -455,7 +455,7 @@ decision may be "keep ours, translate on projection"):
 **Acceptance criteria**:
 
 - Each of D1–D16 has a recorded disposition (adopted / translated /
-  rejected / raised upstream) in `SPEC.md` §2.6. **Met (T-112, 2026-10-05); D1 is recorded as *Proposed* until T-100 decides it.**
+  rejected / raised upstream) in `SPEC.md` §2.6. **Met for D2–D16 (T-112, 2026-10-05); D1 open until T-100 decides it.**
 - Where a decision changes `schema/`, the FR-001 parse + `pyshacl` check
   passes and `schema/README.md`'s counts are updated (NR-001).
 - No Work item 4 task starts before this one's items 1–4 are decided.

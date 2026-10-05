@@ -85,7 +85,8 @@ decisions (T-100–T-104).*
 *Decisions first; Work item 4 is gated on T-100–T-104. D-numbers refer to
 `SPEC.md` §2.6.*
 
-- [ ] **T-100** *(D1)* Replace the ETL's live-Wikipedia asset master
+- [ ] **T-100** *(D1)* *Decide D1 first (Proposed in `SPEC.md` §2.6), then:*
+      replace the ETL's live-Wikipedia asset master
       (FR-004) with `universe.db` as-of reads (`SQL_UNIVERSE_DB`, read-only via
       `portfolio_common.db`), emitting `:Asset` + `:UniverseMembership`
       (`validFrom`/`validTo`); document the stale-between-snapshots risk and
