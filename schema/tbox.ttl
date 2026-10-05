@@ -416,7 +416,7 @@
 # On stint / valid-time individuals (Veto, PortfolioPosition) later cycles append to the SAME individual, so these four record only the run that OPENED
 # the record (raised it / validFrom); later cycles must not re-emit them (maxCount 1 / FunctionalProperty would break) and the closing run is not recorded.
 :runId a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:range xsd:string ;
-    rdfs:comment "T-106 (D7): upstream run_id of the analysis/pricing/cycle run that wrote the row. Joins to the v_analysis_run / v_pricing_run / v_cycle_run log (params, dirty-tree reason) which stays upstream; no Run class is modelled." .
+    rdfs:comment "T-106 (D7): upstream run_id of the analysis/pricing/quant/cycle run that wrote the row. Upstream's run_id is an INTEGER numbered separately in each run table (analysis_run, pricing_run, quant_run, cycle_run), so a bare number is ambiguous: write it as '<run table>:<id>' (e.g. cycle_run:42; T-109). Joins to the v_analysis_run / v_pricing_run / v_cycle_run log (params, dirty-tree reason) which stays upstream; no Run class is modelled." .
 :runAsOf a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:range xsd:date ;
     rdfs:comment "T-106 (D7): the run log's as_of (the date the run was evaluated for). NOT a read filter -- as-of reads use availableAt (T-101). Emit it only where it can differ from eventTime (FUNDAMENTAL, backfill replays); for cycle types it equals eventTime." .
 :codeVersion a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:range xsd:string ;
@@ -431,13 +431,13 @@
 :coOccurrenceAsset a owl:ObjectProperty ; rdfs:domain :AssetCoOccurrence ; rdfs:range :Asset ;
     rdfs:comment "The two assets linked (SHACL: exactly 2). Unordered, so no direction is implied." .
 :coOccurrenceKind a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :AssetCoOccurrence ; rdfs:range xsd:string ;
-    rdfs:comment "SHARED_EXECUTIVE_CANDIDATE (upstream shared_executive_edge). The MEDIA kind for media_cooccurrence (non-executive; table unpopulated until upstream's T-082, endpoints unknown) is deliberately NOT enumerated yet: add it, and its own shape rules, once the columns are known (T-109)." .
+    rdfs:comment "SHARED_EXECUTIVE_CANDIDATE (upstream shared_executive_edge). The MEDIA kind for media_cooccurrence (non-executive; table unpopulated until upstream's T-082, endpoints unknown) is deliberately NOT enumerated yet: add it, and its own shape rules, once the columns are known; as of T-109 there is no v_* view for media_cooccurrence at all." .
 :coOccurrenceMethod a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :AssetCoOccurrence ; rdfs:range xsd:string ;
     rdfs:comment "Upstream method id, e.g. news-per-cooccurrence-v1. Upstream recomputes per method, so different methods are different individuals; readers must filter on it." .
 :coOccurrenceWeight a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :AssetCoOccurrence ; rdfs:range xsd:decimal ;
     rdfs:comment "Upstream's edge weight, in the method's own unit (not normalized, not comparable across methods). Upstream emits no separate confidence; none is invented here." .
 :coOccurrenceComputedOn a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :AssetCoOccurrence ; rdfs:range xsd:date ;
-    rdfs:comment "Optional date the edge set was computed (not confirmed to be exposed by upstream's v_shared_executive_edge, T-109; runAsOf/runId can carry it). The individual is immutable and a recompute is a new individual in a new dated graph." .
+    rdfs:comment "Optional date the edge set was computed (upstream's v_shared_executive_edge has no computed-at column, only first_seen/last_seen, T-109; runAsOf/runId can carry it). The individual is immutable and a recompute is a new individual in a new dated graph." .
 
 # --- DataQualityIssue (T-104) ---
 :dqIssueOfAsset a owl:ObjectProperty, owl:FunctionalProperty ; rdfs:domain :DataQualityIssue ; rdfs:range :Asset .
@@ -512,22 +512,26 @@
 # T-108 (D11): benchmark books are Portfolios too; their weights are ordinary PortfolioPositions. A book has ONE stable IRI keyed on upstream's portfolio id
 # (like the live book); a later quant run closes superseded weights by validTo on the old PortfolioPosition and opens new ones, it does not mint a new Portfolio.
 :portfolioKind a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :Portfolio ; rdfs:range xsd:string ;
-    rdfs:comment "LIVE | BENCHMARK, required. Set by which upstream view the book was read from, a fixed mapping and not a judgement: LIVE for the book built from v_portfolio_position (the cycle's selected book), BENCHMARK for books from v_quant_portfolio. The projection writes it explicitly; nothing relies on absence." .
+    rdfs:comment "LIVE | BENCHMARK, required. Set by which upstream view the book was read from, a fixed mapping and not a judgement: LIVE for the book built from v_portfolio_position (the cycle's selected book), BENCHMARK for optimizer books from v_quant_portfolio. v_quant_portfolio also holds kind='live_book' rows (upstream's snapshot of the live book, taken to measure its return): those are NOT projected as a Portfolio (that would duplicate the live holdings under a BENCHMARK label); their performance numbers attach to the LIVE Portfolio through quantPortfolio (T-109 review). The projection writes the label explicitly; nothing relies on absence." .
 :benchmarkObjective a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :Portfolio ; rdfs:range xsd:string ;
-    rdfs:comment "Upstream's objective label for a BENCHMARK book, carried verbatim and not interpreted: the objective column of v_quant_portfolio (min_var, tangency, target_vol, risk_parity; T-109)." .
+    rdfs:comment "Upstream's objective label for a BENCHMARK book, carried verbatim and not interpreted: v_quant_portfolio.objective, the solver result's label. Not a closed list (upstream's configurable defaults are min_var, tangency, target_vol, risk_parity; T-109)." .
+:benchmarkKind a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :Portfolio ; rdfs:range xsd:string ;
+    rdfs:comment "Optional. Upstream's v_quant_portfolio.kind, verbatim: the name the book was configured under. It is the join key v_quant_vs_live uses (with as_of), so it is kept next to the objective label. Never live_book (those are not projected as Portfolios)." .
 # --- BenchmarkObservation (T-108, D11) ---
 :quantPortfolio a owl:ObjectProperty, owl:FunctionalProperty ; rdfs:domain :BenchmarkObservation ; rdfs:range :Portfolio ;
-    rdfs:comment "The benchmark Portfolio the number is about." .
+    rdfs:comment "The Portfolio the number is about: a BENCHMARK book, or the LIVE book for the performance numbers upstream measured on its live_book snapshot." .
 :quantMetric a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :BenchmarkObservation ; rdfs:range xsd:string ;
-    rdfs:comment "Upstream's metric name, verbatim (e.g. the performance column or active_weight); no vocabulary is imposed. Upstream's columns (T-109): v_quant_portfolio expected_return, expected_vol, sharpe, rf_annual, n_positions, turnover; v_quant_benchmark_performance realized_return, cumulative_return, benchmark_return, active_return; v_quant_vs_live active_weight." .
+    rdfs:comment "Upstream's metric name, verbatim; no vocabulary is imposed, but T-109 found these: v_quant_portfolio expected_return, expected_vol, sharpe; v_quant_benchmark_performance realized_return, cumulative_return, benchmark_return, active_return; v_quant_vs_live active_weight. Not projected: n_positions (a count), rf_annual (an input), turnover (not set by upstream's writer)." .
 :quantValue a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :BenchmarkObservation ; rdfs:range xsd:decimal ;
     rdfs:comment "Upstream's value, in its own unit." .
 :quantUnit a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :BenchmarkObservation ; rdfs:range xsd:string ;
-    rdfs:comment "Optional unit of quantValue as upstream states it (fraction for every number T-109 found). Never converted here. Upstream's weights and returns are fractions (0.05 = 5%), so those values carry unit fraction. Only quant_position weights are scaled by the projection, x100, because weightPct is 0-100 (T-109)." .
+    rdfs:comment "Optional unit of quantValue. Values are never converted. Vocabulary (T-109): fraction (0.05 = 5%, no time basis), fraction_annual (expected_return, expected_vol: annualised), fraction_daily (realized_return, benchmark_return, active_return: one trading day), ratio (sharpe: unitless), count. Only quant_position weights are scaled by the projection, x100, because weightPct is 0-100." .
 :quantAsset a owl:ObjectProperty, owl:FunctionalProperty ; rdfs:domain :BenchmarkObservation ; rdfs:range :Asset ;
     rdfs:comment "Only for per-asset numbers (active weight vs the live book); absent for whole-book metrics." .
+:quantBenchmark a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :BenchmarkObservation ; rdfs:range xsd:string ;
+    rdfs:comment "Optional. The reference index a performance number is measured against (v_quant_benchmark_performance.benchmark, e.g. bench-v2 or SPY_TR), verbatim. benchmark_return and active_return are meaningless without it." .
 :quantAsOf a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :BenchmarkObservation ; rdfs:range xsd:date ;
-    rdfs:comment "Optional date the number refers to: v_quant_portfolio.as_of for a book metric, v_quant_benchmark_performance.date for a performance row (T-109). Immutable: a recompute is a new individual." .
+    rdfs:comment "Optional date the number refers to: v_quant_portfolio.as_of for a book metric, v_quant_vs_live.as_of for an active weight, v_quant_benchmark_performance.date for a performance row (T-109). Immutable: a recompute is a new individual." .
 :weightPct     a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :PortfolioPosition ; rdfs:range xsd:decimal .
 
 # --- PriceObservation (derived daily summary only) ---
