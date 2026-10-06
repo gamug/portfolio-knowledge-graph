@@ -93,7 +93,8 @@ assumed.
 (plus opt-in summaries) into its results store, which this repo's `src/etl/` reads. Not built: the
 per-`(asset, day)` SEMANTIC aggregation, which `portfolio-nlp` is slated to own and
 `portfolio-financial-analysis` to materialize as `score_snapshot[SEMANTIC]`
-(`.specify/memory/SPEC.md` §13 item 11). `09-nlp-finbert-architecture.md` remains the design reference;
+(`.specify/memory/SPEC.md` §13 item 11; who materializes it is disputed by upstream's reply of
+2026-10-06, which names this repo as the future writer: §2.6 D14, T-158). `09-nlp-finbert-architecture.md` remains the design reference;
 consuming step 4's filing sections is not part of what `portfolio-nlp` does today.
 
 **6. Agent layer (selection / monitoring cycles) — built upstream, not LangGraph.**
@@ -101,7 +102,11 @@ consuming step 4's filing sections is not part of what `portfolio-nlp` does toda
 exists as `portfolio-financial-analysis`'s `cycle` package (`cycle select`, `cycle monitor`,
 `cycle backfill`): a checkpointed runner over relational tables, with veto stints and a T-1 lag, writing
 to a relational database rather than the triple store. No repo has a scheduler; the future
-`portfolio-app` is to trigger the runs. This repo builds no agents — it projects `cycle`'s outputs (step 2).
+`portfolio-app` triggers the runs by running upstream's cross-module orchestrator command (their open
+Work item 2) as a job, not through an endpoint: upstream's `api/` stays read-only, and
+`portfolio-reports` reads (upstream's reply, 2026-10-05; `SPEC.md` D9). On this repo's side (T-120),
+`portfolio-reports` reads the run-log `v_*_run` views and `portfolio-app` reads this repo's query
+surface. This repo builds no agents — it projects `cycle`'s outputs (step 2).
 `08-agent-architecture.md` is kept as design reference, with a mapping to what exists.
 
 **7. Entity resolution service — built upstream, narrower than designed.**

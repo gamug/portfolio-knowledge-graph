@@ -289,7 +289,10 @@ aggregation is a computation, and the upstream boundary note
 (`portfolio-financial-analysis/docs/semantic-score-boundary.md`) assigns it
 to `portfolio-nlp`, with `portfolio-financial-analysis` materializing
 `score_snapshot[SEMANTIC]` and this repo stopping its own writes of that
-score. Recorded in `SPEC.md` §2.2/§2.5/§13 item 11.
+score. Recorded in `SPEC.md` §2.2/§2.5/§13 item 11. The materialization is
+disputed by upstream's reply of 2026-10-06, which names this repo as the future
+writer (`SPEC.md` §2.6 D14, raised by T-158); the computation staying in
+`portfolio-nlp` is not.
 
 **What remains here** (folded into Work item 4): once the upstream cut-over
 exists, project the `score_snapshot[SEMANTIC]` row from `v_score_snapshot`
@@ -568,7 +571,8 @@ proposals. Their reply also brings facts the drift register does not have yet:
   the cross-module orchestrator command (their open Work item 2), run as a job by `portfolio-app`,
   not an `api/` endpoint; their `api/` stays read-only (FR-014 unchanged).
 - **Not answered:** the SEMANTIC `score_method` value that replaces our `ASSET_DAY_AGGREGATE`
-  placeholder, and their docs that still name this repo as the SEMANTIC writer (D14).
+  placeholder, and their docs that name this repo as the SEMANTIC writer (intended, per their
+  second reply; disputed, D14, T-158).
 
 This repo reads and does not compute (§2.5). Where the reply leaves a number for us to derive
 (per-asset effective weights, the current engine version, a unique run key), this work item asks
@@ -625,11 +629,12 @@ Also from that reply:
   (0.4/0.3/0.2/0.1). The per-asset renormalization is unchanged.
 - **Placed and deferred:** the `v_media_cooccurrence_edge` view and `first_seen`/`last_seen` (with
   their T-082) and the SEMANTIC method value (with their Work item 4) wait until after their T-100.
-  The SEMANTIC-writer doc fix goes with their T-141; the trigger split in their SPEC with their
-  Work item 2. Their order, all in their numbering: their Work item 8 (their T-141 and T-074),
-  then their Work item 19 (their T-083, T-142, T-144 and T-145), their Work item 2, their final
-  pilot (their T-143), their T-100. They send the commit, `schema_version` and doc section when
-  their T-144 and T-145 land.
+  The SEMANTIC-writer doc fix goes with their T-141, but their reply says the future writer is
+  this repo, which contradicts `SPEC.md` §13 item 11 (raised by T-158 before their T-141, recorded
+  in D14); the trigger split in their SPEC goes with their Work item 2. Their order, all in their
+  numbering: their Work item 8 (their T-141 and T-074), then their Work item 19 (their T-083,
+  T-142, T-144 and T-145), their Work item 2, their final pilot (their T-143), their T-100. They
+  send the commit, `schema_version` and doc section when their T-144 and T-145 land.
 
 Every correction is resolved here by reading their value as documented, never by fitting it: the
 shapes widen to their documented ranges, and a ÷100 stays the only conversion (a unit change;
@@ -712,8 +717,9 @@ trigger endpoint in their `api/`. From the second reply: `v_cycle_ranking_compon
 and a pre-penalty attractiveness score (deriving it from the effective weights would be a
 computation).
 
-**Acceptance**: `SPEC.md` §2.6 has no D8–D14 item left as "raised upstream" without its answer
-(D14 included, so this needs upstream's SEMANTIC method value, T-158);
+**Acceptance**: no D8–D14 row of `SPEC.md` §2.6 still waits on upstream for this work item: every
+question has its answer recorded and every accepted upstream change it reads has shipped, with its
+commit (D14 included, so this needs upstream's SEMANTIC method value and the ownership answer, T-158);
 every schema change passes the FR-001 parse + `pyshacl` check with updated counts; the projection
 reads the new columns from a re-pinned `view_contract.py` and computes none of the values listed in
 step 2; no doc or schema comment describes the attractiveness blend as computed here; T-120 is closed;
@@ -721,12 +727,15 @@ no shape rejects a value upstream documents as valid (the SECTOR `raw_value` ran
 `blended_score`), checked with synthetic rows at those bounds, and a filing with no current metric
 row fails no shape.
 
-**Blocked on**: nothing for T-150, T-151's rule, T-155's formula removal and the shape corrections
-of step 3 (SECTOR range, `attractivenessScore` bound, and the `tbox.ttl` comments); upstream's T-144
+**Blocked on**: nothing for T-150, T-151's rule, T-155's formula removal, the shape corrections
+of step 3 (SECTOR range, `attractivenessScore` bound, and the `tbox.ttl` comments) and T-158's
+ownership question (to be asked before their T-141 ships its doc fix); upstream's T-144
 for T-152–T-156's projection and T-157's first re-pin; their T-145 and T-100 for relaxing T-151's
 checks; their T-074 for T-153's flag values; their T-082, after their T-100, for T-154's `MEDIA`
-kind and edge dates; their Work item 4, after their T-100, for T-158. Closing this work item waits
-on T-158.
+kind and edge dates; their Work item 4, after their T-100, for T-158's method value. Closing this
+work item waits on what the acceptance names: T-158 (the ownership answer and the method value) and
+the upstream changes this work item reads having shipped (their T-144, T-074 and T-082). Their T-145
+and T-100 only relax T-151's checks and do not hold it open.
 
 ## Work item 16 — Validate upstream rows at the read boundary, before any triple is built
 

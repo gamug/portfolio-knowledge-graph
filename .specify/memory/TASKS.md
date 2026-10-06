@@ -89,7 +89,7 @@ are closed (see `CHANGELOG.md`).*
 *Pending parts of Work item 11's T-108 and T-109. Independent of each other; T-121 follows the
 D13 check recorded in `SPEC.md` §2.6; T-120's upstream answer arrived 2026-10-05 (Work item 15).*
 
-- [ ] **T-120** *(moved from T-108(a); D9. Answered 2026-10-05: `portfolio-app` triggers by running upstream's orchestrator command as a job, `portfolio-reports` reads, `api/` stays read-only; closes when T-150 records it)* `portfolio-app` and `portfolio-reports` integration. Upstream's `api/` is read-only with no run-trigger endpoint, and its docs name `portfolio-reports` as the trigger, while this repo's SPEC names `portfolio-app` (not yet created). Agree with upstream who triggers `cycle select`/`cycle monitor`, and what `portfolio-app` and `portfolio-reports` each read: `portfolio-reports` reads the run-log `v_*` views (`v_*_run`), `portfolio-app` should read this repo's query surface. Record the outcome in SPEC D9 and `docs/10`. → steps 5–6.
+- [x] **T-120** *(moved from T-108(a); D9. Answered 2026-10-05: `portfolio-app` triggers by running upstream's orchestrator command as a job, `portfolio-reports` reads, `api/` stays read-only; recorded in `SPEC.md` D9 and `docs/10` by T-150)* `portfolio-app` and `portfolio-reports` integration. Upstream's `api/` is read-only with no run-trigger endpoint, and its docs name `portfolio-reports` as the trigger, while this repo's SPEC names `portfolio-app` (not yet created). Agree with upstream who triggers `cycle select`/`cycle monitor`, and what `portfolio-app` and `portfolio-reports` each read: `portfolio-reports` reads the run-log `v_*` views (`v_*_run`), `portfolio-app` should read this repo's query surface. Record the outcome in SPEC D9 and `docs/10`. → steps 5–6.
 - [ ] **T-121** *(moved from T-109(ii); D13)* Extend the weight-scheme model to what upstream records per run: one `AttractivenessWeightScheme` per `cycle_run` (`schemeId` = `cycle_run:<id>`, `validFrom` = `cycle_date`, no `validTo`), a component per `score_type` (`weightMetricName` = that lane's `metricType` name, the fixed mapping `ScoreSnapshotShape` already pairs with `agentOrigin`: FUNDAMENTAL → `ScoreFinanciero`, VALORIZATION → `ScoreCuantitativo`, TECHNICAL → `ScoreTecnico`, SEMANTIC → `Sentiment`), upstream's `scheme_id` on a new book-weighting-rule property, and the scalar knobs (`top_n`, `max_name_weight`, `max_sector_weight`, `soft_veto_penalty`) as new properties, read verbatim (the two weight caps are assumed a fraction of the book until upstream states their unit, as asked with T-155's `target_weight`); `:inverted` becomes optional (below), and `SectorRelativeMomentum`, which upstream does not weight, gets no component. The scheme's identity is a `cycle_run` id, so it relies on upstream's T-145 (ids never reused) and T-100: until both their T-145 and their T-100 rebuild have landed (T-145 stops new reuse; the rebuild drops ids already reused, as T-151 says), project a scheme only for a run that passes T-151's checks (a scheme whose run fails them is not projected, nor are the snapshots computed with it). **Upstream reply (2026-10-05):** `score_weights` holds the *configured* weights for all four types in every run, not the blended ones; the blend renormalizes per asset over its non-null components, so the effective weights are per asset, not per scheme. Model the scheme as configured, and read the effective weights from upstream (T-155), never derive them here. **Second reply (2026-10-06):** why the identity is the run: `scheme_id` is the rule that turns the ranking into book weights (`score_proportional`, `score_tilt`), not the blend, and a blend is identified by its `cycle_run`. New runs (their T-141) record three components at 1/3 (no SEMANTIC), older runs four (0.4/0.3/0.2/0.1); both are per-run schemes. `:inverted` has no upstream counterpart (D13 item 4): make it optional, emit it for no upstream scheme, and keep it on `WeightScheme_v1` (design history). **Decide first:** a per-run scheme with `validFrom` and no `validTo` reads as "still active" for every run (the valid-time convention), so either close the previous run's scheme with `validTo` when the next run is projected, or stop treating a per-run scheme as a valid-time record (a run-date property linked to the run, and relax `validFrom` `minCount 1` in `AttractivenessWeightSchemeShape`). Update `tbox.ttl`, `shapes.ttl`, `rules.ttl`'s `WeightScheme_v1`, docs 06/07 and `schema/README.md` counts. → step 6.
 
 ## Work item 13 — A `pytest` suite for the code this repo owns
@@ -152,10 +152,10 @@ once T-131 lands.*
 *Upstream's reply to the gaps in `SPEC.md` §2.6 (checked against their `0a528be`), and their second
 reply (`597832a`), which accepts our asks as their T-144 and T-145 and corrects six assumptions
 (`PLAN.md` Work item 15, step 3 lists the decisions). T-150, T-151's rule, T-155's removal of the
-blend formula and the shape corrections in T-153 and T-155 need nothing; the rest of T-152–T-158
-waits on the upstream change it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
+blend formula, the shape corrections in T-153 and T-155 and T-158's ownership question need
+nothing; the rest of T-152–T-158 waits on the upstream change it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
 
-- [ ] **T-150** Record the reply in `SPEC.md` §2.6: rows and dispositions D8 (REPLAY never reaches
+- [x] **T-150** Record the reply in `SPEC.md` §2.6: rows and dispositions D8 (REPLAY never reaches
       production, so no replay flag is needed; `v_cycle_ranking` gains `status`; "production DB
       only", in the row and its disposition, becomes "a database at the floor with no REPLAY run",
       T-157's check), D9 (the trigger
@@ -164,7 +164,7 @@ waits on the upstream change it reads. Feeds Work item 4 (T-031) and Work item 1
       T-082), D11 (`live_book`, dead kind names and `LIVE_ONLY` confirmed; `opt-v1`/`opt-v2` books
       coexist), D12 (`v_fundamental_metric` coming, market cap as its `market_capitalization`
       metric; moves from "rejected for now"), D13 (configured vs effective weights), D14 (still
-      unanswered), D16 (`metrics-v5`, `opt-v2`, filings keyed by period end), and the run-id reuse
+      unanswered), D16 (`metrics-v5`, `opt-v2`, a filing's period identified by its period end), and the run-id reuse
       fact. List what was declined (PLAN Work item 15). Also record the second reply: the six
       corrections (D6 SECTOR range, D13 `blended_score` and `scheme_id`, D2 `available_at` on cycle
       lanes, D12 `metric_id`/`unit`, D11/D12 `is_current` as at most one), the forensic-flag
@@ -290,7 +290,12 @@ waits on the upstream change it reads. Feeds Work item 4 (T-031) and Work item 1
       → step 4.
 - [ ] **T-158** Replace the `ASSET_DAY_AGGREGATE` placeholder with upstream's SEMANTIC
       `score_method` value once they give it (D14; with their Work item 4, after their T-100).
-      → step 4.
+      **First, raise the ownership disagreement (unblocked now; ask before their T-141 ships its
+      doc fix):** upstream's second reply says the future SEMANTIC
+      writer is this repo (per their `docs/semantic-score-boundary.md`), against `SPEC.md` §13 item
+      11 (`portfolio-nlp` computes, `financial-analysis` materializes, this repo stops writing).
+      Ask them to confirm which reading their T-141 doc fix will state, and record the answer in D14
+      before the method value is adopted. → step 4.
 - [ ] **T-159** Verify: FR-001 parse + `pyshacl` pass after T-151–T-156, with `schema/README.md`,
       `docs/06` and `docs/07` counts in sync (NR-001), `docs/07`'s named-graph table listing every
       new class, and no doc left describing the blend as computed here (T-155); every upstream
@@ -353,12 +358,13 @@ Closed Work items 1, 2, 3, 5, 7 (superseded/decided by T-007), 9, 10 and 11 are 
 `CHANGELOG.md` (Work item 1 closed with T-006 deprecated in favor of T-009).
 Work items 4 and 6 (T-030–T-035, T-050–T-053)
 follow in dependency order (Work items 3 and 11 are closed, so Work item 4 is unblocked).
-Work item 12 (T-120–T-121): T-120 answered, closes with T-150; T-121 is unblocked.
+Work item 12 (T-120–T-121): T-120 closed by T-150; T-121 is unblocked.
 Work item 13 (T-130–T-136): constitution rules in place (1.5.0); T-131 next, then T-132–T-134 and T-136; T-130 closes with T-134.
 Work item 14 (T-140–T-142): T-140 done; T-141 needs a live GraphDB; T-142 is unblocked.
-Work item 15 (T-150–T-159): T-150, T-151's rule, T-155's formula removal and the shape corrections
-in T-153/T-155 are unblocked; the rest of T-152–T-158 waits on upstream's T-144 (views), T-145 (ids),
-T-074 (flags) and, after their T-100, their T-082 and their Work item 4.
+Work item 15 (T-150–T-159): T-150 done; T-151's rule, T-155's formula removal, the shape corrections
+in T-153/T-155 and T-158's ownership question (before their T-141) are unblocked; the rest of
+T-152–T-158 waits on upstream's T-144 (views), T-145 (ids), T-074 (flags) and, after their T-100,
+their T-082 and their Work item 4.
 Work item 16 (T-160–T-165): T-160 first (policy and tool); T-163 lands with T-031; T-164 needs Work item 13's skeleton.
 Work item 8 (T-070–T-071) is independent but needs a human at a Protégé
 session, not a coding session.
