@@ -479,7 +479,7 @@ schemes (one per `cycle_run`, keyed by `score_type`, plus scalar knobs) do not m
 **Acceptance**: T-120's outcome is recorded in `SPEC.md` D9 and `docs/10`; T-121 changes pass the
 FR-001 parse + `pyshacl` check and update `schema/README.md`'s counts (NR-001).
 
-**Blocked on**: T-120, an answer from the upstream maintainer; T-121, nothing.
+**Blocked on**: nothing. T-120's answer arrived 2026-10-05 and is recorded by T-150 (Work item 15); T-121 must first take in that reply's weight facts (see T-121).
 
 ## Work item 13 — A `pytest` suite for the code this repo owns
 
@@ -538,6 +538,81 @@ yields exactly one violation (`:timestamp`); T-141's run is recorded in `docs/gr
 
 **Blocked on**: T-141 needs a running GraphDB; nothing else.
 
+## Work item 15 — Adopt upstream's `v_*` contract changes (reply of 2026-10-05)
+
+**Why**: the `portfolio-financial-analysis` maintainers answered the gaps §2.6 lists as "raised
+upstream" (D8–D14), checking their `master` at `0a528be` and their production and pilot databases.
+They propose one additive view change and two later views; until they approve them, these are
+proposals. Their reply also brings facts the drift register does not have yet:
+
+- **`cycle_run.id` can be reused** after a deletion (`INTEGER PRIMARY KEY` without
+  `AUTOINCREMENT`). Every production `shared_executive_edge` row carries `run_id = 1`, and
+  `cycle_run` 1 is now a SELECTION run of 2026-09-22; the ENTITY_RESOLUTION run that wrote the
+  edges is gone. So `cycle_run:<id>` (`:runId`, T-106) is not unique on its own.
+- **`score_weights` holds the configured weights, not the blended ones.** Every run records
+  FUNDAMENTAL 0.4, VALORIZATION 0.3, TECHNICAL 0.2, SEMANTIC 0.1. The blend renormalizes per asset
+  over the components that asset has, and SEMANTIC is null for every asset today. T-121 assumes
+  the opposite.
+- **Two optimizer versions can coexist** (`opt-v1`, `opt-v2`, their T-137), and `v_quant_vs_live`
+  does not expose `engine_version`, so its rows can mix both.
+- **`first_seen`/`last_seen` on `v_shared_executive_edge` are NULL for every edge** by design, until
+  their entity-resolution rework (their Work item 9, T-080–T-084).
+- **Answered as we read them:** `live_book` is the live book's performance, not a benchmark;
+  `equal_weight`/`cap_weight` are dead names; `LIVE_ONLY` rows have a NULL `benchmark_weight`;
+  REPLAY runs never reach the production database (`cycle backfill` refuses it, their T-115), so
+  projecting only production is sufficient; `prompt_hash` exists on FUNDAMENTAL rows only.
+- **Run trigger (D9, T-120):** `portfolio-app` triggers and `portfolio-reports` reads. The trigger is
+  the cross-module orchestrator command (their open Work item 2), run as a job by `portfolio-app`,
+  not an `api/` endpoint; their `api/` stays read-only (FR-014 unchanged).
+- **Not answered:** the SEMANTIC `score_method` value that replaces our `ASSET_DAY_AGGREGATE`
+  placeholder, and their docs that still name this repo as the SEMANTIC writer (D14).
+
+This repo reads and does not compute (§2.5). Where the reply leaves a number for us to derive
+(per-asset effective weights, the current engine version, a unique run key), this work item asks
+upstream to expose it instead of deriving it here.
+
+**Approach**:
+
+1. Record the reply in `SPEC.md` §2.6 (rows and dispositions D8–D14, D16, plus the run-id fact),
+   which also closes T-120 (T-150).
+2. Ask upstream for the changes this repo needs to read, not compute (sent to their maintainers with
+   this work item; each is theirs to accept and track):
+   - the additive view change they proposed: `v_fundamental_metric`; `forensic_flags_json` and
+     `prompt_hash` on `v_score_snapshot`; `computed_at` and `run_id` on `v_shared_executive_edge`;
+     `status` on `v_cycle_ranking` and a corrected docstring; `engine_version` on
+     `v_quant_vs_live`, and the dead kind names removed;
+   - in the same change, a marker of the current engine version in every view that keeps several
+     (`v_fundamental_metric`, `v_quant_portfolio`, `v_quant_vs_live`), so this repo does not
+     decide which version counts;
+   - per-asset effective weights in `v_cycle_ranking` (the renormalized weight of each component),
+     so this repo does not renormalize;
+   - run ids that are never reused, and the orphaned `run_id` on the existing edges fixed;
+   - the scale and units of what we project: `blended_score`, `components_json` keys, `raw_value`
+     per `score_type`, the `v_fundamental_metric` metric names, the forensic-flag codes;
+   - `v_media_cooccurrence_edge` with their T-082, and `first_seen`/`last_seen` filled by their
+     Work item 9;
+   - the SEMANTIC method value and their doc fix (still open from D14);
+   - the trigger decision recorded in their SPEC (`portfolio-app` triggers, `portfolio-reports`
+     reads);
+   - a `schema_version` bump and the commit for each change, so the pin can follow.
+3. Decide the run-id rule (T-151), then model the new data (T-152–T-156), each as its own schema
+   change with the FR-001 parse + `pyshacl` check and the `schema/README.md` counts (NR-001).
+4. When upstream ships, re-pin `view_contract.py` and the `schema_version` floor (T-157) and replace
+   the SEMANTIC placeholder (T-158).
+
+**Declined from the reply**: `inputs_json` on `v_fundamental_metric` (the metric value and its
+filing are enough); a stored daily market cap (the per-filing `market_capitalization` metric is
+enough for size context); a replay flag (not needed while only production is projected); a run
+trigger endpoint in their `api/`.
+
+**Acceptance**: `SPEC.md` §2.6 has no D8–D14 item left as "raised upstream" without its answer;
+every schema change passes the FR-001 parse + `pyshacl` check with updated counts; the projection
+reads the new columns from a re-pinned `view_contract.py` and computes none of the values listed in
+step 2; T-120 is closed.
+
+**Blocked on**: T-150 and T-151 on nothing; T-152–T-158 on the upstream change each one reads
+(T-153's forensic flags also wait on their T-074, T-154's MEDIA kind on their T-082).
+
 ## Sequencing
 
 ```
@@ -563,6 +638,7 @@ Work item 7 (orchestrator)         — decided: delegate to financial-analysis `
 Work item 8 (protege-view.ttl) — independent, manual, land whenever convenient
 Work item 13 (pytest suite) — independent; T-130 (constitution amendment) first, ideally before Work item 4's code grows
 Work item 14 (PR #48 follow-ups) — independent; T-140 done, T-141 needs a live GraphDB
+Work item 15 (upstream's v_* changes) — T-150/T-151 now; the rest as upstream ships; feeds Work item 4 (T-031) and 12 (T-121)
 ```
 
 Work items 1, 2, and 9 have no dependencies and no blockers — they can land
