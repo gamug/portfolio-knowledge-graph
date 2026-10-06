@@ -597,6 +597,8 @@ upstream to expose it instead of deriving it here.
    - a `schema_version` bump and the commit for each change, so the pin can follow.
 3. Decide the run-id rule (T-151), then model the new data (T-152–T-156), each as its own schema
    change with the FR-001 parse + `pyshacl` check and the `schema/README.md` counts (NR-001).
+   T-155 also removes the attractiveness formula from the schema and docs: the score is read from
+   upstream's ranking, never computed here.
 4. When upstream ships, re-pin `view_contract.py` and the `schema_version` floor (T-157) and replace
    the SEMANTIC placeholder (T-158).
 
@@ -609,7 +611,7 @@ trigger endpoint in their `api/`.
 (D14 included, so this needs upstream's SEMANTIC method value, T-158);
 every schema change passes the FR-001 parse + `pyshacl` check with updated counts; the projection
 reads the new columns from a re-pinned `view_contract.py` and computes none of the values listed in
-step 2; T-120 is closed.
+step 2; no doc or schema comment describes the attractiveness blend as computed here; T-120 is closed.
 
 **Blocked on**: T-150 and T-151 on nothing; T-152–T-158 on the upstream change each one reads
 (T-153's forensic flags also wait on their T-074, T-154's MEDIA kind on their T-082). Closing this

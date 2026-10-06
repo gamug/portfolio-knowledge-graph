@@ -138,14 +138,24 @@ Work item 12 (T-121).*
       metric; moves from "rejected for now"), D13 (configured vs effective weights), D14 (still
       unanswered), D16 (`metrics-v5`, `opt-v2`, filings keyed by period end), and the run-id reuse
       fact. List what was declined (PLAN Work item 15). → `PLAN.md` Work item 15, step 1.
-- [ ] **T-151** Decide how `:runId` stays unique now that upstream can reuse a `cycle_run.id`
+- [ ] **T-151** Decide when `:runId` may be emitted now that upstream can reuse a `cycle_run.id`
       (confirmed for `cycle_run` only; `analysis_run`, `pricing_run` and `quant_run` are unconfirmed
-      and part of the same ask). Rule, per run table: emit `<run table>:<id>` only when that row
-      exists in that table; for `cycle_run`, also only when its `cycle_type` matches the lane being
-      projected (`ENTITY_RESOLUTION` for edges, `SELECTION`/`MONITORING` for rankings and vetoes).
-      These are read checks, nothing derived; otherwise omit it (today: every
-      `shared_executive_edge` row). Update `:runId`'s comment in `tbox.ttl` and `SPEC.md` D7.
-      Revisit when upstream's ids stop being reused. → step 3.
+      and part of the same ask). Upstream says a run id is unique only with the run's `cycle_type`
+      and `started_at`, so emit `<run table>:<id>` only when all of these read checks pass, and
+      omit it otherwise (today: every `shared_executive_edge` row):
+      (a) the run row exists in that table;
+      (b) for `cycle_run`, its `cycle_type` is one the view expects: `ENTITY_RESOLUTION` for
+      `v_shared_executive_edge`; `SELECTION` or `MONITORING` for cycle-written `v_score_snapshot`
+      rows (`run_kind = 'cycle'`: TECHNICAL, VALORIZATION, SECTOR), `v_sector_aggregate_snapshot`,
+      `v_veto`, `v_cycle_ranking`, `v_weight_scheme`/`v_weight_component` and
+      `v_portfolio_position`. Pin this list next to `view_contract.py`, so a new `run_id`-carrying
+      view needs an entry;
+      (c) the row's own time falls inside the run: its wall-clock column (`computed_at`,
+      `detected_at`, `created_at`) between the run's `started_at` and `finished_at`, or, for a row
+      with only a cycle date (`v_cycle_ranking`, `v_weight_*`), that date equal to the run's
+      `as_of`. Check (c) is what catches an id reused by a run of the same type.
+      Nothing is derived. Until upstream stops reusing ids, these checks lower the risk but do not
+      prove uniqueness; `:runId`'s comment in `tbox.ttl` and `SPEC.md` D7 must say so. → step 3.
 - [ ] **T-152** Model `v_fundamental_metric`: one immutable observation per (filing, metric, engine
       version) with its asset, filing, metric group and name, value, `engineVersion`, and its own
       event-time and available-at properties (not `:eventTime`/`:availableAt`: their
@@ -154,8 +164,9 @@ Work item 12 (T-121).*
       that as-of reads filter on available-at. Written to
       `urn:graph:ingest:FUNDAMENTAL:{year}-Q{n}`; read only the version upstream marks current.
       Place the class by property shape (`docs/06` §1.2), add it to `AllDisjointClasses`, add its
-      shape, and flag it in `schema/README.md` as a gap found against real data. Lets a veto stint
-      point to the metric values that fired it (D12). → step 3.
+      shape, and flag it in `schema/README.md` as a gap found against real data. Add the class to
+      the FUNDAMENTAL row of `docs/07`'s named-graph table, the authority for graph placement.
+      Lets a veto stint point to the metric values that fired it (D12). → step 3.
 - [ ] **T-153** Add `:promptHash` to `ScoreSnapshot` (SHACL: only when `agentOrigin` is FUNDAMENTAL)
       and a multi-valued forensic-flag code (from `forensic_flags_json`, once upstream's T-074 fills
       it and documents the codes). Reverses D7's "extras rejected" for these two; `correction_rule`
@@ -170,8 +181,16 @@ Work item 12 (T-121).*
       excluded as `UNSCORED`, D4): `AttractivenessSnapshotShape` requires a score and none is
       invented here; confirm with upstream whether such rows appear. Also read rank, selection,
       target weight and the per-asset effective weights once upstream exposes them. Never recompute
-      the blend: drop the formula reference from `attractivenessScore`'s comment. Coordinate with
-      T-121. → step 3.
+      the blend (`SPEC.md` §2.5 item 1), and remove every description of computing it here:
+      `docs/06` §1.8's `attractivenessScore = Σ weight_i * component_i` and its `inverted` rule;
+      `rules.ttl`'s `WeightScheme_v1` header ("Formula this scheme feeds"); the
+      `attractivenessScore`, `WeightComponent` and `:inverted` comments in `tbox.ttl`; and mark the
+      2026-08-13 attractiveness design spec in `docs/superpowers/specs/` as design history.
+      `:inverted`'s remaining purpose, if any, is decided with T-121. The `SectorRelativeMomentum`
+      `[-1, 1]` bound (T-140) is justified in `shapes.ttl` and `schema/README.md` by that formula's
+      `(rawValue + 1) / 2`: re-justify it without the formula, or relax it, deciding together with
+      T-031's mapping of upstream SECTOR and the range upstream documents for it. Leave
+      `schema/protege-view.ttl` to its regeneration (Work item 8); it is generated. → step 3.
 - [ ] **T-156** Quant: read `v_quant_portfolio` and `v_quant_vs_live` on the engine version upstream
       marks current, with `engine_version` recorded on each `BenchmarkObservation`. Match a
       `v_quant_vs_live` row to its book on `(as_of, kind, engine_version)`, not `(as_of, kind)`:
@@ -186,8 +205,10 @@ Work item 12 (T-121).*
 - [ ] **T-158** Replace the `ASSET_DAY_AGGREGATE` placeholder with upstream's SEMANTIC
       `score_method` value once they give it (D14). → step 4.
 - [ ] **T-159** Verify: FR-001 parse + `pyshacl` pass after T-151–T-156, with `schema/README.md`,
-      `docs/06` and `docs/07` counts in sync (NR-001); every upstream change this work item reads
-      is recorded in `SPEC.md` §2.6 with its commit. → `PLAN.md` acceptance criteria.
+      `docs/06` and `docs/07` counts in sync (NR-001), `docs/07`'s named-graph table listing every
+      new class, and no doc left describing the blend as computed here (T-155); every upstream
+      change this work item reads is recorded in `SPEC.md` §2.6 with its commit. → `PLAN.md`
+      acceptance criteria.
 
 ## Status
 
