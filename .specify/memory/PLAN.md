@@ -289,7 +289,10 @@ aggregation is a computation, and the upstream boundary note
 (`portfolio-financial-analysis/docs/semantic-score-boundary.md`) assigns it
 to `portfolio-nlp`, with `portfolio-financial-analysis` materializing
 `score_snapshot[SEMANTIC]` and this repo stopping its own writes of that
-score. Recorded in `SPEC.md` §2.2/§2.5/§13 item 11.
+score. Recorded in `SPEC.md` §2.2/§2.5/§13 item 11. The materialization is
+disputed by upstream's reply of 2026-10-06, which names this repo as the future
+writer (`SPEC.md` §2.6 D14, raised by T-158); the computation staying in
+`portfolio-nlp` is not.
 
 **What remains here** (folded into Work item 4): once the upstream cut-over
 exists, project the `score_snapshot[SEMANTIC]` row from `v_score_snapshot`

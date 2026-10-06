@@ -156,7 +156,9 @@ built upstream); it makes no portfolio or trading decision and renders no report
   (§2.6 D9, PLAN Work item 7).
 - The SEMANTIC per-`(asset, day)` aggregation — owned by `portfolio-nlp`,
   materialized as `score_snapshot[SEMANTIC]` by `portfolio-financial-analysis`;
-  this repo only projects the resulting row (§2.5, PLAN Work item 5).
+  this repo only projects the resulting row (§2.5, PLAN Work item 5). The
+  materialization is disputed by upstream's reply of 2026-10-06 (§2.6 D14,
+  T-158).
 - Entity resolution (`sharedExecutiveWith`), portfolio construction, sector
   scoring and the Markowitz benchmark (roadmap steps 7–8) — built upstream in
   `portfolio-financial-analysis` (`entity_resolution`, `cycle`, `quant`);
@@ -749,8 +751,8 @@ treating a related FR/NR as done:
     which fails on a removed column or view against an upstream checkout
     (§2.6). It runs manually today; where it runs automatically is T-135. No
     cross-repo schema generation is planned.
-11. **The ownership decision is resolved: the SEMANTIC score is not computed
-    here; the cut-over is still pending.** The earlier plan to
+11. **The computation decision is resolved: the SEMANTIC score is not computed
+    here; who materializes it is disputed, and the cut-over is still pending.** The earlier plan to
     aggregate `article_sentiment` per `(asset, day)` in this repo (old Work
     item 5) conflicted with the upstream boundary note
     (`portfolio-financial-analysis/docs/semantic-score-boundary.md`: `nlp`
@@ -760,7 +762,10 @@ treating a related FR/NR as done:
     data in the graph. The upstream aggregation (`portfolio-nlp`), its
     materialization (`financial-analysis`) and the replacement of this local
     path by the projected row remain pending integration work (PLAN Work items
-    4–5).
+    4–5). **Materialization disputed:** upstream's reply of 2026-10-06 says the
+    future writer is this repo, from `portfolio-nlp`'s measure; the computation
+    staying in `portfolio-nlp` is not in dispute. This SPEC keeps the reading
+    above until the answer is recorded (§2.6 D14, T-158).
 12. **The ETL scans SOURCE `body_text` (resolved: spec amended, T-113,
     2026-10-05).** FR-005 and §2.2 used to say the ETL never reads
     `body_text`. The code always did: SOURCE `urls.db` (`SQL_URLS_DB`) is a
@@ -842,7 +847,7 @@ of what this project is, not a gap someone forgot to close:
 | 1 — integrative layer partly built (step 1 done; step 2 and query surface pending); compute steps owned upstream | **Pending development** (integrative layer only) | The actual backlog — `PLAN.md` Work items 4, 6 (Work item 3, step 1, done); Work items 5 and 7 are now scope-reassigned upstream (§2.5) |
 | 12 — FR-005 vs. the ETL's `body_text` read | **Resolved** (spec amended to match the code, 2026-10-05) | `PLAN.md` Work item 11, T-113 — done |
 | 10 — `kg_schema`/`schema/` vocabulary and semantic drift | **Mitigated; automation pending** | `PLAN.md` Work item 11 (decisions closed 2026-10-05, T-100–T-113; dispositions in §2.6); Work item 4, T-030 done (pin + manual drift check); where the check runs automatically: T-135 |
-| 11 — SEMANTIC score not computed here | **Ownership resolved; cut-over pending** (upstream aggregation + local replacement) | `PLAN.md` Work items 4–5 (reassigned), §2.5 |
+| 11 — SEMANTIC score not computed here | **Computation resolved; materialization disputed (§2.6 D14, T-158); cut-over pending** (upstream aggregation + local replacement) | `PLAN.md` Work items 4–5 (reassigned), §2.5 |
 | 2 — no `v_*`-views projection | **Pending development** | Folded into `PLAN.md` Work item 4 (the real step-2 projection); today's `src/etl/` shortcut stays live until that lands |
 | 3 — roadmap names superseded repos | **Pending development** (cheap, no blockers) | `PLAN.md` Work item 1 |
 | 4 — `protege-view.ttl` stale | **Pending development** (manual, needs a real Protégé session) | `PLAN.md` Work item 8 |
