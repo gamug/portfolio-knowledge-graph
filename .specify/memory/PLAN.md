@@ -696,7 +696,8 @@ updated target schema.
    no REPLAY run: a backfill writes REPLAY scores, vetoes and rankings into the shared tables,
    where they cannot be told apart from live rows (D8), and the `cycle_type <> 'REPLAY'` filter
    covers `v_cycle_ranking` only. Production (at 8 today) fails the floor. The pilot (at 9)
-   qualifies once a read check finds no `cycle_run` with `cycle_type = 'REPLAY'` in it (T-157);
+   qualifies once a read check finds no `cycle_run` with `cycle_type = 'REPLAY'` in it (rule in
+   T-157, check in Work item 16's T-162, run by T-163);
    their T-100 rebuild qualifies on the same check; a replay copy never does.
 
 **Declined from the reply**: `inputs_json` on `v_fundamental_metric` (the metric value and its
@@ -762,7 +763,10 @@ since a polarity change leaves the column set untouched.
 2. Add the dependency (through a constitution amendment first, if it is a library) and write the
    expectations beside `view_contract.py`, for the views Work item 4 reads (T-161, T-162). The
    run-identity checks are not among them: T-151 owns those, because they compare a row with its run
-   table and a failure there omits `:runId` instead of failing the row.
+   table and a failure there omits `:runId` instead of failing the row, except for the run-keyed
+   views T-151 lists (`v_weight_*`, `v_cycle_ranking`, `v_cycle_ranking_component`), whose rows
+   are skipped and counted in the report. Among them is the source check that stops the run: the
+   database meets the `schema_version` floor and holds no REPLAY run (Work item 15, T-157).
 3. Run them on the read path, so T-031's first real projection already goes through them (T-163).
 4. Test the selected policy and every check kind with synthetic frames under Work item 13's structure
    (T-164).

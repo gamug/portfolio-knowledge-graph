@@ -173,20 +173,26 @@ waits on the upstream change it reads. Feeds Work item 4 (T-031) and Work item 1
       maps to (their T-144, T-145, T-074 and T-141, their Work item 2, and after their T-100).
       → `PLAN.md` Work item 15, step 1.
 - [ ] **T-151** Decide when `:runId` may be emitted now that upstream can reuse a `cycle_run.id`
-      (confirmed for `cycle_run` only; `analysis_run`, `pricing_run` and `quant_run` are unconfirmed
-      and part of the same ask). Upstream says a run id is unique only with the run's `cycle_type`
-      and `started_at`, so emit `<run table>:<id>` only when all of these read checks pass, and
-      omit it otherwise (today: every `shared_executive_edge` row):
+      (first confirmed for `cycle_run`; the second reply extends it to `analysis_run`,
+      `pricing_run`, `quant_run` and `sec_filings`, below). Upstream says a run id is unique only
+      with the run's `cycle_type` and `started_at`, so emit `<run table>:<id>` only when all of
+      these read checks pass, and omit it otherwise (today: every `shared_executive_edge` row).
+      **Exception, rows whose identity is the run:** a `v_weight_scheme`, `v_weight_component`,
+      `v_cycle_ranking` or `v_cycle_ranking_component` row whose run fails the checks is skipped,
+      not kept without `:runId` (its scheme or snapshot IRI is the run id, T-121, T-155), and
+      counted in Work item 16's boundary report (T-163). Every other row only loses `:runId`. The
+      checks:
       (a) the run row exists in that table;
       (b) for `cycle_run`, its `cycle_type` is one the view expects: `ENTITY_RESOLUTION` for
       `v_shared_executive_edge`; `SELECTION` or `MONITORING` for cycle-written `v_score_snapshot`
       rows (`run_kind = 'cycle'`: TECHNICAL, VALORIZATION, SECTOR), `v_sector_aggregate_snapshot`,
-      `v_veto`, `v_cycle_ranking`, `v_weight_scheme`/`v_weight_component` and
-      `v_portfolio_position`. Pin this list next to `view_contract.py`, so a new `run_id`-carrying
-      view needs an entry;
+      `v_veto`, `v_cycle_ranking`, `v_cycle_ranking_component`, `v_weight_scheme`/
+      `v_weight_component` and `v_portfolio_position`. Pin this list next to `view_contract.py`,
+      so a new `run_id`-carrying view needs an entry;
       (c) the row's own time falls inside the run: its wall-clock column (`computed_at`,
       `detected_at`, `created_at`) between the run's `started_at` and `finished_at`, or, for a row
-      with only a cycle date (`v_cycle_ranking`, `v_weight_*`), that date equal to the run's
+      with only a cycle date (`v_cycle_ranking`, `v_weight_*`; a `v_cycle_ranking_component` row
+      takes its ranking row's), that date equal to the run's
       `as_of`; for `v_portfolio_position`, which has neither, its `valid_from` equal to the run's
       `as_of`. Check (c) is what catches an id reused by a run of the same type.
       Nothing is derived. Until upstream stops reusing ids, these checks lower the risk but do not
@@ -272,10 +278,11 @@ waits on the upstream change it reads. Feeds Work item 4 (T-031) and Work item 1
       (D16), and run `cli/check_view_contract.py` against that commit. Repeat for
       `v_media_cooccurrence_edge`. Pin their T-144's `v_cycle_ranking_component` too. Every contract
       change carries a marker migration, so each raises the floor; repeat for their T-145.
-      Project only from a database that meets the floor and holds no REPLAY run, checked by a
-      read at the start of each projection (no `cycle_run` row with `cycle_type = 'REPLAY'`; a
-      backfill's REPLAY scores and vetoes land in the shared tables, D8). Production (at 8)
-      fails the floor; the pilot (at 9) and their T-100 rebuild qualify if the check passes.
+      Project only from a database that meets the floor and holds no REPLAY run (no `cycle_run`
+      row with `cycle_type = 'REPLAY'`; a backfill's REPLAY scores and vetoes land in the shared
+      tables, D8). This task sets the rule; the check is one of T-162's expectations, run by T-163
+      at the start of each projection. Production (at 8) fails the floor; the pilot (at 9) and
+      their T-100 rebuild qualify if the check passes.
       → step 4.
 - [ ] **T-158** Replace the `ASSET_DAY_AGGREGATE` placeholder with upstream's SEMANTIC
       `score_method` value once they give it (D14; with their Work item 4, after their T-100).
@@ -314,8 +321,12 @@ See `PLAN.md` Work item 16.*
       `blended_score` at most 100, no lower bound; `available_at` NULL on cycle lanes until their
       T-144, then never NULL; `computed_at` in `+00:00` or `Z` form; `forensic_flags_json` NULL or
       an object of the four documented keys. This task owns that guard; T-031 only calls it. The
-      run-identity checks are not here: T-151 owns them (a reused `run_id`
-      is allowed, and a failure there omits `:runId` and does not fail the row). Update an
+      run-identity checks are not here: T-151 owns them (a reused `run_id` is allowed; a failure
+      omits `:runId` and keeps the row, except for the run-keyed views T-151 lists, whose rows are
+      skipped and counted in the report). Also here, as an aggregate check that stops the run: the
+      source database meets the `schema_version` floor and holds no `cycle_run` with
+      `cycle_type = 'REPLAY'` (T-157's rule; a backfill's REPLAY rows land in the shared tables,
+      D8); T-163 runs it first. Update an
       all-NULL-by-design expectation when upstream fills the column (T-154 for the edge dates, T-158
       for SEMANTIC). → step 2.
 - [ ] **T-163** Run the expectations on the read path: a function that returns the validated rows
