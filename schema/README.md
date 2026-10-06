@@ -149,7 +149,8 @@ what the store *enforces*.
    and no `inverted` flag changes. Upstream's
    own `raw_value` maps to `rawValue`. **Open, not fixed:** SECTOR (=
    `SectorRelativeMomentum`) and SEMANTIC (= `Sentiment`) have a 0–100 `normalized_score`
-   upstream but no `normalizedScore` here; how (or whether) it maps is T-031's to decide
+   upstream but no `normalizedScore` here, and their `rawValue` must land in `[-1, 1]`
+   (refinement 2, T-081/T-140); mapping upstream's values into that range is T-031's to decide
    (`SPEC.md` §2.6).
 
 ## Validation

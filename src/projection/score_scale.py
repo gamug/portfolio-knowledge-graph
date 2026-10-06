@@ -23,8 +23,9 @@ equals the mean of the flipped scores.
 
 Only the three lanes in :data:`RESCALED_SCORE_TYPES` are converted. Upstream ``SECTOR``
 is ``SectorRelativeMomentum`` (``SPEC.md`` D6) and SEMANTIC snapshots are ``Sentiment``
-(FR-005): both compare on ``rawValue`` and carry no ``normalizedScore``, so how their
-0-100 ``normalized_score`` maps (if at all) is open, also for T-031.
+(FR-005): both compare on a ``rawValue`` that ``ScoreSnapshotShape`` bounds to [-1, 1]
+(T-081, T-140) and carry no ``normalizedScore``, so mapping upstream's values into that
+range is open, also for T-031.
 """
 
 from __future__ import annotations

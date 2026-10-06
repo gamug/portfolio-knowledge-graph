@@ -299,10 +299,12 @@ the projection writes `1 − normalized_score/100` (`src/projection/score_scale.
 same for `v_sector_aggregate_snapshot.mean_normalized` (the mean of members' TECHNICAL score,
 same scale and polarity) into `:SectorAggregateSnapshot`'s required `normalizedScore`; a
 non-finite value or one outside [0, 100] is an error, not clipped. Upstream's separate
-`raw_value` (the score before normalization) is what maps to `:rawValue`; its range per lane
-is decided in T-031. SECTOR (= `SectorRelativeMomentum`, D6) and SEMANTIC (= `Sentiment`,
-FR-005) carry no `normalizedScore` and compare on a `rawValue` the shape bounds to [-1, 1] for
-`Sentiment`, so how their 0–100 `normalized_score` maps, if at all, is open (T-031).
+`raw_value` (the score before normalization) is what maps to `:rawValue`; for the three
+rescaled lanes its range is decided in T-031. SECTOR (= `SectorRelativeMomentum`, D6) and
+SEMANTIC (= `Sentiment`, FR-005) carry no `normalizedScore` and compare on a `rawValue` the
+shape bounds to [-1, 1] for both (T-081, T-140), so T-031 has to map upstream's SECTOR and
+SEMANTIC values into that range; upstream SECTOR is "own TECHNICAL raw minus sector mean" on
+the raw scale (D6), not a difference of two [0, 1] scores as `docs/06` §1.8 defines it.
 Neither `ScoreSnapshotShape` nor `WeightComponent.inverted` changes.
 
 ## 3. Technology Stack & Architecture Decisions

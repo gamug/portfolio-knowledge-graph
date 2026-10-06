@@ -32,8 +32,9 @@ are closed (see `CHANGELOG.md`).*
       step 1.
 - [ ] **T-031** Design and implement the SHACL-validated-on-write path into
       fresh `urn:graph:ingest:{agent}:{date}` graphs. Also: trim `view_contract.py` to the
-      columns read; decide the `:rawValue` range per lane and how SECTOR/SEMANTIC's 0–100
-      `normalized_score` maps (`SPEC.md` §2.6); and guard against a change of *meaning* the
+      columns read; decide the `:rawValue` range for FUNDAMENTAL/VALORIZATION/TECHNICAL, and map upstream SECTOR and
+      SEMANTIC into the `[-1, 1]` `rawValue` `ScoreSnapshotShape` requires of them (T-081, T-140;
+      `SPEC.md` §2.6); and guard against a change of *meaning* the
       column-name check cannot see (e.g. upstream moving `normalized_score` to [0, 1] would pass
       the [0, 100] check and become ~0.99 risk), for instance a per-lane cohort mean near 50,
       upstream's documented centre. → step 2.
