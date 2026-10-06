@@ -152,8 +152,8 @@ once T-131 lands.*
 *Upstream's reply to the gaps in `SPEC.md` §2.6 (checked against their `0a528be`), and their second
 reply (`597832a`), which accepts our asks as their T-144 and T-145 and corrects six assumptions
 (`PLAN.md` Work item 15, step 3 lists the decisions). T-150, T-151's rule, T-155's removal of the
-blend formula and the shape corrections in T-153 and T-155 need nothing; the rest of T-152–T-158
-waits on the upstream change it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
+blend formula, the shape corrections in T-153 and T-155 and T-158's ownership question need
+nothing; the rest of T-152–T-158 waits on the upstream change it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
 
 - [x] **T-150** Record the reply in `SPEC.md` §2.6: rows and dispositions D8 (REPLAY never reaches
       production, so no replay flag is needed; `v_cycle_ranking` gains `status`; "production DB
@@ -290,7 +290,8 @@ waits on the upstream change it reads. Feeds Work item 4 (T-031) and Work item 1
       → step 4.
 - [ ] **T-158** Replace the `ASSET_DAY_AGGREGATE` placeholder with upstream's SEMANTIC
       `score_method` value once they give it (D14; with their Work item 4, after their T-100).
-      **First, raise the ownership disagreement:** upstream's second reply says the future SEMANTIC
+      **First, raise the ownership disagreement (unblocked now; ask before their T-141 ships its
+      doc fix):** upstream's second reply says the future SEMANTIC
       writer is this repo (per their `docs/semantic-score-boundary.md`), against `SPEC.md` §13 item
       11 (`portfolio-nlp` computes, `financial-analysis` materializes, this repo stops writing).
       Ask them to confirm which reading their T-141 doc fix will state, and record the answer in D14
@@ -360,9 +361,10 @@ follow in dependency order (Work items 3 and 11 are closed, so Work item 4 is un
 Work item 12 (T-120–T-121): T-120 closed by T-150; T-121 is unblocked.
 Work item 13 (T-130–T-136): constitution rules in place (1.5.0); T-131 next, then T-132–T-134 and T-136; T-130 closes with T-134.
 Work item 14 (T-140–T-142): T-140 done; T-141 needs a live GraphDB; T-142 is unblocked.
-Work item 15 (T-150–T-159): T-150 done; T-151's rule, T-155's formula removal and the shape corrections
-in T-153/T-155 are unblocked; the rest of T-152–T-158 waits on upstream's T-144 (views), T-145 (ids),
-T-074 (flags) and, after their T-100, their T-082 and their Work item 4.
+Work item 15 (T-150–T-159): T-150 done; T-151's rule, T-155's formula removal, the shape corrections
+in T-153/T-155 and T-158's ownership question (before their T-141) are unblocked; the rest of
+T-152–T-158 waits on upstream's T-144 (views), T-145 (ids), T-074 (flags) and, after their T-100,
+their T-082 and their Work item 4.
 Work item 16 (T-160–T-165): T-160 first (policy and tool); T-163 lands with T-031; T-164 needs Work item 13's skeleton.
 Work item 8 (T-070–T-071) is independent but needs a human at a Protégé
 session, not a coding session.
