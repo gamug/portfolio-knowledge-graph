@@ -587,10 +587,10 @@ to fit:
   = more attractive) minus `soft_veto_penalty` (15 by default) per active SOFT veto. An asset with
   no component gets 0.0, not NULL. A ÷100 breaks `attractivenessScore`'s [0, 1].
 - **Only FUNDAMENTAL rows have `available_at`;** it is NULL on every TECHNICAL, VALORIZATION and
-  SECTOR row, which `ScoreSnapshotShape` rejects. T-144 fills it *in the view* with the cycle date
+  SECTOR row, which `ScoreSnapshotShape` rejects. Their T-144 fills it *in the view* with the cycle date
   (the score's `event_time`, the day their own `rank` reads it), so it is read here, not derived.
 - **`metric_name` has no group prefix** (`debt_to_equity` in group `leverage`); the dotted id exists
-  only in `v_rule_catalog.param_metric`. T-144 adds `metric_id` (`metric_group || '.' ||
+  only in `v_rule_catalog.param_metric`. Their T-144 adds `metric_id` (`metric_group || '.' ||
   metric_name`) and `unit` (`ratio` = fraction, `x` = multiple, `usd`) to `v_fundamental_metric`.
 - **`is_current` marks at most one row per key, not exactly one:** current is the newest version per
   metric group, by their explicit version order, so a filing not recomputed under it has no
@@ -608,23 +608,26 @@ Also from that reply:
   and on every non-FUNDAMENTAL row.
 - `computed_at` is ISO 8601 UTC written with `+00:00`, not `Z`.
 - Ids can be reused on all four run tables **and `sec_filings`** (their T-120 repair deleted
-  stale filings), only through manual deletions; T-145 makes them `AUTOINCREMENT` and adds a
+  stale filings), only through manual deletions; their T-145 makes them `AUTOINCREMENT` and adds a
   run-type check to their pilot verifier. Their T-100 rebuilds the database, which drops the
   orphaned edge `run_id`s; the accession number is a stable filing key.
 - `schema_version` advances only through migrations, so each contract change adds a marker
-  migration. Production is at 8, below our floor of 9 (D16); the pilot is at 9; T-100 starts fresh.
+  migration. Production is at 8, below our floor of 9 (D16); the pilot is at 9;
+  their T-100 starts a fresh database.
 - `normalized_score` is cohort-relative (50 + 10·z, clamped to [0, 100]), so `1 - x/100` is a
   relative risk reading, not an absolute level.
-- Our `:inverted` comment calls `ScoreFinanciero` inverted while the handoff example set it `false`.
+- Our `:inverted` comment calls `ScoreFinanciero` inverted, while the example we sent them set it
+  `false`.
 - **Their weights change (their T-141):** new runs blend FUNDAMENTAL, VALORIZATION and TECHNICAL at
   1/3 each, and SEMANTIC leaves the blend until their Work item 4; older runs keep the four keys
   (0.4/0.3/0.2/0.1). The per-asset renormalization is unchanged.
 - **Placed and deferred:** the `v_media_cooccurrence_edge` view and `first_seen`/`last_seen` (with
   their T-082) and the SEMANTIC method value (with their Work item 4) wait until after their T-100.
   The SEMANTIC-writer doc fix goes with their T-141; the trigger split in their SPEC with their
-  Work item 2. Their order: Work item 8 (T-141, T-074), then Work item 19 (T-083, T-142, T-144,
-  T-145), Work item 2, the final pilot (T-143), T-100. They send the commit, `schema_version` and
-  doc section when T-144 and T-145 land.
+  Work item 2. Their order, all in their numbering: their Work item 8 (their T-141 and T-074),
+  then their Work item 19 (their T-083, T-142, T-144 and T-145), their Work item 2, their final
+  pilot (their T-143), their T-100. They send the commit, `schema_version` and doc section when
+  their T-144 and T-145 land.
 
 Every correction is resolved here by reading their value as documented, never by fitting it: the
 shapes widen to their documented ranges, and a ÷100 stays the only conversion (a unit change, as
@@ -672,7 +675,7 @@ updated target schema.
      lower bound (soft-veto penalties). No pre-penalty score is derived here (T-155).
    - A ranking row whose asset has no `v_cycle_ranking_component` row is skipped: its 0.0 is a
      placeholder, not a score (T-155; confirm with upstream).
-   - `availableAt` stays required; until T-144 lands, cycle-lane rows have none and are not
+   - `availableAt` stays required; until their T-144 lands, cycle-lane rows have none and are not
      projected (never filled in here). Its `tbox.ttl` comment gains the cycle-lane definition, and
      `normalizedScore`'s says it is cohort-relative (T-153).
    - Forensic flags: one `:forensicFlag` per key set to `true`, from the four documented keys, and
@@ -684,14 +687,19 @@ updated target schema.
    - `:SECFiling` IRIs and joins are keyed by accession number, not upstream's `id` (T-151).
    - `schemeId` is the `cycle_run` the blend belongs to, and `scheme_id` becomes a separate
      book-weighting-rule property; `:inverted` is not emitted for upstream schemes (T-121).
+     Schemes and ranking snapshots are keyed by a `cycle_run` id, so they rely on their T-145;
+     before it lands, only runs passing T-151's checks are projected (T-121, T-155).
 4. When upstream ships, re-pin `view_contract.py` and the `schema_version` floor (T-157) and replace
-   the SEMANTIC placeholder (T-158). Do not project from a database below the floor (production at
-   8 today); their T-100 rebuild is the first one to project from.
+   the SEMANTIC placeholder (T-158). Do not project from a database below the floor: production
+   (at 8 today) is excluded; the pilot (at 9) and their T-100 rebuild qualify; a replay copy never
+   does.
 
 **Declined from the reply**: `inputs_json` on `v_fundamental_metric` (the metric value and its
 filing are enough); a stored daily market cap (the per-filing `market_capitalization` metric is
-enough for size context); a replay flag (not needed while only production is projected); a run
-trigger endpoint in their `api/`.
+enough for size context); a replay flag (not needed while no replay copy is projected); a run
+trigger endpoint in their `api/`. From the second reply: `v_cycle_ranking_component.component_value`
+(it repeats a `ScoreSnapshot` value), and a pre-penalty attractiveness score (deriving it from the
+effective weights would be a computation).
 
 **Acceptance**: `SPEC.md` §2.6 has no D8–D14 item left as "raised upstream" without its answer
 (D14 included, so this needs upstream's SEMANTIC method value, T-158);
@@ -699,13 +707,14 @@ every schema change passes the FR-001 parse + `pyshacl` check with updated count
 reads the new columns from a re-pinned `view_contract.py` and computes none of the values listed in
 step 2; no doc or schema comment describes the attractiveness blend as computed here; T-120 is closed;
 no shape rejects a value upstream documents as valid (the SECTOR `raw_value` range, a negative
-`blended_score`, an absent current metric row), checked with synthetic rows at those bounds.
+`blended_score`), checked with synthetic rows at those bounds, and a filing with no current metric
+row fails no shape.
 
 **Blocked on**: nothing for T-150, T-151's rule, T-155's formula removal and the shape corrections
 of step 3 (SECTOR range, `attractivenessScore` bound, and the `tbox.ttl` comments); upstream's
 T-144 for T-152–T-156's projection and T-157's first re-pin; their T-145 for relaxing T-151's
 checks; their T-074 for T-153's flag values; their T-082, after their T-100, for T-154's `MEDIA`
-kind and edge dates; their Work item 4, after T-100, for T-158. Closing this work item waits on
+kind and edge dates; their Work item 4, after their T-100, for T-158. Closing this work item waits on
 T-158.
 
 ## Work item 16 — Validate upstream rows at the read boundary, before any triple is built
