@@ -651,10 +651,10 @@ since a polarity change leaves the column set untouched.
    state: a column NULL for every row *by design* (SEMANTIC today; `first_seen`/`last_seen` on
    `v_shared_executive_edge` until their Work item 9) is expected, not a failure, and its expectation
    changes when upstream fills it (T-154 for the edge dates, T-158 for SEMANTIC). Tool second: list
-   the checks needed (types, NULL rate, range, natural-key uniqueness, `available_at` against `event_time`, row count per view), then compare
-   plain checks, pandera, deepchecks and Great Expectations against that list (dependency weight,
-   fit with the pinned-contract style). Record the decision in `SPEC.md` §13 item 10 before any dependency
-   is added.
+   the checks needed (types, NULL rate, range, natural-key uniqueness, `available_at` against
+   `event_time`, row count per view), then compare plain checks, pandera, deepchecks and Great
+   Expectations against that list (dependency weight, fit with the pinned-contract style). Record the
+   decision in `SPEC.md` §13 item 10 before any dependency is added.
 2. Add the dependency (through a constitution amendment first, if it is a library) and write the
    expectations beside `view_contract.py`, for the views Work item 4 reads (T-161, T-162). The
    run-identity checks are not among them: T-151 owns those, because they compare a row with its run
