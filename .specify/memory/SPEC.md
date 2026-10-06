@@ -83,11 +83,13 @@ open decision for Work item 4, not something this exception settles.
 pricing, cycle rankings, or quant scores (`portfolio-financial-analysis`'s
 job); it does not run any NLP model or own article source text — it reads
 only `portfolio-nlp`'s already-published RESULTS rows, read-only, never
-`portfolio-nlp`'s SOURCE text or its own model inference; it does not (yet)
-stand up a triple store, a SHACL ingest gate, an OWL reasoner, a SPARQL
-surface, or the two LangGraph agent cycles that are meant to read all of the
-above (`08-agent-architecture.md`, designed but unbuilt — roadmap steps 1 and
-3–8); it makes no portfolio or trading decision and renders no report
+`portfolio-nlp`'s SOURCE text or its own model inference; it stands up the
+triple store and its SHACL ingest gate (Work item 3, roadmap step 1) but does
+not (yet) verify the OWL RL reasoning or offer a query surface beyond the
+store's raw SPARQL endpoint (Work item 6), and it builds neither of the two
+LangGraph agent cycles meant to read all of the above
+(`08-agent-architecture.md`, design reference only — roadmap steps 3–8 are
+built upstream); it makes no portfolio or trading decision and renders no report
 (`portfolio-reports`/`portfolio-app`'s job).
 
 ## 2. Scope & Requirements
@@ -522,7 +524,7 @@ This repo has no throughput/latency SLA, and defining one is out of scope
 (§14) — a real-time or high-volume performance target belongs to a
 production system this project isn't. What exists instead:
 
-- **Scale estimates** for the target (unbuilt) triple-store architecture are
+- **Scale estimates** for the target (full-scale) triple-store architecture are
   in `07-ontology-topology.md`, not repeated here — they describe the target
   at full scale; the store stood up in Work item 3 holds only the worked
   example so far.
@@ -594,9 +596,11 @@ There is no CD pipeline and no CI workflow for this repo
   S&P 500 membership, `SQL_UNIVERSE_DB`, read-only), because
   `v_universe_membership` is frozen upstream (§2.6 D1). Both are versioned
   contracts that are still moving (§2.6 D16).
-- **Downstream (intended, not yet built)**: a standing triple store, the
-  SHACL ingest gate, the OWL RL reasoner and the SPARQL surface (roadmap
-  steps 1–2 and the query surface). Cycle orchestration is **not** downstream
+- **Downstream (intended, not yet built)**: the real projection's write path
+  into dated ingest graphs (roadmap step 2, Work item 4; T-030 pinned its read
+  contract), verified OWL RL reasoning and the SPARQL query surface (Work
+  item 6). The standing triple store and its SHACL ingest gate are built
+  (roadmap step 1, Work item 3). Cycle orchestration is **not** downstream
   work for this repo: it already lives in `portfolio-financial-analysis`'s
   `cycle` package (decision recorded 2026-10-02; `08-agent-architecture.md`
   is retained as design reference and still to be reconciled — T-008). `portfolio-reports`
@@ -777,7 +781,7 @@ of what this project is, not a gap someone forgot to close:
 
 | §13 item | Category | Disposition |
 |---|---|---|
-| 1 — integrative layer unbuilt (steps 1–2, query surface); compute steps owned upstream | **Pending development** (integrative layer only) | The actual backlog — `PLAN.md` Work items 3, 4, 6; Work items 5 and 7 are now scope-reassigned upstream (§2.5) |
+| 1 — integrative layer partly built (step 1 done; step 2 and query surface pending); compute steps owned upstream | **Pending development** (integrative layer only) | The actual backlog — `PLAN.md` Work items 4, 6 (Work item 3, step 1, done); Work items 5 and 7 are now scope-reassigned upstream (§2.5) |
 | 12 — FR-005 vs. the ETL's `body_text` read | **Resolved** (spec amended to match the code, 2026-10-05) | `PLAN.md` Work item 11, T-113 — done |
 | 10 — `kg_schema`/`schema/` vocabulary and semantic drift | **Mitigated; automation pending** | `PLAN.md` Work item 11 (decisions closed 2026-10-05, T-100–T-113; dispositions in §2.6); Work item 4, T-030 done (pin + manual drift check); where the check runs automatically: T-135 |
 | 11 — SEMANTIC score not computed here | **Ownership resolved; cut-over pending** (upstream aggregation + local replacement) | `PLAN.md` Work items 4–5 (reassigned), §2.5 |
