@@ -524,7 +524,7 @@ This repo has no throughput/latency SLA, and defining one is out of scope
 (§14) — a real-time or high-volume performance target belongs to a
 production system this project isn't. What exists instead:
 
-- **Scale estimates** for the target (full-scale) triple-store architecture are
+- **Scale estimates** for the target triple-store architecture are
   in `07-ontology-topology.md`, not repeated here — they describe the target
   at full scale; the store stood up in Work item 3 holds only the worked
   example so far.
