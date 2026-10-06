@@ -21,7 +21,13 @@ becomes a ``:SectorAggregateSnapshot``'s ``normalizedScore``: call
 ``to_normalized_score("TECHNICAL", mean_normalized)``. The map is linear, so flipping the mean
 equals the mean of the flipped scores.
 
-Only the three lanes in :data:`RESCALED_SCORE_TYPES` are converted. Upstream ``SECTOR``
+FUNDAMENTAL is deliberately not converted (T-171, ``SPEC.md`` D17): upstream rewrites a
+FUNDAMENTAL row's ``normalized_score`` in place on every cycle that re-normalizes the filing,
+so it cannot sit on an immutable ``ScoreSnapshot``. A FUNDAMENTAL snapshot carries
+``:rawValue`` instead; the per-cycle value is ``v_cycle_ranking_component.component_value``,
+read as ``:componentValue`` (T-155).
+
+Only the lanes in :data:`RESCALED_SCORE_TYPES` are converted. Upstream ``SECTOR``
 is ``SectorRelativeMomentum`` (``SPEC.md`` D6) and SEMANTIC snapshots are ``Sentiment``
 (FR-005): both compare on a ``rawValue`` that ``ScoreSnapshotShape`` bounds to [-1, 1]
 (T-081, T-140) and carry no ``normalizedScore``, so mapping upstream's values into that
@@ -37,7 +43,6 @@ UPSTREAM_MAX = Decimal(100)
 
 # score_type (= agentOrigin) -> metricType, for the lanes whose normalized_score is projected.
 RESCALED_SCORE_TYPES: dict[str, str] = {
-    "FUNDAMENTAL": "ScoreFinanciero",
     "VALORIZATION": "ScoreCuantitativo",
     "TECHNICAL": "ScoreTecnico",
 }

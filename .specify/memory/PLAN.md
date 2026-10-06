@@ -507,7 +507,7 @@ follow it.
    then reverse NR-005, §10, §13 item 7 and §14 in `SPEC.md` once the suite exists (with T-134).
 2. Add `pytest` to the dev group and the `tests/` skeleton.
 3. Write the pending tests: `projection/score_scale` (0, 50, 100, `None`, out of range, decimal
-   exactness); `projection/contract_check` against a synthetic miniature upstream (a pin, then the
+   exactness, `"FUNDAMENTAL"` rejected per T-171); `projection/contract_check` against a synthetic miniature upstream (a pin, then the
    same views with a column removed (drift), added and reordered (notes), plus an unlisted new view); `src/etl/common`
    (severity/G1–G3, GICS rollup, provenance IDs, Turtle literals); the FR-001 parse + `pyshacl` gate
    as a test; `src/kg_store/` (loader, ingest gate, `acceptance.check_gate`) against a fake store

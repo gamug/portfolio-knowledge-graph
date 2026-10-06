@@ -163,8 +163,9 @@ what the store *enforces*.
    upstream's `normalized_score` is a 0–100 *strength* score (50 = cohort average, higher =
    better), while every `normalizedScore` here is a [0, 1] *risk* reading (`06` §1.8, the
    reason `WeightComponent.inverted` exists). The projection converts it as
-   `1 − normalized_score/100` for FUNDAMENTAL/VALORIZATION/TECHNICAL
-   (`src/projection/score_scale.py`), and for `v_sector_aggregate_snapshot.mean_normalized` (the
+   `1 − normalized_score/100` for VALORIZATION/TECHNICAL
+   (`src/projection/score_scale.py`; FUNDAMENTAL until T-171, which stopped converting it
+   because upstream rewrites its `normalized_score` in place, see refinement 2), and for `v_sector_aggregate_snapshot.mean_normalized` (the
    mean of members' TECHNICAL score) into `SectorAggregateSnapshot.normalizedScore`, so no shape
    and no `inverted` flag changes. Upstream's
    own `raw_value` maps to `rawValue`. **Open, not fixed:** SECTOR (=

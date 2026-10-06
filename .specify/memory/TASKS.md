@@ -39,7 +39,9 @@ are closed (see `CHANGELOG.md`).*
       `SPEC.md` §2.6). SECTOR's `raw_value` is read verbatim into the [-100, 100] bound T-155 sets,
       and its 0-100 `normalized_score` is rescaled like the other lanes (add SECTOR to
       `RESCALED_SCORE_TYPES` in `src/projection/score_scale.py`, and rewrite its module docstring,
-      which still says SECTOR carries no `normalizedScore` and a [-1, 1] `rawValue`). Skip a
+      which still says SECTOR carries no `normalizedScore` and a [-1, 1] `rawValue`; do not
+      re-add FUNDAMENTAL, which T-171 removed: project its `raw_value` only, never its
+      `normalized_score`). Skip a
       cycle-lane row with a NULL `available_at` (every such row before upstream's T-144) and count it
       in Work item 16's boundary report (T-163), so no row is dropped silently; never fill it in. Parse
       `computed_at` with `+00:00` or `Z`. And guard
@@ -112,7 +114,8 @@ once T-131 lands.*
       `.code_quality/mypy.ini`'s `files`; a `conftest.py` for shared fixtures only (no `sys.path`
       edits). → Approach 2.
 - [ ] **T-132** Tests for `src/projection/score_scale.py` (0, 50, 100, `None`, out of range, decimal
-      exactness) and `contract_check.py` against a synthetic miniature upstream (removed column, new
+      exactness, and `"FUNDAMENTAL"` raising `ValueError`, so T-171's removal can't silently
+      regress) and `contract_check.py` against a synthetic miniature upstream (removed column, new
       unlisted view and view that did not build are drift; added or reordered columns are notes),
       plus a `kg_schema` already in `sys.modules` not being reused; `to_normalized_score` on a
       `bool` or a non-numeric string raises `ValueError`. → Approach 3.
@@ -366,7 +369,13 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       CLAUDE.md's convention for the three earlier ones). Also `docs/06-ontology-definition.md`'s
       `ScoreSnapshotShape` table row and §1.8's exemption-history paragraph (PR #56 review):
       T-081 and T-140, the two prior amendments to this shape, each updated both inline when they
-      landed, so this one does too rather than waiting on T-159's later sync pass. → step 3.
+      landed, so this one does too rather than waiting on T-159's later sync pass. And the code
+      and contract that implemented the old reading (PR #56 review): FUNDAMENTAL comes out of
+      `RESCALED_SCORE_TYPES` in `src/projection/score_scale.py`, so `to_normalized_score` rejects
+      the lane instead of converting a value upstream mutates (SHACL cannot enforce this: the shape
+      keeps FUNDAMENTAL `normalizedScore` optional for legacy data, so the projector is the only
+      place it holds); `SPEC.md` §2.6's T-030 rescale paragraph and `schema/README.md` refinement 6
+      stop listing FUNDAMENTAL as rescaled. → step 3.
 
 ## Work item 16 — Validate upstream rows at the read boundary
 

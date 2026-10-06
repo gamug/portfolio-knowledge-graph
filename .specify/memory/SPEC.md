@@ -419,13 +419,17 @@ column upstream adds, or a changed column order, is reported as a note, since th
 reads by name. Upstream's `normalized_score` is a 0–100 *strength* score (50 = cohort
 average, higher = better), while `:normalizedScore` is a [0, 1] *risk* reading
 (`docs/06-ontology-definition.md` §1.8; flagged as `schema/README.md` refinement 6). For
-FUNDAMENTAL, VALORIZATION and TECHNICAL (`ScoreFinanciero`/`ScoreCuantitativo`/`ScoreTecnico`)
-the projection writes `1 − normalized_score/100` (`src/projection/score_scale.py`), and does the
+VALORIZATION and TECHNICAL (`ScoreCuantitativo`/`ScoreTecnico`)
+the projection writes `1 − normalized_score/100` (`src/projection/score_scale.py`). Not for
+FUNDAMENTAL (`ScoreFinanciero`) since T-171 (D17): upstream rewrites its `normalized_score` in
+place, so a FUNDAMENTAL snapshot carries `rawValue` only, and `score_scale.py` rejects the lane
+rather than convert it. The projection does the
 same for `v_sector_aggregate_snapshot.mean_normalized` (the mean of members' TECHNICAL score,
 same scale and polarity) into `:SectorAggregateSnapshot`'s required `normalizedScore`; a
 non-finite value or one outside [0, 100] is an error, not clipped. Upstream's separate
-`raw_value` (the score before normalization) is what maps to `:rawValue`; for the three
-rescaled lanes its range is decided in T-031. SECTOR (= `SectorRelativeMomentum`, D6) and
+`raw_value` (the score before normalization) is what maps to `:rawValue`; for FUNDAMENTAL,
+VALORIZATION and TECHNICAL its range is decided in T-031 (FUNDAMENTAL's needs upstream's answer
+to Q6). SECTOR (= `SectorRelativeMomentum`, D6) and
 SEMANTIC (= `Sentiment`, FR-005) carry no `normalizedScore` and compare on a `rawValue` the
 shape bounds to [-1, 1] for both (T-081, T-140), so T-031 has to map upstream's SECTOR and
 SEMANTIC values into that range; upstream SECTOR is "own TECHNICAL raw minus sector mean" on
