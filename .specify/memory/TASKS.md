@@ -198,11 +198,12 @@ waits on the upstream change it reads. Feeds Work item 4 (T-031) and Work item 1
       `as_of`. Check (c) is what catches an id reused by a run of the same type.
       Nothing is derived. Until upstream stops reusing ids, these checks lower the risk but do not
       prove uniqueness; `:runId`'s comment in `tbox.ttl` and `SPEC.md` D7 must say so.
-      **Second reply:** ids can be reused on all four run tables and on `sec_filings`, through manual
-      deletions only. Their T-145 makes them non-reusable and their T-100 rebuild drops the
-      orphaned edge ids; after both, keep checks (a) and (b) (plain reads) and drop (c). Key
-      `:SECFiling` IRIs by accession number, never `sec_filings.id`, and resolve a row's
-      `filing_id` to it through `v_sec_filing` in the same read. → step 3.
+      **Second reply:** ids can be reused on all four run tables and on `sec_filings`, only after a
+      deletion (a manual one on `cycle_run`, their T-120 repair on `sec_filings`). Their T-145 makes
+      them non-reusable and their T-100 rebuild drops the orphaned edge ids; after both, keep
+      checks (a) and (b) (plain reads) and drop (c). Key `:SECFiling` IRIs by accession number,
+      never `sec_filings.id`, and resolve a row's `filing_id` to it through `v_sec_filing` in the
+      same read. → step 3.
 - [ ] **T-152** Model `v_fundamental_metric`: one immutable observation per (filing, metric, engine
       version) with its asset, filing, metric group and name, value, `engineVersion`, and its own
       event-time and available-at properties (not `:eventTime`/`:availableAt`: their
@@ -303,13 +304,14 @@ See `PLAN.md` Work item 16.*
 
 - [ ] **T-160** Decide the failure policy (stop the run, or quarantine failing rows and report them)
       and the validation tool, from the list of checks needed (types, NULL rate, range, natural-key
-      uniqueness, `available_at` against `event_time`, row count per view). A check with no
-      offending row (row count, NULL rate, cohort mean) is reported against its view or group and
-      stops the run under either policy, so its thresholds encode upstream's documented state: a
-      column NULL for every row by design (SEMANTIC today; `first_seen`/`last_seen` on
-      `v_shared_executive_edge` until their Work item 9) is expected, not a failure. Compare plain checks, pandera, deepchecks and Great
-      Expectations on that list, including dependency weight. Record the decision in `SPEC.md` §13
-      item 10. → `PLAN.md` Work item 16, step 1.
+      uniqueness, `available_at` against `event_time`, row count per view, and the source check of
+      T-157). A check with no offending row (row count, NULL rate, cohort mean) is reported against
+      its view or group and stops the run under either policy, so its thresholds encode upstream's
+      documented state: a column NULL for every row by design (SEMANTIC today;
+      `first_seen`/`last_seen` on `v_shared_executive_edge` until their Work item 9) is expected,
+      not a failure. Rows skipped by design (T-031, T-151, T-155) are counted, not failed. Compare
+      plain checks, pandera, deepchecks and Great Expectations on that list, including dependency
+      weight. Record the decision in `SPEC.md` §13 item 10. → `PLAN.md` Work item 16, step 1.
 - [ ] **T-161** If T-160 picked a library: propose the constitution amendment first (Technological
       stock #6, Governance steps 1–4, MINOR bump), as its own reviewed change, then add the dependency
       to `pyproject.toml`. If plain checks won, there is no dependency and no amendment. → step 2.
@@ -333,7 +335,11 @@ See `PLAN.md` Work item 16.*
       column (T-154 for the edge dates, T-158 for SEMANTIC). → step 2.
 - [ ] **T-163** Run the expectations on the read path: a function that returns the validated rows
       and a report naming the view and column of every failure, with the row key for a row-level
-      check and the group for an aggregate one, applying the T-160 policy. Lands with T-031. → step 3.
+      check and the group for an aggregate one, applying the T-160 policy. It runs T-162's source
+      check first and stops on its failure. The report also counts, per view and reason, the rows
+      skipped by design: T-031's cycle-lane rows with a NULL `available_at`, T-155's no-component
+      ranking rows, and T-151's run-keyed rows whose run fails the checks. Lands with T-031.
+      → step 3.
 - [ ] **T-164** Tests with synthetic frames: one passing and one failing case per check kind, and the
       behaviour of the policy T-160 selected (including an aggregate failure), under Work item 13's
       structure (needs T-131). → step 4.

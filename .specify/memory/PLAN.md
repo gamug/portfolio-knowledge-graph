@@ -608,10 +608,11 @@ Also from that reply:
   fired" is all four `false`, not `[]`; the codes are the keys set to `true`. NULL on every row today
   and on every non-FUNDAMENTAL row.
 - `computed_at` is ISO 8601 UTC written with `+00:00`, not `Z`.
-- Ids can be reused on all four run tables **and `sec_filings`** (their T-120 repair deleted
-  stale filings), only through manual deletions; their T-145 makes them `AUTOINCREMENT` and adds a
-  run-type check to their pilot verifier. Their T-100 rebuilds the database, which drops the
-  orphaned edge `run_id`s; the accession number is a stable filing key.
+- Ids can be reused on all four run tables **and `sec_filings`**, only after a deletion: a manual
+  one emptied production's `cycle_run`, and their T-120 repair deletes stale filing rows. Their
+  T-145 makes them `AUTOINCREMENT` and adds a run-type check to their pilot verifier. Their T-100
+  rebuilds the database, which drops the orphaned edge `run_id`s; the accession number is a stable
+  filing key.
 - `schema_version` advances only through migrations, so each contract change adds a marker
   migration. Production is at 8, below our floor of 9 (D16); the pilot is at 9;
   their T-100 starts a fresh database.
@@ -761,9 +762,13 @@ since a polarity change leaves the column set untouched.
    `v_shared_executive_edge` until their Work item 9) is expected, not a failure, and its expectation
    changes when upstream fills it (T-154 for the edge dates, T-158 for SEMANTIC). Tool second: list
    the checks needed (types, NULL rate, range, natural-key uniqueness, `available_at` against
-   `event_time`, row count per view), then compare plain checks, pandera, deepchecks and Great
+   `event_time`, row count per view, and the source check: `schema_version` floor and no REPLAY
+   run, Work item 15), then compare plain checks, pandera, deepchecks and Great
    Expectations against that list (dependency weight, fit with the pinned-contract style). Record the
-   decision in `SPEC.md` §13 item 10 before any dependency is added.
+   decision in `SPEC.md` §13 item 10 before any dependency is added. Rows skipped by design are not
+   failures under either policy, but the report counts them per view and reason (T-031's NULL
+   `available_at`, T-155's no-component rows, T-151's run-keyed rows), so no row is dropped
+   silently.
 2. Add the dependency (through a constitution amendment first, if it is a library) and write the
    expectations beside `view_contract.py`, for the views Work item 4 reads (T-161, T-162). The
    run-identity checks are not among them: T-151 owns those, because they compare a row with its run
@@ -772,7 +777,8 @@ since a polarity change leaves the column set untouched.
    are skipped and counted in the report. The expectations do include one source check, which
    stops the run: the database meets the `schema_version` floor and holds no REPLAY run (T-157,
    Work item 15).
-3. Run them on the read path, so T-031's first real projection already goes through them (T-163).
+3. Run them on the read path, source check first, so T-031's first real projection already goes
+   through them (T-163).
 4. Test the selected policy and every check kind with synthetic frames under Work item 13's structure
    (T-164).
 
