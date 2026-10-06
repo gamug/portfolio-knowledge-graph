@@ -83,6 +83,18 @@ what the store *enforces*.
    a `ScoreTecnico` with only `rawValue` fail) and a real ETL smoke run (`--limit 3000`: 3000 violations on the
    old shape, none on the new) agree. No new class or property; `AllDisjointClasses` is unchanged.
    **2400 quads; conforms: True.**
+   **T-140 (Work item 14, 2026-10-06: PR #48 post-merge review).** Three gaps the T-081 rewrite left:
+   `SectorRelativeMomentum` was exempt from `normalizedScore` without needing a `rawValue` (an empty
+   snapshot conformed), so it now requires one in `[-1, 1]` — the range `06` §1.8 defines (a
+   `ScoreTecnico` minus its sector aggregate) and the attractiveness formula's `(rawValue + 1) / 2`
+   needs; mapping upstream's SECTOR score into it is T-031's job; `rawValue` gets `sh:maxCount 1` on every `ScoreSnapshot`, matching its
+   `owl:FunctionalProperty` in `tbox.ttl` (two `rawValue`s conformed); and an `sh:xone` ties
+   `agentOrigin` to `metricType` one-to-one (FUNDAMENTAL→`ScoreFinanciero`, VALORIZATION→
+   `ScoreCuantitativo`, TECHNICAL→`ScoreTecnico`, SECTOR→`SectorRelativeMomentum`, SEMANTIC→
+   `Sentiment`), the mapping every worked-example `ScoreSnapshot` already follows
+   (`SectorAggregateSnapshot`s keep their own shape). Eighteen synthetic cases, the store acceptance
+   probe (still exactly one violation, `:timestamp`), `docs/09`'s example and the ETL smoke run
+   (`--limit 3000`) agree. No new class or property. **2458 quads; conforms: True.**
 3. **Two more named-graph placements (a third added by T-108).** `07-ontology-topology.md` assigned graphs to every
    *agent's* daily output but not to the Orchestrator's own decisions or to entity resolution's
    derived facts. Resolved: `urn:graph:ingest:ORCHESTRATOR:{date}` and
