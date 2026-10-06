@@ -508,7 +508,7 @@ follow it.
    same views with a column removed (drift), added and reordered (notes), plus an unlisted new view); `src/etl/common`
    (severity/G1–G3, GICS rollup, provenance IDs, Turtle literals); the FR-001 parse + `pyshacl` gate
    as a test; `src/kg_store/` (loader, ingest gate, `acceptance.check_gate`) against a fake store
-   and the `cli/` exit codes (T-136). The rest of `src/etl/` is transitional (T-033) and is backfilled
+   and `cli/check_view_contract.py`'s exit code via subprocess (T-136). The rest of `src/etl/` is transitional (T-033) and is backfilled
    only if it survives.
 4. Decide, and document, where the real-checkout drift check runs (see T-135).
 

@@ -155,7 +155,12 @@ assumes the stack actually pinned in `pyproject.toml`.
     there by default (`addopts = "-m 'not integration'"`); a later
     `-m integration` on the command line overrides it and runs them. A structural
     test (an import-graph check of a rule stated here) is not a feature test:
-    treat its failure as an architecture violation, not a flaky test. Tests are
+    treat its failure as an architecture violation, not a flaky test. `cli/` is
+    not a package and is not on `pythonpath`, so a `cli/*.py` entrypoint stays a
+    thin wrapper whose logic lives in `src/` and is tested there; the entrypoint
+    itself is tested by running it as a subprocess (`sys.executable`,
+    `cli/<name>.py`, arguments) against `tmp_path` fixtures, never imported. One
+    that needs a live store is `integration`. Tests are
     type-checked like the code: `tests` joins `.code_quality/mypy.ini`'s `files`
     with the skeleton (T-131). `pytest` is a `dev`-group dependency only.
 
@@ -367,8 +372,11 @@ uv run pre-commit run --all-files           # all of the above hooks, plus hygie
    without a test is incomplete. What is *not* required piecemeal is the
    backfill of untested code that predates this rule and that a PR does not
    touch: that is `PLAN.md` Work item 13's backlog (`src/projection/`,
-   `src/kg_store/`, `src/etl/common/`, the ticker skip-set, the `cli/` exit
-   codes, the FR-001 gate). The rest of `src/etl/` is transitional (T-033) and
+   `src/kg_store/` including `load_schema.main`, `src/etl/common/`, the ticker
+   skip-set, `cli/check_view_contract.py`'s exit code, the FR-001 gate). The
+   other `cli/` entrypoints wrap that `src/` code; `load_schema.py`,
+   `verify_store.py` and `ingest.py` need a live store, so their own exit codes
+   are `integration` (T-141). The rest of `src/etl/` is transitional (T-033) and
    is backfilled only if it survives that decision. A schema or shape change is
    tested by the FR-001 parse + `pyshacl` gate, plus a synthetic case that must
    fail when the change rejects something.
@@ -435,8 +443,9 @@ no `sys.path` edits). Raised in the PR #49 review.
 so the first pytest work (Work item 13) had nothing to follow. Added Project
 structure #10 (flat `tests/`, hermetic, `integration` marker, structural tests,
 `pytest` dev-only), Code & Git #9 (code lands with its test), the Pytest config
-location (#6), the `integration` deselection, mypy over `tests`, and `uv run
-pytest` in Executable cmds. Modelled on the sibling
+location (#6), the `integration` deselection, mypy over `tests`, how `cli/`
+entrypoints are tested (subprocess, logic in `src/`), and `uv run pytest` in
+Executable cmds. Modelled on the sibling
 `portfolio-financial-analysis` constitution (Project structure #3). It does not yet
 reverse `SPEC.md` NR-005, §10, §13 item 7 and §14, which say there is no suite: that
 happens when the suite exists (T-131, T-134).

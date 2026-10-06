@@ -121,8 +121,11 @@ once T-131 lands.*
       mismatch); the ingest gate's `check_target`, `parse_batch`, `unknown_types`,
       `untyped_writes` and `validate` (a conforming batch passes, a non-conforming one raises);
       `acceptance.check_gate`'s violation count (whatever T-142 makes it count);
-      `cli/check_view_contract.py` returning 1 on drift and 0 otherwise. The live-store run stays
-      T-141 (`integration`). → Approach 3.
+      `load_schema.main(argv)` called directly; `cli/check_view_contract.py` run as a subprocess
+      (constitution #10) against a synthetic upstream in `tmp_path`, exiting 1 on drift and 0
+      otherwise. `cli/load_schema.py`, `verify_store.py` and `ingest.py` need a live store: their
+      exit codes are `integration` tests with T-141. `cli/build_data_ttl.py` is transitional
+      (T-033). → Approach 3.
 
 ## Work item 14 — `ScoreSnapshotShape` and store-gate follow-ups (PR #48 post-merge review)
 
