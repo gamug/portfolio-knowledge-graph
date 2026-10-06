@@ -273,7 +273,7 @@ and their dispositions are in the table after the register (T-112).
 **Dispositions (T-112, 2026-10-05).** Each row has a main label: **adopted** (upstream's
 model taken as is), **translated** (kept in this ontology's own form, mapped on
 projection), **rejected** (deliberately not projected), **raised upstream**
-(needs an answer or a change in another repo; none has been answered yet).
+(needs an answer or a change in another repo). The replies of 2026-10-05 and 2026-10-06 (T-150, below the table) answered every item raised for D8–D14 and D16 except D14's SEMANTIC method value.
 **Proposed** means no decision is recorded yet. A row adds a second (or
 third) label for a part it leaves open; "raised upstream" appears whenever an
 open part waits on another repo.
@@ -287,15 +287,63 @@ open part waits on another repo.
 | D5 | Adopted | `:DataQualityIssue` as an `EvidenceSource` leaf (T-104). | — |
 | D6 | Adopted | `agentOrigin` `VALORIZATION` (T-105); metric id `ScoreCuantitativo` kept (no upstream id exists, T-109). | — |
 | D7 | Translated; extras rejected | Optional `runId`/`runAsOf`/`codeVersion`/`engineVersion`, no `Run` class (T-106); `forensic_flags_json`/`prompt_hash`/`correction_rule` not projected. | — |
-| D8 | Translated; raised upstream | Filter `v_cycle_ranking` by `cycle_run_id`/`cycle_date`, exclude `REPLAY`, production DB only (T-109). | Docstring/SQL mismatch and a replay flag, raised upstream. |
-| D9 | Adopted; raised upstream | No scheduler here; `portfolio-app` triggers the cycles (maintainer, 2026-10-02). | Run-trigger endpoint and `portfolio-reports` wording, raised upstream: T-120. |
-| D10 | Translated; raised upstream | Reified `:AssetCoOccurrence`; `:sharedExecutiveWith` kept for verified edges (T-107). | `MEDIA` kind waits for a `media_cooccurrence` view, raised upstream. |
-| D11 | Translated; rest rejected; raised upstream | Only view-exposed finished numbers: BENCHMARK `Portfolio`s, positions, `BenchmarkObservation`s (T-108, T-109). Return series, μ, Σ, frontier points rejected (NR-003). | Confirm the `live_book` reading and the `equal_weight`/`cap_weight` names, raised upstream. |
-| D12 | Rejected for now; raised upstream | Vetoes projected as outcomes with evidence; upstream's rules are not re-evaluated in the graph. | Views for `fundamental_metrics`, market cap, forensic flags, `prompt_hash`, raised upstream. |
-| D13 | Translated; raised upstream | Mapping checked against `v_weight_scheme`/`v_weight_component` (T-109). | Schema work: T-121. Confirm `score_weights` contents, raised upstream. |
-| D14 | Adopted; raised upstream | `:scoreMethod` discriminator; no write-back code existed to remove (T-111). | Upstream's method value (replaces `ASSET_DAY_AGGREGATE`) and its stale docs, raised upstream. |
+| D8 | Translated; raised upstream | Filter `v_cycle_ranking` by `cycle_run_id`/`cycle_date`, exclude `REPLAY` (T-109). Project only from a database at the schema floor that holds no `REPLAY` run, replacing "production DB only" (T-157, T-162). | Upstream answered: `cycle backfill` refuses production (their T-115), so `REPLAY` never reaches it and no replay flag is needed (declined). `v_cycle_ranking` gains `status` and a corrected docstring (their T-144). Open: their change landing. |
+| D9 | Adopted; answered | No scheduler here; `portfolio-app` triggers the cycles (maintainer, 2026-10-02). **Answered 2026-10-05 (T-120, closed by T-150):** `portfolio-app` triggers by running upstream's cross-module orchestrator command (their open Work item 2) as a job; `portfolio-reports` reads the run-log `v_*_run` views; `portfolio-app` reads this repo's query surface; upstream's `api/` stays read-only and gains no run-trigger endpoint (FR-014 unchanged). Recorded in `docs/10` step 6. | Their SPEC's trigger split lands with their Work item 2. |
+| D10 | Translated; raised upstream | Reified `:AssetCoOccurrence`; `:sharedExecutiveWith` kept for verified edges (T-107). | Upstream answered: `v_shared_executive_edge` gains `computed_at` and `run_id` (their T-144); `first_seen`/`last_seen` stay NULL until their Work item 9; `v_media_cooccurrence_edge` comes with their T-082 (after their T-100), so the `MEDIA` kind still waits. |
+| D11 | Translated; rest rejected; answered | Only view-exposed finished numbers: BENCHMARK `Portfolio`s, positions, `BenchmarkObservation`s (T-108, T-109). Return series, μ, Σ, frontier points rejected (NR-003). Confirmed by upstream: `live_book` is the live book's performance, not a benchmark; `equal_weight`/`cap_weight` are dead names; `LIVE_ONLY` rows have a NULL `benchmark_weight`. | `opt-v1` and `opt-v2` books coexist; `v_quant_portfolio` and `v_quant_vs_live` gain an engine-version marker (their T-144), with `is_current` marking at most one row per `(as_of, kind)` and `engine_version` opaque (suffixes such as `opt-v1+9d34ff69`). Until it lands, rows can mix versions. |
+| D12 | Adopted in part; answered | Vetoes still projected as outcomes with evidence; upstream's rules are not re-evaluated in the graph. Upstream agreed to expose the inputs as finished numbers: `v_fundamental_metric` (their T-144) with market cap as its `market_capitalization` metric, `metric_id` (`metric_group \|\| '.' \|\| metric_name`, the join to `ThresholdComparison.metricName`) and `unit` (`ratio`, `x`, `usd`); `forensic_flags_json` and `prompt_hash` on `v_score_snapshot`. `is_current` marks at most one row per key (a filing not recomputed under the newest metric version has none). | Waits on their T-144 (views), T-074 (flag values) and our T-152–T-153. Declined: `inputs_json` and a stored daily market cap. |
+| D13 | Translated; answered | Mapping checked against `v_weight_scheme`/`v_weight_component` (T-109). Confirmed by upstream: `score_weights` holds the **configured** weights (not the blend), the blend renormalizes per asset over its non-null components, and effective weights per asset come from upstream (a `v_cycle_ranking_component` view), never derived here. `v_weight_scheme.scheme_id` is the position-weighting rule (`score_proportional`, `score_tilt`); a blend is identified by its `cycle_run`. `blended_score` is the weighted mean of normalized components minus `soft_veto_penalty` per active SOFT veto, so it can be negative (0.0 for an asset with no component). New runs blend FUNDAMENTAL, VALORIZATION and TECHNICAL at 1/3 each, SEMANTIC out (their T-141); older runs keep 0.4/0.3/0.2/0.1. | Schema work: T-121, T-155. Unit of `target_weight`, `max_name_weight`, `max_sector_weight` asked. |
+| D14 | Adopted; raised upstream | `:scoreMethod` discriminator; no write-back code existed to remove (T-111). | **Still unanswered:** upstream's SEMANTIC method value (replaces `ASSET_DAY_AGGREGATE`, T-158); it comes with their Work item 4, after their T-100. Their doc fix naming this repo as the SEMANTIC writer goes with their T-141. |
 | D15 | Adopted | Read the SQLite `v_*` views via `portfolio_common.db` read-only; the HTTP `api/` is not a source. | Implementation: Work item 4's projector. |
-| D16 | Adopted; raised upstream | `schema_version` floor 9 (T-109); `portfolio-common` re-pinned to `v1.2.1` (T-110). | Assert the floor in the future projector; `portfolio-nlp` is still on `v1.2.0` (theirs to move). |
+| D16 | Adopted; raised upstream | `schema_version` floor 9 (T-109); `portfolio-common` re-pinned to `v1.2.1` (T-110). Each upstream contract change adds a marker migration, so the floor advances with their T-144 and T-145 (T-157). | Assert the floor in the future projector; `portfolio-nlp` is still on `v1.2.0` (theirs to move). Production is at `schema_version` 8, below the floor; the pilot is at 9; their T-100 starts a fresh database. Upstream pinned `metrics-v5` and `opt-v2`, and keys filings by period end. |
+
+**Upstream replies of 2026-10-05 and 2026-10-06 (T-150).** `portfolio-financial-analysis`'s
+maintainers answered the items marked "raised upstream" above, checking their `master` at `0a528be`
+and, for the second reply, `597832a` (production, the pilot and its replay copy). The rows above
+carry each answer; this block holds what no row has room for. Their changes are proposals until
+they land: the first reply's asks are their **T-144** (one additive view change) and **T-145** (ids
+never reused), accepted in the second.
+
+- **Run ids are reused.** `cycle_run.id` is `INTEGER PRIMARY KEY` without `AUTOINCREMENT`; after a
+  manual deletion emptied production's `cycle_run`, id 1 is a SELECTION run of 2026-09-22, while
+  every production `shared_executive_edge` row still carries `run_id = 1` from an
+  ENTITY_RESOLUTION run that no longer exists. The second reply extends this to `analysis_run`,
+  `pricing_run`, `quant_run` and `sec_filings` (their T-120 repair deletes stale filing rows). So
+  `<run table>:<id>` (D7) is unique only together with the run's `cycle_type` and `started_at`:
+  T-151's read checks govern when `:runId` is emitted. Their T-145 makes the ids `AUTOINCREMENT` and
+  adds a run-type check to their pilot verifier; their T-100 rebuild drops the orphaned edge
+  `run_id`s. The accession number is the stable filing key.
+- **Six corrections of our assumptions.** (1) D6: SECTOR `raw_value` is in TECHNICAL points (the
+  asset's TECHNICAL raw score minus its sector's `mean_raw`), so in [-100, 100] (observed -54 to
+  +46), and SECTOR rows carry a 0–100 `normalized_score`; 34 of 40 production rows fail the
+  [-1, 1] our shape requires. (2) D13: `blended_score` can be negative (above), and `scheme_id` is
+  not the blend. (3) D2: only FUNDAMENTAL rows have `available_at`; their T-144 fills it in the
+  view with the cycle date for TECHNICAL, VALORIZATION and SECTOR. (4) D12: `metric_name` has no
+  group prefix; `metric_id` and `unit` are added. (5) D11/D12: `is_current` marks at most one row
+  per key. (6) Our `:inverted` comment calls `ScoreFinanciero` inverted, while the example we sent
+  them set it `false`: no upstream scheme gets `:inverted`.
+- **Formats and scale.** `forensic_flags_json` (their T-074) is an object of four booleans
+  (`data_error_suspected`, `negative_equity_buyback`, `value_destroyer_sub_wacc`,
+  `severe_sbc_dilution`); "evaluated, none fired" is all four `false`, not `[]`; NULL on every row
+  today and on every non-FUNDAMENTAL row. `computed_at` is ISO 8601 UTC written `+00:00`, not
+  `Z`. `normalized_score` is cohort-relative (50 + 10·z, clamped to [0, 100]), so `1 - x/100`
+  stays a relative risk reading, not an absolute level (T-030).
+- **Declined.** `inputs_json` on `v_fundamental_metric` (the metric value and its filing are
+  enough); a stored daily market cap (the per-filing `market_capitalization` metric is enough);
+  a replay flag (no replay copy is projected); a run-trigger endpoint in their `api/`;
+  `v_cycle_ranking_component.component_value` (repeats a `ScoreSnapshot` value) and its
+  `configured_weight` (repeats `v_weight_component`); a pre-penalty attractiveness score (deriving
+  it from the effective weights would be a computation here).
+- **Upstream task for each ask, and order.** View changes: their T-144; non-reused ids: their T-145;
+  forensic-flag values: their T-074; weights change: their T-141; `v_media_cooccurrence_edge` and
+  `first_seen`/`last_seen`: their T-082 and Work item 9, after their T-100; SEMANTIC method value:
+  their Work item 4, after their T-100; trigger split in their SPEC: their Work item 2. Their order:
+  Work item 8 (T-141, T-074), Work item 19 (T-083, T-142, T-144, T-145), Work item 2, final pilot
+  (T-143), T-100. They send the commit, `schema_version` and doc section when T-144 and T-145 land.
+- **Open questions sent back** (Work item 15, step 2): how a no-component asset appears in
+  `v_cycle_ranking`; whether `v_cycle_ranking_component` rows exist for vetoed or excluded assets;
+  whether SECTOR's `normalized_score` is also 50 + 10·z; whether every `v_sec_filing` row has an
+  accession number; the unit of `target_weight`, `max_name_weight` and `max_sector_weight`.
 
 **Read contract and score scale (T-030, 2026-10-05).** `src/projection/view_contract.py`
 pins a full snapshot of the columns of 30 of upstream's 31 `v_*` views (taken from

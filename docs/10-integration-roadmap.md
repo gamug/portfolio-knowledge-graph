@@ -101,7 +101,10 @@ consuming step 4's filing sections is not part of what `portfolio-nlp` does toda
 exists as `portfolio-financial-analysis`'s `cycle` package (`cycle select`, `cycle monitor`,
 `cycle backfill`): a checkpointed runner over relational tables, with veto stints and a T-1 lag, writing
 to a relational database rather than the triple store. No repo has a scheduler; the future
-`portfolio-app` is to trigger the runs. This repo builds no agents — it projects `cycle`'s outputs (step 2).
+`portfolio-app` triggers the runs by running upstream's cross-module orchestrator command (their open
+Work item 2) as a job, not through an endpoint: upstream's `api/` stays read-only. `portfolio-reports`
+reads the run-log `v_*_run` views, and `portfolio-app` reads this repo's query surface (upstream's
+reply, 2026-10-05; `SPEC.md` D9). This repo builds no agents — it projects `cycle`'s outputs (step 2).
 `08-agent-architecture.md` is kept as design reference, with a mapping to what exists.
 
 **7. Entity resolution service — built upstream, narrower than designed.**
