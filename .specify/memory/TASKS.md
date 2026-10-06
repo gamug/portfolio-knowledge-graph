@@ -88,8 +88,9 @@ D13 check recorded in `SPEC.md` §2.6; T-120's upstream answer arrived 2026-10-0
 
 ## Work item 13 — A `pytest` suite for the code this repo owns
 
-*The constitution has no testing rules and `SPEC.md` NR-005 says there is no suite, so T-130 comes
-first. T-131–T-134 are independent of each other once it lands.*
+*Constitution 1.5.0 sets the rules these tasks follow (Project structure #10, Code & Git #9); `SPEC.md`
+NR-005 still says there is no suite until T-134. T-132–T-134 and T-136 are independent of each other
+once T-131 lands.*
 
 - [ ] **T-130** Amend `constitution.md` (MINOR bump, Governance steps 1–4) with the test structure
       proposed in `PLAN.md` Work item 13 (`tests/`, flat `test_<module>.py`, `conftest.py`, hermetic,
@@ -97,8 +98,11 @@ first. T-131–T-134 are independent of each other once it lands.*
       reverse NR-005, `SPEC.md` §10, §13 item 7 and §14. Its own reviewed change. → Approach 1.
       *(Constitution 1.5.0 done: Project structure #10, Code & Git #9, `uv run pytest`. Still open:
       the `SPEC.md` reversals, which wait until the suite exists, so close this task with T-134.)*
-- [ ] **T-131** Add `pytest` to the `dev` group and the `tests/` skeleton (`conftest.py` with the
-      `src/` path bootstrap, the `integration` marker). → Approach 2.
+- [ ] **T-131** Add `pytest` to the `dev` group and the `tests/` skeleton per constitution #10:
+      `[tool.pytest.ini_options]` with `pythonpath = ["src"]`, `testpaths = ["tests"]`, the
+      `integration` marker and `addopts = "-m 'not integration'"`; `tests` added to
+      `.code_quality/mypy.ini`'s `files`; a `conftest.py` for shared fixtures only (no `sys.path`
+      edits). → Approach 2.
 - [ ] **T-132** Tests for `src/projection/score_scale.py` (0, 50, 100, `None`, out of range, decimal
       exactness) and `contract_check.py` against a synthetic miniature upstream (removed column, new
       unlisted view and view that did not build are drift; added or reordered columns are notes),
@@ -112,6 +116,13 @@ first. T-131–T-134 are independent of each other once it lands.*
       check by the projector against the live DB's views before each read, an `integration` test
       against a pinned upstream commit, or both; and whether to ask upstream for a contract
       endpoint/constant (see `SPEC.md` D15: the HTTP `api/` is not a source today). → Approach 4.
+- [ ] **T-136** Tests for `src/kg_store/` and the `cli/` exit codes, hermetic (a fake `GraphDB`, no
+      running store): `load_schema.expected_sizes`/`load`/`verify` (load order, named graphs, size
+      mismatch); the ingest gate's `check_target`, `parse_batch`, `unknown_types`,
+      `untyped_writes` and `validate` (a conforming batch passes, a non-conforming one raises);
+      `acceptance.check_gate`'s violation count (whatever T-142 makes it count);
+      `cli/check_view_contract.py` returning 1 on drift and 0 otherwise. The live-store run stays
+      T-141 (`integration`). → Approach 3.
 
 ## Work item 14 — `ScoreSnapshotShape` and store-gate follow-ups (PR #48 post-merge review)
 
@@ -258,7 +269,7 @@ Closed Work items 1, 2, 3, 5, 7 (superseded/decided by T-007), 9, 10 and 11 are 
 Work items 4 and 6 (T-030–T-035, T-050–T-053)
 follow in dependency order (Work items 3 and 11 are closed, so Work item 4 is unblocked).
 Work item 12 (T-120–T-121): T-120 answered, closes with T-150; T-121 is unblocked.
-Work item 13 (T-130–T-135): T-130 first (the constitution has no testing rules yet); the rest follow it.
+Work item 13 (T-130–T-136): constitution rules in place (1.5.0); T-131 next, then T-132–T-134 and T-136; T-130 closes with T-134.
 Work item 14 (T-140–T-142): T-140 done; T-141 needs a live GraphDB; T-142 is unblocked.
 Work item 15 (T-150–T-159): T-150, T-151 and T-155's formula removal are unblocked; the rest of
 T-152–T-158 waits on upstream's changes.

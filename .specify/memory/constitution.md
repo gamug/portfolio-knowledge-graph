@@ -150,11 +150,14 @@ assumes the stack actually pinned in `pyproject.toml`.
     no running GraphDB and no real `universe.db`/`urls.db`/`nlp.db`. Fixtures are
     built in memory or are small captures under `tests/fixtures/`, and every
     external call is replaced by a fake. A test that genuinely needs an upstream
-    checkout or a live store carries the `integration` marker and is skipped by
-    default (`-m integration` runs it). A structural test (import-graph shape,
-    e.g. that the projection never imports the transitional ETL) is not a feature
-    test: treat its failure as an architecture violation, not a flaky test.
-    `pytest` is a `dev`-group dependency only.
+    checkout or a live store carries the `integration` marker, registered in
+    `[tool.pytest.ini_options]` (`markers = ["integration: …"]`) and deselected
+    there by default (`addopts = "-m 'not integration'"`); a later
+    `-m integration` on the command line overrides it and runs them. A structural
+    test (an import-graph check of a rule stated here) is not a feature test:
+    treat its failure as an architecture violation, not a flaky test. Tests are
+    type-checked like the code: `tests` joins `.code_quality/mypy.ini`'s `files`
+    with the skeleton (T-131). `pytest` is a `dev`-group dependency only.
 
 ## Ontology design invariants
 
@@ -290,7 +293,8 @@ uv run pyshacl -s shapes.ttl -m -a -f human tbox.ttl reference.ttl instances.tri
 uv run python cli/build_data_ttl.py --limit 500   # smoke test
 uv run python cli/build_data_ttl.py               # full run -> data.ttl (git-ignored)
 
-uv run pytest                               # hermetic suite (from T-131; add `-m integration` for the marked ones)
+uv run pytest                               # hermetic suite (from T-131); `integration` deselected
+uv run pytest -m integration                # only the marked tests (upstream checkout / live store)
 uv run pytest -q                            # compact output
 
 uv run ruff check .                         # lint (config: .code_quality/ruff.toml)
@@ -357,13 +361,17 @@ uv run pre-commit run --all-files           # all of the above hooks, plus hygie
    has already begun means salvaging the diff (`git diff` to a patch,
    discard, rebranch, reapply) instead of a five-second check up front —
    a real cost in wasted tool calls and tokens, not just tidiness.
-9. **Code lands with its test.** A new function in `src/` and a fix to an existing one
-   ship with a test that fails without the change, in the same PR, under the
-   structure in Project structure #10. A fix landed without a test is incomplete.
-   Code that predates this rule is covered by the backlog in `PLAN.md` Work item 13,
-   not retrofitted piecemeal. A schema or shape change is tested by the FR-001
-   parse + `pyshacl` gate, plus a synthetic case that must fail when the change
-   rejects something.
+9. **Code lands with its test.** New code in `src/` or `cli/`, and any fix to
+   code there, old or new, ship in the same PR with a test that fails without
+   the change, under the structure in Project structure #10. A fix landed
+   without a test is incomplete. What is *not* required piecemeal is the
+   backfill of untested code that predates this rule and that a PR does not
+   touch: that is `PLAN.md` Work item 13's backlog (`src/projection/`,
+   `src/kg_store/`, `src/etl/common/`, the ticker skip-set, the `cli/` exit
+   codes, the FR-001 gate). The rest of `src/etl/` is transitional (T-033) and
+   is backfilled only if it survives that decision. A schema or shape change is
+   tested by the FR-001 parse + `pyshacl` gate, plus a synthetic case that must
+   fail when the change rejects something.
 
 ## Governance
 
@@ -427,7 +435,8 @@ no `sys.path` edits). Raised in the PR #49 review.
 so the first pytest work (Work item 13) had nothing to follow. Added Project
 structure #10 (flat `tests/`, hermetic, `integration` marker, structural tests,
 `pytest` dev-only), Code & Git #9 (code lands with its test), the Pytest config
-location (#6) and `uv run pytest` in Executable cmds. Modelled on the sibling
+location (#6), the `integration` deselection, mypy over `tests`, and `uv run
+pytest` in Executable cmds. Modelled on the sibling
 `portfolio-financial-analysis` constitution (Project structure #3). It does not yet
 reverse `SPEC.md` NR-005, §10, §13 item 7 and §14, which say there is no suite: that
 happens when the suite exists (T-131, T-134).
