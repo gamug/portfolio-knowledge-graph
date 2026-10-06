@@ -627,8 +627,9 @@ not get through; what does is a change of *meaning* that stays inside the accept
 upstream moving `normalized_score` to [0, 1], which passes the [0, 100] check and becomes a ~0.99 risk.
 Its violations also name a triple, not the upstream row that caused it. Upstream's own reply (Work
 item 15) shows the kinds of bad data to expect: a reusable run id, edge dates NULL for every row,
-SEMANTIC null for every asset. A boundary check catches these before they become triples and says
-which view (and, where the check has one, which row) is at fault.
+SEMANTIC null for every asset. A boundary check catches bad data before it becomes triples and says
+which view (and, where the check has one, which row) is at fault; the reused run id is handled by
+T-151 instead, and the two by-design NULLs are expected, not failures (step 1).
 
 This is input-side validation of tabular data. It does not replace `pyshacl`, which stays the
 closed-world gate on the graph (constitution, OWL and SHACL both present). A new validation *library*
@@ -646,10 +647,14 @@ since a polarity change leaves the column set untouched.
 1. Decide the failure policy and the tool (T-160). Policy first: stop the run on any failure, or
    quarantine the failing rows and report them. Either way, a check that has no offending row (row
    count, NULL rate, cohort mean) is reported against its view or group and stops the run, since there
-   is nothing to quarantine. Tool second: list the checks needed (types, NULL rate,
+   is nothing to quarantine. So the NULL-rate and row-count thresholds encode upstream's documented
+   state: a column NULL for every row *by design* (SEMANTIC today; `first_seen`/`last_seen` on
+   `v_shared_executive_edge` until their Work item 9) is expected, not a failure, and its expectation
+   changes when upstream fills it (T-150, T-154). Tool second: list the checks needed (types, NULL rate,
    range, natural-key uniqueness, `available_at` against `event_time`, row count per view), then compare
    plain checks, pandera, deepchecks and Great Expectations against that list (dependency weight,
-   fit with the pinned-contract style). Record the decision in `SPEC.md` §13 before any dependency is added.
+   fit with the pinned-contract style). Record the decision in `SPEC.md` §13 item 10 before any dependency
+   is added.
 2. Add the dependency (through a constitution amendment first, if it is a library) and write the
    expectations beside `view_contract.py`, for the views Work item 4 reads (T-161, T-162). The
    run-identity checks are not among them: T-151 owns those, because they compare a row with its run

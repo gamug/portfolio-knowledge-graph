@@ -37,8 +37,8 @@ are closed (see `CHANGELOG.md`).*
       `SPEC.md` §2.6; for SECTOR, whether the bound stays is decided with T-155); and guard
       against a change of *meaning* the column-name check cannot see (e.g. upstream moving
       `normalized_score` to [0, 1] would pass the [0, 100] check and become ~0.99 risk), for
-      instance a per-lane cohort mean near 50, upstream's documented centre (Work item 16's T-162 owns that check and
-      T-163 runs it; T-031 calls it). → step 2.
+      instance a per-lane cohort mean near 50, upstream's documented centre (Work item 16's
+      T-162 owns that check and T-163 runs it; T-031 calls it). → step 2.
 - [ ] **T-032** Decide and implement `:supersededBy` semantics for a
       restatement. → step 3.
 - [ ] **T-033** Retire or explicitly fold in today's `src/etl/` shortcut
@@ -221,7 +221,9 @@ See `PLAN.md` Work item 16.*
       and the validation tool, from the list of checks needed (types, NULL rate, range, natural-key
       uniqueness, `available_at` against `event_time`, row count per view). A check with no
       offending row (row count, NULL rate, cohort mean) is reported against its view or group and
-      stops the run under either policy. Compare plain checks, pandera, deepchecks and Great
+      stops the run under either policy, so its thresholds encode upstream's documented state: a
+      column NULL for every row by design (SEMANTIC today; `first_seen`/`last_seen` on
+      `v_shared_executive_edge` until their Work item 9) is expected, not a failure. Compare plain checks, pandera, deepchecks and Great
       Expectations on that list, including dependency weight. Record the decision in `SPEC.md` §13
       item 10. → `PLAN.md` Work item 16, step 1.
 - [ ] **T-161** If T-160 picked a library: propose the constitution amendment first (Technological
@@ -229,10 +231,13 @@ See `PLAN.md` Work item 16.*
       to `pyproject.toml`. If plain checks won, there is no dependency and no amendment. → step 2.
 - [ ] **T-162** Write the expectations for the views Work item 4 reads, beside
       `src/projection/view_contract.py`, keyed by view name. Include the `v_score_snapshot`
-      `normalized_score` range and the per-lane cohort mean near 50, the guard against a change of
-      meaning that stays in range (it cannot detect a reversed polarity). This task owns that guard;
+      `normalized_score` range and the cohort mean near 50 per rescaled lane (FUNDAMENTAL,
+      VALORIZATION, TECHNICAL only: SECTOR is a raw-scale difference, D6, and SEMANTIC is not on
+      0-100), the guard against a change of meaning that stays in range (it cannot detect a reversed
+      polarity). This task owns that guard;
       T-031 only calls it. The run-identity checks are not here: T-151 owns them (a reused `run_id`
-      is allowed, and a failure there omits `:runId` and does not fail the row). → step 2.
+      is allowed, and a failure there omits `:runId` and does not fail the row). Update an
+      all-NULL-by-design expectation when upstream fills the column (T-150, T-154). → step 2.
 - [ ] **T-163** Run the expectations on the read path: a function that returns the validated rows
       and a report naming the view and column of every failure, with the row key for a row-level
       check and the group for an aggregate one, applying the T-160 policy. Lands with T-031. → step 3.
