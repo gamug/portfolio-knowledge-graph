@@ -638,8 +638,8 @@ dependency is added. Plain checks need none.
 
 Limits: it cannot say whether upstream's numbers are *right* (that stays upstream's job, §2.5), and
 it cannot detect a reversed polarity, which leaves values in range with the cohort mean still near 50.
-Polarity rests on the pinned contract and `score_scale.py`'s documented convention, and a change there
-is caught by T-030's drift check only if the column set changes.
+Polarity rests on `score_scale.py`'s documented convention; T-030's drift check does not see it either,
+since a polarity change leaves the column set untouched.
 
 **Approach**:
 
