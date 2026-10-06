@@ -1122,6 +1122,15 @@
 :WeightComponentProposedShape a sh:NodeShape ;
     sh:targetClass :WeightComponent ;
     sh:property [ sh:path :componentValue ; sh:datatype xsd:decimal ; sh:minInclusive 0.0 ; sh:maxInclusive 100.0 ; sh:maxCount 1 ] .
+# componentValue is only ever written on an effective-weight WeightComponent (reached via
+# :hasEffectiveWeight), never a configured-weight one (reached via :hasWeightComponent) -- same class,
+# so sh:targetClass above can't tell them apart. sh:targetObjectsOf scopes the mandatory-presence rule to
+# just the former: your T-144 keeps component_value in v_cycle_ranking_component regardless of score_type
+# (reversed decline, third reply), and T-155 only creates a WeightComponent for a present component ("no
+# row for an absent component"), so every effective-weight one always has one to read.
+:EffectiveWeightComponentProposedShape a sh:NodeShape ;
+    sh:targetObjectsOf :hasEffectiveWeight ;
+    sh:property [ sh:path :componentValue ; sh:datatype xsd:decimal ; sh:minInclusive 0.0 ; sh:maxInclusive 100.0 ; sh:minCount 1 ; sh:maxCount 1 ] .
 
 # --- T-121: v_weight_scheme / v_weight_component -> AttractivenessWeightScheme
 # One scheme per cycle_run: schemeId = "cycle_run:<id>" (PART 1, CHANGED

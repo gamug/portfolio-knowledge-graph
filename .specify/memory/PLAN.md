@@ -664,10 +664,11 @@ second reply checked out. One assumption of ours needs correcting, and it change
   cohort-relative value now lives correctly scoped to one `cycle_run`, as `component_value` on
   `AttractivenessSnapshot`'s effective-weight `WeightComponent` (T-155), which this correction
   already gives us. FUNDAMENTAL's raw score, `event_time`, `available_at` and every other column
-  are stable at the source, so `rawValue` is what the snapshot carries instead, joining
-  `SectorRelativeMomentum`/`Sentiment` in `ScoreSnapshotShape`'s existing escape hatch — optional,
-  not forbidden, so neither the FUNDAMENTAL individuals already in `instances.trig` nor the closed
-  design-history rules that compare on `ScoreFinanciero`'s `normalizedScore` stop conforming. Its
+  are stable at the source, so `rawValue` is what the snapshot carries instead — mandatory, like
+  it already is for `SectorRelativeMomentum`/`Sentiment`, so dropping `normalizedScore`'s
+  requirement (optional, not forbidden, so neither the FUNDAMENTAL individuals already in
+  `instances.trig` nor the closed design-history rules that compare on `ScoreFinanciero`'s
+  `normalizedScore` stop conforming) doesn't leave the snapshot free to carry neither value. Its
   bounds are a new open question (Q6, below).
 - **The five questions, answered** (folding into `SPEC.md` §2.6's D6/D13/D16, T-170): **Q1**, a
   no-component asset has no dedicated marker — it is always `vetoed = 1` with `"UNSCORED"` in
@@ -757,7 +758,8 @@ second reply checked out. One assumption of ours needs correcting, and it change
      `normalizedScore`'s says it is cohort-relative (T-153).
    - FUNDAMENTAL `ScoreSnapshot`'s `normalizedScore` is dropped (optional, not forbidden) rather
      than kept as a mutable-in-place exception to the immutable-observation principle (T-171); its
-     `rawValue` is carried instead, pending Q6's bound.
+     `rawValue` is carried instead (mandatory, `minCount 1`, so dropping one required field doesn't
+     leave the snapshot free to carry neither), pending Q6's bound.
    - Forensic flags: one `:forensicFlag` per key set to `true`, from the four documented keys, and
      a `:forensicFlagsEvaluated` boolean so "evaluated, none fired" differs from "not evaluated"
      (T-153).

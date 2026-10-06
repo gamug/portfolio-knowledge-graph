@@ -52,6 +52,11 @@
     # (rawValue + 1) / 2 needs. Mapping upstream's SECTOR score into this range is the projector's job (T-031).
     sh:or ( [ sh:not [ sh:path :metricType ; sh:hasValue "SectorRelativeMomentum" ] ]
             [ sh:path :rawValue ; sh:datatype xsd:decimal ; sh:minCount 1 ; sh:minInclusive -1.0 ; sh:maxInclusive 1.0 ] ) ;
+    # T-171 (D17): dropping normalizedScore's requirement for ScoreFinanciero must not leave it free to carry
+    # neither value, so rawValue becomes its mandatory replacement, same pairing as the two sh:or above. No
+    # bounds yet (unlike those two): Q6, FUNDAMENTAL's rawValue range, is still open with upstream.
+    sh:or ( [ sh:not [ sh:path :metricType ; sh:hasValue "ScoreFinanciero" ] ]
+            [ sh:path :rawValue ; sh:datatype xsd:decimal ; sh:minCount 1 ] ) ;
     # T-140: each agent writes exactly one metric (SPEC D6; upstream score_type = agentOrigin).
     sh:xone ( [ sh:property [ sh:path :agentOrigin ; sh:hasValue "FUNDAMENTAL" ] , [ sh:path :metricType ; sh:hasValue "ScoreFinanciero" ] ]
               [ sh:property [ sh:path :agentOrigin ; sh:hasValue "VALORIZATION" ] , [ sh:path :metricType ; sh:hasValue "ScoreCuantitativo" ] ]

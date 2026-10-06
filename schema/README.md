@@ -104,14 +104,17 @@ what the store *enforces*.
    allow for a `ScoreSnapshot` individual. `ScoreSnapshotShape`'s `sh:or` (T-080/T-081) now also
    exempts `ScoreFinanciero` from requiring `normalizedScore` — optional, not forbidden, so the
    FUNDAMENTAL individuals already in `instances.trig` and the closed design-history rules that
-   compare on it (`VETO_FIN_01`, `VETO_COMP_01`/`02`, `VETO_RED_01`) still conform. The per-cycle,
-   cohort-relative value this loses is not actually lost: it is correctly scoped to one
-   `cycle_run` as `:componentValue` on `AttractivenessSnapshot`'s effective-weight
-   `WeightComponent` (T-155, PROPOSED), which upstream's correction to the same reply already
-   adds. Unlike `SectorRelativeMomentum`/`Sentiment`, FUNDAMENTAL's `rawValue` is not yet given a
-   bound here — upstream confirms it is stable at the source but has not stated its range (open
-   question Q6); the shape stays silent on bounding `:rawValue` for `ScoreFinanciero` until that
-   answer lands.
+   compare on it (`VETO_FIN_01`, `VETO_COMP_01`/`02`, `VETO_RED_01`) still conform. Dropping that
+   requirement must not leave a FUNDAMENTAL snapshot free to carry neither value, so a third `sh:or`
+   pairs the exemption with a mandatory `rawValue`, the same pattern `SectorRelativeMomentum` and
+   `Sentiment` already use (PR #56 review). The per-cycle, cohort-relative value this loses is not
+   actually lost: it is correctly scoped to one `cycle_run` as `:componentValue` on
+   `AttractivenessSnapshot`'s effective-weight `WeightComponent` (T-155, PROPOSED), which upstream's
+   correction to the same reply already adds. Unlike `SectorRelativeMomentum`/`Sentiment`,
+   FUNDAMENTAL's `rawValue` is not yet given a bound here — upstream confirms it is stable at the
+   source but has not stated its range (open question Q6); the shape requires it present but stays
+   silent on bounding it for `ScoreFinanciero` until that answer lands. No new class or property.
+   **2474 quads; conforms: True.**
 3. **Two more named-graph placements (a third added by T-108).** `07-ontology-topology.md` assigned graphs to every
    *agent's* daily output but not to the Orchestrator's own decisions or to entity resolution's
    derived facts. Resolved: `urn:graph:ingest:ORCHESTRATOR:{date}` and

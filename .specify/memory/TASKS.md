@@ -355,12 +355,15 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       `cycle_run` as `:componentValue` on `AttractivenessSnapshot`'s effective-weight
       `WeightComponent` (T-155), rather than as a property of a filing-keyed individual that no
       single cycle owns. FUNDAMENTAL's `rawValue` — stable at the source, per the third reply — is
-      the value to carry on the snapshot instead; its bounds are unknown, so ask upstream (new
-      question, Q6, with T-150's next follow-up) before adding a `minInclusive`/`maxInclusive`
-      pair, matching how SECTOR's `rawValue` range wasn't bounded until confirmed (T-140/T-155).
-      Update `:normalizedScore`'s and `:rawValue`'s `tbox.ttl` comments and `schema/README.md`
-      (flagged as a design gap found against real data, per CLAUDE.md's convention for the three
-      earlier ones). → step 3.
+      the value to carry on the snapshot instead, and a paired `sh:or` makes it mandatory
+      (`minCount 1`, no bounds yet) the same way the shape already pairs `SectorRelativeMomentum`'s
+      and `Sentiment`'s exemptions with a mandatory `rawValue` — otherwise a FUNDAMENTAL snapshot
+      could conform while carrying neither value (PR #56 review). Its bounds are unknown, so ask
+      upstream (new question, Q6, with T-150's next follow-up) before adding a
+      `minInclusive`/`maxInclusive` pair, matching how SECTOR's `rawValue` range wasn't bounded
+      until confirmed (T-140/T-155). Update `:normalizedScore`'s and `:rawValue`'s `tbox.ttl`
+      comments and `schema/README.md` (flagged as a design gap found against real data, per
+      CLAUDE.md's convention for the three earlier ones). → step 3.
 
 ## Work item 16 — Validate upstream rows at the read boundary
 
