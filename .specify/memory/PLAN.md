@@ -661,9 +661,12 @@ updated target schema.
    - a `schema_version` bump and the commit for each change, so the pin can follow.
 
    Sent 2026-10-06; accepted as their T-144 and T-145 (second reply). The answer to that reply
-   restates the decisions below, sends the updated target schema, and asks two open questions: how
-   a no-component asset appears in `v_cycle_ranking` beyond its 0.0 score, and whether
-   `v_cycle_ranking_component` rows exist for vetoed or excluded assets.
+   restates the decisions below, sends the updated target schema, and asks five open questions:
+   how a no-component asset appears in `v_cycle_ranking` beyond its 0.0 score; whether
+   `v_cycle_ranking_component` rows exist for vetoed or excluded assets; whether SECTOR's
+   `normalized_score` is also 50 + 10·z (T-162); whether every `v_sec_filing` row has an accession
+   number (T-151); and the unit of `target_weight`, `max_name_weight` and `max_sector_weight`
+   (T-121, T-155).
 3. Decide the run-id rule (T-151), then model the new data (T-152–T-156), each as its own schema
    change with the FR-001 parse + `pyshacl` check and the `schema/README.md` counts (NR-001).
    T-155 also removes the attractiveness formula from the schema and docs: the score is read from
