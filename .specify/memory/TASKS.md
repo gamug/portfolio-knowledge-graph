@@ -32,9 +32,13 @@ are closed (see `CHANGELOG.md`).*
       step 1.
 - [ ] **T-031** Design and implement the SHACL-validated-on-write path into
       fresh `urn:graph:ingest:{agent}:{date}` graphs. Also: trim `view_contract.py` to the
-      columns read; decide the `:rawValue` range for FUNDAMENTAL/VALORIZATION/TECHNICAL, and map upstream SECTOR and
-      SEMANTIC into the `[-1, 1]` `rawValue` `ScoreSnapshotShape` requires of them (T-081, T-140;
-      `SPEC.md` §2.6; for SECTOR, whether the bound stays is decided with T-155); and guard
+      columns read; decide the `:rawValue` range for FUNDAMENTAL/VALORIZATION/TECHNICAL, and map
+      upstream SEMANTIC into the `[-1, 1]` `rawValue` `ScoreSnapshotShape` requires of it (T-081;
+      `SPEC.md` §2.6). SECTOR's `raw_value` is read verbatim into the [-100, 100] bound T-155 sets,
+      and its 0-100 `normalized_score` is rescaled like the other lanes (add SECTOR to
+      `RESCALED_SCORE_TYPES` in `src/projection/score_scale.py`). Skip a cycle-lane row with a NULL
+      `available_at` (every such row before upstream's T-144); never fill it in. Parse
+      `computed_at` with `+00:00` or `Z`. And guard
       against a change of *meaning* the column-name check cannot see (e.g. upstream moving
       `normalized_score` to [0, 1] would pass the [0, 100] check and become ~0.99 risk), for
       instance a per-lane cohort mean near 50, upstream's documented centre (Work item 16's
@@ -84,7 +88,7 @@ are closed (see `CHANGELOG.md`).*
 D13 check recorded in `SPEC.md` §2.6; T-120's upstream answer arrived 2026-10-05 (Work item 15).*
 
 - [ ] **T-120** *(moved from T-108(a); D9. Answered 2026-10-05: `portfolio-app` triggers by running upstream's orchestrator command as a job, `portfolio-reports` reads, `api/` stays read-only; closes when T-150 records it)* `portfolio-app` and `portfolio-reports` integration. Upstream's `api/` is read-only with no run-trigger endpoint, and its docs name `portfolio-reports` as the trigger, while this repo's SPEC names `portfolio-app` (not yet created). Agree with upstream who triggers `cycle select`/`cycle monitor`, and what `portfolio-app` and `portfolio-reports` each read: `portfolio-reports` reads the run-log `v_*` views (`v_*_run`), `portfolio-app` should read this repo's query surface. Record the outcome in SPEC D9 and `docs/10`. → steps 5–6.
-- [ ] **T-121** *(moved from T-109(ii); D13)* Extend the weight-scheme model to what upstream records per run: one `AttractivenessWeightScheme` per `cycle_run` (`schemeId` = `scheme_id`, `validFrom` = `cycle_date`, no `validTo`), a component per `score_type` (`weightMetricName` ← `agentOrigin`: FUNDAMENTAL, VALORIZATION, TECHNICAL, SEMANTIC), and the scalar knobs (`top_n`, `max_name_weight`, `max_sector_weight`, `soft_veto_penalty`) as new properties; decide what to do with `inverted` and `SectorRelativeMomentum`, which upstream does not weight. **Upstream reply (2026-10-05):** `score_weights` holds the *configured* weights for all four types in every run, not the blended ones; the blend renormalizes per asset over its non-null components, so the effective weights are per asset, not per scheme. Model the scheme as configured, and read the effective weights from upstream (T-155), never derive them here. **Decide first:** a per-run scheme with `validFrom` and no `validTo` reads as "still active" for every run (the valid-time convention), so either close the previous run's scheme with `validTo` when the next run is projected, or stop treating a per-run scheme as a valid-time record (a run-date property linked to the run, and relax `validFrom` `minCount 1` in `AttractivenessWeightSchemeShape`). Update `tbox.ttl`, `shapes.ttl`, `rules.ttl`'s `WeightScheme_v1`, docs 06/07 and `schema/README.md` counts. → step 6.
+- [ ] **T-121** *(moved from T-109(ii); D13)* Extend the weight-scheme model to what upstream records per run: one `AttractivenessWeightScheme` per `cycle_run` (`schemeId` = `scheme_id`, `validFrom` = `cycle_date`, no `validTo`), a component per `score_type` (`weightMetricName` ← `agentOrigin`: FUNDAMENTAL, VALORIZATION, TECHNICAL, SEMANTIC), and the scalar knobs (`top_n`, `max_name_weight`, `max_sector_weight`, `soft_veto_penalty`) as new properties; decide what to do with `inverted` and `SectorRelativeMomentum`, which upstream does not weight. **Upstream reply (2026-10-05):** `score_weights` holds the *configured* weights for all four types in every run, not the blended ones; the blend renormalizes per asset over its non-null components, so the effective weights are per asset, not per scheme. Model the scheme as configured, and read the effective weights from upstream (T-155), never derive them here. **Second reply (2026-10-06):** `scheme_id` is the rule that turns the ranking into book weights (`score_proportional`, `score_tilt`), not the blend; a blend is identified by its `cycle_run`. So `schemeId` = `cycle_run:<id>`, and `scheme_id` goes to a new book-weighting-rule property beside the scalar knobs. New runs (their T-141) record three components at 1/3 (no SEMANTIC), older runs four (0.4/0.3/0.2/0.1); both are per-run schemes. `:inverted` has no upstream counterpart: make it optional, emit it for no upstream scheme, and keep it on `WeightScheme_v1` (design history). **Decide first:** a per-run scheme with `validFrom` and no `validTo` reads as "still active" for every run (the valid-time convention), so either close the previous run's scheme with `validTo` when the next run is projected, or stop treating a per-run scheme as a valid-time record (a run-date property linked to the run, and relax `validFrom` `minCount 1` in `AttractivenessWeightSchemeShape`). Update `tbox.ttl`, `shapes.ttl`, `rules.ttl`'s `WeightScheme_v1`, docs 06/07 and `schema/README.md` counts. → step 6.
 
 ## Work item 13 — A `pytest` suite for the code this repo owns
 
@@ -140,11 +144,13 @@ once T-131 lands.*
       `acceptance.check_gate` count `sh:ValidationResult` nodes instead of matching
       `"Constraint Violation in"` in the text report. → step 3.
 
-## Work item 15 — Adopt upstream's `v_*` contract changes (reply of 2026-10-05)
+## Work item 15 — Adopt upstream's `v_*` contract changes (replies of 2026-10-05 and 2026-10-06)
 
-*Upstream's reply to the gaps in `SPEC.md` §2.6 (checked against their `0a528be`). T-150 and T-151
-need nothing, nor does T-155's removal of the blend formula; the rest of T-152–T-158 waits on the
-upstream change it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
+*Upstream's reply to the gaps in `SPEC.md` §2.6 (checked against their `0a528be`), and their second
+reply (`597832a`), which accepts our asks as their T-144 and T-145 and corrects six assumptions
+(`PLAN.md` Work item 15, step 3 lists the decisions). T-150, T-151's rule, T-155's removal of the
+blend formula and the shape corrections in T-153 and T-155 need nothing; the rest of T-152–T-158
+waits on the upstream change it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
 
 - [ ] **T-150** Record the reply in `SPEC.md` §2.6: rows and dispositions D8 (REPLAY never reaches
       production, so no replay flag is needed; `v_cycle_ranking` gains `status`), D9 (the trigger
@@ -154,7 +160,14 @@ upstream change it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       coexist), D12 (`v_fundamental_metric` coming, market cap as its `market_capitalization`
       metric; moves from "rejected for now"), D13 (configured vs effective weights), D14 (still
       unanswered), D16 (`metrics-v5`, `opt-v2`, filings keyed by period end), and the run-id reuse
-      fact. List what was declined (PLAN Work item 15). → `PLAN.md` Work item 15, step 1.
+      fact. List what was declined (PLAN Work item 15). Also record the second reply: the six
+      corrections (D6 SECTOR range, D13 `blended_score` and `scheme_id`, D2 `available_at` on cycle
+      lanes, D12 `metric_id`/`unit`, D11/D12 `is_current` as at most one), the forensic-flag
+      format, `+00:00` timestamps, id reuse on all four run tables and `sec_filings` (D7),
+      production at `schema_version` 8 (D16), cohort-relative `normalized_score`, their weights
+      change (D13: 1/3 each for new runs, SEMANTIC out of the blend), and the upstream task each ask
+      maps to (T-144, T-145, T-074, T-141, Work item 2, after T-100). → `PLAN.md` Work item 15,
+      step 1.
 - [ ] **T-151** Decide when `:runId` may be emitted now that upstream can reuse a `cycle_run.id`
       (confirmed for `cycle_run` only; `analysis_run`, `pricing_run` and `quant_run` are unconfirmed
       and part of the same ask). Upstream says a run id is unique only with the run's `cycle_type`
@@ -173,7 +186,12 @@ upstream change it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       `as_of`; for `v_portfolio_position`, which has neither, its `valid_from` equal to the run's
       `as_of`. Check (c) is what catches an id reused by a run of the same type.
       Nothing is derived. Until upstream stops reusing ids, these checks lower the risk but do not
-      prove uniqueness; `:runId`'s comment in `tbox.ttl` and `SPEC.md` D7 must say so. → step 3.
+      prove uniqueness; `:runId`'s comment in `tbox.ttl` and `SPEC.md` D7 must say so.
+      **Second reply:** ids can be reused on all four run tables and on `sec_filings`, through manual
+      deletions only. Their T-145 makes them non-reusable and their T-100 rebuild drops the
+      orphaned edge ids; after both, keep checks (a) and (b) (plain reads) and drop (c). Key
+      `:SECFiling` IRIs by accession number, never `sec_filings.id`, and resolve a row's
+      `filing_id` to it through `v_sec_filing` in the same read. → step 3.
 - [ ] **T-152** Model `v_fundamental_metric`: one immutable observation per (filing, metric, engine
       version) with its asset, filing, metric group and name, value, `engineVersion`, and its own
       event-time and available-at properties (not `:eventTime`/`:availableAt`: their
@@ -184,30 +202,51 @@ upstream change it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       Place the class by property shape (`docs/06` §1.2), add it to `AllDisjointClasses`, add its
       shape, and flag it in `schema/README.md` as a gap found against real data. Add the class to
       the FUNDAMENTAL row of `docs/07`'s named-graph table, the authority for graph placement.
-      Lets a veto stint point to the metric values that fired it (D12). → step 3.
+      Lets a veto stint point to the metric values that fired it (D12). **Second reply:**
+      `metric_name` has no group prefix; read it verbatim, and read T-144's `metric_id`
+      (`leverage.debt_to_equity`) into its own property, the join to `ThresholdComparison.metricName`
+      and `v_rule_catalog.param_metric`. Read `unit` (`ratio` = fraction, `x` = multiple, `usd`)
+      verbatim; `value` is never converted. `is_current` marks at most one row per key: a filing with
+      no current row gets no observation. → step 3.
 - [ ] **T-153** Add `:promptHash` to `ScoreSnapshot` (SHACL: only when `agentOrigin` is FUNDAMENTAL)
       and a multi-valued forensic-flag code (from `forensic_flags_json`, once upstream's T-074 fills
       it and documents the codes). Reverses D7's "extras rejected" for these two; `correction_rule`
-      stays rejected. → step 3.
+      stays rejected. **Second reply:** `forensic_flags_json` is an object of four booleans
+      (`data_error_suspected`, `negative_equity_buyback`, `value_destroyer_sub_wacc`,
+      `severe_sbc_dilution`); emit one `:forensicFlag` per key set to `true` (`sh:in` those four,
+      FUNDAMENTAL only) and a `:forensicFlagsEvaluated` boolean (column non-NULL), so "evaluated,
+      none fired" (all `false`) differs from "not evaluated" (NULL). Unblocked now: `:availableAt`'s
+      comment in `tbox.ttl` gains the cycle lanes (the cycle date, as upstream's view defines it
+      from T-144; never filled in here, so such rows are not projected before then), and
+      `:normalizedScore`'s says it is cohort-relative (upstream's 50 + 10·z, clamped, so
+      `1 - x/100` is a relative risk reading). → step 3.
 - [ ] **T-154** `AssetCoOccurrence`: fill `coOccurrenceComputedOn` from `computed_at` and decide
       whether to make it required; add the `MEDIA` kind and its shape rule when
       `v_media_cooccurrence_edge` exists (after upstream's T-082); do not read `first_seen`/
-      `last_seen` until upstream fills them. → step 3.
+      `last_seen` until upstream fills them. `computed_at` is written `+00:00`: parse that form and
+      `Z`. The `MEDIA` view and the edge dates come after their T-100. → step 3.
 - [ ] **T-155** Project `v_cycle_ranking` as `AttractivenessSnapshot`s, keeping only
-      `status = 'completed'` and non-REPLAY runs: `attractivenessScore` from `blended_score` (on the
-      scale upstream documents). Skip a row whose `blended_score` is NULL (e.g. an asset `rank`
-      excluded as `UNSCORED`, D4): `AttractivenessSnapshotShape` requires a score and none is
-      invented here; confirm with upstream whether such rows appear. Also read rank, selection,
-      target weight and the per-asset effective weights once upstream exposes them. Never recompute
+      `status = 'completed'` and non-REPLAY runs: `attractivenessScore` = `blended_score / 100`
+      (second reply: 0-100 points, higher = more attractive, minus 15 per active SOFT veto, so it
+      can be negative). Unblocked now: drop `AttractivenessSnapshotShape`'s lower bound and keep
+      `maxInclusive 1.0`, and update `:attractivenessScore`'s comment; no pre-penalty score is
+      derived here. A `blended_score` is never NULL: an asset with no component gets 0.0, so skip a
+      row whose asset has no `v_cycle_ranking_component` row (a placeholder, not a score; confirm
+      with upstream how such an asset appears otherwise). Also read rank, selection, target weight
+      and the per-asset effective weights from `v_cycle_ranking_component` (`effective_weight`
+      per `score_type`, summing to 1 per run and asset; no row for an absent component), and not
+      its `component_value`, which repeats a `ScoreSnapshot`. Never recompute
       the blend (`SPEC.md` §2.5 item 1), and remove every description of computing it here:
       `docs/06` §1.8's `attractivenessScore = Σ weight_i * component_i` and its `inverted` rule;
       `rules.ttl`'s `WeightScheme_v1` header ("Formula this scheme feeds"); the
       `attractivenessScore`, `WeightComponent` and `:inverted` comments in `tbox.ttl`; and mark the
       2026-08-13 attractiveness design spec in `docs/superpowers/specs/` as design history.
-      `:inverted`'s remaining purpose, if any, is decided with T-121. The `SectorRelativeMomentum`
-      `[-1, 1]` bound (T-140) is justified in `shapes.ttl` and `schema/README.md` by that formula's
-      `(rawValue + 1) / 2`: re-justify it without the formula, or relax it, deciding together with
-      T-031's mapping of upstream SECTOR and the range upstream documents for it. Leave
+      `:inverted`'s remaining purpose, if any, is decided with T-121. Unblocked now: the
+      `SectorRelativeMomentum` `[-1, 1]` bound (T-140), justified only by that formula's
+      `(rawValue + 1) / 2`, becomes [-100, 100]: upstream's SECTOR `raw_value` is the asset's
+      TECHNICAL raw score minus its sector's mean, in TECHNICAL points (observed -54 to +46), read
+      verbatim, positive = stronger than its sector. Update `shapes.ttl`, `reference.ttl`'s SRM
+      comment, `docs/06` §1.8 and `schema/README.md` refinement 2. Leave
       `schema/protege-view.ttl` to its regeneration (Work item 8); it is generated. → step 3.
 - [ ] **T-156** Quant: read `v_quant_portfolio` and `v_quant_vs_live` on the engine version upstream
       marks current, with `engine_version` recorded on each `BenchmarkObservation`. Match a
@@ -215,13 +254,18 @@ upstream change it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       with `opt-v1` and `opt-v2` books coexisting, the old key no longer identifies one book; update
       `:benchmarkKind`'s comment in `tbox.ttl`, which names the old key. Keep `live_book` out of
       `Portfolio` (already enforced by `PortfolioShape`); stop expecting `equal_weight`/
-      `cap_weight`. → step 3.
+      `cap_weight`. `is_current` marks at most one book per `(as_of, kind)`, the newest `opt-v*`;
+      `engine_version` stays opaque (`opt-v1+9d34ff69`). → step 3.
 - [ ] **T-157** When upstream ships: re-pin `src/projection/view_contract.py` (new view, new
       columns, the commit in its docstring and in `SPEC.md` §2.6), raise the `schema_version` floor
       (D16), and run `cli/check_view_contract.py` against that commit. Repeat for
-      `v_media_cooccurrence_edge`. → step 4.
+      `v_media_cooccurrence_edge`. Pin T-144's `v_cycle_ranking_component` too. Every contract
+      change carries a marker migration, so each raises the floor; repeat for their T-145.
+      Production is at 8, below the floor: project from nothing older than their T-100 rebuild.
+      → step 4.
 - [ ] **T-158** Replace the `ASSET_DAY_AGGREGATE` placeholder with upstream's SEMANTIC
-      `score_method` value once they give it (D14). → step 4.
+      `score_method` value once they give it (D14; with their Work item 4, after their T-100).
+      → step 4.
 - [ ] **T-159** Verify: FR-001 parse + `pyshacl` pass after T-151–T-156, with `schema/README.md`,
       `docs/06` and `docs/07` counts in sync (NR-001), `docs/07`'s named-graph table listing every
       new class, and no doc left describing the blend as computed here (T-155); every upstream
@@ -248,9 +292,13 @@ See `PLAN.md` Work item 16.*
 - [ ] **T-162** Write the expectations for the views Work item 4 reads, beside
       `src/projection/view_contract.py`, keyed by view name. Include the `v_score_snapshot`
       `normalized_score` range and the cohort mean near 50 per rescaled lane (FUNDAMENTAL,
-      VALORIZATION, TECHNICAL only: SECTOR is a raw-scale difference, D6, and SEMANTIC is not on
-      0-100), the guard against a change of meaning that stays in range (it cannot detect a reversed
-      polarity). This task owns that guard;
+      VALORIZATION, TECHNICAL and SECTOR, whose `normalized_score` T-031 now rescales; upstream
+      documents 50 + 10·z, clamped; SEMANTIC is not on 0-100), the guard against a change of
+      meaning that stays in range (it cannot detect a reversed polarity). From upstream's second
+      reply also: SECTOR `raw_value` in [-100, 100]; `blended_score` at most 100, no lower bound;
+      `available_at` NULL on cycle lanes until their T-144, then never NULL; `computed_at` in
+      `+00:00` or `Z` form; `forensic_flags_json` NULL or an object of the four documented keys.
+      This task owns that guard;
       T-031 only calls it. The run-identity checks are not here: T-151 owns them (a reused `run_id`
       is allowed, and a failure there omits `:runId` and does not fail the row). Update an
       all-NULL-by-design expectation when upstream fills the column (T-154 for the edge dates, T-158
@@ -274,8 +322,9 @@ follow in dependency order (Work items 3 and 11 are closed, so Work item 4 is un
 Work item 12 (T-120–T-121): T-120 answered, closes with T-150; T-121 is unblocked.
 Work item 13 (T-130–T-136): constitution rules in place (1.5.0); T-131 next, then T-132–T-134 and T-136; T-130 closes with T-134.
 Work item 14 (T-140–T-142): T-140 done; T-141 needs a live GraphDB; T-142 is unblocked.
-Work item 15 (T-150–T-159): T-150, T-151 and T-155's formula removal are unblocked; the rest of
-T-152–T-158 waits on upstream's changes.
+Work item 15 (T-150–T-159): T-150, T-151's rule, T-155's formula removal and the shape corrections
+in T-153/T-155 are unblocked; the rest of T-152–T-158 waits on upstream's T-144 (views), T-145 (ids),
+T-074 (flags) and, after their T-100, T-082 and their Work item 4.
 Work item 16 (T-160–T-165): T-160 first (policy and tool); T-163 lands with T-031; T-164 needs Work item 13's skeleton.
 Work item 8 (T-070–T-071) is independent but needs a human at a Protégé
 session, not a coding session.
