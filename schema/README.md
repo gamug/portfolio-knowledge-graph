@@ -113,7 +113,11 @@ what the store *enforces*.
    correction to the same reply already adds. Unlike `SectorRelativeMomentum`/`Sentiment`,
    FUNDAMENTAL's `rawValue` is not yet given a bound here — upstream confirms it is stable at the
    source but has not stated its range (open question Q6); the shape requires it present but stays
-   silent on bounding it for `ScoreFinanciero` until that answer lands. No new class or property.
+   silent on bounding it for `ScoreFinanciero` until that answer lands. Four synthetic FUNDAMENTAL
+   snapshots agree (neither value and `normalizedScore` only fail; `rawValue` only and both pass),
+   and the projector stops writing the value too: `src/projection/score_scale.py` rejects the
+   FUNDAMENTAL lane, pinned by `tests/test_score_scale.py`, since the shape alone can't (it keeps
+   `normalizedScore` optional for legacy data). No new class or property.
    **2474 quads; conforms: True.**
 3. **Two more named-graph placements (a third added by T-108).** `07-ontology-topology.md` assigned graphs to every
    *agent's* daily output but not to the Orchestrator's own decisions or to entity resolution's

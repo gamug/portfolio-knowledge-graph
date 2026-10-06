@@ -106,7 +106,8 @@ pipeline *rejects*).
 
 ### Validating the schema
 
-There's no test suite — validation is a parse-and-conform check. Run from inside `schema/`:
+Schema validation is a parse-and-conform check (code in `src/` has a growing hermetic `pytest` suite:
+`uv run pytest`, PLAN Work item 13). Run from inside `schema/`:
 
 ```bash
 python -c "
