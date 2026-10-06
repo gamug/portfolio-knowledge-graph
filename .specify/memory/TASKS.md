@@ -37,7 +37,8 @@ are closed (see `CHANGELOG.md`).*
       `SPEC.md` §2.6; for SECTOR, whether the bound stays is decided with T-155); and guard
       against a change of *meaning* the column-name check cannot see (e.g. upstream moving
       `normalized_score` to [0, 1] would pass the [0, 100] check and become ~0.99 risk), for
-      instance a per-lane cohort mean near 50, upstream's documented centre. → step 2.
+      instance a per-lane cohort mean near 50, upstream's documented centre (Work item 16's
+      T-162 owns that check and T-163 runs it; T-031 calls it). → step 2.
 - [ ] **T-032** Decide and implement `:supersededBy` semantics for a
       restatement. → step 3.
 - [ ] **T-033** Retire or explicitly fold in today's `src/etl/` shortcut
@@ -211,6 +212,43 @@ upstream change it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       change this work item reads is recorded in `SPEC.md` §2.6 with its commit. → `PLAN.md`
       acceptance criteria.
 
+## Work item 16 — Validate upstream rows at the read boundary
+
+*Input-side validation of the `v_*` rows, before any triple is built. `pyshacl` stays the graph gate.
+See `PLAN.md` Work item 16.*
+
+- [ ] **T-160** Decide the failure policy (stop the run, or quarantine failing rows and report them)
+      and the validation tool, from the list of checks needed (types, NULL rate, range, natural-key
+      uniqueness, `available_at` against `event_time`, row count per view). A check with no
+      offending row (row count, NULL rate, cohort mean) is reported against its view or group and
+      stops the run under either policy, so its thresholds encode upstream's documented state: a
+      column NULL for every row by design (SEMANTIC today; `first_seen`/`last_seen` on
+      `v_shared_executive_edge` until their Work item 9) is expected, not a failure. Compare plain checks, pandera, deepchecks and Great
+      Expectations on that list, including dependency weight. Record the decision in `SPEC.md` §13
+      item 10. → `PLAN.md` Work item 16, step 1.
+- [ ] **T-161** If T-160 picked a library: propose the constitution amendment first (Technological
+      stock #6, Governance steps 1–4, MINOR bump), as its own reviewed change, then add the dependency
+      to `pyproject.toml`. If plain checks won, there is no dependency and no amendment. → step 2.
+- [ ] **T-162** Write the expectations for the views Work item 4 reads, beside
+      `src/projection/view_contract.py`, keyed by view name. Include the `v_score_snapshot`
+      `normalized_score` range and the cohort mean near 50 per rescaled lane (FUNDAMENTAL,
+      VALORIZATION, TECHNICAL only: SECTOR is a raw-scale difference, D6, and SEMANTIC is not on
+      0-100), the guard against a change of meaning that stays in range (it cannot detect a reversed
+      polarity). This task owns that guard;
+      T-031 only calls it. The run-identity checks are not here: T-151 owns them (a reused `run_id`
+      is allowed, and a failure there omits `:runId` and does not fail the row). Update an
+      all-NULL-by-design expectation when upstream fills the column (T-154 for the edge dates, T-158
+      for SEMANTIC). → step 2.
+- [ ] **T-163** Run the expectations on the read path: a function that returns the validated rows
+      and a report naming the view and column of every failure, with the row key for a row-level
+      check and the group for an aggregate one, applying the T-160 policy. Lands with T-031. → step 3.
+- [ ] **T-164** Tests with synthetic frames: one passing and one failing case per check kind, and the
+      behaviour of the policy T-160 selected (including an aggregate failure), under Work item 13's
+      structure (needs T-131). → step 4.
+- [ ] **T-165** Verify and document: `SPEC.md` §13 item 10 (today the pin and the drift check) gains
+      what is checked at the boundary and what is not, including that polarity is not detectable;
+      `uv run pytest` passes; the FR-001 gate is unchanged. → `PLAN.md` acceptance criteria.
+
 ## Status
 
 Closed Work items 1, 2, 3, 5, 7 (superseded/decided by T-007), 9, 10 and 11 are in
@@ -222,5 +260,6 @@ Work item 13 (T-130–T-135): T-130 first (the constitution has no testing rules
 Work item 14 (T-140–T-142): T-140 done; T-141 needs a live GraphDB; T-142 is unblocked.
 Work item 15 (T-150–T-159): T-150, T-151 and T-155's formula removal are unblocked; the rest of
 T-152–T-158 waits on upstream's changes.
+Work item 16 (T-160–T-165): T-160 first (policy and tool); T-163 lands with T-031; T-164 needs Work item 13's skeleton.
 Work item 8 (T-070–T-071) is independent but needs a human at a Protégé
 session, not a coding session.
