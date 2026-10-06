@@ -11,8 +11,9 @@ see constitution Claude Code conduct #7. This file carries only open work items.
 
 Task IDs are stable, same rule as `SPEC.md`'s `FR-0xx`/`NR-0xx`: don't
 renumber; mark a cancelled/superseded task in place instead. IDs are grouped
-in decades by work item (`T-00x` → Work item 1, `T-01x` → Work item 2, `T-02x`
-→ Work item 3, …) so a later-inserted task within a work item doesn't force a
+in decades by work item, each taking the next free decade (`T-00x` → Work item 1, `T-01x` → Work item 2, `T-02x`
+→ Work item 3, …; Work item 11 ran into `T-11x`, so Work item 12 took `T-12x` and later
+items follow on) so a later-inserted task within a work item doesn't force a
 renumber of the next work item's block.
 
 ## Work item 4 — Build the real step-2 projection (roadmap step 2)
@@ -80,9 +81,9 @@ D13 check recorded in `SPEC.md` §2.6, T-120 needs an answer from the upstream m
 
 ## Work item 14 — `ScoreSnapshotShape` and store-gate follow-ups (PR #48 post-merge review)
 
-- [x] **T-140** *(done 2026-10-05)* Tighten `ScoreSnapshotShape`: `SectorRelativeMomentum` requires
-      `rawValue` (range left to T-031); `rawValue` at most once (`owl:FunctionalProperty` in `tbox.ttl`);
-      `agentOrigin` ↔ `metricType` one-to-one via `sh:xone`. 2455 quads, conforms; 17 synthetic cases,
+- [x] **T-140** *(done 2026-10-06)* Tighten `ScoreSnapshotShape`: `SectorRelativeMomentum` requires
+      `rawValue` in `[-1, 1]` (`docs/06` §1.8; mapping upstream SECTOR into it is T-031's); `rawValue` at most once (`owl:FunctionalProperty` in `tbox.ttl`);
+      `agentOrigin` ↔ `metricType` one-to-one via `sh:xone`. 2458 quads, conforms; 18 synthetic cases,
       the acceptance probe (one violation), `docs/09`'s example and the ETL smoke run agree. → `PLAN.md`
       Work item 14, step 1.
 - [ ] **T-141** Run `cli/verify_store.py` against the live GraphDB repository with the current

@@ -40,10 +40,11 @@
             [ sh:path :rawValue ; sh:datatype xsd:decimal ; sh:minCount 1 ; sh:minInclusive -1.0 ; sh:maxInclusive 1.0 ] ) ;
     # T-140: rawValue is owl:FunctionalProperty (tbox.ttl); enforce it closed-world for every metric.
     sh:property [ sh:path :rawValue ; sh:datatype xsd:decimal ; sh:maxCount 1 ] ;
-    # T-140: SectorRelativeMomentum compares on rawValue too (WC_SectorMom), so it must carry one. Its
-    # range is not bounded here: upstream's SECTOR scale is decided with the projector's write path (T-031).
+    # T-140: SectorRelativeMomentum compares on rawValue too (WC_SectorMom), so it must carry one, in [-1,1]:
+    # ScoreTecnico minus its sector aggregate, both [0,1] (docs/06 §1.8), which the attractiveness formula's
+    # (rawValue + 1) / 2 needs. Mapping upstream's SECTOR score into this range is the projector's job (T-031).
     sh:or ( [ sh:not [ sh:path :metricType ; sh:hasValue "SectorRelativeMomentum" ] ]
-            [ sh:path :rawValue ; sh:minCount 1 ] ) ;
+            [ sh:path :rawValue ; sh:datatype xsd:decimal ; sh:minCount 1 ; sh:minInclusive -1.0 ; sh:maxInclusive 1.0 ] ) ;
     # T-140: each agent writes exactly one metric (SPEC D6; upstream score_type = agentOrigin).
     sh:xone ( [ sh:property [ sh:path :agentOrigin ; sh:hasValue "FUNDAMENTAL" ] , [ sh:path :metricType ; sh:hasValue "ScoreFinanciero" ] ]
               [ sh:property [ sh:path :agentOrigin ; sh:hasValue "VALORIZATION" ] , [ sh:path :metricType ; sh:hasValue "ScoreCuantitativo" ] ]

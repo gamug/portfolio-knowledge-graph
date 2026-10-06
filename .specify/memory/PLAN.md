@@ -490,8 +490,8 @@ new acceptance probe; and `acceptance.check_gate` counts violations by matching 
 
 **Approach**:
 
-1. Tighten `ScoreSnapshotShape` (T-140): `rawValue` required for `SectorRelativeMomentum` (range left to
-   T-031), `sh:maxCount 1` on `rawValue`, an `sh:xone` pairing each `agentOrigin` with its one
+1. Tighten `ScoreSnapshotShape` (T-140): `rawValue` in `[-1, 1]` required for `SectorRelativeMomentum` (the
+   range `docs/06` §1.8 defines; mapping upstream SECTOR into it is T-031's), `sh:maxCount 1` on `rawValue`, an `sh:xone` pairing each `agentOrigin` with its one
    `metricType`. Update `docs/06`, `schema/README.md` and every quad count (NR-001).
 2. Run `cli/verify_store.py` once against the live repository (T-141).
 3. Make `gate.validate` expose the results graph, and count `sh:ValidationResult` nodes in
