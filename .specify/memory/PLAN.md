@@ -575,8 +575,8 @@ upstream to expose it instead of deriving it here.
 
 1. Record the reply in `SPEC.md` §2.6 (rows and dispositions D8–D14, D16, plus the run-id fact),
    which also closes T-120 (T-150).
-2. Ask upstream for the changes this repo needs to read, not compute (sent to their maintainers with
-   this work item; each is theirs to accept and track):
+2. Ask upstream for the changes this repo needs to read, not compute (to be sent to their maintainers
+   with this work item; each is theirs to accept and track):
    - the additive view change they proposed: `v_fundamental_metric`; `forensic_flags_json` and
      `prompt_hash` on `v_score_snapshot`; `computed_at` and `run_id` on `v_shared_executive_edge`;
      `status` on `v_cycle_ranking` and a corrected docstring; `engine_version` on
@@ -605,13 +605,15 @@ filing are enough); a stored daily market cap (the per-filing `market_capitaliza
 enough for size context); a replay flag (not needed while only production is projected); a run
 trigger endpoint in their `api/`.
 
-**Acceptance**: `SPEC.md` §2.6 has no D8–D14 item left as "raised upstream" without its answer;
+**Acceptance**: `SPEC.md` §2.6 has no D8–D14 item left as "raised upstream" without its answer
+(D14 included, so this needs upstream's SEMANTIC method value, T-158);
 every schema change passes the FR-001 parse + `pyshacl` check with updated counts; the projection
 reads the new columns from a re-pinned `view_contract.py` and computes none of the values listed in
 step 2; T-120 is closed.
 
 **Blocked on**: T-150 and T-151 on nothing; T-152–T-158 on the upstream change each one reads
-(T-153's forensic flags also wait on their T-074, T-154's MEDIA kind on their T-082).
+(T-153's forensic flags also wait on their T-074, T-154's MEDIA kind on their T-082). Closing this
+work item also waits on upstream's D14 answer (T-158), which their reply did not give.
 
 ## Sequencing
 

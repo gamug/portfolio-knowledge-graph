@@ -82,7 +82,7 @@ are closed (see `CHANGELOG.md`).*
 *Pending parts of Work item 11's T-108 and T-109. Independent of each other; T-121 follows the
 D13 check recorded in `SPEC.md` §2.6; T-120's upstream answer arrived 2026-10-05 (Work item 15).*
 
-- [ ] **T-120** *(moved from T-108(a); D9. Answered 2026-10-05: `portfolio-app` triggers by running upstream's orchestrator command as a job, `portfolio-reports` reads, `api/` stays read-only; closes when T-150 records it)* `portfolio-app` and `portfolio-reports` integration. Upstream's `api/` is read-only with no run-trigger endpoint, and its docs name `portfolio-reports` as the trigger, while this repo's SPEC names `portfolio-app` (not yet created). Agree with upstream who triggers `cycle select`/`cycle monitor`, and what `portfolio-app` and `portfolio-reports` each read: `portfolio-reports` reads the run-log `v_*` views (`v_*_run`), `portfolio-app` should read this repo's query surface. Record the outcome in SPEC D9 and `docs/10`. Open question for the upstream maintainer. → steps 5–6.
+- [ ] **T-120** *(moved from T-108(a); D9. Answered 2026-10-05: `portfolio-app` triggers by running upstream's orchestrator command as a job, `portfolio-reports` reads, `api/` stays read-only; closes when T-150 records it)* `portfolio-app` and `portfolio-reports` integration. Upstream's `api/` is read-only with no run-trigger endpoint, and its docs name `portfolio-reports` as the trigger, while this repo's SPEC names `portfolio-app` (not yet created). Agree with upstream who triggers `cycle select`/`cycle monitor`, and what `portfolio-app` and `portfolio-reports` each read: `portfolio-reports` reads the run-log `v_*` views (`v_*_run`), `portfolio-app` should read this repo's query surface. Record the outcome in SPEC D9 and `docs/10`. → steps 5–6.
 - [ ] **T-121** *(moved from T-109(ii); D13)* Extend the weight-scheme model to what upstream records per run: one `AttractivenessWeightScheme` per `cycle_run` (`schemeId` = `scheme_id`, `validFrom` = `cycle_date`, no `validTo`), a component per `score_type` (`weightMetricName` ← `agentOrigin`: FUNDAMENTAL, VALORIZATION, TECHNICAL, SEMANTIC), and the scalar knobs (`top_n`, `max_name_weight`, `max_sector_weight`, `soft_veto_penalty`) as new properties; decide what to do with `inverted` and `SectorRelativeMomentum`, which upstream does not weight. **Upstream reply (2026-10-05):** `score_weights` holds the *configured* weights for all four types in every run, not the blended ones; the blend renormalizes per asset over its non-null components, so the effective weights are per asset, not per scheme. Model the scheme as configured, and read the effective weights from upstream (T-155), never derive them here. **Decide first:** a per-run scheme with `validFrom` and no `validTo` reads as "still active" for every run (the valid-time convention), so either close the previous run's scheme with `validTo` when the next run is projected, or stop treating a per-run scheme as a valid-time record (a run-date property linked to the run, and relax `validFrom` `minCount 1` in `AttractivenessWeightSchemeShape`). Update `tbox.ttl`, `shapes.ttl`, `rules.ttl`'s `WeightScheme_v1`, docs 06/07 and `schema/README.md` counts. → step 6.
 
 ## Work item 13 — A `pytest` suite for the code this repo owns
@@ -138,18 +138,24 @@ Work item 12 (T-121).*
       metric; moves from "rejected for now"), D13 (configured vs effective weights), D14 (still
       unanswered), D16 (`metrics-v5`, `opt-v2`, filings keyed by period end), and the run-id reuse
       fact. List what was declined (PLAN Work item 15). → `PLAN.md` Work item 15, step 1.
-- [ ] **T-151** Decide how `:runId` stays unique now that upstream can reuse a `cycle_run.id`: emit
-      it only when the run row exists and its `cycle_type` matches the lane being projected (a read
-      check, nothing derived), and omit it otherwise (today: every `shared_executive_edge` row).
-      Update `:runId`'s comment in `tbox.ttl` and `SPEC.md` D7. Revisit when upstream's ids stop
-      being reused. → step 3.
+- [ ] **T-151** Decide how `:runId` stays unique now that upstream can reuse a `cycle_run.id`
+      (confirmed for `cycle_run` only; `analysis_run`, `pricing_run` and `quant_run` are unconfirmed
+      and part of the same ask). Rule, per run table: emit `<run table>:<id>` only when that row
+      exists in that table; for `cycle_run`, also only when its `cycle_type` matches the lane being
+      projected (`ENTITY_RESOLUTION` for edges, `SELECTION`/`MONITORING` for rankings and vetoes).
+      These are read checks, nothing derived; otherwise omit it (today: every
+      `shared_executive_edge` row). Update `:runId`'s comment in `tbox.ttl` and `SPEC.md` D7.
+      Revisit when upstream's ids stop being reused. → step 3.
 - [ ] **T-152** Model `v_fundamental_metric`: one immutable observation per (filing, metric, engine
-      version) with its asset, filing, metric group and name, value, `engineVersion`, `eventTime`
-      and `availableAt`, written to `urn:graph:ingest:FUNDAMENTAL:{year}-Q{n}`; read only the
-      version upstream marks current. Place the class by property shape (`docs/06` §1.2), add it
-      to `AllDisjointClasses`, add its shape, and flag it in `schema/README.md` as a gap found
-      against real data. Lets a veto stint point to the metric values that fired it (D12).
-      → step 3.
+      version) with its asset, filing, metric group and name, value, `engineVersion`, and its own
+      event-time and available-at properties (not `:eventTime`/`:availableAt`: their
+      `rdfs:domain :ScoreSnapshot` would type the new class as a `ScoreSnapshot`, which
+      `AllDisjointClasses` forbids; same reason `:runId` has no domain, T-106), with the same rule
+      that as-of reads filter on available-at. Written to
+      `urn:graph:ingest:FUNDAMENTAL:{year}-Q{n}`; read only the version upstream marks current.
+      Place the class by property shape (`docs/06` §1.2), add it to `AllDisjointClasses`, add its
+      shape, and flag it in `schema/README.md` as a gap found against real data. Lets a veto stint
+      point to the metric values that fired it (D12). → step 3.
 - [ ] **T-153** Add `:promptHash` to `ScoreSnapshot` (SHACL: only when `agentOrigin` is FUNDAMENTAL)
       and a multi-valued forensic-flag code (from `forensic_flags_json`, once upstream's T-074 fills
       it and documents the codes). Reverses D7's "extras rejected" for these two; `correction_rule`
@@ -160,12 +166,18 @@ Work item 12 (T-121).*
       `last_seen` until upstream fills them. → step 3.
 - [ ] **T-155** Project `v_cycle_ranking` as `AttractivenessSnapshot`s, keeping only
       `status = 'completed'` and non-REPLAY runs: `attractivenessScore` from `blended_score` (on the
-      scale upstream documents), plus rank, selection, target weight and the per-asset effective
-      weights once upstream exposes them. Never recompute the blend: drop the formula reference
-      from `attractivenessScore`'s comment. Coordinate with T-121. → step 3.
+      scale upstream documents). Skip a row whose `blended_score` is NULL (e.g. an asset `rank`
+      excluded as `UNSCORED`, D4): `AttractivenessSnapshotShape` requires a score and none is
+      invented here; confirm with upstream whether such rows appear. Also read rank, selection,
+      target weight and the per-asset effective weights once upstream exposes them. Never recompute
+      the blend: drop the formula reference from `attractivenessScore`'s comment. Coordinate with
+      T-121. → step 3.
 - [ ] **T-156** Quant: read `v_quant_portfolio` and `v_quant_vs_live` on the engine version upstream
-      marks current, with `engine_version` recorded on each `BenchmarkObservation`; keep `live_book`
-      out of `Portfolio` (already enforced by `PortfolioShape`); stop expecting `equal_weight`/
+      marks current, with `engine_version` recorded on each `BenchmarkObservation`. Match a
+      `v_quant_vs_live` row to its book on `(as_of, kind, engine_version)`, not `(as_of, kind)`:
+      with `opt-v1` and `opt-v2` books coexisting, the old key no longer identifies one book; update
+      `:benchmarkKind`'s comment in `tbox.ttl`, which names the old key. Keep `live_book` out of
+      `Portfolio` (already enforced by `PortfolioShape`); stop expecting `equal_weight`/
       `cap_weight`. → step 3.
 - [ ] **T-157** When upstream ships: re-pin `src/projection/view_contract.py` (new view, new
       columns, the commit in its docstring and in `SPEC.md` §2.6), raise the `schema_version` floor
