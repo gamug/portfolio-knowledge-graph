@@ -243,8 +243,9 @@ architecture, and not partitioned for the bitemporal audit trail
    `v_quant_risk_model`, `v_quant_portfolio`, `v_quant_position`,
    `v_quant_frontier_point`, `v_quant_benchmark_performance`,
    `v_quant_vs_live` — plus `universe.db` for membership. T-030 then records,
-   per view this repo reads, the exact columns it depends on (a table in
-   `SPEC.md` or `schema/README.md`), taken from that repo's `views.py`
+   per view this repo reads, the exact columns it depends on (done as a
+   Python module, `src/projection/view_contract.py`, which `SPEC.md` §2.6
+   points to, so the drift check reads the same pin the docs cite), taken from that repo's `views.py`
    projection contract, and adds a check that fails on drift; views this
    repo decides not to read (Work item 11, T-108) are listed as such. This repo
    pins no contract on them today (§13 item 9's sibling risk on the
@@ -480,6 +481,40 @@ FR-001 parse + `pyshacl` check and update `schema/README.md`'s counts (NR-001).
 
 **Blocked on**: T-120, an answer from the upstream maintainer; T-121, nothing.
 
+## Work item 13 — A `pytest` suite for the code this repo owns
+
+**Why**: NR-005 and `SPEC.md` §13 item 7 / §14 accept "no `pytest` suite" at the scale of `src/etl/`,
+and §10 names the exception: *unless Work item 4's larger projection changes that calculus.* It
+has. Work item 4 adds `src/projection/` (T-030 shipped `score_scale.py`, `view_contract.py` and
+`contract_check.py`, verified only by hand) and will add the write path and the SHACL-on-write gate,
+where a silent wrong number reaches the graph. `src/etl/`'s severity/G1–G3 formulas, ticker skip-set
+and provenance-ID formatting are also untested (§10).
+
+**The constitution gives no test-structuring rules today** (it has no testing section; §Executable
+cmds lists none), so the first task amends it rather than invent a layout in a PR.
+Proposed structure, mirroring the sibling repos (`portfolio-financial-analysis`, `portfolio-nlp`):
+top-level `tests/` with flat `test_<module>.py` files and a `conftest.py`; hermetic (no network, no
+GraphDB, no real `universe.db`/`urls.db`/`nlp.db`); fixtures built in memory; `pytest` in the `dev`
+dependency group, run as `uv run pytest`; tests that need an upstream checkout or a live store are
+marked (`integration`) and skipped by default. Whatever the review settles on is what T-131+ follow.
+
+**Approach**:
+
+1. Amend `constitution.md` (MINOR, per its Governance) with the testing rules above, then reverse
+   NR-005, §10, §13 item 7 and §14 in `SPEC.md`; add the `uv run pytest` command to §Executable cmds.
+2. Add `pytest` to the dev group and the `tests/` skeleton.
+3. Write the pending tests: `projection/score_scale` (0, 50, 100, `None`, out of range, decimal
+   exactness); `projection/contract_check` against a synthetic miniature upstream (a pin, then the
+   same views with a column removed (drift), added and reordered (notes), plus an unlisted new view); `src/etl/common`
+   (severity/G1–G3, GICS rollup, provenance IDs, Turtle literals); the FR-001 parse + `pyshacl` gate
+   as a test.
+4. Decide, and document, where the real-checkout drift check runs (see T-135).
+
+**Acceptance**: `uv run pytest` passes hermetically on a clean checkout; the constitution
+documents the structure; NR-005/§10/§13/§14 no longer claim there is no suite.
+
+**Blocked on**: nothing for T-130–T-134; T-135 depends on how upstream exposes its contract (open).
+
 ## Work item 14 — `ScoreSnapshotShape` and store-gate follow-ups (PR #48 post-merge review)
 
 **Why**: the post-merge review of PR #48 (Work item 9) found three gaps in the shape it rewrote and two
@@ -526,6 +561,7 @@ Work item 5 (SEMANTIC aggregation) — superseded, reassigned upstream
 Work item 7 (orchestrator)         — decided: delegate to financial-analysis `cycle`
 
 Work item 8 (protege-view.ttl) — independent, manual, land whenever convenient
+Work item 13 (pytest suite) — independent; T-130 (constitution amendment) first, ideally before Work item 4's code grows
 Work item 14 (PR #48 follow-ups) — independent; T-140 done, T-141 needs a live GraphDB
 ```
 

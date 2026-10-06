@@ -68,13 +68,19 @@ assumes the stack actually pinned in `pyproject.toml`.
    `ObservationSnapshot`, `EvidenceSource`, and `RuleOperand` are ordinary
    superclasses; don't reintroduce an `owl:unionOf` pattern for a future
    shared-property case.
-3. **`src/etl/` is the one real importable package**, flat except for
-   `common/` (dependency-free helpers: GICS rollup, provenance-ID formatting,
-   the provisional severity/G1–G3 formulas, Turtle-literal helpers).
-   `cli/build_data_ttl.py` is the single entrypoint — it prepends `src/` to
-   `sys.path` before importing; copy that bootstrap pattern for any new
-   entrypoint rather than inventing a second one (an installed console
-   script, a second `sys.path` hack inside a module).
+3. **`src/` holds three importable packages, one per job**: `src/etl/` (the
+   transitional news shortcut, flat except for `common/` — dependency-free
+   helpers: GICS rollup, provenance-ID formatting, the provisional
+   severity/G1–G3 formulas, Turtle-literal helpers), `src/kg_store/` (the
+   store, schema loader and SHACL ingest gate, Work item 3) and
+   `src/projection/` (the real step-2 projection from upstream's `v_*` views,
+   Work item 4). A new package needs its own work item, not a side effect of
+   a PR. Each `cli/*.py` entrypoint prepends `src/` to `sys.path` before
+   importing; copy that bootstrap pattern for any new entrypoint rather than
+   inventing a second one (an installed console script, a second `sys.path`
+   hack inside a module). Code that must load another repo's module from a
+   checkout (the T-030 drift check) does it with `importlib` under a private
+   module name, never by editing `sys.path`.
 4. **The five numbered docs (`06`–`10`) plus `critique-and-evolution.md` are
    the formal specification**, each a companion to its neighbors, not
    standalone — a class defined in `06` gets its storage location assigned in
@@ -352,7 +358,7 @@ Compliance is expected to be checked the same way a schema-parse/`pyshacl`
 gate is — a reviewer (human or agent) rejecting a PR that violates a
 principle above should cite the section by name.
 
-**Version**: 1.3.0 | **Ratified**: 2026-09-12 | **Last Amended**: 2026-09-27
+**Version**: 1.4.0 | **Ratified**: 2026-09-12 | **Last Amended**: 2026-10-05
 
 <!--
 1.0.1 (2026-09-12): PATCH, wording/self-consistency fix only. The "Executable
@@ -384,4 +390,11 @@ create a fresh branch off up-to-date `origin/master` first if the current
 one is a leftover already-merged branch or has fallen behind, rather than
 discovering it mid-task and having to salvage a diff onto a corrected
 branch.
+
+1.4.0 (2026-10-05): MINOR, expanded guidance. Project structure #3 said
+`src/etl/` was the one importable package; `src/kg_store/` (Work item 3)
+already contradicted it and `src/projection/` (Work item 4, T-030) added a
+third. #3 now lists all three, requires a work item for a new one, and states
+how a checkout of another repo is loaded (`importlib`, private module name,
+no `sys.path` edits). Raised in the PR #49 review.
 -->

@@ -83,11 +83,13 @@ open decision for Work item 4, not something this exception settles.
 pricing, cycle rankings, or quant scores (`portfolio-financial-analysis`'s
 job); it does not run any NLP model or own article source text — it reads
 only `portfolio-nlp`'s already-published RESULTS rows, read-only, never
-`portfolio-nlp`'s SOURCE text or its own model inference; it does not (yet)
-stand up a triple store, a SHACL ingest gate, an OWL reasoner, a SPARQL
-surface, or the two LangGraph agent cycles that are meant to read all of the
-above (`08-agent-architecture.md`, designed but unbuilt — roadmap steps 1 and
-3–8); it makes no portfolio or trading decision and renders no report
+`portfolio-nlp`'s SOURCE text or its own model inference; it stands up the
+triple store and its SHACL ingest gate (Work item 3, roadmap step 1) but does
+not (yet) verify the OWL RL reasoning or offer a query surface beyond the
+store's raw SPARQL endpoint (Work item 6), and it builds neither of the two
+LangGraph agent cycles meant to read all of the above
+(`08-agent-architecture.md`, design reference only — roadmap steps 3–8 are
+built upstream); it makes no portfolio or trading decision and renders no report
 (`portfolio-reports`/`portfolio-app`'s job).
 
 ## 2. Scope & Requirements
@@ -113,6 +115,16 @@ above (`08-agent-architecture.md`, designed but unbuilt — roadmap steps 1 and
   `:NewsArticle` / `:ScoreSnapshot` (Sentiment) / `:RiskEvent` (gated) — a
   single-shot flat `data.ttl`, not the named-graph-partitioned target
   architecture.
+- The store (`src/kg_store/`, Work item 3, roadmap step 1): a GraphDB repository
+  `portfolio` with the `rdfsplus-optimized` ruleset (`docs/graphdb-setup.md`),
+  `schema/` loaded into its named graphs (`cli/load_schema.py`), and the SHACL
+  ingest gate (`gate.py`, `cli/ingest.py`) every ABox write passes; acceptance
+  via `cli/verify_store.py`. Only `instances.trig`'s worked example is loaded.
+- The start of the real step-2 projection (`src/projection/`, Work item 4,
+  T-030): the pinned `v_*` read contract (`view_contract.py`), its drift check
+  (`cli/check_view_contract.py`) and the 0–100 → [0, 1] score conversion
+  (`score_scale.py`, §2.6). Nothing reads the `v_*` views or writes ingest
+  graphs yet (T-031).
 - Keeping the schema and its companion docs internally consistent: the exact
   class/shape/graph/quad counts asserted in `06`/`07` and `schema/README.md`
   must stay in sync with `tbox.ttl`/`shapes.ttl`/`instances.trig` after any
@@ -120,10 +132,11 @@ above (`08-agent-architecture.md`, designed but unbuilt — roadmap steps 1 and
 
 ### 2.2 Out of scope
 
-- Standing up a triple store (GraphDB/Fuseki) — roadmap step 1.
-- The SHACL ingest gate, dated named-graph partitioning
-  (`ingest:{agent}:{date}`), OWL RL reasoning, and the SPARQL query surface —
-  designed in `07`/`08`, not built (roadmap steps within 1–2 and beyond).
+- Verified OWL RL reasoning and the SPARQL query surface — designed in
+  `07`/`08`, not built (Work item 6). The triple store, its named graphs and
+  the SHACL ingest gate were out of scope here originally; they moved in scope
+  and are built (Work item 3, roadmap step 1; §2.1), and the projection that
+  writes dated `ingest:{agent}:{date}` graphs from real data is Work item 4.
 - Computing fundamentals, pricing, cycle rankings, or quant scores
   (`portfolio-financial-analysis`).
 - Running any NLP model, discovering/crawling article URLs, or re-deriving
@@ -284,6 +297,29 @@ open part waits on another repo.
 | D15 | Adopted | Read the SQLite `v_*` views via `portfolio_common.db` read-only; the HTTP `api/` is not a source. | Implementation: Work item 4's projector. |
 | D16 | Adopted; raised upstream | `schema_version` floor 9 (T-109); `portfolio-common` re-pinned to `v1.2.1` (T-110). | Assert the floor in the future projector; `portfolio-nlp` is still on `v1.2.0` (theirs to move). |
 
+**Read contract and score scale (T-030, 2026-10-05).** `src/projection/view_contract.py`
+pins a full snapshot of the columns of 30 of upstream's 31 `v_*` views (taken from
+`portfolio-financial-analysis` at `0a528be`; `v_universe_membership` is listed as not read,
+being frozen); T-031 trims each view to the columns the write path reads.
+`cli/check_view_contract.py <upstream checkout>` fails when a pinned column or view is gone or
+no longer builds, or a new view is neither pinned nor listed as not read (§13 item 10); a
+column upstream adds, or a changed column order, is reported as a note, since the projector
+reads by name. Upstream's `normalized_score` is a 0–100 *strength* score (50 = cohort
+average, higher = better), while `:normalizedScore` is a [0, 1] *risk* reading
+(`docs/06-ontology-definition.md` §1.8; flagged as `schema/README.md` refinement 6). For
+FUNDAMENTAL, VALORIZATION and TECHNICAL (`ScoreFinanciero`/`ScoreCuantitativo`/`ScoreTecnico`)
+the projection writes `1 − normalized_score/100` (`src/projection/score_scale.py`), and does the
+same for `v_sector_aggregate_snapshot.mean_normalized` (the mean of members' TECHNICAL score,
+same scale and polarity) into `:SectorAggregateSnapshot`'s required `normalizedScore`; a
+non-finite value or one outside [0, 100] is an error, not clipped. Upstream's separate
+`raw_value` (the score before normalization) is what maps to `:rawValue`; for the three
+rescaled lanes its range is decided in T-031. SECTOR (= `SectorRelativeMomentum`, D6) and
+SEMANTIC (= `Sentiment`, FR-005) carry no `normalizedScore` and compare on a `rawValue` the
+shape bounds to [-1, 1] for both (T-081, T-140), so T-031 has to map upstream's SECTOR and
+SEMANTIC values into that range; upstream SECTOR is "own TECHNICAL raw minus sector mean" on
+the raw scale (D6), not a difference of two [0, 1] scores as `docs/06` §1.8 defines it.
+Neither `ScoreSnapshotShape` nor `WeightComponent.inverted` changes.
+
 ## 3. Technology Stack & Architecture Decisions
 
 Full stack and rationale: `.specify/memory/constitution.md` §Technological
@@ -331,18 +367,20 @@ re-litigated without a constitution amendment:
 ```mermaid
 flowchart TB
     SCHEMA["schema/ -- step 0, DONE<br/>tbox+shapes+reference+rules+instances<br/>2458 quads * pyshacl conforms"]
-    STORE["triple store -- step 1<br/>GraphDB / Fuseki<br/>NOT STOOD UP"]
-    GRAPHS["named graphs -- step 1<br/>static: tbox/reference/rules<br/>ingest:{agent}:{date} * portfolio:current<br/>NOT STOOD UP"]
-    GATE["SHACL ingest gate -- step 2<br/>pyshacl<br/>NOT BUILT"]
-    FIN["fin-analysis v_* views<br/>(designed source, unread)"]
+    STORE["triple store -- step 1, DONE<br/>GraphDB repository portfolio<br/>src/kg_store/, cli/load_schema.py"]
+    GRAPHS["named graphs -- step 1, DONE<br/>static: tbox/reference/rules<br/>ingest:{agent}:{date} * portfolio:current<br/>worked example only"]
+    GATE["SHACL ingest gate -- DONE<br/>pyshacl, src/kg_store/gate.py<br/>cli/ingest.py"]
+    PROJ["src/projection/ -- step 2, STARTED<br/>v_* contract pinned + drift check (T-030)<br/>write path NOT BUILT (T-031)"]
+    FIN["fin-analysis v_* views<br/>(contract pinned, not yet read)"]
     NLPRES["portfolio-nlp RESULTS store<br/>article_sentiment / article_category<br/>(READ TODAY, via news_export)"]
     ETL["src/etl/ -- step 2 shortcut, PARTIAL<br/>cli/build_data_ttl.py<br/>flat data.ttl, not partitioned"]
-    REASON["OWL RL reasoner<br/>NOT BUILT"]
+    REASON["OWL RL reasoner<br/>rdfsplus-optimized ruleset configured<br/>profile check pending (Work item 6)"]
     SPARQL["SPARQL surface<br/>NOT BUILT"]
     AGENTS["cycle orchestration -- NOT THIS REPO<br/>fin-analysis `cycle select` / `cycle monitor`<br/>(doc 08 LangGraph design: reference only)"]
 
     SCHEMA -->|load order| STORE --> GRAPHS --> GATE
-    FIN -.->|designed, not wired| GATE
+    FIN -.->|pinned, drift-checked| PROJ
+    PROJ -.->|designed, not wired| GATE
     NLPRES -->|read-only, today| ETL
     ETL -.->|flat file, bypasses GATE/GRAPHS| SCHEMA
     GATE --> REASON --> SPARQL
@@ -351,8 +389,12 @@ flowchart TB
 
 **Reading this diagram**: the top row (`schema/` → store → named graphs →
 SHACL gate → reasoner → SPARQL → agents) is the *target* architecture from
-`07`/`08` — only `schema/` is built. The `src/etl/` shortcut at the bottom is
-what actually runs today: it reads `portfolio-nlp`'s RESULTS store directly
+`07`/`08`. `schema/`, the store, its named graphs and the SHACL gate are built
+(Work item 3; only the worked example is loaded), the reasoner's ruleset is
+configured but its profile is unchecked and the SPARQL surface is unbuilt
+(Work item 6). The real projection (`src/projection/`) has its read contract
+pinned and drift-checked (T-030) but writes nothing yet (T-031). The `src/etl/`
+shortcut at the bottom is what actually populates data today: it reads `portfolio-nlp`'s RESULTS store directly
 and writes a flat `data.ttl` that loads on top of `schema/` but bypasses the
 named-graph/SHACL-gate/reasoner chain entirely — a narrower, working stand-in
 for the step-2 projection `07`/`08` designed, not that projection itself
@@ -482,9 +524,10 @@ This repo has no throughput/latency SLA, and defining one is out of scope
 (§14) — a real-time or high-volume performance target belongs to a
 production system this project isn't. What exists instead:
 
-- **Scale estimates** for the target (unbuilt) triple-store architecture are
-  in `07-ontology-topology.md`, not repeated here — they describe a system
-  this repo has not yet stood up.
+- **Scale estimates** for the target triple-store architecture are
+  in `07-ontology-topology.md`, not repeated here — they describe the target
+  at full scale; the store stood up in Work item 3 holds only the worked
+  example so far.
 - **The ETL's `data.ttl` is git-ignored and can reach multiple million
   triples** at full S&P 500 + news-corpus scale; that scale is exactly why
   FR-006 validates a sample/limited run rather than the full output — no
@@ -508,7 +551,7 @@ production system this project isn't. What exists instead:
   an actual test suite.
 - **New requirement → new test first** (once a test suite exists) is the
   aspirational standard this repo has not yet built infrastructure for — a
-  `pytest` suite for `src/etl/` is accepted as permanently out of scope at
+  `pytest` suite for `src/etl/` (being revisited: `PLAN.md` Work item 13) is accepted as permanently out of scope at
   current scale (§14), not a pending backlog item, unless Work item 4's
   larger projection changes that calculus.
 
@@ -553,9 +596,11 @@ There is no CD pipeline and no CI workflow for this repo
   S&P 500 membership, `SQL_UNIVERSE_DB`, read-only), because
   `v_universe_membership` is frozen upstream (§2.6 D1). Both are versioned
   contracts that are still moving (§2.6 D16).
-- **Downstream (intended, not yet built)**: a standing triple store, the
-  SHACL ingest gate, the OWL RL reasoner and the SPARQL surface (roadmap
-  steps 1–2 and the query surface). Cycle orchestration is **not** downstream
+- **Downstream (intended, not yet built)**: the real projection's write path
+  into dated ingest graphs (roadmap step 2, Work item 4; T-030 pinned its read
+  contract), verified OWL RL reasoning and the SPARQL query surface (Work
+  item 6). The standing triple store and its SHACL ingest gate are built
+  (roadmap step 1, Work item 3). Cycle orchestration is **not** downstream
   work for this repo: it already lives in `portfolio-financial-analysis`'s
   `cycle` package (decision recorded 2026-10-02; `08-agent-architecture.md`
   is retained as design reference and still to be reconciled — T-008). `portfolio-reports`
@@ -641,7 +686,10 @@ treating a related FR/NR as done:
     catalog, score-type names, edge evidence, quant — several of which would
     make a naive projection wrong, not merely incomplete. Mitigation: PLAN
     Work item 11 decides each before Work item 4 writes the projection; Work
-    item 4 then pins and checks the view columns it reads (T-030). No
+    item 4 then pins and checks the view columns it reads: T-030 added the
+    pin (`src/projection/view_contract.py`) and `cli/check_view_contract.py`,
+    which fails on a removed column or view against an upstream checkout
+    (§2.6). It runs manually today; where it runs automatically is T-135. No
     cross-repo schema generation is planned.
 11. **The ownership decision is resolved: the SEMANTIC score is not computed
     here; the cut-over is still pending.** The earlier plan to
@@ -725,7 +773,7 @@ of what this project is, not a gap someone forgot to close:
   the shared `fetch_processed_articles` join shape (§13 item 9) — accepted
   at this scale; a `portfolio-nlp` schema change breaking this repo silently
   is a known, accepted risk.
-- **A `pytest` suite for `src/etl/`** (§13 item 7) — accepted at current
+- **A `pytest` suite for `src/etl/`** (§13 item 7; being revisited by `PLAN.md` Work item 13) — accepted at current
   scale; the end-to-end SHACL check is judged a sufficient substitute for
   now, not upgraded just because the surrounding architecture grows.
 
@@ -733,16 +781,16 @@ of what this project is, not a gap someone forgot to close:
 
 | §13 item | Category | Disposition |
 |---|---|---|
-| 1 — integrative layer unbuilt (steps 1–2, query surface); compute steps owned upstream | **Pending development** (integrative layer only) | The actual backlog — `PLAN.md` Work items 3, 4, 6; Work items 5 and 7 are now scope-reassigned upstream (§2.5) |
+| 1 — integrative layer partly built (step 1 done; step 2 and query surface pending); compute steps owned upstream | **Pending development** (integrative layer only) | The actual backlog — `PLAN.md` Work items 4, 6 (Work item 3, step 1, done); Work items 5 and 7 are now scope-reassigned upstream (§2.5) |
 | 12 — FR-005 vs. the ETL's `body_text` read | **Resolved** (spec amended to match the code, 2026-10-05) | `PLAN.md` Work item 11, T-113 — done |
-| 10 — `kg_schema`/`schema/` vocabulary and semantic drift | **Pending development** | `PLAN.md` Work item 11 (decisions closed 2026-10-05, T-100–T-113; dispositions in §2.6), then Work item 4, T-030 |
+| 10 — `kg_schema`/`schema/` vocabulary and semantic drift | **Mitigated; automation pending** | `PLAN.md` Work item 11 (decisions closed 2026-10-05, T-100–T-113; dispositions in §2.6); Work item 4, T-030 done (pin + manual drift check); where the check runs automatically: T-135 |
 | 11 — SEMANTIC score not computed here | **Ownership resolved; cut-over pending** (upstream aggregation + local replacement) | `PLAN.md` Work items 4–5 (reassigned), §2.5 |
 | 2 — no `v_*`-views projection | **Pending development** | Folded into `PLAN.md` Work item 4 (the real step-2 projection); today's `src/etl/` shortcut stays live until that lands |
 | 3 — roadmap names superseded repos | **Pending development** (cheap, no blockers) | `PLAN.md` Work item 1 |
 | 4 — `protege-view.ttl` stale | **Pending development** (manual, needs a real Protégé session) | `PLAN.md` Work item 8 |
 | 5 — `CLAUDE.md` can lag `origin/master` | **Resolved** for this checkout; general risk stays covered by constitution conduct #2 | `PLAN.md` Work item 2 — done |
 | 6 — `ScoreSnapshotShape` vs. Sentiment `rawValue` | **Resolved** (T-081: `Sentiment` exempt from `normalizedScore`, `rawValue` required) | `PLAN.md` Work item 9 — done |
-| 7 — no test suite for `src/etl/` | **Permanently out of scope** at current scale | See above |
+| 7 — no test suite for `src/etl/` | **Permanently out of scope** at current scale — **being revisited:** `PLAN.md` Work item 13 (T-130 reverses this row, §10, §13 item 7 and NR-005) | See above |
 | 8 — uncalibrated severity formulas | **Permanently out of scope** (research task) | See above |
 | 9 — no pinned SOURCE/RESULTS contract | **Permanently out of scope** (accepted risk) | See above |
 
