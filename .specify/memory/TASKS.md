@@ -37,7 +37,8 @@ are closed (see `CHANGELOG.md`).*
       `SPEC.md` §2.6; for SECTOR, whether the bound stays is decided with T-155); and guard
       against a change of *meaning* the column-name check cannot see (e.g. upstream moving
       `normalized_score` to [0, 1] would pass the [0, 100] check and become ~0.99 risk), for
-      instance a per-lane cohort mean near 50, upstream's documented centre (the row checks are Work item 16, T-162/T-163). → step 2.
+      instance a per-lane cohort mean near 50, upstream's documented centre (Work item 16's T-162 owns that check and
+      T-163 runs it; T-031 calls it). → step 2.
 - [ ] **T-032** Decide and implement `:supersededBy` semantics for a
       restatement. → step 3.
 - [ ] **T-033** Retire or explicitly fold in today's `src/etl/` shortcut
@@ -218,22 +219,29 @@ See `PLAN.md` Work item 16.*
 
 - [ ] **T-160** Decide the failure policy (stop the run, or quarantine failing rows and report them)
       and the validation tool, from the list of checks needed (types, NULL rate, range, natural-key
-      uniqueness, `available_at` against `event_time`, row count per view). Compare plain checks,
-      pandera, deepchecks and Great Expectations on that list, including dependency weight. Record the
-      decision in `SPEC.md` §13 item 10. → `PLAN.md` Work item 16, step 1.
-- [ ] **T-161** Add the chosen dependency to `pyproject.toml` (or none, if plain checks win) and
-      update the constitution's dependency mention if it lists one. → step 2.
+      uniqueness, `available_at` against `event_time`, row count per view). A check with no
+      offending row (row count, NULL rate, cohort mean) is reported against its view or group and
+      stops the run under either policy. Compare plain checks, pandera, deepchecks and Great
+      Expectations on that list, including dependency weight. Record the decision in `SPEC.md` §13
+      item 10. → `PLAN.md` Work item 16, step 1.
+- [ ] **T-161** If T-160 picked a library: propose the constitution amendment first (Technological
+      stock #6, Governance steps 1–4, MINOR bump), as its own reviewed change, then add the dependency
+      to `pyproject.toml`. If plain checks won, there is no dependency and no amendment. → step 2.
 - [ ] **T-162** Write the expectations for the views Work item 4 reads, beside
       `src/projection/view_contract.py`, keyed by view name. Include the `v_score_snapshot`
-      `normalized_score` range and the lane-level cohort mean near 50 that T-031 needs as a guard
-      against a change of meaning, and a reused-`run_id` check on the run-keyed views (T-151). → step 2.
+      `normalized_score` range and the per-lane cohort mean near 50, the guard against a change of
+      meaning that stays in range (it cannot detect a reversed polarity). This task owns that guard;
+      T-031 only calls it. The run-identity checks are not here: T-151 owns them (a reused `run_id`
+      is allowed, and a failure there omits `:runId` and does not fail the row). → step 2.
 - [ ] **T-163** Run the expectations on the read path: a function that returns the validated rows
-      and a report naming the view, column and row key of every failure, applying the T-160 policy.
-      Lands with T-031. → step 3.
-- [ ] **T-164** Tests with synthetic frames, one passing and one failing case per check kind and per
-      policy branch, under Work item 13's structure (needs T-131). → step 4.
-- [ ] **T-165** Verify and document: `SPEC.md` §13 item 10 states what is checked at the boundary and
-      what is not; `uv run pytest` passes; the FR-001 gate is unchanged. → `PLAN.md` acceptance criteria.
+      and a report naming the view and column of every failure, with the row key for a row-level
+      check and the group for an aggregate one, applying the T-160 policy. Lands with T-031. → step 3.
+- [ ] **T-164** Tests with synthetic frames: one passing and one failing case per check kind, and the
+      behaviour of the policy T-160 selected (including an aggregate failure), under Work item 13's
+      structure (needs T-131). → step 4.
+- [ ] **T-165** Verify and document: `SPEC.md` §13 item 10 (today the pin and the drift check) gains
+      what is checked at the boundary and what is not, including that polarity is not detectable;
+      `uv run pytest` passes; the FR-001 gate is unchanged. → `PLAN.md` acceptance criteria.
 
 ## Status
 

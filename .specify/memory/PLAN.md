@@ -621,35 +621,51 @@ work item also waits on upstream's D14 answer (T-158), which their reply did not
 ## Work item 16 — Validate upstream rows at the read boundary, before any triple is built
 
 **Why**: T-030 pins upstream's `v_*` column *names*; nothing checks the *rows*. The graph gate
-(`pyshacl`, FR-001) sees only the finished graph, so a value that is wrong but legal passes it: a
-score left on 0-100, a flipped polarity, a reused `cycle_run.id`. Its violations also name a triple,
-not the upstream row that caused it. Upstream's own reply (Work item 15) shows the kinds of bad data
-to expect: a reusable run id, edge dates NULL for every row, SEMANTIC null for every asset. A
-boundary check catches these before they become triples and says which view and row.
+(`pyshacl`, FR-001) sees only the finished graph, so a value that is wrong but still legal passes it.
+`ScoreSnapshotShape` already rejects a `normalizedScore` above 1, so an unconverted 0-100 score does
+not get through; what does is a change of *meaning* that stays inside the accepted range, for example
+upstream moving `normalized_score` to [0, 1], which passes the [0, 100] check and becomes a ~0.99 risk.
+Its violations also name a triple, not the upstream row that caused it. Upstream's own reply (Work
+item 15) shows the kinds of bad data to expect: a reusable run id, edge dates NULL for every row,
+SEMANTIC null for every asset. A boundary check catches these before they become triples and says
+which view (and, where the check has one, which row) is at fault.
 
 This is input-side validation of tabular data. It does not replace `pyshacl`, which stays the
-closed-world gate on the graph (constitution, OWL and SHACL both present), so the constitution needs
-no amendment. It also cannot say whether upstream's numbers are *right*, which stays upstream's job (§2.5).
+closed-world gate on the graph (constitution, OWL and SHACL both present). A new validation *library*
+is a different matter: Technological stock #6 makes adopting one a constitution-level change, so if
+T-160 picks a library, T-161 is a separately proposed and reviewed amendment, done before the
+dependency is added. Plain checks need none.
+
+Limits: it cannot say whether upstream's numbers are *right* (that stays upstream's job, §2.5), and
+it cannot detect a reversed polarity, which leaves values in range with the cohort mean still near 50.
+Polarity rests on the pinned contract and `score_scale.py`'s documented convention, and a change there
+is caught by T-030's drift check only if the column set changes.
 
 **Approach**:
 
 1. Decide the failure policy and the tool (T-160). Policy first: stop the run on any failure, or
-   quarantine the failing rows and report them. Tool second: list the checks needed (types, NULL rate,
+   quarantine the failing rows and report them. Either way, a check that has no offending row (row
+   count, NULL rate, cohort mean) is reported against its view or group and stops the run, since there
+   is nothing to quarantine. Tool second: list the checks needed (types, NULL rate,
    range, natural-key uniqueness, `available_at` against `event_time`, row count per view), then compare
    plain checks, pandera, deepchecks and Great Expectations against that list (dependency weight,
    fit with the pinned-contract style). Record the decision in `SPEC.md` §13 before any dependency is added.
-2. Add the dependency and write the expectations beside `view_contract.py`, for the views Work item 4
-   reads (T-161, T-162).
+2. Add the dependency (through a constitution amendment first, if it is a library) and write the
+   expectations beside `view_contract.py`, for the views Work item 4 reads (T-161, T-162). The
+   run-identity checks are not among them: T-151 owns those, because they compare a row with its run
+   table and a failure there omits `:runId` instead of failing the row.
 3. Run them on the read path, so T-031's first real projection already goes through them (T-163).
-4. Test them with synthetic frames under Work item 13's structure (T-164).
+4. Test the selected policy and every check kind with synthetic frames under Work item 13's structure
+   (T-164).
 
 **Acceptance**: every view the projection reads has expectations; a violating row never reaches the
-triple builder under the chosen policy; the failure message names the view, column and row key;
-`uv run pytest` covers a passing and a failing frame per check kind; `SPEC.md` §13 item 10 records
-what is checked at the boundary and what is not.
+triple builder under the chosen policy; the failure message names the view and column, plus the row key
+for a row-level check, or the group for an aggregate one; `uv run pytest` covers a passing and a failing
+frame per check kind and the selected policy's behaviour; `SPEC.md` §13 item 10 records what is checked
+at the boundary and what is not.
 
-**Blocked on**: T-160 on nothing; T-161 onward on T-160. T-163 lands with T-031; T-164 needs Work item
-13's skeleton (T-131).
+**Blocked on**: T-160 on nothing; T-161 onward on T-160 (and, for a library, on its constitution
+amendment). T-163 lands with T-031; T-164 needs Work item 13's skeleton (T-131).
 
 ## Sequencing
 
