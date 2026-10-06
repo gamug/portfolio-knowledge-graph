@@ -562,7 +562,8 @@ proposals. Their reply also brings facts the drift register does not have yet:
 - **Answered as we read them:** `live_book` is the live book's performance, not a benchmark;
   `equal_weight`/`cap_weight` are dead names; `LIVE_ONLY` rows have a NULL `benchmark_weight`;
   REPLAY runs never reach the production database (`cycle backfill` refuses it, their T-115), so
-  projecting only production is sufficient; `prompt_hash` exists on FUNDAMENTAL rows only.
+  projecting only production is sufficient (step 4 also admits a pilot with no REPLAY run);
+  `prompt_hash` exists on FUNDAMENTAL rows only.
 - **Run trigger (D9, T-120):** `portfolio-app` triggers and `portfolio-reports` reads. The trigger is
   the cross-module orchestrator command (their open Work item 2), run as a job by `portfolio-app`,
   not an `api/` endpoint; their `api/` stays read-only (FR-014 unchanged).
@@ -687,12 +688,16 @@ updated target schema.
    - `:SECFiling` IRIs and joins are keyed by accession number, not upstream's `id` (T-151).
    - `schemeId` is the `cycle_run` the blend belongs to, and `scheme_id` becomes a separate
      book-weighting-rule property; `:inverted` is not emitted for upstream schemes (T-121).
-     Schemes and ranking snapshots are keyed by a `cycle_run` id, so they rely on their T-145;
-     before it lands, only runs passing T-151's checks are projected (T-121, T-155).
+     Schemes and ranking snapshots are keyed by a `cycle_run` id, so they rely on their T-145
+     and T-100 (T-145 stops new reuse; the rebuild drops ids already reused). Until both have
+     landed, only runs passing T-151's checks are projected (T-121, T-155), as T-151 itself says.
 4. When upstream ships, re-pin `view_contract.py` and the `schema_version` floor (T-157) and replace
-   the SEMANTIC placeholder (T-158). Do not project from a database below the floor: production
-   (at 8 today) is excluded; the pilot (at 9) and their T-100 rebuild qualify; a replay copy never
-   does.
+   the SEMANTIC placeholder (T-158). Project only from a database that meets the floor and holds
+   no REPLAY run: a backfill writes REPLAY scores, vetoes and rankings into the shared tables,
+   where they cannot be told apart from live rows (D8), and the `cycle_type <> 'REPLAY'` filter
+   covers `v_cycle_ranking` only. Production (at 8 today) fails the floor. The pilot (at 9)
+   qualifies once a read check finds no `cycle_run` with `cycle_type = 'REPLAY'` in it (T-157);
+   their T-100 rebuild qualifies on the same check; a replay copy never does.
 
 **Declined from the reply**: `inputs_json` on `v_fundamental_metric` (the metric value and its
 filing are enough); a stored daily market cap (the per-filing `market_capitalization` metric is
