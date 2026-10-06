@@ -95,6 +95,8 @@ first. T-131–T-134 are independent of each other once it lands.*
       proposed in `PLAN.md` Work item 13 (`tests/`, flat `test_<module>.py`, `conftest.py`, hermetic,
       `integration` marker skipped by default, `uv run pytest`); add the command to §Executable cmds;
       reverse NR-005, `SPEC.md` §10, §13 item 7 and §14. Its own reviewed change. → Approach 1.
+      *(Constitution 1.5.0 done: Project structure #10, Code & Git #9, `uv run pytest`. Still open:
+      the `SPEC.md` reversals, which wait until the suite exists, so close this task with T-134.)*
 - [ ] **T-131** Add `pytest` to the `dev` group and the `tests/` skeleton (`conftest.py` with the
       `src/` path bootstrap, the `integration` marker). → Approach 2.
 - [ ] **T-132** Tests for `src/projection/score_scale.py` (0, 50, 100, `None`, out of range, decimal

@@ -97,8 +97,9 @@ assumes the stack actually pinned in `pyproject.toml`.
    constitution, `SPEC.md`, `PLAN.md`, `TASKS.md`, `CHANGELOG.md`) goes under `.specify/`.
 6. **Config lives where its tool expects it**: Ruff → `.code_quality/ruff.toml`
    (a root `ruff.toml` pointer, if one exists, only `extend`s it); Mypy →
-   `.code_quality/mypy.ini`. Don't fork a second config file for a tool that
-   already has one.
+   `.code_quality/mypy.ini`; Pytest → `[tool.pytest.ini_options]` in
+   `pyproject.toml`. Don't fork a second config file for a tool that already has
+   one, and don't add a `pytest.ini` next to it.
 7. **Environment**: `.env` (git-ignored) holds the ETL's variables — the
    `SQL_*_DB` database paths (`SQL_URLS_DB`, `SQL_NLP_DB`, `SQL_UNIVERSE_DB`) and
    the `KG_*` settings (`KG_SCHEMA_DIR`, `KG_DATA_TTL`,
@@ -141,6 +142,19 @@ assumes the stack actually pinned in `pyproject.toml`.
    A spec/plan drafted with any coding agent's help is fine — what's
    excluded is *that agent's own working directories and config*, never the
    resulting project content once it's written into a real doc.
+10. **Tests live flat under `tests/`** (`test_<module_or_feature>.py`, not mirrored
+    into a per-package subdirectory), driven by `tests/conftest.py` and
+    `tests/fixtures/`. `pythonpath = ["src"]` / `testpaths = ["tests"]` live in
+    `pyproject.toml`'s `[tool.pytest.ini_options]`; don't add `sys.path` hacks
+    inside a test file to route around it. The suite is **hermetic**: no network,
+    no running GraphDB and no real `universe.db`/`urls.db`/`nlp.db`. Fixtures are
+    built in memory or are small captures under `tests/fixtures/`, and every
+    external call is replaced by a fake. A test that genuinely needs an upstream
+    checkout or a live store carries the `integration` marker and is skipped by
+    default (`-m integration` runs it). A structural test (import-graph shape,
+    e.g. that the projection never imports the transitional ETL) is not a feature
+    test: treat its failure as an architecture violation, not a flaky test.
+    `pytest` is a `dev`-group dependency only.
 
 ## Ontology design invariants
 
@@ -276,6 +290,9 @@ uv run pyshacl -s shapes.ttl -m -a -f human tbox.ttl reference.ttl instances.tri
 uv run python cli/build_data_ttl.py --limit 500   # smoke test
 uv run python cli/build_data_ttl.py               # full run -> data.ttl (git-ignored)
 
+uv run pytest                               # hermetic suite (from T-131; add `-m integration` for the marked ones)
+uv run pytest -q                            # compact output
+
 uv run ruff check .                         # lint (config: .code_quality/ruff.toml)
 uv run ruff format --check .                # format check
 uv run mypy --config-file=.code_quality/mypy.ini   # types
@@ -284,8 +301,9 @@ uv run pre-commit run --all-files           # all of the above hooks, plus hygie
 ```
 
 1. **There is no CI workflow configured** (`.github/` does not exist) — the
-   parse+`pyshacl` check and the lint/type/pre-commit hooks above are run
-   manually before a PR. This is a documented gap (`SPEC.md` §9/§14), not an
+   parse+`pyshacl` check, `uv run pytest` (once T-131 lands) and the
+   lint/type/pre-commit hooks above are run manually before a PR. This is a
+   documented gap (`SPEC.md` §9/§14), not an
    oversight to silently work around by inventing a workflow file outside a
    spec/plan for doing so.
 2. **Don't hardcode a different Python/uv invocation** (bare `python`,
@@ -339,6 +357,13 @@ uv run pre-commit run --all-files           # all of the above hooks, plus hygie
    has already begun means salvaging the diff (`git diff` to a patch,
    discard, rebranch, reapply) instead of a five-second check up front —
    a real cost in wasted tool calls and tokens, not just tidiness.
+9. **Code lands with its test.** A new function in `src/` and a fix to an existing one
+   ship with a test that fails without the change, in the same PR, under the
+   structure in Project structure #10. A fix landed without a test is incomplete.
+   Code that predates this rule is covered by the backlog in `PLAN.md` Work item 13,
+   not retrofitted piecemeal. A schema or shape change is tested by the FR-001
+   parse + `pyshacl` gate, plus a synthetic case that must fail when the change
+   rejects something.
 
 ## Governance
 
@@ -358,7 +383,7 @@ Compliance is expected to be checked the same way a schema-parse/`pyshacl`
 gate is — a reviewer (human or agent) rejecting a PR that violates a
 principle above should cite the section by name.
 
-**Version**: 1.4.0 | **Ratified**: 2026-09-12 | **Last Amended**: 2026-10-05
+**Version**: 1.5.0 | **Ratified**: 2026-09-12 | **Last Amended**: 2026-10-06
 
 <!--
 1.0.1 (2026-09-12): PATCH, wording/self-consistency fix only. The "Executable
@@ -397,4 +422,13 @@ already contradicted it and `src/projection/` (Work item 4, T-030) added a
 third. #3 now lists all three, requires a work item for a new one, and states
 how a checkout of another repo is loaded (`importlib`, private module name,
 no `sys.path` edits). Raised in the PR #49 review.
+
+1.5.0 (2026-10-06): MINOR, new principle. The constitution had no testing rules,
+so the first pytest work (Work item 13) had nothing to follow. Added Project
+structure #10 (flat `tests/`, hermetic, `integration` marker, structural tests,
+`pytest` dev-only), Code & Git #9 (code lands with its test), the Pytest config
+location (#6) and `uv run pytest` in Executable cmds. Modelled on the sibling
+`portfolio-financial-analysis` constitution (Project structure #3). It does not yet
+reverse `SPEC.md` NR-005, §10, §13 item 7 and §14, which say there is no suite: that
+happens when the suite exists (T-131, T-134).
 -->
