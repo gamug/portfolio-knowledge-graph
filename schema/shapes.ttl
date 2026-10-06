@@ -31,9 +31,16 @@
     sh:property [ sh:path :runAsOf ; sh:datatype xsd:date ; sh:maxCount 1 ] ;
     sh:property [ sh:path :codeVersion ; sh:datatype xsd:string ; sh:maxCount 1 ] ;
     sh:property [ sh:path :engineVersion ; sh:datatype xsd:string ; sh:maxCount 1 ] ;
-    # T-080/T-081: normalizedScore is required unless the metric compares on rawValue (SectorRelativeMomentum, Sentiment).
+    # T-080/T-081: normalizedScore is required unless the metric compares on rawValue (SectorRelativeMomentum,
+    # Sentiment) or is FUNDAMENTAL (T-171, D17): upstream rewrites ScoreFinanciero's normalized_score in place
+    # on every cycle that re-normalizes its filing, which breaks the immutable-observation principle for a
+    # value keyed only by filing. The cohort-relative value lives instead on AttractivenessSnapshot's
+    # WeightComponent (:componentValue, T-155), scoped to the cycle_run that produced it. Optional here, not
+    # forbidden, so a FUNDAMENTAL snapshot that already carries one (instances.trig; the closed design-history
+    # rules that compare on it) still conforms.
     sh:or ( [ sh:path :metricType ; sh:hasValue "SectorRelativeMomentum" ]
             [ sh:path :metricType ; sh:hasValue "Sentiment" ]
+            [ sh:path :metricType ; sh:hasValue "ScoreFinanciero" ]
             [ sh:path :normalizedScore ; sh:minCount 1 ] ) ;
     # Sentiment veto rules compare on rawValue ([-1,1]), so every Sentiment snapshot must carry it, whatever else it carries.
     sh:or ( [ sh:not [ sh:path :metricType ; sh:hasValue "Sentiment" ] ]

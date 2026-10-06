@@ -641,6 +641,61 @@ shapes widen to their documented ranges, and a ÷100 stays the only conversion (
 `normalized_score` keeps its existing `1 - x/100` risk reading, T-030). The reply to send back
 (step 2) states each decision and carries the updated target schema.
 
+**Third reply (2026-10-06, same `597832a`, checked against production, the pilot and its replay
+copy, answering `kg_handoff_second_followup.md`'s five questions).** All six corrections of the
+second reply checked out. One assumption of ours needs correcting, and it changes a declined item:
+
+- **`v_cycle_ranking_component.component_value` does not repeat a `ScoreSnapshot` value, for
+  FUNDAMENTAL.** A FUNDAMENTAL row is written once per filing, but every cycle re-normalizes that
+  filing's latest raw score against *that cycle's* cohort and overwrites the same row's
+  `normalized_score` in place (`src/cycle/orchestrator.py`'s normalize step). So the stored value
+  is always the last cycle's, while a ranking row's `component_value` is the value *that run*
+  actually used — they differ on 33 of 40 production rows, 1 of 60 pilot rows and 2,267 of 2,799
+  (81%) replay rows. TECHNICAL, VALORIZATION and SECTOR rows are unaffected: each belongs to one
+  cycle date, never rewritten. Their T-144 keeps `component_value` (and `configured_weight`) in
+  the view regardless. This reverses the "Declined from the reply" item below for
+  `component_value`; `configured_weight` stays declined, since nothing in this correction touches
+  its reasoning (it still repeats `v_weight_component`).
+- **This also means a FUNDAMENTAL `ScoreSnapshot`'s `normalizedScore` is not immutable at the
+  source** — projected twice, the same individual's value could read differently, which breaks
+  this ontology's audit-trail principle (constitution; `docs/06`'s conventions). Upstream leaves
+  the fix to us and names two options: drop it, or treat it as "as of the last cycle". **Decided:
+  drop `normalizedScore` from FUNDAMENTAL `ScoreSnapshot`s (T-171)** — the per-cycle,
+  cohort-relative value now lives correctly scoped to one `cycle_run`, as `component_value` on
+  `AttractivenessSnapshot`'s effective-weight `WeightComponent` (T-155), which this correction
+  already gives us. FUNDAMENTAL's raw score, `event_time`, `available_at` and every other column
+  are stable at the source, so `rawValue` is what the snapshot carries instead, joining
+  `SectorRelativeMomentum`/`Sentiment` in `ScoreSnapshotShape`'s existing escape hatch — optional,
+  not forbidden, so neither the FUNDAMENTAL individuals already in `instances.trig` nor the closed
+  design-history rules that compare on `ScoreFinanciero`'s `normalizedScore` stop conforming. Its
+  bounds are a new open question (Q6, below).
+- **The five questions, answered** (folding into `SPEC.md` §2.6's D6/D13/D16, T-170): **Q1**, a
+  no-component asset has no dedicated marker — it is always `vetoed = 1` with `"UNSCORED"` in
+  `veto_rules_json` (D4), detected exactly as planned, by its missing component rows. **Q2**,
+  `rank` excludes nobody (exclusion happens downstream in `positions`), and their T-144 will
+  produce one component row per non-null component of every ranking row, whatever
+  `vetoed`/`selected` say, with a test asserting it; `vetoedAtRanking` is true only for a HARD
+  veto or `UNSCORED` — a SOFT veto alone never sets it, so our worked example's SOFT-only vetoed
+  row needs a HARD veto added to stay consistent. **Q3**, SECTOR's `normalized_score` uses the
+  same 50 + 10·z function as the other lanes, but the cohort mean sits close to 50, not exactly on
+  it (winsorization and the clamp shift it), so T-162's guard needs a tolerance, and that guard
+  must run over `v_cycle_ranking_component.component_value` per `(cycle_run_id, score_type)`, not
+  over `ScoreSnapshot` rows, which (for FUNDAMENTAL) mix cohorts across cycles. **Q4**,
+  `accession_number` is never NULL (0 of 5,076 production rows, 0 of 449 pilot rows) but is not
+  unique in production — 30 numbers shared by 60 legacy rows predating their T-091 — though that is
+  harmless since production is already excluded by T-157's schema floor; it is unique in the pilot
+  and will be in their T-100 rebuild, and their T-145 adds a verifier check for it. **Q5**,
+  `target_weight`/`max_name_weight`/`max_sector_weight` are all fractions of the book ([0, 1] as
+  our shapes already assume); `max_name_weight` stays optional (`NULL` on a MONITORING run by
+  default); the recorded value is the *effective* cap on a SELECTION run, the *configured* value
+  on a MONITORING run.
+- **What they add to T-144/T-145:** keep `component_value` and `configured_weight` in
+  `v_cycle_ranking_component`; a test asserting Q2's one-row-per-non-null-component rule;
+  `docs/kg_schema.md` states FUNDAMENTAL's rewrite behaviour, the Q1 rule, Q3's normalization and
+  Q5's units; T-145 adds the accession-number uniqueness check.
+- **Pilot REPLAY:** `financial_pilot.db` holds 0 REPLAY runs; their backfill ran on a separate,
+  unshared copy. Their next pilot (T-143) is a fresh database.
+
 **Approach**:
 
 1. Record the reply in `SPEC.md` §2.6 (rows and dispositions D8–D14, D16, plus the run-id fact),
@@ -667,12 +722,14 @@ shapes widen to their documented ranges, and a ÷100 stays the only conversion (
    - a `schema_version` bump and the commit for each change, so the pin can follow.
 
    Sent 2026-10-06; accepted as their T-144 and T-145 (second reply). The answer to that reply
-   restates the decisions below, sends the updated target schema, and asks five open questions:
-   how a no-component asset appears in `v_cycle_ranking` beyond its 0.0 score; whether
-   `v_cycle_ranking_component` rows exist for vetoed or excluded assets; whether SECTOR's
-   `normalized_score` is also 50 + 10·z (T-162); whether every `v_sec_filing` row has an accession
-   number (T-151); and the unit of `target_weight`, `max_name_weight` and `max_sector_weight`
-   (T-121, T-155).
+   restates the decisions below, sends the updated target schema, and asks five open questions,
+   **all answered by the third reply** (above, T-170): how a no-component asset appears in
+   `v_cycle_ranking` beyond its 0.0 score (Q1); whether `v_cycle_ranking_component` rows exist for
+   vetoed or excluded assets (Q2); whether SECTOR's `normalized_score` is also 50 + 10·z (Q3,
+   T-162); whether every `v_sec_filing` row has an accession number (Q4, T-151); and the unit of
+   `target_weight`, `max_name_weight` and `max_sector_weight` (Q5, T-121, T-155). A sixth question
+   is now open: FUNDAMENTAL `rawValue`'s bounds, needed before T-171's shape change can tighten
+   past "optional" (to ask with the next follow-up).
 3. Decide the run-id rule (T-151), then model the new data (T-152–T-156), each as its own schema
    change with the FR-001 parse + `pyshacl` check and the `schema/README.md` counts (NR-001).
    T-155 also removes the attractiveness formula from the schema and docs: the score is read from
@@ -680,14 +737,27 @@ shapes widen to their documented ranges, and a ÷100 stays the only conversion (
    - `SectorRelativeMomentum`'s `rawValue` is upstream's SECTOR `raw_value` verbatim, in TECHNICAL
      points, bounded to [-100, 100] (T-155, with T-031); positive = stronger than its sector.
      Its 0-100 `normalized_score` is rescaled like the three other lanes, giving SECTOR an
-     optional `normalizedScore`.
+     optional `normalizedScore`; the third reply confirms it is the same 50 + 10·z function
+     (Q3), with a tolerance, not equality, around the cohort mean (T-162).
    - `attractivenessScore` = `blended_score / 100`, higher = more attractive, at most 1 and with no
      lower bound (soft-veto penalties). No pre-penalty score is derived here (T-155).
    - A ranking row whose asset has no `v_cycle_ranking_component` row is skipped: its 0.0 is a
-     placeholder, not a score (T-155; confirm with upstream).
+     placeholder, not a score (T-155). **Confirmed, third reply (Q1):** it is always `vetoed = 1`
+     with `"UNSCORED"` in `veto_rules_json` (D4), with no dedicated marker beyond the missing
+     component rows. **Q2:** `rank` excludes nobody, and their T-144 will produce one component
+     row per non-null component of every ranking row regardless of `vetoed`/`selected`, with a
+     test; `vetoedAtRanking` is true only for a HARD veto or `UNSCORED`, never for SOFT alone, so
+     a worked example with only SOFT penalties needs a HARD veto added to be valid. **Also
+     reversed (third reply, T-171):** read `v_cycle_ranking_component.component_value` verbatim
+     onto each effective-weight `WeightComponent` as `:componentValue` — it does not repeat
+     FUNDAMENTAL's `ScoreSnapshot` value, because that value is rewritten in place every cycle
+     (see the third-reply paragraph above); `configured_weight` stays declined.
    - `availableAt` stays required; until their T-144 lands, cycle-lane rows have none and are not
      projected (never filled in here). Its `tbox.ttl` comment gains the cycle-lane definition, and
      `normalizedScore`'s says it is cohort-relative (T-153).
+   - FUNDAMENTAL `ScoreSnapshot`'s `normalizedScore` is dropped (optional, not forbidden) rather
+     than kept as a mutable-in-place exception to the immutable-observation principle (T-171); its
+     `rawValue` is carried instead, pending Q6's bound.
    - Forensic flags: one `:forensicFlag` per key set to `true`, from the four documented keys, and
      a `:forensicFlagsEvaluated` boolean so "evaluated, none fired" differs from "not evaluated"
      (T-153).
@@ -712,12 +782,13 @@ shapes widen to their documented ranges, and a ÷100 stays the only conversion (
 **Declined from the reply**: `inputs_json` on `v_fundamental_metric` (the metric value and its
 filing are enough); a stored daily market cap (the per-filing `market_capitalization` metric is
 enough for size context); a replay flag (not needed while no replay copy is projected); a run
-trigger endpoint in their `api/`. From the second reply: `v_cycle_ranking_component.component_value`
-(it repeats a `ScoreSnapshot` value) and its `configured_weight` (it repeats `v_weight_component`),
-and a pre-penalty attractiveness score (deriving it from the effective weights would be a
-computation).
+trigger endpoint in their `api/`; a pre-penalty attractiveness score (deriving it from the
+effective weights would be a computation). From the second reply: `v_weight_component`'s
+`configured_weight` on `v_cycle_ranking_component` (it repeats `v_weight_component`).
+**Reversed by the third reply:** `component_value` is *not* declined — for FUNDAMENTAL it does
+not repeat a `ScoreSnapshot` value (see above, T-171), so it is read (T-155).
 
-**Acceptance**: no D8–D14 row of `SPEC.md` §2.6 still waits on upstream for this work item: every
+**Acceptance**: no D8–D14 or D17 row of `SPEC.md` §2.6 still waits on upstream for this work item: every
 question has its answer recorded and every accepted upstream change it reads has shipped, with its
 commit (D14 included, so this needs upstream's SEMANTIC method value and the ownership answer, T-158);
 every schema change passes the FR-001 parse + `pyshacl` check with updated counts; the projection
@@ -727,9 +798,10 @@ no shape rejects a value upstream documents as valid (the SECTOR `raw_value` ran
 `blended_score`), checked with synthetic rows at those bounds, and a filing with no current metric
 row fails no shape.
 
-**Blocked on**: nothing for T-150, T-151's rule, T-155's formula removal, the shape corrections
-of step 3 (SECTOR range, `attractivenessScore` bound, and the `tbox.ttl` comments) and T-158's
-ownership question (to be asked before their T-141 ships its doc fix); upstream's T-144
+**Blocked on**: nothing for T-150, T-170, T-151's rule, T-155's formula removal, T-171's
+`normalizedScore` drop, the shape corrections of step 3 (SECTOR range, `attractivenessScore`
+bound, and the `tbox.ttl` comments) and T-158's ownership question (to be asked before their
+T-141 ships its doc fix); upstream's T-144
 for T-152–T-156's projection and T-157's first re-pin; their T-145 and T-100 for relaxing T-151's
 checks; their T-074 for T-153's flag values; their T-082, after their T-100, for T-154's `MEDIA`
 kind and edge dates; their Work item 4, after their T-100, for T-158's method value. Closing this

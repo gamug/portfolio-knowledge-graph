@@ -32,7 +32,9 @@ are closed (see `CHANGELOG.md`).*
       step 1.
 - [ ] **T-031** Design and implement the SHACL-validated-on-write path into
       fresh `urn:graph:ingest:{agent}:{date}` graphs. Also: trim `view_contract.py` to the
-      columns read; decide the `:rawValue` range for FUNDAMENTAL/VALORIZATION/TECHNICAL, and map
+      columns read; decide the `:rawValue` range for FUNDAMENTAL (T-171 drops its
+      `normalizedScore` instead; the range needs Q6, asked with T-150's next follow-up) and for
+      VALORIZATION/TECHNICAL, and map
       upstream SEMANTIC into the `[-1, 1]` `rawValue` `ScoreSnapshotShape` requires of it (T-081;
       `SPEC.md` §2.6). SECTOR's `raw_value` is read verbatim into the [-100, 100] bound T-155 sets,
       and its 0-100 `normalized_score` is rescaled like the other lanes (add SECTOR to
@@ -90,7 +92,7 @@ are closed (see `CHANGELOG.md`).*
 D13 check recorded in `SPEC.md` §2.6; T-120's upstream answer arrived 2026-10-05 (Work item 15).*
 
 - [x] **T-120** *(moved from T-108(a); D9. Answered 2026-10-05: `portfolio-app` triggers by running upstream's orchestrator command as a job, `portfolio-reports` reads, `api/` stays read-only; recorded in `SPEC.md` D9 and `docs/10` by T-150)* `portfolio-app` and `portfolio-reports` integration. Upstream's `api/` is read-only with no run-trigger endpoint, and its docs name `portfolio-reports` as the trigger, while this repo's SPEC names `portfolio-app` (not yet created). Agree with upstream who triggers `cycle select`/`cycle monitor`, and what `portfolio-app` and `portfolio-reports` each read: `portfolio-reports` reads the run-log `v_*` views (`v_*_run`), `portfolio-app` should read this repo's query surface. Record the outcome in SPEC D9 and `docs/10`. → steps 5–6.
-- [ ] **T-121** *(moved from T-109(ii); D13)* Extend the weight-scheme model to what upstream records per run: one `AttractivenessWeightScheme` per `cycle_run` (`schemeId` = `cycle_run:<id>`, `validFrom` = `cycle_date`, no `validTo`), a component per `score_type` (`weightMetricName` = that lane's `metricType` name, the fixed mapping `ScoreSnapshotShape` already pairs with `agentOrigin`: FUNDAMENTAL → `ScoreFinanciero`, VALORIZATION → `ScoreCuantitativo`, TECHNICAL → `ScoreTecnico`, SEMANTIC → `Sentiment`), upstream's `scheme_id` on a new book-weighting-rule property, and the scalar knobs (`top_n`, `max_name_weight`, `max_sector_weight`, `soft_veto_penalty`) as new properties, read verbatim (the two weight caps are assumed a fraction of the book until upstream states their unit, as asked with T-155's `target_weight`); `:inverted` becomes optional (below), and `SectorRelativeMomentum`, which upstream does not weight, gets no component. The scheme's identity is a `cycle_run` id, so it relies on upstream's T-145 (ids never reused) and T-100: until both their T-145 and their T-100 rebuild have landed (T-145 stops new reuse; the rebuild drops ids already reused, as T-151 says), project a scheme only for a run that passes T-151's checks (a scheme whose run fails them is not projected, nor are the snapshots computed with it). **Upstream reply (2026-10-05):** `score_weights` holds the *configured* weights for all four types in every run, not the blended ones; the blend renormalizes per asset over its non-null components, so the effective weights are per asset, not per scheme. Model the scheme as configured, and read the effective weights from upstream (T-155), never derive them here. **Second reply (2026-10-06):** why the identity is the run: `scheme_id` is the rule that turns the ranking into book weights (`score_proportional`, `score_tilt`), not the blend, and a blend is identified by its `cycle_run`. New runs (their T-141) record three components at 1/3 (no SEMANTIC), older runs four (0.4/0.3/0.2/0.1); both are per-run schemes. `:inverted` has no upstream counterpart (D13 item 4): make it optional, emit it for no upstream scheme, and keep it on `WeightScheme_v1` (design history). **Decide first:** a per-run scheme with `validFrom` and no `validTo` reads as "still active" for every run (the valid-time convention), so either close the previous run's scheme with `validTo` when the next run is projected, or stop treating a per-run scheme as a valid-time record (a run-date property linked to the run, and relax `validFrom` `minCount 1` in `AttractivenessWeightSchemeShape`). Update `tbox.ttl`, `shapes.ttl`, `rules.ttl`'s `WeightScheme_v1`, docs 06/07 and `schema/README.md` counts. → step 6.
+- [ ] **T-121** *(moved from T-109(ii); D13)* Extend the weight-scheme model to what upstream records per run: one `AttractivenessWeightScheme` per `cycle_run` (`schemeId` = `cycle_run:<id>`, `validFrom` = `cycle_date`, no `validTo`), a component per `score_type` (`weightMetricName` = that lane's `metricType` name, the fixed mapping `ScoreSnapshotShape` already pairs with `agentOrigin`: FUNDAMENTAL → `ScoreFinanciero`, VALORIZATION → `ScoreCuantitativo`, TECHNICAL → `ScoreTecnico`, SEMANTIC → `Sentiment`), upstream's `scheme_id` on a new book-weighting-rule property, and the scalar knobs (`top_n`, `max_name_weight`, `max_sector_weight`, `soft_veto_penalty`) as new properties, read verbatim (**confirmed, third reply 2026-10-06, Q5:** all three are fractions of the book, 0.05 = 5%, bound [0, 1] as the shapes already assume; `max_name_weight` stays optional — it is `NULL` on a MONITORING run by default, deriving from N at book time; the recorded value is the *effective* cap on a SELECTION run since upstream's Work item 18, the *configured* value on a MONITORING run); `:inverted` becomes optional (below), and `SectorRelativeMomentum`, which upstream does not weight, gets no component. The scheme's identity is a `cycle_run` id, so it relies on upstream's T-145 (ids never reused) and T-100: until both their T-145 and their T-100 rebuild have landed (T-145 stops new reuse; the rebuild drops ids already reused, as T-151 says), project a scheme only for a run that passes T-151's checks (a scheme whose run fails them is not projected, nor are the snapshots computed with it). **Upstream reply (2026-10-05):** `score_weights` holds the *configured* weights for all four types in every run, not the blended ones; the blend renormalizes per asset over its non-null components, so the effective weights are per asset, not per scheme. Model the scheme as configured, and read the effective weights from upstream (T-155), never derive them here. **Second reply (2026-10-06):** why the identity is the run: `scheme_id` is the rule that turns the ranking into book weights (`score_proportional`, `score_tilt`), not the blend, and a blend is identified by its `cycle_run`. New runs (their T-141) record three components at 1/3 (no SEMANTIC), older runs four (0.4/0.3/0.2/0.1); both are per-run schemes. `:inverted` has no upstream counterpart (D13 item 4): make it optional, emit it for no upstream scheme, and keep it on `WeightScheme_v1` (design history). **Decide first:** a per-run scheme with `validFrom` and no `validTo` reads as "still active" for every run (the valid-time convention), so either close the previous run's scheme with `validTo` when the next run is projected, or stop treating a per-run scheme as a valid-time record (a run-date property linked to the run, and relax `validFrom` `minCount 1` in `AttractivenessWeightSchemeShape`). Update `tbox.ttl`, `shapes.ttl`, `rules.ttl`'s `WeightScheme_v1`, docs 06/07 and `schema/README.md` counts. → step 6.
 
 ## Work item 13 — A `pytest` suite for the code this repo owns
 
@@ -147,13 +149,15 @@ once T-131 lands.*
       `acceptance.check_gate` count `sh:ValidationResult` nodes instead of matching
       `"Constraint Violation in"` in the text report. → step 3.
 
-## Work item 15 — Adopt upstream's `v_*` contract changes (replies of 2026-10-05 and 2026-10-06)
+## Work item 15 — Adopt upstream's `v_*` contract changes (replies of 2026-10-05, 2026-10-06 x2)
 
-*Upstream's reply to the gaps in `SPEC.md` §2.6 (checked against their `0a528be`), and their second
-reply (`597832a`), which accepts our asks as their T-144 and T-145 and corrects six assumptions
-(`PLAN.md` Work item 15, step 3 lists the decisions). T-150, T-151's rule, T-155's removal of the
-blend formula, the shape corrections in T-153 and T-155 and T-158's ownership question need
-nothing; the rest of T-152–T-158 waits on the upstream change it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
+*Upstream's reply to the gaps in `SPEC.md` §2.6 (checked against their `0a528be`), their second
+reply (`597832a`), which accepts our asks as their T-144 and T-145 and corrects six assumptions,
+and their third reply (also `597832a`, answering our five follow-up questions and correcting the
+`component_value` assumption) (`PLAN.md` Work item 15, step 3 lists the decisions). T-150, T-151's
+rule, T-155's removal of the blend formula, the shape corrections in T-153 and T-155, T-170, T-171
+and T-158's ownership question need nothing; the rest of T-152–T-158 waits on the upstream change
+it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
 
 - [x] **T-150** Record the reply in `SPEC.md` §2.6: rows and dispositions D8 (REPLAY never reaches
       production, so no replay flag is needed; `v_cycle_ranking` gains `status`; "production DB
@@ -203,7 +207,14 @@ nothing; the rest of T-152–T-158 waits on the upstream change it reads. Feeds 
       them non-reusable and their T-100 rebuild drops the orphaned edge ids; after both, keep
       checks (a) and (b) (plain reads) and drop (c). Key `:SECFiling` IRIs by accession number,
       never `sec_filings.id`, and resolve a row's `filing_id` to it through `v_sec_filing` in the
-      same read. → step 3.
+      same read. **Confirmed, third reply (2026-10-06), Q4:** `accession_number` is never NULL or
+      empty (0 of 5,076 production rows, 0 of 449 pilot rows), so the key is always available.
+      It is *not* unique in production: 30 accession numbers are shared by 60 legacy rows from
+      before upstream's T-091 (a 10-Q's quarters stored as separate rows under one accession,
+      repaired by their T-120) — harmless here, since production (`schema_version` 8) is already
+      excluded by T-157's floor. It is unique in the pilot and will be in their T-100 rebuild; no
+      constraint enforces it today, but their T-145 adds a uniqueness check to their pilot
+      verifier. → step 3.
 - [ ] **T-152** Model `v_fundamental_metric`: one immutable observation per (filing, metric, engine
       version) with its asset, filing, metric group and name, value, `engineVersion`, and its own
       event-time and available-at properties (not `:eventTime`/`:availableAt`: their
@@ -243,16 +254,36 @@ nothing; the rest of T-152–T-158 waits on the upstream change it reads. Feeds 
       can be negative). Unblocked now: drop `AttractivenessSnapshotShape`'s lower bound and keep
       `maxInclusive 1.0`, and update `:attractivenessScore`'s comment; no pre-penalty score is
       derived here. A `blended_score` is never NULL: an asset with no component gets 0.0, so skip a
-      row whose asset has no `v_cycle_ranking_component` row (a placeholder, not a score; confirm
-      with upstream how such an asset appears otherwise; the skipped rows are counted in Work item
-      16's boundary report, T-163). One snapshot per `(cycle_run_id, asset_id)`: like the scheme
+      row whose asset has no `v_cycle_ranking_component` row (a placeholder, not a score; the
+      skipped rows are counted in Work item 16's boundary report, T-163). **Confirmed, third reply
+      (2026-10-06), Q1:** such a row is always `vetoed = 1` with `"UNSCORED"` in `veto_rules_json`
+      (D4) — it has no FUNDAMENTAL score, but can still have TECHNICAL/VALORIZATION components;
+      there is no dedicated marker beyond the missing component rows, which is the test to keep.
+      **Q2:** `rank` excludes nobody — every universe member gets a ranking row, and exclusion from
+      `positions` happens downstream of this view. Their T-144 will produce exactly one component
+      row per non-null component of every ranking row, whatever `vetoed`/`selected` say, with a
+      test asserting it; the only ranking rows without any component row stay the no-component ones
+      above. `vetoedAtRanking` is true only for a HARD veto (with the T-1 lag) or the `UNSCORED`
+      case — a SOFT veto only lowers `blended_score`, it never sets `vetoed` on its own; a row with
+      SOFT penalties and `vetoedAtRanking true` is only valid if it also carries a HARD veto. One
+      snapshot per `(cycle_run_id, asset_id)`: like the scheme
       (T-121), its identity relies on upstream's T-145 and T-100, so until both have landed only a
       run passing T-151's checks is projected. Also read rank, selection, target weight (verbatim;
-      assumed a fraction of the book until upstream states its unit, which the answer to the second
-      reply asks) and the per-asset effective weights from `v_cycle_ranking_component`
+      **confirmed, third reply, Q5:** a fraction of the book, [0, 1], `NULL` for an unselected row
+      and on a MONITORING run) and the per-asset effective weights from `v_cycle_ranking_component`
       (`effective_weight` per `score_type`, named as in T-121, summing to 1 per run and asset; no
-      row for an absent component), and not its `component_value`, which repeats a `ScoreSnapshot`,
-      nor its `configured_weight`, which repeats `v_weight_component` (T-121). Never recompute the
+      row for an absent component). **Reversed, third reply:** `component_value` does *not* repeat
+      a `ScoreSnapshot` value for FUNDAMENTAL — upstream measured 33/40 production, 1/60 pilot and
+      2,267/2,799 replay ranking rows where the two differ, because FUNDAMENTAL's stored
+      `normalized_score` is overwritten by whichever cycle last re-normalized that filing (T-171
+      covers the fallout for `ScoreSnapshot`), while `component_value` is the value *that run*
+      actually used. Read it verbatim onto each effective-weight `WeightComponent` as
+      `:componentValue` (decimal, 0–100, the same cohort-relative scale as `normalized_score`); run
+      a cohort-mean check over it per `(cycle_run_id, score_type)`, not over FUNDAMENTAL
+      `ScoreSnapshot` rows, which mix cohorts across cycles (Work item 16's T-162, which this scope
+      change feeds). `configured_weight` stays declined — upstream keeps it in `v_cycle_ranking_component`
+      for their own tests, but it still repeats `v_weight_component` for us, so there is nothing to
+      read. Never recompute the
       blend (`SPEC.md` §2.5 item 1), and remove every description of computing it here: `docs/06`
       §1.8's `attractivenessScore = Σ weight_i * component_i` and its `inverted` rule; `rules.ttl`'s
       `WeightScheme_v1` header ("Formula this scheme feeds"); the `attractivenessScore`,
@@ -296,11 +327,40 @@ nothing; the rest of T-152–T-158 waits on the upstream change it reads. Feeds 
       11 (`portfolio-nlp` computes, `financial-analysis` materializes, this repo stops writing).
       Ask them to confirm which reading their T-141 doc fix will state, and record the answer in D14
       before the method value is adopted. → step 4.
-- [ ] **T-159** Verify: FR-001 parse + `pyshacl` pass after T-151–T-156, with `schema/README.md`,
-      `docs/06` and `docs/07` counts in sync (NR-001), `docs/07`'s named-graph table listing every
-      new class, and no doc left describing the blend as computed here (T-155); every upstream
-      change this work item reads is recorded in `SPEC.md` §2.6 with its commit. → `PLAN.md`
-      acceptance criteria.
+- [ ] **T-159** Verify: FR-001 parse + `pyshacl` pass after T-151–T-156, T-171, with
+      `schema/README.md`, `docs/06` and `docs/07` counts in sync (NR-001), `docs/07`'s named-graph
+      table listing every new class, and no doc left describing the blend as computed here (T-155);
+      every upstream change this work item reads is recorded in `SPEC.md` §2.6 with its commit. →
+      `PLAN.md` acceptance criteria.
+- [x] **T-170** *(third reply, 2026-10-06, checked against their `597832a`, production, the pilot
+      and its replay copy; our ask was `kg_handoff_second_followup.md`, PR #54, T-150's own
+      follow-up)* Record the reply in `SPEC.md` §2.6: new row D17 (FUNDAMENTAL's `normalized_score`
+      is rewritten in place every cycle, not immutable at the source); the `component_value`
+      correction and Q1/Q2/Q5 folded into D13's disposition; Q3 (SECTOR confirmed) into D6's; Q4
+      (accession numbers) into D16's; and their T-144/T-145 scope additions (keep `component_value`
+      and `configured_weight`; a Q2 test; `docs/kg_schema.md`; an accession-number uniqueness
+      check). → `PLAN.md` Work item 15, step 1.
+- [ ] **T-171** *(D17, raised by the third reply)* Decide how `ScoreSnapshot` keeps its
+      immutable-observation principle (constitution; `docs/06` conventions) now that upstream
+      rewrites a FUNDAMENTAL row's `normalized_score` in place on every cycle that re-normalizes
+      its filing against that cycle's cohort (measured: 33/40 production, 1/60 pilot, 2,267/2,799
+      replay ranking rows whose component differs from the stored snapshot value). **Decided:**
+      drop `normalizedScore` from FUNDAMENTAL `ScoreSnapshot`s going forward rather than add an
+      exception to the audit-trail principle. Widen `ScoreSnapshotShape`'s `sh:or` (T-080/T-081)
+      so `ScoreFinanciero` joins `SectorRelativeMomentum`/`Sentiment` as a metric that does not
+      require `normalizedScore` — optional, not forbidden, so the FUNDAMENTAL individuals already
+      in `instances.trig` and the closed design-history rules that compare on it
+      (`VETO_FIN_01`, `VETO_COMP_01`/`02`, `VETO_RED_01`) still conform. The per-cycle,
+      cohort-relative FUNDAMENTAL value is not lost: it now lives correctly scoped to one
+      `cycle_run` as `:componentValue` on `AttractivenessSnapshot`'s effective-weight
+      `WeightComponent` (T-155), rather than as a property of a filing-keyed individual that no
+      single cycle owns. FUNDAMENTAL's `rawValue` — stable at the source, per the third reply — is
+      the value to carry on the snapshot instead; its bounds are unknown, so ask upstream (new
+      question, Q6, with T-150's next follow-up) before adding a `minInclusive`/`maxInclusive`
+      pair, matching how SECTOR's `rawValue` range wasn't bounded until confirmed (T-140/T-155).
+      Update `:normalizedScore`'s and `:rawValue`'s `tbox.ttl` comments and `schema/README.md`
+      (flagged as a design gap found against real data, per CLAUDE.md's convention for the three
+      earlier ones). → step 3.
 
 ## Work item 16 — Validate upstream rows at the read boundary
 
@@ -322,12 +382,20 @@ See `PLAN.md` Work item 16.*
       to `pyproject.toml`. If plain checks won, there is no dependency and no amendment. → step 2.
 - [ ] **T-162** Write the expectations for the views Work item 4 reads, beside
       `src/projection/view_contract.py`, keyed by view name. Include the `v_score_snapshot`
-      `normalized_score` range and the cohort mean near 50 per rescaled lane (FUNDAMENTAL,
-      VALORIZATION, TECHNICAL and SECTOR, whose `normalized_score` T-031 now rescales; upstream
-      documents 50 + 10·z, clamped, for `normalized_score` in general; for SECTOR this is assumed
-      until upstream confirms it, so its guard ships only after that; SEMANTIC is not on 0-100), the
-      guard against a change of meaning that stays in range (it cannot detect a reversed polarity);
-      this task owns that guard. From upstream's second reply also: SECTOR `raw_value` in
+      `normalized_score` range and the cohort mean near 50, with a tolerance, not equality
+      (upstream's winsorization and clamp shift it slightly, third reply, Q3) for VALORIZATION,
+      TECHNICAL and SECTOR, whose `normalized_score` T-031 rescales (upstream documents
+      50 + 10·z, clamped). **Confirmed, third reply, Q3:** SECTOR uses the same function over the
+      cycle's SECTOR raw values (a cross-sectional z with 2% winsorization), so its guard is
+      unblocked, no longer waiting on confirmation. **FUNDAMENTAL is excluded from this
+      `ScoreSnapshot`-row check** (third reply, with T-171): its stored `normalized_score` is
+      rewritten by whichever cycle last touched the filing, so a `ScoreSnapshot` row mixes
+      cohorts and would fail the mean check for reasons that have nothing to do with bad data. Its
+      cohort-mean guard runs instead over `v_cycle_ranking_component.component_value`, grouped by
+      `(cycle_run_id, score_type)` — one cohort per group, correctly scoped (SEMANTIC is not on
+      0-100, so it carries neither check). The guard against a change of meaning that stays in
+      range (it cannot detect a reversed polarity); this task owns that guard. From upstream's
+      second reply also: SECTOR `raw_value` in
       [-100, 100]; `blended_score` at most 100, no lower bound; `available_at` NULL on cycle lanes
       until their T-144, then never NULL; `computed_at` in `+00:00` or `Z` form;
       `forensic_flags_json` NULL or an object of the four documented keys. T-031 only calls these
@@ -361,10 +429,11 @@ follow in dependency order (Work items 3 and 11 are closed, so Work item 4 is un
 Work item 12 (T-120–T-121): T-120 closed by T-150; T-121 is unblocked.
 Work item 13 (T-130–T-136): constitution rules in place (1.5.0); T-131 next, then T-132–T-134 and T-136; T-130 closes with T-134.
 Work item 14 (T-140–T-142): T-140 done; T-141 needs a live GraphDB; T-142 is unblocked.
-Work item 15 (T-150–T-159): T-150 done; T-151's rule, T-155's formula removal, the shape corrections
-in T-153/T-155 and T-158's ownership question (before their T-141) are unblocked; the rest of
-T-152–T-158 waits on upstream's T-144 (views), T-145 (ids), T-074 (flags) and, after their T-100,
-their T-082 and their Work item 4.
-Work item 16 (T-160–T-165): T-160 first (policy and tool); T-163 lands with T-031; T-164 needs Work item 13's skeleton.
+Work item 15 (T-150–T-159, T-170–T-171): T-150 and T-170 done; T-151's rule, T-155's formula
+removal, the shape corrections in T-153/T-155, T-171's `normalizedScore` drop and T-158's
+ownership question (before their T-141) are unblocked; the rest of T-152–T-158 waits on upstream's
+T-144 (views), T-145 (ids), T-074 (flags) and, after their T-100, their T-082 and their Work item 4.
+Work item 16 (T-160–T-165): T-160 first (policy and tool); T-162's cohort-mean scope corrected
+(third reply); T-163 lands with T-031; T-164 needs Work item 13's skeleton.
 Work item 8 (T-070–T-071) is independent but needs a human at a Protégé
 session, not a coding session.

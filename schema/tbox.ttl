@@ -399,8 +399,9 @@
 
 # --- ScoreSnapshot / SectorAggregateSnapshot (via ObservationSnapshot union) ---
 :normalizedScore a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :ObservationSnapshot ; rdfs:range xsd:decimal ;
-    rdfs:comment "[0.0, 1.0], 0=no risk, 1=critical risk on ScoreSnapshot; sector-aggregate reading on SectorAggregateSnapshot. Range enforced by SHACL." .
-:rawValue    a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :ScoreSnapshot ; rdfs:range xsd:decimal .
+    rdfs:comment "[0.0, 1.0], 0=no risk, 1=critical risk on ScoreSnapshot; sector-aggregate reading on SectorAggregateSnapshot. Range enforced by SHACL. Optional (not required, not forbidden) on a FUNDAMENTAL ScoreSnapshot (ScoreFinanciero) since T-171/D17: upstream rewrites this value in place on every cycle that re-normalizes the filing, which would make an individual carrying it a mutable observation. The per-cycle value is read instead as :componentValue on the matching AttractivenessSnapshot's WeightComponent, scoped to its cycle_run." .
+:rawValue    a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :ScoreSnapshot ; rdfs:range xsd:decimal ;
+    rdfs:comment "Stable at the source, unlike normalizedScore for some metrics (D17). Carried for SectorRelativeMomentum, Sentiment, and FUNDAMENTAL (ScoreFinanciero, T-171); FUNDAMENTAL's bounds are not yet asserted here, pending upstream's answer (Q6)." .
 :metricType  a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :ObservationSnapshot ; rdfs:range xsd:string .
 :agentOrigin a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :ObservationSnapshot ; rdfs:range xsd:string ;
     rdfs:comment "One of FUNDAMENTAL | SEMANTIC | VALORIZATION | TECHNICAL | SECTOR. SHACL sh:in enforced." .

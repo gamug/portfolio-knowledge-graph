@@ -95,6 +95,23 @@ what the store *enforces*.
    (`SectorAggregateSnapshot`s keep their own shape). Eighteen synthetic cases, the store acceptance
    probe (still exactly one violation, `:timestamp`), `docs/09`'s example and the ETL smoke run
    (`--limit 3000`) agree. No new class or property. **2458 quads; conforms: True.**
+   **T-171 (Work item 15, third upstream reply, 2026-10-06, D17).** A fourth metric joins the
+   rawValue-not-normalizedScore side of the convention, for a different reason than the first
+   three: `ScoreFinanciero` (FUNDAMENTAL). Upstream rewrites a FUNDAMENTAL row's
+   `normalized_score` in place on every cycle that re-normalizes its filing against that cycle's
+   cohort, so the stored value is whichever cycle last touched it — a mutation this ontology's
+   audit-trail principle (constitution; immutable observations, never updated in place) does not
+   allow for a `ScoreSnapshot` individual. `ScoreSnapshotShape`'s `sh:or` (T-080/T-081) now also
+   exempts `ScoreFinanciero` from requiring `normalizedScore` — optional, not forbidden, so the
+   FUNDAMENTAL individuals already in `instances.trig` and the closed design-history rules that
+   compare on it (`VETO_FIN_01`, `VETO_COMP_01`/`02`, `VETO_RED_01`) still conform. The per-cycle,
+   cohort-relative value this loses is not actually lost: it is correctly scoped to one
+   `cycle_run` as `:componentValue` on `AttractivenessSnapshot`'s effective-weight
+   `WeightComponent` (T-155, PROPOSED), which upstream's correction to the same reply already
+   adds. Unlike `SectorRelativeMomentum`/`Sentiment`, FUNDAMENTAL's `rawValue` is not yet given a
+   bound here — upstream confirms it is stable at the source but has not stated its range (open
+   question Q6); the shape stays silent on bounding `:rawValue` for `ScoreFinanciero` until that
+   answer lands.
 3. **Two more named-graph placements (a third added by T-108).** `07-ontology-topology.md` assigned graphs to every
    *agent's* daily output but not to the Orchestrator's own decisions or to entity resolution's
    derived facts. Resolved: `urn:graph:ingest:ORCHESTRATOR:{date}` and
