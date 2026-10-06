@@ -34,10 +34,10 @@ are closed (see `CHANGELOG.md`).*
       fresh `urn:graph:ingest:{agent}:{date}` graphs. Also: trim `view_contract.py` to the
       columns read; decide the `:rawValue` range for FUNDAMENTAL/VALORIZATION/TECHNICAL, and map upstream SECTOR and
       SEMANTIC into the `[-1, 1]` `rawValue` `ScoreSnapshotShape` requires of them (T-081, T-140;
-      `SPEC.md` §2.6); and guard against a change of *meaning* the
-      column-name check cannot see (e.g. upstream moving `normalized_score` to [0, 1] would pass
-      the [0, 100] check and become ~0.99 risk), for instance a per-lane cohort mean near 50,
-      upstream's documented centre. → step 2.
+      `SPEC.md` §2.6; for SECTOR, whether the bound stays is decided with T-155); and guard
+      against a change of *meaning* the column-name check cannot see (e.g. upstream moving
+      `normalized_score` to [0, 1] would pass the [0, 100] check and become ~0.99 risk), for
+      instance a per-lane cohort mean near 50, upstream's documented centre. → step 2.
 - [ ] **T-032** Decide and implement `:supersededBy` semantics for a
       restatement. → step 3.
 - [ ] **T-033** Retire or explicitly fold in today's `src/etl/` shortcut
@@ -126,8 +126,8 @@ first. T-131–T-134 are independent of each other once it lands.*
 ## Work item 15 — Adopt upstream's `v_*` contract changes (reply of 2026-10-05)
 
 *Upstream's reply to the gaps in `SPEC.md` §2.6 (checked against their `0a528be`). T-150 and T-151
-need nothing; T-152–T-158 each wait on the upstream change they read. Feeds Work item 4 (T-031) and
-Work item 12 (T-121).*
+need nothing, nor does T-155's removal of the blend formula; the rest of T-152–T-158 waits on the
+upstream change it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
 
 - [ ] **T-150** Record the reply in `SPEC.md` §2.6: rows and dispositions D8 (REPLAY never reaches
       production, so no replay flag is needed; `v_cycle_ranking` gains `status`), D9 (the trigger
@@ -153,6 +153,7 @@ Work item 12 (T-121).*
       (c) the row's own time falls inside the run: its wall-clock column (`computed_at`,
       `detected_at`, `created_at`) between the run's `started_at` and `finished_at`, or, for a row
       with only a cycle date (`v_cycle_ranking`, `v_weight_*`), that date equal to the run's
+      `as_of`; for `v_portfolio_position`, which has neither, its `valid_from` equal to the run's
       `as_of`. Check (c) is what catches an id reused by a run of the same type.
       Nothing is derived. Until upstream stops reusing ids, these checks lower the risk but do not
       prove uniqueness; `:runId`'s comment in `tbox.ttl` and `SPEC.md` D7 must say so. → step 3.
@@ -219,6 +220,7 @@ follow in dependency order (Work items 3 and 11 are closed, so Work item 4 is un
 Work item 12 (T-120–T-121): T-120 answered, closes with T-150; T-121 is unblocked.
 Work item 13 (T-130–T-135): T-130 first (the constitution has no testing rules yet); the rest follow it.
 Work item 14 (T-140–T-142): T-140 done; T-141 needs a live GraphDB; T-142 is unblocked.
-Work item 15 (T-150–T-159): T-150 and T-151 are unblocked; T-152–T-158 wait on upstream's changes.
+Work item 15 (T-150–T-159): T-150, T-151 and T-155's formula removal are unblocked; the rest of
+T-152–T-158 waits on upstream's changes.
 Work item 8 (T-070–T-071) is independent but needs a human at a Protégé
 session, not a coding session.

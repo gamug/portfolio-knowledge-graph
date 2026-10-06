@@ -613,7 +613,8 @@ every schema change passes the FR-001 parse + `pyshacl` check with updated count
 reads the new columns from a re-pinned `view_contract.py` and computes none of the values listed in
 step 2; no doc or schema comment describes the attractiveness blend as computed here; T-120 is closed.
 
-**Blocked on**: T-150 and T-151 on nothing; T-152–T-158 on the upstream change each one reads
+**Blocked on**: T-150, T-151 and T-155's removal of the blend formula on nothing; the rest of
+T-152–T-158 on the upstream change each one reads
 (T-153's forensic flags also wait on their T-074, T-154's MEDIA kind on their T-082). Closing this
 work item also waits on upstream's D14 answer (T-158), which their reply did not give.
 
