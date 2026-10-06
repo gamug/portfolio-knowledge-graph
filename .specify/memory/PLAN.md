@@ -490,30 +490,32 @@ has. Work item 4 adds `src/projection/` (T-030 shipped `score_scale.py`, `view_c
 where a silent wrong number reaches the graph. `src/etl/`'s severity/G1–G3 formulas, ticker skip-set
 and provenance-ID formatting are also untested (§10).
 
-**The constitution gives no test-structuring rules today** (it has no testing section; §Executable
-cmds lists none), so the first task amends it rather than invent a layout in a PR.
-Proposed structure, mirroring the sibling repos (`portfolio-financial-analysis`, `portfolio-nlp`):
-top-level `tests/` with flat `test_<module>.py` files and a `conftest.py`; hermetic (no network, no
-GraphDB, no real `universe.db`/`urls.db`/`nlp.db`); fixtures built in memory; `pytest` in the `dev`
-dependency group, run as `uv run pytest`; tests that need an upstream checkout or a live store are
-marked (`integration`) and skipped by default. Whatever the review settles on is what T-131+ follow.
+**The test structure is set by constitution 1.5.0** (Project structure #10, Code & Git #9), modelled
+on the sibling `portfolio-financial-analysis`: top-level `tests/` with flat `test_<module>.py` files,
+a `conftest.py` and `tests/fixtures/`; hermetic (no network, no GraphDB, no real
+`universe.db`/`urls.db`/`nlp.db`); `pytest` in the `dev` group, configured in
+`[tool.pytest.ini_options]`, run as `uv run pytest`; tests that need an upstream checkout or a live
+store are marked `integration` and deselected by default; `tests` type-checked by mypy. T-131+
+follow it.
 
 **Approach**:
 
-1. Amend `constitution.md` (MINOR, per its Governance) with the testing rules above, then reverse
-   NR-005, §10, §13 item 7 and §14 in `SPEC.md`; add the `uv run pytest` command to §Executable cmds.
+1. Amend `constitution.md` (MINOR, per its Governance) with the testing rules above (done, 1.5.0),
+   then reverse NR-005, §10, §13 item 7 and §14 in `SPEC.md` once the suite exists (with T-134).
 2. Add `pytest` to the dev group and the `tests/` skeleton.
 3. Write the pending tests: `projection/score_scale` (0, 50, 100, `None`, out of range, decimal
    exactness); `projection/contract_check` against a synthetic miniature upstream (a pin, then the
    same views with a column removed (drift), added and reordered (notes), plus an unlisted new view); `src/etl/common`
    (severity/G1–G3, GICS rollup, provenance IDs, Turtle literals); the FR-001 parse + `pyshacl` gate
-   as a test.
+   as a test; `src/kg_store/` (loader, ingest gate, `acceptance.check_gate`) against a fake store
+   and `cli/check_view_contract.py`'s exit code via subprocess (T-136). The rest of `src/etl/` is transitional (T-033) and is backfilled
+   only if it survives.
 4. Decide, and document, where the real-checkout drift check runs (see T-135).
 
 **Acceptance**: `uv run pytest` passes hermetically on a clean checkout; the constitution
 documents the structure; NR-005/§10/§13/§14 no longer claim there is no suite.
 
-**Blocked on**: nothing for T-130–T-134; T-135 depends on how upstream exposes its contract (open).
+**Blocked on**: nothing for T-130–T-134 and T-136; T-135 depends on how upstream exposes its contract (open).
 
 ## Work item 14 — `ScoreSnapshotShape` and store-gate follow-ups (PR #48 post-merge review)
 
@@ -695,7 +697,7 @@ Work item 5 (SEMANTIC aggregation) — superseded, reassigned upstream
 Work item 7 (orchestrator)         — decided: delegate to financial-analysis `cycle`
 
 Work item 8 (protege-view.ttl) — independent, manual, land whenever convenient
-Work item 13 (pytest suite) — independent; T-130 (constitution amendment) first, ideally before Work item 4's code grows
+Work item 13 (pytest suite) — independent; rules in constitution 1.5.0, T-131 next, ideally before Work item 4's code grows
 Work item 14 (PR #48 follow-ups) — independent; T-140 done, T-141 needs a live GraphDB
 Work item 15 (upstream's v_* changes) — T-150/T-151 now; the rest as upstream ships; feeds Work item 4 (T-031) and 12 (T-121)
 Work item 16 (boundary validation of upstream rows) — T-160 first; T-163 lands with Work item 4's T-031
