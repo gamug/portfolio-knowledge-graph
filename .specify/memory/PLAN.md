@@ -650,7 +650,7 @@ since a polarity change leaves the column set untouched.
    is nothing to quarantine. So the NULL-rate and row-count thresholds encode upstream's documented
    state: a column NULL for every row *by design* (SEMANTIC today; `first_seen`/`last_seen` on
    `v_shared_executive_edge` until their Work item 9) is expected, not a failure, and its expectation
-   changes when upstream fills it (T-150, T-154). Tool second: list the checks needed (types, NULL rate,
+   changes when upstream fills it (T-154 for the edge dates, T-158 for SEMANTIC). Tool second: list the checks needed (types, NULL rate,
    range, natural-key uniqueness, `available_at` against `event_time`, row count per view), then compare
    plain checks, pandera, deepchecks and Great Expectations against that list (dependency weight,
    fit with the pinned-contract style). Record the decision in `SPEC.md` §13 item 10 before any dependency

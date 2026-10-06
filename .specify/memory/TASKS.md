@@ -237,7 +237,8 @@ See `PLAN.md` Work item 16.*
       polarity). This task owns that guard;
       T-031 only calls it. The run-identity checks are not here: T-151 owns them (a reused `run_id`
       is allowed, and a failure there omits `:runId` and does not fail the row). Update an
-      all-NULL-by-design expectation when upstream fills the column (T-150, T-154). → step 2.
+      all-NULL-by-design expectation when upstream fills the column (T-154 for the edge dates, T-158
+      for SEMANTIC). → step 2.
 - [ ] **T-163** Run the expectations on the read path: a function that returns the validated rows
       and a report naming the view and column of every failure, with the row key for a row-level
       check and the group for an aggregate one, applying the T-160 policy. Lands with T-031. → step 3.
