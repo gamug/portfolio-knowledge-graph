@@ -290,7 +290,11 @@ waits on the upstream change it reads. Feeds Work item 4 (T-031) and Work item 1
       → step 4.
 - [ ] **T-158** Replace the `ASSET_DAY_AGGREGATE` placeholder with upstream's SEMANTIC
       `score_method` value once they give it (D14; with their Work item 4, after their T-100).
-      → step 4.
+      **First, raise the ownership disagreement:** upstream's second reply says the future SEMANTIC
+      writer is this repo (per their `docs/semantic-score-boundary.md`), against `SPEC.md` §13 item
+      11 (`portfolio-nlp` computes, `financial-analysis` materializes, this repo stops writing).
+      Ask them to confirm which reading their T-141 doc fix will state, and record the answer in D14
+      before the method value is adopted. → step 4.
 - [ ] **T-159** Verify: FR-001 parse + `pyshacl` pass after T-151–T-156, with `schema/README.md`,
       `docs/06` and `docs/07` counts in sync (NR-001), `docs/07`'s named-graph table listing every
       new class, and no doc left describing the blend as computed here (T-155); every upstream

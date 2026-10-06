@@ -625,8 +625,9 @@ Also from that reply:
   (0.4/0.3/0.2/0.1). The per-asset renormalization is unchanged.
 - **Placed and deferred:** the `v_media_cooccurrence_edge` view and `first_seen`/`last_seen` (with
   their T-082) and the SEMANTIC method value (with their Work item 4) wait until after their T-100.
-  The SEMANTIC-writer doc fix goes with their T-141; the trigger split in their SPEC with their
-  Work item 2. Their order, all in their numbering: their Work item 8 (their T-141 and T-074),
+  The SEMANTIC-writer doc fix goes with their T-141, but their reply says the future writer is
+  this repo, which contradicts `SPEC.md` §13 item 11 (raised by T-158, recorded in D14); the
+  trigger split in their SPEC goes with their Work item 2. Their order, all in their numbering: their Work item 8 (their T-141 and T-074),
   then their Work item 19 (their T-083, T-142, T-144 and T-145), their Work item 2, their final
   pilot (their T-143), their T-100. They send the commit, `schema_version` and doc section when
   their T-144 and T-145 land.
