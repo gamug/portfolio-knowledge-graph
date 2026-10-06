@@ -363,7 +363,10 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       `minInclusive`/`maxInclusive` pair, matching how SECTOR's `rawValue` range wasn't bounded
       until confirmed (T-140/T-155). Update `:normalizedScore`'s and `:rawValue`'s `tbox.ttl`
       comments and `schema/README.md` (flagged as a design gap found against real data, per
-      CLAUDE.md's convention for the three earlier ones). → step 3.
+      CLAUDE.md's convention for the three earlier ones). Also `docs/06-ontology-definition.md`'s
+      `ScoreSnapshotShape` table row and §1.8's exemption-history paragraph (PR #56 review):
+      T-081 and T-140, the two prior amendments to this shape, each updated both inline when they
+      landed, so this one does too rather than waiting on T-159's later sync pass. → step 3.
 
 ## Work item 16 — Validate upstream rows at the read boundary
 
