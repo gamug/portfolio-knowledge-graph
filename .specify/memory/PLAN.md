@@ -571,7 +571,8 @@ proposals. Their reply also brings facts the drift register does not have yet:
   the cross-module orchestrator command (their open Work item 2), run as a job by `portfolio-app`,
   not an `api/` endpoint; their `api/` stays read-only (FR-014 unchanged).
 - **Not answered:** the SEMANTIC `score_method` value that replaces our `ASSET_DAY_AGGREGATE`
-  placeholder, and their docs that still name this repo as the SEMANTIC writer (D14).
+  placeholder, and their docs that name this repo as the SEMANTIC writer (intended, per their
+  second reply; disputed, D14, T-158).
 
 This repo reads and does not compute (§2.5). Where the reply leaves a number for us to derive
 (per-asset effective weights, the current engine version, a unique run key), this work item asks

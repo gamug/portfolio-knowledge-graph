@@ -93,7 +93,8 @@ assumed.
 (plus opt-in summaries) into its results store, which this repo's `src/etl/` reads. Not built: the
 per-`(asset, day)` SEMANTIC aggregation, which `portfolio-nlp` is slated to own and
 `portfolio-financial-analysis` to materialize as `score_snapshot[SEMANTIC]`
-(`.specify/memory/SPEC.md` §13 item 11). `09-nlp-finbert-architecture.md` remains the design reference;
+(`.specify/memory/SPEC.md` §13 item 11; who materializes it is disputed by upstream's reply of
+2026-10-06, which names this repo as the future writer: §2.6 D14, T-158). `09-nlp-finbert-architecture.md` remains the design reference;
 consuming step 4's filing sections is not part of what `portfolio-nlp` does today.
 
 **6. Agent layer (selection / monitoring cycles) — built upstream, not LangGraph.**
