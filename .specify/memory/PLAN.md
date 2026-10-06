@@ -631,9 +631,9 @@ Also from that reply:
   their T-144 and T-145 land.
 
 Every correction is resolved here by reading their value as documented, never by fitting it: the
-shapes widen to their documented ranges, and a ÷100 stays the only conversion (a unit change, as
-for `normalized_score`). The reply to send back (step 2) states each decision and carries the
-updated target schema.
+shapes widen to their documented ranges, and a ÷100 stays the only conversion (a unit change;
+`normalized_score` keeps its existing `1 - x/100` risk reading, T-030). The reply to send back
+(step 2) states each decision and carries the updated target schema.
 
 **Approach**:
 
@@ -708,8 +708,8 @@ filing are enough); a stored daily market cap (the per-filing `market_capitaliza
 enough for size context); a replay flag (not needed while no replay copy is projected); a run
 trigger endpoint in their `api/`. From the second reply: `v_cycle_ranking_component.component_value`
 (it repeats a `ScoreSnapshot` value) and its `configured_weight` (it repeats `v_weight_component`),
-and a pre-penalty attractiveness score (deriving it from the
-effective weights would be a computation).
+and a pre-penalty attractiveness score (deriving it from the effective weights would be a
+computation).
 
 **Acceptance**: `SPEC.md` §2.6 has no D8–D14 item left as "raised upstream" without its answer
 (D14 included, so this needs upstream's SEMANTIC method value, T-158);
@@ -721,11 +721,11 @@ no shape rejects a value upstream documents as valid (the SECTOR `raw_value` ran
 row fails no shape.
 
 **Blocked on**: nothing for T-150, T-151's rule, T-155's formula removal and the shape corrections
-of step 3 (SECTOR range, `attractivenessScore` bound, and the `tbox.ttl` comments); upstream's
-T-144 for T-152–T-156's projection and T-157's first re-pin; their T-145 for relaxing T-151's
+of step 3 (SECTOR range, `attractivenessScore` bound, and the `tbox.ttl` comments); upstream's T-144
+for T-152–T-156's projection and T-157's first re-pin; their T-145 and T-100 for relaxing T-151's
 checks; their T-074 for T-153's flag values; their T-082, after their T-100, for T-154's `MEDIA`
-kind and edge dates; their Work item 4, after their T-100, for T-158. Closing this work item waits on
-T-158.
+kind and edge dates; their Work item 4, after their T-100, for T-158. Closing this work item waits
+on T-158.
 
 ## Work item 16 — Validate upstream rows at the read boundary, before any triple is built
 
@@ -769,8 +769,9 @@ since a polarity change leaves the column set untouched.
    run-identity checks are not among them: T-151 owns those, because they compare a row with its run
    table and a failure there omits `:runId` instead of failing the row, except for the run-keyed
    views T-151 lists (`v_weight_*`, `v_cycle_ranking`, `v_cycle_ranking_component`), whose rows
-   are skipped and counted in the report. Among them is the source check that stops the run: the
-   database meets the `schema_version` floor and holds no REPLAY run (Work item 15, T-157).
+   are skipped and counted in the report. The expectations do include one source check, which
+   stops the run: the database meets the `schema_version` floor and holds no REPLAY run (T-157,
+   Work item 15).
 3. Run them on the read path, so T-031's first real projection already goes through them (T-163).
 4. Test the selected policy and every check kind with synthetic frames under Work item 13's structure
    (T-164).

@@ -135,11 +135,12 @@ once T-131 lands.*
 
 ## Work item 14 — `ScoreSnapshotShape` and store-gate follow-ups (PR #48 post-merge review)
 
-- [x] **T-140** *(done 2026-10-06; T-155 widens its [-1, 1] bound)* Tighten `ScoreSnapshotShape`: `SectorRelativeMomentum` requires
-      `rawValue` in `[-1, 1]` (`docs/06` §1.8; mapping upstream SECTOR into it is T-031's); `rawValue` at most once (`owl:FunctionalProperty` in `tbox.ttl`);
-      `agentOrigin` ↔ `metricType` one-to-one via `sh:xone`. 2458 quads, conforms; 18 synthetic cases,
-      the acceptance probe (one violation), `docs/09`'s example and the ETL smoke run agree. → `PLAN.md`
-      Work item 14, step 1.
+- [x] **T-140** *(done 2026-10-06; T-155 widens its [-1, 1] bound)* Tighten `ScoreSnapshotShape`:
+      `SectorRelativeMomentum` requires `rawValue` in `[-1, 1]` (`docs/06` §1.8; mapping upstream
+      SECTOR into it is T-031's); `rawValue` at most once (`owl:FunctionalProperty` in `tbox.ttl`);
+      `agentOrigin` ↔ `metricType` one-to-one via `sh:xone`. 2458 quads, conforms; 18 synthetic
+      cases, the acceptance probe (one violation), `docs/09`'s example and the ETL smoke run agree.
+      → `PLAN.md` Work item 14, step 1.
 - [ ] **T-141** Run `cli/verify_store.py` against the live GraphDB repository with the current
       acceptance probe and record the result in `docs/graphdb-setup.md`. → step 2.
 - [ ] **T-142** Have `kg_store.gate.validate` expose pyshacl's results graph and make
@@ -245,28 +246,28 @@ waits on the upstream change it reads. Feeds Work item 4 (T-031) and Work item 1
       with upstream how such an asset appears otherwise; the skipped rows are counted in Work item
       16's boundary report, T-163). One snapshot per `(cycle_run_id, asset_id)`: like the scheme
       (T-121), its identity relies on upstream's T-145 and T-100, so until both have landed only a
-      run passing T-151's checks is projected. Also read rank, selection, target weight
-      (verbatim; assumed a fraction of the book until upstream states its unit, which the answer
-      to the second reply asks) and the per-asset effective weights from
-      `v_cycle_ranking_component` (`effective_weight` per `score_type`, named as in T-121, summing
-      to 1 per run and asset; no row for an absent component), and not its `component_value`,
-      which repeats a `ScoreSnapshot`, nor its `configured_weight`, which repeats
-      `v_weight_component` (T-121). Never recompute the blend (`SPEC.md` §2.5 item 1), and remove every description of computing it here:
-      `docs/06` §1.8's `attractivenessScore = Σ weight_i * component_i` and its `inverted` rule;
-      `rules.ttl`'s `WeightScheme_v1` header ("Formula this scheme feeds"); the
-      `attractivenessScore`, `WeightComponent` and `:inverted` comments in `tbox.ttl`; and mark the
-      2026-08-13 attractiveness design spec in `docs/superpowers/specs/` as design history.
-      `:inverted`'s remaining purpose, if any, is decided with T-121. Unblocked now: the
-      `SectorRelativeMomentum` `[-1, 1]` bound (T-140), justified only by that formula's
-      `(rawValue + 1) / 2`, becomes [-100, 100]: upstream's SECTOR `raw_value` is the asset's
-      TECHNICAL raw score minus its sector's mean, in TECHNICAL points (observed -54 to +46), read
-      verbatim, positive = stronger than its sector; its 0-100 `normalized_score` becomes an
-      optional `normalizedScore` (T-031 rescales it). Update every statement of the old bound or of
-      "no `normalizedScore` for SECTOR": `shapes.ttl`, `reference.ttl`'s SRM comment, `docs/06`
-      §1.8, `schema/README.md` refinements 2 and 6 (6 still lists SECTOR as "open, not fixed"),
-      the T-030 rescale paragraph closing `SPEC.md` §2.6, and the module docstring of
-      `src/projection/score_scale.py` (with T-031's code change). Leave
-      `schema/protege-view.ttl` to its regeneration (Work item 8); it is generated. → step 3.
+      run passing T-151's checks is projected. Also read rank, selection, target weight (verbatim;
+      assumed a fraction of the book until upstream states its unit, which the answer to the second
+      reply asks) and the per-asset effective weights from `v_cycle_ranking_component`
+      (`effective_weight` per `score_type`, named as in T-121, summing to 1 per run and asset; no
+      row for an absent component), and not its `component_value`, which repeats a `ScoreSnapshot`,
+      nor its `configured_weight`, which repeats `v_weight_component` (T-121). Never recompute the
+      blend (`SPEC.md` §2.5 item 1), and remove every description of computing it here: `docs/06`
+      §1.8's `attractivenessScore = Σ weight_i * component_i` and its `inverted` rule; `rules.ttl`'s
+      `WeightScheme_v1` header ("Formula this scheme feeds"); the `attractivenessScore`,
+      `WeightComponent` and `:inverted` comments in `tbox.ttl`; and mark the 2026-08-13
+      attractiveness design spec in `docs/superpowers/specs/` as design history. `:inverted`'s
+      remaining purpose, if any, is decided with T-121. Unblocked now: the `SectorRelativeMomentum`
+      `[-1, 1]` bound (T-140), justified only by that formula's `(rawValue + 1) / 2`, becomes
+      [-100, 100]: upstream's SECTOR `raw_value` is the asset's TECHNICAL raw score minus its
+      sector's mean, in TECHNICAL points (observed -54 to +46), read verbatim, positive = stronger
+      than its sector; its 0-100 `normalized_score` becomes an optional `normalizedScore` (T-031
+      rescales it). Update every statement of the old bound or of "no `normalizedScore` for SECTOR":
+      `shapes.ttl`, `reference.ttl`'s SRM comment, `docs/06` §1.8, `schema/README.md` refinements 2
+      and 6 (6 still lists SECTOR as "open, not fixed"), the T-030 rescale paragraph closing
+      `SPEC.md` §2.6, and the module docstring of `src/projection/score_scale.py` (with T-031's code
+      change). Leave `schema/protege-view.ttl` to its regeneration (Work item 8); it is generated.
+      → step 3.
 - [ ] **T-156** Quant: read `v_quant_portfolio` and `v_quant_vs_live` on the engine version upstream
       marks current, with `engine_version` recorded on each `BenchmarkObservation`. Match a
       `v_quant_vs_live` row to its book on `(as_of, kind, engine_version)`, not `(as_of, kind)`:
@@ -317,20 +318,19 @@ See `PLAN.md` Work item 16.*
       `normalized_score` range and the cohort mean near 50 per rescaled lane (FUNDAMENTAL,
       VALORIZATION, TECHNICAL and SECTOR, whose `normalized_score` T-031 now rescales; upstream
       documents 50 + 10·z, clamped, for `normalized_score` in general; for SECTOR this is assumed
-      until upstream confirms it, so its guard ships only after that; SEMANTIC is not on 0-100),
-      the guard against a change of meaning that stays in range (it cannot detect a reversed
-      polarity). From upstream's second reply also: SECTOR `raw_value` in [-100, 100];
-      `blended_score` at most 100, no lower bound; `available_at` NULL on cycle lanes until their
-      T-144, then never NULL; `computed_at` in `+00:00` or `Z` form; `forensic_flags_json` NULL or
-      an object of the four documented keys. This task owns that guard; T-031 only calls it. The
-      run-identity checks are not here: T-151 owns them (a reused `run_id` is allowed; a failure
-      omits `:runId` and keeps the row, except for the run-keyed views T-151 lists, whose rows are
-      skipped and counted in the report). Also here, as an aggregate check that stops the run: the
-      source database meets the `schema_version` floor and holds no `cycle_run` with
+      until upstream confirms it, so its guard ships only after that; SEMANTIC is not on 0-100), the
+      guard against a change of meaning that stays in range (it cannot detect a reversed polarity);
+      this task owns that guard. From upstream's second reply also: SECTOR `raw_value` in
+      [-100, 100]; `blended_score` at most 100, no lower bound; `available_at` NULL on cycle lanes
+      until their T-144, then never NULL; `computed_at` in `+00:00` or `Z` form;
+      `forensic_flags_json` NULL or an object of the four documented keys. T-031 only calls these
+      checks. The run-identity checks are not here: T-151 owns them (a reused `run_id` is allowed; a
+      failure omits `:runId` and keeps the row, except for the run-keyed views T-151 lists, whose
+      rows are skipped and counted in the report). Also here, as an aggregate check that stops the
+      run: the source database meets the `schema_version` floor and holds no `cycle_run` with
       `cycle_type = 'REPLAY'` (T-157's rule; a backfill's REPLAY rows land in the shared tables,
-      D8); T-163 runs it first. Update an
-      all-NULL-by-design expectation when upstream fills the column (T-154 for the edge dates, T-158
-      for SEMANTIC). → step 2.
+      D8); T-163 runs it first. Update an all-NULL-by-design expectation when upstream fills the
+      column (T-154 for the edge dates, T-158 for SEMANTIC). → step 2.
 - [ ] **T-163** Run the expectations on the read path: a function that returns the validated rows
       and a report naming the view and column of every failure, with the row key for a row-level
       check and the group for an aggregate one, applying the T-160 policy. Lands with T-031. → step 3.
