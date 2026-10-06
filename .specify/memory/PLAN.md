@@ -707,7 +707,8 @@ updated target schema.
 filing are enough); a stored daily market cap (the per-filing `market_capitalization` metric is
 enough for size context); a replay flag (not needed while no replay copy is projected); a run
 trigger endpoint in their `api/`. From the second reply: `v_cycle_ranking_component.component_value`
-(it repeats a `ScoreSnapshot` value), and a pre-penalty attractiveness score (deriving it from the
+(it repeats a `ScoreSnapshot` value) and its `configured_weight` (it repeats `v_weight_component`),
+and a pre-penalty attractiveness score (deriving it from the
 effective weights would be a computation).
 
 **Acceptance**: `SPEC.md` §2.6 has no D8–D14 item left as "raised upstream" without its answer
