@@ -713,8 +713,9 @@ trigger endpoint in their `api/`. From the second reply: `v_cycle_ranking_compon
 and a pre-penalty attractiveness score (deriving it from the effective weights would be a
 computation).
 
-**Acceptance**: `SPEC.md` §2.6 has no D8–D14 item left as "raised upstream" without its answer
-(D14 included, so this needs upstream's SEMANTIC method value, T-158);
+**Acceptance**: no D8–D14 row of `SPEC.md` §2.6 still waits on upstream for this work item: every
+question has its answer recorded and every accepted upstream change it reads has shipped, with its
+commit (D14 included, so this needs upstream's SEMANTIC method value and the ownership answer, T-158);
 every schema change passes the FR-001 parse + `pyshacl` check with updated counts; the projection
 reads the new columns from a re-pinned `view_contract.py` and computes none of the values listed in
 step 2; no doc or schema comment describes the attractiveness blend as computed here; T-120 is closed;

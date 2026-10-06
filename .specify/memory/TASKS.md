@@ -164,7 +164,7 @@ waits on the upstream change it reads. Feeds Work item 4 (T-031) and Work item 1
       T-082), D11 (`live_book`, dead kind names and `LIVE_ONLY` confirmed; `opt-v1`/`opt-v2` books
       coexist), D12 (`v_fundamental_metric` coming, market cap as its `market_capitalization`
       metric; moves from "rejected for now"), D13 (configured vs effective weights), D14 (still
-      unanswered), D16 (`metrics-v5`, `opt-v2`, filings keyed by period end), and the run-id reuse
+      unanswered), D16 (`metrics-v5`, `opt-v2`, a filing's period identified by its period end), and the run-id reuse
       fact. List what was declined (PLAN Work item 15). Also record the second reply: the six
       corrections (D6 SECTOR range, D13 `blended_score` and `scheme_id`, D2 `available_at` on cycle
       lanes, D12 `metric_id`/`unit`, D11/D12 `is_current` as at most one), the forensic-flag
