@@ -618,6 +618,39 @@ T-152–T-158 on the upstream change each one reads
 (T-153's forensic flags also wait on their T-074, T-154's MEDIA kind on their T-082). Closing this
 work item also waits on upstream's D14 answer (T-158), which their reply did not give.
 
+## Work item 16 — Validate upstream rows at the read boundary, before any triple is built
+
+**Why**: T-030 pins upstream's `v_*` column *names*; nothing checks the *rows*. The graph gate
+(`pyshacl`, FR-001) sees only the finished graph, so a value that is wrong but legal passes it: a
+score left on 0-100, a flipped polarity, a reused `cycle_run.id`. Its violations also name a triple,
+not the upstream row that caused it. Upstream's own reply (Work item 15) shows the kinds of bad data
+to expect: a reusable run id, edge dates NULL for every row, SEMANTIC null for every asset. A
+boundary check catches these before they become triples and says which view and row.
+
+This is input-side validation of tabular data. It does not replace `pyshacl`, which stays the
+closed-world gate on the graph (constitution, OWL and SHACL both present), so the constitution needs
+no amendment. It also cannot say whether upstream's numbers are *right*, which stays upstream's job (§2.5).
+
+**Approach**:
+
+1. Decide the failure policy and the tool (T-160). Policy first: stop the run on any failure, or
+   quarantine the failing rows and report them. Tool second: list the checks needed (types, NULL rate,
+   range, natural-key uniqueness, `available_at` against `event_time`, row count per view), then compare
+   plain checks, pandera, deepchecks and Great Expectations against that list (dependency weight,
+   fit with the pinned-contract style). Record the decision in `SPEC.md` §13 before any dependency is added.
+2. Add the dependency and write the expectations beside `view_contract.py`, for the views Work item 4
+   reads (T-161, T-162).
+3. Run them on the read path, so T-031's first real projection already goes through them (T-163).
+4. Test them with synthetic frames under Work item 13's structure (T-164).
+
+**Acceptance**: every view the projection reads has expectations; a violating row never reaches the
+triple builder under the chosen policy; the failure message names the view, column and row key;
+`uv run pytest` covers a passing and a failing frame per check kind; `SPEC.md` §13 item 10 records
+what is checked at the boundary and what is not.
+
+**Blocked on**: T-160 on nothing; T-161 onward on T-160. T-163 lands with T-031; T-164 needs Work item
+13's skeleton (T-131).
+
 ## Sequencing
 
 ```
@@ -644,6 +677,7 @@ Work item 8 (protege-view.ttl) — independent, manual, land whenever convenient
 Work item 13 (pytest suite) — independent; T-130 (constitution amendment) first, ideally before Work item 4's code grows
 Work item 14 (PR #48 follow-ups) — independent; T-140 done, T-141 needs a live GraphDB
 Work item 15 (upstream's v_* changes) — T-150/T-151 now; the rest as upstream ships; feeds Work item 4 (T-031) and 12 (T-121)
+Work item 16 (boundary validation of upstream rows) — T-160 first; T-163 lands with Work item 4's T-031
 ```
 
 Work items 1, 2, and 9 have no dependencies and no blockers — they can land
