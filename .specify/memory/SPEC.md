@@ -113,6 +113,16 @@ above (`08-agent-architecture.md`, designed but unbuilt — roadmap steps 1 and
   `:NewsArticle` / `:ScoreSnapshot` (Sentiment) / `:RiskEvent` (gated) — a
   single-shot flat `data.ttl`, not the named-graph-partitioned target
   architecture.
+- The store (`src/kg_store/`, Work item 3, roadmap step 1): a GraphDB repository
+  `portfolio` with the `rdfsplus-optimized` ruleset (`docs/graphdb-setup.md`),
+  `schema/` loaded into its named graphs (`cli/load_schema.py`), and the SHACL
+  ingest gate (`gate.py`, `cli/ingest.py`) every ABox write passes; acceptance
+  via `cli/verify_store.py`. Only `instances.trig`'s worked example is loaded.
+- The start of the real step-2 projection (`src/projection/`, Work item 4,
+  T-030): the pinned `v_*` read contract (`view_contract.py`), its drift check
+  (`cli/check_view_contract.py`) and the 0–100 → [0, 1] score conversion
+  (`score_scale.py`, §2.6). Nothing reads the `v_*` views or writes ingest
+  graphs yet (T-031).
 - Keeping the schema and its companion docs internally consistent: the exact
   class/shape/graph/quad counts asserted in `06`/`07` and `schema/README.md`
   must stay in sync with `tbox.ttl`/`shapes.ttl`/`instances.trig` after any
@@ -120,10 +130,11 @@ above (`08-agent-architecture.md`, designed but unbuilt — roadmap steps 1 and
 
 ### 2.2 Out of scope
 
-- Standing up a triple store (GraphDB/Fuseki) — roadmap step 1.
-- The SHACL ingest gate, dated named-graph partitioning
-  (`ingest:{agent}:{date}`), OWL RL reasoning, and the SPARQL query surface —
-  designed in `07`/`08`, not built (roadmap steps within 1–2 and beyond).
+- Verified OWL RL reasoning and the SPARQL query surface — designed in
+  `07`/`08`, not built (Work item 6). The triple store, its named graphs and
+  the SHACL ingest gate were out of scope here originally; they moved in scope
+  and are built (Work item 3, roadmap step 1; §2.1), and the projection that
+  writes dated `ingest:{agent}:{date}` graphs from real data is Work item 4.
 - Computing fundamentals, pricing, cycle rankings, or quant scores
   (`portfolio-financial-analysis`).
 - Running any NLP model, discovering/crawling article URLs, or re-deriving
@@ -354,18 +365,20 @@ re-litigated without a constitution amendment:
 ```mermaid
 flowchart TB
     SCHEMA["schema/ -- step 0, DONE<br/>tbox+shapes+reference+rules+instances<br/>2458 quads * pyshacl conforms"]
-    STORE["triple store -- step 1<br/>GraphDB / Fuseki<br/>NOT STOOD UP"]
-    GRAPHS["named graphs -- step 1<br/>static: tbox/reference/rules<br/>ingest:{agent}:{date} * portfolio:current<br/>NOT STOOD UP"]
-    GATE["SHACL ingest gate -- step 2<br/>pyshacl<br/>NOT BUILT"]
-    FIN["fin-analysis v_* views<br/>(designed source, unread)"]
+    STORE["triple store -- step 1, DONE<br/>GraphDB repository portfolio<br/>src/kg_store/, cli/load_schema.py"]
+    GRAPHS["named graphs -- step 1, DONE<br/>static: tbox/reference/rules<br/>ingest:{agent}:{date} * portfolio:current<br/>worked example only"]
+    GATE["SHACL ingest gate -- DONE<br/>pyshacl, src/kg_store/gate.py<br/>cli/ingest.py"]
+    PROJ["src/projection/ -- step 2, STARTED<br/>v_* contract pinned + drift check (T-030)<br/>write path NOT BUILT (T-031)"]
+    FIN["fin-analysis v_* views<br/>(contract pinned, not yet read)"]
     NLPRES["portfolio-nlp RESULTS store<br/>article_sentiment / article_category<br/>(READ TODAY, via news_export)"]
     ETL["src/etl/ -- step 2 shortcut, PARTIAL<br/>cli/build_data_ttl.py<br/>flat data.ttl, not partitioned"]
-    REASON["OWL RL reasoner<br/>NOT BUILT"]
+    REASON["OWL RL reasoner<br/>rdfsplus-optimized ruleset configured<br/>profile check pending (Work item 6)"]
     SPARQL["SPARQL surface<br/>NOT BUILT"]
     AGENTS["cycle orchestration -- NOT THIS REPO<br/>fin-analysis `cycle select` / `cycle monitor`<br/>(doc 08 LangGraph design: reference only)"]
 
     SCHEMA -->|load order| STORE --> GRAPHS --> GATE
-    FIN -.->|designed, not wired| GATE
+    FIN -.->|pinned, drift-checked| PROJ
+    PROJ -.->|designed, not wired| GATE
     NLPRES -->|read-only, today| ETL
     ETL -.->|flat file, bypasses GATE/GRAPHS| SCHEMA
     GATE --> REASON --> SPARQL
@@ -374,8 +387,12 @@ flowchart TB
 
 **Reading this diagram**: the top row (`schema/` → store → named graphs →
 SHACL gate → reasoner → SPARQL → agents) is the *target* architecture from
-`07`/`08` — only `schema/` is built. The `src/etl/` shortcut at the bottom is
-what actually runs today: it reads `portfolio-nlp`'s RESULTS store directly
+`07`/`08`. `schema/`, the store, its named graphs and the SHACL gate are built
+(Work item 3; only the worked example is loaded), the reasoner's ruleset is
+configured but its profile is unchecked and the SPARQL surface is unbuilt
+(Work item 6). The real projection (`src/projection/`) has its read contract
+pinned and drift-checked (T-030) but writes nothing yet (T-031). The `src/etl/`
+shortcut at the bottom is what actually populates data today: it reads `portfolio-nlp`'s RESULTS store directly
 and writes a flat `data.ttl` that loads on top of `schema/` but bypasses the
 named-graph/SHACL-gate/reasoner chain entirely — a narrower, working stand-in
 for the step-2 projection `07`/`08` designed, not that projection itself
@@ -506,8 +523,9 @@ This repo has no throughput/latency SLA, and defining one is out of scope
 production system this project isn't. What exists instead:
 
 - **Scale estimates** for the target (unbuilt) triple-store architecture are
-  in `07-ontology-topology.md`, not repeated here — they describe a system
-  this repo has not yet stood up.
+  in `07-ontology-topology.md`, not repeated here — they describe the target
+  at full scale; the store stood up in Work item 3 holds only the worked
+  example so far.
 - **The ETL's `data.ttl` is git-ignored and can reach multiple million
   triples** at full S&P 500 + news-corpus scale; that scale is exactly why
   FR-006 validates a sample/limited run rather than the full output — no
