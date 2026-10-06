@@ -1,19 +1,22 @@
 #################################################################
 # portfolio-knowledge-graph -- target schema for the v_* views
-# portfolio-financial-analysis is changing (second version, answering
-# your reply of 2026-10-06 checked at 597832a).
+# portfolio-financial-analysis is changing (third version, answering
+# your third reply of 2026-10-06, checked at 597832a).
 #
 # PART 1 is portfolio-knowledge-graph's schema/tbox.ttl + shapes.ttl at
 # master 5a0d1f7 (schema/ unchanged since 36ac3e5): only the classes,
 # properties and SHACL shapes your views project into. It is verbatim
 # EXCEPT where a "# CHANGED (T-1xx)" comment marks a correction your
-# reply made necessary: three shape changes (the SECTOR rawValue
-# range, the attractivenessScore lower bound, :inverted's minCount)
-# and nine comments (eight rewritten, schemeId's added).
+# replies made necessary: five shape changes (the SECTOR rawValue
+# range, the attractivenessScore lower bound, :inverted's minCount;
+# from your third reply, T-171: ScoreFinanciero exempt from
+# normalizedScore, and rawValue mandatory for it instead) and eleven
+# comments (nine rewritten; schemeId's and rawValue's added).
 # PART 2 (end of file) is PROPOSED: the terms your T-144 columns feed.
 # Neither the CHANGED lines nor PART 2 are on our master yet; they are
-# planned in our Work items 12 (T-121) and 15 (T-151..T-156), branch
-# docs/wi15-second-upstream-reply.
+# planned in our Work items 12 (T-121) and 15 (T-151..T-156, T-171),
+# branch docs/t150-record-upstream-replies. T-171's two shape changes
+# and two comments are already on that branch's schema/ (PR #56).
 #
 # Namespace: https://thesis.local/kg/portfolio#  (prefix ":")
 # OWL = what can be inferred (open world); SHACL = what our ingest
@@ -299,6 +302,13 @@
                 sh:maxInclusive 100.0 ;
                 sh:minCount 1 ;
                 sh:minInclusive -100.0 ;
+                sh:path :rawValue ] ),
+        # CHANGED (T-171, D17): new. With normalizedScore optional for FUNDAMENTAL (above), rawValue
+        # becomes mandatory in its place, so a FUNDAMENTAL snapshot can't carry neither. No bounds yet:
+        # we need your FUNDAMENTAL raw_value range first (Q6).
+        ( [ sh:not [ sh:hasValue "ScoreFinanciero" ;
+                        sh:path :metricType ] ] [ sh:datatype xsd:decimal ;
+                sh:minCount 1 ;
                 sh:path :rawValue ] ) ;
     sh:property [ sh:datatype xsd:decimal ;
             sh:maxCount 1 ;
@@ -856,7 +866,8 @@
 :normalizedScore a owl:DatatypeProperty,
         owl:FunctionalProperty ;
     # CHANGED (T-153): cohort-relative reading stated.
-    rdfs:comment "[0.0, 1.0], 0=no risk, 1=critical risk on ScoreSnapshot; sector-aggregate reading on SectorAggregateSnapshot. Range enforced by SHACL. Projected as 1 - x/100 from upstream's normalized_score (50 + 10*z, clamped to [0, 100]), so it is relative to the cohort, not an absolute risk level." ;
+    # CHANGED (T-171, D17): optional on a FUNDAMENTAL snapshot.
+    rdfs:comment "[0.0, 1.0], 0=no risk, 1=critical risk on ScoreSnapshot; sector-aggregate reading on SectorAggregateSnapshot. Range enforced by SHACL. Projected as 1 - x/100 from upstream's normalized_score (50 + 10*z, clamped to [0, 100]), so it is relative to the cohort, not an absolute risk level. Optional (not required, not forbidden) on a FUNDAMENTAL ScoreSnapshot (ScoreFinanciero) since T-171/D17: upstream rewrites this value in place on every cycle that re-normalizes the filing, which would make an individual carrying it a mutable observation. The per-cycle value is read instead as :componentValue on the matching AttractivenessSnapshot's WeightComponent, scoped to its cycle_run." ;
     rdfs:domain :ObservationSnapshot ;
     rdfs:range xsd:decimal .
 
@@ -873,6 +884,8 @@
 
 :rawValue a owl:DatatypeProperty,
         owl:FunctionalProperty ;
+    # CHANGED (T-171, D17): comment added.
+    rdfs:comment "Stable at the source, unlike normalizedScore for some metrics (D17). Carried for SectorRelativeMomentum, Sentiment, and FUNDAMENTAL (ScoreFinanciero, T-171); FUNDAMENTAL's bounds are not yet asserted here, pending upstream's answer (Q6)." ;
     rdfs:domain :ScoreSnapshot ;
     rdfs:range xsd:decimal .
 
