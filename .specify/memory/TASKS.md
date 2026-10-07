@@ -102,8 +102,10 @@ are closed (see `CHANGELOG.md`).*
   - **Errors:** a missing or table-less source database, or a key file that is damaged or cannot
     be read or written, exits 1 with a message; a store failure partway (an HTTP error, a closed
     connection or a timeout, all `GraphDBError`) prints what was already written and settles its
-    keys. A graph whose sending failed is listed as *in doubt* (the store may have applied it
-    before the answer was lost): not counted as written, its keys kept, found by the next run.
+    keys. Only a graph that was sent but whose answer was lost (`AnswerLost` on the send, raised
+    by the gate as `WriteInDoubt`) is listed as *in doubt*, since the store may have applied it:
+    not counted as written, its keys kept, found by the next run if it was applied. A failed check
+    before sending, or an HTTP error (the store's answer), leaves nothing in doubt.
   - **On today's upstream data** the cycle lanes are all skipped (every `available_at` is NULL), so
     only FUNDAMENTAL snapshots are produced until upstream's T-144.
   - **Open:** the other views (T-155 and the rest of Work item 4's list), `:runId` (T-151's rule),

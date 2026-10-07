@@ -23,7 +23,7 @@ from fixtures.snapshot_rows import (
 
 from etl import config
 from kg_store import gate
-from kg_store.graphdb import GraphDBError
+from kg_store.graphdb import AnswerLost, GraphDBError
 from projection import score_snapshots as ss
 from projection.boundary import GRAPH_WRITTEN, BoundaryError
 from projection.expectations import load_expectations
@@ -634,37 +634,69 @@ def test_a_store_failure_partway_keeps_what_was_written_and_its_late_keys(
 
     def ingest(_store: Any, _data: bytes, graph: str) -> int:
         if "TECHNICAL" in graph:
-            raise GraphDBError("HTTP 503")
+            raise gate.WriteInDoubt("connection to GraphDB at h lost")
         return 7
 
     monkeypatch.setattr(ss.gate, "ingest", ingest)
     rows = [*_cohort("TECHNICAL", 1), fundamental_row(id=10)]
-    with pytest.raises(ss.StoreInterrupted, match="HTTP 503") as stop:
+    with pytest.raises(ss.StoreInterrupted, match="connection to GraphDB at h lost") as stop:
         ss.run(
             financial_db(tmp_path, rows), ASSETS, make_db().db, "2026-10-08", late_keys_path=keys
         )
     assert stop.value.result.written == {"urn:graph:ingest:FUNDAMENTAL:2025-Q1": 7}
     assert _late(keys) == [[3]]  # its graph was never written: the next run re-reads it
-    # Review round 8, finding 2: the graph being sent may be in the store; it is named, not
-    # counted as written, and its keys stay until a run finds it.
+    # Review round 8, finding 2: the graph sent whose answer was lost may be in the store; it is
+    # named, not counted as written, and its keys stay until a run finds it.
     result = stop.value.result
     assert result.in_doubt == "urn:graph:ingest:TECHNICAL:2026-10-08"
-    assert "in doubt: urn:graph:ingest:TECHNICAL:2026-10-08: the store failed" in result.summary()
+    assert "in doubt: urn:graph:ingest:TECHNICAL:2026-10-08: it was sent" in result.summary()
 
 
-def test_a_store_failure_before_a_graph_is_sent_leaves_nothing_in_doubt(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, make_db: MakeDB
+_Q1 = "urn:graph:ingest:FUNDAMENTAL:2025-Q1"
+
+
+@pytest.mark.parametrize(
+    "case",
+    [
+        ("projection check", AnswerLost("connection lost"), None),
+        ("gate check", AnswerLost("connection lost"), None),
+        ("send", GraphDBError("POST /statements -> HTTP 400: MALFORMED"), None),
+        ("send", AnswerLost("connection lost"), _Q1),
+    ],
+    ids=["projection-check-lost", "gate-check-lost", "send-answered-http-400", "send-answer-lost"],
+)
+def test_only_a_graph_sent_whose_answer_was_lost_is_in_doubt(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    make_db: MakeDB,
+    case: tuple[str, GraphDBError, str | None],
 ) -> None:
-    store = make_db()
+    # Review round 9, finding 1: a failed check (before anything is sent, whether the
+    # projection's or the gate's own) and an HTTP error (the store's answer) write nothing.
+    where, error, in_doubt = case
+    store = live_store(make_db)
 
-    def fail(_sparql: str) -> list[dict[str, str]]:
-        raise GraphDBError("HTTP 503")
+    def fail(*_: Any) -> Any:
+        raise error
 
-    monkeypatch.setattr(store, "select", fail)
+    if where == "projection check":
+        monkeypatch.setattr(store, "select", fail)
+    elif where == "send":
+        monkeypatch.setattr(store, "add", fail)
+    else:
+        real = gate.ingest
+
+        def ingest(db: Any, data: bytes, graph: str) -> int:
+            monkeypatch.setattr(store, "select", fail)  # the gate's own checks fail
+            return real(db, data, graph)
+
+        monkeypatch.setattr(ss.gate, "ingest", ingest)
     with pytest.raises(ss.StoreInterrupted) as stop:
         ss.run(financial_db(tmp_path, [fundamental_row(id=10)]), ASSETS, store.db, "2026-10-07")
-    assert stop.value.result.in_doubt is None
-    assert "in doubt" not in stop.value.result.summary()
+    result = stop.value.result
+    assert store.added == []
+    assert result.in_doubt == in_doubt
+    assert ("in doubt" in result.summary()) == (in_doubt is not None)
 
 
 # --- the late-key round trip, on the real read ---------------------------------------------------

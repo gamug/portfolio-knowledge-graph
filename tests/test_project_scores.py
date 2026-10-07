@@ -254,6 +254,9 @@ def test_a_store_that_hangs_up_is_a_store_failure_not_a_file_error(
     assert "store error, the run stopped partway: connection to GraphDB" in printed.err
     assert "file error" not in printed.err
     assert "already in the store" in printed.out  # the partial summary is printed
+    # Review round 9, finding 1: the first request (a check) already failed: nothing was sent.
+    assert "in doubt" not in printed.out
+    assert "Only the graphs listed as written above were written." in printed.err
 
 
 def test_a_key_file_that_cannot_be_written_exits_1_with_a_message(
@@ -357,7 +360,7 @@ def test_a_graph_in_doubt_is_named_and_never_claimed_unwritten(
     monkeypatch.setattr(cli, "run", fail)
     assert cli.main([]) == 1
     printed = capsys.readouterr()
-    assert "in doubt: urn:graph:ingest:FUNDAMENTAL:2025-Q1: the store failed" in printed.out
+    assert "in doubt: urn:graph:ingest:FUNDAMENTAL:2025-Q1: it was sent" in printed.out
     assert "the one in doubt may be too" in printed.err
     assert "Only the graphs" not in printed.err
 

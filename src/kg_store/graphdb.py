@@ -51,6 +51,12 @@ class GraphDBError(RuntimeError):
     """A GraphDB request failed (status code and response body, never credentials)."""
 
 
+class AnswerLost(GraphDBError):
+    """The request was sent but its answer never came (the connection closed, was reset or timed
+    out while the answer was awaited): unlike an HTTP error, which is the store's answer, or a
+    failure to send, the store may have acted on it."""
+
+
 @dataclass(frozen=True)
 class GraphDB:
     host: str
@@ -116,7 +122,7 @@ class GraphDB:
         except (OSError, http.client.HTTPException) as exc:
             # urlopen wraps a failure to send, not one while the answer is read (a closed
             # connection, a read timeout): those are the store's failures too, never a file's.
-            raise GraphDBError(f"connection to GraphDB at {self.host} lost: {exc!r}") from exc
+            raise AnswerLost(f"connection to GraphDB at {self.host} lost: {exc!r}") from exc
 
     def update(self, sparql: str) -> None:
         """Run a SPARQL Update (needs write access)."""

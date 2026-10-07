@@ -431,8 +431,8 @@ class RunResult:
         lines += [f"  rejected: {g}: {why}" for g, why in sorted(self.rejected.items())]
         if self.in_doubt:
             lines += [
-                f"  in doubt: {self.in_doubt}: the store failed while it was being written, so it "
-                "may be written too; the next run finds its snapshots already in the store"
+                f"  in doubt: {self.in_doubt}: it was sent but the store's answer was lost, so it "
+                "may be written; if it is, the next run finds its snapshots already in the store"
             ]
         lines += [f"  late key not found in the re-read: {k}" for k in self.late_not_found]
         lines += [f"  late key closed without a write: {k}" for k in self.late_closed]
@@ -479,10 +479,12 @@ def run(
     or a malformed file stops the run before anything is written (the CLI creates the folder).
 
     If the store fails partway, the graphs written so far are settled in both key files and
-    :class:`StoreInterrupted` carries the result up to that point. A failure while a graph is
-    being sent leaves that graph in doubt (``RunResult.in_doubt``): the store may have applied it
-    before the answer was lost, so it is neither counted as written nor settled, and the next
-    run finds its snapshots already in the store.
+    :class:`StoreInterrupted` carries the result up to that point. A graph that was sent but
+    whose answer was lost (:class:`kg_store.gate.WriteInDoubt`) is left in doubt
+    (``RunResult.in_doubt``): the store may have applied it, so it is neither counted as written
+    nor settled, and if it was applied the next run finds its snapshots already in the store. Any
+    other store failure (a check before sending, an HTTP error, which is the store's answer)
+    leaves nothing in doubt: the graph was not written.
 
     The key files must belong to ``store``'s repository: this function does not check it. The
     CLI keeps a non-production repository's files apart (``projection.project_scores``'s
@@ -573,8 +575,9 @@ def _write_graph(
         else:
             try:
                 out.written[graph] = gate.ingest(store, data, graph)
-            except GraphDBError:
-                # Sent, but the answer never came (or came as an error): it may be in the store.
+            except gate.WriteInDoubt:
+                # Sent, but the answer never came: it may be in the store. Any other store error
+                # (a check before sending, an HTTP error answered) means it was not written.
                 out.in_doubt = graph
                 raise
     except gate.IngestRejected as exc:
