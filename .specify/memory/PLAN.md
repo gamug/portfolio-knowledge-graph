@@ -914,14 +914,19 @@ re-declare an individual already in the store):
 
 - **Graphs dated by ingestion** (`urn:graph:ingest:{agent}:{date}` for SEMANTIC, VALORIZATION,
   TECHNICAL, SECTOR: transaction time, "what did we believe as of ingestion date X"): a quarantined
-  row is **late, not lost**. The individual never reached the store, so once upstream fixes it, a later
-  run writes it into that run's new graph, which is the honest record of when it arrived. The report
-  lists it as late.
-- **Graphs dated by the data** (`urn:graph:ingest:ORCHESTRATOR:{date}`, keyed by the scheme's
-  `cycleDate`, T-121; `urn:graph:ingest:FUNDAMENTAL:{year}-Q{n}`; `urn:graph:universe:{year}-Q{n}`): a
-  quarantined row is **lost for that date**, since its graph cannot be appended to once written and a
-  later graph would misdate it. The only recovery is a re-run before the graph is written. The report
-  lists it as lost.
+  row is **late, not lost**, provided a later run reads it again. The individual never reached the
+  store, so once upstream fixes it, a later run writes it into that run's new graph, which is the
+  honest record of when it arrived. **Re-read mechanism:** T-163's report persists the keys of its late
+  rows, and the next run (T-031) re-reads those keys along with its own rows, dropping a key from the
+  list once its row is written. Until T-031 implements that, a late row is reported as lost.
+- **Graphs dated by the data**, and **every graph not listed above**: `urn:graph:ingest:ORCHESTRATOR:{date}`
+  (keyed by the scheme's `cycleDate`, T-121), `urn:graph:ingest:FUNDAMENTAL:{year}-Q{n}`,
+  `urn:graph:universe:{year}-Q{n}`, `urn:graph:ingest:EDGAR:{date-or-quarter}` (`v_sec_filing`),
+  `urn:graph:derived:quant:{date}` (`v_quant_*`, the book's `as_of`) and
+  `urn:graph:derived:entity-resolution:{date}` (`v_shared_executive_edge`). A quarantined row is
+  **lost for that date**, since its graph cannot be appended to once written and a later graph would
+  misdate it. The only recovery is a re-run before the graph is written. The report lists it as lost.
+  A graph added to `docs/07` later is data-dated unless this list says otherwise.
 
 The run stops when a view's quarantined share exceeds its cap. Caps are set per view in T-162's
 expectations and **default to 0** (any row-level failure stops the run): the boundary should not decide

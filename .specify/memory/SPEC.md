@@ -823,12 +823,14 @@ treating a related FR/NR as done:
     run's rankings) and reports it; a cascaded row counts against its own
     view's cap. In a graph dated by ingestion (`ingest:{agent}:{date}` for the
     SEMANTIC, VALORIZATION, TECHNICAL and SECTOR lanes) a quarantined row is
-    late, not lost: a later run writes it into its own new graph. In a graph
-    dated by the data (ORCHESTRATOR by `cycleDate`, FUNDAMENTAL by quarter,
-    universe) it is lost for that date, since the ingest gate never appends to
-    an existing append-only graph. The run stops when a view's quarantined
-    share exceeds its cap (per view, default 0, T-162). Rows skipped by design are counted, not failed. Not detectable: a
-    reversed polarity, or whether upstream's numbers are right.
+    late, not lost: the report persists its key and the next run re-reads it
+    (T-031; until then it is reported as lost). In every other graph (dated by
+    the data: ORCHESTRATOR by `cycleDate`, FUNDAMENTAL by quarter, universe,
+    EDGAR, quant, entity resolution) it is lost for that date, since the ingest
+    gate never appends to an existing append-only graph. The run stops when a
+    view's quarantined share exceeds its cap (per view, default 0, T-162). Rows
+    skipped by design are counted, not failed. Not detectable: a reversed
+    polarity, or whether upstream's numbers are right.
 11. **The computation decision is resolved: the SEMANTIC score is not computed
     here; who materializes it is disputed, and the cut-over is still pending.** The earlier plan to
     aggregate `article_sentiment` per `(asset, day)` in this repo (old Work

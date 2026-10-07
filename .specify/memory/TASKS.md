@@ -44,7 +44,9 @@ are closed (see `CHANGELOG.md`).*
       `normalized_score`). Skip a
       cycle-lane row with a NULL `available_at` (every such row before upstream's T-144) and count it
       in Work item 16's boundary report (T-163), so no row is dropped silently; never fill it in. Parse
-      `computed_at` with `+00:00` or `Z`. And guard
+      `computed_at` with `+00:00` or `Z`. Re-read the keys of the late rows T-163's previous report
+      persisted (quarantined rows bound for an ingestion-dated graph, `PLAN.md` Work item 16), and drop
+      each key once its row is written. And guard
       against a change of *meaning* the column-name check cannot see (e.g. upstream moving
       `normalized_score` to [0, 1] would pass the [0, 100] check and become ~0.99 risk), for
       instance a per-lane cohort mean near 50, upstream's documented centre (Work item 16's
@@ -405,7 +407,7 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
 *Input-side validation of the `v_*` rows, before any triple is built. `pyshacl` stays the graph gate.
 See `PLAN.md` Work item 16.*
 
-- [x] **T-160** *(done 2026-10-07: plain checks, no library; row-level failures quarantine the row and its group (ranking + components, scheme + components + that run's rankings), late in an ingestion-dated graph and lost in a data-dated one, each row counted against its own view's per-view cap (default 0); source and aggregate failures stop the run; nine check kinds, a per-lane D2 look-ahead check; recorded in `SPEC.md` §13 item 10; the text below is the original task, kept for the record)* Decide the failure policy (stop the run, or quarantine failing rows and report them)
+- [x] **T-160** *(done 2026-10-07: plain checks, no library; row-level failures quarantine the row and its group (ranking + components, scheme + components + that run's rankings), late in an ingestion-dated graph (re-read by the next run) and lost in any other, each row counted against its own view's per-view cap (default 0); source and aggregate failures stop the run; nine check kinds, a per-lane D2 look-ahead check; recorded in `SPEC.md` §13 item 10; the text below is the original task, kept for the record)* Decide the failure policy (stop the run, or quarantine failing rows and report them)
       and the validation tool, from the list of checks needed (types, NULL rate, range, natural-key
       uniqueness, `available_at` against `event_time`, row count per view, and the source check of
       T-157). A check with no offending row (row count, NULL rate, cohort mean) is reported against
@@ -452,7 +454,8 @@ See `PLAN.md` Work item 16.*
       check first and stops on its failure. The report also counts, per view and reason, the rows
       skipped by design: T-031's cycle-lane rows with a NULL `available_at`, T-155's no-component
       ranking rows, and T-151's run-keyed rows whose run fails the checks. It lists each quarantined
-      row as late (ingestion-dated graph) or lost (data-dated graph), per `PLAN.md` Work item 16. Lands with T-031.
+      row as late (ingestion-dated graph) or lost (any other graph), per `PLAN.md` Work item 16, and
+      persists the late rows' keys for the next run to re-read. Lands with T-031.
       → step 3.
 - [ ] **T-164** Tests with synthetic rows: one passing and one failing case per check kind, and the
       behaviour of the policy T-160 selected: an aggregate failure, a quarantine under the cap, a stop
