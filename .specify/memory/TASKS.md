@@ -405,7 +405,7 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
 *Input-side validation of the `v_*` rows, before any triple is built. `pyshacl` stays the graph gate.
 See `PLAN.md` Work item 16.*
 
-- [x] **T-160** *(done 2026-10-07: plain checks, no library; row-level failures quarantine the row and its group (ranking + components, scheme + components + that run's rankings), permanently for that dated graph, with a per-view cap defaulting to 0; source and aggregate failures stop the run; nine check kinds, a per-lane D2 look-ahead check; recorded in `SPEC.md` §13 item 10; the text below is the original task, kept for the record)* Decide the failure policy (stop the run, or quarantine failing rows and report them)
+- [x] **T-160** *(done 2026-10-07: plain checks, no library; row-level failures quarantine the row and its group (ranking + components, scheme + components + that run's rankings), late in an ingestion-dated graph and lost in a data-dated one, each row counted against its own view's per-view cap (default 0); source and aggregate failures stop the run; nine check kinds, a per-lane D2 look-ahead check; recorded in `SPEC.md` §13 item 10; the text below is the original task, kept for the record)* Decide the failure policy (stop the run, or quarantine failing rows and report them)
       and the validation tool, from the list of checks needed (types, NULL rate, range, natural-key
       uniqueness, `available_at` against `event_time`, row count per view, and the source check of
       T-157). A check with no offending row (row count, NULL rate, cohort mean) is reported against
@@ -451,12 +451,14 @@ See `PLAN.md` Work item 16.*
       check and the group for an aggregate one, applying the T-160 policy. It runs T-162's source
       check first and stops on its failure. The report also counts, per view and reason, the rows
       skipped by design: T-031's cycle-lane rows with a NULL `available_at`, T-155's no-component
-      ranking rows, and T-151's run-keyed rows whose run fails the checks. Lands with T-031.
+      ranking rows, and T-151's run-keyed rows whose run fails the checks. It lists each quarantined
+      row as late (ingestion-dated graph) or lost (data-dated graph), per `PLAN.md` Work item 16. Lands with T-031.
       → step 3.
 - [ ] **T-164** Tests with synthetic rows: one passing and one failing case per check kind, and the
       behaviour of the policy T-160 selected: an aggregate failure, a quarantine under the cap, a stop
       above it (the default cap of 0 included), and the group cascade (a failing component takes its
-      ranking row; a failing scheme takes its components and that run's rankings), under Work item 13's
+      ranking row; a failing scheme takes its components and that run's rankings; each cascaded row
+      counted against its own view's cap), under Work item 13's
       structure (T-131, landed in PR #56). → step 4.
 - [ ] **T-165** Verify and document: `SPEC.md` §13 item 10 (today the pin and the drift check) gains
       what is checked at the boundary and what is not, including that polarity is not detectable;

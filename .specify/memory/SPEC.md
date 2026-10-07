@@ -820,10 +820,14 @@ treating a related FR/NR as done:
     T-144 fills it), row count and group mean. A source or aggregate failure
     stops the run; a row-level failure quarantines the row with its group (a
     ranking row with its components; a scheme with its components and that
-    run's rankings) and reports it. A quarantine is permanent for that date,
-    since the ingest gate never appends to an existing dated graph, so the run
-    stops when a view's quarantined share exceeds its cap (per view, default 0,
-    T-162). Rows skipped by design are counted, not failed. Not detectable: a
+    run's rankings) and reports it; a cascaded row counts against its own
+    view's cap. In a graph dated by ingestion (`ingest:{agent}:{date}` for the
+    SEMANTIC, VALORIZATION, TECHNICAL and SECTOR lanes) a quarantined row is
+    late, not lost: a later run writes it into its own new graph. In a graph
+    dated by the data (ORCHESTRATOR by `cycleDate`, FUNDAMENTAL by quarter,
+    universe) it is lost for that date, since the ingest gate never appends to
+    an existing append-only graph. The run stops when a view's quarantined
+    share exceeds its cap (per view, default 0, T-162). Rows skipped by design are counted, not failed. Not detectable: a
     reversed polarity, or whether upstream's numbers are right.
 11. **The computation decision is resolved: the SEMANTIC score is not computed
     here; who materializes it is disputed, and the cut-over is still pending.** The earlier plan to

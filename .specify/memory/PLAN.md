@@ -904,13 +904,29 @@ its group**, reported as one unit, so no partial individual is built (SHACL woul
 - a `v_weight_scheme` row goes with all its `v_weight_component` rows and every ranking row of that
   run, which points to the scheme (T-121); a failing component takes the scheme with it.
 
-This matches T-151's treatment of these run-keyed views. **A quarantine is permanent for its date:**
-the ingest gate refuses to append to an append-only dated graph once it exists (`kg_store.gate`), so
-a quarantined row cannot be added to `urn:graph:ingest:{agent}:{date}` after upstream fixes it. The
-only recovery is a re-run *before* that graph is written, so the run stops when a view's quarantined
-share exceeds its cap; the cap is the permanent loss accepted per view and date. Caps are set per view
-in T-162's expectations and **default to 0** (any row-level failure stops the run) unless T-162
-records why a view may lose rows; the report lists every quarantined row as lost for that date.
+This matches T-151's treatment of these run-keyed views. A cascaded row counts against its own view's
+cap (a ranking row taken by its scheme counts toward `v_cycle_ranking`'s), and the report names the row
+that caused the cascade.
+
+**What a quarantine costs depends on how the target graph is dated** (`docs/07`'s named-graph table;
+the ingest gate refuses to append to an existing append-only graph, `kg_store.gate`, and to
+re-declare an individual already in the store):
+
+- **Graphs dated by ingestion** (`urn:graph:ingest:{agent}:{date}` for SEMANTIC, VALORIZATION,
+  TECHNICAL, SECTOR: transaction time, "what did we believe as of ingestion date X"): a quarantined
+  row is **late, not lost**. The individual never reached the store, so once upstream fixes it, a later
+  run writes it into that run's new graph, which is the honest record of when it arrived. The report
+  lists it as late.
+- **Graphs dated by the data** (`urn:graph:ingest:ORCHESTRATOR:{date}`, keyed by the scheme's
+  `cycleDate`, T-121; `urn:graph:ingest:FUNDAMENTAL:{year}-Q{n}`; `urn:graph:universe:{year}-Q{n}`): a
+  quarantined row is **lost for that date**, since its graph cannot be appended to once written and a
+  later graph would misdate it. The only recovery is a re-run before the graph is written. The report
+  lists it as lost.
+
+The run stops when a view's quarantined share exceeds its cap. Caps are set per view in T-162's
+expectations and **default to 0** (any row-level failure stops the run): the boundary should not decide
+what to drop unless T-162 records why a view may lose (or delay) rows, and for a data-dated graph a
+non-zero cap is a permanent gap.
 
 **Acceptance**: every view the projection reads has expectations; a violating row never reaches the
 triple builder under the chosen policy; the failure message names the view and column, plus the row key
