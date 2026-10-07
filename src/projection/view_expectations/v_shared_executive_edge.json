@@ -1,0 +1,12 @@
+{
+  "view": "v_shared_executive_edge",
+  "keys": [["asset_id_a", "asset_id_b"]],
+  "cap": 0,
+  "null_rate": [
+    {"column": "asset_id_a", "max": 0},
+    {"column": "asset_id_b", "max": 0},
+    {"column": "first_seen", "all_null": true, "until": "T-154"},
+    {"column": "last_seen", "all_null": true, "until": "T-154"}
+  ],
+  "ranges": [{"column": "person_count", "min": 1}]
+}

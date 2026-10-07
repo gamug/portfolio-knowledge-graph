@@ -859,13 +859,13 @@ since a polarity change leaves the column set untouched.
    `available_at`, T-155's no-component rows, T-151's run-keyed rows), so no row is dropped
    silently.
 2. Add the dependency (through a constitution amendment first, if it is a library) and write the
-   expectations beside `view_contract.py`, for the views Work item 4 reads (T-161, T-162). The
-   run-identity checks are not among them: T-151 owns those, because they compare a row with its run
-   table and a failure there omits `:runId` instead of failing the row, except for the run-keyed
-   views T-151 lists (`v_weight_*`, `v_cycle_ranking`, `v_cycle_ranking_component`), whose rows
-   are skipped and counted in the report. The expectations do include one source check, which
-   stops the run: the database meets the `schema_version` floor and holds no REPLAY run (T-157,
-   Work item 15).
+   expectations as JSON files beside `view_contract.py` (done, T-162), for the views Work item 4
+   reads (T-161, T-162). The run-identity checks are not among them: T-151 owns those, because they
+   compare a row with its run table and a failure there omits `:runId` instead of failing the row,
+   except for the run-keyed views T-151 lists (`v_weight_*`, `v_cycle_ranking`,
+   `v_cycle_ranking_component`), whose rows are skipped and counted in the report. The expectations
+   do include one source check, which stops the run: the database meets the `schema_version` floor
+   and holds no REPLAY run (T-157, Work item 15).
 3. Run them on the read path, source check first, so T-031's first real projection already goes
    through them (T-163).
 4. Test the selected policy (the cap, a stop on exceeding it, the group cascade, a late row's key
@@ -874,12 +874,17 @@ since a polarity change leaves the column set untouched.
 
 **Decided (T-160, 2026-10-07): plain checks, no library.** Rows reach this repo as
 `portfolio_common.db` row objects, not frames, and a frame library (pandera, Great Expectations,
-deepchecks) would bring a dataframe stack (`uv.lock` has neither pandas nor numpy) for a few thousand
-rows per cycle; the checks that matter most (the source check, the per-`(cycle_run_id, score_type)`
-cohort mean, by-design NULLs, skipped-row counts, the report naming view, column and row key or group)
-are custom code under any of them, and deepchecks targets ML data and model drift. T-161 therefore
-closes with no dependency and no constitution amendment (Technological stock #2 already names the
-whole stack). The expectations are a declarative table keyed by view name beside `view_contract.py`.
+deepchecks) would bring a dataframe stack (`uv.lock` has neither pandas nor numpy) for a few
+thousand rows per cycle; the checks that matter most (the source check, the per-cohort mean,
+by-design NULLs, skipped-row counts, the report naming view, column and row key or group) are custom
+code under any of them, and deepchecks targets ML data and model drift. T-161 therefore closes with
+no dependency and no constitution amendment (Technological stock #2 already names the whole stack).
+The expectations are data: one JSON file per view under `src/projection/view_expectations/` (plus
+`_source.json` for the source check), read by a strict loader, `src/projection/expectations.py`
+(T-162). The loader checks column names against `VIEW_COLUMNS`, so the column lists are not
+repeated; a column or view upstream has not shipped yet is marked `pending`, and the marker is
+rejected once the pin gains it. A cap above 0 needs a `cap_reason`. The files only hold parameters:
+the check kinds, the cascade and the report are code (T-163).
 
 *Check kinds* (T-164 tests one passing and one failing case per kind; a new kind is added to this
 list with its test):
@@ -894,7 +899,12 @@ list with its test):
   VALORIZATION, SECTOR) `available_at = event_time`, the cycle date, once upstream's T-144 fills it
   (until then a NULL is skipped by design and counted, T-031). Read whether the columns are dates or
   timestamps from a real view before pinning;
-- **group mean**: the cohort mean near 50, with a tolerance (T-162).
+- **group mean**: the cohort mean near 50, with a tolerance (T-162), over two groupings.
+  VALORIZATION, TECHNICAL and SECTOR run over `v_score_snapshot.normalized_score` by `(run_kind,
+  run_id, score_type)`: run ids repeat across the four run tables (D7), so `run_id` alone could
+  merge two runs. FUNDAMENTAL runs over `v_cycle_ranking_component.component_value` by
+  `(cycle_run_id, score_type)`, since its stored `normalized_score` mixes cohorts (D17); that view
+  is `pending` until upstream's T-144, so this guard is inactive until then.
 
 *Policy.* A source or aggregate failure stops the run. A row-level failure quarantines the row **and
 its group**, reported as one unit, so no partial individual is built (SHACL would not catch one:

@@ -122,9 +122,10 @@ built upstream); it makes no portfolio or trading decision and renders no report
   via `cli/verify_store.py`. Only `instances.trig`'s worked example is loaded.
 - The start of the real step-2 projection (`src/projection/`, Work item 4,
   T-030): the pinned `v_*` read contract (`view_contract.py`), its drift check
-  (`cli/check_view_contract.py`) and the 0–100 → [0, 1] score conversion
-  (`score_scale.py`, §2.6). Nothing reads the `v_*` views or writes ingest
-  graphs yet (T-031).
+  (`cli/check_view_contract.py`), the 0–100 → [0, 1] score conversion
+  (`score_scale.py`, §2.6) and the boundary expectations, one JSON file per
+  view under `view_expectations/` read by `expectations.py` (T-162, §13 item
+  10). Nothing reads the `v_*` views or writes ingest graphs yet (T-031).
 - Keeping the schema and its companion docs internally consistent: the exact
   class/shape/graph/quad counts asserted in `06`/`07` and `schema/README.md`
   must stay in sync with `tbox.ttl`/`shapes.ttl`/`instances.trig` after any
@@ -812,7 +813,9 @@ treating a related FR/NR as done:
     arrive as `portfolio_common.db` row objects, a cycle is a few thousand rows,
     and the checks that matter (source check, per-group cohort mean, by-design
     NULLs, the skipped-row report) are custom under any library. A declarative
-    table of expectations keyed by view sits beside `view_contract.py` (T-162),
+    set of expectations, one JSON file per view under
+    `src/projection/view_expectations/` and a strict loader
+    (`src/projection/expectations.py`), sits beside `view_contract.py` (T-162),
     with nine check kinds: source (`schema_version` floor, no REPLAY run; runs
     first), type, format (`computed_at`, `forensic_flags_json`), NULL rate,
     range, natural-key uniqueness, ordered pair (D2's look-ahead guard:
