@@ -97,9 +97,10 @@ are closed (see `CHANGELOG.md`).*
     CLI creates the key folder; both files are checked before upstream is read, so a missing
     folder or a malformed file stops a run before it writes, and both are replaced atomically
     (`keys/` is git-ignored: the files are local run state).
-  - **Errors:** a missing or table-less source database, or a key file that cannot be read or
-    written, exits 1 with a message; a store failure partway prints what was already written and
-    settles its keys.
+  - **Errors:** a missing or table-less source database, or a key file that is damaged or cannot
+    be read or written, exits 1 with a message; a store failure partway (an HTTP error, a closed
+    connection or a timeout, all `GraphDBError`) prints what was already written and settles its
+    keys.
   - **On today's upstream data** the cycle lanes are all skipped (every `available_at` is NULL), so
     only FUNDAMENTAL snapshots are produced until upstream's T-144.
   - **Open:** the other views (T-155 and the rest of Work item 4's list), `:runId` (T-151's rule),

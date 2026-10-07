@@ -7,6 +7,8 @@ Shared fixtures only: ``src/`` reaches the import path through ``pyproject.toml`
 from __future__ import annotations
 
 import contextlib
+import socket
+import threading
 from collections.abc import Callable, Iterator
 from typing import cast
 
@@ -68,3 +70,22 @@ class FakeGraphDB:
 def make_db() -> Callable[..., FakeGraphDB]:
     """Factory for a :class:`FakeGraphDB`: ``make_db(rows=..., sizes=..., fail_on_add=...)``."""
     return FakeGraphDB
+
+
+@pytest.fixture
+def hangs_up() -> Iterator[str]:
+    """The URL of a server that reads one request and closes the connection without answering."""
+    server = socket.socket()
+    server.bind(("127.0.0.1", 0))
+    server.listen(1)
+
+    def serve() -> None:
+        conn, _ = server.accept()
+        conn.recv(65536)
+        conn.close()
+
+    thread = threading.Thread(target=serve, daemon=True)
+    thread.start()
+    yield f"http://127.0.0.1:{server.getsockname()[1]}"
+    thread.join(timeout=5)
+    server.close()

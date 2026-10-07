@@ -16,7 +16,9 @@ the run sees upstream as of: a row not yet available on it is left for a later r
 today is refused. A past day is a replay: ``--write`` with it needs ``--replay``, ``--replay`` needs
 ``--write``, and it never writes to the production repository (``KG_REPOSITORY=portfolio``), whose
 graphs record what was loaded on which day.
-A dry run does not consult the store, so it cannot see which graphs already exist.
+A dry run does not consult the store, so it cannot see which graphs already exist. It writes no
+graph and removes no key, but with ``--late-keys`` it creates the key folder and records the keys
+of the rows the boundary delays.
 Exit status: 0 on success; 1 if the boundary or the projection stopped the run, the source could
 not be read, a key file could not be read or written, the store failed or the gate refused a
 graph; 2 on a bad argument. Rows lost (listed
@@ -157,7 +159,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     except sqlite3.Error as exc:  # a missing database, or one without upstream's tables
         print(f"source error: {exc} (SQL_FINANCIAL_DB, SQL_UNIVERSE_DB)", file=sys.stderr)
         return 1
-    except OSError as exc:  # a key file or its folder that cannot be read or written
+    # A key file or its folder that cannot be read or written. Never the store: GraphDB turns
+    # its own connection errors (a closed connection, a timeout) into GraphDBError.
+    except OSError as exc:
         print(f"file error: {exc}", file=sys.stderr)
         return 1
     print(result.summary())

@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import base64
 import contextlib
+import http.client
 import json
 import os
 import urllib.error
@@ -112,6 +113,10 @@ class GraphDB:
             ) from exc
         except urllib.error.URLError as exc:
             raise GraphDBError(f"cannot reach GraphDB at {self.host}: {exc.reason}") from exc
+        except (OSError, http.client.HTTPException) as exc:
+            # urlopen wraps a failure to send, not one while the answer is read (a closed
+            # connection, a read timeout): those are the store's failures too, never a file's.
+            raise GraphDBError(f"connection to GraphDB at {self.host} lost: {exc!r}") from exc
 
     def update(self, sparql: str) -> None:
         """Run a SPARQL Update (needs write access)."""

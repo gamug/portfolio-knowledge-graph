@@ -479,6 +479,11 @@ def run(
     # Before anything is read or written, so a key file never stops a run after a write.
     if late_keys_path is not None and not late_keys_path.parent.is_dir():
         raise ProjectionError(f"{late_keys_path.parent}: the key files' folder does not exist")
+    if late_keys_path is not None:
+        try:
+            load_late_keys(late_keys_path)  # the boundary reads it again; this names the failure
+        except ValueError as exc:
+            raise ProjectionError(str(exc)) from exc
     lost_path = lost_keys_path(late_keys_path) if late_keys_path is not None else None
     known_lost = load_lost_keys(lost_path) if lost_path is not None else {}
     read = read_rows(source)

@@ -11,7 +11,7 @@ from types import ModuleType
 from typing import TYPE_CHECKING, Any
 
 import pytest
-from test_score_snapshots import ASSETS, _database, _fundamental, _live_store
+from snapshot_helpers import ASSETS, financial_db, fundamental_row, live_store
 
 from kg_store.graphdb import GraphDBError
 from projection.boundary import GRAPH_WRITTEN, BoundaryReport, Failure
@@ -23,7 +23,7 @@ from projection.score_snapshots import (
 )
 
 if TYPE_CHECKING:
-    from test_score_snapshots import MakeDB
+    from snapshot_helpers import MakeDB
 
 CLI = Path(__file__).resolve().parent.parent / "cli" / "project_scores.py"
 
@@ -199,8 +199,8 @@ def test_a_production_write_with_the_documented_key_path_writes_and_reports(
     # Review round 6, finding 1: ``--late-keys keys/late.json`` on a fresh checkout wrote the
     # graph, then crashed saving the lost-key file into a folder that did not exist.
     cli = _frozen(monkeypatch)
-    _database(tmp_path, [_fundamental(id=10)]).close()
-    store = _live_store(make_db)
+    financial_db(tmp_path, [fundamental_row(id=10)]).close()
+    store = live_store(make_db)
     store.repository = "portfolio"
     monkeypatch.setattr(cli.GraphDB, "from_env", classmethod(lambda _c: store.db))
     monkeypatch.setattr(cli.config, "financial_db_path", lambda: tmp_path / "financial.db")
@@ -210,6 +210,44 @@ def test_a_production_write_with_the_documented_key_path_writes_and_reports(
     assert "written: urn:graph:ingest:FUNDAMENTAL:2025-Q1" in capsys.readouterr().out
     assert [g for _, _, g in store.added] == ["urn:graph:ingest:FUNDAMENTAL:2025-Q1"]
     assert keys.parent.is_dir()
+
+
+def test_a_damaged_late_key_file_stops_the_run_with_exit_1(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    # Review round 7, finding 2: the boundary's ValueError escaped main() as a traceback.
+    cli = _frozen(monkeypatch)
+    financial_db(tmp_path, [fundamental_row(id=10)]).close()
+    monkeypatch.setattr(cli.config, "financial_db_path", lambda: tmp_path / "financial.db")
+    monkeypatch.setattr(cli, "universe_symbols", lambda _path: ASSETS)
+    keys = tmp_path / "late.json"
+    keys.write_text('{"v_score_snapshot": [[1')
+    assert cli.main(["--late-keys", str(keys)]) == 1
+    err = capsys.readouterr().err
+    assert "STOPPED" in err
+    assert "the late-key file is not JSON" in err
+
+
+def test_a_store_that_hangs_up_is_a_store_failure_not_a_file_error(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    hangs_up: str,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    # Review round 7, finding 1: a closed connection was a raw OSError, so the run skipped its
+    # key bookkeeping and the CLI printed "file error".
+    cli = _frozen(monkeypatch)
+    financial_db(tmp_path, [fundamental_row(id=10)]).close()
+    monkeypatch.setattr(
+        cli.GraphDB, "from_env", classmethod(lambda _c: cli.GraphDB(hangs_up, "portfolio", "", ""))
+    )
+    monkeypatch.setattr(cli.config, "financial_db_path", lambda: tmp_path / "financial.db")
+    monkeypatch.setattr(cli, "universe_symbols", lambda _path: ASSETS)
+    assert cli.main(["--write", "--late-keys", str(tmp_path / "late.json")]) == 1
+    printed = capsys.readouterr()
+    assert "store error, the run stopped partway: connection to GraphDB" in printed.err
+    assert "file error" not in printed.err
+    assert "already in the store" in printed.out  # the partial summary is printed
 
 
 def test_a_key_file_that_cannot_be_written_exits_1_with_a_message(
