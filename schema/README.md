@@ -134,6 +134,13 @@ what the store *enforces*.
    ±146 fail; an `attractivenessScore` of -0.10, 0.5 and 1.0 pass and 1.2 fails (the pre-change shape
    rejects -54, 46 and -0.10, so each case fails without the change). No new class or property;
    `AllDisjointClasses` is unchanged. **2473 quads; conforms: True** (one `sh:minInclusive` less).
+   **T-153, the comment half (Work item 15, second reply, 2026-10-06).** `:availableAt`'s comment now
+   covers the cycle lanes: for TECHNICAL, VALORIZATION and SECTOR it is the cycle date as upstream's
+   `v_score_snapshot` defines it (their T-144), read from upstream and never filled in here, so a row
+   without it is not projected. `:normalizedScore`'s comment says it is projected as `1 - x/100` from
+   upstream's cohort-relative `normalized_score` (50 + 10·z, clamped to [0, 100]), a relative risk reading,
+   not an absolute level. Comments only (the same text `kg_target_schema.ttl` proposes); the shapes,
+   `:promptHash` and the forensic flags wait on upstream's T-144/T-074. **2473 quads; conforms: True.**
 3. **Two more named-graph placements (a third added by T-108).** `07-ontology-topology.md` assigned graphs to every
    *agent's* daily output but not to the Orchestrator's own decisions or to entity resolution's
    derived facts. Resolved: `urn:graph:ingest:ORCHESTRATOR:{date}` and
