@@ -215,6 +215,18 @@ def test_a_valid_file_parses() -> None:
         (_mutated(pending="not shipped"), "is stale"),
         (_mutated(pending_columns={"weight": "T-1"}), "is pinned now"),
         (_mutated(null_rate="all of them"), "must be a list of objects"),
+        (
+            _mutated(null_rate=[{"column": "weight", "max": 0, "until": "T-1"}]),
+            "belongs to an all-NULL",
+        ),
+        (
+            _mutated(
+                ordered_pairs=[
+                    {"left": "weight", "op": ">", "right": "weight", "null": "fail", "until": "T-1"}
+                ]
+            ),
+            "belongs to a pair that skips",
+        ),
         (_mutated(types={"weight": ["number"]}), "unknown value"),
         (_mutated(formats={"weight": [1]}), "unknown value"),
         (

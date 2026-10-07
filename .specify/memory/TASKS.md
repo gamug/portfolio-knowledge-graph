@@ -453,10 +453,11 @@ See `PLAN.md` Work item 16.*
       check and the group for an aggregate one, applying the T-160 policy. It runs T-162's source
       check first and stops on its failure. It skips a `pending` view or column (one upstream has
       not shipped, so it cannot be read) and lists each one in the report, so an inactive guard is
-      visible. The report also counts, per view and reason, the rows skipped by design: T-031's cycle-lane rows with a NULL `available_at`, T-155's no-component
-      ranking rows, and T-151's run-keyed rows whose run fails the checks. It lists each quarantined
-      row as late (ingestion-dated graph) or lost (any other graph), per `PLAN.md` Work item 16, and
-      persists the late rows' keys for the next run to re-read. Lands with T-031.
+      visible. The report also counts, per view and reason, the rows skipped by design: T-031's
+      cycle-lane rows with a NULL `available_at`, T-155's no-component ranking rows, and T-151's
+      run-keyed rows whose run fails the checks. It lists each quarantined row as late
+      (ingestion-dated graph) or lost (any other graph), per `PLAN.md` Work item 16, and persists
+      the late rows' keys for the next run to re-read. Lands with T-031.
       → step 3.
 - [ ] **T-164** Tests with synthetic rows: one passing and one failing case per check kind, and the
       behaviour of the policy T-160 selected: an aggregate failure, a quarantine under the cap, a stop

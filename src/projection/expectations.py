@@ -284,6 +284,8 @@ def _null_rates(chk: _Checker, data: Mapping[str, Any]) -> tuple[NullRate, ...]:
         if "all_null" in item or not _is_number(limit) or not 0 <= limit <= 1:
             chk.bad(where, "needs 'max', a share between 0 and 1 (or 'all_null': true)")
             continue
+        if "until" in item:
+            chk.bad(where, "'until' belongs to an all-NULL column, not to a 'max'")
         out.append(NullRate(column, float(limit), None))
     return tuple(out)
 
@@ -320,6 +322,8 @@ def _ordered_pairs(chk: _Checker, data: Mapping[str, Any]) -> tuple[OrderedPair,
             chk.bad(where, f"'null' must be one of {sorted(NULL_POLICIES)}")
         if policy == "skip" and not _text(item.get("until")):
             chk.bad(where, "skipping a NULL needs 'until': the task that fills it")
+        if policy != "skip" and "until" in item:
+            chk.bad(where, "'until' belongs to a pair that skips NULLs")
         clause = chk.where_clause(where, item.get("where"))
         out.append(OrderedPair(left, str(op), right, clause, str(policy), item.get("until")))
     return tuple(out)
