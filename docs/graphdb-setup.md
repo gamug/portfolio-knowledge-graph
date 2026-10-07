@@ -79,7 +79,7 @@ nothing written:
 
 1. the target is named as `07` prescribes: `urn:graph:ingest:{agent}:{date}` (`FUNDAMENTAL` by
    quarter, `EDGAR` by date or quarter), `urn:graph:derived:entity-resolution:{date|quarter}`,
-   `urn:graph:universe:{year}-Q{n}` or `urn:graph:portfolio:current` (TBox, reference and rules go
+   `urn:graph:derived:quant:{date}`, `urn:graph:universe:{year}-Q{n}` or `urn:graph:portfolio:current` (TBox, reference and rules go
    through `cli/load_schema.py`);
 2. an append-only graph (all but `portfolio:current`) does not exist yet;
 3. every IRI is absolute and every `rdf:type` is one of the 27 leaf classes (the

@@ -7,7 +7,12 @@ Shared fixtures only: ``src/`` reaches the import path through ``pyproject.toml`
 from __future__ import annotations
 
 import contextlib
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
+from typing import cast
+
+import pytest
+
+from kg_store.graphdb import GraphDB, GraphDBError
 
 
 class FakeGraphDB:
@@ -17,10 +22,14 @@ class FakeGraphDB:
     """
 
     def __init__(
-        self, rows: list[dict[str, str]] | None = None, sizes: dict[str, int] | None = None
+        self,
+        rows: list[dict[str, str]] | None = None,
+        sizes: dict[str, int] | None = None,
+        fail_on_add: bool = False,
     ) -> None:
         self.rows = rows or []
         self.sizes = sizes or {}
+        self.fail_on_add = fail_on_add
         self.queries: list[str] = []
         self.added: list[tuple[bytes, str, str | None]] = []
         self.updates: list[str] = []
@@ -31,6 +40,8 @@ class FakeGraphDB:
         return self.rows
 
     def add(self, data: bytes, content_type: str, graph: str | None = None) -> None:
+        if self.fail_on_add:
+            raise GraphDBError("HTTP 500")
         self.added.append((data, content_type, graph))
 
     def update(self, sparql: str) -> None:
@@ -46,3 +57,14 @@ class FakeGraphDB:
         except BaseException:
             self.rolled_back = True
             raise
+
+    @property
+    def db(self) -> GraphDB:
+        """This fake typed as the ``GraphDB`` the code under test expects."""
+        return cast(GraphDB, self)
+
+
+@pytest.fixture
+def make_db() -> Callable[..., FakeGraphDB]:
+    """Factory for a :class:`FakeGraphDB`: ``make_db(rows=..., sizes=..., fail_on_add=...)``."""
+    return FakeGraphDB

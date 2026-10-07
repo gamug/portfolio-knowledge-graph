@@ -2,21 +2,22 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
-from typing import cast
+from typing import TYPE_CHECKING
 
 import pytest
 import rdflib
-from conftest import FakeGraphDB
 
 from kg_store import load_schema
 from kg_store.graphdb import GraphDB, GraphDBError
 
+if TYPE_CHECKING:
+    from conftest import FakeGraphDB
+
+    MakeDB = Callable[..., FakeGraphDB]
+
 SCHEMA = Path(__file__).resolve().parent.parent / "schema"
-
-
-def _db(fake: FakeGraphDB) -> GraphDB:
-    return cast(GraphDB, fake)
 
 
 def _copy_schema(tmp_path: Path) -> Path:
@@ -33,12 +34,10 @@ def test_expected_sizes_cover_every_graph_the_files_name() -> None:
 
 
 def test_tbox_and_shapes_share_one_graph() -> None:
-    sizes = load_schema.expected_sizes(SCHEMA)
-    parts = sum(
-        len(rdflib.Graph().parse(SCHEMA / f, format="turtle")) for f in ("tbox.ttl", "shapes.ttl")
-    )
-    # Triples in both files are stored once, so the shared graph is at most the sum.
-    assert 0 < sizes["urn:graph:tbox"] <= parts
+    union = rdflib.Graph()
+    for name in ("tbox.ttl", "shapes.ttl"):
+        union.parse(SCHEMA / name, format="turtle")
+    assert load_schema.expected_sizes(SCHEMA)["urn:graph:tbox"] == len(union)
 
 
 def test_expected_sizes_refuses_a_missing_file(tmp_path: Path) -> None:
@@ -64,9 +63,11 @@ def test_expected_sizes_refuses_triples_outside_a_graph_block(tmp_path: Path) ->
         load_schema.expected_sizes(directory)
 
 
-def test_load_drops_then_uploads_in_load_order(capsys: pytest.CaptureFixture[str]) -> None:
-    fake = FakeGraphDB()
-    expected = load_schema.load(_db(fake), SCHEMA)
+def test_load_drops_then_uploads_in_load_order(
+    make_db: MakeDB, capsys: pytest.CaptureFixture[str]
+) -> None:
+    fake = make_db()
+    expected = load_schema.load(fake.db, SCHEMA)
     assert expected == load_schema.expected_sizes(SCHEMA)
     assert fake.updates == [f"DROP SILENT GRAPH <{g}>" for g in expected]
     assert [(ct, graph) for _, ct, graph in fake.added] == [
@@ -80,36 +81,32 @@ def test_load_drops_then_uploads_in_load_order(capsys: pytest.CaptureFixture[str
     assert capsys.readouterr().out.splitlines()[0] == "loaded tbox.ttl -> urn:graph:tbox"
 
 
-def test_load_rolls_back_when_an_upload_fails() -> None:
-    class Failing(FakeGraphDB):
-        def add(self, data: bytes, content_type: str, graph: str | None = None) -> None:
-            raise GraphDBError("HTTP 500")
-
-    fake = Failing()
+def test_load_rolls_back_when_an_upload_fails(make_db: MakeDB) -> None:
+    fake = make_db(fail_on_add=True)
     with pytest.raises(GraphDBError):
-        load_schema.load(_db(fake), SCHEMA)
+        load_schema.load(fake.db, SCHEMA)
     assert fake.rolled_back
 
 
-def test_load_touches_nothing_when_the_files_are_bad(tmp_path: Path) -> None:
-    fake = FakeGraphDB()
+def test_load_touches_nothing_when_the_files_are_bad(tmp_path: Path, make_db: MakeDB) -> None:
+    fake = make_db()
     with pytest.raises(load_schema.SchemaError):
-        load_schema.load(_db(fake), tmp_path)
+        load_schema.load(fake.db, tmp_path)
     assert fake.updates == [] and fake.added == []
 
 
-def test_verify_passes_when_sizes_match_and_lists_other_graphs() -> None:
+def test_verify_passes_when_sizes_match_and_lists_other_graphs(make_db: MakeDB) -> None:
     expected = {"urn:graph:tbox": 10, "urn:graph:reference": 5}
-    fake = FakeGraphDB(sizes={**expected, "urn:graph:ingest:SEMANTIC:2026-08-05": 3})
-    problems, others = load_schema.verify(_db(fake), expected)
+    fake = make_db(sizes={**expected, "urn:graph:ingest:SEMANTIC:2026-08-05": 3})
+    problems, others = load_schema.verify(fake.db, expected)
     assert problems == []
     assert others == ["urn:graph:ingest:SEMANTIC:2026-08-05"]
 
 
-def test_verify_reports_a_size_mismatch_and_a_missing_graph() -> None:
+def test_verify_reports_a_size_mismatch_and_a_missing_graph(make_db: MakeDB) -> None:
     expected = {"urn:graph:tbox": 10, "urn:graph:reference": 5}
-    fake = FakeGraphDB(sizes={"urn:graph:tbox": 9})
-    problems, others = load_schema.verify(_db(fake), expected)
+    fake = make_db(sizes={"urn:graph:tbox": 9})
+    problems, others = load_schema.verify(fake.db, expected)
     assert problems == [
         "urn:graph:tbox: expected 10, store has 9",
         "urn:graph:reference: expected 5, store has 0",
@@ -118,9 +115,9 @@ def test_verify_reports_a_size_mismatch_and_a_missing_graph() -> None:
 
 
 @pytest.fixture
-def store(monkeypatch: pytest.MonkeyPatch) -> FakeGraphDB:
+def store(monkeypatch: pytest.MonkeyPatch, make_db: MakeDB) -> FakeGraphDB:
     """``main`` against a fake store that reports exactly what a correct load produces."""
-    fake = FakeGraphDB(sizes=load_schema.expected_sizes(SCHEMA))
+    fake = make_db(sizes=load_schema.expected_sizes(SCHEMA))
     monkeypatch.setattr(GraphDB, "from_env", classmethod(lambda cls: fake))
     return fake
 

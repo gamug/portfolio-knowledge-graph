@@ -2,15 +2,19 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
-from typing import cast
+from typing import TYPE_CHECKING
 
 import pytest
 import rdflib
-from conftest import FakeGraphDB
 
 from kg_store import gate
-from kg_store.graphdb import GraphDB
+
+if TYPE_CHECKING:
+    from conftest import FakeGraphDB
+
+    MakeDB = Callable[..., FakeGraphDB]
 
 SCHEMA = Path(__file__).resolve().parent.parent / "schema"
 KG = rdflib.Namespace("https://thesis.local/kg/portfolio#")
@@ -21,11 +25,6 @@ def _instance_graphs() -> dict[str, rdflib.Graph]:
     ds = rdflib.Dataset(default_union=False)
     ds.parse(SCHEMA / "instances.trig", format="trig")
     return {str(g.identifier): g for g in ds.graphs() if len(g)}
-
-
-def _db(**kwargs: object) -> tuple[GraphDB, FakeGraphDB]:
-    fake = FakeGraphDB(**kwargs)  # type: ignore[arg-type]
-    return cast(GraphDB, fake), fake
 
 
 def _reject(batch: rdflib.Graph) -> str:
@@ -157,13 +156,16 @@ _NOT_SELF_CONTAINED = {
     "urn:graph:derived:quant:2026-08-05": "sh:class on an Asset/Portfolio typed elsewhere",
     "urn:graph:ingest:ORCHESTRATOR:2026-08-05": ":clearedOn on a Veto typed elsewhere",
 }
+_SHACL_GAPS = [n for n in _NOT_SELF_CONTAINED if "ORCHESTRATOR" not in n]
 
 
 def _batch_params() -> list[object]:
     return [
         pytest.param(
             name,
-            marks=pytest.mark.xfail(strict=True, reason=_NOT_SELF_CONTAINED[name]),
+            marks=pytest.mark.xfail(
+                strict=True, raises=gate.IngestRejected, reason=_NOT_SELF_CONTAINED[name]
+            ),
         )
         if name in _NOT_SELF_CONTAINED
         else name
@@ -176,6 +178,24 @@ def _batch_params() -> list[object]:
 def test_a_conforming_batch_passes(name: str) -> None:
     """Each worked-example graph, taken alone as a batch, clears every check."""
     gate.validate(_instance_graphs()[name])
+
+
+@pytest.mark.parametrize("name", _SHACL_GAPS)
+def test_the_standalone_gap_is_only_a_class_check_on_a_reference(name: str) -> None:
+    """The two SHACL xfails fail for the documented reason and no other (T-146)."""
+    with pytest.raises(gate.ShaclRejected) as info:
+        gate.validate(_instance_graphs()[name])
+    components = {
+        c for c in info.value.results.objects(None, rdflib.namespace.SH.sourceConstraintComponent)
+    }
+    assert components == {rdflib.namespace.SH.ClassConstraintComponent}
+
+
+def test_the_orchestrator_gap_is_the_untyped_subject_rule_on_cleared_on() -> None:
+    graph = _instance_graphs()["urn:graph:ingest:ORCHESTRATOR:2026-08-05"]
+    message = _reject(graph)
+    assert "no rdf:type" in message
+    assert ":clearedOn" in message
 
 
 def test_validate_rejects_an_unknown_type() -> None:
@@ -201,22 +221,25 @@ def test_validate_rejects_a_shape_violation_with_the_results_graph() -> None:
 GOOD = PREFIXES + b':a a :Asset ; :tickerSymbol "AAA" ; :cikNumber "0000000001" .'
 
 
-def test_existing_subjects_reports_what_the_store_has() -> None:
-    db, fake = _db(rows=[{"s": "https://thesis.local/kg/portfolio#a"}])
+def test_existing_subjects_reports_what_the_store_has(make_db: MakeDB) -> None:
+    fake = make_db(rows=[{"s": "https://thesis.local/kg/portfolio#a"}])
+    db = fake.db
     found = gate.existing_subjects(db, gate.parse_batch(GOOD))
     assert found == ["https://thesis.local/kg/portfolio#a"]
     assert "http://www.ontotext.com/explicit" in fake.queries[0]
 
 
-def test_existing_subjects_queries_in_chunks_of_200() -> None:
-    db, fake = _db()
+def test_existing_subjects_queries_in_chunks_of_200(make_db: MakeDB) -> None:
+    fake = make_db()
+    db = fake.db
     lines = b"".join(b":s%d a :Asset .\n" % i for i in range(450))
     gate.existing_subjects(db, gate.parse_batch(PREFIXES + lines))
     assert len(fake.queries) == 3
 
 
-def test_existing_subjects_refuses_an_iri_that_could_inject_sparql() -> None:
-    db, fake = _db()
+def test_existing_subjects_refuses_an_iri_that_could_inject_sparql(make_db: MakeDB) -> None:
+    fake = make_db()
+    db = fake.db
     batch = rdflib.Graph()
     batch.add((rdflib.URIRef("https://x.test/a b"), rdflib.RDF.type, KG.Asset))
     with pytest.raises(gate.IngestRejected, match="illegal in an IRI"):
@@ -224,8 +247,9 @@ def test_existing_subjects_refuses_an_iri_that_could_inject_sparql() -> None:
     assert fake.queries == []
 
 
-def test_ingest_writes_the_validated_triples_as_ntriples() -> None:
-    db, fake = _db()
+def test_ingest_writes_the_validated_triples_as_ntriples(make_db: MakeDB) -> None:
+    fake = make_db()
+    db = fake.db
     written = gate.ingest(db, GOOD, "urn:graph:ingest:SEMANTIC:2026-08-05")
     assert written == 3
     [(data, content_type, graph)] = fake.added
@@ -234,22 +258,25 @@ def test_ingest_writes_the_validated_triples_as_ntriples() -> None:
     assert len(rdflib.Graph().parse(data=data, format="nt")) == 3
 
 
-def test_ingest_into_the_mutable_graph_skips_the_exists_check() -> None:
-    db, fake = _db()
+def test_ingest_into_the_mutable_graph_skips_the_exists_check(make_db: MakeDB) -> None:
+    fake = make_db()
+    db = fake.db
     gate.ingest(db, GOOD, "urn:graph:portfolio:current")
     assert len(fake.queries) == 1  # only existing_subjects, no GRAPH <...> LIMIT 1 probe
     assert len(fake.added) == 1
 
 
-def test_ingest_refuses_an_existing_append_only_graph() -> None:
-    db, fake = _db(rows=[{"s": "x"}])
+def test_ingest_refuses_an_existing_append_only_graph(make_db: MakeDB) -> None:
+    fake = make_db(rows=[{"s": "x"}])
+    db = fake.db
     with pytest.raises(gate.IngestRejected, match="already exists and is append-only"):
         gate.ingest(db, GOOD, "urn:graph:ingest:SEMANTIC:2026-08-05")
     assert fake.added == []
 
 
-def test_ingest_refuses_individuals_already_in_the_store() -> None:
-    db, fake = _db(rows=[{"s": "https://thesis.local/kg/portfolio#a"}])
+def test_ingest_refuses_individuals_already_in_the_store(make_db: MakeDB) -> None:
+    fake = make_db(rows=[{"s": "https://thesis.local/kg/portfolio#a"}])
+    db = fake.db
     with pytest.raises(gate.IngestRejected, match="already exist in the store"):
         gate.ingest(db, GOOD, "urn:graph:portfolio:current")
     assert fake.added == []
@@ -263,8 +290,9 @@ def test_ingest_refuses_individuals_already_in_the_store() -> None:
         (PREFIXES + b':a a :Asset ; :cikNumber "1" .', "urn:graph:portfolio:current"),
     ],
 )
-def test_a_refused_batch_writes_nothing(data: bytes, graph: str) -> None:
-    db, fake = _db()
+def test_a_refused_batch_writes_nothing(data: bytes, graph: str, make_db: MakeDB) -> None:
+    fake = make_db()
+    db = fake.db
     with pytest.raises(gate.IngestRejected):
         gate.ingest(db, data, graph)
     assert fake.added == []
