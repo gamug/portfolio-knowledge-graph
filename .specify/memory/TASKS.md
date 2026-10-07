@@ -448,7 +448,7 @@ See `PLAN.md` Work item 16.*
       `cycle_type = 'REPLAY'` (T-157's rule; a backfill's REPLAY rows land in the shared tables,
       D8); T-163 runs it first. Update an all-NULL-by-design expectation when upstream fills the
       column (T-154 for the edge dates, T-158 for SEMANTIC). → step 2.
-- [ ] **T-163** Run the expectations on the read path: a function that returns the validated rows
+- [x] **T-163** *(function done: `src/projection/boundary.py` (`check_source`, `validate`, `BoundaryReport`) and `tests/test_boundary.py`. Open, and T-031's: calling it on the real read, re-reading the persisted late keys, and dropping a key once its row is written; until then late rows are persisted but nothing reads them back. The cascade links of `v_cycle_ranking_component` assume `cycle_run_id` and `asset_id` columns, to be checked when upstream ships it. Dates and timestamps in an ordered pair are parsed as ISO values, a bare date as midnight UTC: a first pick, to be checked against a real view. The check on a missing column covers only the columns an expectation names, so T-031 can trim the pin.)* Run the expectations on the read path: a function that returns the validated rows
       and a report naming the view and column of every failure, with the row key for a row-level
       check and the group for an aggregate one, applying the T-160 policy. It runs T-162's source
       check first and stops on its failure. It skips a `pending` view or column (one upstream has

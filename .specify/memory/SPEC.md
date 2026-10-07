@@ -832,8 +832,10 @@ treating a related FR/NR as done:
     EDGAR, quant, entity resolution) it is lost for that date, since the ingest
     gate never appends to an existing append-only graph. The run stops when a
     view's quarantined share exceeds its cap (per view, default 0, T-162). Rows
-    skipped by design are counted, not failed. Not detectable: a reversed
-    polarity, or whether upstream's numbers are right.
+    skipped by design are counted, not failed. `src/projection/boundary.py`
+    runs them over the rows read (T-163: `check_source`, then `validate`, which
+    returns the surviving rows and a report, or raises `BoundaryError`). Not
+    detectable: a reversed polarity, or whether upstream's numbers are right.
 11. **The computation decision is resolved: the SEMANTIC score is not computed
     here; who materializes it is disputed, and the cut-over is still pending.** The earlier plan to
     aggregate `article_sentiment` per `(asset, day)` in this repo (old Work

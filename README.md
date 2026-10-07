@@ -52,7 +52,7 @@ storage location assigned in `07` and its writer assigned in `08`.
 │   └── protege-view.ttl                   generated flat Turtle bundle for Protégé — STALE as of 2026-08-23, not regenerated after the tbox.ttl/reference.ttl/shapes.ttl edits below; regenerate before using in Protégé
 ├── src/etl/, cli/build_data_ttl.py         transitional ETL: universe.db + portfolio-nlp results → flat data.ttl (roadmap step 2 shortcut)
 ├── src/kg_store/, cli/load_schema.py, cli/ingest.py, cli/verify_store.py   GraphDB store, schema loader, SHACL ingest gate (roadmap step 1)
-├── src/projection/, cli/check_view_contract.py   real step-2 projection (Work item 4): v_* read contract, drift check, score conversion, boundary expectations (view_expectations/*.json)
+├── src/projection/, cli/check_view_contract.py   real step-2 projection (Work item 4): v_* read contract, drift check, score conversion, boundary expectations (view_expectations/*.json) and their runner (boundary.py)
 └── docs/                                  all Markdown design documents
     ├── critique-and-evolution.md          v1 critique + v2 evolution layers
     ├── 06-ontology-definition.md          ontology design rationale
