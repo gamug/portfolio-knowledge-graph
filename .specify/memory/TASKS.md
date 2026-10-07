@@ -405,7 +405,7 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
 *Input-side validation of the `v_*` rows, before any triple is built. `pyshacl` stays the graph gate.
 See `PLAN.md` Work item 16.*
 
-- [x] **T-160** *(done 2026-10-07: plain checks, no library; row-level failures quarantined and reported with a per-view cap, aggregate and source failures stop the run; recorded in `SPEC.md` §13 item 10; the text below is the original task, kept for the record)* Decide the failure policy (stop the run, or quarantine failing rows and report them)
+- [x] **T-160** *(done 2026-10-07: plain checks, no library; row-level failures quarantine the row and its group (ranking + components, scheme + components + that run's rankings), permanently for that dated graph, with a per-view cap defaulting to 0; source and aggregate failures stop the run; nine check kinds, a per-lane D2 look-ahead check; recorded in `SPEC.md` §13 item 10; the text below is the original task, kept for the record)* Decide the failure policy (stop the run, or quarantine failing rows and report them)
       and the validation tool, from the list of checks needed (types, NULL rate, range, natural-key
       uniqueness, `available_at` against `event_time`, row count per view, and the source check of
       T-157). A check with no offending row (row count, NULL rate, cohort mean) is reported against
@@ -419,7 +419,9 @@ See `PLAN.md` Work item 16.*
       stock #6, Governance steps 1–4, MINOR bump), as its own reviewed change, then add the dependency
       to `pyproject.toml`. If plain checks won, there is no dependency and no amendment. → step 2.
 - [ ] **T-162** Write the expectations for the views Work item 4 reads, beside
-      `src/projection/view_contract.py`, keyed by view name. Include the `v_score_snapshot`
+      `src/projection/view_contract.py`, keyed by view name. Include each view's quarantine cap (default 0;
+      record why for any view allowed to lose rows) and the check kinds T-160 lists (`PLAN.md` Work
+      item 16), the format and per-lane look-ahead checks included. Include the `v_score_snapshot`
       `normalized_score` range and the cohort mean near 50, with a tolerance, not equality
       (upstream's winsorization and clamp shift it slightly, third reply, Q3) for VALORIZATION,
       TECHNICAL and SECTOR, whose `normalized_score` T-031 rescales (upstream documents
@@ -451,8 +453,10 @@ See `PLAN.md` Work item 16.*
       skipped by design: T-031's cycle-lane rows with a NULL `available_at`, T-155's no-component
       ranking rows, and T-151's run-keyed rows whose run fails the checks. Lands with T-031.
       → step 3.
-- [ ] **T-164** Tests with synthetic frames: one passing and one failing case per check kind, and the
-      behaviour of the policy T-160 selected (including an aggregate failure), under Work item 13's
+- [ ] **T-164** Tests with synthetic rows: one passing and one failing case per check kind, and the
+      behaviour of the policy T-160 selected: an aggregate failure, a quarantine under the cap, a stop
+      above it (the default cap of 0 included), and the group cascade (a failing component takes its
+      ranking row; a failing scheme takes its components and that run's rankings), under Work item 13's
       structure (T-131, landed in PR #56). → step 4.
 - [ ] **T-165** Verify and document: `SPEC.md` §13 item 10 (today the pin and the drift check) gains
       what is checked at the boundary and what is not, including that polarity is not detectable;

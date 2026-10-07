@@ -868,27 +868,54 @@ since a polarity change leaves the column set untouched.
    Work item 15).
 3. Run them on the read path, source check first, so T-031's first real projection already goes
    through them (T-163).
-4. Test the selected policy and every check kind with synthetic frames under Work item 13's structure
-   (T-164).
+4. Test the selected policy (the cap, a stop on exceeding it, the group cascade) and every check kind
+   with synthetic rows under Work item 13's structure (T-164).
 
 **Decided (T-160, 2026-10-07): plain checks, no library.** Rows reach this repo as
 `portfolio_common.db` row objects, not frames, and a frame library (pandera, Great Expectations,
-deepchecks) would bring a dataframe stack for a few thousand rows; the checks that matter most (the
-source check, the per-`(cycle_run_id, score_type)` cohort mean, by-design NULLs, skipped-row counts,
-the report naming view, column and row key or group) are custom code under any of them, and
-deepchecks targets ML data and model drift. T-161 therefore closes with no dependency and no
-constitution amendment. The expectations are a declarative table keyed by view name beside
-`view_contract.py`, with seven check kinds: type, NULL rate, range, natural-key uniqueness, ordered
-pair (`available_at >= event_time`, non-strict, D2: cycle lanes get `available_at` equal to the cycle
-date after upstream's T-144; read whether both are dates or timestamps from a real view before
-pinning), row count and group mean. **Policy:** an aggregate or source failure stops the run; a
-row-level failure quarantines the row and reports it, but stops the run if the failing share of a
-view exceeds a per-view cap (set with T-162's expectations).
+deepchecks) would bring a dataframe stack (`uv.lock` has neither pandas nor numpy) for a few thousand
+rows per cycle; the checks that matter most (the source check, the per-`(cycle_run_id, score_type)`
+cohort mean, by-design NULLs, skipped-row counts, the report naming view, column and row key or group)
+are custom code under any of them, and deepchecks targets ML data and model drift. T-161 therefore
+closes with no dependency and no constitution amendment (Technological stock #2 already names the
+whole stack). The expectations are a declarative table keyed by view name beside `view_contract.py`.
+
+*Check kinds* (T-164 tests one passing and one failing case per kind; a new kind is added to this
+list with its test):
+
+- **source** (aggregate, runs first): the database meets the `schema_version` floor and holds no
+  `cycle_run` with `cycle_type = 'REPLAY'` (T-157);
+- **type**, **NULL rate**, **range**, **natural-key uniqueness**, **row count** per view;
+- **format**: `computed_at` in `+00:00` or `Z` form; `forensic_flags_json` NULL or an object of the
+  four documented keys (T-153);
+- **ordered pair**, the D2 look-ahead guard, per lane: FUNDAMENTAL `available_at > event_time` (strict:
+  the first trading day after the filing, which follows the period end); cycle lanes (TECHNICAL,
+  VALORIZATION, SECTOR) `available_at = event_time`, the cycle date, once upstream's T-144 fills it
+  (until then a NULL is skipped by design and counted, T-031). Read whether the columns are dates or
+  timestamps from a real view before pinning;
+- **group mean**: the cohort mean near 50, with a tolerance (T-162).
+
+*Policy.* A source or aggregate failure stops the run. A row-level failure quarantines the row **and
+its group**, reported as one unit, so no partial individual is built (SHACL would not catch one:
+`hasWeightComponent` needs only one component):
+
+- a `v_cycle_ranking` row goes with all its `v_cycle_ranking_component` rows (the effective weights
+  sum to 1 per run and asset, T-155), and a failing component takes its ranking row;
+- a `v_weight_scheme` row goes with all its `v_weight_component` rows and every ranking row of that
+  run, which points to the scheme (T-121); a failing component takes the scheme with it.
+
+This matches T-151's treatment of these run-keyed views. **A quarantine is permanent for its date:**
+the ingest gate refuses to append to an append-only dated graph once it exists (`kg_store.gate`), so
+a quarantined row cannot be added to `urn:graph:ingest:{agent}:{date}` after upstream fixes it. The
+only recovery is a re-run *before* that graph is written, so the run stops when a view's quarantined
+share exceeds its cap; the cap is the permanent loss accepted per view and date. Caps are set per view
+in T-162's expectations and **default to 0** (any row-level failure stops the run) unless T-162
+records why a view may lose rows; the report lists every quarantined row as lost for that date.
 
 **Acceptance**: every view the projection reads has expectations; a violating row never reaches the
 triple builder under the chosen policy; the failure message names the view and column, plus the row key
 for a row-level check, or the group for an aggregate one; `uv run pytest` covers a passing and a failing
-frame per check kind and the selected policy's behaviour; `SPEC.md` §13 item 10 records what is checked
+row set per check kind and the selected policy's behaviour; `SPEC.md` §13 item 10 records what is checked
 at the boundary and what is not.
 
 **Blocked on**: nothing for T-162 (T-160 done, T-161 closed: no library, no amendment). T-163 lands with T-031; T-164's prerequisite, Work item 13's skeleton (T-131), has landed (PR #56).
