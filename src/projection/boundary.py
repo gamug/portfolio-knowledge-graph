@@ -81,6 +81,26 @@ FORENSIC_FLAGS = frozenset(
 )
 
 
+# Every ``Failure.check`` the runner may write. A new kind is added here (``Failure`` refuses any
+# other name) and gets its passing and failing case in ``tests/test_boundary.py`` (T-164).
+SOURCE_CHECKS = frozenset({"schema_version", "forbidden_cycle_type"})
+VIEW_CHECKS = frozenset(
+    {
+        "missing_column",
+        "row_count",
+        "null_rate",
+        "type",
+        "range",
+        "format",
+        "unique",
+        "ordered_pair",
+        "group_mean",
+    }
+)
+CASCADE = "cascade"  # not a check: the row was taken with a failing row of its group
+CHECK_KINDS = SOURCE_CHECKS | VIEW_CHECKS | {CASCADE}
+
+
 class Source(Protocol):
     """What :func:`check_source` needs of ``portfolio_common.db.Database``."""
 
@@ -111,6 +131,12 @@ class Failure:
         scope += f" group {self.group}" if self.group is not None else ""
         cause = f" (cascade started by {self.cascaded_from})" if self.cascaded_from else ""
         return f"{where}{scope}: {self.check}: {self.detail}{cause}"
+
+    def __post_init__(self) -> None:
+        if self.check not in CHECK_KINDS:
+            raise ValueError(
+                f"unknown check kind {self.check!r}: add it to CHECK_KINDS with its test"
+            )
 
 
 @dataclass
@@ -596,7 +622,7 @@ def _cascade(views: Mapping[str, _View]) -> dict[str, set[int]]:
                     target.by_row[j].append(
                         Failure(
                             target_name,
-                            "cascade",
+                            CASCADE,
                             None,
                             f"shares {', '.join(on)} {key} with {via}",
                             key=target.key_of(j),

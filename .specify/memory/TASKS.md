@@ -459,16 +459,13 @@ See `PLAN.md` Work item 16.*
       (ingestion-dated graph) or lost (any other graph), per `PLAN.md` Work item 16, and persists
       the late rows' keys for the next run to re-read. Lands with T-031.
       → step 3.
-- [x] **T-164** Tests with synthetic rows: one passing and one failing case per check kind, and the
+- [ ] **T-164** *(runner half done in PR #69: `tests/test_boundary.py` has a passing and a failing case for each view check kind, saying whether it stops the run or quarantines the row, plus the type kinds, `where` filters, the forensic-flags format and the shipped look-ahead boundaries (FUNDAMENTAL strict `>`, cycle lanes `=`); the source kinds' cases are the two source-check tests. `Failure` refuses a kind outside `boundary.CHECK_KINDS`, and a guard test fails until a new kind has its cases. T-163's tests cover the policy, the cascade, persisting a late key and `mark_written` dropping it. Open, with T-031: a late key persisted by one run and re-read by the next, since the re-read is T-031's caller code.)* Tests with synthetic rows: one passing and one failing case per check kind, and the
       behaviour of the policy T-160 selected: an aggregate failure, a quarantine under the cap, a stop
       above it (the default cap of 0 included), and the group cascade (a failing component takes its
       ranking row; a failing scheme takes its components and that run's rankings; each cascaded row
       counted against its own view's cap; a late row's key persisted by one run and re-read, then
       dropped once written, by the next), under Work item 13's
       structure (T-131, landed in PR #56). → step 4.
-      Done: `tests/test_boundary.py` holds a parametrized passing and failing case for each of the nine
-      check kinds (T-163's tests already cover the policy, cascade and late keys), plus the forensic-flags
-      format. The task stays checked only for the runner as it stands; T-031 adds the wiring tests.
 - [ ] **T-165** Verify and document: `SPEC.md` §13 item 10 (today the pin and the drift check) gains
       what is checked at the boundary and what is not, including that polarity is not detectable;
       `uv run pytest` passes; the FR-001 gate is unchanged. → `PLAN.md` acceptance criteria.
@@ -487,6 +484,6 @@ T-151's rule recorded (PR #60), its checks waiting on T-031/T-163; T-158's
 ownership question (before their T-141) is unblocked; the rest of T-152–T-158 waits on upstream's
 T-144 (views), T-145 (ids), T-074 (flags) and, after their T-100, their T-082 and their Work item 4.
 Work item 16 (T-160–T-165): T-160 done (plain checks, quarantine-with-cap), T-161 closed with it (no dependency) and T-162 done (JSON files per view, strict loader);
-T-163 lands with T-031; T-164's prerequisite, Work item 13's skeleton (T-131), has landed (PR #56).
+T-163 (function done, PR #68) and T-164 (runner tests done, PR #69) close with T-031, which re-reads the late keys.
 Work item 8 (T-070–T-071) is independent but needs a human at a Protégé
 session, not a coding session.
