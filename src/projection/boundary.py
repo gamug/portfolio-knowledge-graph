@@ -97,7 +97,8 @@ VIEW_CHECKS = frozenset(
         "group_mean",
     }
 )
-CASCADE = "cascade"  # not a check: the row was taken with a failing row of its group
+# Not a check: the row was taken in the cascade a failing row of its group started.
+CASCADE = "cascade"
 CHECK_KINDS = SOURCE_CHECKS | VIEW_CHECKS | {CASCADE}  # add a kind to a group, never here
 
 
