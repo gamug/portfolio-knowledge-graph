@@ -42,6 +42,7 @@ import functools
 import re
 from dataclasses import dataclass
 from pathlib import Path
+from typing import cast
 
 import pyshacl
 import rdflib
@@ -223,8 +224,8 @@ def validate(batch: rdflib.Graph, directory: Path | None = None) -> None:
         with_superclass_types(batch, schema), shacl_graph=schema.shapes, inference="none"
     )
     if not conforms:
-        assert isinstance(results, rdflib.Graph)  # pyshacl returns a Graph unless asked for a dict
-        raise ShaclRejected(str(report), results)
+        # pyshacl returns the results as a Graph unless asked for another serialization.
+        raise ShaclRejected(str(report), cast(rdflib.Graph, results))
 
 
 def existing_subjects(db: GraphDB, batch: rdflib.Graph) -> list[str]:

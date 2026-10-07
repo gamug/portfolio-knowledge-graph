@@ -161,7 +161,7 @@ independent of each other once T-131 lands.*
       → `PLAN.md` Work item 14, step 1.
 - [ ] **T-141** Run `cli/verify_store.py` against the live GraphDB repository with the current
       acceptance probe and record the result in `docs/graphdb-setup.md`. → step 2.
-- [x] **T-142** *(done 2026-10-07: `gate.validate` raises `ShaclRejected`, an `IngestRejected` carrying pyshacl's results graph; `check_gate` requires exactly one `sh:ValidationResult`, a `:timestamp` `MinCountConstraintComponent`, with `tests/test_acceptance_gate.py` covering wording-independence, a second violation, a non-SHACL rejection and an accepted batch)* Have `kg_store.gate.validate` expose pyshacl's results graph and make
+- [x] **T-142** *(done 2026-10-07 in PR #63: `gate.validate` raises `ShaclRejected`, an `IngestRejected` carrying pyshacl's results graph; `check_gate` requires exactly one `sh:ValidationResult`, a `:timestamp` `MinCountConstraintComponent`, with `tests/test_acceptance_gate.py` covering wording-independence, a second violation, a single violation of another kind, a non-SHACL rejection and an accepted batch)* Have `kg_store.gate.validate` expose pyshacl's results graph and make
       `acceptance.check_gate` count `sh:ValidationResult` nodes instead of matching
       `"Constraint Violation in"` in the text report. → step 3.
 

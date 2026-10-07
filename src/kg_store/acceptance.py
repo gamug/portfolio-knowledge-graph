@@ -21,9 +21,13 @@ from kg_store.gate import IngestRejected, ShaclRejected, ingest
 from kg_store.graphdb import EXPLICIT_GRAPH, GraphDB
 
 PREFIX = "PREFIX : <https://thesis.local/kg/portfolio#>\n"
+#: The one SHACL result the probe must produce: ``(sh:resultPath, sh:sourceConstraintComponent)``.
+EXPECTED_VIOLATION = (
+    rdflib.URIRef("https://thesis.local/kg/portfolio#timestamp"),
+    SH.MinCountConstraintComponent,
+)
 #: The graph the malformed batch is aimed at; it must still be absent afterwards.
 PROBE_GRAPH = "urn:graph:ingest:SEMANTIC:2099-01-01"
-TIMESTAMP = "https://thesis.local/kg/portfolio#timestamp"
 #: A ScoreSnapshot that is valid except for the required ``:timestamp`` it lacks.
 MALFORMED = b"""@prefix : <https://thesis.local/kg/portfolio#> .
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
@@ -52,12 +56,11 @@ def check_gate(db: GraphDB) -> str:
         raise AssertionError("the malformed batch was accepted")
     # "Valid except for :timestamp" means that is the only violation, so a shape change that
     # makes the probe fail for another reason is caught here instead of passing silently.
-    found = sorted(
-        (str(results.value(r, SH.resultPath)), str(results.value(r, SH.sourceConstraintComponent)))
+    found = [
+        (results.value(r, SH.resultPath), results.value(r, SH.sourceConstraintComponent))
         for r in results.subjects(rdflib.RDF.type, SH.ValidationResult)
-    )
-    expected = [(f"{TIMESTAMP}", str(SH.MinCountConstraintComponent))]
-    if found != expected:
+    ]
+    if found != [EXPECTED_VIOLATION]:
         raise AssertionError(f"expected :timestamp minCount to be the only violation, got {found}")
     after = db.size()
     if before != after:

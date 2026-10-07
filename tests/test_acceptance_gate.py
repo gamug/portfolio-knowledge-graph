@@ -31,7 +31,12 @@ class FakeDB:
 def test_probe_is_rejected_with_one_min_count_result() -> None:
     rejection = _rejection(acceptance.MALFORMED)
     assert isinstance(rejection, IngestRejected)
-    assert len(list(rejection.results.subjects(rdflib.RDF.type, SH.ValidationResult))) == 1
+    results = rejection.results
+    found = [
+        (results.value(r, SH.resultPath), results.value(r, SH.sourceConstraintComponent))
+        for r in results.subjects(rdflib.RDF.type, SH.ValidationResult)
+    ]
+    assert found == [acceptance.EXPECTED_VIOLATION]
 
 
 def test_check_gate_passes_on_the_probe() -> None:
@@ -47,6 +52,20 @@ def test_check_gate_ignores_report_wording(monkeypatch: pytest.MonkeyPatch) -> N
 def test_check_gate_fails_on_a_second_violation(monkeypatch: pytest.MonkeyPatch) -> None:
     batch = acceptance.MALFORMED.replace(b':agentOrigin "SEMANTIC" ;', b"")
     monkeypatch.setattr(acceptance, "ingest", _raiser(_rejection(batch)))
+    with pytest.raises(AssertionError, match="only violation"):
+        acceptance.check_gate(_db())
+
+
+def test_check_gate_fails_on_one_violation_of_another_kind(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Exactly one result is not enough: it must be the :timestamp minCount one."""
+    batch = acceptance.MALFORMED.replace(
+        b':rawValue "-0.5"^^xsd:decimal ;', b':timestamp "2099-01-01T00:00:00"^^xsd:dateTime ;'
+    )
+    rejection = _rejection(batch)
+    assert len(list(rejection.results.subjects(rdflib.RDF.type, SH.ValidationResult))) == 1
+    monkeypatch.setattr(acceptance, "ingest", _raiser(rejection))
     with pytest.raises(AssertionError, match="only violation"):
         acceptance.check_gate(_db())
 
