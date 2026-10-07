@@ -38,8 +38,8 @@ are closed (see `CHANGELOG.md`).*
       upstream SEMANTIC into the `[-1, 1]` `rawValue` `ScoreSnapshotShape` requires of it (T-081;
       `SPEC.md` §2.6). SECTOR's `raw_value` is read verbatim into the [-100, 100] bound T-155 sets,
       and its 0-100 `normalized_score` is rescaled like the other lanes (add SECTOR to
-      `RESCALED_SCORE_TYPES` in `src/projection/score_scale.py`, and rewrite its module docstring,
-      which still says SECTOR carries no `normalizedScore` and a [-1, 1] `rawValue`; do not
+      `RESCALED_SCORE_TYPES` in `src/projection/score_scale.py`, whose module docstring already
+      describes that step (PR #60); do not
       re-add FUNDAMENTAL, which T-171 removed: project its `raw_value` only, never its
       `normalized_score`). Skip a
       cycle-lane row with a NULL `available_at` (every such row before upstream's T-144) and count it
@@ -186,7 +186,7 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       change (D13: 1/3 each for new runs, SEMANTIC out of the blend), and the upstream task each ask
       maps to (their T-144, T-145, T-074 and T-141, their Work item 2, and after their T-100).
       → `PLAN.md` Work item 15, step 1.
-- [ ] **T-151** Decide when `:runId` may be emitted now that upstream can reuse a `cycle_run.id`
+- [ ] **T-151** *(rule recorded 2026-10-07 in PR #60: `:runId`'s comment and `SPEC.md` D7; open: the checks and their pinned `cycle_type` list, which land with T-031 and T-163, and dropping (c) once upstream's T-145 and T-100 land)* Decide when `:runId` may be emitted now that upstream can reuse a `cycle_run.id`
       (first confirmed for `cycle_run`; the second reply extends it to `analysis_run`,
       `pricing_run`, `quant_run` and `sec_filings`, below). Upstream says a run id is unique only
       with the run's `cycle_type` and `started_at`, so emit `<run table>:<id>` only when all of
@@ -306,8 +306,8 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       rescales it). Update every statement of the old bound or of "no `normalizedScore` for SECTOR":
       `shapes.ttl`, `reference.ttl`'s SRM comment, `docs/06` §1.8, `schema/README.md` refinements 2
       and 6 (6 still lists SECTOR as "open, not fixed"), the T-030 rescale paragraph closing
-      `SPEC.md` §2.6, and the module docstring of `src/projection/score_scale.py` (with T-031's code
-      change). Leave `schema/protege-view.ttl` to its regeneration (Work item 8); it is generated.
+      `SPEC.md` §2.6, and the module docstring of `src/projection/score_scale.py` (done in PR #60;
+      the code change itself is T-031's). Leave `schema/protege-view.ttl` to its regeneration (Work item 8); it is generated.
       → step 3.
 - [ ] **T-156** Quant: read `v_quant_portfolio` and `v_quant_vs_live` on the engine version upstream
       marks current, with `engine_version` recorded on each `BenchmarkObservation`. Match a
@@ -349,7 +349,7 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       (accession numbers) into D16's; and their T-144/T-145 scope additions (keep `component_value`
       and `configured_weight`; a Q2 test; `docs/kg_schema.md`; an accession-number uniqueness
       check). → `PLAN.md` Work item 15, step 1.
-- [ ] **T-171** *(D17, raised by the third reply)* Decide how `ScoreSnapshot` keeps its
+- [x] **T-171** *(D17, raised by the third reply; done in PR #56: the `sh:or` change, comments, docs, `score_scale.py` and its tests; FUNDAMENTAL `rawValue`'s bounds stay open as Q6, asked with T-150's next follow-up)* Decide how `ScoreSnapshot` keeps its
       immutable-observation principle (constitution; `docs/06` conventions) now that upstream
       rewrites a FUNDAMENTAL row's `normalized_score` in place on every cycle that re-normalizes
       its filing against that cycle's cohort (measured: 33/40 production, 1/60 pilot, 2,267/2,799
@@ -450,9 +450,9 @@ follow in dependency order (Work items 3 and 11 are closed, so Work item 4 is un
 Work item 12 (T-120–T-121): T-120 closed by T-150; T-121 is unblocked.
 Work item 13 (T-130–T-136): constitution rules in place (1.5.0); T-131 and T-132 done; next T-133, T-134 and T-136; T-130 closes with T-134.
 Work item 14 (T-140–T-142): T-140 done; T-141 needs a live GraphDB; T-142 is unblocked.
-Work item 15 (T-150–T-159, T-170–T-171): T-150 and T-170 done; T-155's schema half done (PR #58); T-153's comment half (PR #59);
-T-151's rule, T-171's `normalizedScore` drop and T-158's
-ownership question (before their T-141) are unblocked; the rest of T-152–T-158 waits on upstream's
+Work item 15 (T-150–T-159, T-170–T-171): T-150, T-170 and T-171 (PR #56) done; T-155's schema half done (PR #58); T-153's comment half (PR #59);
+T-151's rule recorded (PR #60), its checks waiting on T-031/T-163; T-158's
+ownership question (before their T-141) is unblocked; the rest of T-152–T-158 waits on upstream's
 T-144 (views), T-145 (ids), T-074 (flags) and, after their T-100, their T-082 and their Work item 4.
 Work item 16 (T-160–T-165): T-160 first (policy and tool); T-162's cohort-mean scope corrected
 (third reply); T-163 lands with T-031; T-164's prerequisite, Work item 13's skeleton (T-131), has landed (PR #56).
