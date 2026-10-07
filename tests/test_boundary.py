@@ -1,7 +1,8 @@
 """``projection.boundary``: the expectations run over synthetic rows (T-163, ``PLAN.md`` Work item 16).
 
-T-164 widens this to a passing and a failing case per check kind; here each behaviour T-163 names
-(source first, stop, quarantine, cascade, late or lost, skipped by design, pending) has one test.
+Each behaviour T-163 names (source first, stop, quarantine, cascade, late or lost, skipped by design,
+pending) has one test; ``test_each_check_kind_*`` (T-164) holds a passing and a failing case for
+every check kind, and says whether the failure stops the run or quarantines the row.
 """
 
 from __future__ import annotations
@@ -14,6 +15,7 @@ from typing import Any
 import pytest
 
 from projection.boundary import (
+    FORENSIC_FLAGS,
     INGESTION_DATED,
     BoundaryError,
     BoundaryReport,
@@ -693,3 +695,124 @@ def test_no_key_file_is_created_when_there_is_nothing_to_keep(tmp_path: Path) ->
         late_keys_path=path,
     )
     assert not path.exists()
+
+
+# --- one passing and one failing case per check kind (T-164) ----------------------------------
+
+_TS = "2026-10-01T06:00:00Z"
+
+# (kind, expectation fields, rows that pass, rows that fail, whether the failure stops the run)
+_KINDS: list[tuple[str, dict[str, Any], list[dict[str, Any]], list[dict[str, Any]], bool]] = [
+    (
+        "missing_column",
+        {"types": {"top_n": "integer"}},
+        [full(1)],
+        [{"cycle_run_id": 1}],
+        True,
+    ),
+    ("row_count", {"row_count": {"min": 2}}, [full(1), full(2)], [full(1)], True),
+    (
+        "null_rate",
+        {"null_rate": [{"column": "top_n", "max": 0.5}]},
+        [full(1), full(2, top_n=None)],
+        [full(1, top_n=None), full(2, top_n=None)],
+        True,
+    ),
+    (
+        "type",
+        {"types": {"top_n": "integer"}},
+        [full(1)],
+        [full(1, top_n="ten")],
+        False,
+    ),
+    (
+        "range",
+        {"ranges": [{"column": "top_n", "min": 1, "max": 20}]},
+        [full(1, top_n=20)],
+        [full(1, top_n=21)],
+        False,
+    ),
+    (
+        "format",
+        {"formats": {"cycle_date": "utc_timestamp"}},
+        [full(1, cycle_date=_TS)],
+        [full(1, cycle_date="2026-10-01 06:00:00")],
+        False,
+    ),
+    ("unique", {}, [full(1), full(2)], [full(1), full(1)], False),
+    (
+        "ordered_pair",
+        {"ordered_pairs": [{"left": "cycle_date", "op": "<=", "right": "weights_json"}]},
+        [full(1, cycle_date="2026-10-01", weights_json="2026-10-02")],
+        [full(1, cycle_date="2026-10-03", weights_json="2026-10-02")],
+        False,
+    ),
+    (
+        "group_mean",
+        {
+            "group_means": [
+                {
+                    "column": "top_n",
+                    "group_by": ["cycle_type"],
+                    "target": 10,
+                    "tolerance": 1,
+                }
+            ]
+        },
+        [full(1, top_n=10), full(2, top_n=11)],
+        [full(1, top_n=30), full(2, top_n=31)],
+        True,
+    ),
+]
+
+
+@pytest.mark.parametrize(
+    ("kind", "fields", "good", "bad", "stops"), _KINDS, ids=[k[0] for k in _KINDS]
+)
+def test_each_check_kind_passes_good_rows_and_reports_bad_ones(
+    kind: str,
+    fields: dict[str, Any],
+    good: list[dict[str, Any]],
+    bad: list[dict[str, Any]],
+    stops: bool,
+) -> None:
+    exp = lenient(fields)
+    clean = validate({"v_weight_scheme": good}, {"v_weight_scheme": exp})
+    assert clean.report.quarantined == [] and clean.report.aggregate_failures == []
+    assert len(clean.rows["v_weight_scheme"]) == len(good)
+
+    if stops:
+        with pytest.raises(BoundaryError) as stop:
+            validate({"v_weight_scheme": bad}, {"v_weight_scheme": exp})
+        assert kind in {f.check for f in stop.value.report.aggregate_failures}
+    else:
+        result = validate({"v_weight_scheme": bad}, {"v_weight_scheme": exp})
+        assert {f.check for f in result.report.quarantined} == {kind}
+        assert result.rows["v_weight_scheme"] == []
+
+
+def test_each_check_kind_in_the_matrix_is_a_kind_the_runner_reports() -> None:
+    """A new check kind has to get a row in the matrix above."""
+    reported = {
+        "missing_column",
+        "row_count",
+        "null_rate",
+        "type",
+        "range",
+        "format",
+        "unique",
+        "ordered_pair",
+        "group_mean",
+    }
+    assert {k[0] for k in _KINDS} == reported
+
+
+def test_the_forensic_flags_format_passes_four_booleans_and_fails_the_rest() -> None:
+    exp = lenient({"formats": {"scheme_id": "forensic_flags"}})
+    good = json.dumps(dict.fromkeys(sorted(FORENSIC_FLAGS), False))
+    bad = json.dumps({**dict.fromkeys(sorted(FORENSIC_FLAGS), False), "extra": True})
+    result = validate(
+        {"v_weight_scheme": [full(1, scheme_id=good), full(2, scheme_id=bad)]},
+        {"v_weight_scheme": exp},
+    )
+    assert [r["cycle_run_id"] for r in result.rows["v_weight_scheme"]] == [1]

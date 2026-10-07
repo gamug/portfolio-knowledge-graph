@@ -459,13 +459,16 @@ See `PLAN.md` Work item 16.*
       (ingestion-dated graph) or lost (any other graph), per `PLAN.md` Work item 16, and persists
       the late rows' keys for the next run to re-read. Lands with T-031.
       → step 3.
-- [ ] **T-164** Tests with synthetic rows: one passing and one failing case per check kind, and the
+- [x] **T-164** Tests with synthetic rows: one passing and one failing case per check kind, and the
       behaviour of the policy T-160 selected: an aggregate failure, a quarantine under the cap, a stop
       above it (the default cap of 0 included), and the group cascade (a failing component takes its
       ranking row; a failing scheme takes its components and that run's rankings; each cascaded row
       counted against its own view's cap; a late row's key persisted by one run and re-read, then
       dropped once written, by the next), under Work item 13's
       structure (T-131, landed in PR #56). → step 4.
+      Done: `tests/test_boundary.py` holds a parametrized passing and failing case for each of the nine
+      check kinds (T-163's tests already cover the policy, cascade and late keys), plus the forensic-flags
+      format. The task stays checked only for the runner as it stands; T-031 adds the wiring tests.
 - [ ] **T-165** Verify and document: `SPEC.md` §13 item 10 (today the pin and the drift check) gains
       what is checked at the boundary and what is not, including that polarity is not detectable;
       `uv run pytest` passes; the FR-001 gate is unchanged. → `PLAN.md` acceptance criteria.
