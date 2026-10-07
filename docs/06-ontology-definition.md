@@ -399,13 +399,20 @@ disjoint leaf types) and `shapes.ttl` to 14 shapes (§1.6):
   `appliesRule`/`primaryRule` play for `Veto`. No stored rank field: rank is relative to whatever
   comparison set a query defines, so it is always a query-time `ORDER BY attractivenessScore`,
   never a persisted fact.
-- **`AttractivenessWeightScheme`** — a versioned set of per-metric weights as upstream's cycle
-  runner configured them for the blend behind `attractivenessScore` (read, never applied here, T-155), valid over `[validFrom, validTo)` — mirrors
-  `RuleDefinition`'s "rules live in the graph, not code" pattern (critique #6), applied to weights
-  instead of thresholds.
-- **`WeightComponent`** — one `(metric, weight)` pair within an
-  `AttractivenessWeightScheme`. `inverted` is design history from the formula below (not
-  computed here since T-155); T-121 decides its remaining purpose.
+- **`AttractivenessWeightScheme`** — the blend behind `attractivenessScore` as upstream's cycle
+  runner recorded it for **one `cycle_run`** (read, never applied here, T-155; per-run since T-121):
+  `schemeId` `cycle_run:<id>`, `runAsOf` = the run's cycle date, upstream's book-weighting rule
+  (`bookWeightingRule`: `score_proportional`, `score_tilt`) and its scalar knobs (`topN`, `maxNameWeight`,
+  `maxSectorWeight`, `softVetoPenalty`), all read verbatim. A per-run scheme is an immutable
+  observation, **not a valid-time record**: it is never closed or updated, a later run is a new scheme,
+  and its absent `validTo` never means "still active" (the shape requires `validFrom` *or* `runAsOf`).
+  The design-history `WeightScheme_v1` keeps the valid-time form, `[validFrom, validTo)`, mirroring
+  `RuleDefinition`'s "rules live in the graph, not code" pattern (critique #6).
+- **`WeightComponent`** — one `(metric, weight)` pair within an `AttractivenessWeightScheme`: for an
+  upstream scheme, one per `score_type` (FUNDAMENTAL, VALORIZATION, TECHNICAL, plus SEMANTIC in older
+  runs), the *configured* weight; effective weights are per asset and read from upstream (T-155).
+  `SectorRelativeMomentum` has no upstream weight and gets no component. `inverted` is optional design
+  history (not computed here since T-155): emitted for no upstream scheme, kept on `WeightScheme_v1`.
 
 **Attractiveness score formula — design history, not computed here (T-155).** The blend is
 upstream's: `portfolio-financial-analysis`'s cycle runner produces `blended_score` and its
