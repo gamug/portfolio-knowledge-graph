@@ -14,10 +14,18 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from kg_store.gate import IngestRejected, ingest
+import rdflib
+from rdflib.namespace import SH
+
+from kg_store.gate import IngestRejected, ShaclRejected, ingest
 from kg_store.graphdb import EXPLICIT_GRAPH, GraphDB
 
 PREFIX = "PREFIX : <https://thesis.local/kg/portfolio#>\n"
+#: The one SHACL result the probe must produce: ``(sh:resultPath, sh:sourceConstraintComponent)``.
+EXPECTED_VIOLATION = (
+    rdflib.URIRef("https://thesis.local/kg/portfolio#timestamp"),
+    SH.MinCountConstraintComponent,
+)
 #: The graph the malformed batch is aimed at; it must still be absent afterwards.
 PROBE_GRAPH = "urn:graph:ingest:SEMANTIC:2099-01-01"
 #: A ScoreSnapshot that is valid except for the required ``:timestamp`` it lacks.
@@ -40,25 +48,20 @@ def check_gate(db: GraphDB) -> str:
     before = db.size()
     try:
         ingest(db, MALFORMED, PROBE_GRAPH)
+    except ShaclRejected as exc:
+        results = exc.results
     except IngestRejected as exc:
-        report = str(exc)
+        raise AssertionError(f"rejected, but not by SHACL: {str(exc)[:200]}") from exc
     else:
         raise AssertionError("the malformed batch was accepted")
-    # Any rejection would do for "not written"; the criterion is the SHACL one.
-    if (
-        not report.startswith("SHACL validation failed")
-        or "MinCountConstraintComponent" not in report
-    ):
-        raise AssertionError(f"rejected, but not for the missing property: {report[:200]}")
-    if "timestamp" not in report:
-        raise AssertionError(f"the SHACL report does not name :timestamp: {report[:200]}")
     # "Valid except for :timestamp" means that is the only violation, so a shape change that
     # makes the probe fail for another reason is caught here instead of passing silently.
-    violations = report.count("Constraint Violation in")
-    if violations != 1:
-        raise AssertionError(
-            f"expected :timestamp to be the only violation, got {violations}: {report[:400]}"
-        )
+    found = [
+        (results.value(r, SH.resultPath), results.value(r, SH.sourceConstraintComponent))
+        for r in results.subjects(rdflib.RDF.type, SH.ValidationResult)
+    ]
+    if found != [EXPECTED_VIOLATION]:
+        raise AssertionError(f"expected :timestamp minCount to be the only violation, got {found}")
     after = db.size()
     if before != after:
         raise AssertionError(f"store size changed {before} -> {after}")

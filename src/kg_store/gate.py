@@ -42,6 +42,7 @@ import functools
 import re
 from dataclasses import dataclass
 from pathlib import Path
+from typing import cast
 
 import pyshacl
 import rdflib
@@ -75,6 +76,19 @@ _RELATIVE_BASE = "http://relative.invalid/"
 
 class IngestRejected(RuntimeError):
     """The batch was refused; the message says why. Nothing was written."""
+
+
+class ShaclRejected(IngestRejected):
+    """The batch failed ``shapes.ttl``; ``results`` is pyshacl's results graph.
+
+    Callers that need to know *what* failed read the ``sh:ValidationResult`` nodes (focus node,
+    path, constraint component) from ``results`` instead of matching the wording of the text
+    report in the message, which belongs to pyshacl and may change between versions.
+    """
+
+    def __init__(self, report: str, results: rdflib.Graph) -> None:
+        super().__init__("SHACL validation failed:\n" + report)
+        self.results = results
 
 
 def check_target(graph: str) -> bool:
@@ -190,7 +204,10 @@ def with_superclass_types(batch: rdflib.Graph, schema: GateSchema) -> rdflib.Gra
 
 
 def validate(batch: rdflib.Graph, directory: Path | None = None) -> None:
-    """Raise :class:`IngestRejected` unless ``batch`` passes the type, untyped-subject and shape checks."""
+    """Raise :class:`IngestRejected` unless ``batch`` passes the type, untyped-subject and shape checks.
+
+    A shape failure raises :class:`ShaclRejected`, which carries the results graph.
+    """
     schema = load_gate_schema((directory or schema_dir()).resolve())
     unknown = unknown_types(batch, schema)
     if unknown:
@@ -203,11 +220,12 @@ def validate(batch: rdflib.Graph, directory: Path | None = None) -> None:
             "triples about a subject with no rdf:type in the batch (only relations between "
             "individuals and an xsd:date :validTo are allowed there): " + ", ".join(stray)
         )
-    conforms, _, report = pyshacl.validate(
+    conforms, results, report = pyshacl.validate(
         with_superclass_types(batch, schema), shacl_graph=schema.shapes, inference="none"
     )
     if not conforms:
-        raise IngestRejected("SHACL validation failed:\n" + str(report))
+        # pyshacl returns the results as a Graph unless asked for another serialization.
+        raise ShaclRejected(str(report), cast(rdflib.Graph, results))
 
 
 def existing_subjects(db: GraphDB, batch: rdflib.Graph) -> list[str]:

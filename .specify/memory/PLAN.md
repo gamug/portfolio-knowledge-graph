@@ -900,7 +900,7 @@ Work item 7 (orchestrator)         — decided: delegate to financial-analysis `
 Work item 8 (protege-view.ttl) — independent, manual, land whenever convenient
 Work item 13 (pytest suite) — independent; rules in constitution 1.5.0, T-130–T-134 done;
   T-136 next, ideally before Work item 4's code grows
-Work item 14 (PR #48 follow-ups) — independent; T-140 done, T-141 needs a live GraphDB
+Work item 14 (PR #48 follow-ups) — independent; T-140 and T-142 (PR #63) done, T-141 needs a live GraphDB
 Work item 15 (upstream's v_* changes) — T-150, T-170 and T-171 (PR #56) done, with T-155's schema half (PR #58), T-153's comments (PR #59)
   and T-151's rule (PR #60); the step-3 shape corrections now;
   the rest as upstream's T-144/T-145 ship; feeds Work item 4 (T-031) and 12 (T-121)
