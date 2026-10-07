@@ -37,6 +37,8 @@ def test_out_of_range_or_non_finite_is_an_error_not_clipped(upstream: float) -> 
 @pytest.mark.parametrize("upstream", [True, False, "abc"])
 def test_non_numeric_input_is_rejected(upstream: object) -> None:
     with pytest.raises(ValueError):
+        # Deliberately ill-typed: this checks the runtime guard against values a DB row can
+        # still deliver despite the annotation, so mypy's arg-type error is the point here.
         to_normalized_score("TECHNICAL", upstream)  # type: ignore[arg-type]
 
 

@@ -14,9 +14,9 @@
 # comments (nine rewritten; schemeId's and rawValue's added).
 # PART 2 (end of file) is PROPOSED: the terms your T-144 columns feed.
 # Neither the CHANGED lines nor PART 2 are on our master yet; they are
-# planned in our Work items 12 (T-121) and 15 (T-151..T-156, T-171),
-# branch docs/t150-record-upstream-replies. T-171's two shape changes
-# and two comments are already on that branch's schema/ (PR #56).
+# planned in our Work items 12 (T-121) and 15 (T-151..T-156, T-171).
+# T-171's two shape changes and two comments are already in our
+# schema/ in portfolio-knowledge-graph PR #56.
 #
 # Namespace: https://thesis.local/kg/portfolio#  (prefix ":")
 # OWL = what can be inferred (open world); SHACL = what our ingest
