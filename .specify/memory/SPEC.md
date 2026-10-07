@@ -807,6 +807,30 @@ treating a related FR/NR as done:
     which fails on a removed column or view against an upstream checkout
     (§2.6). It runs manually today; where it runs automatically is T-135. No
     cross-repo schema generation is planned.
+    **Row-level validation (T-160, decided 2026-10-07):** plain checks, no
+    validation library (no dependency, no constitution amendment, T-161): rows
+    arrive as `portfolio_common.db` row objects, a cycle is a few thousand rows,
+    and the checks that matter (source check, per-group cohort mean, by-design
+    NULLs, the skipped-row report) are custom under any library. A declarative
+    table of expectations keyed by view sits beside `view_contract.py` (T-162),
+    with nine check kinds: source (`schema_version` floor, no REPLAY run; runs
+    first), type, format (`computed_at`, `forensic_flags_json`), NULL rate,
+    range, natural-key uniqueness, ordered pair (D2's look-ahead guard:
+    FUNDAMENTAL `available_at > event_time`, cycle lanes `=` once upstream's
+    T-144 fills it), row count and group mean. A source or aggregate failure
+    stops the run; a row-level failure quarantines the row with its group (a
+    ranking row with its components; a scheme with its components and that
+    run's rankings) and reports it; a cascaded row counts against its own
+    view's cap. In a graph dated by ingestion (`ingest:{agent}:{date}` for the
+    SEMANTIC, VALORIZATION, TECHNICAL and SECTOR lanes) a quarantined row is
+    late, not lost: the report persists its key and the next run re-reads it
+    (T-031; until then it is reported as lost). In every other graph (dated by
+    the data: ORCHESTRATOR by `cycleDate`, FUNDAMENTAL by quarter, universe,
+    EDGAR, quant, entity resolution) it is lost for that date, since the ingest
+    gate never appends to an existing append-only graph. The run stops when a
+    view's quarantined share exceeds its cap (per view, default 0, T-162). Rows
+    skipped by design are counted, not failed. Not detectable: a reversed
+    polarity, or whether upstream's numbers are right.
 11. **The computation decision is resolved: the SEMANTIC score is not computed
     here; who materializes it is disputed, and the cut-over is still pending.** The earlier plan to
     aggregate `article_sentiment` per `(asset, day)` in this repo (old Work

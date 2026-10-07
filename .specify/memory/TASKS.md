@@ -44,7 +44,9 @@ are closed (see `CHANGELOG.md`).*
       `normalized_score`). Skip a
       cycle-lane row with a NULL `available_at` (every such row before upstream's T-144) and count it
       in Work item 16's boundary report (T-163), so no row is dropped silently; never fill it in. Parse
-      `computed_at` with `+00:00` or `Z`. And guard
+      `computed_at` with `+00:00` or `Z`. Re-read the keys of the late rows T-163's previous report
+      persisted (quarantined rows bound for an ingestion-dated graph, `PLAN.md` Work item 16), and drop
+      each key once its row is written. And guard
       against a change of *meaning* the column-name check cannot see (e.g. upstream moving
       `normalized_score` to [0, 1] would pass the [0, 100] check and become ~0.99 risk), for
       instance a per-lane cohort mean near 50, upstream's documented centre (Work item 16's
@@ -405,7 +407,7 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
 *Input-side validation of the `v_*` rows, before any triple is built. `pyshacl` stays the graph gate.
 See `PLAN.md` Work item 16.*
 
-- [ ] **T-160** Decide the failure policy (stop the run, or quarantine failing rows and report them)
+- [x] **T-160** *(done 2026-10-07: plain checks, no library; row-level failures quarantine the row and its group (ranking + components, scheme + components + that run's rankings), late in an ingestion-dated graph (re-read by the next run) and lost in any other, each row counted against its own view's per-view cap (default 0); source and aggregate failures stop the run; nine check kinds, a per-lane D2 look-ahead check; recorded in `SPEC.md` §13 item 10; the text below is the original task, kept for the record)* Decide the failure policy (stop the run, or quarantine failing rows and report them)
       and the validation tool, from the list of checks needed (types, NULL rate, range, natural-key
       uniqueness, `available_at` against `event_time`, row count per view, and the source check of
       T-157). A check with no offending row (row count, NULL rate, cohort mean) is reported against
@@ -415,11 +417,13 @@ See `PLAN.md` Work item 16.*
       not a failure. Rows skipped by design (T-031, T-151, T-155) are counted, not failed. Compare
       plain checks, pandera, deepchecks and Great Expectations on that list, including dependency
       weight. Record the decision in `SPEC.md` §13 item 10. → `PLAN.md` Work item 16, step 1.
-- [ ] **T-161** If T-160 picked a library: propose the constitution amendment first (Technological
+- [x] **T-161** *(closed with T-160: plain checks won, so no dependency and no amendment)* If T-160 picked a library: propose the constitution amendment first (Technological
       stock #6, Governance steps 1–4, MINOR bump), as its own reviewed change, then add the dependency
       to `pyproject.toml`. If plain checks won, there is no dependency and no amendment. → step 2.
 - [ ] **T-162** Write the expectations for the views Work item 4 reads, beside
-      `src/projection/view_contract.py`, keyed by view name. Include the `v_score_snapshot`
+      `src/projection/view_contract.py`, keyed by view name. Include each view's quarantine cap (default 0;
+      record why for any view allowed to lose rows) and the check kinds T-160 lists (`PLAN.md` Work
+      item 16), the format and per-lane look-ahead checks included. Include the `v_score_snapshot`
       `normalized_score` range and the cohort mean near 50, with a tolerance, not equality
       (upstream's winsorization and clamp shift it slightly, third reply, Q3) for VALORIZATION,
       TECHNICAL and SECTOR, whose `normalized_score` T-031 rescales (upstream documents
@@ -449,10 +453,16 @@ See `PLAN.md` Work item 16.*
       check and the group for an aggregate one, applying the T-160 policy. It runs T-162's source
       check first and stops on its failure. The report also counts, per view and reason, the rows
       skipped by design: T-031's cycle-lane rows with a NULL `available_at`, T-155's no-component
-      ranking rows, and T-151's run-keyed rows whose run fails the checks. Lands with T-031.
+      ranking rows, and T-151's run-keyed rows whose run fails the checks. It lists each quarantined
+      row as late (ingestion-dated graph) or lost (any other graph), per `PLAN.md` Work item 16, and
+      persists the late rows' keys for the next run to re-read. Lands with T-031.
       → step 3.
-- [ ] **T-164** Tests with synthetic frames: one passing and one failing case per check kind, and the
-      behaviour of the policy T-160 selected (including an aggregate failure), under Work item 13's
+- [ ] **T-164** Tests with synthetic rows: one passing and one failing case per check kind, and the
+      behaviour of the policy T-160 selected: an aggregate failure, a quarantine under the cap, a stop
+      above it (the default cap of 0 included), and the group cascade (a failing component takes its
+      ranking row; a failing scheme takes its components and that run's rankings; each cascaded row
+      counted against its own view's cap; a late row's key persisted by one run and re-read, then
+      dropped once written, by the next), under Work item 13's
       structure (T-131, landed in PR #56). → step 4.
 - [ ] **T-165** Verify and document: `SPEC.md` §13 item 10 (today the pin and the drift check) gains
       what is checked at the boundary and what is not, including that polarity is not detectable;
@@ -471,7 +481,7 @@ Work item 15 (T-150–T-159, T-170–T-171): T-150, T-170 and T-171 (PR #56) don
 T-151's rule recorded (PR #60), its checks waiting on T-031/T-163; T-158's
 ownership question (before their T-141) is unblocked; the rest of T-152–T-158 waits on upstream's
 T-144 (views), T-145 (ids), T-074 (flags) and, after their T-100, their T-082 and their Work item 4.
-Work item 16 (T-160–T-165): T-160 first (policy and tool); T-162's cohort-mean scope corrected
+Work item 16 (T-160–T-165): T-160 done (plain checks, quarantine-with-cap) and T-161 closed with it (no dependency); T-162's cohort-mean scope corrected
 (third reply); T-163 lands with T-031; T-164's prerequisite, Work item 13's skeleton (T-131), has landed (PR #56).
 Work item 8 (T-070–T-071) is independent but needs a human at a Protégé
 session, not a coding session.

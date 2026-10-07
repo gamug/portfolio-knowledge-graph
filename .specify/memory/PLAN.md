@@ -868,17 +868,80 @@ since a polarity change leaves the column set untouched.
    Work item 15).
 3. Run them on the read path, source check first, so T-031's first real projection already goes
    through them (T-163).
-4. Test the selected policy and every check kind with synthetic frames under Work item 13's structure
+4. Test the selected policy (the cap, a stop on exceeding it, the group cascade, a late row's key
+   persisted and re-read) and every check kind with synthetic rows under Work item 13's structure
    (T-164).
+
+**Decided (T-160, 2026-10-07): plain checks, no library.** Rows reach this repo as
+`portfolio_common.db` row objects, not frames, and a frame library (pandera, Great Expectations,
+deepchecks) would bring a dataframe stack (`uv.lock` has neither pandas nor numpy) for a few thousand
+rows per cycle; the checks that matter most (the source check, the per-`(cycle_run_id, score_type)`
+cohort mean, by-design NULLs, skipped-row counts, the report naming view, column and row key or group)
+are custom code under any of them, and deepchecks targets ML data and model drift. T-161 therefore
+closes with no dependency and no constitution amendment (Technological stock #2 already names the
+whole stack). The expectations are a declarative table keyed by view name beside `view_contract.py`.
+
+*Check kinds* (T-164 tests one passing and one failing case per kind; a new kind is added to this
+list with its test):
+
+- **source** (aggregate, runs first): the database meets the `schema_version` floor and holds no
+  `cycle_run` with `cycle_type = 'REPLAY'` (T-157);
+- **type**, **NULL rate**, **range**, **natural-key uniqueness**, **row count** per view;
+- **format**: `computed_at` in `+00:00` or `Z` form; `forensic_flags_json` NULL or an object of the
+  four documented keys (T-153);
+- **ordered pair**, the D2 look-ahead guard, per lane: FUNDAMENTAL `available_at > event_time` (strict:
+  the first trading day after the filing, which follows the period end); cycle lanes (TECHNICAL,
+  VALORIZATION, SECTOR) `available_at = event_time`, the cycle date, once upstream's T-144 fills it
+  (until then a NULL is skipped by design and counted, T-031). Read whether the columns are dates or
+  timestamps from a real view before pinning;
+- **group mean**: the cohort mean near 50, with a tolerance (T-162).
+
+*Policy.* A source or aggregate failure stops the run. A row-level failure quarantines the row **and
+its group**, reported as one unit, so no partial individual is built (SHACL would not catch one:
+`hasWeightComponent` needs only one component):
+
+- a `v_cycle_ranking` row goes with all its `v_cycle_ranking_component` rows (the effective weights
+  sum to 1 per run and asset, T-155), and a failing component takes its ranking row;
+- a `v_weight_scheme` row goes with all its `v_weight_component` rows and every ranking row of that
+  run, which points to the scheme (T-121); a failing component takes the scheme with it.
+
+This matches T-151's treatment of these run-keyed views. A cascaded row counts against its own view's
+cap (a ranking row taken by its scheme counts toward `v_cycle_ranking`'s), and the report names the row
+that caused the cascade.
+
+**What a quarantine costs depends on how the target graph is dated** (`docs/07`'s named-graph table;
+the ingest gate refuses to append to an existing append-only graph, `kg_store.gate`, and to
+re-declare an individual already in the store):
+
+- **Graphs dated by ingestion** (`urn:graph:ingest:{agent}:{date}` for SEMANTIC, VALORIZATION,
+  TECHNICAL, SECTOR: transaction time, "what did we believe as of ingestion date X"): a quarantined
+  row is **late, not lost**, provided a later run reads it again. The individual never reached the
+  store, so once upstream fixes it, a later run writes it into that run's new graph, which is the
+  honest record of when it arrived. **Re-read mechanism:** T-163's report persists the keys of its late
+  rows, and the next run (T-031) re-reads those keys along with its own rows, dropping a key from the
+  list once its row is written. Until T-031 implements that, a late row is reported as lost.
+- **Graphs dated by the data**, and **every graph not listed above**:
+  `urn:graph:ingest:ORCHESTRATOR:{date}` (keyed by the scheme's `cycleDate`, T-121),
+  `urn:graph:ingest:FUNDAMENTAL:{year}-Q{n}`,
+  `urn:graph:universe:{year}-Q{n}`, `urn:graph:ingest:EDGAR:{date-or-quarter}` (`v_sec_filing`),
+  `urn:graph:derived:quant:{date}` (`v_quant_*`, the book's `as_of`) and
+  `urn:graph:derived:entity-resolution:{date}` (`v_shared_executive_edge`). A quarantined row is
+  **lost for that date**, since its graph cannot be appended to once written and a later graph would
+  misdate it. The only recovery is a re-run before the graph is written. The report lists it as lost.
+  A graph added to `docs/07` later is data-dated unless this list says otherwise.
+
+The run stops when a view's quarantined share exceeds its cap. Caps are set per view in T-162's
+expectations and **default to 0** (any row-level failure stops the run): the boundary should not decide
+what to drop unless T-162 records why a view may lose (or delay) rows, and for a data-dated graph a
+non-zero cap is a permanent gap.
 
 **Acceptance**: every view the projection reads has expectations; a violating row never reaches the
 triple builder under the chosen policy; the failure message names the view and column, plus the row key
 for a row-level check, or the group for an aggregate one; `uv run pytest` covers a passing and a failing
-frame per check kind and the selected policy's behaviour; `SPEC.md` §13 item 10 records what is checked
+row set per check kind and the selected policy's behaviour; `SPEC.md` §13 item 10 records what is checked
 at the boundary and what is not.
 
-**Blocked on**: T-160 on nothing; T-161 onward on T-160 (and, for a library, on its constitution
-amendment). T-163 lands with T-031; T-164's prerequisite, Work item 13's skeleton (T-131), has landed (PR #56).
+**Blocked on**: nothing for T-162 (T-160 done, T-161 closed: no library, no amendment). T-163 lands with T-031; T-164's prerequisite, Work item 13's skeleton (T-131), has landed (PR #56).
 
 ## Sequencing
 
@@ -909,7 +972,7 @@ Work item 14 (PR #48 follow-ups) — independent; T-140 and T-142 (PR #63) done,
 Work item 15 (upstream's v_* changes) — T-150, T-170 and T-171 (PR #56) done, with T-155's schema half (PR #58), T-153's comments (PR #59)
   and T-151's rule (PR #60); the step-3 shape corrections now;
   the rest as upstream's T-144/T-145 ship; feeds Work item 4 (T-031) and 12 (T-121)
-Work item 16 (boundary validation of upstream rows) — T-160 first; T-163 lands with Work item 4's T-031
+Work item 16 (boundary validation of upstream rows) — T-160 done (plain checks), T-161 closed; T-163 lands with Work item 4's T-031
 ```
 
 Work items 1, 2, and 9 have no dependencies and no blockers — they can land
