@@ -434,7 +434,7 @@ See `PLAN.md` Work item 16.*
       → step 3.
 - [ ] **T-164** Tests with synthetic frames: one passing and one failing case per check kind, and the
       behaviour of the policy T-160 selected (including an aggregate failure), under Work item 13's
-      structure (needs T-131). → step 4.
+      structure (T-131, landed in PR #56). → step 4.
 - [ ] **T-165** Verify and document: `SPEC.md` §13 item 10 (today the pin and the drift check) gains
       what is checked at the boundary and what is not, including that polarity is not detectable;
       `uv run pytest` passes; the FR-001 gate is unchanged. → `PLAN.md` acceptance criteria.
@@ -453,6 +453,6 @@ removal, the shape corrections in T-153/T-155, T-171's `normalizedScore` drop an
 ownership question (before their T-141) are unblocked; the rest of T-152–T-158 waits on upstream's
 T-144 (views), T-145 (ids), T-074 (flags) and, after their T-100, their T-082 and their Work item 4.
 Work item 16 (T-160–T-165): T-160 first (policy and tool); T-162's cohort-mean scope corrected
-(third reply); T-163 lands with T-031; T-164 needs Work item 13's skeleton.
+(third reply); T-163 lands with T-031; T-164's prerequisite, Work item 13's skeleton (T-131), has landed (PR #56).
 Work item 8 (T-070–T-071) is independent but needs a human at a Protégé
 session, not a coding session.

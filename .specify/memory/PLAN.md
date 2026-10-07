@@ -872,7 +872,7 @@ frame per check kind and the selected policy's behaviour; `SPEC.md` §13 item 10
 at the boundary and what is not.
 
 **Blocked on**: T-160 on nothing; T-161 onward on T-160 (and, for a library, on its constitution
-amendment). T-163 lands with T-031; T-164 needs Work item 13's skeleton (T-131).
+amendment). T-163 lands with T-031; T-164's prerequisite, Work item 13's skeleton (T-131), has landed (PR #56).
 
 ## Sequencing
 
@@ -897,9 +897,10 @@ Work item 5 (SEMANTIC aggregation) — superseded, reassigned upstream
 Work item 7 (orchestrator)         — decided: delegate to financial-analysis `cycle`
 
 Work item 8 (protege-view.ttl) — independent, manual, land whenever convenient
-Work item 13 (pytest suite) — independent; rules in constitution 1.5.0, T-131 next, ideally before Work item 4's code grows
+Work item 13 (pytest suite) — independent; rules in constitution 1.5.0, T-131 done and T-132's `score_scale` half (PR #56);
+  the rest of T-132, T-133, T-134 and T-136 next, ideally before Work item 4's code grows
 Work item 14 (PR #48 follow-ups) — independent; T-140 done, T-141 needs a live GraphDB
-Work item 15 (upstream's v_* changes) — T-150, T-151 and the step-3 shape corrections now;
+Work item 15 (upstream's v_* changes) — T-150 and T-170 done; T-151, T-171 and the step-3 shape corrections now;
   the rest as upstream's T-144/T-145 ship; feeds Work item 4 (T-031) and 12 (T-121)
 Work item 16 (boundary validation of upstream rows) — T-160 first; T-163 lands with Work item 4's T-031
 ```

@@ -652,7 +652,8 @@ production system this project isn't. What exists instead:
 
 ## 10. Testing Strategy & Acceptance Criteria
 
-- **No `pytest` suite exists for this repo** (NR-005) — unlike
+- **No `pytest` tests exist yet for `src/etl/`** (NR-005) — the suite's skeleton and its first
+  test (`tests/test_score_scale.py`, `src/projection/`) landed with T-131 in PR #56, but, unlike
   `portfolio-nlp`, `src/etl/` has no hermetic unit tests for its severity
   formulas, ticker skip-set logic, or provenance-ID formatting; only the
   end-to-end SHACL sample/smoke check (FR-006) exercises it, indirectly and
