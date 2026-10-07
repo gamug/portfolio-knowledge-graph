@@ -900,7 +900,8 @@ Work item 8 (protege-view.ttl) — independent, manual, land whenever convenient
 Work item 13 (pytest suite) — independent; rules in constitution 1.5.0, T-131 and T-132 done;
   T-133, T-134 and T-136 next, ideally before Work item 4's code grows
 Work item 14 (PR #48 follow-ups) — independent; T-140 done, T-141 needs a live GraphDB
-Work item 15 (upstream's v_* changes) — T-150, T-170 and T-155's schema half (PR #58) and T-153's comments (PR #59) done; T-151, T-171 and the step-3 shape corrections now;
+Work item 15 (upstream's v_* changes) — T-150 and T-170 done, with T-155's schema half (PR #58), T-153's comments (PR #59)
+  and T-151's rule (PR #60); the step-3 shape corrections now;
   the rest as upstream's T-144/T-145 ship; feeds Work item 4 (T-031) and 12 (T-121)
 Work item 16 (boundary validation of upstream rows) — T-160 first; T-163 lands with Work item 4's T-031
 ```

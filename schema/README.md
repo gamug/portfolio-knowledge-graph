@@ -141,6 +141,12 @@ what the store *enforces*.
    upstream's cohort-relative `normalized_score` (50 + 10·z, clamped to [0, 100]), a relative risk reading,
    not an absolute level. Comments only (the same text `kg_target_schema.ttl` proposes); the shapes,
    `:promptHash` and the forensic flags wait on upstream's T-144/T-074. **2473 quads; conforms: True.**
+   **T-151, the rule half (Work item 15, 2026-10-07).** Upstream can reuse a run id after a deletion, so
+   `:runId` (`<run table>:<id>`) is not unique on its own. Its comment in `tbox.ttl` now says it is
+   emitted only when read checks pass (run row exists, `cycle_type` matches for `cycle_run`, row time
+   inside the run), which lowers the risk but does not prove uniqueness, until upstream's T-145 and T-100
+   have landed; the full rule is in `SPEC.md` D7. Comment only (the same text `kg_target_schema.ttl`
+   proposes); the checks themselves are code and land with T-031/T-163. **2473 quads; conforms: True.**
 3. **Two more named-graph placements (a third added by T-108).** `07-ontology-topology.md` assigned graphs to every
    *agent's* daily output but not to the Orchestrator's own decisions or to entity resolution's
    derived facts. Resolved: `urn:graph:ingest:ORCHESTRATOR:{date}` and

@@ -186,7 +186,7 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       change (D13: 1/3 each for new runs, SEMANTIC out of the blend), and the upstream task each ask
       maps to (their T-144, T-145, T-074 and T-141, their Work item 2, and after their T-100).
       → `PLAN.md` Work item 15, step 1.
-- [ ] **T-151** Decide when `:runId` may be emitted now that upstream can reuse a `cycle_run.id`
+- [ ] **T-151** *(rule recorded 2026-10-07 in PR #60: `:runId`'s comment and `SPEC.md` D7; open: the checks and their pinned `cycle_type` list, which land with T-031 and T-163, and dropping (c) once upstream's T-145 and T-100 land)* Decide when `:runId` may be emitted now that upstream can reuse a `cycle_run.id`
       (first confirmed for `cycle_run`; the second reply extends it to `analysis_run`,
       `pricing_run`, `quant_run` and `sec_filings`, below). Upstream says a run id is unique only
       with the run's `cycle_type` and `started_at`, so emit `<run table>:<id>` only when all of
@@ -451,7 +451,7 @@ Work item 12 (T-120–T-121): T-120 closed by T-150; T-121 is unblocked.
 Work item 13 (T-130–T-136): constitution rules in place (1.5.0); T-131 and T-132 done; next T-133, T-134 and T-136; T-130 closes with T-134.
 Work item 14 (T-140–T-142): T-140 done; T-141 needs a live GraphDB; T-142 is unblocked.
 Work item 15 (T-150–T-159, T-170–T-171): T-150 and T-170 done; T-155's schema half done (PR #58); T-153's comment half (PR #59);
-T-151's rule, T-171's `normalizedScore` drop and T-158's
+T-151's rule (PR #60), T-171's `normalizedScore` drop and T-158's
 ownership question (before their T-141) are unblocked; the rest of T-152–T-158 waits on upstream's
 T-144 (views), T-145 (ids), T-074 (flags) and, after their T-100, their T-082 and their Work item 4.
 Work item 16 (T-160–T-165): T-160 first (policy and tool); T-162's cohort-mean scope corrected
