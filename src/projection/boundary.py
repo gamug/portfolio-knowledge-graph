@@ -15,8 +15,9 @@ the one ``SPEC.md`` §13 item 10 records:
 
 A quarantined row is *late* if its target graph is dated by ingestion, its view has a natural key,
 and the caller persists the late keys (``late_keys_path``) for the next run to re-read; otherwise it
-is *lost*. The file is merged, not replaced: a key stays until a run keeps its row. Re-reading those
-keys is T-031's, as is counting the rows T-151 and T-155 skip, through
+is *lost*. ``validate`` only adds keys to that file; a key leaves it through :func:`mark_written`,
+which the caller calls once the row is written to the store, so a failed write never loses one.
+Re-reading those keys is T-031's, as is counting the rows T-151 and T-155 skip, through
 :meth:`BoundaryReport.skip`.
 
 Nothing here reads a database except :func:`check_source`; rows are plain mappings, so the same
@@ -28,6 +29,7 @@ from __future__ import annotations
 import json
 import math
 import operator
+import os
 import re
 from collections import Counter, defaultdict
 from collections.abc import Callable, Mapping, Sequence
@@ -118,9 +120,14 @@ class BoundaryReport:
     inactive: list[str] = field(default_factory=list)  # pending views and columns, with reasons
     # Row-level failures found in a run an aggregate failure stopped: reported, not quarantined.
     row_failures: list[Failure] = field(default_factory=list)
+    # Late keys stored under key columns the view no longer uses: they can never match a row
+    # again, so they are dropped from the key file and listed here instead of lingering.
+    stale_late_keys: list[str] = field(default_factory=list)
 
     def skip(self, view: str, reason: str, n: int = 1) -> None:
         """Count ``n`` rows of ``view`` skipped by design (T-031, T-151, T-155): never failed."""
+        if n < 1:
+            raise ValueError(f"skip count must be at least 1, got {n}")
         self.skipped_by_design[(view, reason)] += n
 
     def summary(self) -> str:
@@ -134,6 +141,7 @@ class BoundaryReport:
         ]
         lines += [f"  inactive: {i}" for i in self.inactive]
         lines += [f"  row (not quarantined, run stopped): {f}" for f in self.row_failures]
+        lines += [f"  stale late key: {k}" for k in self.stale_late_keys]
         return "\n".join(lines)
 
 
@@ -517,7 +525,7 @@ def validate(
         for name, view in views.items()
     }
     if late_keys_path is not None:
-        _persist_late(report, kept, views, late_keys_path)
+        _persist_late(report, views, late_keys_path)
     return BoundaryResult(kept, report)
 
 
@@ -606,35 +614,92 @@ def _enforce_caps(
         raise BoundaryError(report)
 
 
+# The late-key file: ``{view: {"columns": [key column, ...], "keys": [[value, ...], ...]}}``.
+LateKeys = dict[str, dict[str, list[Any]]]
+
+
 def _json_key(key: Sequence[Any]) -> str:
     """One spelling per key, so a key read back from the file compares equal to a fresh one."""
     return json.dumps(list(key), default=str)
 
 
-def _persist_late(
-    report: BoundaryReport,
-    kept: Mapping[str, Sequence[Row]],
-    views: Mapping[str, _View],
-    path: Path,
-) -> None:
-    """Merge this run's late keys into ``path`` for the next run to re-read (T-031 reads them).
+def _is_key_list(value: object) -> bool:
+    return isinstance(value, list) and all(isinstance(k, list) and k for k in value)
 
-    A key already in the file stays until a run keeps its row (the row is then written), so a key
-    the next run did not re-read is not lost by overwriting the file.
-    """
-    stored: dict[str, list[list[Any]]] = json.loads(path.read_text()) if path.exists() else {}
-    merged: dict[str, dict[str, list[Any]]] = {
-        view: {_json_key(k): k for k in keys} for view, keys in stored.items()
+
+def load_late_keys(path: Path) -> LateKeys:
+    """The late keys persisted by earlier runs (T-031 re-reads their rows); ``{}`` if none yet."""
+    if not path.exists():
+        return {}
+    try:
+        data = json.loads(path.read_text())
+    except ValueError as exc:
+        raise ValueError(f"{path}: the late-key file is not JSON: {exc}") from exc
+    if not isinstance(data, dict) or not all(
+        isinstance(view, str)
+        and isinstance(entry, dict)
+        and set(entry) == {"columns", "keys"}
+        and isinstance(entry["columns"], list)
+        and entry["columns"]
+        and all(isinstance(c, str) for c in entry["columns"])
+        and _is_key_list(entry["keys"])
+        for view, entry in data.items()
+    ):
+        raise ValueError(
+            f"{path}: the late-key file must map each view to "
+            '{"columns": [...], "keys": [[...], ...]}'
+        )
+    return data
+
+
+def _write_late_keys(path: Path, data: LateKeys) -> None:
+    """Replace the file atomically: a crash mid-write leaves the old file, never a truncated one."""
+    out = {
+        view: {"columns": entry["columns"], "keys": sorted(entry["keys"], key=_json_key)}
+        for view, entry in data.items()
+        if entry["keys"]
     }
-    for name, rows in kept.items():
-        columns = views[name].row_key
-        if columns and name in merged:
-            for row in rows:
-                merged[name].pop(_json_key(_key(row, columns)), None)
+    tmp = path.with_name(f".{path.name}.tmp")
+    tmp.write_text(json.dumps(out, indent=2, sort_keys=True) + "\n")
+    os.replace(tmp, path)
+
+
+def _persist_late(report: BoundaryReport, views: Mapping[str, _View], path: Path) -> None:
+    """Add this run's late keys to ``path``; never remove one (:func:`mark_written` does that).
+
+    A view whose key columns changed since its keys were stored cannot match them again: those
+    keys are dropped and listed in ``report.stale_late_keys``.
+    """
+    data = load_late_keys(path)
+    for view, entry in list(data.items()):
+        current = views[view].row_key if view in views else None
+        if current is not None and list(current) != entry["columns"]:
+            report.stale_late_keys += [
+                f"{view} {entry['columns']} = {k} (key is now {list(current)})"
+                for k in entry["keys"]
+            ]
+            del data[view]
     for failure in report.late:
-        if failure.key is not None:
-            merged.setdefault(failure.view, {})[_json_key(failure.key)] = json.loads(
-                _json_key(failure.key)
-            )
-    out = {view: sorted(keys.values(), key=_json_key) for view, keys in merged.items() if keys}
-    path.write_text(json.dumps(out, indent=2, sort_keys=True) + "\n")
+        if failure.key is None:
+            continue
+        columns = list(views[failure.view].row_key)
+        entry = data.setdefault(failure.view, {"columns": columns, "keys": []})
+        fresh = json.loads(_json_key(failure.key))
+        if _json_key(fresh) not in {_json_key(k) for k in entry["keys"]}:
+            entry["keys"].append(fresh)
+    _write_late_keys(path, data)
+
+
+def mark_written(path: Path, view: str, keys: Sequence[Sequence[Any]]) -> None:
+    """Drop ``keys`` of ``view`` from the late-key file once their rows are in the store (T-031).
+
+    Called after a successful write, never by :func:`validate`: a row that passed the boundary
+    can still fail the SHACL gate or the store, and its key must survive that.
+    """
+    data = load_late_keys(path)
+    entry = data.get(view)
+    if entry is None:
+        return
+    written = {_json_key(k) for k in keys}
+    entry["keys"] = [k for k in entry["keys"] if _json_key(k) not in written]
+    _write_late_keys(path, data)

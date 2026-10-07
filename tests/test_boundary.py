@@ -18,6 +18,8 @@ from projection.boundary import (
     BoundaryError,
     BoundaryReport,
     check_source,
+    load_late_keys,
+    mark_written,
     validate,
 )
 from projection.expectations import (
@@ -392,7 +394,7 @@ def test_a_row_for_an_ingestion_dated_graph_is_late_and_its_key_persisted(
     )
     assert [f.key for f in result.report.late] == [(2,)]
     assert result.report.lost == []
-    assert json.loads(path.read_text()) == {"v_score_snapshot": [[2]]}
+    assert json.loads(path.read_text()) == {"v_score_snapshot": {"columns": ["id"], "keys": [[2]]}}
 
 
 def test_a_fundamental_row_and_any_other_view_is_lost(tmp_path: Path) -> None:
@@ -446,20 +448,82 @@ def test_every_ingestion_dated_view_has_a_natural_key(shipped: dict[str, ViewExp
     assert all(shipped[view].keys for view in INGESTION_DATED)
 
 
-def test_the_late_key_file_is_merged_and_a_key_leaves_once_its_row_is_kept(
-    tmp_path: Path,
-) -> None:
+def stored(*keys: int, columns: tuple[str, ...] = ("id",)) -> dict[str, Any]:
+    return {"v_score_snapshot": {"columns": list(columns), "keys": [[k] for k in keys]}}
+
+
+def test_validate_only_adds_late_keys_and_mark_written_removes_them(tmp_path: Path) -> None:
+    """A key leaves the file once its row is written, not once it passes the boundary: the SHACL
+    gate or the store can still refuse a row that passed here (PLAN Work item 16, T-031)."""
     path = tmp_path / "late.json"
-    path.write_text(json.dumps({"v_score_snapshot": [[3], [9]]}))
+    path.write_text(json.dumps(stored(3, 9)))
     rows = [snapshot(2, normalized_score=101.0), snapshot(3), snapshot(4)]  # 3 re-read, now clean
     validate({"v_score_snapshot": rows}, {"v_score_snapshot": snapshot_view()}, late_keys_path=path)
-    # 9 was not re-read this run, so it stays; 3 was kept, so it leaves; 2 is new.
-    assert json.loads(path.read_text()) == {"v_score_snapshot": [[2], [9]]}
+    assert load_late_keys(path) == stored(2, 3, 9)  # 2 is new; 3 passed but is not written yet
+
+    mark_written(path, "v_score_snapshot", [(3,)])
+    assert load_late_keys(path) == stored(2, 9)
+    mark_written(path, "v_unknown", [(1,)])  # a view with no stored keys: nothing to do
+    assert load_late_keys(path) == stored(2, 9)
+
+
+def test_keys_stored_under_old_key_columns_are_dropped_and_reported(tmp_path: Path) -> None:
+    path = tmp_path / "late.json"
+    path.write_text(json.dumps(stored(7, columns=("ticker",))))
+    result = validate(
+        {"v_score_snapshot": [snapshot(1)]},
+        {"v_score_snapshot": snapshot_view()},
+        late_keys_path=path,
+    )
+    assert result.report.stale_late_keys == [
+        "v_score_snapshot ['ticker'] = [7] (key is now ['id'])"
+    ]
+    assert load_late_keys(path) == {}
+    assert "stale late key: v_score_snapshot" in result.report.summary()
+
+
+@pytest.mark.parametrize(
+    "content",
+    ["[1, 2]", "not json", '{"v_score_snapshot": [[1]]}', '{"v": {"columns": [], "keys": []}}'],
+)
+def test_a_malformed_late_key_file_is_refused_and_named(tmp_path: Path, content: str) -> None:
+    path = tmp_path / "late.json"
+    path.write_text(content)
+    with pytest.raises(ValueError, match=r"late\.json: the late-key file"):
+        validate(
+            {"v_score_snapshot": [snapshot(1)]},
+            {"v_score_snapshot": snapshot_view()},
+            late_keys_path=path,
+        )
+
+
+def test_a_failed_write_leaves_the_previous_key_file_whole(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    path = tmp_path / "late.json"
+    path.write_text(json.dumps(stored(9)))
+
+    def crash(src: object, dst: object) -> None:
+        raise OSError("disk full")
+
+    monkeypatch.setattr("projection.boundary.os.replace", crash)
+    with pytest.raises(OSError, match="disk full"):
+        validate(
+            {"v_score_snapshot": [snapshot(2, normalized_score=101.0)]},
+            {"v_score_snapshot": snapshot_view()},
+            late_keys_path=path,
+        )
+    assert load_late_keys(path) == stored(9)
+
+
+def test_a_skip_count_below_one_is_refused() -> None:
+    with pytest.raises(ValueError, match="at least 1"):
+        BoundaryReport().skip("v_cycle_ranking", "no component rows (T-155)", n=0)
 
 
 def test_a_stopped_run_leaves_the_late_key_file_untouched(tmp_path: Path) -> None:
     path = tmp_path / "late.json"
-    path.write_text(json.dumps({"v_score_snapshot": [[9]]}))
+    path.write_text(json.dumps(stored(9)))
     capped = parse_view_expectation(
         "v_score_snapshot",
         {
@@ -475,7 +539,7 @@ def test_a_stopped_run_leaves_the_late_key_file_untouched(tmp_path: Path) -> Non
             {"v_score_snapshot": capped},
             late_keys_path=path,
         )
-    assert json.loads(path.read_text()) == {"v_score_snapshot": [[9]]}
+    assert load_late_keys(path) == stored(9)
 
 
 # --- inputs the runner refuses, and skips the caller records -------------------------------------
