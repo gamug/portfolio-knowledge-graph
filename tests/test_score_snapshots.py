@@ -324,6 +324,18 @@ def test_the_schema_version_is_read_from_upstreams_table_not_the_pragma(tmp_path
     assert source.schema_version == 9  # PRAGMA user_version is 0 in this database
 
 
+def test_a_missing_or_empty_schema_version_table_reads_as_zero(tmp_path: Path) -> None:
+    source = financial_db(tmp_path, [])
+    conn = sqlite3.connect(tmp_path / "financial.db")
+    conn.execute("DELETE FROM schema_version")
+    conn.commit()
+    assert source.schema_version == 0
+    conn.execute("DROP TABLE schema_version")
+    conn.commit()
+    conn.close()
+    assert source.schema_version == 0
+
+
 def test_a_cycle_row_with_no_available_at_is_counted_once_and_not_projected(tmp_path: Path) -> None:
     rows = _cohort("TECHNICAL", 1, available_at=None)
     out = ss.run(financial_db(tmp_path, rows), ASSETS, None, "2026-10-07")
