@@ -107,7 +107,8 @@ independent of each other once T-131 lands.*
       `integration` marker skipped by default, `uv run pytest`); add the command to §Executable cmds;
       reverse NR-005, `SPEC.md` §10, §13 item 7 and §14. Its own reviewed change. → Approach 1.
       *(Constitution 1.5.0 done: Project structure #10, Code & Git #9, `uv run pytest`. Still open:
-      the `SPEC.md` reversals (NR-005, §10, §13 item 7, §14), done with T-134 in PR #62.)*
+      the `SPEC.md` reversals (NR-005, §10, §13 item 7, §14), done with T-134 in PR #62, with
+      constitution 1.5.1 dropping the stale "once T-131 lands" wording.)*
 - [x] **T-131** *(done 2026-10-06 in PR #56, pulled forward because constitution Code & Git #9
       required a test for T-171's `score_scale.py` fix in the same PR; `tests/fixtures/` is created
       by the first test that needs one)* Add `pytest` to the `dev` group and the `tests/` skeleton per constitution #10:
@@ -128,14 +129,17 @@ independent of each other once T-131 lands.*
       *(done in PR #61: `tests/test_etl_common.py` and `tests/test_asset_master.py`; the skip-set is
       `reference_asset_tickers()` plus `build_assets(already_defined=...)`; the rollup test also
       checks every target against `reference.ttl`)*
-- [x] **T-134** *(done in PR #62: `tests/test_schema_gate.py` parses the bundle in load order, runs `pyshacl`, proves the gate is not vacuous and pins FR-001's `quads: N` to the real count, which had drifted from 2458 to 2473)* The FR-001 parse + `pyshacl` conformance gate as a test, so `uv run pytest` covers
+- [x] **T-134** *(done in PR #62: `tests/test_schema_gate.py` parses the bundle in load order, runs `pyshacl`, shows the ticker rule alone rejects a broken `:Asset`, and pins every quad count and the named-graph count `SPEC.md` states to the real ones, which had drifted from 2458 to 2473 quads and 15 to 16 graphs)* The FR-001 parse + `pyshacl` conformance gate as a test, so `uv run pytest` covers
       the schema too. → Approach 3.
 - [ ] **T-135** Decide where the real-checkout drift check (`cli/check_view_contract.py`) runs: a
       check by the projector against the live DB's views before each read, an `integration` test
       against a pinned upstream commit, or both; and whether to ask upstream for a contract
       endpoint/constant (see `SPEC.md` D15: the HTTP `api/` is not a source today). → Approach 4.
 - [ ] **T-136** Tests for `src/kg_store/` and the `cli/` exit codes, hermetic (a fake `GraphDB`, no
-      running store): `load_schema.expected_sizes`/`load`/`verify` (load order, named graphs, size
+      running store). **Includes a fix found in PR #62's review:** `gate.check_target` rejects
+      `urn:graph:derived:quant:{date}`, which `docs/07` defines (T-108) and `instances.trig` uses, so
+      add it to `APPEND_ONLY_PATTERNS` with a test that every `instances.trig` graph is accepted
+      (constitution Code & Git #9). Then: `load_schema.expected_sizes`/`load`/`verify` (load order, named graphs, size
       mismatch); the ingest gate's `check_target`, `parse_batch`, `unknown_types`,
       `untyped_writes` and `validate` (a conforming batch passes, a non-conforming one raises);
       `acceptance.check_gate`'s violation count (whatever T-142 makes it count);

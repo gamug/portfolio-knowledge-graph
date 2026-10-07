@@ -102,7 +102,7 @@ built upstream); it makes no portfolio or trading decision and renders no report
   worked-example assets + the `MetricType` vocabulary), `rules.ttl` (a
   6 active upstream veto rules as single-leaf `RuleDefinition`s, the 7 original tree rules kept
   closed with `validTo`, + `AttractivenessWeightScheme`),
-  `instances.trig` (a 15-named-graph worked-example ABox) — roadmap step 0,
+  `instances.trig` (a 16-named-graph worked-example ABox) — roadmap step 0,
   done and verified (**2473 quads, `pyshacl conforms: True**).
 - The five numbered architecture/spec docs (`06`–`10`) plus
   `critique-and-evolution.md` as the traceability anchor every class/
@@ -189,7 +189,7 @@ built upstream); it makes no portfolio or trading decision and renders no report
 | **NR-002** | A database-engine change (away from SQLite, or a `portfolio-common` results-contract bump) must not require touching this repo's ETL logic beyond a version/tag bump. | `grep -rn "import sqlite3" src` returns nothing; the only engine-specific access goes through `portfolio_common.db`/`portfolio_common.news_export`. |
 | **NR-003** | Raw OHLCV/tick-level price data never enters the ontology or the ETL output (`07-ontology-topology.md`'s explicit warning). | `tbox.ttl` defines no tick-level price class; `grep` for a raw-bar/tick field name in `schema/` or `src/etl/` returns nothing beyond the bounded `PriceObservation` summary class. |
 | **NR-004** | The IRI namespace stays `https://thesis.local/kg/portfolio#` for every new term across `schema/*.ttl`/`.trig` unless deliberately aligning to an external vocabulary. | A bare `owl:Class`/`owl:ObjectProperty`/`owl:DatatypeProperty` declaration outside that namespace, excluding the documented FIBO `rdfs:seeAlso` and GICS `skos:Concept` alignments, does not occur. |
-| **NR-005** | Two automated gates exist and no CI workflow is configured: the hermetic `pytest` suite (`uv run pytest`; constitution Project structure #10) and, inside it, the FR-001 `rdflib` parse + `pyshacl` conformance check (`tests/test_schema_gate.py`, T-134). Both are run locally before merge. | `uv run pytest` passes on a clean checkout, and `tests/test_schema_gate.py` fails if the schema stops parsing or conforming, or if FR-001's `quads: N` drifts from the real count. This NR records that nothing runs them in CI (§11, §14), so that absence is a documented decision, not an oversight. |
+| **NR-005** | Two automated gates exist and no CI workflow is configured: the hermetic `pytest` suite (`uv run pytest`; constitution Project structure #10) and, inside it, the FR-001 `rdflib` parse + `pyshacl` conformance check (`tests/test_schema_gate.py`, T-134). Both are run locally before merge. | `uv run pytest` passes on a clean checkout, and `tests/test_schema_gate.py` fails if the schema stops parsing or conforming, if a deliberately broken `:Asset` is not rejected, or if any quad count or the named-graph count this SPEC states drifts from the real one. This NR records that nothing runs them in CI (§11, §14), so that absence is a documented decision, not an oversight. |
 
 ### 2.5 Scope boundary — what this repo owns vs. consumes
 
@@ -892,9 +892,10 @@ of what this project is, not a gap someone forgot to close:
   the shared `fetch_processed_articles` join shape (§13 item 9) — accepted
   at this scale; a `portfolio-nlp` schema change breaking this repo silently
   is a known, accepted risk.
-- **Full `pytest` coverage of `src/etl/`** (§13 item 7) — only its shared helpers are tested
-  (T-133); `news_to_rdf.py` and `build_data_ttl.generate` are transitional (T-033), backfilled
-  only if they survive, with the end-to-end SHACL check as their substitute meanwhile.
+- **Tests for the rest of `src/etl/`** (§13 item 7) — its shared helpers are tested (T-133), and
+  leaving `news_to_rdf.py` and `build_data_ttl.generate` untested is the accepted part: they are
+  transitional (T-033), backfilled only if they survive, with the end-to-end SHACL check as their
+  substitute meanwhile.
 
 ### §13 items: disposition
 
@@ -909,7 +910,7 @@ of what this project is, not a gap someone forgot to close:
 | 4 — `protege-view.ttl` stale | **Pending development** (manual, needs a real Protégé session) | `PLAN.md` Work item 8 |
 | 5 — `CLAUDE.md` can lag `origin/master` | **Resolved** for this checkout; general risk stays covered by constitution conduct #2 | `PLAN.md` Work item 2 — done |
 | 6 — `ScoreSnapshotShape` vs. Sentiment `rawValue` | **Resolved** (T-081: `Sentiment` exempt from `normalizedScore`, `rawValue` required) | `PLAN.md` Work item 9 — done |
-| 7 — `src/etl/`'s tests cover its helpers only | **Reversed:** a hermetic suite exists (T-130–T-134); the rest of `src/etl/` stays untested while transitional (T-033) | §10 |
+| 7 — `src/etl/`'s tests cover its helpers only | **Resolved** for the shared helpers (hermetic suite, T-130–T-134); **permanently out of scope** for the transitional rest of `src/etl/` (T-033) | §10 |
 | 8 — uncalibrated severity formulas | **Permanently out of scope** (research task) | See above |
 | 9 — no pinned SOURCE/RESULTS contract | **Permanently out of scope** (accepted risk) | See above |
 
