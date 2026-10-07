@@ -913,7 +913,7 @@ of what this project is, not a gap someone forgot to close:
 | 4 — `protege-view.ttl` stale | **Pending development** (manual, needs a real Protégé session) | `PLAN.md` Work item 8 |
 | 5 — `CLAUDE.md` can lag `origin/master` | **Resolved** for this checkout; general risk stays covered by constitution conduct #2 | `PLAN.md` Work item 2 — done |
 | 6 — `ScoreSnapshotShape` vs. Sentiment `rawValue` | **Resolved** (T-081: `Sentiment` exempt from `normalizedScore`, `rawValue` required) | `PLAN.md` Work item 9 — done |
-| 7 — no test suite for `src/etl/` | **Permanently out of scope** at current scale — **being revisited:** `PLAN.md` Work item 13 (T-130 reverses this row, §10, §13 item 7 and NR-005) | See above |
+| 7 — no test suite for `src/etl/` | **Permanently out of scope** at current scale — **being revisited:** `PLAN.md` Work item 13 (T-133 updated §10 and §13 item 7; T-130 reverses this row and NR-005) | See above |
 | 8 — uncalibrated severity formulas | **Permanently out of scope** (research task) | See above |
 | 9 — no pinned SOURCE/RESULTS contract | **Permanently out of scope** (accepted risk) | See above |
 

@@ -48,8 +48,8 @@ def _stint(symbol: str, *, sector: str | None = None, sub_industry: str | None =
 @pytest.fixture
 def universe_db(tmp_path: Path) -> Path:
     rows: list[Row] = [
-        ("AAPL", "Apple", "Information Technology", "Technology Hardware", "0000320193",
-         "1976-07-01", None),
+        ("AAPL", "Apple", "Information Technology", "Technology Hardware, Storage & Peripherals",
+         "0000320193", "1976-07-01", None),
         ("BRK.B", "Berkshire", "Financials", "Multi-Sector Holdings", "0001067983",
          "2010-02-16", None),
         ("JCP |", "J. C. Penney", None, None, None, "1976-07-01", "2015-01-01"),  # cleaned
@@ -67,6 +67,8 @@ def test_read_stints_keeps_plain_tickers_and_cleans_stray_pipe(universe_db: Path
     assert [s.symbol for s in stints] == ["AAPL", "BRK.B", "JCP"]
     assert stints[2].valid_to == "2015-01-01"
     assert stints[0].cik == "0000320193"
+    # Fixture sub-industries are real gics_rollup keys, so a later test reusing them maps.
+    assert all(gics_rollup.lookup(s.sub_industry) for s in stints if s.sub_industry)
 
 
 def test_read_stints_reports_each_filter_in_warnings(universe_db: Path) -> None:

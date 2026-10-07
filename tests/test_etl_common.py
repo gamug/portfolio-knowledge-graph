@@ -70,12 +70,21 @@ def test_compute_severity_ladder(negative: float, top: float, category: str, tie
 
 
 @pytest.mark.parametrize(
-    ("negative", "top", "tier"),
-    [(0.2, 0.0, "MODERATE"), (0.55, 0.0, "HIGH"), (0.75, 0.0, "CRITICAL")],
+    ("negative", "top", "category", "ladder", "bumped"),
+    [
+        (0.2, 0.0, "MARKET", "LOW", "MODERATE"),
+        (0.55, 0.0, "MARKET", "MODERATE", "HIGH"),
+        (0.75, 0.0, "MARKET", "HIGH", "CRITICAL"),
+        (0.75, 0.9, "LEGAL", "HIGH", "CRITICAL"),  # negative < 0.85: CRITICAL only by the bump
+        (0.2, 0.9, "FINANCIAL", "LOW", "MODERATE"),  # top_score alone moves no tier
+    ],
 )
-def test_hard_trigger_keyword_bumps_one_tier(negative: float, top: float, tier: str) -> None:
-    got = severity.compute_severity(negative, top, "MARKET", "Company faces a Class Action")
-    assert got == tier
+def test_hard_trigger_keyword_bumps_one_tier(
+    negative: float, top: float, category: str, ladder: str, bumped: str
+) -> None:
+    assert severity.compute_severity(negative, top, category, "") == ladder
+    got = severity.compute_severity(negative, top, category, "Company faces a Class Action")
+    assert got == bumped
 
 
 def test_hard_trigger_bump_caps_at_critical() -> None:
