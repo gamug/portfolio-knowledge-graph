@@ -940,8 +940,9 @@ re-declare an individual already in the store):
   `urn:graph:derived:entity-resolution:{date}` (`v_shared_executive_edge`). A quarantined row is
   **lost for that date**, since its graph cannot be appended to once written and a later graph would
   misdate it. The only recovery is a re-run before the graph is written. The report lists it as lost.
-  A projection never asks the gate to append to such a graph: it counts the row as lost instead
-  (T-031), and writes a FUNDAMENTAL quarter only once the quarter has closed.
+  A projection never asks the gate to append to such a graph: it lists the row as lost instead
+  (a `graph_written` outcome, T-031), and writes a FUNDAMENTAL quarter only once it is complete:
+  closed by the run day and before the quarter of upstream's newest FUNDAMENTAL `computed_at`.
   A graph added to `docs/07` later is data-dated unless this list says otherwise.
 
 The run stops when a view's quarantined share exceeds its cap. Caps are set per view in T-162's

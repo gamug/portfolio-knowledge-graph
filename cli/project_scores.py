@@ -6,8 +6,9 @@ uv run python cli/project_scores.py --write    # also append them to the store t
 Reads ``SQL_FINANCIAL_DB`` and ``SQL_UNIVERSE_DB`` (``.env``). The late-key file persists, between
 runs, the rows the boundary delayed; ``--late-keys`` names it (default: not kept). ``--run-day``
 (``YYYY-MM-DD``, default today in UTC) dates the cycle lanes' graphs.
+A dry run does not consult the store, so it cannot see which graphs already exist.
 Exit status: 0 on success, 1 if the boundary or the projection stopped the run or the gate refused
-a graph, 2 on a bad argument.
+a graph, 2 on a bad argument. Rows lost (listed under ``lost``) do not change it.
 """
 
 from __future__ import annotations

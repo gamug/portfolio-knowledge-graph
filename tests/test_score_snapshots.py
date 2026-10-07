@@ -14,7 +14,7 @@ import pytest
 from etl import config
 from kg_store import gate
 from projection import score_snapshots as ss
-from projection.boundary import BoundaryError
+from projection.boundary import GRAPH_WRITTEN, BoundaryError
 from projection.expectations import load_expectations
 from projection.source import FinancialSource
 
@@ -189,6 +189,32 @@ def test_a_fundamental_quarter_is_written_only_once_it_has_closed(
     assert not out.left_out  # a later run writes it, so a late key would stay
 
 
+def test_a_closed_quarter_waits_until_upstream_has_computed_after_it() -> None:
+    # Upstream computed a Q3 filing in an August run; the calendar quarter is over on Oct 1,
+    # but upstream's run after Q3 (which emits the rest of Q3) has not happened yet.
+    august = _fundamental(id=1, available_at="2026-07-15", computed_at="2026-08-20T10:00:00Z")
+    out = ss.project([august], ASSETS, "2026-10-01")
+    assert not out.graphs
+    assert out.skipped == {ss.SKIP_QUARTER_UNCOMPUTED: 1}
+
+    october = _fundamental(
+        id=2, ticker="BBB", available_at="2026-09-20", computed_at="2026-10-04T10:00:00Z"
+    )
+    out = ss.project([august, october], ASSETS, "2026-10-05")
+    assert [b.key for b in out.graphs["urn:graph:ingest:FUNDAMENTAL:2026-Q3"]] == [1, 2]
+    assert not out.skipped
+
+
+def test_the_watermark_is_upstreams_newest_fundamental_computation_only() -> None:
+    # A cycle-lane row computed later says nothing about FUNDAMENTAL's coverage.
+    rows = [
+        _fundamental(id=1, available_at="2026-07-15", computed_at="2026-08-20T10:00:00Z"),
+        _row(id=2, computed_at="2026-10-04T10:00:00Z"),
+    ]
+    out = ss.project(rows, ASSETS, "2026-10-05")
+    assert out.skipped == {ss.SKIP_QUARTER_UNCOMPUTED: 1}
+
+
 def test_an_unknown_lane_is_an_error_not_a_skip() -> None:
     with pytest.raises(ss.ProjectionError, match="no lane"):
         ss.project([_row(score_type="SEMANTIC")], ASSETS, "2026-10-07")
@@ -240,6 +266,9 @@ def test_a_dry_run_validates_every_graph_and_writes_nothing(tmp_path: Path) -> N
     ]
     assert not out.written
     assert not out.rejected
+    # It never asked the store, so it does not claim what the gate would say.
+    assert "SHACL-valid, not written (store not consulted)" in out.summary()
+    assert "accepted by the gate" not in out.summary()
 
 
 def test_the_source_check_runs_first_and_stops_a_database_below_the_floor(tmp_path: Path) -> None:
@@ -317,8 +346,12 @@ def test_a_new_row_for_a_written_quarter_is_counted_as_lost_not_rejected(
     assert out.already_in_store == 1
     assert not store.added
     assert not out.rejected  # the gate is never asked to append to the existing graph
-    assert out.skipped[ss.SKIP_QUARTER_WRITTEN] == 1
-    assert out.report.skipped_by_design[("v_score_snapshot", ss.SKIP_QUARTER_WRITTEN)] == 1
+    # Lost, as SPEC §13 item 10 says, not a design skip.
+    assert [(f.check, f.key) for f in out.report.lost] == [(GRAPH_WRITTEN, (11,))]
+    assert "Snap_BBB_Fin_20241231_11 is lost" in out.report.lost[0].detail
+    assert not out.skipped
+    assert not out.report.skipped_by_design
+    assert "lost: v_score_snapshot row (11,): graph_written" in out.summary()
 
 
 def test_a_same_day_rerun_defers_a_new_cycle_row_to_the_next_run_day(
@@ -485,3 +518,24 @@ def test_the_configured_databases_project_into_graphs_the_gate_accepts() -> None
     assert not out.report.stopped
     assert not out.rejected
     assert out.checked
+
+
+def test_a_refused_graph_is_reported_and_keeps_its_late_key(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, make_db: MakeDB
+) -> None:
+    _allow_one_loss(monkeypatch)
+    keys = tmp_path / "late.json"
+    _delay_row_3(tmp_path, make_db, keys)
+
+    def refuse(*_: Any, **__: Any) -> int:
+        raise gate.IngestRejected("shapes.ttl: no")
+
+    monkeypatch.setattr(ss.gate, "ingest", refuse)
+    store = _store(make_db)
+    fixed = _cohort("TECHNICAL", 1)
+    out = ss.run(_database(tmp_path, fixed), ASSETS, store.db, "2026-10-08", late_keys_path=keys)
+    assert out.rejected == {"urn:graph:ingest:TECHNICAL:2026-10-08": "shapes.ttl: no"}
+    assert not out.written
+    assert not store.added
+    assert not out.late_closed
+    assert _late(keys) == [[3]]  # the row is not in the store: the next run re-reads it

@@ -99,7 +99,11 @@ VIEW_CHECKS = frozenset(
 )
 # Not a check: the row was taken in the cascade a failing row of its group started.
 CASCADE = "cascade"
-CHECK_KINDS = SOURCE_CHECKS | VIEW_CHECKS | {CASCADE}  # add a kind to a group, never here
+# Not checks either: what a projection reports of a row that passed the boundary (T-031).
+# ``graph_written``: the data-dated graph the row belongs in is already written, so it is lost.
+GRAPH_WRITTEN = "graph_written"
+PROJECTION_OUTCOMES = frozenset({GRAPH_WRITTEN})
+CHECK_KINDS = SOURCE_CHECKS | VIEW_CHECKS | {CASCADE} | PROJECTION_OUTCOMES  # add to a group
 
 
 class Source(Protocol):
@@ -149,7 +153,8 @@ class BoundaryReport:
     aggregate_failures: list[Failure] = field(default_factory=list)
     quarantined: list[Failure] = field(default_factory=list)
     late: list[Failure] = field(default_factory=list)  # quarantined, re-read by the next run
-    lost: list[Failure] = field(default_factory=list)  # quarantined, gone for that date
+    # quarantined, or (``graph_written``) projected too late: gone for that date
+    lost: list[Failure] = field(default_factory=list)
     skipped_by_design: Counter[tuple[str, str]] = field(default_factory=Counter)
     inactive: list[str] = field(default_factory=list)  # pending views and columns, with reasons
     # Row-level failures found in a run an aggregate failure stopped: reported, not quarantined.
