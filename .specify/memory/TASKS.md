@@ -38,8 +38,8 @@ are closed (see `CHANGELOG.md`).*
       upstream SEMANTIC into the `[-1, 1]` `rawValue` `ScoreSnapshotShape` requires of it (T-081;
       `SPEC.md` §2.6). SECTOR's `raw_value` is read verbatim into the [-100, 100] bound T-155 sets,
       and its 0-100 `normalized_score` is rescaled like the other lanes (add SECTOR to
-      `RESCALED_SCORE_TYPES` in `src/projection/score_scale.py`, and rewrite its module docstring,
-      which still says SECTOR carries no `normalizedScore` and a [-1, 1] `rawValue`; do not
+      `RESCALED_SCORE_TYPES` in `src/projection/score_scale.py`, whose module docstring already
+      describes that step (PR #60); do not
       re-add FUNDAMENTAL, which T-171 removed: project its `raw_value` only, never its
       `normalized_score`). Skip a
       cycle-lane row with a NULL `available_at` (every such row before upstream's T-144) and count it
@@ -306,8 +306,8 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       rescales it). Update every statement of the old bound or of "no `normalizedScore` for SECTOR":
       `shapes.ttl`, `reference.ttl`'s SRM comment, `docs/06` §1.8, `schema/README.md` refinements 2
       and 6 (6 still lists SECTOR as "open, not fixed"), the T-030 rescale paragraph closing
-      `SPEC.md` §2.6, and the module docstring of `src/projection/score_scale.py` (with T-031's code
-      change). Leave `schema/protege-view.ttl` to its regeneration (Work item 8); it is generated.
+      `SPEC.md` §2.6, and the module docstring of `src/projection/score_scale.py` (done in PR #60;
+      the code change itself is T-031's). Leave `schema/protege-view.ttl` to its regeneration (Work item 8); it is generated.
       → step 3.
 - [ ] **T-156** Quant: read `v_quant_portfolio` and `v_quant_vs_live` on the engine version upstream
       marks current, with `engine_version` recorded on each `BenchmarkObservation`. Match a
@@ -349,7 +349,7 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       (accession numbers) into D16's; and their T-144/T-145 scope additions (keep `component_value`
       and `configured_weight`; a Q2 test; `docs/kg_schema.md`; an accession-number uniqueness
       check). → `PLAN.md` Work item 15, step 1.
-- [x] **T-171** *(done in PR #56: the `sh:or` change, comments, docs, `score_scale.py` and its tests; FUNDAMENTAL `rawValue`'s bounds stay open as Q6, asked with T-150's next follow-up)* *(D17, raised by the third reply)* Decide how `ScoreSnapshot` keeps its
+- [x] **T-171** *(D17, raised by the third reply; done in PR #56: the `sh:or` change, comments, docs, `score_scale.py` and its tests; FUNDAMENTAL `rawValue`'s bounds stay open as Q6, asked with T-150's next follow-up)* Decide how `ScoreSnapshot` keeps its
       immutable-observation principle (constitution; `docs/06` conventions) now that upstream
       rewrites a FUNDAMENTAL row's `normalized_score` in place on every cycle that re-normalizes
       its filing against that cycle's cohort (measured: 33/40 production, 1/60 pilot, 2,267/2,799
