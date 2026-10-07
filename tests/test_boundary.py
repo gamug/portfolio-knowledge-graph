@@ -14,7 +14,9 @@ from typing import Any
 import pytest
 
 from projection.boundary import (
+    INGESTION_DATED,
     BoundaryError,
+    BoundaryReport,
     check_source,
     validate,
 )
@@ -409,3 +411,102 @@ def test_a_fundamental_row_and_any_other_view_is_lost(tmp_path: Path) -> None:
         {"v_weight_scheme": lenient({"ranges": [{"column": "top_n", "min": 1}]})},
     )
     assert len(other.report.lost) == 1
+
+
+def test_without_a_persisted_key_file_a_late_row_is_reported_lost() -> None:
+    """Late means the next run can re-read it; with no file to find the key in, it cannot."""
+    rows = [snapshot(1), snapshot(2, normalized_score=101.0)]
+    result = validate({"v_score_snapshot": rows}, {"v_score_snapshot": snapshot_view()})
+    assert result.report.late == []
+    assert [f.key for f in result.report.lost] == [(2,)]
+
+
+def test_a_keyless_view_never_persists_a_row_index(tmp_path: Path) -> None:
+    keyless = parse_view_expectation(
+        "v_score_snapshot",
+        {
+            "view": "v_score_snapshot",
+            "cap": 1,
+            "cap_reason": "test",
+            "ranges": [{"column": "normalized_score", "min": 0, "max": 100}],
+        },
+    )
+    path = tmp_path / "late.json"
+    rows = [snapshot(1), snapshot(2, normalized_score=101.0)]
+    result = validate(
+        {"v_score_snapshot": rows}, {"v_score_snapshot": keyless}, late_keys_path=path
+    )
+    assert result.report.late == []
+    assert len(result.report.lost) == 1
+    assert json.loads(path.read_text()) == {}
+
+
+def test_every_ingestion_dated_view_has_a_natural_key(shipped: dict[str, ViewExpectation]) -> None:
+    """Without one its late rows could not be found again, so they would all be lost."""
+    assert all(shipped[view].keys for view in INGESTION_DATED)
+
+
+def test_the_late_key_file_is_merged_and_a_key_leaves_once_its_row_is_kept(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "late.json"
+    path.write_text(json.dumps({"v_score_snapshot": [[3], [9]]}))
+    rows = [snapshot(2, normalized_score=101.0), snapshot(3), snapshot(4)]  # 3 re-read, now clean
+    validate({"v_score_snapshot": rows}, {"v_score_snapshot": snapshot_view()}, late_keys_path=path)
+    # 9 was not re-read this run, so it stays; 3 was kept, so it leaves; 2 is new.
+    assert json.loads(path.read_text()) == {"v_score_snapshot": [[2], [9]]}
+
+
+def test_a_stopped_run_leaves_the_late_key_file_untouched(tmp_path: Path) -> None:
+    path = tmp_path / "late.json"
+    path.write_text(json.dumps({"v_score_snapshot": [[9]]}))
+    capped = parse_view_expectation(
+        "v_score_snapshot",
+        {
+            "view": "v_score_snapshot",
+            "cap": 0,
+            "keys": [["id"]],
+            "ranges": [{"column": "normalized_score", "min": 0, "max": 100}],
+        },
+    )
+    with pytest.raises(BoundaryError):
+        validate(
+            {"v_score_snapshot": [snapshot(1, normalized_score=101.0)]},
+            {"v_score_snapshot": capped},
+            late_keys_path=path,
+        )
+    assert json.loads(path.read_text()) == {"v_score_snapshot": [[9]]}
+
+
+# --- inputs the runner refuses, and skips the caller records -------------------------------------
+
+
+def test_rows_for_a_view_with_no_expectations_are_refused() -> None:
+    with pytest.raises(ValueError, match="no expectations: v_unknown"):
+        validate({"v_unknown": [{}]}, {})
+
+
+def test_rows_for_a_pending_view_are_refused_not_dropped(
+    shipped: dict[str, ViewExpectation],
+) -> None:
+    only = {"v_cycle_ranking_component": shipped["v_cycle_ranking_component"]}
+    with pytest.raises(ValueError, match=r"pending view.*v_cycle_ranking_component"):
+        validate({"v_cycle_ranking_component": [{"cycle_run_id": 1}]}, only)
+
+
+def test_the_caller_counts_its_own_skips_in_the_same_report() -> None:
+    """T-151 and T-155 skip rows outside these checks; they report them through ``skip``."""
+    report = BoundaryReport()
+    report.skip("v_cycle_ranking", "no component rows (T-155)")
+    report.skip("v_weight_scheme", "run fails the T-151 checks", n=2)
+    assert report.skipped_by_design == {
+        ("v_cycle_ranking", "no component rows (T-155)"): 1,
+        ("v_weight_scheme", "run fails the T-151 checks"): 2,
+    }
+    assert "skipped by design: v_weight_scheme / run fails the T-151 checks: 2" in report.summary()
+
+
+def test_a_pending_component_value_is_typed_so_range_and_mean_cannot_skip_it(
+    shipped: dict[str, ViewExpectation],
+) -> None:
+    assert shipped["v_cycle_ranking_component"].types == {"component_value": "number"}

@@ -13,9 +13,11 @@ the one ``SPEC.md`` §13 item 10 records:
   counted per view and reason, never failed;
 * a ``pending`` view or column is listed, so an inactive guard is visible.
 
-A quarantined row is *late* if its target graph is dated by ingestion and the caller persists the
-late keys (``late_keys_path``) for the next run to re-read; otherwise it is *lost*. Re-reading
-those keys is T-031's.
+A quarantined row is *late* if its target graph is dated by ingestion, its view has a natural key,
+and the caller persists the late keys (``late_keys_path``) for the next run to re-read; otherwise it
+is *lost*. The file is merged, not replaced: a key stays until a run keeps its row. Re-reading those
+keys is T-031's, as is counting the rows T-151 and T-155 skip, through
+:meth:`BoundaryReport.skip`.
 
 Nothing here reads a database except :func:`check_source`; rows are plain mappings, so the same
 code runs over ``portfolio_common.db`` rows and over the synthetic rows of T-164.
@@ -32,7 +34,7 @@ from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Protocol, TypeGuard
+from typing import Any, NoReturn, Protocol, TypeGuard
 
 from projection.expectations import (
     OrderedPair,
@@ -116,6 +118,10 @@ class BoundaryReport:
     inactive: list[str] = field(default_factory=list)  # pending views and columns, with reasons
     # Row-level failures found in a run an aggregate failure stopped: reported, not quarantined.
     row_failures: list[Failure] = field(default_factory=list)
+
+    def skip(self, view: str, reason: str, n: int = 1) -> None:
+        """Count ``n`` rows of ``view`` skipped by design (T-031, T-151, T-155): never failed."""
+        self.skipped_by_design[(view, reason)] += n
 
     def summary(self) -> str:
         lines = [f"stopped: {self.stopped}"]
@@ -285,6 +291,8 @@ class _View:
         self._group_means()
 
     def _present(self, column: str) -> bool:
+        # The first row stands for all: rows from one SELECT share their columns. Synthetic rows
+        # must do the same (``_missing_columns`` checks the named columns on that row too).
         return not self.rows or column in self.rows[0]
 
     def _named_columns(self) -> set[str]:
@@ -411,12 +419,8 @@ class _View:
         left, right = row.get(pair.left), row.get(pair.right)
         if left is None or right is None:
             if pair.null == "skip":
-                self.report.skipped_by_design[
-                    (
-                        self.exp.view,
-                        f"{pair.left} is NULL" + (f" until {pair.until}" if pair.until else ""),
-                    )
-                ] += 1
+                until = f" until {pair.until}" if pair.until else ""
+                self.report.skip(self.exp.view, f"{pair.left} is NULL{until}")
             else:
                 self._row(
                     index,
@@ -481,11 +485,9 @@ def validate(
     report = BoundaryReport()
     report.aggregate_failures.extend(source_failures)
     if source_failures:
-        return _stop(report, "the source database fails its check")
+        _stop(report, "the source database fails its check")
 
-    unknown = sorted(set(rows) - set(expectations))
-    if unknown:
-        raise ValueError(f"rows for view(s) with no expectations: {', '.join(unknown)}")
+    _check_inputs(rows, expectations)
 
     views: dict[str, _View] = {}
     for name, exp in sorted(expectations.items()):
@@ -501,22 +503,34 @@ def validate(
         report.aggregate_failures += view.aggregate
     if report.aggregate_failures:
         _keep_row_evidence(views, report)
-        return _stop(report, "an aggregate check failed")
+        _stop(report, "an aggregate check failed")
 
     dropped = _cascade(views)
     for name, view in views.items():
         for index in sorted(dropped.get(name, ())):
             for failure in view.by_row[index]:
                 report.quarantined.append(failure)
-        _classify(view, dropped.get(name, set()), report)
+        _classify(view, dropped.get(name, set()), report, persisted=late_keys_path is not None)
     _enforce_caps(views, dropped, report)
-    if late_keys_path is not None:
-        _persist_late(report, late_keys_path)
     kept = {
         name: [r for i, r in enumerate(view.rows) if i not in dropped.get(name, set())]
         for name, view in views.items()
     }
+    if late_keys_path is not None:
+        _persist_late(report, kept, views, late_keys_path)
     return BoundaryResult(kept, report)
+
+
+def _check_inputs(
+    rows: Mapping[str, Sequence[Row]], expectations: Mapping[str, ViewExpectation]
+) -> None:
+    """Every view given rows must have expectations and be readable (not ``pending``)."""
+    unknown = sorted(set(rows) - set(expectations))
+    if unknown:
+        raise ValueError(f"rows for view(s) with no expectations: {', '.join(unknown)}")
+    unread = sorted(name for name in rows if expectations[name].pending)
+    if unread:  # a pending view cannot be read; dropping its rows here would be silent
+        raise ValueError(f"rows for pending view(s), which cannot be read yet: {', '.join(unread)}")
 
 
 def _keep_row_evidence(views: Mapping[str, _View], report: BoundaryReport) -> None:
@@ -525,7 +539,7 @@ def _keep_row_evidence(views: Mapping[str, _View], report: BoundaryReport) -> No
         report.row_failures += [f for i in sorted(view.by_row) for f in view.by_row[i]]
 
 
-def _stop(report: BoundaryReport, why: str) -> BoundaryResult:
+def _stop(report: BoundaryReport, why: str) -> NoReturn:
     report.stopped = True
     report.stop_reasons.append(why)
     raise BoundaryError(report)
@@ -564,15 +578,17 @@ def _cascade(views: Mapping[str, _View]) -> dict[str, set[int]]:
     return dropped
 
 
-def _is_late(view: str, row: Row) -> bool:
-    where = INGESTION_DATED.get(view)
-    return where is not None and _matches(row, where)
+def _is_late(view: _View, row: Row, *, persisted: bool) -> bool:
+    """Late only if the next run can find the row again: an ingestion-dated graph, a natural key
+    (a row index means nothing to the next run) and a file the keys are persisted to."""
+    where = INGESTION_DATED.get(view.exp.view)
+    return persisted and bool(view.row_key) and where is not None and _matches(row, where)
 
 
-def _classify(view: _View, dropped: set[int], report: BoundaryReport) -> None:
+def _classify(view: _View, dropped: set[int], report: BoundaryReport, *, persisted: bool) -> None:
     for index in sorted(dropped):
         failure = view.by_row[index][0]
-        late = _is_late(view.exp.view, view.rows[index])
+        late = _is_late(view, view.rows[index], persisted=persisted)
         (report.late if late else report.lost).append(failure)
 
 
@@ -590,10 +606,35 @@ def _enforce_caps(
         raise BoundaryError(report)
 
 
-def _persist_late(report: BoundaryReport, path: Path) -> None:
-    """Write the keys of the late rows, for the next run to re-read (T-031 reads them back)."""
-    grouped: defaultdict[str, list[list[Any]]] = defaultdict(list)
+def _json_key(key: Sequence[Any]) -> str:
+    """One spelling per key, so a key read back from the file compares equal to a fresh one."""
+    return json.dumps(list(key), default=str)
+
+
+def _persist_late(
+    report: BoundaryReport,
+    kept: Mapping[str, Sequence[Row]],
+    views: Mapping[str, _View],
+    path: Path,
+) -> None:
+    """Merge this run's late keys into ``path`` for the next run to re-read (T-031 reads them).
+
+    A key already in the file stays until a run keeps its row (the row is then written), so a key
+    the next run did not re-read is not lost by overwriting the file.
+    """
+    stored: dict[str, list[list[Any]]] = json.loads(path.read_text()) if path.exists() else {}
+    merged: dict[str, dict[str, list[Any]]] = {
+        view: {_json_key(k): k for k in keys} for view, keys in stored.items()
+    }
+    for name, rows in kept.items():
+        columns = views[name].row_key
+        if columns and name in merged:
+            for row in rows:
+                merged[name].pop(_json_key(_key(row, columns)), None)
     for failure in report.late:
         if failure.key is not None:
-            grouped[failure.view].append(list(failure.key))
-    path.write_text(json.dumps(grouped, indent=2, sort_keys=True, default=str) + "\n")
+            merged.setdefault(failure.view, {})[_json_key(failure.key)] = json.loads(
+                _json_key(failure.key)
+            )
+    out = {view: sorted(keys.values(), key=_json_key) for view, keys in merged.items() if keys}
+    path.write_text(json.dumps(out, indent=2, sort_keys=True) + "\n")
