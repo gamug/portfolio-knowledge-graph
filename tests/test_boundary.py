@@ -350,15 +350,25 @@ def test_a_failing_component_takes_its_scheme_and_that_runs_rankings(
             "v_cycle_ranking",
             (0,),
             root,
-            f"shares cycle_run_id (1,) with v_weight_scheme (0,), itself taken with {root}",
+            "shares cycle_run_id (1,) with v_weight_scheme (0,)",
         ),
         (
             "v_weight_component",
             (1, "TECHNICAL"),
             root,
-            f"shares cycle_run_id (1,) with v_weight_scheme (0,), itself taken with {root}",
+            "shares cycle_run_id (1,) with v_weight_scheme (0,)",
         ),
     }
+    # the rendered report says each hop once: who it went with, and where the cascade started
+    rendered = {str(f) for f in cascaded}
+    assert (
+        "v_weight_scheme row (0,): cascade: shares cycle_run_id (1,) with the failing row "
+        f"(cascade started by {root})"
+    ) in rendered
+    assert (
+        "v_cycle_ranking row (0,): cascade: shares cycle_run_id (1,) with v_weight_scheme (0,) "
+        f"(cascade started by {root})"
+    ) in rendered
 
 
 def test_a_keyless_failing_row_is_named_by_its_index_in_the_cascade() -> None:
@@ -381,6 +391,31 @@ def test_a_keyless_failing_row_is_named_by_its_index_in_the_cascade() -> None:
     result = validate(rows, {"v_weight_scheme": schemes, "v_cycle_ranking": rankings})
     [taken] = [f for f in result.report.quarantined if f.check == "cascade"]
     assert taken.cascaded_from == "v_weight_scheme (1,)"  # its index, never an empty key
+
+
+def test_a_row_two_failing_rows_reach_names_one_and_both_are_reported() -> None:
+    components = parse_view_expectation(
+        "v_weight_component",
+        {
+            "view": "v_weight_component",
+            "cap": 1,
+            "cap_reason": "test",
+            "keys": [["cycle_run_id", "score_type"]],
+            "ranges": [{"column": "weight", "min": 0, "max": 1}],
+        },
+    )
+    rows = {
+        "v_weight_scheme": [full(1)],
+        "v_weight_component": [
+            {"cycle_run_id": 1, "score_type": "SECTOR", "weight": 7.0},
+            {"cycle_run_id": 1, "score_type": "TECHNICAL", "weight": -1.0},
+        ],
+    }
+    result = validate(rows, {"v_weight_scheme": lenient({}), "v_weight_component": components})
+    roots = {"v_weight_component (1, 'SECTOR')", "v_weight_component (1, 'TECHNICAL')"}
+    [scheme_row] = [f for f in result.report.quarantined if f.view == "v_weight_scheme"]
+    assert scheme_row.cascaded_from in roots
+    assert {f"{f.view} {f.key}" for f in result.report.quarantined if f.check == "range"} == roots
 
 
 def test_each_cascaded_row_counts_against_its_own_views_cap() -> None:

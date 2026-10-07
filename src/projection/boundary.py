@@ -101,13 +101,15 @@ class Failure:
     detail: str
     key: Key | None = None
     group: Key | None = None
-    cascaded_from: str | None = None  # the row that took this one, when it did not fail itself
+    # The failing row that started the cascade this row was taken in; None if the row failed itself.
+    # On a later hop it is not the row this one was taken with: ``detail`` names that one.
+    cascaded_from: str | None = None
 
     def __str__(self) -> str:
         where = f"{self.view}.{self.column}" if self.column else self.view
         scope = f" row {self.key}" if self.key is not None else ""
         scope += f" group {self.group}" if self.group is not None else ""
-        cause = f" (taken with {self.cascaded_from})" if self.cascaded_from else ""
+        cause = f" (cascade started by {self.cascaded_from})" if self.cascaded_from else ""
         return f"{where}{scope}: {self.check}: {self.detail}{cause}"
 
 
@@ -568,6 +570,8 @@ def _cascade(views: Mapping[str, _View]) -> dict[str, set[int]]:
 
     A taken row names the failing row that started the cascade (``cascaded_from``), not the row
     it was taken with when that row was itself taken; the detail names that intermediate hop.
+    When several failing rows reach the same row, it names one of them, the first to reach it;
+    the others are each in the report as failures of their own.
     """
     dropped: dict[str, set[int]] = {
         n: {i for i, f in v.by_row.items() if f} for n, v in views.items()
@@ -585,7 +589,7 @@ def _cascade(views: Mapping[str, _View]) -> dict[str, set[int]]:
             key = _key(source.rows[index], on)
             if None in key:
                 continue
-            via = "the failing row" if here == root else f"{here}, itself taken with {root}"
+            via = "the failing row" if here == root else here
             for j, row in enumerate(target.rows):
                 if j not in dropped[target_name] and _key(row, on) == key:
                     dropped[target_name].add(j)
