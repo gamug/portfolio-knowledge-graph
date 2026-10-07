@@ -159,6 +159,11 @@ independent of each other once T-131 lands.*
       `agentOrigin` ↔ `metricType` one-to-one via `sh:xone`. 2458 quads, conforms; 18 synthetic
       cases, the acceptance probe (one violation), `docs/09`'s example and the ETL smoke run agree.
       → `PLAN.md` Work item 14, step 1.
+- [ ] **T-141** Run `cli/verify_store.py` against the live GraphDB repository with the current
+      acceptance probe and record the result in `docs/graphdb-setup.md`. → step 2.
+- [x] **T-142** *(done 2026-10-07 in PR #63: `gate.validate` raises `ShaclRejected`, an `IngestRejected` carrying pyshacl's results graph; `check_gate` requires exactly one `sh:ValidationResult`, a `:timestamp` `MinCountConstraintComponent`, with `tests/test_acceptance_gate.py` covering wording-independence, a second violation, a single violation of another kind, a non-SHACL rejection and an accepted batch)* Have `kg_store.gate.validate` expose pyshacl's results graph and make
+      `acceptance.check_gate` count `sh:ValidationResult` nodes instead of matching
+      `"Constraint Violation in"` in the text report. → step 3.
 - [ ] **T-146** Let the gate take the worked example's own batches (found writing T-136's tests):
       `gate.validate` checks a batch alone, so three `instances.trig` graphs fail it:
       `derived:entity-resolution:2026-08-05` (`sh:class :Asset` on `:coOccurrenceAsset` values typed
@@ -168,11 +173,7 @@ independent of each other once T-131 lands.*
       references in the batch's data graph for validation (without writing them), or relax the shape;
       allow `:clearedOn` as a closing property. Then drop the three `xfail`s in
       `tests/test_kg_gate.py` (strict, so they fail once it is fixed). Constitution Code & Git #9.
-- [ ] **T-141** Run `cli/verify_store.py` against the live GraphDB repository with the current
-      acceptance probe and record the result in `docs/graphdb-setup.md`. → step 2.
-- [x] **T-142** *(done 2026-10-07 in PR #63: `gate.validate` raises `ShaclRejected`, an `IngestRejected` carrying pyshacl's results graph; `check_gate` requires exactly one `sh:ValidationResult`, a `:timestamp` `MinCountConstraintComponent`, with `tests/test_acceptance_gate.py` covering wording-independence, a second violation, a single violation of another kind, a non-SHACL rejection and an accepted batch)* Have `kg_store.gate.validate` expose pyshacl's results graph and make
-      `acceptance.check_gate` count `sh:ValidationResult` nodes instead of matching
-      `"Constraint Violation in"` in the text report. → step 3.
+      → `PLAN.md` Work item 14, step 4.
 
 ## Work item 15 — Adopt upstream's `v_*` contract changes (replies of 2026-10-05, 2026-10-06 x2)
 

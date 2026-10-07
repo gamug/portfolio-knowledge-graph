@@ -537,10 +537,15 @@ new acceptance probe; and `acceptance.check_gate` counts violations by matching 
 2. Run `cli/verify_store.py` once against the live repository (T-141).
 3. Make `gate.validate` expose the results graph, and count `sh:ValidationResult` nodes in
    `check_gate` instead of matching text (T-142).
+4. Let the gate take the worked example's own batches (T-146, found by T-136's tests): three
+   `instances.trig` graphs fail `gate.validate` taken alone (references typed in another graph;
+   `:clearedOn`), so the entity-resolution, quant and Veto-closing lanes cannot write through
+   `cli/ingest.py`. Land it before Work item 4 writes through the gate.
 
 **Acceptance**: FR-001 parse + `pyshacl` pass with the new count; the store acceptance probe still
 yields exactly one violation (`:timestamp`); T-141's run is recorded in `docs/graphdb-setup.md`; T-142's
-`check_gate` does not depend on pyshacl's report wording.
+`check_gate` does not depend on pyshacl's report wording; T-146 drops the three strict `xfail`s in
+`tests/test_kg_gate.py`.
 
 **Blocked on**: T-141 needs a running GraphDB; nothing else.
 
