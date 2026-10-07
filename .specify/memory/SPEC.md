@@ -807,6 +807,19 @@ treating a related FR/NR as done:
     which fails on a removed column or view against an upstream checkout
     (§2.6). It runs manually today; where it runs automatically is T-135. No
     cross-repo schema generation is planned.
+    **Row-level validation (T-160, decided 2026-10-07):** plain checks, no
+    validation library (no dependency, no constitution amendment, T-161): rows
+    arrive as `portfolio_common.db` row objects, the volume is a few thousand
+    rows, and the checks that matter (source check, per-group cohort mean,
+    by-design NULLs, the skipped-row report) are custom under any library. A
+    declarative table of expectations keyed by view sits beside
+    `view_contract.py` (T-162), with seven check kinds: type, NULL rate, range,
+    natural-key uniqueness, ordered pair (`available_at >= event_time`, D2),
+    row count and group mean. An aggregate or source failure stops the run; a
+    row-level failure is quarantined and reported, and stops the run if its
+    view's failing share exceeds a per-view cap. Rows skipped by design are
+    counted, not failed. Not detectable: a reversed polarity, or whether
+    upstream's numbers are right.
 11. **The computation decision is resolved: the SEMANTIC score is not computed
     here; who materializes it is disputed, and the cut-over is still pending.** The earlier plan to
     aggregate `article_sentiment` per `(asset, day)` in this repo (old Work

@@ -871,14 +871,27 @@ since a polarity change leaves the column set untouched.
 4. Test the selected policy and every check kind with synthetic frames under Work item 13's structure
    (T-164).
 
+**Decided (T-160, 2026-10-07): plain checks, no library.** Rows reach this repo as
+`portfolio_common.db` row objects, not frames, and a frame library (pandera, Great Expectations,
+deepchecks) would bring a dataframe stack for a few thousand rows; the checks that matter most (the
+source check, the per-`(cycle_run_id, score_type)` cohort mean, by-design NULLs, skipped-row counts,
+the report naming view, column and row key or group) are custom code under any of them, and
+deepchecks targets ML data and model drift. T-161 therefore closes with no dependency and no
+constitution amendment. The expectations are a declarative table keyed by view name beside
+`view_contract.py`, with seven check kinds: type, NULL rate, range, natural-key uniqueness, ordered
+pair (`available_at >= event_time`, non-strict, D2: cycle lanes get `available_at` equal to the cycle
+date after upstream's T-144; read whether both are dates or timestamps from a real view before
+pinning), row count and group mean. **Policy:** an aggregate or source failure stops the run; a
+row-level failure quarantines the row and reports it, but stops the run if the failing share of a
+view exceeds a per-view cap (set with T-162's expectations).
+
 **Acceptance**: every view the projection reads has expectations; a violating row never reaches the
 triple builder under the chosen policy; the failure message names the view and column, plus the row key
 for a row-level check, or the group for an aggregate one; `uv run pytest` covers a passing and a failing
 frame per check kind and the selected policy's behaviour; `SPEC.md` §13 item 10 records what is checked
 at the boundary and what is not.
 
-**Blocked on**: T-160 on nothing; T-161 onward on T-160 (and, for a library, on its constitution
-amendment). T-163 lands with T-031; T-164's prerequisite, Work item 13's skeleton (T-131), has landed (PR #56).
+**Blocked on**: nothing for T-162 (T-160 done, T-161 closed: no library, no amendment). T-163 lands with T-031; T-164's prerequisite, Work item 13's skeleton (T-131), has landed (PR #56).
 
 ## Sequencing
 
@@ -909,7 +922,7 @@ Work item 14 (PR #48 follow-ups) — independent; T-140 and T-142 (PR #63) done,
 Work item 15 (upstream's v_* changes) — T-150, T-170 and T-171 (PR #56) done, with T-155's schema half (PR #58), T-153's comments (PR #59)
   and T-151's rule (PR #60); the step-3 shape corrections now;
   the rest as upstream's T-144/T-145 ship; feeds Work item 4 (T-031) and 12 (T-121)
-Work item 16 (boundary validation of upstream rows) — T-160 first; T-163 lands with Work item 4's T-031
+Work item 16 (boundary validation of upstream rows) — T-160 done (plain checks), T-161 closed; T-163 lands with Work item 4's T-031
 ```
 
 Work items 1, 2, and 9 have no dependencies and no blockers — they can land

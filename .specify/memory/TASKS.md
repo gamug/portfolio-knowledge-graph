@@ -405,7 +405,7 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
 *Input-side validation of the `v_*` rows, before any triple is built. `pyshacl` stays the graph gate.
 See `PLAN.md` Work item 16.*
 
-- [ ] **T-160** Decide the failure policy (stop the run, or quarantine failing rows and report them)
+- [x] **T-160** *(done 2026-10-07: plain checks, no library; row-level failures quarantined and reported with a per-view cap, aggregate and source failures stop the run; recorded in `SPEC.md` §13 item 10; the text below is the original task, kept for the record)* Decide the failure policy (stop the run, or quarantine failing rows and report them)
       and the validation tool, from the list of checks needed (types, NULL rate, range, natural-key
       uniqueness, `available_at` against `event_time`, row count per view, and the source check of
       T-157). A check with no offending row (row count, NULL rate, cohort mean) is reported against
@@ -415,7 +415,7 @@ See `PLAN.md` Work item 16.*
       not a failure. Rows skipped by design (T-031, T-151, T-155) are counted, not failed. Compare
       plain checks, pandera, deepchecks and Great Expectations on that list, including dependency
       weight. Record the decision in `SPEC.md` §13 item 10. → `PLAN.md` Work item 16, step 1.
-- [ ] **T-161** If T-160 picked a library: propose the constitution amendment first (Technological
+- [x] **T-161** *(closed with T-160: plain checks won, so no dependency and no amendment)* If T-160 picked a library: propose the constitution amendment first (Technological
       stock #6, Governance steps 1–4, MINOR bump), as its own reviewed change, then add the dependency
       to `pyproject.toml`. If plain checks won, there is no dependency and no amendment. → step 2.
 - [ ] **T-162** Write the expectations for the views Work item 4 reads, beside
@@ -471,7 +471,7 @@ Work item 15 (T-150–T-159, T-170–T-171): T-150, T-170 and T-171 (PR #56) don
 T-151's rule recorded (PR #60), its checks waiting on T-031/T-163; T-158's
 ownership question (before their T-141) is unblocked; the rest of T-152–T-158 waits on upstream's
 T-144 (views), T-145 (ids), T-074 (flags) and, after their T-100, their T-082 and their Work item 4.
-Work item 16 (T-160–T-165): T-160 first (policy and tool); T-162's cohort-mean scope corrected
+Work item 16 (T-160–T-165): T-160 done (plain checks, quarantine-with-cap) and T-161 closed with it (no dependency); T-162's cohort-mean scope corrected
 (third reply); T-163 lands with T-031; T-164's prerequisite, Work item 13's skeleton (T-131), has landed (PR #56).
 Work item 8 (T-070–T-071) is independent but needs a human at a Protégé
 session, not a coding session.
