@@ -189,7 +189,7 @@ built upstream); it makes no portfolio or trading decision and renders no report
 | **NR-002** | A database-engine change (away from SQLite, or a `portfolio-common` results-contract bump) must not require touching this repo's ETL logic beyond a version/tag bump. | `grep -rn "import sqlite3" src` returns nothing; the only engine-specific access goes through `portfolio_common.db`/`portfolio_common.news_export`. |
 | **NR-003** | Raw OHLCV/tick-level price data never enters the ontology or the ETL output (`07-ontology-topology.md`'s explicit warning). | `tbox.ttl` defines no tick-level price class; `grep` for a raw-bar/tick field name in `schema/` or `src/etl/` returns nothing beyond the bounded `PriceObservation` summary class. |
 | **NR-004** | The IRI namespace stays `https://thesis.local/kg/portfolio#` for every new term across `schema/*.ttl`/`.trig` unless deliberately aligning to an external vocabulary. | A bare `owl:Class`/`owl:ObjectProperty`/`owl:DatatypeProperty` declaration outside that namespace, excluding the documented FIBO `rdfs:seeAlso` and GICS `skos:Concept` alignments, does not occur. |
-| **NR-005** | The only automated gate is the `rdflib` parse + `pyshacl` conformance check (FR-001) — there is no `pytest` suite and no CI workflow configured today. | The parse+`pyshacl` script passes locally before merge; this NR exists so the absence of a test suite/CI is a documented decision (§14), not an oversight a reader might mistake for one. |
+| **NR-005** | The only automated gate is the `rdflib` parse + `pyshacl` conformance check (FR-001) — there is no full `pytest` suite and no CI workflow configured today (T-131 added the `tests/` skeleton and `tests/test_score_scale.py` in PR #56, as constitution Code & Git #9 requires for a `src/` fix; reversing this NR is T-130's, once T-134 lands). | The parse+`pyshacl` script passes locally before merge; this NR exists so the absence of a test suite/CI is a documented decision (§14), not an oversight a reader might mistake for one. |
 
 ### 2.5 Scope boundary — what this repo owns vs. consumes
 
@@ -271,14 +271,16 @@ and their dispositions are in the table after the register (T-112).
 | D14 | **SEMANTIC is still unbuilt on both sides, and its writer is disputed.** `portfolio-nlp` has no per-`(asset, day)` stage and no `as_of`; `financial-analysis` has no `KG_NLP_DB` reader (its `cycle` `semantic_read` step is a no-op "noting the aggregation runs in the integration repo"); its `README.md`/`docs/README.md` name this repo as the SEMANTIC writer, and upstream's second reply (2026-10-06) says that is intended: the future writer is this repo, from `portfolio-nlp`'s measure. Their rollout step 4 asks **this repo** to remove its SEMANTIC write path, add a `score_method` discriminator, and update docs. This repo's ETL emits Turtle only and never wrote to `SQL_FINANCIAL_DB`, so there is no write-back *code* to remove. | `src/etl/` emits per-article Sentiment `ScoreSnapshot`s (agentOrigin `SEMANTIC`). | Upstream's attribution contradicts §13 item 11 (`portfolio-nlp` computes, `financial-analysis` materializes, this repo stops writing); which side holds is not settled (D14 disposition, T-158). **Done (T-111, 2026-10-05):** optional open-vocabulary `:scoreMethod` on `ScoreSnapshot` (SHACL `maxCount 1`); every SEMANTIC snapshot carries one (the ETL's per-article rows `ARTICLE_SENTIMENT`; the worked per-`(asset, day)` rows the placeholder `ASSET_DAY_AGGREGATE` until upstream names its value). Nothing to remove in code. Whether a wording fix is needed, and in whose docs, depends on the ownership answer. |
 | D15 | **Two access paths, one sufficient.** SQLite views over `SQL_FINANCIAL_DB` (opened `mode=ro`; a view whose base table is absent is dropped, so a partial DB has *missing views*, not errors) or the HTTP `api/` — which serves only `/runs`, `/universe`, `/universe/coverage`, `/scores`, `/portfolio/positions`, `/portfolio/ranking`. | Unread. | The API cannot feed the projection (no vetoes, filings, sections, rules, DQ, quant); read SQLite via `portfolio_common.db` (`read_only`), not raw `sqlite3` (NR-002). |
 | D16 | **Contracts still moving.** Upstream open items that change view contents: cross-module orchestrator (WI 2), SEMANTIC half (WI 4), technical/valorization redesign + EBITDA + forensic flags + Carhart (WI 8), entity-resolution sanitization and `media_cooccurrence` routing (WI 9), N-driven weight caps (WI 18, shipped since: their T-136, see D13), full-universe production run (WI 12). Also: `portfolio-common` is pinned `v1.2.1` in both `financial-analysis` and `data-mining` but `v1.2.0` here and in `portfolio-nlp` (at the time of the rescan; this repo moved to `v1.2.1` in T-110). Production is at `schema_version` 8 and the pilot at 9; each contract change adds a marker migration (reply of 2026-10-06). | Pinned `v1.2.0` at the rescan. | Treat the views as a versioned contract: assert `schema_version` >= 9 (T-109); re-pinned to `v1.2.1` (T-110, additive diff). |
+| D17 | **FUNDAMENTAL's `normalized_score` is rewritten in place, not immutable at the source** (third reply, 2026-10-06). A FUNDAMENTAL row is written once per filing, but every cycle re-normalizes that filing's latest raw score against *that cycle's* cohort and overwrites the same row's `normalized_score` in place (`src/cycle/orchestrator.py`'s normalize step, their T-106); one filing row serves every cycle until the next filing is public. Measured: the stored value differs from the ranking row's `v_cycle_ranking_component.component_value` for 33 of 40 production rows, 1 of 60 pilot rows, and 2,267 of 2,799 (81%) replay rows. TECHNICAL, VALORIZATION and SECTOR rows are unaffected (one cycle date each, never rewritten). `component_value` is therefore *not* a repeat of the `ScoreSnapshot` value for FUNDAMENTAL, reversing an assumption in the second reply. | `ScoreSnapshot` individuals are immutable observations, per the constitution's audit-trail principle (`docs/06` conventions); FUNDAMENTAL carries a required `normalizedScore` like every other lane. | Keeping `normalizedScore` on a FUNDAMENTAL snapshot that upstream itself rewrites in place would either violate the immutability principle or silently go stale. Decide: drop it, or re-mint a new snapshot per cycle read (T-171). **Decision (maintainer, 2026-10-06): drop it.** `ScoreSnapshotShape`'s `sh:or` (T-080/T-081) widens so `ScoreFinanciero` joins `SectorRelativeMomentum`/`Sentiment` as a metric that does not require `normalizedScore` (optional, not forbidden — existing `instances.trig` individuals and the closed design-history rules that compare on it still conform), paired with a second `sh:or` that makes `rawValue` mandatory for it instead (`minCount 1`, no bounds yet), the same pairing the shape already uses for `SectorRelativeMomentum`/`Sentiment`, so a FUNDAMENTAL snapshot can never conform while carrying neither value (PR #56 review). The per-cycle, cohort-relative value is read instead as `:componentValue` on `AttractivenessSnapshot`'s effective-weight `WeightComponent` (T-155), correctly scoped to the one `cycle_run` that produced it. FUNDAMENTAL's `rawValue` — stable at the source per the third reply — is carried on the snapshot instead, once its bounds are confirmed (Q6, open). |
 
 **Dispositions (T-112, 2026-10-05).** Each row has a main label: **adopted** (upstream's
 model taken as is), **translated** (kept in this ontology's own form, mapped on
 projection), **rejected** (deliberately not projected), **raised upstream**
 (needs an answer or a change in another repo, including a change upstream has
 accepted but not yet shipped). The replies of 2026-10-05 and 2026-10-06 (T-150,
-below the table) answered the questions raised for D8–D13; D14's SEMANTIC method
-value and ownership, and five follow-up questions, are still open.
+below the table) answered the questions raised for D8–D13; a further reply, also
+2026-10-06 (T-170), answered the five follow-up questions and raised D17. D14's SEMANTIC method
+value and ownership, and a sixth follow-up question (D17), are still open.
 **Proposed** means no decision is recorded yet. A row adds a second (or
 third) label for a part it leaves open; "raised upstream" appears whenever an
 open part waits on another repo.
@@ -290,17 +292,18 @@ open part waits on another repo.
 | D3 | Adopted | Veto stints `raisedOn`/`clearedOn`/`lastSeenOn`, active-at-cutoff SPARQL (T-102). | — |
 | D4 | Adopted | Upstream's six rules are the catalog, written as single-leaf `RuleDefinition`s; the seven tree rules closed with `validTo` (T-103). | — |
 | D5 | Adopted | `:DataQualityIssue` as an `EvidenceSource` leaf (T-104). | — |
-| D6 | Adopted | `agentOrigin` `VALORIZATION` (T-105); metric id `ScoreCuantitativo` kept (no upstream id exists, T-109). | SECTOR `raw_value` is in TECHNICAL points ([-100, 100]), so `ScoreSnapshotShape`'s [-1, 1] bound for `SectorRelativeMomentum` rejects most rows; the shape widens to upstream's range (T-155, with T-031). |
+| D6 | Adopted | `agentOrigin` `VALORIZATION` (T-105); metric id `ScoreCuantitativo` kept (no upstream id exists, T-109). **Confirmed, third reply (Q3):** SECTOR's `normalized_score` uses the same 50 + 10·z function as the other lanes (a cross-sectional z with 2% winsorization over the cycle's SECTOR raw values), so its cohort-mean guard is unblocked — with a tolerance, since the mean sits close to 50, not exactly on it. | SECTOR `raw_value` is in TECHNICAL points ([-100, 100]), so `ScoreSnapshotShape`'s [-1, 1] bound for `SectorRelativeMomentum` rejects most rows; the shape widens to upstream's range (T-155, with T-031). |
 | D7 | Translated; extras rejected; raised upstream | Optional `runId`/`runAsOf`/`codeVersion`/`engineVersion`, no `Run` class (T-106); `forensic_flags_json`/`prompt_hash`/`correction_rule` not projected. | Run ids are reused, so `<run table>:<id>` is not unique on its own: T-151 decides when `:runId` is emitted, until upstream's T-145 and T-100 land. T-153 reverses the rejection for `prompt_hash` and the forensic flags; `correction_rule` stays rejected. |
 | D8 | Translated; raised upstream | Filter `v_cycle_ranking` by `cycle_run_id`/`cycle_date`, exclude `REPLAY` (T-109). | Project only from a database at the schema floor that holds no `REPLAY` run, replacing "production DB only" (rule in T-157, check in T-162). `REPLAY` never reaches production (their T-115), so no replay flag is needed (declined). `status` and the corrected docstring come with their T-144. |
 | D9 | Adopted; raised upstream | No scheduler here; `portfolio-app` triggers the cycles (maintainer, 2026-10-02). **Answered 2026-10-05 (T-120, closed by T-150):** `portfolio-app` triggers by running upstream's cross-module orchestrator command (their open Work item 2) as a job, `portfolio-reports` reads, and upstream's `api/` stays read-only and gains no run-trigger endpoint (FR-014 unchanged). On this repo's side (T-120), `portfolio-reports` reads the run-log `v_*_run` views and `portfolio-app` reads this repo's query surface. Recorded in `docs/10` step 6. | Their SPEC's trigger split lands with their Work item 2. |
 | D10 | Translated; raised upstream | Reified `:AssetCoOccurrence`; `:sharedExecutiveWith` kept for verified edges (T-107). | `computed_at` and `run_id` on `v_shared_executive_edge` come with their T-144 (T-154). `first_seen`/`last_seen` are NULL today; with their T-082 upstream will fill them or document that they stay NULL. `v_media_cooccurrence_edge` comes with their T-082 (after their T-100), so the `MEDIA` kind still waits. |
 | D11 | Translated; rest rejected; raised upstream | Only view-exposed finished numbers: BENCHMARK `Portfolio`s, positions, `BenchmarkObservation`s (T-108, T-109). Return series, μ, Σ, frontier points rejected (NR-003). The `live_book` reading, the dead `equal_weight`/`cap_weight` names and the NULL `benchmark_weight` on `LIVE_ONLY` rows were confirmed by upstream (2026-10-05). | `opt-v1` and `opt-v2` books coexist; `v_quant_portfolio` and `v_quant_vs_live` gain `engine_version` and `is_current` and drop the dead kind names (their T-144; T-156), with `is_current` marking at most one row per `(as_of, kind)` and `engine_version` opaque (suffixes such as `opt-v1+9d34ff69`). Until it lands, rows can mix versions. |
 | D12 | Translated; raised upstream | Vetoes projected as outcomes with evidence; upstream's rules are not re-evaluated in the graph. | Upstream's T-144 exposes the inputs as finished numbers: `v_fundamental_metric` with market cap as its `market_capitalization` metric, `metric_id` (`metric_group \|\| '.' \|\| metric_name`, the join to `ThresholdComparison.metricName`), `unit` (`ratio`, `x`, `usd`) and `is_current` (at most one row per key; a filing not recomputed under the newest metric version has none), plus `forensic_flags_json` and `prompt_hash` on `v_score_snapshot`. Projected by T-152 and T-153; flag values wait on their T-074. Declined: `inputs_json` and a stored daily market cap. |
-| D13 | Translated; raised upstream | Mapping checked against `v_weight_scheme`/`v_weight_component` (T-109). Upstream confirmed (2026-10-05, 2026-10-06): `score_weights` holds the configured weights; `v_weight_scheme.scheme_id` is the position-weighting rule (`score_proportional`, `score_tilt`), and a blend is identified by its `cycle_run`; `blended_score` is the weighted mean of normalized components minus `soft_veto_penalty` per active SOFT veto, so it can be negative (0.0 for an asset with no component). | Schema work: T-121 (per-run schemes: configured weights from `v_weight_component`, effective caps from `v_weight_scheme`, both read verbatim), T-155 (ranking, with per-asset effective weights read from upstream's `v_cycle_ranking_component`, their T-144, never derived here). Asked: the unit of `target_weight`, `max_name_weight` and `max_sector_weight`. |
+| D13 | Translated; raised upstream | Mapping checked against `v_weight_scheme`/`v_weight_component` (T-109). Upstream confirmed (2026-10-05, 2026-10-06): `score_weights` holds the configured weights; `v_weight_scheme.scheme_id` is the position-weighting rule (`score_proportional`, `score_tilt`), and a blend is identified by its `cycle_run`; `blended_score` is the weighted mean of normalized components minus `soft_veto_penalty` per active SOFT veto, so it can be negative (0.0 for an asset with no component). **Answered, third reply:** (Q1) a no-component asset is always `vetoed = 1` with `"UNSCORED"` in `veto_rules_json`, no dedicated marker beyond the missing component rows. (Q2) `rank` excludes nobody; their T-144 produces one component row per non-null component of every ranking row regardless of `vetoed`/`selected` (tested); `vetoedAtRanking` is true only for a HARD veto or `UNSCORED`, never SOFT alone. (Q5) `target_weight`/`max_name_weight`/`max_sector_weight` are fractions of the book, [0, 1]; `max_name_weight` is `NULL` by default on a MONITORING run; the recorded value is the effective cap on a SELECTION run, the configured value on a MONITORING run. **Also, `component_value` is not a repeat of a `ScoreSnapshot` value for FUNDAMENTAL (D17)** — read it verbatim as `:componentValue` (T-155, T-171); `configured_weight` stays declined. | Schema work: T-121 (per-run schemes: configured weights from `v_weight_component`, effective caps from `v_weight_scheme`, both read verbatim), T-155 (ranking, with per-asset effective weights and `componentValue` read from upstream's `v_cycle_ranking_component`, their T-144, never derived here). |
 | D14 | Adopted; raised upstream | `:scoreMethod` discriminator; no write-back code existed to remove (T-111). | **Still unanswered:** upstream's SEMANTIC method value (replaces `ASSET_DAY_AGGREGATE`, T-158); it comes with their Work item 4, after their T-100. **Ownership disagreement:** upstream's second reply places its SEMANTIC-writer doc fix with their T-141 but states that, per their `docs/semantic-score-boundary.md`, the future writer is this repo, from `portfolio-nlp`'s measure. That contradicts §13 item 11 and PLAN Work item 5 (`portfolio-nlp` computes, `financial-analysis` materializes, this repo stops writing `score_snapshot[SEMANTIC]`). Not settled; raised upstream by T-158 before any work relies on either reading. |
 | D15 | Adopted | Read the SQLite `v_*` views via `portfolio_common.db` read-only; the HTTP `api/` is not a source. | Implementation: Work item 4's projector. |
-| D16 | Adopted; raised upstream | `schema_version` floor 9 (T-109); `portfolio-common` re-pinned to `v1.2.1` (T-110). | Each upstream contract change adds a marker migration, so the floor advances with their T-144 and T-145 (T-157). Assert the floor in the future projector; `portfolio-nlp` is still on `v1.2.0` (theirs to move). Production is at `schema_version` 8, below the floor; the pilot is at 9; their T-100 starts a fresh database. Upstream's current engines are `metrics-v5` and `opt-v2` (production still holds `metrics-v2` and `opt-v1`), and a filing's period is now identified by its period end rather than the `fiscal_period` label; the accession number is the planned filing key, pending upstream's answer on whether every `v_sec_filing` row has one (T-151). |
+| D16 | Adopted; raised upstream | `schema_version` floor 9 (T-109); `portfolio-common` re-pinned to `v1.2.1` (T-110). | Each upstream contract change adds a marker migration, so the floor advances with their T-144 and T-145 (T-157). Assert the floor in the future projector; `portfolio-nlp` is still on `v1.2.0` (theirs to move). Production is at `schema_version` 8, below the floor; the pilot is at 9; their T-100 starts a fresh database. Upstream's current engines are `metrics-v5` and `opt-v2` (production still holds `metrics-v2` and `opt-v1`), and a filing's period is now identified by its period end rather than the `fiscal_period` label; the accession number is the filing key (T-151). **Answered, third reply (Q4):** `accession_number` is never NULL or empty (0 of 5,076 production rows, 0 of 449 pilot rows); it is not unique in production (30 numbers shared by 60 legacy rows predating their T-091), but production is already excluded by the schema floor; it is unique in the pilot and will be in their T-100 rebuild, and their T-145 adds a verifier check for it. |
+| D17 | Adopted; raised upstream | `ScoreSnapshotShape`'s `sh:or` widened so FUNDAMENTAL (`ScoreFinanciero`) no longer requires `normalizedScore`, joining `SectorRelativeMomentum`/`Sentiment` (optional, not forbidden; T-171), paired with a second `sh:or` requiring `rawValue` instead (`minCount 1`, no bounds yet), so it can never conform with neither value. | The per-cycle, cohort-relative value lives instead as `:componentValue` on `AttractivenessSnapshot`'s effective-weight `WeightComponent` (T-155). FUNDAMENTAL's `rawValue` is carried on the snapshot instead, pending upstream's answer on its bounds (Q6, to ask with the next follow-up). |
 
 **Upstream replies of 2026-10-05 and 2026-10-06 (T-150).** `portfolio-financial-analysis`'s
 maintainers answered the questions raised with them for D8–D13 (D14's method value is still
@@ -319,7 +322,7 @@ sent 2026-10-06) were accepted in the second reply as their **T-144** (one addit
   T-151's read checks govern when `:runId` is emitted. Their T-145 makes the ids `AUTOINCREMENT` and
   adds a run-type check to their pilot verifier; their T-100 rebuild drops the orphaned edge
   `run_id`s. Upstream offers the accession number as a stable filing key; it becomes the key
-  here if every `v_sec_filing` row has one (open question below, T-151).
+  here (confirmed never NULL by the third reply, T-170; T-151).
 - **Six corrections of our assumptions** (upstream's numbering, 1.1–1.6). (1) D6: SECTOR
   `raw_value` is in TECHNICAL points (the asset's TECHNICAL raw score minus its sector's
   `mean_raw`), so in [-100, 100] (observed -54 to +46), and SECTOR rows carry a 0–100
@@ -341,9 +344,10 @@ sent 2026-10-06) were accepted in the second reply as their **T-144** (one addit
 - **Declined.** `inputs_json` on `v_fundamental_metric` (the metric value and its filing are
   enough); a stored daily market cap (the per-filing `market_capitalization` metric is enough);
   a replay flag (no replay copy is projected); a run-trigger endpoint in their `api/`;
-  `v_cycle_ranking_component.component_value` (repeats a `ScoreSnapshot` value) and its
-  `configured_weight` (repeats `v_weight_component`); a pre-penalty attractiveness score (deriving
-  it from the effective weights would be a computation here).
+  `v_cycle_ranking_component.configured_weight` (repeats `v_weight_component`); a pre-penalty
+  attractiveness score (deriving it from the effective weights would be a computation here).
+  **Reversed by the third reply:** `component_value` does not repeat a `ScoreSnapshot` value for
+  FUNDAMENTAL (D17) — it is read (T-155, T-171).
 - **Upstream task for each ask, and order.** View changes: their T-144; non-reused ids: their T-145;
   forensic-flag values: their T-074; weights change: their T-141; `v_media_cooccurrence_edge` and
   `first_seen`/`last_seen`: their T-082 and Work item 9, after their T-100; SEMANTIC method value:
@@ -352,10 +356,58 @@ sent 2026-10-06) were accepted in the second reply as their **T-144** (one addit
   (T-143), T-100. They send the commit, `schema_version` and doc section when T-144 and T-145 land.
 - **Open: SEMANTIC ownership (D14).** The second reply says the future SEMANTIC writer is this repo,
   which contradicts this SPEC's boundary (§13 item 11). Not yet raised; T-158 raises it.
-- **Open questions sent back** (Work item 15, step 2): how a no-component asset appears in
-  `v_cycle_ranking`; whether `v_cycle_ranking_component` rows exist for vetoed or excluded assets;
-  whether SECTOR's `normalized_score` is also 50 + 10·z; whether every `v_sec_filing` row has an
-  accession number; the unit of `target_weight`, `max_name_weight` and `max_sector_weight`.
+- **Open questions sent back** (Work item 15, step 2), **all answered by the third reply below
+  (T-170):** how a no-component asset appears in `v_cycle_ranking` (Q1); whether
+  `v_cycle_ranking_component` rows exist for vetoed or excluded assets (Q2); whether SECTOR's
+  `normalized_score` is also 50 + 10·z (Q3); whether every `v_sec_filing` row has an accession
+  number (Q4); the unit of `target_weight`, `max_name_weight` and `max_sector_weight` (Q5).
+
+**Third upstream reply (2026-10-06, T-170), checked against the same `597832a`, production, the
+pilot and its replay copy.** Answers `kg_handoff_second_followup.md`'s five questions and corrects
+one assumption of the second reply.
+
+- **Correction: `component_value` is not a repeat of a `ScoreSnapshot` value, for FUNDAMENTAL
+  (D17).** A FUNDAMENTAL row's `normalized_score` is rewritten in place by every cycle that
+  re-normalizes its filing against that cycle's cohort, so the stored value is always the last
+  cycle's, while `component_value` is the value the ranking row's own run actually used — they
+  differ on 33/40 production, 1/60 pilot and 2,267/2,799 (81%) replay rows. Their T-144 keeps both
+  `component_value` and `configured_weight` in `v_cycle_ranking_component` regardless (the latter
+  stays declined here; only the reasoning for `component_value` was wrong).
+- **Q1.** No dedicated marker for a no-component asset: it is always `vetoed = 1` with
+  `"UNSCORED"` in `veto_rules_json` (D4); detected exactly as planned, by its missing component
+  rows (0 such rows observed in production, the pilot or the replay).
+- **Q2.** `rank` excludes nobody; exclusion happens downstream in `positions`. Their T-144 will
+  produce one component row per non-null component of every ranking row, whatever
+  `vetoed`/`selected` say (with a test), so the only ranking rows without any component row are
+  Q1's. `vetoedAtRanking` is true only for a HARD veto (with the T-1 lag) or `UNSCORED`; a SOFT
+  veto alone never sets it.
+- **Q3.** SECTOR's `normalized_score` uses the same function as the other lanes (a cross-sectional
+  z with 2% winsorization, then 50 + 10·z, clamped to [0, 100]); the cohort mean sits close to 50,
+  not exactly on it, so the T-162 guard needs a tolerance.
+- **Q4.** `accession_number` is never NULL or empty (0 of 5,076 production rows, 0 of 449 pilot
+  rows); not unique in production (30 numbers shared by 60 legacy rows predating their T-091,
+  repaired by their T-120) but harmless, since production is already excluded by the
+  `schema_version` floor; unique in the pilot and in their T-100 rebuild. No constraint enforces
+  it today; their T-145 adds a verifier check.
+- **Q5.** All three (`target_weight`, `max_name_weight`, `max_sector_weight`) are fractions of the
+  book ([0, 1]); `target_weight` is `NULL` for an unselected row and on a MONITORING run;
+  `max_name_weight` can be `NULL` on a MONITORING run (derives from N at book time by default); the
+  recorded value is the effective cap on a SELECTION run since their Work item 18, the configured
+  value on a MONITORING run.
+- **What upstream adds to T-144/T-145.** T-144: keep `component_value`/`configured_weight`; a test
+  for Q2's one-row-per-non-null-component rule; `docs/kg_schema.md` states FUNDAMENTAL's rewrite
+  behaviour, Q1's rule, Q3's normalization and Q5's units. T-145: the accession-number uniqueness
+  check.
+- **Pilot REPLAY.** `financial_pilot.db` holds 0 REPLAY runs; their backfill ran on a separate,
+  unshared copy. Their next pilot (T-143) is a fresh database.
+- **Our decision (D17, T-171): drop FUNDAMENTAL's `normalizedScore`** rather than carry a value
+  upstream itself rewrites in place, which would otherwise need an exception to the
+  immutable-observation principle. The cohort-relative value is read instead as `:componentValue`
+  on `AttractivenessSnapshot`'s effective-weight `WeightComponent` (T-155), correctly scoped to
+  one `cycle_run`.
+- **New open question (Q6, to ask with the next follow-up):** the bounds of FUNDAMENTAL's
+  `rawValue`, needed before `ScoreSnapshotShape` can bound it the way SECTOR's was bounded once
+  confirmed (T-140/T-155).
 
 **Read contract and score scale (T-030, 2026-10-05).** `src/projection/view_contract.py`
 pins a full snapshot of the columns of 30 of upstream's 31 `v_*` views (taken from
@@ -367,13 +419,17 @@ column upstream adds, or a changed column order, is reported as a note, since th
 reads by name. Upstream's `normalized_score` is a 0–100 *strength* score (50 = cohort
 average, higher = better), while `:normalizedScore` is a [0, 1] *risk* reading
 (`docs/06-ontology-definition.md` §1.8; flagged as `schema/README.md` refinement 6). For
-FUNDAMENTAL, VALORIZATION and TECHNICAL (`ScoreFinanciero`/`ScoreCuantitativo`/`ScoreTecnico`)
-the projection writes `1 − normalized_score/100` (`src/projection/score_scale.py`), and does the
+VALORIZATION and TECHNICAL (`ScoreCuantitativo`/`ScoreTecnico`)
+the projection writes `1 − normalized_score/100` (`src/projection/score_scale.py`). Not for
+FUNDAMENTAL (`ScoreFinanciero`) since T-171 (D17): upstream rewrites its `normalized_score` in
+place, so a FUNDAMENTAL snapshot carries `rawValue` only, and `score_scale.py` rejects the lane
+rather than convert it. The projection does the
 same for `v_sector_aggregate_snapshot.mean_normalized` (the mean of members' TECHNICAL score,
 same scale and polarity) into `:SectorAggregateSnapshot`'s required `normalizedScore`; a
 non-finite value or one outside [0, 100] is an error, not clipped. Upstream's separate
-`raw_value` (the score before normalization) is what maps to `:rawValue`; for the three
-rescaled lanes its range is decided in T-031. SECTOR (= `SectorRelativeMomentum`, D6) and
+`raw_value` (the score before normalization) is what maps to `:rawValue`; for FUNDAMENTAL,
+VALORIZATION and TECHNICAL its range is decided in T-031 (FUNDAMENTAL's needs upstream's answer
+to Q6). SECTOR (= `SectorRelativeMomentum`, D6) and
 SEMANTIC (= `Sentiment`, FR-005) carry no `normalizedScore` and compare on a `rawValue` the
 shape bounds to [-1, 1] for both (T-081, T-140), so T-031 has to map upstream's SECTOR and
 SEMANTIC values into that range; upstream SECTOR is "own TECHNICAL raw minus sector mean" on
@@ -596,7 +652,8 @@ production system this project isn't. What exists instead:
 
 ## 10. Testing Strategy & Acceptance Criteria
 
-- **No `pytest` suite exists for this repo** (NR-005) — unlike
+- **No `pytest` tests exist yet for `src/etl/`** (NR-005) — the suite's skeleton and its first
+  test (`tests/test_score_scale.py`, `src/projection/`) landed with T-131 in PR #56, but, unlike
   `portfolio-nlp`, `src/etl/` has no hermetic unit tests for its severity
   formulas, ticker skip-set logic, or provenance-ID formatting; only the
   end-to-end SHACL sample/smoke check (FR-006) exercises it, indirectly and

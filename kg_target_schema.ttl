@@ -1,0 +1,1174 @@
+#################################################################
+# portfolio-knowledge-graph -- target schema for the v_* views
+# portfolio-financial-analysis is changing (third version, answering
+# your third reply of 2026-10-06, checked at 597832a).
+#
+# PART 1 is portfolio-knowledge-graph's schema/tbox.ttl + shapes.ttl at
+# master 5a0d1f7 (schema/ unchanged since 36ac3e5): only the classes,
+# properties and SHACL shapes your views project into. It is verbatim
+# EXCEPT where a "# CHANGED (T-1xx)" comment marks a correction your
+# replies made necessary: five shape changes (the SECTOR rawValue
+# range, the attractivenessScore lower bound, :inverted's minCount;
+# from your third reply, T-171: ScoreFinanciero exempt from
+# normalizedScore, and rawValue mandatory for it instead) and eleven
+# comments (nine rewritten; schemeId's and rawValue's added).
+# PART 2 (end of file) is PROPOSED: the terms your T-144 columns feed.
+# Neither the CHANGED lines nor PART 2 are on our master yet; they are
+# planned in our Work items 12 (T-121) and 15 (T-151..T-156, T-171).
+# T-171's two shape changes and two comments are already in our
+# schema/ in portfolio-knowledge-graph PR #56.
+#
+# Namespace: https://thesis.local/kg/portfolio#  (prefix ":")
+# OWL = what can be inferred (open world); SHACL = what our ingest
+# gate rejects (closed world). A row that cannot satisfy a shape
+# here is rejected on write, so the shapes are the contract.
+#################################################################
+
+@prefix : <https://thesis.local/kg/portfolio#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+:AssetCoOccurrenceShape a sh:NodeShape ;
+    sh:property [ sh:datatype xsd:string ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:path :coOccurrenceMethod ],
+        [ sh:datatype xsd:decimal ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:path :coOccurrenceWeight ],
+        [ sh:datatype xsd:date ;
+            sh:maxCount 1 ;
+            sh:path :coOccurrenceComputedOn ],
+        [ sh:datatype xsd:string ;
+            sh:maxCount 1 ;
+            sh:path :provenanceId ],
+        [ sh:datatype xsd:string ;
+            sh:maxCount 1 ;
+            sh:path :runId ],
+        [ sh:datatype xsd:date ;
+            sh:maxCount 1 ;
+            sh:path :runAsOf ],
+        [ sh:datatype xsd:string ;
+            sh:maxCount 1 ;
+            sh:path :codeVersion ],
+        [ sh:datatype xsd:string ;
+            sh:maxCount 1 ;
+            sh:path :engineVersion ],
+        [ sh:class :Asset ;
+            sh:maxCount 2 ;
+            sh:minCount 2 ;
+            sh:path :coOccurrenceAsset ],
+        [ sh:in ( "SHARED_EXECUTIVE_CANDIDATE" ) ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:path :coOccurrenceKind ] ;
+    sh:targetClass :AssetCoOccurrence .
+
+:AssetShape a sh:NodeShape ;
+    sh:or ( [ sh:minCount 1 ;
+                sh:path :cikNumber ] [ sh:minCount 1 ;
+                sh:node [ sh:property [ sh:minCount 1 ;
+                                sh:path :validTo ] ] ;
+                sh:path :hasUniverseMembership ] ) ;
+    sh:property [ sh:datatype xsd:string ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:path :tickerSymbol ],
+        [ sh:datatype xsd:string ;
+            sh:maxCount 1 ;
+            sh:path :cikNumber ] ;
+    sh:targetClass :Asset .
+
+:AttractivenessSnapshotShape a sh:NodeShape ;
+    sh:property [ sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:path :attractivenessOfAsset ],
+        [ sh:datatype xsd:decimal ;
+            sh:maxCount 1 ;
+            sh:maxInclusive 1.0 ;
+            sh:minCount 1 ;
+            # CHANGED (T-155): sh:minInclusive 0.0 removed. blended_score / 100,
+            # and soft-veto penalties can make it negative (your reply, 1.2).
+            sh:path :attractivenessScore ],
+        [ sh:datatype xsd:dateTime ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:path :computedAt ],
+        [ sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:path :computedWithScheme ] ;
+    sh:targetClass :AttractivenessSnapshot .
+
+:AttractivenessWeightSchemeShape a sh:NodeShape ;
+    sh:property [ sh:datatype xsd:string ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:path :schemeId ],
+        [ sh:datatype xsd:date ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:path :validFrom ],
+        [ sh:minCount 1 ;
+            sh:path :hasWeightComponent ] ;
+    sh:targetClass :AttractivenessWeightScheme .
+
+:BenchmarkObservationShape a sh:NodeShape ;
+    sh:or ( [ sh:node [ sh:property [ sh:hasValue "BENCHMARK" ;
+                                sh:path :portfolioKind ] ] ;
+                sh:path :quantPortfolio ] [ sh:in ( "realized_return" "cumulative_return" "benchmark_return" "active_return" ) ;
+                sh:path :quantMetric ] ) ;
+    sh:property [ sh:datatype xsd:string ;
+            sh:maxCount 1 ;
+            sh:path :runId ],
+        [ sh:datatype xsd:date ;
+            sh:maxCount 1 ;
+            sh:path :runAsOf ],
+        [ sh:datatype xsd:string ;
+            sh:maxCount 1 ;
+            sh:path :codeVersion ],
+        [ sh:datatype xsd:string ;
+            sh:maxCount 1 ;
+            sh:path :engineVersion ],
+        [ sh:class :Portfolio ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:node :QuantSubjectShape ;
+            sh:path :quantPortfolio ],
+        [ sh:datatype xsd:string ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:path :quantMetric ],
+        [ sh:datatype xsd:decimal ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:path :quantValue ],
+        [ sh:class :Asset ;
+            sh:maxCount 1 ;
+            sh:path :quantAsset ],
+        [ sh:datatype xsd:string ;
+            sh:maxCount 1 ;
+            sh:path :quantUnit ],
+        [ sh:datatype xsd:date ;
+            sh:maxCount 1 ;
+            sh:path :quantAsOf ],
+        [ sh:datatype xsd:string ;
+            sh:maxCount 1 ;
+            sh:path :quantBenchmark ],
+        [ sh:datatype xsd:string ;
+            sh:maxCount 1 ;
+            sh:path :provenanceId ] ;
+    sh:targetClass :BenchmarkObservation .
+
+:DataQualityIssueShape a sh:NodeShape ;
+    sh:property [ sh:datatype xsd:string ;
+            sh:maxCount 1 ;
+            sh:path :runId ],
+        [ sh:datatype xsd:date ;
+            sh:maxCount 1 ;
+            sh:path :runAsOf ],
+        [ sh:datatype xsd:string ;
+            sh:maxCount 1 ;
+            sh:path :codeVersion ],
+        [ sh:datatype xsd:string ;
+            sh:maxCount 1 ;
+            sh:path :engineVersion ],
+        [ sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:path :dqIssueOfAsset ],
+        [ sh:datatype xsd:date ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:path :dqRaisedOn ],
+        [ sh:maxCount 1 ;
+            sh:path :dqIssueOfFiling ],
+        [ sh:datatype xsd:string ;
+            sh:maxCount 1 ;
+            sh:path :dqMetricName ],
+        [ sh:datatype xsd:string ;
+            sh:maxCount 1 ;
+            sh:path :provenanceId ],
+        [ sh:datatype xsd:string ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:path :dqGateCode ],
+        [ sh:datatype xsd:string ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:path :dqSeverity ],
+        [ sh:datatype xsd:boolean ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:path :quarantined ],
+        [ sh:datatype xsd:decimal ;
+            sh:maxCount 1 ;
+            sh:path :gatedValue ] ;
+    sh:targetClass :DataQualityIssue .
+
+:PortfolioPositionShape a sh:NodeShape ;
+    sh:property [ sh:datatype xsd:string ;
+            sh:maxCount 1 ;
+            sh:path :runId ],
+        [ sh:datatype xsd:date ;
+            sh:maxCount 1 ;
+            sh:path :runAsOf ],
+        [ sh:datatype xsd:string ;
+            sh:maxCount 1 ;
+            sh:path :codeVersion ],
+        [ sh:datatype xsd:string ;
+            sh:maxCount 1 ;
+            sh:path :engineVersion ],
+        [ sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:path :positionAsset ],
+        [ sh:datatype xsd:decimal ;
+            sh:maxCount 1 ;
+            sh:maxInclusive 100.0 ;
+            sh:minCount 1 ;
+            sh:minInclusive 0.0 ;
+            sh:path :weightPct ],
+        [ sh:datatype xsd:date ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:path :validFrom ] ;
+    sh:targetClass :PortfolioPosition .
+
+:PortfolioShape a sh:NodeShape ;
+    sh:property [ sh:datatype xsd:string ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:path :portfolioName ],
+        [ sh:in ( "LIVE" "BENCHMARK" ) ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:path :portfolioKind ],
+        [ sh:datatype xsd:string ;
+            sh:maxCount 1 ;
+            sh:path :benchmarkObjective ],
+        [ sh:datatype xsd:string ;
+            sh:maxCount 1 ;
+            sh:not [ sh:in ( "live_book" ) ] ;
+            sh:path :benchmarkKind ] ;
+    sh:targetClass :Portfolio .
+
+:RuleDefinitionShape a sh:NodeShape ;
+    sh:or ( [ sh:minCount 1 ;
+                sh:path :validTo ] [ sh:minCount 1 ;
+                sh:path :ruleSeverity ] ) ;
+    sh:property [ sh:datatype xsd:date ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:path :validFrom ],
+        [ sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:path :hasClause ],
+        [ sh:datatype xsd:integer ;
+            sh:maxInclusive 7 ;
+            sh:minInclusive 1 ;
+            sh:path :priorityRank ],
+        [ sh:datatype xsd:string ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:path :ruleId ],
+        [ sh:in ( "HARD" "SOFT" ) ;
+            sh:maxCount 1 ;
+            sh:path :ruleSeverity ] ;
+    sh:targetClass :RuleDefinition .
+
+:ScoreSnapshotShape a sh:NodeShape ;
+    # CHANGED (T-171, D17): "ScoreFinanciero" added. Your normalized_score is rewritten in place by
+    # every cycle that re-normalizes a filing (your third reply), which breaks our immutable-observation
+    # principle for a value keyed only by the filing. normalizedScore is now optional (not forbidden)
+    # for FUNDAMENTAL too; the cohort-relative value is read instead as :componentValue (below) on the
+    # WeightComponent your per-asset effective_weight produces, correctly scoped to one cycle_run.
+    sh:or ( [ sh:hasValue "SectorRelativeMomentum" ;
+                sh:path :metricType ] [ sh:hasValue "Sentiment" ;
+                sh:path :metricType ] [ sh:hasValue "ScoreFinanciero" ;
+                sh:path :metricType ] [ sh:minCount 1 ;
+                sh:path :normalizedScore ] ),
+        ( [ sh:not [ sh:hasValue "Sentiment" ;
+                        sh:path :metricType ] ] [ sh:datatype xsd:decimal ;
+                sh:maxInclusive 1.0 ;
+                sh:minCount 1 ;
+                sh:minInclusive -1.0 ;
+                sh:path :rawValue ] ),
+        # CHANGED (T-155): was [-1.0, 1.0]. Your SECTOR raw_value read verbatim,
+        # in TECHNICAL points (your reply, 1.1).
+        ( [ sh:not [ sh:hasValue "SectorRelativeMomentum" ;
+                        sh:path :metricType ] ] [ sh:datatype xsd:decimal ;
+                sh:maxInclusive 100.0 ;
+                sh:minCount 1 ;
+                sh:minInclusive -100.0 ;
+                sh:path :rawValue ] ),
+        # CHANGED (T-171, D17): new. With normalizedScore optional for FUNDAMENTAL (above), rawValue
+        # becomes mandatory in its place, so a FUNDAMENTAL snapshot can't carry neither. No bounds yet:
+        # we need your FUNDAMENTAL raw_value range first (Q6).
+        ( [ sh:not [ sh:hasValue "ScoreFinanciero" ;
+                        sh:path :metricType ] ] [ sh:datatype xsd:decimal ;
+                sh:minCount 1 ;
+                sh:path :rawValue ] ) ;
+    sh:property [ sh:datatype xsd:decimal ;
+            sh:maxCount 1 ;
+            sh:maxInclusive 1.0 ;
+            sh:minInclusive 0.0 ;
+            sh:path :normalizedScore ],
+        [ sh:datatype xsd:dateTime ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:path :timestamp ],
+        [ sh:datatype xsd:date ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:path :availableAt ],
+        [ sh:datatype xsd:date ;
+            sh:lessThanOrEquals :availableAt ;
+            sh:maxCount 1 ;
+            sh:path :eventTime ],
+        [ sh:datatype xsd:string ;
+            sh:maxCount 1 ;
+            sh:path :scoreMethod ],
+        [ sh:datatype xsd:string ;
+            sh:maxCount 1 ;
+            sh:path :runId ],
+        [ sh:datatype xsd:date ;
+            sh:maxCount 1 ;
+            sh:path :runAsOf ],
+        [ sh:in ( "FUNDAMENTAL" "SEMANTIC" "VALORIZATION" "TECHNICAL" "SECTOR" ) ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:path :agentOrigin ],
+        [ sh:datatype xsd:string ;
+            sh:maxCount 1 ;
+            sh:path :codeVersion ],
+        [ sh:datatype xsd:string ;
+            sh:maxCount 1 ;
+            sh:path :engineVersion ],
+        [ sh:datatype xsd:decimal ;
+            sh:maxCount 1 ;
+            sh:path :rawValue ],
+        [ sh:datatype xsd:string ;
+            sh:in ( "ScoreFinanciero" "ScoreCuantitativo" "ScoreTecnico" "Sentiment" "SectorRelativeMomentum" ) ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:path :metricType ] ;
+    sh:targetClass :ScoreSnapshot ;
+    sh:xone ( [ sh:property [ sh:hasValue "FUNDAMENTAL" ;
+                        sh:path :agentOrigin ],
+                    [ sh:hasValue "ScoreFinanciero" ;
+                        sh:path :metricType ] ] [ sh:property [ sh:hasValue "VALORIZATION" ;
+                        sh:path :agentOrigin ],
+                    [ sh:hasValue "ScoreCuantitativo" ;
+                        sh:path :metricType ] ] [ sh:property [ sh:hasValue "TECHNICAL" ;
+                        sh:path :agentOrigin ],
+                    [ sh:hasValue "ScoreTecnico" ;
+                        sh:path :metricType ] ] [ sh:property [ sh:hasValue "SECTOR" ;
+                        sh:path :agentOrigin ],
+                    [ sh:hasValue "SectorRelativeMomentum" ;
+                        sh:path :metricType ] ] [ sh:property [ sh:hasValue "SEMANTIC" ;
+                        sh:path :agentOrigin ],
+                    [ sh:hasValue "Sentiment" ;
+                        sh:path :metricType ] ] ) .
+
+:SectorAggregateSnapshotShape a sh:NodeShape ;
+    sh:property [ sh:datatype xsd:string ;
+            sh:maxCount 1 ;
+            sh:path :runId ],
+        [ sh:datatype xsd:date ;
+            sh:maxCount 1 ;
+            sh:path :runAsOf ],
+        [ sh:datatype xsd:string ;
+            sh:maxCount 1 ;
+            sh:path :codeVersion ],
+        [ sh:datatype xsd:string ;
+            sh:maxCount 1 ;
+            sh:path :engineVersion ],
+        [ sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:path :sectorSnapshotOfSector ],
+        [ sh:datatype xsd:decimal ;
+            sh:maxCount 1 ;
+            sh:maxInclusive 1.0 ;
+            sh:minCount 1 ;
+            sh:minInclusive 0.0 ;
+            sh:path :normalizedScore ],
+        [ sh:hasValue "ScoreTecnico" ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:path :metricType ],
+        [ sh:hasValue "SECTOR" ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:path :agentOrigin ],
+        [ sh:datatype xsd:dateTime ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:path :timestamp ] ;
+    sh:targetClass :SectorAggregateSnapshot .
+
+:VetoShape a sh:NodeShape ;
+    sh:property [ sh:datatype xsd:string ;
+            sh:maxCount 1 ;
+            sh:path :runId ],
+        [ sh:datatype xsd:date ;
+            sh:maxCount 1 ;
+            sh:path :runAsOf ],
+        [ sh:datatype xsd:string ;
+            sh:maxCount 1 ;
+            sh:path :codeVersion ],
+        [ sh:datatype xsd:string ;
+            sh:maxCount 1 ;
+            sh:path :engineVersion ],
+        [ sh:datatype xsd:date ;
+            sh:lessThan :clearedOn ;
+            sh:lessThanOrEquals :lastSeenOn ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:path :raisedOn ],
+        [ sh:datatype xsd:date ;
+            sh:maxCount 1 ;
+            sh:path :clearedOn ],
+        [ sh:datatype xsd:date ;
+            sh:path :lastSeenOn ],
+        [ sh:in ( "HARD" "SOFT" ) ;
+            sh:maxCount 1 ;
+            sh:path :vetoSeverity ] ;
+    sh:targetClass :Veto .
+
+:WeightComponentShape a sh:NodeShape ;
+    sh:property [ sh:datatype xsd:string ;
+            sh:in ( "ScoreFinanciero" "ScoreCuantitativo" "ScoreTecnico" "Sentiment" "SectorRelativeMomentum" ) ;
+            sh:maxCount 1 ;
+            sh:minCount 1 ;
+            sh:path :weightMetricName ],
+        [ sh:datatype xsd:decimal ;
+            sh:maxCount 1 ;
+            sh:maxInclusive 1.0 ;
+            sh:minCount 1 ;
+            sh:minInclusive 0.0 ;
+            sh:path :weightValue ],
+        # CHANGED (T-121): sh:minCount 1 removed; never emitted for your schemes.
+        [ sh:datatype xsd:boolean ;
+            sh:maxCount 1 ;
+            sh:path :inverted ] ;
+    sh:targetClass :WeightComponent .
+
+:accessionNumber a owl:DatatypeProperty,
+        owl:FunctionalProperty ;
+    rdfs:domain :SECFiling ;
+    rdfs:range xsd:string .
+
+:appliesRule a owl:ObjectProperty ;
+    rdfs:comment "All rules that fired for this Veto (v1 'Mapeo de Activaciones Multiples')." ;
+    rdfs:domain :Veto ;
+    rdfs:range :RuleDefinition .
+
+:classifiedAs a owl:FunctionalProperty,
+        owl:ObjectProperty ;
+    rdfs:comment "An Asset's GICS industry group. Functional: one primary industry per Asset at a time." ;
+    rdfs:domain :Asset ;
+    rdfs:range :Industry ;
+    owl:inverseOf :industryOfAsset .
+
+:companyName a owl:DatatypeProperty ;
+    rdfs:domain :Asset ;
+    rdfs:range xsd:string .
+
+:decidedAt a owl:DatatypeProperty,
+        owl:FunctionalProperty ;
+    rdfs:domain :Veto ;
+    rdfs:range xsd:dateTime .
+
+:evidenceForRiskEvent a owl:ObjectProperty ;
+    rdfs:comment "Inverse of backedBy — supports 'which risk events cite this article/section' audit queries (evolution layer B9)." ;
+    rdfs:domain :EvidenceSource ;
+    rdfs:range :RiskEvent .
+
+:filingDate a owl:DatatypeProperty,
+        owl:FunctionalProperty ;
+    rdfs:domain :SECFiling ;
+    rdfs:range xsd:date .
+
+:filingOfAsset a owl:FunctionalProperty,
+        owl:ObjectProperty ;
+    rdfs:domain :SECFiling ;
+    rdfs:range :Asset .
+
+:formType a owl:DatatypeProperty,
+        owl:FunctionalProperty ;
+    rdfs:comment "'10-K' | '10-Q' | '8-K' | 'DEF 14A'." ;
+    rdfs:domain :SECFiling ;
+    rdfs:range xsd:string .
+
+:hasExecutive a owl:ObjectProperty ;
+    rdfs:comment "Extracted from DEF 14A (v1 §2B)." ;
+    rdfs:domain :Asset ;
+    rdfs:range :Executive .
+
+:hasScoreObservation a owl:ObjectProperty ;
+    rdfs:comment "v1 §3A: (Asset)-[:HAS_SCORE_OBSERVATION]->(ScoreSnapshot)." ;
+    rdfs:domain :Asset ;
+    rdfs:range :ScoreSnapshot ;
+    owl:inverseOf :scoreSnapshotOfAsset .
+
+:holdsPosition a owl:ObjectProperty ;
+    rdfs:domain :Portfolio ;
+    rdfs:range :PortfolioPosition .
+
+:primaryRule a owl:FunctionalProperty,
+        owl:ObjectProperty ;
+    rdfs:comment "The single lowest-priorityRank rule among appliesRule (v1 §4)." ;
+    rdfs:domain :Veto ;
+    rdfs:range :RuleDefinition .
+
+:sharedExecutiveWith a owl:ObjectProperty,
+        owl:SymmetricProperty ;
+    rdfs:comment "Derived/asserted by the entity-resolution service (roadmap step 7), never hand-authored. Backs VETO_RED_01's HasSharedPrimaryVetoExecutive(A) check (v1 §4). T-107 (D10): reserved for VERIFIED shared directorships (e.g. from DEF 14A). Upstream's news co-occurrence candidates are projected as :AssetCoOccurrence individuals instead and must never be written as this property." ;
+    rdfs:domain :Asset ;
+    rdfs:range :Asset .
+
+:triggeredBy a owl:ObjectProperty ;
+    rdfs:comment "v1 §3B: (Veto)-[:DISPARADO_POR]->(RiskEvent)." ;
+    rdfs:domain :Veto ;
+    rdfs:range :RiskEvent .
+
+:triggeredVeto a owl:ObjectProperty ;
+    rdfs:domain :Asset ;
+    rdfs:range :Veto ;
+    owl:inverseOf :vetoOfAsset .
+
+:QuantSubjectShape a sh:NodeShape ;
+    sh:property [ sh:in ( "LIVE" "BENCHMARK" ) ;
+            sh:path :portfolioKind ] .
+
+:attractivenessOfAsset a owl:FunctionalProperty,
+        owl:ObjectProperty ;
+    rdfs:domain :AttractivenessSnapshot ;
+    rdfs:range :Asset ;
+    owl:inverseOf :hasAttractivenessSnapshot .
+
+:attractivenessScore a owl:DatatypeProperty,
+        owl:FunctionalProperty ;
+    # CHANGED (T-155): comment rewritten; the blend formula is no longer described here.
+    rdfs:comment "Upstream v_cycle_ranking.blended_score / 100: higher = more attractive, at most 1.0, negative when soft-veto penalties exceed the blend. Read, never computed here; the inverse sense of ScoreSnapshot.normalizedScore's risk convention." ;
+    rdfs:domain :AttractivenessSnapshot ;
+    rdfs:range xsd:decimal .
+
+:benchmarkKind a owl:DatatypeProperty,
+        owl:FunctionalProperty ;
+    rdfs:comment "Optional. Upstream's v_quant_portfolio.kind, verbatim: the name the book was configured under. It is the join key v_quant_vs_live uses (with as_of), so it is kept next to the objective label. Never live_book (those are not projected as Portfolios)." ;
+    rdfs:domain :Portfolio ;
+    rdfs:range xsd:string .
+
+:benchmarkObjective a owl:DatatypeProperty,
+        owl:FunctionalProperty ;
+    rdfs:comment "Upstream's objective label for a BENCHMARK book, carried verbatim and not interpreted: v_quant_portfolio.objective, the solver result's label. Not a closed list (upstream's configurable defaults are min_var, tangency, target_vol, risk_parity; T-109)." ;
+    rdfs:domain :Portfolio ;
+    rdfs:range xsd:string .
+
+:coOccurrenceAsset a owl:ObjectProperty ;
+    rdfs:comment "The two assets linked (SHACL: exactly 2). Unordered, so no direction is implied." ;
+    rdfs:domain :AssetCoOccurrence ;
+    rdfs:range :Asset .
+
+:coOccurrenceComputedOn a owl:DatatypeProperty,
+        owl:FunctionalProperty ;
+    # CHANGED (T-154): comment rewritten; your T-144 adds computed_at.
+    rdfs:comment "Date the edge set was computed: the date part of upstream v_shared_executive_edge.computed_at (ISO 8601 UTC, +00:00 or Z), read once upstream's T-144 adds the column. first_seen/last_seen are not read until upstream fills them. The individual is immutable and a recompute is a new individual in a new dated graph." ;
+    rdfs:domain :AssetCoOccurrence ;
+    rdfs:range xsd:date .
+
+:coOccurrenceKind a owl:DatatypeProperty,
+        owl:FunctionalProperty ;
+    rdfs:comment "SHARED_EXECUTIVE_CANDIDATE (upstream shared_executive_edge). The MEDIA kind for media_cooccurrence (non-executive; table unpopulated until upstream's T-082, endpoints unknown) is deliberately NOT enumerated yet: add it, and its own shape rules, once the columns are known; as of T-109 there is no v_* view for media_cooccurrence at all." ;
+    rdfs:domain :AssetCoOccurrence ;
+    rdfs:range xsd:string .
+
+:coOccurrenceMethod a owl:DatatypeProperty,
+        owl:FunctionalProperty ;
+    rdfs:comment "Upstream method id, e.g. news-per-cooccurrence-v1. Upstream recomputes per method, so different methods are different individuals; readers must filter on it." ;
+    rdfs:domain :AssetCoOccurrence ;
+    rdfs:range xsd:string .
+
+:coOccurrenceWeight a owl:DatatypeProperty,
+        owl:FunctionalProperty ;
+    rdfs:comment "Upstream's edge weight, in the method's own unit (not normalized, not comparable across methods). Upstream emits no separate confidence; none is invented here." ;
+    rdfs:domain :AssetCoOccurrence ;
+    rdfs:range xsd:decimal .
+
+:computedAt a owl:DatatypeProperty,
+        owl:FunctionalProperty ;
+    rdfs:domain :AttractivenessSnapshot ;
+    rdfs:range xsd:dateTime .
+
+:computedWithScheme a owl:FunctionalProperty,
+        owl:ObjectProperty ;
+    rdfs:comment "Audit trail -- same role appliesRule/primaryRule play for Veto." ;
+    rdfs:domain :AttractivenessSnapshot ;
+    rdfs:range :AttractivenessWeightScheme .
+
+:dqGateCode a owl:DatatypeProperty,
+        owl:FunctionalProperty ;
+    rdfs:comment "The Ring-1 gate that fired, e.g. DQ_* code from upstream's data_quality_issue." ;
+    rdfs:domain :DataQualityIssue ;
+    rdfs:range xsd:string .
+
+:dqIssueOfAsset a owl:FunctionalProperty,
+        owl:ObjectProperty ;
+    rdfs:domain :DataQualityIssue ;
+    rdfs:range :Asset .
+
+:dqIssueOfFiling a owl:FunctionalProperty,
+        owl:ObjectProperty ;
+    rdfs:comment "Optional: the filing whose data the gate fired on (what DATA_QUALITY's 'latest filing' refers to)." ;
+    rdfs:domain :DataQualityIssue ;
+    rdfs:range :SECFiling .
+
+:dqMetricName a owl:DatatypeProperty,
+        owl:FunctionalProperty ;
+    rdfs:comment "Optional: the gated metric (a ThresholdComparison metricName-style id). Provenance back to upstream's row uses :provenanceId." ;
+    rdfs:domain :DataQualityIssue ;
+    rdfs:range xsd:string .
+
+:dqRaisedOn a owl:DatatypeProperty,
+        owl:FunctionalProperty ;
+    rdfs:comment "Cycle date the gate fired (as-of key for the issue, like :raisedOn on a Veto)." ;
+    rdfs:domain :DataQualityIssue ;
+    rdfs:range xsd:date .
+
+:dqSeverity a owl:DatatypeProperty,
+        owl:FunctionalProperty ;
+    rdfs:comment "Upstream's issue severity; HARD escalates to the DATA_QUALITY veto. Other values pass through unconstrained." ;
+    rdfs:domain :DataQualityIssue ;
+    rdfs:range xsd:string .
+
+:eventTime a owl:DatatypeProperty,
+        owl:FunctionalProperty ;
+    rdfs:comment "T-101 (D2): what the observation is ABOUT -- filing period-end (FUNDAMENTAL), cycle date (TECHNICAL, VALORIZATION -- formerly QUANTITATIVE, SECTOR), article day (SEMANTIC). Never used to filter as-of reads; see availableAt." ;
+    rdfs:domain :ScoreSnapshot ;
+    rdfs:range xsd:date .
+
+:gatedValue a owl:DatatypeProperty,
+        owl:FunctionalProperty ;
+    rdfs:comment "The value the gate rejected, when numeric (upstream's type is unconfirmed, T-030); a non-numeric value is carried as :dqMetricName context only, not here." ;
+    rdfs:domain :DataQualityIssue ;
+    rdfs:range xsd:decimal .
+
+:hasAttractivenessSnapshot a owl:ObjectProperty ;
+    rdfs:domain :Asset ;
+    rdfs:range :AttractivenessSnapshot .
+
+:hasUniverseMembership a owl:ObjectProperty ;
+    rdfs:domain :Asset ;
+    rdfs:range :UniverseMembership ;
+    owl:inverseOf :membershipAsset .
+
+:hasWeightComponent a owl:ObjectProperty ;
+    rdfs:domain :AttractivenessWeightScheme ;
+    rdfs:range :WeightComponent .
+
+:inverted a owl:DatatypeProperty,
+        owl:FunctionalProperty ;
+    # CHANGED (T-121): comment rewritten.
+    rdfs:comment "Design history only (WeightScheme_v1). Upstream's weights apply to its own 0-100 strength scores, so no scheme projected from v_weight_component carries it." ;
+    rdfs:domain :WeightComponent ;
+    rdfs:range xsd:boolean .
+
+:portfolioName a owl:DatatypeProperty,
+        owl:FunctionalProperty ;
+    rdfs:domain :Portfolio ;
+    rdfs:range xsd:string .
+
+:positionAsset a owl:FunctionalProperty,
+        owl:ObjectProperty ;
+    rdfs:domain :PortfolioPosition ;
+    rdfs:range :Asset .
+
+:priorityRank a owl:DatatypeProperty,
+        owl:FunctionalProperty ;
+    rdfs:comment "1 (highest) .. 7 (lowest), used to pick primaryRule (v1 §4). (Comment corrected 2026-08-23: stale '6' predates VETO_MKT_02, added 2026-08-13 as the 7th rule -- shapes.ttl's RuleDefinitionShape already had priorityRank's range as [1,7] correctly.)" ;
+    rdfs:domain :RuleDefinition ;
+    rdfs:range xsd:integer .
+
+:quantAsOf a owl:DatatypeProperty,
+        owl:FunctionalProperty ;
+    rdfs:comment "Optional date the number refers to: v_quant_portfolio.as_of for a book metric, v_quant_vs_live.as_of for an active weight, v_quant_benchmark_performance.date for a performance row (T-109). Immutable: a recompute is a new individual." ;
+    rdfs:domain :BenchmarkObservation ;
+    rdfs:range xsd:date .
+
+:quantAsset a owl:FunctionalProperty,
+        owl:ObjectProperty ;
+    rdfs:comment "Only for per-asset numbers (active weight vs the live book); absent for whole-book metrics." ;
+    rdfs:domain :BenchmarkObservation ;
+    rdfs:range :Asset .
+
+:quantBenchmark a owl:DatatypeProperty,
+        owl:FunctionalProperty ;
+    rdfs:comment "Optional. The reference index a performance number is measured against (v_quant_benchmark_performance.benchmark, e.g. bench-v2 or SPY_TR), verbatim. benchmark_return and active_return are meaningless without it." ;
+    rdfs:domain :BenchmarkObservation ;
+    rdfs:range xsd:string .
+
+:quantUnit a owl:DatatypeProperty,
+        owl:FunctionalProperty ;
+    rdfs:comment "Optional unit of quantValue. Values are never converted. Vocabulary (T-109): fraction (0.05 = 5%, no time basis), fraction_annual (expected_return, expected_vol: annualised), fraction_daily (realized_return, benchmark_return, active_return: one trading day), ratio (sharpe: unitless), count. Only quant_position weights are scaled by the projection, x100, because weightPct is 0-100." ;
+    rdfs:domain :BenchmarkObservation ;
+    rdfs:range xsd:string .
+
+:quantValue a owl:DatatypeProperty,
+        owl:FunctionalProperty ;
+    rdfs:comment "Upstream's value, in its own unit." ;
+    rdfs:domain :BenchmarkObservation ;
+    rdfs:range xsd:decimal .
+
+:quarantined a owl:DatatypeProperty,
+        owl:FunctionalProperty ;
+    rdfs:comment "True when the gated metric was quarantined (reads as NULL upstream)." ;
+    rdfs:domain :DataQualityIssue ;
+    rdfs:range xsd:boolean .
+
+:raisedOn a owl:DatatypeProperty,
+        owl:FunctionalProperty ;
+    rdfs:comment "Cycle date on which the stint began (upstream raised_on). Required. Active at cutoff C iff raisedOn <= C AND (no clearedOn OR clearedOn > C); the T-1 lag is this predicate applied at read time (schema/README.md has the SPARQL), not an orchestrator feature. Added 2026-10-03 (T-102)." ;
+    rdfs:domain :Veto ;
+    rdfs:range xsd:date .
+
+:ruleId a owl:DatatypeProperty,
+        owl:FunctionalProperty ;
+    rdfs:domain :RuleDefinition ;
+    rdfs:range xsd:string .
+
+:schemeId a owl:DatatypeProperty,
+        owl:FunctionalProperty ;
+    # CHANGED (T-121): comment added.
+    rdfs:comment "Identifies the blend: 'cycle_run:<id>' of the run that recorded it. Not upstream's scheme_id, which is the book-weighting rule (:bookWeightingRule)." ;
+    rdfs:domain :AttractivenessWeightScheme ;
+    rdfs:range xsd:string .
+
+:scoreMethod a owl:DatatypeProperty,
+        owl:FunctionalProperty ;
+    rdfs:comment "T-111 (D14): optional method discriminator, so two ways of producing the same agentOrigin/metricType can coexist without a reader double-counting or picking the wrong one (upstream semantic-score-boundary.md W11, for the cut-over window). Open vocabulary: upstream has not fixed the value for its per-(asset, day) SEMANTIC aggregate yet, so SHACL does not enumerate it. Every SEMANTIC snapshot carries one: this repo's per-article FinBERT sentiment from src/etl/ is ARTICLE_SENTIMENT, and the worked per-(asset, day) snapshots in instances.trig use the illustrative placeholder ASSET_DAY_AGGREGATE until upstream names its value. A snapshot without scoreMethod is the single method of its agentOrigin (every non-SEMANTIC snapshot today); a new SEMANTIC producer must set it. Not the same as upstream's score_snapshot.model, a label that defaults to 'deterministic'." ;
+    rdfs:domain :ScoreSnapshot ;
+    rdfs:range xsd:string .
+
+:scoreSnapshotOfAsset a owl:FunctionalProperty,
+        owl:ObjectProperty ;
+    rdfs:domain :ScoreSnapshot ;
+    rdfs:range :Asset .
+
+:sectorSnapshotOfSector a owl:FunctionalProperty,
+        owl:ObjectProperty ;
+    rdfs:domain :SectorAggregateSnapshot ;
+    rdfs:range :Sector ;
+    owl:inverseOf :hasSectorSnapshot .
+
+:tickerSymbol a owl:DatatypeProperty,
+        owl:FunctionalProperty ;
+    rdfs:domain :Asset ;
+    rdfs:range xsd:string .
+
+:vetoOfAsset a owl:FunctionalProperty,
+        owl:ObjectProperty ;
+    rdfs:domain :Veto ;
+    rdfs:range :Asset .
+
+:vetoSeverity a owl:DatatypeProperty,
+        owl:FunctionalProperty ;
+    rdfs:comment "HARD | SOFT -- this stint's severity, which can differ from its rule's :ruleSeverity (LEVERAGE_EXTREME emits SOFT for a negative-equity firm). A SOFT stint charges soft_veto_penalty once. Optional: absent means the severity of the stint's :primaryRule (:ruleSeverity; the superseded design-history rules carry none). Added 2026-10-03 (T-102)." ;
+    rdfs:domain :Veto ;
+    rdfs:range xsd:string .
+
+:weightMetricName a owl:DatatypeProperty,
+        owl:FunctionalProperty ;
+    rdfs:comment "Matches a ScoreSnapshot.metricType value. Named distinctly from ThresholdComparison's metricName to avoid a shared-property domain clash (see ObservationSnapshot's rationale)." ;
+    rdfs:domain :WeightComponent ;
+    rdfs:range xsd:string .
+
+:weightPct a owl:DatatypeProperty,
+        owl:FunctionalProperty ;
+    rdfs:domain :PortfolioPosition ;
+    rdfs:range xsd:decimal .
+
+:weightValue a owl:DatatypeProperty,
+        owl:FunctionalProperty ;
+    rdfs:domain :WeightComponent ;
+    rdfs:range xsd:decimal .
+
+:EvidenceSource a owl:Class ;
+    rdfs:label "Evidence Source" ;
+    rdfs:comment "Anything a RiskEvent can be backedBy." ;
+    rdfs:subClassOf :Evidence .
+
+:SectorAggregateSnapshot a owl:Class ;
+    rdfs:label "Sector Aggregate Snapshot" ;
+    rdfs:comment "Immutable, timestamped roll-up of member Assets' ScoreTecnico for one Sector on one date, written by the Sector Agent (08-agent-architecture.md). Added 2026-08-13, closes part of critique #3 (sector layer) -- see docs/superpowers/specs/2026-08-13-attractiveness-sector-momentum-design.md." ;
+    rdfs:subClassOf :ObservationSnapshot .
+
+:availableAt a owl:DatatypeProperty,
+        owl:FunctionalProperty ;
+    # CHANGED (T-153): cycle lanes added to the comment.
+    rdfs:comment "T-101 (D2): first date the observation may be used by a reader (look-ahead guard; for FUNDAMENTAL, the first NYSE trading day after the filing date; for TECHNICAL, VALORIZATION and SECTOR, the cycle date, as upstream's v_score_snapshot defines it). Read from upstream, never filled in here: a row without it is not projected. Every as-of-D query MUST filter availableAt <= D, never eventTime or timestamp. Distinct from timestamp, which is when the row was computed/ingested." ;
+    rdfs:domain :ScoreSnapshot ;
+    rdfs:range xsd:date .
+
+:cikNumber a owl:DatatypeProperty,
+        owl:FunctionalProperty ;
+    rdfs:comment "SEC Central Index Key — stable join key to edgar_tool.py output." ;
+    rdfs:domain :Asset ;
+    rdfs:range xsd:string .
+
+:clearedOn a owl:DatatypeProperty,
+        owl:FunctionalProperty ;
+    rdfs:comment "Cycle date on which the stint closed (upstream cleared_on): a HARD veto clears when its rule re-evaluates clean. Absent = still active. Closed by writing this triple (in the clearing cycle's ORCHESTRATOR graph), never by deleting the Veto. Added 2026-10-03 (T-102)." ;
+    rdfs:domain :Veto ;
+    rdfs:range xsd:date .
+
+:hasClause a owl:FunctionalProperty,
+        owl:ObjectProperty ;
+    rdfs:comment "Root of the rule's expression tree. May point directly to a leaf comparison for single-signal rules (e.g. VETO_FIN_01) — the tree degenerates gracefully to one node." ;
+    rdfs:domain :RuleDefinition ;
+    rdfs:range :RuleOperand .
+
+:lastSeenOn a owl:DatatypeProperty ;
+    rdfs:comment "Most recent cycle date on which the rule still fired for this stint (upstream last_seen_on). Optional and deliberately NOT functional: ORCHESTRATOR graphs are append-only, so each cycle adds a new value in its own graph and the current one is MAX(?lastSeenOn). Added 2026-10-03 (T-102)." ;
+    rdfs:domain :Veto ;
+    rdfs:range xsd:date .
+
+:quantMetric a owl:DatatypeProperty,
+        owl:FunctionalProperty ;
+    rdfs:comment "Upstream's metric name, verbatim; no vocabulary is imposed, but T-109 found these: v_quant_portfolio expected_return, expected_vol, sharpe; v_quant_benchmark_performance realized_return, cumulative_return, benchmark_return, active_return; v_quant_vs_live active_weight. Not projected: n_positions (a count), rf_annual (an input), turnover (not set by upstream's writer)." ;
+    rdfs:domain :BenchmarkObservation ;
+    rdfs:range xsd:string .
+
+:quantPortfolio a owl:FunctionalProperty,
+        owl:ObjectProperty ;
+    rdfs:comment "The Portfolio the number is about: a BENCHMARK book, or the LIVE book for the performance numbers upstream measured on its live_book snapshot." ;
+    rdfs:domain :BenchmarkObservation ;
+    rdfs:range :Portfolio .
+
+:ruleSeverity a owl:DatatypeProperty,
+        owl:FunctionalProperty ;
+    rdfs:comment "HARD | SOFT — the severity upstream's rule_catalog assigns the rule (T-103). An individual veto stint's severity can differ (LEVERAGE_EXTREME emits SOFT for a negative-equity firm with no corroborating metric); :Veto carries the per-stint value as :vetoSeverity (T-102). Distinct from :severity, which is a RiskEvent field." ;
+    rdfs:domain :RuleDefinition ;
+    rdfs:range xsd:string .
+
+:timestamp a owl:DatatypeProperty,
+        owl:FunctionalProperty ;
+    rdfs:domain :ObservationSnapshot ;
+    rdfs:range xsd:dateTime .
+
+:validTo a owl:DatatypeProperty,
+        owl:FunctionalProperty ;
+    rdfs:comment "Valid-time end. Absent/unbound == currently active." ;
+    rdfs:range xsd:date .
+
+:normalizedScore a owl:DatatypeProperty,
+        owl:FunctionalProperty ;
+    # CHANGED (T-153): cohort-relative reading stated.
+    # CHANGED (T-171, D17): optional on a FUNDAMENTAL snapshot.
+    rdfs:comment "[0.0, 1.0], 0=no risk, 1=critical risk on ScoreSnapshot; sector-aggregate reading on SectorAggregateSnapshot. Range enforced by SHACL. Projected as 1 - x/100 from upstream's normalized_score (50 + 10*z, clamped to [0, 100]), so it is relative to the cohort, not an absolute risk level. Optional (not required, not forbidden) on a FUNDAMENTAL ScoreSnapshot (ScoreFinanciero) since T-171/D17: upstream rewrites this value in place on every cycle that re-normalizes the filing, which would make an individual carrying it a mutable observation. The per-cycle value is read instead as :componentValue on the matching AttractivenessSnapshot's WeightComponent, scoped to its cycle_run." ;
+    rdfs:domain :ObservationSnapshot ;
+    rdfs:range xsd:decimal .
+
+:portfolioKind a owl:DatatypeProperty,
+        owl:FunctionalProperty ;
+    rdfs:comment "LIVE | BENCHMARK, required. Set by which upstream view the book was read from, a fixed mapping and not a judgement: LIVE for the book built from v_portfolio_position (the cycle's selected book), BENCHMARK for optimizer books from v_quant_portfolio. v_quant_portfolio also holds kind='live_book' rows (upstream's snapshot of the live book, taken to measure its return): those are NOT projected as a Portfolio (that would duplicate the live holdings under a BENCHMARK label); their performance numbers attach to the LIVE Portfolio through quantPortfolio (T-109 review). The projection writes the label explicitly; nothing relies on absence." ;
+    rdfs:domain :Portfolio ;
+    rdfs:range xsd:string .
+
+:provenanceId a owl:DatatypeProperty,
+        owl:FunctionalProperty ;
+    rdfs:comment "On NewsArticle: 'articles:<id>' / 'discovered_urls:<id>' from the existing SQLite pipeline. On SECFilingSection: an accession-number-based id from the EDGAR batch pipeline." ;
+    rdfs:range xsd:string .
+
+:rawValue a owl:DatatypeProperty,
+        owl:FunctionalProperty ;
+    # CHANGED (T-171, D17): comment added.
+    rdfs:comment "Stable at the source, unlike normalizedScore for some metrics (D17). Carried for SectorRelativeMomentum, Sentiment, and FUNDAMENTAL (ScoreFinanciero, T-171); FUNDAMENTAL's bounds are not yet asserted here, pending upstream's answer (Q6)." ;
+    rdfs:domain :ScoreSnapshot ;
+    rdfs:range xsd:decimal .
+
+:validFrom a owl:DatatypeProperty,
+        owl:FunctionalProperty ;
+    rdfs:comment "Valid-time start (06-ontology-definition.md §1.4)." ;
+    rdfs:range xsd:date .
+
+:AttractivenessWeightScheme a owl:Class ;
+    rdfs:label "Attractiveness Weight Scheme" ;
+    # CHANGED (T-121): comment rewritten.
+    rdfs:comment "The configured blend weights one upstream cycle_run recorded (v_weight_scheme, v_weight_component), one component per score_type. Read, never applied here; the per-asset effective weights are on each AttractivenessSnapshot (:hasEffectiveWeight)." ;
+    rdfs:subClassOf :AttractivenessScheme .
+
+:PortfolioPosition a owl:Class ;
+    rdfs:label "Portfolio Position" ;
+    rdfs:comment "N-ary relation: one Asset's weighted position within one Portfolio over [validFrom, validTo)." ;
+    rdfs:subClassOf :TemporalRelation .
+
+:SECFiling a owl:Class ;
+    rdfs:label "SEC Filing" ;
+    rdfs:comment "A single EDGAR filing (10-K, 10-Q, 8-K, DEF 14A) for one Asset." ;
+    rdfs:seeAlso <https://www.omg.org/spec/EDMC-FIBO/FND/Documents/Documents/Filing> ;
+    rdfs:subClassOf :SourceDocument .
+
+:WeightComponent a owl:Class ;
+    rdfs:label "Weight Component" ;
+    # CHANGED (T-121): comment rewritten.
+    rdfs:comment "One (metric, weight) pair: a configured weight inside an AttractivenessWeightScheme, or an effective weight on an AttractivenessSnapshot. :inverted survives only on the design-history WeightScheme_v1." ;
+    rdfs:subClassOf :AttractivenessScheme .
+
+:AssetCoOccurrence a owl:Class ;
+    rdfs:label "Asset Co-occurrence" ;
+    rdfs:comment "T-107 (D10): one method-versioned, weighted CANDIDATE link between two assets derived from news co-occurrence (upstream shared_executive_edge, method news-per-cooccurrence-v1; or the media_cooccurrence table once populated). Reified because the link carries method/weight. It is NOT a verified shared directorship and never implies :sharedExecutiveWith." ;
+    rdfs:subClassOf :Observation .
+
+:AttractivenessSnapshot a owl:Class ;
+    rdfs:label "Attractiveness Snapshot" ;
+    rdfs:comment "The Orchestrator's computed ranking output for one Asset in one cycle -- the positive counterpart to Veto (v1 modeled exclusion only). Closes part of critique #2/evolution layer B3's ranking half (not the position-sizing half). Added 2026-08-13." ;
+    rdfs:subClassOf :ObservationSnapshot .
+
+:ObservationSnapshot a owl:Class ;
+    rdfs:label "Observation Snapshot" ;
+    rdfs:comment "Groups the ScoreSnapshot-shaped individuals: metricType/agentOrigin/timestamp/normalizedScore's shared shape. Added 2026-08-13 (ScoreSnapshot, SectorAggregateSnapshot); AttractivenessSnapshot added 2026-08-23 (§1.2) — it shares the same immutable/timestamped shape even though it's also thematically an Orchestrator decision output like Veto." ;
+    rdfs:subClassOf :Observation .
+
+:RuleDefinition a owl:Class ;
+    rdfs:label "Rule Definition" ;
+    rdfs:comment "A versioned veto rule, valid over [validFrom, validTo). Stored as graph data, not application code (closes critique #6)." ;
+    rdfs:subClassOf [ a owl:Restriction ;
+            owl:cardinality 1 ;
+            owl:onProperty :hasClause ],
+        :RuleSystem .
+
+:ScoreSnapshot a owl:Class ;
+    rdfs:label "Score Snapshot" ;
+    rdfs:comment "Immutable, timestamped observation persisted by one specialist agent (v1 §3A). Never updated in place." ;
+    rdfs:subClassOf :ObservationSnapshot .
+
+:agentOrigin a owl:DatatypeProperty,
+        owl:FunctionalProperty ;
+    rdfs:comment "One of FUNDAMENTAL | SEMANTIC | VALORIZATION | TECHNICAL | SECTOR. SHACL sh:in enforced." ;
+    rdfs:domain :ObservationSnapshot ;
+    rdfs:range xsd:string .
+
+:codeVersion a owl:DatatypeProperty,
+        owl:FunctionalProperty ;
+    rdfs:comment "T-106 (D7): upstream git SHA of the code that produced the row ('-dirty' suffix only when upstream ran with --allow-dirty)." ;
+    rdfs:range xsd:string .
+
+:engineVersion a owl:DatatypeProperty,
+        owl:FunctionalProperty ;
+    rdfs:comment "T-106 (D7): upstream engine_version. Upstream writes parallel rows per engine_version and its v_* views pick the newest per key; this records which one was projected. It is a free string with no defined order: readers must NOT rank by it (docs/07 'Run provenance' gives the read rule)." ;
+    rdfs:range xsd:string .
+
+:runAsOf a owl:DatatypeProperty,
+        owl:FunctionalProperty ;
+    rdfs:comment "T-106 (D7): the run log's as_of (the date the run was evaluated for). NOT a read filter -- as-of reads use availableAt (T-101). Emit it only where it can differ from eventTime (FUNDAMENTAL, backfill replays); for cycle types it equals eventTime." ;
+    rdfs:range xsd:date .
+
+:runId a owl:DatatypeProperty,
+        owl:FunctionalProperty ;
+    # CHANGED (T-151): reuse caveat added to the comment.
+    rdfs:comment "T-106 (D7): upstream run_id of the analysis/pricing/quant/cycle run that wrote the row. Upstream's run_id is an INTEGER numbered separately in each run table (analysis_run, pricing_run, quant_run, cycle_run), so a bare number is ambiguous: write it as '<run table>:<id>' (e.g. cycle_run:42; T-109). Joins to the v_analysis_run / v_pricing_run / v_quant_run / v_cycle_run log (params, dirty-tree reason) which stays upstream; no Run class is modelled. T-151: upstream ids can be reused until upstream's T-145 (non-reusable ids) and T-100 (fresh database) have both landed; until then it is emitted only when read checks pass (run row exists, cycle_type matches for cycle_run, row time inside the run), which lowers the risk but does not prove uniqueness." ;
+    rdfs:range xsd:string .
+
+:BenchmarkObservation a owl:Class ;
+    rdfs:label "Benchmark Observation" ;
+    rdfs:comment "T-108 (D11): one finished number that upstream's quant module computed about a Portfolio -- a benchmark book's performance metric (v_quant_benchmark_performance) or a per-asset active weight against the live book (v_quant_vs_live, with quantAsset). Projected as handed over, never computed here; returns, mu and Sigma are not projected." ;
+    rdfs:subClassOf :Observation .
+
+:Portfolio a owl:Class ;
+    rdfs:label "Portfolio" ;
+    rdfs:comment "The actively-held book. Closes critique #2 (v1 had exclusion/veto only, no inclusion/holding model)." ;
+    rdfs:subClassOf :Collection .
+
+:DataQualityIssue a owl:Class ;
+    rdfs:label "Data Quality Issue" ;
+    rdfs:comment "Evidence leaf (T-104): one Ring-1 DQ_* gate firing (upstream's data_quality_issue row, dq-v2) on an asset's filing data. A quarantined gated metric reads as NULL upstream. A HARD issue is what the DATA_QUALITY veto cites: a RiskEvent is backedBy it, or the veto's rule evaluates the HasHardDataQualityIssue predicate over it." ;
+    rdfs:subClassOf :EvidenceSource .
+
+:Veto a owl:Class ;
+    rdfs:label "Veto" ;
+    rdfs:comment "The orchestrator's decision node for one Asset: which rule(s) fired and why (v1 §4). Since T-102 a Veto is a stint (raisedOn..clearedOn, upstream veto rows), not a single-cycle event." ;
+    rdfs:subClassOf :RiskAndDecision .
+
+:metricType a owl:DatatypeProperty,
+        owl:FunctionalProperty ;
+    rdfs:domain :ObservationSnapshot ;
+    rdfs:range xsd:string .
+
+:Asset a owl:Class ;
+    rdfs:label "Asset" ;
+    rdfs:comment "A publicly traded S&P 500 constituent tracked by the system (v1 §2A, §3A)." ;
+    rdfs:seeAlso <https://www.omg.org/spec/EDMC-FIBO/BE/LegalEntities/LegalPersons/LegalPerson> ;
+    rdfs:subClassOf :DomainEntity .
+
+
+#################################################################
+# PART 2 -- PROPOSED (NOT on portfolio-knowledge-graph master yet)
+#
+# What our Work items 12 (T-121) and 15 (T-152..T-156) add once your T-144
+# lands. Revised after your reply of 2026-10-06. Names and
+# cardinalities may still change in our review; the columns they read
+# will not.
+#################################################################
+
+# --- T-152: v_fundamental_metric -> FundamentalMetricObservation -------------
+# Placed under :Observation by property shape (a value about an asset at a
+# date, no normalizedScore), like AssetCoOccurrence/BenchmarkObservation.
+# Own date properties on purpose: :eventTime/:availableAt have rdfs:domain
+# :ScoreSnapshot, and reusing them would entail a disjoint class.
+# Written to urn:graph:ingest:FUNDAMENTAL:{year}-Q{n}. One immutable
+# individual per (filing, metric_id, engine_version): a new current
+# version is a new individual, never an overwrite. Only rows with
+# is_current are read, so a filing with no current row has no
+# observation. The filing is resolved to its accession number through
+# v_sec_filing in the same read: :SECFiling IRIs are keyed by accession
+# number, never by sec_filings.id (reusable).
+:FundamentalMetricObservation a owl:Class ;
+    rdfs:subClassOf :Observation ;
+    rdfs:label "Fundamental Metric Observation" ;
+    rdfs:comment "PROPOSED (T-152). One upstream fundamental_metrics value (v_fundamental_metric, is_current rows only) for one filing, e.g. leverage.debt_to_equity or valuation.market_capitalization. Read, never recomputed or converted." .
+:metricOfAsset a owl:ObjectProperty, owl:FunctionalProperty ; rdfs:domain :FundamentalMetricObservation ; rdfs:range :Asset .
+:metricOfFiling a owl:ObjectProperty, owl:FunctionalProperty ; rdfs:domain :FundamentalMetricObservation ; rdfs:range :SECFiling .
+:fundamentalMetricGroup a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :FundamentalMetricObservation ; rdfs:range xsd:string ;
+    rdfs:comment "Upstream metric_group verbatim (leverage, cashflow, liquidity, ...)." .
+:fundamentalMetricName a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :FundamentalMetricObservation ; rdfs:range xsd:string ;
+    rdfs:comment "Upstream metric_name verbatim, without the group prefix (debt_to_equity)." .
+:fundamentalMetricId a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :FundamentalMetricObservation ; rdfs:range xsd:string ;
+    rdfs:comment "Upstream metric_id verbatim (metric_group.metric_name, e.g. leverage.debt_to_equity): the join to v_rule_catalog.param_metric and to ThresholdComparison.metricName in rules.ttl." .
+:fundamentalMetricUnit a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :FundamentalMetricObservation ; rdfs:range xsd:string ;
+    rdfs:comment "Upstream unit verbatim: ratio (a fraction, 0.12 = 12%), x (a multiple), usd (US dollars). Open vocabulary: a new unit upstream documents needs no schema change." .
+:fundamentalMetricValue a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :FundamentalMetricObservation ; rdfs:range xsd:decimal ;
+    rdfs:comment "Upstream value, in fundamentalMetricUnit. Never converted." .
+:metricEventTime a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :FundamentalMetricObservation ; rdfs:range xsd:date ;
+    rdfs:comment "Upstream event_time (filing period end). Not an as-of filter." .
+:metricAvailableAt a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :FundamentalMetricObservation ; rdfs:range xsd:date ;
+    rdfs:comment "Upstream available_at. Every as-of-D read filters on this, as for ScoreSnapshot.availableAt." .
+
+:FundamentalMetricObservationShape a sh:NodeShape ;
+    sh:targetClass :FundamentalMetricObservation ;
+    sh:property [ sh:path :metricOfAsset ; sh:class :Asset ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :metricOfFiling ; sh:class :SECFiling ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :fundamentalMetricGroup ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :fundamentalMetricName ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :fundamentalMetricId ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :fundamentalMetricUnit ; sh:datatype xsd:string ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :fundamentalMetricValue ; sh:datatype xsd:decimal ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :metricAvailableAt ; sh:datatype xsd:date ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :metricEventTime ; sh:datatype xsd:date ; sh:maxCount 1 ; sh:lessThanOrEquals :metricAvailableAt ] ;
+    sh:property [ sh:path :engineVersion ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :runId ; sh:datatype xsd:string ; sh:maxCount 1 ] .
+
+# --- T-153: v_score_snapshot.prompt_hash / forensic_flags_json -------------
+# forensic_flags_json (your T-074) is an object of four booleans. One
+# :forensicFlag per key whose value is true; :forensicFlagsEvaluated is
+# true when the column is non-NULL. So all four false (evaluated, none
+# fired) gives evaluated=true and no flag, and NULL gives neither.
+:promptHash a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :ScoreSnapshot ; rdfs:range xsd:string ;
+    rdfs:comment "PROPOSED (T-153). Upstream prompt_hash, verbatim. FUNDAMENTAL snapshots only." .
+:forensicFlag a owl:DatatypeProperty ; rdfs:domain :ScoreSnapshot ; rdfs:range xsd:string ;
+    rdfs:comment "PROPOSED (T-153). One value per key of upstream forensic_flags_json whose value is true. FUNDAMENTAL snapshots only." .
+:forensicFlagsEvaluated a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :ScoreSnapshot ; rdfs:range xsd:boolean ;
+    rdfs:comment "PROPOSED (T-153). true when upstream forensic_flags_json is non-NULL (the flags were evaluated), whether or not any fired. FUNDAMENTAL snapshots only." .
+:ScoreSnapshotFundamentalExtrasShape a sh:NodeShape ;
+    sh:targetClass :ScoreSnapshot ;
+    sh:property [ sh:path :promptHash ; sh:datatype xsd:string ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :forensicFlag ; sh:datatype xsd:string ;
+                  sh:in ( "data_error_suspected" "negative_equity_buyback" "value_destroyer_sub_wacc" "severe_sbc_dilution" ) ] ;
+    sh:property [ sh:path :forensicFlagsEvaluated ; sh:datatype xsd:boolean ; sh:maxCount 1 ] ;
+    # Any of the three only on FUNDAMENTAL.
+    sh:or ( [ sh:path :agentOrigin ; sh:hasValue "FUNDAMENTAL" ]
+            [ sh:and ( [ sh:path :promptHash ; sh:maxCount 0 ]
+                       [ sh:path :forensicFlag ; sh:maxCount 0 ]
+                       [ sh:path :forensicFlagsEvaluated ; sh:maxCount 0 ] ) ] ) ;
+    # A flag implies the flags were evaluated.
+    sh:or ( [ sh:path :forensicFlag ; sh:maxCount 0 ]
+            [ sh:path :forensicFlagsEvaluated ; sh:hasValue true ] ) .
+
+# --- T-154: v_shared_executive_edge.computed_at, v_media_cooccurrence_edge --
+# coOccurrenceComputedOn (already on master, optional) is filled from
+# computed_at (date part; we parse both +00:00 and Z). The kind list widens
+# to MEDIA when your v_media_cooccurrence_edge exists (after your T-100);
+# written as a separate shape. On master today the sh:in is
+# ("SHARED_EXECUTIVE_CANDIDATE") only. first_seen/last_seen stay unread.
+:AssetCoOccurrenceKindProposedShape a sh:NodeShape ;
+    sh:targetClass :AssetCoOccurrence ;
+    sh:property [ sh:path :coOccurrenceKind ; sh:in ( "SHARED_EXECUTIVE_CANDIDATE" "MEDIA" ) ] .
+
+# --- T-155: v_cycle_ranking + v_cycle_ranking_component -> AttractivenessSnapshot
+# One individual per (cycle_run_id, asset_id) of a completed, non-REPLAY
+# run, in urn:graph:ingest:ORCHESTRATOR:{cycle_date}. attractivenessScore
+# = blended_score / 100 (PART 1, CHANGED). A ranking row whose asset has
+# no v_cycle_ranking_component row is skipped: its 0.0 is a placeholder
+# (confirmed, your third reply, Q1: always vetoed=1/"UNSCORED", no
+# dedicated marker beyond the missing rows). Effective weights: one
+# :WeightComponent per v_cycle_ranking_component row (effective_weight ->
+# weightValue; component_value -> componentValue, below; score_type ->
+# weightMetricName as its lane's metricType name, the fixed pairing
+# ScoreSnapshotShape uses: FUNDAMENTAL -> ScoreFinanciero, VALORIZATION ->
+# ScoreCuantitativo, TECHNICAL -> ScoreTecnico, SEMANTIC -> Sentiment).
+# Configured weights use the same names. Still not read: configured_weight
+# (it repeats v_weight_component). vetoedAtRanking is true only for a HARD
+# veto (with the T-1 lag) or "UNSCORED" (your third reply, Q2) -- never
+# for a SOFT veto alone.
+:rankPosition a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :AttractivenessSnapshot ; rdfs:range xsd:integer ;
+    rdfs:comment "PROPOSED (T-155). Upstream rank (1 = best)." .
+:selectedForBook a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :AttractivenessSnapshot ; rdfs:range xsd:boolean ;
+    rdfs:comment "PROPOSED (T-155). Upstream selected." .
+:vetoedAtRanking a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :AttractivenessSnapshot ; rdfs:range xsd:boolean ;
+    rdfs:comment "PROPOSED (T-155). Upstream vetoed: true only for a HARD veto or \"UNSCORED\", never for a SOFT veto alone (your third reply, Q2). The stints themselves are :Veto individuals (v_veto)." .
+:targetWeight a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :AttractivenessSnapshot ; rdfs:range xsd:decimal ;
+    rdfs:comment "PROPOSED (T-155). Upstream target_weight verbatim. A fraction of the book (confirmed, your third reply, Q5); NULL for an unselected row and on a MONITORING run." .
+:hasEffectiveWeight a owl:ObjectProperty ; rdfs:domain :AttractivenessSnapshot ; rdfs:range :WeightComponent ;
+    rdfs:comment "PROPOSED (T-155). The weight each component actually had for THIS asset (your per-asset renormalization), read from v_cycle_ranking_component.effective_weight. A component absent for the asset has no entry; the entries of one snapshot sum to 1 (upstream's rule, not recomputed here)." .
+:componentValue a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :WeightComponent ; rdfs:range xsd:decimal ;
+    rdfs:comment "PROPOSED (T-155/T-171). v_cycle_ranking_component.component_value verbatim, on an effective-weight WeightComponent only (not on a configured-weight one). Added by your third reply: for FUNDAMENTAL this is NOT a repeat of its ScoreSnapshot's normalizedScore -- that value is rewritten in place by whichever cycle last re-normalized the filing, while this is the value THIS run actually used. 0-100, same cohort-relative scale as normalized_score; the cohort-mean guard (T-162) runs over this column grouped by (cycle_run_id, score_type), not over FUNDAMENTAL ScoreSnapshot rows, which mix cohorts." .
+:AttractivenessSnapshotProposedShape a sh:NodeShape ;
+    sh:targetClass :AttractivenessSnapshot ;
+    sh:property [ sh:path :rankPosition ; sh:datatype xsd:integer ; sh:minInclusive 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :selectedForBook ; sh:datatype xsd:boolean ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :vetoedAtRanking ; sh:datatype xsd:boolean ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :targetWeight ; sh:datatype xsd:decimal ; sh:minInclusive 0.0 ; sh:maxInclusive 1.0 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :hasEffectiveWeight ; sh:class :WeightComponent ; sh:minCount 1 ] ;
+    sh:property [ sh:path :runId ; sh:datatype xsd:string ; sh:maxCount 1 ] .
+:WeightComponentProposedShape a sh:NodeShape ;
+    sh:targetClass :WeightComponent ;
+    sh:property [ sh:path :componentValue ; sh:datatype xsd:decimal ; sh:minInclusive 0.0 ; sh:maxInclusive 100.0 ; sh:maxCount 1 ] .
+# componentValue is only ever written on an effective-weight WeightComponent (reached via
+# :hasEffectiveWeight), never a configured-weight one (reached via :hasWeightComponent) -- same class,
+# so sh:targetClass above can't tell them apart. sh:targetObjectsOf scopes the mandatory-presence rule to
+# just the former: your T-144 keeps component_value in v_cycle_ranking_component regardless of score_type
+# (reversed decline, third reply), and T-155 only creates a WeightComponent for a present component ("no
+# row for an absent component"), so every effective-weight one always has one to read.
+:EffectiveWeightComponentProposedShape a sh:NodeShape ;
+    sh:targetObjectsOf :hasEffectiveWeight ;
+    sh:property [ sh:path :componentValue ; sh:datatype xsd:decimal ; sh:minInclusive 0.0 ; sh:maxInclusive 100.0 ; sh:minCount 1 ; sh:maxCount 1 ] .
+
+# --- T-121: v_weight_scheme / v_weight_component -> AttractivenessWeightScheme
+# One scheme per cycle_run: schemeId = "cycle_run:<id>" (PART 1, CHANGED
+# comment), validFrom = cycle_date. OPEN (T-121): with no validTo, a
+# per-run scheme reads as "still active" under our valid-time convention,
+# so we will either close each run's scheme when the next run is
+# projected, or replace validFrom with a run-date property. Treat
+# validFrom here as provisional. Your scheme_id is the book-weighting
+# rule and gets its own property, beside the scalar knobs. New runs carry
+# three components (1/3 each), older runs four (0.4/0.3/0.2/0.1).
+:bookWeightingRule a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :AttractivenessWeightScheme ; rdfs:range xsd:string ;
+    rdfs:comment "PROPOSED (T-121). Upstream v_weight_scheme.scheme_id verbatim: the rule that turns the ranking into book weights (score_proportional, score_tilt). Open vocabulary." .
+:topN a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :AttractivenessWeightScheme ; rdfs:range xsd:integer ;
+    rdfs:comment "PROPOSED (T-121). Upstream top_n." .
+:maxNameWeight a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :AttractivenessWeightScheme ; rdfs:range xsd:decimal ;
+    rdfs:comment "PROPOSED (T-121). Upstream max_name_weight verbatim. Assumed a fraction of the book (hence [0, 1]) until upstream states its unit." .
+:maxSectorWeight a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :AttractivenessWeightScheme ; rdfs:range xsd:decimal ;
+    rdfs:comment "PROPOSED (T-121). Upstream max_sector_weight verbatim. Assumed a fraction of the book (hence [0, 1]) until upstream states its unit." .
+:softVetoPenalty a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :AttractivenessWeightScheme ; rdfs:range xsd:decimal ;
+    rdfs:comment "PROPOSED (T-121). Upstream soft_veto_penalty, in blended_score points (15 by default), verbatim." .
+:AttractivenessWeightSchemeProposedShape a sh:NodeShape ;
+    sh:targetClass :AttractivenessWeightScheme ;
+    sh:property [ sh:path :bookWeightingRule ; sh:datatype xsd:string ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :topN ; sh:datatype xsd:integer ; sh:minInclusive 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :maxNameWeight ; sh:datatype xsd:decimal ; sh:minInclusive 0.0 ; sh:maxInclusive 1.0 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :maxSectorWeight ; sh:datatype xsd:decimal ; sh:minInclusive 0.0 ; sh:maxInclusive 1.0 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :softVetoPenalty ; sh:datatype xsd:decimal ; sh:minInclusive 0.0 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :runId ; sh:datatype xsd:string ; sh:maxCount 1 ] .
