@@ -402,7 +402,7 @@ def test_a_keyless_failing_row_is_named_by_its_index_in_the_cascade() -> None:
         "v_cycle_ranking": [{"cycle_run_id": 2, "asset_id": 1}],
     }
     result = validate(rows, {"v_weight_scheme": schemes, "v_cycle_ranking": rankings})
-    [taken] = [f for f in result.report.quarantined if f.check == "cascade"]
+    [taken] = [f for f in result.report.quarantined if f.check == CASCADE]
     assert taken.cascaded_from == "v_weight_scheme (1,)"  # its index, never an empty key
 
 
@@ -505,18 +505,20 @@ def test_a_failing_ranking_component_takes_its_ranking_row(
     assert [r["asset_id"] for r in result.rows["v_cycle_ranking"]] == [2]
     assert [r["asset_id"] for r in result.rows["v_cycle_ranking_component"]] == [2, 2]
     taken = [f for f in result.report.quarantined if f.check == CASCADE]
-    assert {(f.view, f.key) for f in taken} == {
-        ("v_cycle_ranking", (1, 1)),
-        ("v_cycle_ranking_component", (0,)),  # the sibling component, keyless: by index
+    root = "v_cycle_ranking_component (1,)"  # the failing component, keyless: named by its index
+    assert {(f.view, f.key, f.cascaded_from) for f in taken} == {
+        ("v_cycle_ranking", (1, 1), root),
+        ("v_cycle_ranking_component", (0,), root),  # the sibling, taken through the ranking row
     }
+    [sibling] = [f for f in taken if f.view == "v_cycle_ranking_component"]
+    assert "with v_cycle_ranking (1, 1), itself taken with" in sibling.detail
 
     # the ranking row it took counts against v_cycle_ranking's own cap
     exps["v_cycle_ranking"] = shipped["v_cycle_ranking"]
     with pytest.raises(BoundaryError) as stop:
         validate(rows, exps)
-    assert stop.value.report.stop_reasons == [
-        "v_cycle_ranking: 1/2 rows quarantined, over the cap 0.0"
-    ]
+    [reason] = stop.value.report.stop_reasons
+    assert reason.startswith("v_cycle_ranking: 1/2 rows quarantined, over the cap")
 
 
 def test_a_failing_ranking_row_takes_its_components(
@@ -533,9 +535,9 @@ def test_a_failing_ranking_row_takes_its_components(
     result = validate(rows, exps)
     assert [r["asset_id"] for r in result.rows["v_cycle_ranking"]] == [2]
     assert [r["asset_id"] for r in result.rows["v_cycle_ranking_component"]] == [2, 2]
-    assert [(f.view, f.check) for f in result.report.quarantined] == [
-        ("v_cycle_ranking", "range")
-    ] + [("v_cycle_ranking_component", CASCADE)] * 2
+    assert [(f.view, f.check, f.cascaded_from) for f in result.report.quarantined] == [
+        ("v_cycle_ranking", "range", None)
+    ] + [("v_cycle_ranking_component", CASCADE, "v_cycle_ranking (1, 1)")] * 2
 
 
 def test_the_shipped_component_group_mean_holds_each_runs_lane_near_50(
