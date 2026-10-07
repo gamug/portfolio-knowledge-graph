@@ -24,13 +24,21 @@ A FUNDAMENTAL snapshot goes to the graph of the quarter its ``available_at`` fal
 filing became usable, as ``schema/instances.trig``'s worked example does. The other lanes are
 dated by ingestion, so they go to a graph named for the day of the run.
 
+Every one of these graphs is append-only: the gate never adds to one that exists. So a graph is
+written once, and a new row whose graph already exists is not written there (``SPEC.md`` §13
+item 10). For FUNDAMENTAL that row is lost for its quarter, which is why a quarter is written only
+once it has closed (its quarter is before the run day's): a write during the quarter would lose
+the quarter's later filings. For a cycle lane the row waits for the next run day's graph.
+
 Skipped by design, and counted in the report, never dropped silently:
 
 * a cycle-lane row with a NULL ``available_at`` (every one before upstream's T-144): never filled in;
   the boundary counts it (the look-ahead pair's "skip"), so this module does not count it again;
-* a row whose ticker is not an asset of the universe database;
+* a row whose ticker is not a well-formed symbol, or not an asset of the universe database;
 * a row without the value its lane's shape requires (``raw_value`` for FUNDAMENTAL and SECTOR,
-  ``normalized_score`` for VALORIZATION and TECHNICAL).
+  ``normalized_score`` for VALORIZATION and TECHNICAL);
+* a FUNDAMENTAL row whose quarter has not closed by the run day;
+* on a write, a new row whose graph already exists (see above).
 
 ``:runId``, ``:codeVersion`` and ``:engineVersion`` are not emitted: the run-identity rule
 (T-151) is not implemented yet, and the view exposes no engine version.
@@ -102,8 +110,15 @@ _PREFIXES = (
 _TICKER = re.compile(r"[A-Z0-9]{1,6}(\.[A-Z])?")
 _ISO_DATE = re.compile(r"\d{4}-\d{2}-\d{2}")
 
+SKIP_BAD_TICKER = "ticker is not a well-formed symbol"
 SKIP_NOT_AN_ASSET = "ticker is not an asset of the universe database"
 SKIP_NO_VALUE = "the lane's required value is NULL"
+SKIP_QUARTER_OPEN = "FUNDAMENTAL quarter has not closed by the run day"
+SKIP_QUARTER_WRITTEN = "lost: its FUNDAMENTAL quarter graph is already written"
+SKIP_DAY_WRITTEN = "the run day's graph is already written; waits for a later run day"
+#: Why a row that passed the boundary is not written, when it is not counted here.
+LEFT_NULL_AVAILABLE_AT = "available_at is NULL"
+LEFT_IN_STORE = "already in the store"
 
 
 class ProjectionError(ValueError):
@@ -129,12 +144,21 @@ def _day(text: object, column: str, row: Row) -> str:
     return text[:10]
 
 
+def _quarter(day: str) -> tuple[int, int]:
+    return int(day[:4]), (int(day[5:7]) - 1) // 3 + 1
+
+
 def graph_name(score_type: str, available_at: str, run_day: str) -> str:
     """The named graph a snapshot of ``score_type`` belongs in (``docs/07``'s table)."""
     if score_type in DATA_DATED:
-        year, month = int(available_at[:4]), int(available_at[5:7])
-        return f"urn:graph:ingest:{score_type}:{year}-Q{(month - 1) // 3 + 1}"
+        year, quarter = _quarter(available_at)
+        return f"urn:graph:ingest:{score_type}:{year}-Q{quarter}"
     return f"urn:graph:ingest:{score_type}:{run_day}"
+
+
+def lane_of(graph: str) -> str:
+    """The ``score_type`` of a graph :func:`graph_name` named."""
+    return graph.split(":")[3]
 
 
 def snapshot_iri(row: Row) -> str:
@@ -187,6 +211,13 @@ class Projection:
 
     graphs: dict[str, list[Block]] = field(default_factory=lambda: defaultdict(list))
     skipped: Counter[str] = field(default_factory=Counter)
+    #: key -> why: the rows left out by design that no later run would write either.
+    left_out: dict[int, str] = field(default_factory=dict)
+
+    def leave_out(self, row: Row, reason: str, *, counted: bool = True) -> None:
+        if counted:
+            self.skipped[reason] += 1
+        self.left_out[int(row["id"])] = reason
 
     def turtle(self, graph: str, drop: Collection[str] = ()) -> bytes:
         """The graph's batch, without the snapshots named in ``drop``."""
@@ -201,18 +232,27 @@ def project(rows: Sequence[Row], assets: Collection[str], run_day: str) -> Proje
         score_type = row["score_type"]
         if score_type not in LANES:
             raise ProjectionError(f"{VIEW} id={row['id']}: no lane for score_type {score_type!r}")
-        if not _TICKER.fullmatch(row["ticker"]) or row["ticker"] not in assets:
-            out.skipped[SKIP_NOT_AN_ASSET] += 1
+        if not _TICKER.fullmatch(row["ticker"]):
+            out.leave_out(row, SKIP_BAD_TICKER)
+            continue
+        if row["ticker"] not in assets:
+            out.leave_out(row, SKIP_NOT_AN_ASSET)
             continue
         if row["available_at"] is None:
-            continue  # counted by the boundary (the ordered pair's "skip"), not again here
+            # counted by the boundary (the ordered pair's "skip"), not again here
+            out.leave_out(row, LEFT_NULL_AVAILABLE_AT, counted=False)
+            continue
         needed = "raw_value" if score_type in RAW_REQUIRED else "normalized_score"
         if row[needed] is None:
-            out.skipped[SKIP_NO_VALUE] += 1
+            out.leave_out(row, SKIP_NO_VALUE)
+            continue
+        available = _day(row["available_at"], "available_at", row)
+        if score_type in DATA_DATED and _quarter(available) >= _quarter(run_day):
+            # not "left out": a run after the quarter closes writes it
+            out.skipped[SKIP_QUARTER_OPEN] += 1
             continue
         block = snapshot_block(row)
-        graph = graph_name(score_type, _day(row["available_at"], "available_at", row), run_day)
-        out.graphs[graph].append(block)
+        out.graphs[graph_name(score_type, available, run_day)].append(block)
     return out
 
 
@@ -239,6 +279,7 @@ class RunResult:
     already_in_store: int = 0
     rejected: dict[str, str] = field(default_factory=dict)  # graph -> why the gate refused it
     late_not_found: list[str] = field(default_factory=list)
+    late_closed: list[str] = field(default_factory=list)  # late keys closed without a write
 
     def summary(self) -> str:
         lines = [self.report.summary()]
@@ -248,6 +289,7 @@ class RunResult:
         lines += [f"  accepted by the gate, not written: {g}" for g in self.checked]
         lines += [f"  rejected: {g}: {why}" for g, why in sorted(self.rejected.items())]
         lines += [f"  late key not found in the re-read: {k}" for k in self.late_not_found]
+        lines += [f"  late key closed without a write: {k}" for k in self.late_closed]
         return "\n".join(lines)
 
 
@@ -262,9 +304,18 @@ def run(
     """Read, check, project and (when ``store`` is given) write ``v_score_snapshot``.
 
     With ``store=None`` nothing is written: the batches are still checked against ``shapes.ttl``,
-    so a dry run reports what the gate would say. The late-key file is re-read every run (the
-    whole view is read, so a late row comes back with the rest) and a key leaves it only once
-    its snapshot is in the store.
+    so a dry run reports what the gate would say (it cannot see which graphs the store holds).
+
+    A graph that already exists is never written to: its new rows are counted instead
+    (:data:`SKIP_QUARTER_WRITTEN`, :data:`SKIP_DAY_WRITTEN`), so a re-run never fails on a graph
+    an earlier run wrote.
+
+    The late-key file is re-read every run (the whole view is read, so a late row comes back
+    with the rest). On a write, a key leaves it once its row is settled: written, already in the
+    store, or left out by design (``Projection.left_out``, listed in ``late_closed``), or gone
+    from upstream (listed in ``late_not_found``). A key whose row waits for a later graph, or
+    whose graph the gate refused, stays. A dry run reports but removes no key; the boundary
+    still adds the keys of the rows it delays.
     """
     read = read_rows(source)
     result = validate(
@@ -277,21 +328,26 @@ def run(
     for reason, n in projection.skipped.items():
         result.report.skip(VIEW, reason, n)
     out = RunResult(result.report, projection.skipped)
-    if late_keys_path is not None:
-        # A key whose row upstream no longer has can never be re-read: report it and drop it.
-        present = {int(r["id"]) for r in read}
-        stored = load_late_keys(late_keys_path).get(VIEW, {"keys": []})["keys"]
-        gone = [k for k in stored if k[0] not in present]
-        out.late_not_found = [f"{VIEW} id={k[0]}" for k in gone]
-        mark_written(late_keys_path, VIEW, gone)
+    settled: dict[int, str | None] = dict(
+        projection.left_out
+    )  # key -> why not written (None: written)
 
     for graph in sorted(projection.graphs):
         blocks = projection.graphs[graph]
         taken = _existing(store, gate.parse_batch(projection.turtle(graph)))
         have = {b.iri for b in blocks if f"{_NS}{b.iri}" in taken}
         out.already_in_store += len(have)
+        settled.update({b.key: LEFT_IN_STORE for b in blocks if b.iri in have})
         fresh = [b for b in blocks if b.iri not in have]
         if not fresh:
+            continue
+        if store is not None and _graph_exists(store, graph):
+            data_dated = lane_of(graph) in DATA_DATED
+            reason = SKIP_QUARTER_WRITTEN if data_dated else SKIP_DAY_WRITTEN
+            out.skipped[reason] += len(fresh)
+            result.report.skip(VIEW, reason, len(fresh))
+            if data_dated:  # lost for its quarter: no later run writes it either
+                settled.update({b.key: reason for b in fresh})
             continue
         data = projection.turtle(graph, drop=have)
         try:
@@ -303,9 +359,28 @@ def run(
         except gate.IngestRejected as exc:
             out.rejected[graph] = str(exc)
             continue
-        if late_keys_path is not None and store is not None:
-            mark_written(late_keys_path, VIEW, [[b.key] for b in fresh])
+        if store is not None:
+            settled.update({b.key: None for b in fresh})
+
+    if late_keys_path is not None:
+        _settle_late_keys(late_keys_path, read, settled, out, drop=store is not None)
     return out
+
+
+def _settle_late_keys(
+    path: Path, read: Sequence[Row], settled: dict[int, str | None], out: RunResult, *, drop: bool
+) -> None:
+    """Report the late keys this run settled or cannot find; on a write, remove them."""
+    present = {int(r["id"]) for r in read}
+    stored = load_late_keys(path).get(VIEW, {"keys": []})["keys"]
+    gone = [k for k in stored if k[0] not in present]
+    out.late_not_found = [f"{VIEW} id={k[0]}" for k in gone]
+    done = [k for k in stored if k[0] in settled]
+    out.late_closed = [
+        f"{VIEW} id={k[0]} ({settled[k[0]]})" for k in done if settled[k[0]] is not None
+    ]
+    if drop:
+        mark_written(path, VIEW, gone + done)
 
 
 _NS = "https://thesis.local/kg/portfolio#"
@@ -315,3 +390,8 @@ def _existing(store: GraphDB | None, batch: rdflib.Graph) -> set[str]:
     if store is None:
         return set()
     return set(gate.existing_subjects(store, batch))
+
+
+def _graph_exists(store: GraphDB, graph: str) -> bool:
+    """Whether ``graph`` holds any statement: the gate's own test for an append-only graph."""
+    return bool(store.select(f"SELECT * WHERE {{ GRAPH <{graph}> {{ ?s ?p ?o }} }} LIMIT 1"))

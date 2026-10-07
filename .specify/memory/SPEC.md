@@ -827,7 +827,8 @@ treating a related FR/NR as done:
     view's cap. In a graph dated by ingestion (`ingest:{agent}:{date}` for the
     SEMANTIC, VALORIZATION, TECHNICAL and SECTOR lanes) a quarantined row is
     late, not lost: the report persists its key and the next run re-reads it
-    (T-031; until then it is reported as lost). In every other graph (dated by
+    (T-031: implemented for `v_score_snapshot`, PR #72; the other views with
+    their projections, reported as lost until then). In every other graph (dated by
     the data: ORCHESTRATOR by `cycleDate`, FUNDAMENTAL by quarter, universe,
     EDGAR, quant, entity resolution) it is lost for that date, since the ingest
     gate never appends to an existing append-only graph. The run stops when a

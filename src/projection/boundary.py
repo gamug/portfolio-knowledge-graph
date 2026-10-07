@@ -769,10 +769,12 @@ def _persist_late(
 
 
 def mark_written(path: Path, view: str, keys: Sequence[Sequence[Any]]) -> None:
-    """Drop ``keys`` of ``view`` from the late-key file once their rows are in the store (T-031).
+    """Drop ``keys`` of ``view`` from the late-key file once their rows are settled (T-031).
 
-    Called after a successful write, never by :func:`validate`: a row that passed the boundary
-    can still fail the SHACL gate or the store, and its key must survive that.
+    Settled: in the store, left out by the projection by design, or gone from upstream; the
+    projection decides and reports which. Called after a write, never by :func:`validate`: a row
+    that passed the boundary can still fail the SHACL gate or the store, and its key must survive
+    that.
     """
     data = load_late_keys(path)
     entry = data.get(view)

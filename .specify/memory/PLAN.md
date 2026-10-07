@@ -929,7 +929,9 @@ re-declare an individual already in the store):
   store, so once upstream fixes it, a later run writes it into that run's new graph, which is the
   honest record of when it arrived. **Re-read mechanism:** T-163's report persists the keys of its late
   rows, and the next run (T-031) re-reads those keys along with its own rows, dropping a key from the
-  list once its row is written. Until T-031 implements that, a late row is reported as lost.
+  list once its row is settled (written, already in the store, or left out by design, each reported).
+  T-031 implements it for `v_score_snapshot` (PR #72); for a view without a projection yet, a late
+  row is reported as lost.
 - **Graphs dated by the data**, and **every graph not listed above**:
   `urn:graph:ingest:ORCHESTRATOR:{date}` (keyed by the scheme's `cycleDate`, T-121),
   `urn:graph:ingest:FUNDAMENTAL:{year}-Q{n}`,
@@ -938,6 +940,8 @@ re-declare an individual already in the store):
   `urn:graph:derived:entity-resolution:{date}` (`v_shared_executive_edge`). A quarantined row is
   **lost for that date**, since its graph cannot be appended to once written and a later graph would
   misdate it. The only recovery is a re-run before the graph is written. The report lists it as lost.
+  A projection never asks the gate to append to such a graph: it counts the row as lost instead
+  (T-031), and writes a FUNDAMENTAL quarter only once the quarter has closed.
   A graph added to `docs/07` later is data-dated unless this list says otherwise.
 
 The run stops when a view's quarantined share exceeds its cap. Caps are set per view in T-162's

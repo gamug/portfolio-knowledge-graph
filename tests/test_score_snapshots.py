@@ -161,10 +161,32 @@ def test_project_skips_what_it_cannot_write_and_counts_each_reason() -> None:
         _fundamental(id=4, raw_value=None),
         _row(id=5, normalized_score=None),
         _row(id=6, score_type="SECTOR", raw_value=None),
+        _row(id=7, ticker="aaa"),  # not a well-formed symbol
     ]
     out = ss.project(rows, ASSETS, "2026-10-07")
     assert [b.key for b in out.graphs["urn:graph:ingest:TECHNICAL:2026-10-07"]] == [1]
-    assert out.skipped == {ss.SKIP_NOT_AN_ASSET: 1, ss.SKIP_NO_VALUE: 3}
+    assert out.skipped == {ss.SKIP_NOT_AN_ASSET: 1, ss.SKIP_NO_VALUE: 3, ss.SKIP_BAD_TICKER: 1}
+    assert out.left_out == {
+        2: ss.SKIP_NOT_AN_ASSET,
+        3: ss.LEFT_NULL_AVAILABLE_AT,
+        4: ss.SKIP_NO_VALUE,
+        5: ss.SKIP_NO_VALUE,
+        6: ss.SKIP_NO_VALUE,
+        7: ss.SKIP_BAD_TICKER,
+    }
+
+
+@pytest.mark.parametrize(
+    ("available", "written"),
+    [("2026-09-30", True), ("2026-10-01", False), ("2026-10-07", False)],
+)
+def test_a_fundamental_quarter_is_written_only_once_it_has_closed(
+    available: str, written: bool
+) -> None:
+    out = ss.project([_fundamental(available_at=available)], ASSETS, "2026-10-07")
+    assert bool(out.graphs) is written
+    assert out.skipped == ({} if written else {ss.SKIP_QUARTER_OPEN: 1})
+    assert not out.left_out  # a later run writes it, so a late key would stay
 
 
 def test_an_unknown_lane_is_an_error_not_a_skip() -> None:
@@ -242,19 +264,80 @@ def test_a_cycle_row_with_no_available_at_is_counted_once_and_not_projected(tmp_
     assert not out.checked
 
 
-def test_a_write_goes_through_the_gate_and_skips_what_the_store_already_holds(
+def _store(make_db: MakeDB, graphs: tuple[str, ...] = (), held: tuple[str, ...] = ()) -> Any:
+    """A fake store that answers like GraphDB: a graph-existence query finds ``graphs``, a
+    subject query finds the ``held`` snapshots it names, and nothing else."""
+    store = make_db()
+
+    def select(sparql: str) -> list[dict[str, str]]:
+        if any(f"GRAPH <{g}>" in sparql for g in graphs):
+            return [{"s": "x", "p": "x", "o": "x"}]
+        return [{"s": f"{NS}{h}"} for h in held if f"{NS}{h}>" in sparql]
+
+    store.select = select  # type: ignore[method-assign]
+    return store
+
+
+def _added(store: Any) -> bytes:
+    return b"".join(d for d, _, _ in store.added)
+
+
+def test_a_write_goes_through_the_gate_into_a_new_graph(tmp_path: Path, make_db: MakeDB) -> None:
+    store = _store(make_db)
+    out = ss.run(_database(tmp_path, [_fundamental(id=10)]), ASSETS, store.db, "2026-10-07")
+    assert list(out.written) == ["urn:graph:ingest:FUNDAMENTAL:2025-Q1"]
+    assert b"Snap_AAA_Fin_20241231_10" in _added(store)
+
+
+def test_a_rerun_with_nothing_new_writes_nothing_and_fails_nothing(
     tmp_path: Path, make_db: MakeDB
 ) -> None:
-    rows = [_fundamental(id=10), _fundamental(id=11, ticker="BBB")]
-    held = f"{NS}Snap_AAA_Fin_20241231_10"
-    store = make_db()
-    # Only a query that names the held snapshot finds it, as the store would.
-    store.select = lambda sparql: [{"s": held}] if held in sparql else []  # type: ignore[method-assign]
+    store = _store(
+        make_db,
+        graphs=("urn:graph:ingest:FUNDAMENTAL:2025-Q1",),
+        held=("Snap_AAA_Fin_20241231_10",),
+    )
+    out = ss.run(_database(tmp_path, [_fundamental(id=10)]), ASSETS, store.db, "2026-10-07")
+    assert out.already_in_store == 1
+    assert not store.added
+    assert not out.rejected
+    assert not out.skipped
+
+
+def test_a_new_row_for_a_written_quarter_is_counted_as_lost_not_rejected(
+    tmp_path: Path, make_db: MakeDB
+) -> None:
+    rows = [_fundamental(id=10), _fundamental(id=11, ticker="BBB")]  # both 2025-Q1
+    store = _store(
+        make_db,
+        graphs=("urn:graph:ingest:FUNDAMENTAL:2025-Q1",),
+        held=("Snap_AAA_Fin_20241231_10",),
+    )
     out = ss.run(_database(tmp_path, rows), ASSETS, store.db, "2026-10-07")
     assert out.already_in_store == 1
-    written = b"".join(d for d, _, _ in store.added)
-    assert b"Snap_BBB_Fin_20241231_11" in written
-    assert b"Snap_AAA_Fin_20241231_10" not in written
+    assert not store.added
+    assert not out.rejected  # the gate is never asked to append to the existing graph
+    assert out.skipped[ss.SKIP_QUARTER_WRITTEN] == 1
+    assert out.report.skipped_by_design[("v_score_snapshot", ss.SKIP_QUARTER_WRITTEN)] == 1
+
+
+def test_a_same_day_rerun_defers_a_new_cycle_row_to_the_next_run_day(
+    tmp_path: Path, make_db: MakeDB
+) -> None:
+    rows = _cohort("TECHNICAL", 1)
+    held = ("Snap_AAA_Tec_20260709_1", "Snap_BBB_Tec_20260709_2")  # row 3 is new
+    same_day = _store(make_db, graphs=("urn:graph:ingest:TECHNICAL:2026-10-07",), held=held)
+    out = ss.run(_database(tmp_path, rows), ASSETS, same_day.db, "2026-10-07")
+    assert not same_day.added
+    assert not out.rejected
+    assert out.skipped[ss.SKIP_DAY_WRITTEN] == 1
+
+    (tmp_path / "financial.db").unlink()
+    next_day = _store(make_db, graphs=("urn:graph:ingest:TECHNICAL:2026-10-07",), held=held)
+    out = ss.run(_database(tmp_path, rows), ASSETS, next_day.db, "2026-10-08")
+    assert list(out.written) == ["urn:graph:ingest:TECHNICAL:2026-10-08"]
+    assert b"Snap_CCC_Tec_20260709_3" in _added(next_day)
+    assert b"Snap_AAA_Tec_20260709_1" not in _added(next_day)
 
 
 # --- the late-key round trip, on the real read ---------------------------------------------------
@@ -311,6 +394,79 @@ def test_a_late_key_upstream_no_longer_has_is_reported_and_dropped(
     out = ss.run(_database(tmp_path, gone), ASSETS, make_db().db, "2026-10-08", late_keys_path=keys)
     assert out.late_not_found == ["v_score_snapshot id=3"]
     assert json.loads(keys.read_text()).get("v_score_snapshot", {"keys": []})["keys"] == []
+
+
+def _delay_row_3(tmp_path: Path, make_db: MakeDB, keys: Path) -> None:
+    """A first run that writes rows 1 and 2 on 2026-10-07 and delays row 3 (a type failure)."""
+    bad = _cohort("TECHNICAL", 1)
+    bad[2]["raw_value"] = "n/a"
+    ss.run(_database(tmp_path, bad), ASSETS, make_db().db, "2026-10-07", late_keys_path=keys)
+    assert _late(keys) == [[3]]
+    (tmp_path / "financial.db").unlink()
+
+
+def _late(keys: Path) -> list[list[int]]:
+    keys_now: list[list[int]] = json.loads(keys.read_text()).get("v_score_snapshot", {"keys": []})[
+        "keys"
+    ]
+    return keys_now
+
+
+def test_a_dry_run_reports_a_vanished_late_key_but_keeps_it(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, make_db: MakeDB
+) -> None:
+    _allow_one_loss(monkeypatch)
+    keys = tmp_path / "late.json"
+    _delay_row_3(tmp_path, make_db, keys)
+    gone = _cohort("TECHNICAL", 1)[:2]
+    out = ss.run(_database(tmp_path, gone), ASSETS, None, "2026-10-08", late_keys_path=keys)
+    assert out.late_not_found == ["v_score_snapshot id=3"]
+    assert _late(keys) == [[3]]
+
+
+def test_a_late_key_whose_row_is_left_out_by_design_is_closed_and_reported(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, make_db: MakeDB
+) -> None:
+    _allow_one_loss(monkeypatch)
+    keys = tmp_path / "late.json"
+    _delay_row_3(tmp_path, make_db, keys)
+    fixed = _cohort("TECHNICAL", 1, available_at=None)  # every cycle row before upstream T-144
+    out = ss.run(
+        _database(tmp_path, fixed), ASSETS, make_db().db, "2026-10-08", late_keys_path=keys
+    )
+    assert out.late_closed == [f"v_score_snapshot id=3 ({ss.LEFT_NULL_AVAILABLE_AT})"]
+    assert _late(keys) == []
+
+
+def test_a_late_key_whose_snapshot_is_already_in_the_store_is_closed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, make_db: MakeDB
+) -> None:
+    _allow_one_loss(monkeypatch)
+    keys = tmp_path / "late.json"
+    _delay_row_3(tmp_path, make_db, keys)
+    store = _store(make_db, held=("Snap_CCC_Tec_20260709_3",))
+    fixed = _cohort("TECHNICAL", 1)
+    out = ss.run(_database(tmp_path, fixed), ASSETS, store.db, "2026-10-08", late_keys_path=keys)
+    assert out.late_closed == [f"v_score_snapshot id=3 ({ss.LEFT_IN_STORE})"]
+    assert _late(keys) == []
+
+
+def test_a_late_key_stays_while_its_row_waits_for_a_later_graph(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, make_db: MakeDB
+) -> None:
+    _allow_one_loss(monkeypatch)
+    keys = tmp_path / "late.json"
+    _delay_row_3(tmp_path, make_db, keys)
+    store = _store(
+        make_db,
+        graphs=("urn:graph:ingest:TECHNICAL:2026-10-07",),
+        held=("Snap_AAA_Tec_20260709_1", "Snap_BBB_Tec_20260709_2"),
+    )
+    fixed = _cohort("TECHNICAL", 1)
+    out = ss.run(_database(tmp_path, fixed), ASSETS, store.db, "2026-10-07", late_keys_path=keys)
+    assert out.skipped[ss.SKIP_DAY_WRITTEN] == 1
+    assert not out.late_closed
+    assert _late(keys) == [[3]]
 
 
 # --- the real database (opt in: -m integration) -------------------------------------------------
