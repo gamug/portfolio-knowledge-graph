@@ -66,7 +66,8 @@ def test_score_snapshot_carries_the_documented_rules(shipped: dict[str, ViewExpe
     assert cycle.until == "upstream T-144"
 
     (mean,) = e.group_means
-    assert (mean.target, mean.group_by) == (50, ("run_id", "score_type"))
+    # run ids are reused across the four run tables (D7), so run_kind is part of the cohort
+    assert (mean.target, mean.group_by) == (50, ("run_kind", "run_id", "score_type"))
     assert 0 < mean.tolerance < 50
     assert mean.where["score_type"] == CYCLE_LANES  # FUNDAMENTAL mixes cohorts (D17)
 
@@ -214,6 +215,16 @@ def test_a_valid_file_parses() -> None:
         (_mutated(pending="not shipped"), "is stale"),
         (_mutated(pending_columns={"weight": "T-1"}), "is pinned now"),
         (_mutated(null_rate="all of them"), "must be a list of objects"),
+        (_mutated(types={"weight": ["number"]}), "unknown value"),
+        (_mutated(formats={"weight": [1]}), "unknown value"),
+        (
+            _mutated(ordered_pairs=[{"left": "weight", "op": [">"], "right": "weight"}]),
+            "'op' must be one of",
+        ),
+        (
+            _mutated(ordered_pairs=[{"left": "weight", "op": ">", "right": "weight", "null": [1]}]),
+            "'null' must be one of",
+        ),
     ],
 )
 def test_a_malformed_file_is_rejected(data: dict[str, Any], why: str) -> None:
@@ -305,6 +316,14 @@ def test_a_malformed_source_file_is_rejected(
     (tmp_path / "_source.json").write_text(json.dumps(source))
     with pytest.raises(ExpectationError, match=why):
         load_source(tmp_path)
+
+
+def test_a_duplicate_key_is_rejected(tmp_path: Path) -> None:
+    """``json.loads`` would keep the second value silently."""
+    directory = _directory(tmp_path)
+    (directory / "v_sector.json").write_text('{"view": "v_sector", "cap": 0, "cap": 0.5}')
+    with pytest.raises(ExpectationError, match="key 'cap' appears twice"):
+        load_expectations(directory)
 
 
 def test_a_missing_source_file_is_rejected(tmp_path: Path) -> None:

@@ -1,25 +1,10 @@
 {
   "view": "v_quant_vs_live",
-  "keys": [
-    [
-      "as_of",
-      "kind",
-      "asset_id"
-    ]
-  ],
+  "keys": [["as_of", "kind", "asset_id"]],
   "cap": 0,
   "null_rate": [
-    {
-      "column": "as_of",
-      "max": 0
-    },
-    {
-      "column": "kind",
-      "max": 0
-    },
-    {
-      "column": "asset_id",
-      "max": 0
-    }
+    {"column": "as_of", "max": 0},
+    {"column": "kind", "max": 0},
+    {"column": "asset_id", "max": 0}
   ]
 }

@@ -258,7 +258,7 @@ def _named(
     out: dict[str, str] = {}
     for column, value in raw.items():
         chk.column(key, column)
-        if value in vocabulary:
+        if isinstance(value, str) and value in vocabulary:
             out[column] = value
         else:
             chk.bad(
@@ -312,17 +312,16 @@ def _ordered_pairs(chk: _Checker, data: Mapping[str, Any]) -> tuple[OrderedPair,
         chk.unknown_keys(where, item, {"left", "op", "right", "where", "null", "until"})
         left = chk.column(where, item.get("left"))
         right = chk.column(where, item.get("right"))
-        if item.get("op") not in OPS:
+        op = item.get("op")
+        if not (isinstance(op, str) and op in OPS):
             chk.bad(where, f"'op' must be one of {sorted(OPS)}")
         policy = item.get("null", "fail")
-        if policy not in NULL_POLICIES:
+        if not (isinstance(policy, str) and policy in NULL_POLICIES):
             chk.bad(where, f"'null' must be one of {sorted(NULL_POLICIES)}")
         if policy == "skip" and not _text(item.get("until")):
             chk.bad(where, "skipping a NULL needs 'until': the task that fills it")
         clause = chk.where_clause(where, item.get("where"))
-        out.append(
-            OrderedPair(left, str(item.get("op")), right, clause, str(policy), item.get("until"))
-        )
+        out.append(OrderedPair(left, str(op), right, clause, str(policy), item.get("until")))
     return tuple(out)
 
 
@@ -410,11 +409,27 @@ def load_expectations(directory: Path = EXPECTATIONS_DIR) -> dict[str, ViewExpec
 
 def _read(path: Path) -> dict[str, Any]:
     try:
-        data = json.loads(path.read_text(encoding="utf-8"))
+        data = json.loads(path.read_text(encoding="utf-8"), object_pairs_hook=_no_duplicates)
     except FileNotFoundError:
         raise ExpectationError(f"{path.name}: file not found") from None
     except json.JSONDecodeError as exc:
         raise ExpectationError(f"{path.name}: not valid JSON ({exc})") from None
+    except _DuplicateKeyError as exc:
+        raise ExpectationError(f"{path.name}: key {exc} appears twice in one object") from None
     if not isinstance(data, dict):
         raise ExpectationError(f"{path.name}: must be a JSON object")
     return data
+
+
+class _DuplicateKeyError(Exception):
+    pass
+
+
+def _no_duplicates(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    """``json.loads`` keeps the last of two equal keys; a strict loader refuses them instead."""
+    out: dict[str, Any] = {}
+    for key, value in pairs:
+        if key in out:
+            raise _DuplicateKeyError(repr(key))
+        out[key] = value
+    return out

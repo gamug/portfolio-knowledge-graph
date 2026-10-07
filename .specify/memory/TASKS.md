@@ -420,7 +420,7 @@ See `PLAN.md` Work item 16.*
 - [x] **T-161** *(closed with T-160: plain checks won, so no dependency and no amendment)* If T-160 picked a library: propose the constitution amendment first (Technological
       stock #6, Governance steps 1–4, MINOR bump), as its own reviewed change, then add the dependency
       to `pyproject.toml`. If plain checks won, there is no dependency and no amendment. → step 2.
-- [x] **T-162** *(done: one JSON file per view under `src/projection/view_expectations/`, plus `_source.json`, and the strict loader `src/projection/expectations.py`; `tests/test_expectations.py`. Every cap is 0. The tolerance (5), the row-count minimums and the key and range columns not stated upstream are first picks, to be checked against a real database when T-163 lands. `forensic_flags_json` and `v_cycle_ranking_component` are marked `pending` until upstream's re-pin. SEMANTIC's all-NULL columns are not encoded yet: T-158 does that.)* Write the expectations for the views Work item 4 reads, as JSON files beside
+- [x] **T-162** *(done: one JSON file per view under `src/projection/view_expectations/`, plus `_source.json`, and the strict loader `src/projection/expectations.py`; `tests/test_expectations.py`. Every cap is 0. The tolerance (5), the row-count minimums and the key and range columns not stated upstream are first picks, to be checked against a real database when T-163 lands. `forensic_flags_json` and `v_cycle_ranking_component` are marked `pending` until upstream's re-pin. SEMANTIC's all-NULL columns are not encoded yet: T-158 does that. FUNDAMENTAL's cohort-mean guard sits on the pending `v_cycle_ranking_component`, so it is inactive until upstream's T-144 ships that view. The `v_score_snapshot` mean groups by `run_kind` too, since run ids repeat across the four run tables, D7.)* Write the expectations for the views Work item 4 reads, as JSON files beside
       `src/projection/view_contract.py`, one per view. Include each view's quarantine cap (default 0;
       record why for any view allowed to lose rows) and the check kinds T-160 lists (`PLAN.md` Work
       item 16), the format and per-lane look-ahead checks included. Include the `v_score_snapshot`
@@ -451,8 +451,9 @@ See `PLAN.md` Work item 16.*
 - [ ] **T-163** Run the expectations on the read path: a function that returns the validated rows
       and a report naming the view and column of every failure, with the row key for a row-level
       check and the group for an aggregate one, applying the T-160 policy. It runs T-162's source
-      check first and stops on its failure. The report also counts, per view and reason, the rows
-      skipped by design: T-031's cycle-lane rows with a NULL `available_at`, T-155's no-component
+      check first and stops on its failure. It skips a `pending` view or column (one upstream has
+      not shipped, so it cannot be read) and lists each one in the report, so an inactive guard is
+      visible. The report also counts, per view and reason, the rows skipped by design: T-031's cycle-lane rows with a NULL `available_at`, T-155's no-component
       ranking rows, and T-151's run-keyed rows whose run fails the checks. It lists each quarantined
       row as late (ingestion-dated graph) or lost (any other graph), per `PLAN.md` Work item 16, and
       persists the late rows' keys for the next run to re-read. Lands with T-031.

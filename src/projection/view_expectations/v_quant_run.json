@@ -1,15 +1,6 @@
 {
   "view": "v_quant_run",
-  "keys": [
-    [
-      "run_id"
-    ]
-  ],
+  "keys": [["run_id"]],
   "cap": 0,
-  "null_rate": [
-    {
-      "column": "run_id",
-      "max": 0
-    }
-  ]
+  "null_rate": [{"column": "run_id", "max": 0}]
 }

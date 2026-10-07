@@ -1,17 +1,8 @@
 {
   "view": "v_weight_scheme",
-  "keys": [
-    [
-      "cycle_run_id"
-    ]
-  ],
+  "keys": [["cycle_run_id"]],
   "cap": 0,
-  "null_rate": [
-    {
-      "column": "cycle_run_id",
-      "max": 0
-    }
-  ],
+  "null_rate": [{"column": "cycle_run_id", "max": 0}],
   "types": {
     "top_n": "integer",
     "max_name_weight": "number",
@@ -19,23 +10,9 @@
     "soft_veto_penalty": "number"
   },
   "ranges": [
-    {
-      "column": "top_n",
-      "min": 1
-    },
-    {
-      "column": "max_name_weight",
-      "min": 0,
-      "max": 1
-    },
-    {
-      "column": "max_sector_weight",
-      "min": 0,
-      "max": 1
-    },
-    {
-      "column": "soft_veto_penalty",
-      "min": 0
-    }
+    {"column": "top_n", "min": 1},
+    {"column": "max_name_weight", "min": 0, "max": 1},
+    {"column": "max_sector_weight", "min": 0, "max": 1},
+    {"column": "soft_veto_penalty", "min": 0}
   ]
 }

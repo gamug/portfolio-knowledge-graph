@@ -1,51 +1,18 @@
 {
   "view": "v_cycle_ranking",
-  "keys": [
-    [
-      "cycle_run_id",
-      "asset_id"
-    ]
-  ],
+  "keys": [["cycle_run_id", "asset_id"]],
   "cap": 0,
   "null_rate": [
-    {
-      "column": "cycle_run_id",
-      "max": 0
-    },
-    {
-      "column": "asset_id",
-      "max": 0
-    },
-    {
-      "column": "rank",
-      "max": 0
-    },
-    {
-      "column": "blended_score",
-      "max": 0
-    }
+    {"column": "cycle_run_id", "max": 0},
+    {"column": "asset_id", "max": 0},
+    {"column": "rank", "max": 0},
+    {"column": "blended_score", "max": 0}
   ],
-  "row_count": {
-    "min": 1
-  },
-  "types": {
-    "rank": "integer",
-    "blended_score": "number",
-    "target_weight": "number"
-  },
+  "row_count": {"min": 1},
+  "types": {"rank": "integer", "blended_score": "number", "target_weight": "number"},
   "ranges": [
-    {
-      "column": "rank",
-      "min": 1
-    },
-    {
-      "column": "blended_score",
-      "max": 100
-    },
-    {
-      "column": "target_weight",
-      "min": 0,
-      "max": 1
-    }
+    {"column": "rank", "min": 1},
+    {"column": "blended_score", "max": 100},
+    {"column": "target_weight", "min": 0, "max": 1}
   ]
 }

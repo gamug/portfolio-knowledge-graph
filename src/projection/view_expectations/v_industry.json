@@ -1,20 +1,6 @@
 {
   "view": "v_industry",
-  "keys": [
-    [
-      "industry_name",
-      "sector_id"
-    ]
-  ],
+  "keys": [["industry_name", "sector_id"]],
   "cap": 0,
-  "null_rate": [
-    {
-      "column": "industry_name",
-      "max": 0
-    },
-    {
-      "column": "sector_id",
-      "max": 0
-    }
-  ]
+  "null_rate": [{"column": "industry_name", "max": 0}, {"column": "sector_id", "max": 0}]
 }
