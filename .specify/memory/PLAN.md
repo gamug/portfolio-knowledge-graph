@@ -504,7 +504,8 @@ follow it.
 **Approach**:
 
 1. Amend `constitution.md` (MINOR, per its Governance) with the testing rules above (done, 1.5.0),
-   then reverse NR-005, §10, §13 item 7 and §14 in `SPEC.md` once the suite exists (with T-134).
+   then reverse NR-005, §10, §13 item 7 and §14 in `SPEC.md` once the suite exists (with T-134;
+   §10 and §13 item 7 already updated by T-133, PR #61).
 2. Add `pytest` to the dev group and the `tests/` skeleton.
 3. Write the pending tests: `projection/score_scale` (0, 50, 100, `None`, out of range, decimal
    exactness, `"FUNDAMENTAL"` rejected per T-171); `projection/contract_check` against a synthetic miniature upstream (a pin, then the
@@ -897,8 +898,8 @@ Work item 5 (SEMANTIC aggregation) — superseded, reassigned upstream
 Work item 7 (orchestrator)         — decided: delegate to financial-analysis `cycle`
 
 Work item 8 (protege-view.ttl) — independent, manual, land whenever convenient
-Work item 13 (pytest suite) — independent; rules in constitution 1.5.0, T-131 and T-132 done;
-  T-133, T-134 and T-136 next, ideally before Work item 4's code grows
+Work item 13 (pytest suite) — independent; rules in constitution 1.5.0, T-131, T-132 and T-133 done;
+  T-134 and T-136 next, ideally before Work item 4's code grows
 Work item 14 (PR #48 follow-ups) — independent; T-140 done, T-141 needs a live GraphDB
 Work item 15 (upstream's v_* changes) — T-150, T-170 and T-171 (PR #56) done, with T-155's schema half (PR #58), T-153's comments (PR #59)
   and T-151's rule (PR #60); the step-3 shape corrections now;

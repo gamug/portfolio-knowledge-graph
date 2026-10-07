@@ -653,13 +653,14 @@ production system this project isn't. What exists instead:
 
 ## 10. Testing Strategy & Acceptance Criteria
 
-- **No `pytest` tests exist yet for `src/etl/`** (NR-005) — the suite's skeleton and its first
-  test (`tests/test_score_scale.py`, `src/projection/`) landed with T-131 in PR #56, but, unlike
-  `portfolio-nlp`, `src/etl/` has no hermetic unit tests for its severity
-  formulas, ticker skip-set logic, or provenance-ID formatting; only the
-  end-to-end SHACL sample/smoke check (FR-006) exercises it, indirectly and
-  only for schema conformance, not for the correctness of the G1–G3/G9
-  formulas themselves.
+- **`src/etl/` has hermetic unit tests for its shared helpers** (T-133; NR-005 and §14 still say
+  there is no suite until T-130 reverses them): `tests/test_etl_common.py` (the G1–G3 formulas, GICS
+  rollup, provenance IDs, Turtle literals) and `tests/test_asset_master.py` (the `reference.ttl`
+  ticker skip-set, `reference_asset_tickers()` and `build_assets(already_defined=...)`, plus
+  `read_stints`'s ticker-shape and empty-stint filters and the rollup warnings). The rest of
+  `src/etl/` (`news_to_rdf.py`, `build_data_ttl.generate`) is still exercised only by the
+  end-to-end SHACL sample/smoke check (FR-006), which checks schema conformance, not the
+  correctness of the G9 `publishedDate` fallback.
 - **The parse + `pyshacl` conformance check (FR-001) is the actual gate**
   today, run manually before merge — see `.specify/memory/constitution.md`
   §Executable cmds.
@@ -788,8 +789,9 @@ treating a related FR/NR as done:
 6. ~~**`ScoreSnapshotShape`'s `normalizedScore` requirement doesn't fit
    Sentiment snapshots**~~ — resolved by T-081 (`Sentiment` is exempt from
    `normalizedScore` and must carry `rawValue`; §5's former known divergence).
-7. **No test suite exists for `src/etl/`** (NR-005/§10) — the severity
-   formulas, ticker skip-set logic, and provenance-ID formatting are
+7. **`src/etl/`'s tests cover its helpers only** (§10, T-133) — the G1–G3
+   formulas, GICS rollup, ticker skip-set and provenance-ID formatting have
+   hermetic tests; `news_to_rdf.py` (G9) and `build_data_ttl.generate` are
    exercised only indirectly by the end-to-end SHACL check.
 8. **The G1/G2/G3/G9 formulas in `etl/common/severity.py` are documented
    assumptions, not calibrated against ground truth** — see §7.
@@ -911,7 +913,7 @@ of what this project is, not a gap someone forgot to close:
 | 4 — `protege-view.ttl` stale | **Pending development** (manual, needs a real Protégé session) | `PLAN.md` Work item 8 |
 | 5 — `CLAUDE.md` can lag `origin/master` | **Resolved** for this checkout; general risk stays covered by constitution conduct #2 | `PLAN.md` Work item 2 — done |
 | 6 — `ScoreSnapshotShape` vs. Sentiment `rawValue` | **Resolved** (T-081: `Sentiment` exempt from `normalizedScore`, `rawValue` required) | `PLAN.md` Work item 9 — done |
-| 7 — no test suite for `src/etl/` | **Permanently out of scope** at current scale — **being revisited:** `PLAN.md` Work item 13 (T-130 reverses this row, §10, §13 item 7 and NR-005) | See above |
+| 7 — no test suite for `src/etl/` | **Permanently out of scope** at current scale — **being revisited:** `PLAN.md` Work item 13 (T-133 updated §10 and §13 item 7; T-130 reverses this row and NR-005) | See above |
 | 8 — uncalibrated severity formulas | **Permanently out of scope** (research task) | See above |
 | 9 — no pinned SOURCE/RESULTS contract | **Permanently out of scope** (accepted risk) | See above |
 

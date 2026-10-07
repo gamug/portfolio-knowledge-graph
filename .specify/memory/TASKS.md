@@ -107,7 +107,8 @@ once T-131 lands.*
       `integration` marker skipped by default, `uv run pytest`); add the command to §Executable cmds;
       reverse NR-005, `SPEC.md` §10, §13 item 7 and §14. Its own reviewed change. → Approach 1.
       *(Constitution 1.5.0 done: Project structure #10, Code & Git #9, `uv run pytest`. Still open:
-      the `SPEC.md` reversals, which wait until the suite exists, so close this task with T-134.)*
+      the `SPEC.md` reversals, which wait until the suite exists, so close this task with T-134;
+      §10's first bullet and §13 item 7 were updated by PR #61 (T-133), NR-005 and §14 remain.)*
 - [x] **T-131** *(done 2026-10-06 in PR #56, pulled forward because constitution Code & Git #9
       required a test for T-171's `score_scale.py` fix in the same PR; `tests/fixtures/` is created
       by the first test that needs one)* Add `pytest` to the `dev` group and the `tests/` skeleton per constitution #10:
@@ -123,8 +124,11 @@ once T-131 lands.*
       unlisted view and view that did not build are drift; added or reordered columns are notes),
       plus a `kg_schema` already in `sys.modules` not being reused; `to_normalized_score` on a
       `bool` or a non-numeric string raises `ValueError`. → Approach 3.
-- [ ] **T-133** Tests for `src/etl/common` (severity/G1–G3, GICS rollup, provenance IDs, Turtle
+- [x] **T-133** Tests for `src/etl/common` (severity/G1–G3, GICS rollup, provenance IDs, Turtle
       literals) and the ticker skip-set logic (`SPEC.md` §10). → Approach 3.
+      *(done in PR #61: `tests/test_etl_common.py` and `tests/test_asset_master.py`; the skip-set is
+      `reference_asset_tickers()` plus `build_assets(already_defined=...)`; the rollup test also
+      checks every target against `reference.ttl`)*
 - [ ] **T-134** The FR-001 parse + `pyshacl` conformance gate as a test, so `uv run pytest` covers
       the schema too. → Approach 3.
 - [ ] **T-135** Decide where the real-checkout drift check (`cli/check_view_contract.py`) runs: a
@@ -448,7 +452,7 @@ Closed Work items 1, 2, 3, 5, 7 (superseded/decided by T-007), 9, 10 and 11 are 
 Work items 4 and 6 (T-030–T-035, T-050–T-053)
 follow in dependency order (Work items 3 and 11 are closed, so Work item 4 is unblocked).
 Work item 12 (T-120–T-121): T-120 closed by T-150; T-121 is unblocked.
-Work item 13 (T-130–T-136): constitution rules in place (1.5.0); T-131 and T-132 done; next T-133, T-134 and T-136; T-130 closes with T-134.
+Work item 13 (T-130–T-136): constitution rules in place (1.5.0); T-131, T-132 and T-133 done; next T-134 and T-136; T-130 closes with T-134.
 Work item 14 (T-140–T-142): T-140 done; T-141 needs a live GraphDB; T-142 is unblocked.
 Work item 15 (T-150–T-159, T-170–T-171): T-150, T-170 and T-171 (PR #56) done; T-155's schema half done (PR #58); T-153's comment half (PR #59);
 T-151's rule recorded (PR #60), its checks waiting on T-031/T-163; T-158's
