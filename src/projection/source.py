@@ -3,7 +3,8 @@
 ``portfolio-financial-analysis`` records its schema version in a ``schema_version`` table
 (``MAX(version)``) and leaves ``PRAGMA user_version`` at 0, which is what
 ``portfolio_common.db.Database.schema_version`` reads. The boundary's source check wants the
-first, so the database is wrapped here instead of being handed to it as it is.
+first, so the database is wrapped here instead of being handed to it as it is. An empty or missing
+table reads as 0: ``migrate`` was never run, and 0 is below every floor.
 """
 
 from __future__ import annotations
@@ -28,10 +29,7 @@ class FinancialSource:
     @property
     def schema_version(self) -> int:
         """``MAX(version)``; 0 when the table is empty or missing (``migrate`` was never run)."""
-        table = self._db.execute(
-            "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'schema_version'"
-        ).fetchone()
-        if table is None:
+        if not self._db.relation_exists("schema_version"):
             return 0
         row = self._db.execute("SELECT MAX(version) FROM schema_version").fetchone()
         return int(row[0] or 0)

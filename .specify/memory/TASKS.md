@@ -33,7 +33,7 @@ are closed (see `CHANGELOG.md`).*
 - [ ] **T-031** *(first slice done in PR #72; its status is the sub-list after this entry)* Design and implement the SHACL-validated-on-write path into
       fresh `urn:graph:ingest:{agent}:{date}` graphs. Also: trim `view_contract.py` to the
       columns read; decide the `:rawValue` range for FUNDAMENTAL (T-171 drops its
-      `normalizedScore` instead; the range needs Q6, asked with T-150's next follow-up) and for
+      `normalizedScore` instead; the range needs Q6, asked on 2026-10-07 and still open) and for
       VALORIZATION/TECHNICAL, and map
       upstream SEMANTIC into the `[-1, 1]` `rawValue` `ScoreSnapshotShape` requires of it (T-081;
       `SPEC.md` §2.6). SECTOR's `raw_value` is read verbatim into the [-100, 100] bound T-155 sets,
@@ -61,6 +61,8 @@ are closed (see `CHANGELOG.md`).*
     `--write` appends. SECTOR joined `RESCALED_SCORE_TYPES`. A real read showed that upstream keeps
     its schema version in the `schema_version` table and leaves `PRAGMA user_version` at 0, so
     `FinancialSource` reads the table (`Database.schema_version` would fail every real database).
+    Upstream confirmed the rule (reply of 2026-10-07, `SPEC.md` D16): an empty or missing table
+    reads as 0, below the floor, so the source check stops the run (PR #73).
   - **Where a row goes:** FUNDAMENTAL to the quarter graph of its `available_at`; VALORIZATION,
     TECHNICAL and SECTOR to the graph of the run day (UTC by default).
   - **When a FUNDAMENTAL quarter is written:** once it is closed by the run day *and* a full
@@ -438,7 +440,7 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       (accession numbers) into D16's; and their T-144/T-145 scope additions (keep `component_value`
       and `configured_weight`; a Q2 test; `docs/kg_schema.md`; an accession-number uniqueness
       check). → `PLAN.md` Work item 15, step 1.
-- [x] **T-171** *(D17, raised by the third reply; done in PR #56: the `sh:or` change, comments, docs, `score_scale.py` and its tests; FUNDAMENTAL `rawValue`'s bounds stay open as Q6, asked with T-150's next follow-up)* Decide how `ScoreSnapshot` keeps its
+- [x] **T-171** *(D17, raised by the third reply; done in PR #56: the `sh:or` change, comments, docs, `score_scale.py` and its tests; FUNDAMENTAL `rawValue`'s bounds stay open as Q6, asked on 2026-10-07 and not yet answered)* Decide how `ScoreSnapshot` keeps its
       immutable-observation principle (constitution; `docs/06` conventions) now that upstream
       rewrites a FUNDAMENTAL row's `normalized_score` in place on every cycle that re-normalizes
       its filing against that cycle's cohort (measured: 33/40 production, 1/60 pilot, 2,267/2,799
@@ -457,7 +459,7 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       (`minCount 1`, no bounds yet) the same way the shape already pairs `SectorRelativeMomentum`'s
       and `Sentiment`'s exemptions with a mandatory `rawValue` — otherwise a FUNDAMENTAL snapshot
       could conform while carrying neither value (PR #56 review). Its bounds are unknown, so ask
-      upstream (new question, Q6, with T-150's next follow-up) before adding a
+      upstream (new question, Q6, asked on 2026-10-07, still open) before adding a
       `minInclusive`/`maxInclusive` pair, matching how SECTOR's `rawValue` range wasn't bounded
       until confirmed (T-140/T-155). Update `:normalizedScore`'s and `:rawValue`'s `tbox.ttl`
       comments and `schema/README.md` (flagged as a design gap found against real data, per
