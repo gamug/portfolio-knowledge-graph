@@ -52,7 +52,7 @@ storage location assigned in `07` and its writer assigned in `08`.
 │   └── protege-view.ttl                   generated flat Turtle bundle for Protégé — STALE as of 2026-08-23, not regenerated after the tbox.ttl/reference.ttl/shapes.ttl edits below; regenerate before using in Protégé
 ├── src/etl/, cli/build_data_ttl.py         transitional ETL: universe.db + portfolio-nlp results → flat data.ttl (roadmap step 2 shortcut)
 ├── src/kg_store/, cli/load_schema.py, cli/ingest.py, cli/verify_store.py   GraphDB store, schema loader, SHACL ingest gate (roadmap step 1)
-├── src/projection/, cli/check_view_contract.py   real step-2 projection (Work item 4): v_* read contract, drift check, score conversion, boundary expectations (view_expectations/*.json) and their runner (boundary.py)
+├── src/projection/, cli/check_view_contract.py   real step-2 projection (Work item 4): v_* read contract, drift check, score conversion, boundary expectations (view_expectations/*.json) and their runner (boundary.py), `v_score_snapshot` -> `:ScoreSnapshot` (score_snapshots.py, cli/project_scores.py)
 └── docs/                                  all Markdown design documents
     ├── critique-and-evolution.md          v1 critique + v2 evolution layers
     ├── 06-ontology-definition.md          ontology design rationale
@@ -145,7 +145,7 @@ of configuration:
 |---|---|
 | 0 — Ontology + SHACL shapes (this repo's `schema/`) | ✅ Done |
 | 1 — Stand up the triple store | ✅ Done — GraphDB repository `portfolio` with the reasoning profile of `07`, `schema/` loaded (`cli/load_schema.py`), ABox writes pass a SHACL gate (`cli/ingest.py`); see `docs/graphdb-setup.md`. Only the `instances.trig` worked example is loaded so far |
-| 2 — Ingest already-collected data into the graph | Shortcut built — `src/etl/` projects the universe (`universe.db`: assets and membership history) and news (`portfolio-nlp` results) to a flat `data.ttl`; the real projection (`financial-analysis` `v_*` views, dated named graphs) started: T-030 pinned the read contract and the score conversion (`src/projection/`), the write path (T-031) is next |
+| 2 — Ingest already-collected data into the graph | Shortcut built — `src/etl/` projects the universe (`universe.db`: assets and membership history) and news (`portfolio-nlp` results) to a flat `data.ttl`; the real projection (`financial-analysis` `v_*` views, dated named graphs) started: T-030 pinned the read contract and the score conversion (`src/projection/`), the write path (T-031) started with `v_score_snapshot` |
 | 3–9 — Pricing collector, EDGAR batch pipeline, NLP service, agent cycles, entity resolution, sector/portfolio construction, backtesting | Not this repo's to build — owned by `portfolio-data-mining`, `portfolio-nlp`, `portfolio-financial-analysis` (built or partly built there, per their docs; per-step owner table in the roadmap). This repo's part is projecting their outputs (step 2) |
 
 Full dependency-ordered detail in [`docs/10-integration-roadmap.md`](docs/10-integration-roadmap.md).

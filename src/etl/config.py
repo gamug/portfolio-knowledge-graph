@@ -80,6 +80,11 @@ def universe_db_path() -> Path:
     return _env_path("SQL_UNIVERSE_DB", REPO_ROOT / "data" / "universe.db")
 
 
+def financial_db_path() -> Path:
+    """``portfolio-financial-analysis``'s database, read through its ``v_*`` views only."""
+    return _env_path("SQL_FINANCIAL_DB", REPO_ROOT / "data" / "financial.db")
+
+
 def sample_news_rows() -> int:
     """Number of news rows to include in the post-build SHACL validation sample."""
     raw = os.environ.get("KG_SAMPLE_NEWS_ROWS")
