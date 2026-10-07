@@ -28,21 +28,32 @@ Every one of these graphs is append-only: the gate never adds to one that exists
 written once, and a new row whose graph already exists is not written there (``SPEC.md`` §13
 item 10). For FUNDAMENTAL that row is lost for its quarter (listed in the report's ``lost``, as a
 ``graph_written`` outcome), which is why a quarter is written only once it is complete: its
-quarter is before both the run day's and the quarter of upstream's latest FUNDAMENTAL computation
-(the newest ``computed_at`` read, the *watermark*). Upstream computes in batches after the fact,
-so the calendar alone is not enough: a write before upstream's first run after the quarter would
-lose that run's rows. The assumption is that upstream's first FUNDAMENTAL run after a quarter
-covers every filing usable in it; a filing it computes later still is lost, and listed. For a
-cycle lane the row waits for the next run day's graph.
+quarter is before the run day's, and a *full* upstream analysis run (``v_analysis_run``, see
+:meth:`AnalysisRun.covers`) has looked at it from a later quarter, as of a day no later than the
+run day. Upstream computes in batches after the fact, so the calendar alone is not enough, and a
+row's ``computed_at`` is not either: a run scoped to one ticker, one form or a few years, or a
+run whose ``as_of`` is earlier than its ``computed_at``, says nothing about the rest of the
+quarter. The assumption is that upstream's first full run after a quarter covers every filing
+usable in it. A filing it failed on (``failed_units``) or computes later still is lost, and
+listed. For a cycle lane the row waits for the next run day's graph.
 
-Skipped by design, and counted in the report, never dropped silently:
+The run day is also the as-of day of a replay: a row is projected only once its ``available_at``
+is on or before it, so a replay over past days (into a store that is not production; the CLI
+enforces that) writes each row into the first day it was usable. ``:availableAt`` stays the
+row's own, whatever graph it lands in, and remains the date a point-in-time query filters on.
+
+Skipped by design (no later run writes them), counted in the report, never dropped silently:
 
 * a cycle-lane row with a NULL ``available_at`` (every one before upstream's T-144): never filled in;
   the boundary counts it (the look-ahead pair's "skip"), so this module does not count it again;
 * a row whose ticker is not a well-formed symbol, or not an asset of the universe database;
 * a row without the value its lane's shape requires (``raw_value`` for FUNDAMENTAL and SECTOR,
-  ``normalized_score`` for VALORIZATION and TECHNICAL);
-* a FUNDAMENTAL row whose quarter has not closed by the run day, or not before the watermark;
+  ``normalized_score`` for VALORIZATION and TECHNICAL).
+
+Deferred (a later run writes them), counted apart in :attr:`Projection.deferred`:
+
+* a row not yet available on the run day;
+* a FUNDAMENTAL row whose quarter has not closed by the run day, or no full run has covered yet;
 * on a write, a cycle-lane row whose run-day graph already exists (see above).
 
 ``:runId``, ``:codeVersion`` and ``:engineVersion`` are not emitted: the run-identity rule
@@ -52,6 +63,7 @@ Skipped by design, and counted in the report, never dropped silently:
 from __future__ import annotations
 
 import datetime
+import json
 import re
 from collections import Counter, defaultdict
 from collections.abc import Collection, Sequence
@@ -63,7 +75,7 @@ import rdflib
 
 from etl.asset_master import read_stints
 from kg_store import gate
-from kg_store.graphdb import GraphDB
+from kg_store.graphdb import GraphDB, GraphDBError
 from projection.boundary import (
     GRAPH_WRITTEN,
     BoundaryReport,
@@ -120,9 +132,10 @@ _ISO_DATE = re.compile(r"\d{4}-\d{2}-\d{2}")
 SKIP_BAD_TICKER = "ticker is not a well-formed symbol"
 SKIP_NOT_AN_ASSET = "ticker is not an asset of the universe database"
 SKIP_NO_VALUE = "the lane's required value is NULL"
-SKIP_QUARTER_OPEN = "FUNDAMENTAL quarter has not closed by the run day"
-SKIP_QUARTER_UNCOMPUTED = "upstream has computed no FUNDAMENTAL row after the quarter ended"
-SKIP_DAY_WRITTEN = "the run day's graph is already written; waits for a later run day"
+DEFER_NOT_AVAILABLE = "not available by the run day"
+DEFER_QUARTER_OPEN = "FUNDAMENTAL quarter has not closed by the run day"
+DEFER_QUARTER_UNCOVERED = "no full upstream analysis run has covered the quarter since it closed"
+DEFER_DAY_WRITTEN = "the run day's graph is already written; waits for a later run day"
 #: Why a row that passed the boundary is not written, when it is not counted here.
 LEFT_NULL_AVAILABLE_AT = "available_at is NULL"
 LEFT_IN_STORE = "already in the store"
@@ -131,6 +144,14 @@ LEFT_LOST = "lost: its FUNDAMENTAL quarter graph is already written"
 
 class ProjectionError(ValueError):
     """A row passed the boundary but cannot be projected; the message names it."""
+
+
+class StoreInterrupted(RuntimeError):
+    """The store failed partway through the writes; ``result`` holds what was done before it."""
+
+    def __init__(self, result: RunResult, cause: GraphDBError) -> None:
+        super().__init__(str(cause))
+        self.result = result
 
 
 def _decimal(value: float | int | Decimal) -> str:
@@ -213,12 +234,77 @@ def snapshot_block(row: Row) -> Block:
     return Block(int(row["id"]), iri, "\n".join(lines))
 
 
+ANALYSIS_RUNS = "v_analysis_run"
+#: The columns of ``v_analysis_run`` that say what a run looked at.
+RUN_COLUMNS = ("run_id", "as_of", "status", "failed_units", "params_json")
+#: The forms a full run reads: every FUNDAMENTAL snapshot comes from one of them.
+FULL_FORMS = frozenset({"10-K", "10-Q"})
+#: The ``params_json`` keys whose value narrows a run; each must be present for a run to be full.
+_SCOPE_KEYS = ("tickers", "limit", "forms", "since_year", "until_year")
+
+
+@dataclass(frozen=True)
+class AnalysisRun:
+    """One upstream analysis run: its ``as_of`` day, its status and what it was asked to read."""
+
+    run_id: int
+    as_of: str
+    status: str
+    params: dict[str, object]
+
+    @classmethod
+    def from_row(cls, row: Row) -> AnalysisRun:
+        where = f"{ANALYSIS_RUNS} run_id={row.get('run_id')}"
+        try:
+            params = json.loads(row["params_json"])
+        except (TypeError, ValueError):
+            raise ProjectionError(f"{where}: params_json is not JSON") from None
+        if not isinstance(params, dict):
+            raise ProjectionError(f"{where}: params_json is not an object")
+        return cls(int(row["run_id"]), _day(row["as_of"], "as_of", row), row["status"], params)
+
+    def covers(self, year: int) -> bool:
+        """Whether this run read every filing, of every asset, that can be usable in ``year``.
+
+        Full scope: completed, every ticker (``tickers`` and ``limit`` null), both forms, and a
+        year range that reaches ``year`` (a NULL bound is open). The year bounds are read as
+        fiscal years, so a filing usable in ``year`` may belong to ``year - 1``: the range must
+        start by then. A missing scope key means the run is not known to be full. Upstream's
+        unit counts are not compared, since ``planned_units`` and ``completed_units`` do not
+        count the same thing; a run with ``failed_units`` still covers (its failures are lost).
+        Which fields define a full run is a question for upstream (``SPEC.md`` Q7).
+        """
+        p = self.params
+        if self.status != "completed" or any(k not in p for k in _SCOPE_KEYS):
+            return False
+        forms = p["forms"]
+        since, until = p["since_year"], p["until_year"]
+        return (
+            p["tickers"] is None
+            and p["limit"] is None
+            and isinstance(forms, list)
+            and set(forms) >= FULL_FORMS
+            and (since is None or (isinstance(since, int) and since <= year - 1))
+            and (until is None or (isinstance(until, int) and until >= year))
+        )
+
+
+def quarter_covered(quarter: tuple[int, int], runs: Sequence[AnalysisRun], run_day: str) -> bool:
+    """Whether a full run as of a later quarter, and no later than ``run_day``, covered ``quarter``."""
+    return any(
+        _quarter(r.as_of) > quarter and r.as_of <= run_day and r.covers(quarter[0]) for r in runs
+    )
+
+
 @dataclass
 class Projection:
-    """The blocks of one run, per target graph, and what was skipped."""
+    """The blocks of one run, per target graph, and what was skipped or deferred."""
 
     graphs: dict[str, list[Block]] = field(default_factory=lambda: defaultdict(list))
+    #: Rows left out by design, per reason: no later run writes them.
     skipped: Counter[str] = field(default_factory=Counter)
+    #: Rows a later run writes, per reason.
+    deferred: Counter[str] = field(default_factory=Counter)
     #: key -> why: the rows left out by design that no later run would write either.
     left_out: dict[int, str] = field(default_factory=dict)
 
@@ -233,13 +319,18 @@ class Projection:
         return (_PREFIXES + body).encode()
 
 
-def project(rows: Sequence[Row], assets: Collection[str], run_day: str) -> Projection:
-    """Group the validated rows into per-graph blocks; count every row left out, and why."""
+def project(
+    rows: Sequence[Row],
+    assets: Collection[str],
+    run_day: str,
+    runs: Sequence[AnalysisRun] = (),
+) -> Projection:
+    """Group the validated rows into per-graph blocks; count every row left out, and why.
+
+    ``runs`` are upstream's analysis runs: a FUNDAMENTAL quarter is written only once one of
+    them covers it (:func:`quarter_covered`).
+    """
     out = Projection()
-    watermark = max(
-        (_timestamp(r["computed_at"])[:10] for r in rows if r["score_type"] in DATA_DATED),
-        default=None,
-    )
     for row in rows:
         score_type = row["score_type"]
         if score_type not in LANES:
@@ -259,14 +350,15 @@ def project(rows: Sequence[Row], assets: Collection[str], run_day: str) -> Proje
             out.leave_out(row, SKIP_NO_VALUE)
             continue
         available = _day(row["available_at"], "available_at", row)
-        # Not "left out" (no late key would close): a later run writes these.
-        if score_type in DATA_DATED and _quarter(available) >= _quarter(run_day):
-            out.skipped[SKIP_QUARTER_OPEN] += 1
+        # Deferred, not "left out" (no late key would close): a later run writes these.
+        if available > run_day:
+            out.deferred[DEFER_NOT_AVAILABLE] += 1
             continue
-        if score_type in DATA_DATED and (
-            watermark is None or _quarter(available) >= _quarter(watermark)
-        ):
-            out.skipped[SKIP_QUARTER_UNCOMPUTED] += 1
+        if score_type in DATA_DATED and _quarter(available) >= _quarter(run_day):
+            out.deferred[DEFER_QUARTER_OPEN] += 1
+            continue
+        if score_type in DATA_DATED and not quarter_covered(_quarter(available), runs, run_day):
+            out.deferred[DEFER_QUARTER_UNCOVERED] += 1
             continue
         block = snapshot_block(row)
         out.graphs[graph_name(score_type, available, run_day)].append(block)
@@ -282,6 +374,14 @@ def read_rows(db: FinancialSource) -> list[Row]:
     return [dict(zip(COLUMNS, r, strict=True)) for r in cursor.fetchall()]
 
 
+def read_runs(db: FinancialSource) -> list[Row]:
+    """Every row of ``v_analysis_run`` (the columns that say what a run covered), as plain dicts."""
+    cursor = db.execute(
+        f"SELECT {', '.join(RUN_COLUMNS)} FROM {ANALYSIS_RUNS} ORDER BY run_id"  # noqa: S608 -- constants
+    )
+    return [dict(zip(RUN_COLUMNS, r, strict=True)) for r in cursor.fetchall()]
+
+
 def universe_symbols(path: str | Path) -> set[str]:
     """Every symbol of the universe database: the assets a snapshot can point at."""
     return {stint.symbol for stint in read_stints(path)}
@@ -290,17 +390,21 @@ def universe_symbols(path: str | Path) -> set[str]:
 @dataclass
 class RunResult:
     report: BoundaryReport
-    skipped: Counter[str]
+    skipped: Counter[str]  # left out by design; also in ``report.skipped_by_design``
+    deferred: Counter[str] = field(default_factory=Counter)  # a later run writes these
     written: dict[str, int] = field(default_factory=dict)  # graph -> triples
     checked: list[str] = field(default_factory=list)  # dry run: SHACL-valid graphs
     already_in_store: int = 0
     rejected: dict[str, str] = field(default_factory=dict)  # graph -> why the gate refused it
     late_not_found: list[str] = field(default_factory=list)
     late_closed: list[str] = field(default_factory=list)  # late keys closed without a write
+    lost_before: int = 0  # losses an earlier run already listed (with a late-key file)
 
     def summary(self) -> str:
         lines = [self.report.summary()]
-        lines += [f"  not projected: {reason}: {n}" for reason, n in self.skipped.items()]
+        if self.lost_before:
+            lines += [f"  lost in an earlier run (listed then): {self.lost_before}"]
+        lines += [f"  deferred: {reason}: {n}" for reason, n in self.deferred.items()]
         lines += [f"  already in the store: {self.already_in_store}"]
         lines += [f"  written: {g}: {n} triples" for g, n in sorted(self.written.items())]
         lines += [f"  SHACL-valid, not written (store not consulted): {g}" for g in self.checked]
@@ -320,6 +424,9 @@ def run(
 ) -> RunResult:
     """Read, check, project and (when ``store`` is given) write ``v_score_snapshot``.
 
+    ``v_analysis_run`` is read through the boundary too: it says which FUNDAMENTAL quarters
+    upstream has covered (:func:`quarter_covered`).
+
     With ``store=None`` nothing is written: the batches are still checked against ``shapes.ttl``.
     A dry run does not consult the store, so it cannot tell which graphs already exist: a graph
     it lists as SHACL-valid may still be skipped by a write.
@@ -327,74 +434,97 @@ def run(
     A graph that already exists is never written to, so a re-run never fails on a graph an
     earlier run wrote. Its new rows are reported instead: a FUNDAMENTAL row in ``report.lost``
     (a ``graph_written`` outcome; SPEC §13 item 10), a cycle-lane row as
-    :data:`SKIP_DAY_WRITTEN`, written by the next run day. A loss does not fail the run (the
+    :data:`DEFER_DAY_WRITTEN`, written by the next run day. A loss does not fail the run (the
     exit status stays 0), as a boundary loss within its cap does not: the row stays in the view,
-    so a failing status would fail every later run too.
+    so a failing status would fail every later run too. So that a new loss stands out, a run
+    with a late-key file keeps the keys of lost rows beside it (:func:`lost_keys_path`, on a
+    write): a loss already there is counted in ``lost_before`` and dropped from ``report.lost``,
+    which then lists only this run's new losses.
 
     The late-key file is re-read every run (the whole view is read, so a late row comes back
     with the rest). On a write, a key leaves it once its row is settled: written, already in the
     store, or left out by design (``Projection.left_out``, listed in ``late_closed``), or gone
     from upstream (listed in ``late_not_found``). A key whose row waits for a later graph, or
-    whose graph the gate refused, stays. A dry run reports but removes no key; the boundary
-    still adds the keys of the rows it delays.
+    whose graph the gate refused, stays. A dry run reports but removes or adds no key; the
+    boundary still adds the keys of the rows it delays.
+
+    If the store fails partway, the graphs written so far are settled in both key files and
+    :class:`StoreInterrupted` carries the result up to that point.
     """
     read = read_rows(source)
     result = validate(
-        {VIEW: read},
-        {VIEW: load_expectations()[VIEW]},
+        {VIEW: read, ANALYSIS_RUNS: read_runs(source)},
+        {name: load_expectations()[name] for name in (VIEW, ANALYSIS_RUNS)},
         source_failures=check_source(source, load_source()),
         late_keys_path=late_keys_path,
     )
-    projection = project(result.rows[VIEW], assets, run_day)
+    runs = [AnalysisRun.from_row(r) for r in result.rows[ANALYSIS_RUNS]]
+    projection = project(result.rows[VIEW], assets, run_day, runs)
     for reason, n in projection.skipped.items():
         result.report.skip(VIEW, reason, n)
-    out = RunResult(result.report, projection.skipped)
-    settled: dict[int, str | None] = dict(
-        projection.left_out
-    )  # key -> why not written (None: written)
+    out = RunResult(result.report, projection.skipped, projection.deferred)
+    # key -> why not written (None: written)
+    settled: dict[int, str | None] = dict(projection.left_out)
 
-    for graph in sorted(projection.graphs):
-        blocks = projection.graphs[graph]
-        taken = _existing(store, gate.parse_batch(projection.turtle(graph)))
-        have = {b.iri for b in blocks if f"{_NS}{b.iri}" in taken}
-        out.already_in_store += len(have)
-        settled.update({b.key: LEFT_IN_STORE for b in blocks if b.iri in have})
-        fresh = [b for b in blocks if b.iri not in have]
-        if not fresh:
-            continue
-        if store is not None and _graph_exists(store, graph):
-            if lane_of(graph) in DATA_DATED:  # lost for its quarter: no later run writes it
-                result.report.lost += [
-                    Failure(
-                        VIEW,
-                        GRAPH_WRITTEN,
-                        None,
-                        f"{graph} is already written; {b.iri} is lost for that quarter",
-                        key=(b.key,),
-                    )
-                    for b in fresh
-                ]
-                settled.update({b.key: LEFT_LOST for b in fresh})
-            else:
-                out.skipped[SKIP_DAY_WRITTEN] += len(fresh)
-                result.report.skip(VIEW, SKIP_DAY_WRITTEN, len(fresh))
-            continue
-        data = projection.turtle(graph, drop=have)
-        try:
-            if store is None:
-                gate.validate(gate.parse_batch(data))
-                out.checked.append(graph)
-            else:
-                out.written[graph] = gate.ingest(store, data, graph)
-        except gate.IngestRejected as exc:
-            out.rejected[graph] = str(exc)
-            continue
-        if store is not None:
-            settled.update({b.key: None for b in fresh})
+    def finish() -> None:
+        if late_keys_path is not None:
+            _settle_late_keys(late_keys_path, read, settled, out, drop=store is not None)
+            _sort_losses(lost_keys_path(late_keys_path), out, save=store is not None)
 
-    if late_keys_path is not None:
-        _settle_late_keys(late_keys_path, read, settled, out, drop=store is not None)
+    try:
+        for graph in sorted(projection.graphs):
+            _write_graph(store, projection, graph, out, settled)
+    except GraphDBError as exc:
+        finish()
+        raise StoreInterrupted(out, exc) from exc
+    finish()
     return out
+
+
+def _write_graph(
+    store: GraphDB | None,
+    projection: Projection,
+    graph: str,
+    out: RunResult,
+    settled: dict[int, str | None],
+) -> None:
+    """Check or write one graph's batch, and record each of its rows' outcome."""
+    blocks = projection.graphs[graph]
+    taken = _existing(store, gate.parse_batch(projection.turtle(graph)))
+    have = {b.iri for b in blocks if f"{_NS}{b.iri}" in taken}
+    out.already_in_store += len(have)
+    settled.update({b.key: LEFT_IN_STORE for b in blocks if b.iri in have})
+    fresh = [b for b in blocks if b.iri not in have]
+    if not fresh:
+        return
+    if store is not None and _graph_exists(store, graph):
+        if lane_of(graph) in DATA_DATED:  # lost for its quarter: no later run writes it
+            out.report.lost += [
+                Failure(
+                    VIEW,
+                    GRAPH_WRITTEN,
+                    None,
+                    f"{graph} is already written; {b.iri} is lost for that quarter",
+                    key=(b.key,),
+                )
+                for b in fresh
+            ]
+            settled.update({b.key: LEFT_LOST for b in fresh})
+        else:
+            out.deferred[DEFER_DAY_WRITTEN] += len(fresh)
+        return
+    data = projection.turtle(graph, drop=have)
+    try:
+        if store is None:
+            gate.validate(gate.parse_batch(data))
+            out.checked.append(graph)
+        else:
+            out.written[graph] = gate.ingest(store, data, graph)
+    except gate.IngestRejected as exc:
+        out.rejected[graph] = str(exc)
+        return
+    if store is not None:
+        settled.update({b.key: None for b in fresh})
 
 
 def _settle_late_keys(
@@ -411,6 +541,37 @@ def _settle_late_keys(
     ]
     if drop:
         mark_written(path, VIEW, gone + done)
+
+
+def lost_keys_path(late_keys_path: Path) -> Path:
+    """The lost-key file kept beside a late-key file: ``late.json`` -> ``late.lost.json``."""
+    return late_keys_path.with_name(f"{late_keys_path.stem}.lost.json")
+
+
+def _sort_losses(path: Path, out: RunResult, *, save: bool) -> None:
+    """Keep only this run's new losses in ``report.lost``; on a write, remember them in ``path``.
+
+    The file maps a view to the keys of its lost rows (JSON). A lost row stays in the view, so
+    every later run finds the same loss again: the file is what tells a new one apart.
+    """
+    try:
+        known: dict[str, list[list[object]]] = json.loads(path.read_text()) if path.exists() else {}
+    except ValueError:
+        raise ProjectionError(f"{path}: the lost-key file is not JSON") from None
+    if not isinstance(known, dict) or not all(isinstance(v, list) for v in known.values()):
+        raise ProjectionError(f"{path}: the lost-key file must map a view to a list of keys")
+    new = []
+    for failure in out.report.lost:
+        key = list(failure.key) if failure.key is not None else None
+        if key is not None and key in known.get(failure.view, []):
+            out.lost_before += 1
+        else:
+            new.append(failure)
+            if key is not None:
+                known.setdefault(failure.view, []).append(key)
+    out.report.lost[:] = new
+    if save:
+        path.write_text(json.dumps(known, indent=2, sort_keys=True) + "\n")
 
 
 _NS = "https://thesis.local/kg/portfolio#"

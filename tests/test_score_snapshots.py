@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import dataclasses
 import json
+import re
 import sqlite3
 from collections.abc import Callable
 from pathlib import Path
@@ -13,6 +14,7 @@ import pytest
 
 from etl import config
 from kg_store import gate
+from kg_store.graphdb import GraphDBError
 from projection import score_snapshots as ss
 from projection.boundary import GRAPH_WRITTEN, BoundaryError
 from projection.expectations import load_expectations
@@ -176,6 +178,24 @@ def test_project_skips_what_it_cannot_write_and_counts_each_reason() -> None:
     }
 
 
+def _full_run(run_id: int = 1, as_of: str = "2026-10-05", **params: Any) -> ss.AnalysisRun:
+    """An upstream analysis run of full scope, unless ``params`` narrows it."""
+    scope: dict[str, object] = {
+        "analysis_date": as_of,
+        "forms": ["10-K", "10-Q"],
+        "since_year": 2020,
+        "until_year": 2026,
+        "limit": None,
+        "tickers": None,
+        "fresh": False,
+    }
+    scope.update(params)
+    return ss.AnalysisRun(run_id, as_of, "completed", scope)
+
+
+RUNS = [_full_run()]
+
+
 @pytest.mark.parametrize(
     ("available", "written"),
     [("2026-09-30", True), ("2026-10-01", False), ("2026-10-07", False)],
@@ -183,36 +203,112 @@ def test_project_skips_what_it_cannot_write_and_counts_each_reason() -> None:
 def test_a_fundamental_quarter_is_written_only_once_it_has_closed(
     available: str, written: bool
 ) -> None:
-    out = ss.project([_fundamental(available_at=available)], ASSETS, "2026-10-07")
+    out = ss.project([_fundamental(available_at=available)], ASSETS, "2026-10-07", RUNS)
     assert bool(out.graphs) is written
-    assert out.skipped == ({} if written else {ss.SKIP_QUARTER_OPEN: 1})
+    assert out.deferred == ({} if written else {ss.DEFER_QUARTER_OPEN: 1})
+    assert not out.skipped
     assert not out.left_out  # a later run writes it, so a late key would stay
 
 
-def test_a_closed_quarter_waits_until_upstream_has_computed_after_it() -> None:
+def test_a_closed_quarter_waits_until_a_full_upstream_run_has_covered_it() -> None:
     # Upstream computed a Q3 filing in an August run; the calendar quarter is over on Oct 1,
     # but upstream's run after Q3 (which emits the rest of Q3) has not happened yet.
     august = _fundamental(id=1, available_at="2026-07-15", computed_at="2026-08-20T10:00:00Z")
-    out = ss.project([august], ASSETS, "2026-10-01")
+    out = ss.project([august], ASSETS, "2026-10-01", [_full_run(as_of="2026-08-20")])
     assert not out.graphs
-    assert out.skipped == {ss.SKIP_QUARTER_UNCOMPUTED: 1}
+    assert out.deferred == {ss.DEFER_QUARTER_UNCOVERED: 1}
 
     october = _fundamental(
         id=2, ticker="BBB", available_at="2026-09-20", computed_at="2026-10-04T10:00:00Z"
     )
-    out = ss.project([august, october], ASSETS, "2026-10-05")
+    runs = [_full_run(1, "2026-08-20"), _full_run(2, "2026-10-04")]
+    out = ss.project([august, october], ASSETS, "2026-10-05", runs)
     assert [b.key for b in out.graphs["urn:graph:ingest:FUNDAMENTAL:2026-Q3"]] == [1, 2]
-    assert not out.skipped
+    assert not out.deferred
 
 
-def test_the_watermark_is_upstreams_newest_fundamental_computation_only() -> None:
-    # A cycle-lane row computed later says nothing about FUNDAMENTAL's coverage.
-    rows = [
-        _fundamental(id=1, available_at="2026-07-15", computed_at="2026-08-20T10:00:00Z"),
-        _row(id=2, computed_at="2026-10-04T10:00:00Z"),
-    ]
-    out = ss.project(rows, ASSETS, "2026-10-05")
-    assert out.skipped == {ss.SKIP_QUARTER_UNCOMPUTED: 1}
+# Review round 3, finding 1: each run below would have closed Q3 under the old rule (the newest
+# ``computed_at``); none of them read every Q3 filing.
+_AUGUST = _fundamental(id=1, available_at="2026-07-15", computed_at="2026-08-20T10:00:00Z")
+_LATE_RERUN = _fundamental(
+    id=2, ticker="BBB", event_time="2023-12-31", available_at="2024-02-20",
+    computed_at="2026-10-01T10:00:00Z",
+)  # fmt: skip
+
+
+@pytest.mark.parametrize(
+    "run",
+    [
+        _full_run(as_of="2026-10-01", tickers=["BBB"]),
+        _full_run(as_of="2026-10-01", forms=["10-K"]),
+        _full_run(as_of="2026-10-01", since_year=2024, until_year=2024),
+        _full_run(as_of="2026-10-01", limit=5),
+        dataclasses.replace(_full_run(as_of="2026-10-01"), status="failed"),
+        ss.AnalysisRun(1, "2026-10-01", "completed", {"forms": ["10-K", "10-Q"]}),
+    ],
+    ids=["one-ticker", "one-form", "old-years", "limit", "not-completed", "scope-unknown"],
+)
+def test_a_scoped_or_unfinished_run_does_not_close_a_quarter(run: ss.AnalysisRun) -> None:
+    out = ss.project([_AUGUST, _LATE_RERUN], ASSETS, "2026-10-02", [run])
+    assert "urn:graph:ingest:FUNDAMENTAL:2026-Q3" not in out.graphs
+    assert out.deferred[ss.DEFER_QUARTER_UNCOVERED] >= 1
+
+
+def test_a_run_as_of_inside_the_quarter_does_not_close_it_whenever_it_was_computed() -> None:
+    # Computed on Oct 4 but as of Sep 15: it saw no filing after Sep 15.
+    out = ss.project([_AUGUST], ASSETS, "2026-10-05", [_full_run(as_of="2026-09-15")])
+    assert not out.graphs
+    assert out.deferred == {ss.DEFER_QUARTER_UNCOVERED: 1}
+
+
+def test_a_full_run_with_failed_units_still_closes_the_quarter() -> None:
+    # Its failures are an accepted loss (the T-031 note): they are listed as lost if they return.
+    run = ss.AnalysisRun.from_row(
+        {
+            "run_id": 1,
+            "as_of": "2026-10-04",
+            "status": "completed",
+            "failed_units": 3,
+            "params_json": json.dumps(_full_run().params),
+        }
+    )
+    out = ss.project([_AUGUST], ASSETS, "2026-10-05", [run])
+    assert list(out.graphs) == ["urn:graph:ingest:FUNDAMENTAL:2026-Q3"]
+
+
+def test_the_run_years_must_reach_the_quarter_and_the_fiscal_year_before_it() -> None:
+    assert _full_run(since_year=2025, until_year=2026).covers(2026)
+    assert not _full_run(since_year=2026, until_year=2026).covers(2026)
+    assert not _full_run(since_year=2020, until_year=2025).covers(2026)
+    assert _full_run(since_year=None, until_year=None).covers(2026)
+
+
+@pytest.mark.parametrize("params_json", [None, "not json", "[1]"])
+def test_a_run_whose_params_cannot_be_read_stops_the_projection(params_json: Any) -> None:
+    row = {"run_id": 4, "as_of": "2026-10-04", "status": "completed", "params_json": params_json}
+    with pytest.raises(ss.ProjectionError, match="v_analysis_run run_id=4: params_json"):
+        ss.AnalysisRun.from_row(row)
+
+
+# --- the run day is the as-of day ----------------------------------------------------------------
+
+
+def test_a_row_not_yet_available_on_the_run_day_waits_for_a_later_run_day() -> None:
+    # Review round 3, finding 2: an October row never lands in a March graph.
+    october = _row(id=1, event_time="2026-10-05", available_at="2026-10-05")
+    out = ss.project([october], ASSETS, "2026-03-01")
+    assert not out.graphs
+    assert out.deferred == {ss.DEFER_NOT_AVAILABLE: 1}
+    out = ss.project([october], ASSETS, "2026-10-05")
+    assert list(out.graphs) == ["urn:graph:ingest:TECHNICAL:2026-10-05"]
+
+
+def test_a_replay_counts_only_the_runs_as_of_its_run_day() -> None:
+    # On 2026-04-02 the run that covers Q4 2025 has not happened yet (as of 2026-04-20).
+    q4 = _fundamental(available_at="2025-11-10")
+    later = [_full_run(as_of="2026-04-20")]
+    assert not ss.project([q4], ASSETS, "2026-04-02", later).graphs
+    assert ss.project([q4], ASSETS, "2026-04-21", later).graphs
 
 
 def test_an_unknown_lane_is_an_error_not_a_skip() -> None:
@@ -230,14 +326,30 @@ INSERT INTO v_cycle_run VALUES (1, 'SELECTION');
 CREATE TABLE v_score_snapshot (
   id INTEGER, ticker TEXT, asset_id INTEGER, score_type TEXT, raw_value REAL, normalized_score REAL,
   event_time TEXT, computed_at TEXT, run_id INTEGER, run_kind TEXT, available_at TEXT);
+CREATE TABLE v_analysis_run (
+  run_id INTEGER, as_of TEXT, code_version TEXT, status TEXT, started_at TEXT, finished_at TEXT,
+  universe_size INTEGER, planned_units INTEGER, completed_units INTEGER, skipped_units INTEGER,
+  failed_units INTEGER, params_json TEXT);
 """
 
 
-def _database(tmp_path: Path, rows: list[dict[str, Any]], version: int = 9) -> FinancialSource:
+def _database(
+    tmp_path: Path,
+    rows: list[dict[str, Any]],
+    version: int = 9,
+    runs: list[ss.AnalysisRun] | None = None,
+) -> FinancialSource:
+    """A financial database holding ``rows`` and ``runs`` (default: one full analysis run)."""
     path = tmp_path / "financial.db"
     conn = sqlite3.connect(path)
     conn.executescript(_DDL)
     conn.execute("UPDATE schema_version SET version = ?", (version,))
+    for run in RUNS if runs is None else runs:
+        conn.execute(
+            "INSERT INTO v_analysis_run (run_id, as_of, status, failed_units, params_json) "
+            "VALUES (?, ?, ?, 0, ?)",
+            (run.run_id, run.as_of, run.status, json.dumps(run.params)),
+        )
     for r in rows:
         conn.execute(
             f"INSERT INTO v_score_snapshot ({', '.join(ss.COLUMNS)}) VALUES "  # noqa: S608
@@ -363,7 +475,7 @@ def test_a_same_day_rerun_defers_a_new_cycle_row_to_the_next_run_day(
     out = ss.run(_database(tmp_path, rows), ASSETS, same_day.db, "2026-10-07")
     assert not same_day.added
     assert not out.rejected
-    assert out.skipped[ss.SKIP_DAY_WRITTEN] == 1
+    assert out.deferred[ss.DEFER_DAY_WRITTEN] == 1
 
     (tmp_path / "financial.db").unlink()
     next_day = _store(make_db, graphs=("urn:graph:ingest:TECHNICAL:2026-10-07",), held=held)
@@ -371,6 +483,159 @@ def test_a_same_day_rerun_defers_a_new_cycle_row_to_the_next_run_day(
     assert list(out.written) == ["urn:graph:ingest:TECHNICAL:2026-10-08"]
     assert b"Snap_CCC_Tec_20260709_3" in _added(next_day)
     assert b"Snap_AAA_Tec_20260709_1" not in _added(next_day)
+
+
+def test_the_summary_lists_each_skip_once_and_deferrals_apart(tmp_path: Path) -> None:
+    # Review round 3, finding 4.
+    rows = [
+        *_cohort("TECHNICAL", 1),
+        _fundamental(id=10, ticker="ZZZ"),  # left out by design: not an asset
+        _fundamental(id=11, available_at="2026-10-03"),  # deferred: its quarter is open
+    ]
+    out = ss.run(_database(tmp_path, rows), ASSETS, None, "2026-10-07")
+    text = out.summary()
+    assert text.count(ss.SKIP_NOT_AN_ASSET) == 1
+    assert f"skipped by design: v_score_snapshot / {ss.SKIP_NOT_AN_ASSET}: 1" in text
+    assert text.count(ss.DEFER_QUARTER_OPEN) == 1
+    assert f"deferred: {ss.DEFER_QUARTER_OPEN}: 1" in text
+    assert "not projected" not in text
+    assert ("v_score_snapshot", ss.DEFER_QUARTER_OPEN) not in out.report.skipped_by_design
+
+
+def _live_store(make_db: MakeDB) -> Any:
+    """A fake store that remembers what was added: graphs exist, and subjects are held, once written."""
+    store = make_db()
+
+    def select(sparql: str) -> list[dict[str, str]]:
+        written = {g: d for d, _, g in store.added}
+        if "LIMIT 1" in sparql and "GRAPH <" in sparql:
+            graph = sparql.split("GRAPH <", 1)[1].split(">", 1)[0]
+            return [{"s": "x", "p": "x", "o": "x"}] if graph in written else []
+        held = b"".join(written.values())
+        return [
+            {"s": f"{NS}{name}"}
+            for name in re.findall(re.escape(NS) + r"([^>]+)>", sparql)
+            if f"<{NS}{name}> ".encode() in held  # gate.ingest adds N-Triples
+        ]
+
+    store.select = select  # type: ignore[method-assign]
+    return store
+
+
+def test_a_replay_over_two_days_writes_each_row_once_into_the_first_day_it_was_usable(
+    tmp_path: Path, make_db: MakeDB
+) -> None:
+    # Review round 3, finding 2: a cycle row available on Oct 6 is not in the Oct 5 graph.
+    rows = [
+        *_cohort("TECHNICAL", 1, event_time="2026-10-05", available_at="2026-10-05"),
+        *_cohort("TECHNICAL", 4, event_time="2026-10-06", available_at="2026-10-06"),
+    ]
+    store = _live_store(make_db)
+    first = ss.run(_database(tmp_path, rows), ASSETS, store.db, "2026-10-05")
+    assert first.deferred == {ss.DEFER_NOT_AVAILABLE: 3}
+    (tmp_path / "financial.db").unlink()
+    second = ss.run(_database(tmp_path, rows), ASSETS, store.db, "2026-10-06")
+    assert list(first.written) == ["urn:graph:ingest:TECHNICAL:2026-10-05"]
+    assert list(second.written) == ["urn:graph:ingest:TECHNICAL:2026-10-06"]
+    assert second.already_in_store == 3
+    by_graph = {g: d for d, _, g in store.added}
+    assert b"_Tec_20261005_1>" in by_graph["urn:graph:ingest:TECHNICAL:2026-10-05"]
+    assert b"_Tec_20261006_4>" in by_graph["urn:graph:ingest:TECHNICAL:2026-10-06"]
+    assert b"_20261005_" not in by_graph["urn:graph:ingest:TECHNICAL:2026-10-06"]
+
+
+def test_a_quarter_is_not_written_from_a_database_without_a_full_run(tmp_path: Path) -> None:
+    out = ss.run(_database(tmp_path, [_fundamental(id=10)], runs=[]), ASSETS, None, "2026-10-07")
+    assert not out.checked
+    assert out.deferred == {ss.DEFER_QUARTER_UNCOVERED: 1}
+
+
+# --- losses: a new one stands out -------------------------------------------------------------
+
+
+def _written_q1(make_db: MakeDB) -> Any:
+    return _store(
+        make_db,
+        graphs=("urn:graph:ingest:FUNDAMENTAL:2025-Q1",),
+        held=("Snap_AAA_Fin_20241231_10",),
+    )
+
+
+def test_a_loss_is_listed_once_then_counted_as_known(tmp_path: Path, make_db: MakeDB) -> None:
+    # Review round 3, finding 5.
+    keys = tmp_path / "late.json"
+    lost = tmp_path / "late.lost.json"  # beside the late-key file
+    rows = [_fundamental(id=10), _fundamental(id=11, ticker="BBB")]
+    out = ss.run(
+        _database(tmp_path, rows),
+        ASSETS,
+        _written_q1(make_db).db,
+        "2026-10-07",
+        late_keys_path=keys,
+    )
+    assert [f.key for f in out.report.lost] == [(11,)]
+    assert json.loads(lost.read_text()) == {"v_score_snapshot": [[11]]}
+
+    (tmp_path / "financial.db").unlink()
+    rows.append(_fundamental(id=12, ticker="CCC"))
+    out = ss.run(
+        _database(tmp_path, rows),
+        ASSETS,
+        _written_q1(make_db).db,
+        "2026-10-08",
+        late_keys_path=keys,
+    )
+    assert [f.key for f in out.report.lost] == [(12,)]  # only the new loss is listed
+    assert out.lost_before == 1
+    assert "lost in an earlier run (listed then): 1" in out.summary()
+    assert json.loads(lost.read_text()) == {"v_score_snapshot": [[11], [12]]}
+
+
+def test_a_dry_run_reads_the_lost_key_file_but_never_writes_it(tmp_path: Path) -> None:
+    keys = tmp_path / "late.json"
+    lost = ss.lost_keys_path(keys)
+    ss.run(
+        _database(tmp_path, [_fundamental(id=10)]), ASSETS, None, "2026-10-07", late_keys_path=keys
+    )
+    assert not lost.exists()
+
+
+def test_a_malformed_lost_key_file_stops_the_run(tmp_path: Path, make_db: MakeDB) -> None:
+    keys = tmp_path / "late.json"
+    lost = ss.lost_keys_path(keys)
+    lost.write_text("[1]")
+    with pytest.raises(ss.ProjectionError, match="lost-key file"):
+        ss.run(
+            _database(tmp_path, [_fundamental(id=10)]),
+            ASSETS,
+            make_db().db,
+            "2026-10-07",
+            late_keys_path=keys,
+        )
+
+
+# --- the store failing partway -------------------------------------------------------------------
+
+
+def test_a_store_failure_partway_keeps_what_was_written_and_its_late_keys(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, make_db: MakeDB
+) -> None:
+    # Review round 3, finding 6: the FUNDAMENTAL graph is written, then the store fails.
+    _allow_one_loss(monkeypatch)
+    keys = tmp_path / "late.json"
+    _delay_row_3(tmp_path, make_db, keys)
+
+    def ingest(_store: Any, _data: bytes, graph: str) -> int:
+        if "TECHNICAL" in graph:
+            raise GraphDBError("HTTP 503")
+        return 7
+
+    monkeypatch.setattr(ss.gate, "ingest", ingest)
+    rows = [*_cohort("TECHNICAL", 1), _fundamental(id=10)]
+    with pytest.raises(ss.StoreInterrupted, match="HTTP 503") as stop:
+        ss.run(_database(tmp_path, rows), ASSETS, make_db().db, "2026-10-08", late_keys_path=keys)
+    assert stop.value.result.written == {"urn:graph:ingest:FUNDAMENTAL:2025-Q1": 7}
+    assert _late(keys) == [[3]]  # its graph was never written: the next run re-reads it
 
 
 # --- the late-key round trip, on the real read ---------------------------------------------------
@@ -497,7 +762,7 @@ def test_a_late_key_stays_while_its_row_waits_for_a_later_graph(
     )
     fixed = _cohort("TECHNICAL", 1)
     out = ss.run(_database(tmp_path, fixed), ASSETS, store.db, "2026-10-07", late_keys_path=keys)
-    assert out.skipped[ss.SKIP_DAY_WRITTEN] == 1
+    assert out.deferred[ss.DEFER_DAY_WRITTEN] == 1
     assert not out.late_closed
     assert _late(keys) == [[3]]
 

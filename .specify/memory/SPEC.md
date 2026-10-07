@@ -409,6 +409,14 @@ one assumption of the second reply.
 - **New open question (Q6, to ask with the next follow-up):** the bounds of FUNDAMENTAL's
   `rawValue`, needed before `ScoreSnapshotShape` can bound it the way SECTOR's was bounded once
   confirmed (T-140/T-155).
+- **New open question (Q7, to ask with the next follow-up; raised by T-031, PR #72):** which
+  `v_analysis_run` fields define a run that read every filing usable in a quarter. T-031 counts a
+  run as full when its `status` is `completed` and its `params_json` has `tickers` and `limit`
+  null, both forms, `since_year` at most the year before the quarter and `until_year` at least
+  its year, and it reads the year bounds as fiscal years. To confirm: whether the year bounds are
+  fiscal or filing years; whether `planned_units` and `completed_units` can be compared (they do
+  not count the same thing today); and whether a filing a run failed on (`failed_units`) is
+  retried with a new row in a later run (T-031 accepts it as lost).
 
 **Read contract and score scale (T-030, 2026-10-05).** `src/projection/view_contract.py`
 pins a full snapshot of the columns of 30 of upstream's 31 `v_*` views (taken from

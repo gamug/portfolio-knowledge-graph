@@ -942,7 +942,9 @@ re-declare an individual already in the store):
   misdate it. The only recovery is a re-run before the graph is written. The report lists it as lost.
   A projection never asks the gate to append to such a graph: it lists the row as lost instead
   (a `graph_written` outcome, T-031), and writes a FUNDAMENTAL quarter only once it is complete:
-  closed by the run day and before the quarter of upstream's newest FUNDAMENTAL `computed_at`.
+  closed by the run day and covered by a full upstream analysis run (`v_analysis_run`) as of a
+  later quarter, no later than the run day. A loss stays in the view, so a run with a late-key
+  file keeps lost keys beside it and lists only new losses.
   A graph added to `docs/07` later is data-dated unless this list says otherwise.
 
 The run stops when a view's quarantined share exceeds its cap. Caps are set per view in T-162's

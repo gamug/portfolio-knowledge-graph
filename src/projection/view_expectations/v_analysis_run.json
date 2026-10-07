@@ -2,5 +2,17 @@
   "view": "v_analysis_run",
   "keys": [["run_id"]],
   "cap": 0,
-  "null_rate": [{"column": "run_id", "max": 0}]
+  "null_rate": [
+    {"column": "run_id", "max": 0},
+    {"column": "as_of", "max": 0},
+    {"column": "status", "max": 0},
+    {"column": "params_json", "max": 0}
+  ],
+  "types": {
+    "run_id": "integer",
+    "as_of": "string",
+    "status": "string",
+    "failed_units": "integer",
+    "params_json": "string"
+  }
 }

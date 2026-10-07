@@ -38,6 +38,10 @@ def schema_dir() -> Path:
     return Path(raw).expanduser() if raw else REPO_ROOT / "schema"
 
 
+#: The production repository (``docs/graphdb-setup.md``): its append-only graphs are the record of
+#: what was loaded when, so a replay never writes there.
+PRODUCTION_REPOSITORY = "portfolio"
+
 #: Named graph holding explicit (asserted) statements, as opposed to inferred ones.
 EXPLICIT_GRAPH = "http://www.ontotext.com/explicit"
 
