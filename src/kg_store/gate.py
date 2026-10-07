@@ -4,11 +4,12 @@ A batch is Turtle destined for one named graph. It is written only if
 
 1. the target graph is named as ``07-ontology-topology.md`` prescribes
    (``urn:graph:ingest:{agent}:{date}``, ``urn:graph:derived:entity-resolution:{date}``,
+   ``urn:graph:derived:quant:{date}``,
    ``urn:graph:universe:{year}-Q{n}``, or ``urn:graph:portfolio:current``); the TBox,
    reference and rule-catalog graphs are loaded by ``cli/load_schema.py``;
 2. the graph is new, for the append-only ones (an ingest graph is never edited after
    creation; only ``portfolio:current`` is mutated in place);
-3. every IRI is absolute, and every ``rdf:type`` is one of the 24 leaf classes of the
+3. every IRI is absolute, and every ``rdf:type`` is one of the leaf classes of the
    ontology (the ``owl:AllDisjointClasses`` members). A typo such as ``:ScoreSnapshott``,
    or an individual typed only as an abstract category, would otherwise match no shape
    and be accepted unchecked;
@@ -67,6 +68,7 @@ APPEND_ONLY_PATTERNS = (
     re.compile(rf"urn:graph:ingest:FUNDAMENTAL:({_QUARTER})"),
     re.compile(rf"urn:graph:ingest:EDGAR:({_DATE}|{_QUARTER})"),
     re.compile(rf"urn:graph:derived:entity-resolution:({_DATE}|{_QUARTER})"),
+    re.compile(rf"urn:graph:derived:quant:({_DATE})"),
     re.compile(rf"urn:graph:universe:({_QUARTER})"),
 )
 
@@ -105,7 +107,8 @@ def check_target(graph: str) -> bool:
         f"{graph} is not an ingest target. Allowed: urn:graph:ingest:"
         "{SEMANTIC|VALORIZATION|TECHNICAL|SECTOR|ORCHESTRATOR}:YYYY-MM-DD, "
         "urn:graph:ingest:FUNDAMENTAL:YYYY-Qn, urn:graph:ingest:EDGAR:{date|quarter}, "
-        "urn:graph:derived:entity-resolution:{date|quarter}, urn:graph:universe:YYYY-Qn, "
+        "urn:graph:derived:entity-resolution:{date|quarter}, urn:graph:derived:quant:YYYY-MM-DD, "
+        "urn:graph:universe:YYYY-Qn, "
         f"{', '.join(MUTABLE_GRAPHS)}"
     )
 

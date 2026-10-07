@@ -57,7 +57,7 @@ More importantly, `07-ontology-topology.md`'s design table doesn't define graphs
 | Kind | Patterns | Behavior |
 |---|---|---|
 | Fixed, one instance ever | `tbox`, `reference`, `rules:catalog`, `portfolio:current` | Same URI forever; `portfolio:current` is the one graph mutated in place (via `validTo`-closing). |
-| Templated, spawns a new graph every batch | `ingest:{agent}:{date}`, `ingest:FUNDAMENTAL:{year}-Q{n}`, `ingest:ORCHESTRATOR:{date}`, `ingest:EDGAR:{date-or-quarter}`, `derived:entity-resolution:{date}`, `universe:{year}-Q{n}` | A new concrete URI is minted every time an agent runs. |
+| Templated, spawns a new graph every batch | `ingest:{agent}:{date}`, `ingest:FUNDAMENTAL:{year}-Q{n}`, `ingest:ORCHESTRATOR:{date}`, `ingest:EDGAR:{date-or-quarter}`, `derived:entity-resolution:{date}`, `derived:quant:{date}`, `universe:{year}-Q{n}` | A new concrete URI is minted every time an agent runs. |
 
 The 14-block count in `instances.trig` is just what those templated patterns look like after
 two quarters of worked data (the 2026-Q3 batch, the August daily runs and the 2026-Q4 / 2026-10-05 data-quality example). Run the `MonitoringCycleGraph` for a full year and

@@ -537,10 +537,15 @@ new acceptance probe; and `acceptance.check_gate` counts violations by matching 
 2. Run `cli/verify_store.py` once against the live repository (T-141).
 3. Make `gate.validate` expose the results graph, and count `sh:ValidationResult` nodes in
    `check_gate` instead of matching text (T-142).
+4. Let the gate take the worked example's own batches (T-146, found by T-136's tests): three
+   `instances.trig` graphs fail `gate.validate` taken alone (references typed in another graph;
+   `:clearedOn`), so the entity-resolution, quant and Veto-closing lanes cannot write through
+   `cli/ingest.py`. Land it before Work item 4 writes through the gate.
 
 **Acceptance**: FR-001 parse + `pyshacl` pass with the new count; the store acceptance probe still
 yields exactly one violation (`:timestamp`); T-141's run is recorded in `docs/graphdb-setup.md`; T-142's
-`check_gate` does not depend on pyshacl's report wording.
+`check_gate` does not depend on pyshacl's report wording; T-146 drops the three strict `xfail`s in
+`tests/test_kg_gate.py`.
 
 **Blocked on**: T-141 needs a running GraphDB; nothing else.
 
@@ -898,9 +903,9 @@ Work item 5 (SEMANTIC aggregation) — superseded, reassigned upstream
 Work item 7 (orchestrator)         — decided: delegate to financial-analysis `cycle`
 
 Work item 8 (protege-view.ttl) — independent, manual, land whenever convenient
-Work item 13 (pytest suite) — independent; rules in constitution 1.5.0, T-130–T-134 done;
-  T-136 next, ideally before Work item 4's code grows
-Work item 14 (PR #48 follow-ups) — independent; T-140 and T-142 (PR #63) done, T-141 needs a live GraphDB
+Work item 13 (pytest suite) — independent; rules in constitution 1.5.0, T-130–T-134 and T-136 done (PR #64);
+  T-135 is an open decision
+Work item 14 (PR #48 follow-ups) — independent; T-140 and T-142 (PR #63) done, T-141 needs a live GraphDB, T-146 (gate vs. the worked example's batches) open
 Work item 15 (upstream's v_* changes) — T-150, T-170 and T-171 (PR #56) done, with T-155's schema half (PR #58), T-153's comments (PR #59)
   and T-151's rule (PR #60); the step-3 shape corrections now;
   the rest as upstream's T-144/T-145 ship; feeds Work item 4 (T-031) and 12 (T-121)
