@@ -1,0 +1,6 @@
+{
+  "schema_version_floor": 9,
+  "forbidden_cycle_types": [
+    "REPLAY"
+  ]
+}

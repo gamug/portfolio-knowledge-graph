@@ -812,7 +812,9 @@ treating a related FR/NR as done:
     arrive as `portfolio_common.db` row objects, a cycle is a few thousand rows,
     and the checks that matter (source check, per-group cohort mean, by-design
     NULLs, the skipped-row report) are custom under any library. A declarative
-    table of expectations keyed by view sits beside `view_contract.py` (T-162),
+    set of expectations, one JSON file per view under
+    `src/projection/view_expectations/` and a strict loader
+    (`src/projection/expectations.py`), sits beside `view_contract.py` (T-162),
     with nine check kinds: source (`schema_version` floor, no REPLAY run; runs
     first), type, format (`computed_at`, `forensic_flags_json`), NULL rate,
     range, natural-key uniqueness, ordered pair (D2's look-ahead guard:

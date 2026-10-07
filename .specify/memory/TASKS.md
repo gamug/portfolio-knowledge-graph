@@ -420,8 +420,8 @@ See `PLAN.md` Work item 16.*
 - [x] **T-161** *(closed with T-160: plain checks won, so no dependency and no amendment)* If T-160 picked a library: propose the constitution amendment first (Technological
       stock #6, Governance steps 1–4, MINOR bump), as its own reviewed change, then add the dependency
       to `pyproject.toml`. If plain checks won, there is no dependency and no amendment. → step 2.
-- [ ] **T-162** Write the expectations for the views Work item 4 reads, beside
-      `src/projection/view_contract.py`, keyed by view name. Include each view's quarantine cap (default 0;
+- [x] **T-162** *(done: one JSON file per view under `src/projection/view_expectations/`, plus `_source.json`, and the strict loader `src/projection/expectations.py`; `tests/test_expectations.py`. Every cap is 0. The tolerance (5), the row-count minimums and the key and range columns not stated upstream are first picks, to be checked against a real database when T-163 lands. `forensic_flags_json` and `v_cycle_ranking_component` are marked `pending` until upstream's re-pin. SEMANTIC's all-NULL columns are not encoded yet: T-158 does that.)* Write the expectations for the views Work item 4 reads, as JSON files beside
+      `src/projection/view_contract.py`, one per view. Include each view's quarantine cap (default 0;
       record why for any view allowed to lose rows) and the check kinds T-160 lists (`PLAN.md` Work
       item 16), the format and per-lane look-ahead checks included. Include the `v_score_snapshot`
       `normalized_score` range and the cohort mean near 50, with a tolerance, not equality
@@ -481,7 +481,7 @@ Work item 15 (T-150–T-159, T-170–T-171): T-150, T-170 and T-171 (PR #56) don
 T-151's rule recorded (PR #60), its checks waiting on T-031/T-163; T-158's
 ownership question (before their T-141) is unblocked; the rest of T-152–T-158 waits on upstream's
 T-144 (views), T-145 (ids), T-074 (flags) and, after their T-100, their T-082 and their Work item 4.
-Work item 16 (T-160–T-165): T-160 done (plain checks, quarantine-with-cap) and T-161 closed with it (no dependency); T-162's cohort-mean scope corrected
-(third reply); T-163 lands with T-031; T-164's prerequisite, Work item 13's skeleton (T-131), has landed (PR #56).
+Work item 16 (T-160–T-165): T-160 done (plain checks, quarantine-with-cap), T-161 closed with it (no dependency) and T-162 done (JSON files per view, strict loader);
+T-163 lands with T-031; T-164's prerequisite, Work item 13's skeleton (T-131), has landed (PR #56).
 Work item 8 (T-070–T-071) is independent but needs a human at a Protégé
 session, not a coding session.

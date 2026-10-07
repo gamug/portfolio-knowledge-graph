@@ -1,0 +1,22 @@
+{
+  "view": "v_sec_filing",
+  "keys": [
+    [
+      "id"
+    ],
+    [
+      "accession_number"
+    ]
+  ],
+  "cap": 0,
+  "null_rate": [
+    {
+      "column": "id",
+      "max": 0
+    },
+    {
+      "column": "accession_number",
+      "max": 0
+    }
+  ]
+}

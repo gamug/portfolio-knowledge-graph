@@ -1,0 +1,15 @@
+{
+  "view": "v_portfolio_position",
+  "keys": [
+    [
+      "id"
+    ]
+  ],
+  "cap": 0,
+  "null_rate": [
+    {
+      "column": "id",
+      "max": 0
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "view": "v_weight_component",
+  "keys": [
+    [
+      "cycle_run_id",
+      "score_type"
+    ]
+  ],
+  "cap": 0,
+  "null_rate": [
+    {
+      "column": "cycle_run_id",
+      "max": 0
+    },
+    {
+      "column": "score_type",
+      "max": 0
+    },
+    {
+      "column": "weight",
+      "max": 0
+    }
+  ],
+  "types": {
+    "weight": "number"
+  },
+  "ranges": [
+    {
+      "column": "weight",
+      "min": 0,
+      "max": 1
+    }
+  ]
+}

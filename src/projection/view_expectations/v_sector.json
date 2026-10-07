@@ -1,0 +1,15 @@
+{
+  "view": "v_sector",
+  "keys": [
+    [
+      "sector_id"
+    ]
+  ],
+  "cap": 0,
+  "null_rate": [
+    {
+      "column": "sector_id",
+      "max": 0
+    }
+  ]
+}

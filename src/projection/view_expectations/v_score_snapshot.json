@@ -1,0 +1,123 @@
+{
+  "view": "v_score_snapshot",
+  "keys": [
+    [
+      "id"
+    ]
+  ],
+  "cap": 0,
+  "null_rate": [
+    {
+      "column": "id",
+      "max": 0
+    },
+    {
+      "column": "ticker",
+      "max": 0
+    },
+    {
+      "column": "asset_id",
+      "max": 0
+    },
+    {
+      "column": "score_type",
+      "max": 0
+    },
+    {
+      "column": "event_time",
+      "max": 0
+    },
+    {
+      "column": "computed_at",
+      "max": 0
+    }
+  ],
+  "pending_columns": {
+    "forensic_flags_json": "not pinned yet: upstream T-074, projected by T-153"
+  },
+  "row_count": {
+    "min": 1
+  },
+  "types": {
+    "id": "integer",
+    "ticker": "string",
+    "asset_id": "integer",
+    "score_type": "string",
+    "raw_value": "number",
+    "normalized_score": "number"
+  },
+  "ranges": [
+    {
+      "column": "normalized_score",
+      "min": 0,
+      "max": 100,
+      "where": {
+        "score_type": [
+          "FUNDAMENTAL",
+          "VALORIZATION",
+          "TECHNICAL",
+          "SECTOR"
+        ]
+      }
+    },
+    {
+      "column": "raw_value",
+      "min": -100,
+      "max": 100,
+      "where": {
+        "score_type": [
+          "SECTOR"
+        ]
+      }
+    }
+  ],
+  "formats": {
+    "computed_at": "utc_timestamp",
+    "forensic_flags_json": "forensic_flags"
+  },
+  "ordered_pairs": [
+    {
+      "left": "available_at",
+      "op": ">",
+      "right": "event_time",
+      "where": {
+        "score_type": [
+          "FUNDAMENTAL"
+        ]
+      },
+      "null": "fail"
+    },
+    {
+      "left": "available_at",
+      "op": "=",
+      "right": "event_time",
+      "where": {
+        "score_type": [
+          "VALORIZATION",
+          "TECHNICAL",
+          "SECTOR"
+        ]
+      },
+      "null": "skip",
+      "until": "upstream T-144"
+    }
+  ],
+  "group_means": [
+    {
+      "column": "normalized_score",
+      "group_by": [
+        "run_id",
+        "score_type"
+      ],
+      "target": 50,
+      "tolerance": 5,
+      "where": {
+        "score_type": [
+          "VALORIZATION",
+          "TECHNICAL",
+          "SECTOR"
+        ]
+      }
+    }
+  ]
+}
