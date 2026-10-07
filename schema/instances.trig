@@ -227,6 +227,9 @@ GRAPH <urn:graph:ingest:SECTOR:2026-08-05> {
     # Per-asset SectorRelativeMomentum = own ScoreTecnico.normalizedScore - sector aggregate
     # (spec §3). rawValue only — normalizedScore intentionally absent (no natural [0,1] reading
     # of a signed delta); validates the amended ScoreSnapshotShape's sh:or clause (Task 2).
+    # These values are on the original [-1, 1] scale (a delta of two [0, 1] scores). Since T-155 the shape
+    # bounds SectorRelativeMomentum's rawValue to [-100, 100] (upstream's TECHNICAL points), where they still
+    # conform but would read as almost no underperformance; this worked example is design history.
     :Snap_AAPL_SectMom_20260805 a :ScoreSnapshot ; :agentOrigin "SECTOR" ; :metricType "SectorRelativeMomentum" ;
         :rawValue "0.00"^^xsd:decimal ; :timestamp "2026-08-05T07:15:00"^^xsd:dateTime ;
         :eventTime "2026-08-05"^^xsd:date ; :availableAt "2026-08-05"^^xsd:date ;

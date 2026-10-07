@@ -432,7 +432,9 @@ calibration, same status as every veto threshold today.
 The same `SectorRelativeMomentum` signal also feeds a new 7th veto rule, `VETO_MKT_02` (rank 7,
 single-signal, threshold `-0.50` on `rawValue` — `rules.ttl`): an asset can now be excluded for
 badly underperforming its sector peers, independent of and in addition to the six original
-dimensions.
+dimensions. That threshold is on the original `[-1, 1]` scale; since T-155 the shape
+allows `[-100, 100]` (upstream's TECHNICAL points), and the rule, closed with `validTo`, is design
+history: don't reuse or extend it as written.
 
 **Domain-collision fix (`ObservationSnapshot`).** `SectorAggregateSnapshot` reuses
 `ScoreSnapshot`'s `metricType`/`agentOrigin`/`timestamp`/`normalizedScore` properties, but those

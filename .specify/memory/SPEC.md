@@ -332,7 +332,7 @@ sent 2026-10-06) were accepted in the second reply as their **T-144** (one addit
   (4) D12: `metric_name` has no group prefix; `metric_id` and `unit` are added. (5) D11/D12:
   `is_current` marks at most one row per key. (6) D13: `v_weight_scheme.scheme_id` is the
   position-weighting rule, not the blend.
-- **Noted for our side only:** our `:inverted` comment calls `ScoreFinanciero` inverted, while
+- **Noted for our side only:** our `:inverted` comment (before T-155 rewrote it as design history) called `ScoreFinanciero` inverted, while
   the example we sent upstream set it `false`. Whether `:inverted` is emitted for upstream
   schemes is T-121's decision (open).
 - **Formats and scale.** `forensic_flags_json` (their T-074) is an object of four booleans
@@ -435,7 +435,7 @@ shape bounds SECTOR's to [-100, 100] (T-140, widened by T-155: upstream's "own T
 minus sector mean", in TECHNICAL points, read verbatim, D6) and SEMANTIC's to [-1, 1] (T-081),
 so only SEMANTIC's values need mapping into range (T-031); its 0–100 `normalized_score` is
 an optional `normalizedScore` for SECTOR, rescaled by T-031 like the other lanes.
-Neither `ScoreSnapshotShape` nor `WeightComponent.inverted` changes.
+`ScoreSnapshotShape` changes only as T-171 and T-155 describe (`schema/README.md` refinement 2); `WeightComponent.inverted` is untouched (its remaining purpose is T-121's).
 
 ## 3. Technology Stack & Architecture Decisions
 
