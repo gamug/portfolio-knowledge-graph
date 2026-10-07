@@ -10,6 +10,7 @@ import pytest
 import rdflib
 
 from kg_store import gate
+from kg_store.graphdb import AnswerLost, GraphDBError
 
 if TYPE_CHECKING:
     from conftest import FakeGraphDB
@@ -312,4 +313,43 @@ def test_a_refused_batch_writes_nothing(data: bytes, graph: str, make_db: MakeDB
     db = fake.db
     with pytest.raises(gate.IngestRejected):
         gate.ingest(db, data, graph)
+    assert fake.added == []
+
+
+# --- a store failure during ingest: in doubt only once the batch was sent (PR #72 round 9) -------
+
+
+def test_an_answer_lost_after_sending_leaves_the_write_in_doubt(
+    make_db: MakeDB, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    fake = make_db()
+
+    def lose(*_: object) -> None:
+        raise AnswerLost("connection to GraphDB at h lost")
+
+    monkeypatch.setattr(fake, "add", lose)
+    with pytest.raises(gate.WriteInDoubt, match="connection to GraphDB at h lost"):
+        gate.ingest(fake.db, GOOD, "urn:graph:ingest:SEMANTIC:2026-08-05")
+
+
+def test_an_http_error_on_sending_is_not_in_doubt(make_db: MakeDB) -> None:
+    fake = make_db(fail_on_add=True)
+    with pytest.raises(GraphDBError, match="HTTP 500") as raised:
+        gate.ingest(fake.db, GOOD, "urn:graph:ingest:SEMANTIC:2026-08-05")
+    assert not isinstance(raised.value, gate.WriteInDoubt)
+
+
+def test_an_answer_lost_before_sending_is_not_in_doubt(
+    make_db: MakeDB, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # The gate's own checks only read: losing their answer cannot have written the batch.
+    fake = make_db()
+
+    def lose(_sparql: str) -> list[dict[str, str]]:
+        raise AnswerLost("connection to GraphDB at h lost")
+
+    monkeypatch.setattr(fake, "select", lose)
+    with pytest.raises(AnswerLost) as raised:
+        gate.ingest(fake.db, GOOD, "urn:graph:ingest:SEMANTIC:2026-08-05")
+    assert not isinstance(raised.value, gate.WriteInDoubt)
     assert fake.added == []

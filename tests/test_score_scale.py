@@ -11,7 +11,7 @@ from projection.score_scale import RESCALED_SCORE_TYPES, to_normalized_score
     ("upstream", "expected"),
     [(0, Decimal(1)), (50, Decimal("0.5")), (100, Decimal(0))],
 )
-@pytest.mark.parametrize("score_type", ["VALORIZATION", "TECHNICAL"])
+@pytest.mark.parametrize("score_type", ["VALORIZATION", "TECHNICAL", "SECTOR"])
 def test_bounds_and_midpoint_flip_polarity(
     score_type: str, upstream: int, expected: Decimal
 ) -> None:
@@ -51,7 +51,7 @@ def test_fundamental_is_not_rescaled() -> None:
         to_normalized_score("FUNDAMENTAL", 50)
 
 
-@pytest.mark.parametrize("score_type", ["SECTOR", "SEMANTIC", "UNKNOWN"])
+@pytest.mark.parametrize("score_type", ["SEMANTIC", "UNKNOWN"])
 def test_other_lanes_are_not_rescaled(score_type: str) -> None:
     with pytest.raises(ValueError, match="carries no normalizedScore"):
         to_normalized_score(score_type, 50)

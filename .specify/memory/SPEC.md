@@ -409,6 +409,20 @@ one assumption of the second reply.
 - **New open question (Q6, to ask with the next follow-up):** the bounds of FUNDAMENTAL's
   `rawValue`, needed before `ScoreSnapshotShape` can bound it the way SECTOR's was bounded once
   confirmed (T-140/T-155).
+- **New open question (Q7, to ask with the next follow-up; raised by T-031, PR #72):** which
+  `v_analysis_run` fields define a run that read every filing usable in a quarter. T-031 counts a
+  run as full when its `status` is `completed` and its `params_json` has `tickers` and `limit`
+  null, both forms, `since_year` at most the year before the quarter and `until_year` at least
+  its year, and it reads the year bounds as fiscal years. To confirm: whether the year bounds are
+  fiscal or filing years; whether `planned_units` and `completed_units` can be compared (they do
+  not count the same thing today); and whether a filing a run failed on (`failed_units`) is
+  retried with a new row in a later run (T-031 accepts it as lost). Also (PR #72 round 4): the
+  full list of `status` values (T-031 counts only `completed`, so a finished run under another
+  status would leave quarters deferred); whether `as_of`, `status` and `params_json` are filled
+  when the run row is inserted or only when it ends (T-031 parses only completed runs, so either
+  is safe); and whether an analysis run as of D always sees every filing usable by D, that is,
+  whether `portfolio-data-mining`'s EDGAR fetch is guaranteed to run before it (if it can lag, a
+  filing it missed arrives later and is lost).
 
 **Read contract and score scale (T-030, 2026-10-05).** `src/projection/view_contract.py`
 pins a full snapshot of the columns of 30 of upstream's 31 `v_*` views (taken from
@@ -827,7 +841,8 @@ treating a related FR/NR as done:
     view's cap. In a graph dated by ingestion (`ingest:{agent}:{date}` for the
     SEMANTIC, VALORIZATION, TECHNICAL and SECTOR lanes) a quarantined row is
     late, not lost: the report persists its key and the next run re-reads it
-    (T-031; until then it is reported as lost). In every other graph (dated by
+    (T-031: implemented for `v_score_snapshot`, PR #72; the other views with
+    their projections, reported as lost until then). In every other graph (dated by
     the data: ORCHESTRATOR by `cycleDate`, FUNDAMENTAL by quarter, universe,
     EDGAR, quant, entity resolution) it is lost for that date, since the ingest
     gate never appends to an existing append-only graph. The run stops when a

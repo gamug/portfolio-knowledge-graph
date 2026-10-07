@@ -50,7 +50,7 @@ import rdflib
 from rdflib.collection import Collection
 from rdflib.namespace import OWL, RDF, RDFS, XSD
 
-from kg_store.graphdb import GraphDB, schema_dir
+from kg_store.graphdb import AnswerLost, GraphDB, GraphDBError, schema_dir
 
 _PORTFOLIO = rdflib.Namespace("https://thesis.local/kg/portfolio#")
 #: The one datatype property allowed on a subject untyped in the batch (closing a record).
@@ -78,6 +78,11 @@ _RELATIVE_BASE = "http://relative.invalid/"
 
 class IngestRejected(RuntimeError):
     """The batch was refused; the message says why. Nothing was written."""
+
+
+class WriteInDoubt(GraphDBError):
+    """The batch was sent but the store's answer was lost: it may have been appended. Any other
+    ``GraphDBError`` from :func:`ingest` (a check before sending, an HTTP error) means it was not."""
 
 
 class ShaclRejected(IngestRejected):
@@ -261,5 +266,8 @@ def ingest(db: GraphDB, data: bytes, graph: str, directory: Path | None = None) 
             "individuals that already exist in the store (observations are immutable; use a "
             "new IRI, or :validTo to close one): " + ", ".join(taken)
         )
-    db.add(batch.serialize(format="nt").encode(), "application/n-triples", graph)
+    try:
+        db.add(batch.serialize(format="nt").encode(), "application/n-triples", graph)
+    except AnswerLost as exc:
+        raise WriteInDoubt(str(exc)) from exc
     return len(batch)

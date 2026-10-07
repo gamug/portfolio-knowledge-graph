@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import base64
 import contextlib
+import http.client
 import json
 import os
 import urllib.error
@@ -38,12 +39,22 @@ def schema_dir() -> Path:
     return Path(raw).expanduser() if raw else REPO_ROOT / "schema"
 
 
+#: The production repository (``docs/graphdb-setup.md``): its append-only graphs are the record of
+#: what was loaded when, so a replay never writes there.
+PRODUCTION_REPOSITORY = "portfolio"
+
 #: Named graph holding explicit (asserted) statements, as opposed to inferred ones.
 EXPLICIT_GRAPH = "http://www.ontotext.com/explicit"
 
 
 class GraphDBError(RuntimeError):
     """A GraphDB request failed (status code and response body, never credentials)."""
+
+
+class AnswerLost(GraphDBError):
+    """The request was sent but its answer never came (the connection closed, was reset or timed
+    out while the answer was awaited): unlike an HTTP error, which is the store's answer, or a
+    failure to send, the store may have acted on it."""
 
 
 @dataclass(frozen=True)
@@ -108,6 +119,10 @@ class GraphDB:
             ) from exc
         except urllib.error.URLError as exc:
             raise GraphDBError(f"cannot reach GraphDB at {self.host}: {exc.reason}") from exc
+        except (OSError, http.client.HTTPException) as exc:
+            # urlopen wraps a failure to send, not one while the answer is read (a closed
+            # connection, a read timeout): those are the store's failures too, never a file's.
+            raise AnswerLost(f"connection to GraphDB at {self.host} lost: {exc!r}") from exc
 
     def update(self, sparql: str) -> None:
         """Run a SPARQL Update (needs write access)."""

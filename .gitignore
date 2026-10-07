@@ -29,3 +29,6 @@ uv.lock.tmp
 .env
 /data.ttl
 src/etl/_sample_for_validation.ttl
+
+# Projection key files (cli/project_scores.py --late-keys keys/late.json): local run state
+/keys/

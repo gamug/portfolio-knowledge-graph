@@ -30,7 +30,7 @@ are closed (see `CHANGELOG.md`).*
       TECHNICAL, SECTOR) while `ScoreSnapshotShape` bounds `normalizedScore` to [0, 1], so a
       projection must rescale (or the shape must change). → `PLAN.md` Work item 4,
       step 1.
-- [ ] **T-031** Design and implement the SHACL-validated-on-write path into
+- [ ] **T-031** *(first slice done in PR #72; its status is the sub-list after this entry)* Design and implement the SHACL-validated-on-write path into
       fresh `urn:graph:ingest:{agent}:{date}` graphs. Also: trim `view_contract.py` to the
       columns read; decide the `:rawValue` range for FUNDAMENTAL (T-171 drops its
       `normalizedScore` instead; the range needs Q6, asked with T-150's next follow-up) and for
@@ -52,6 +52,75 @@ are closed (see `CHANGELOG.md`).*
       `normalized_score` to [0, 1] would pass the [0, 100] check and become ~0.99 risk), for
       instance a per-lane cohort mean near 50, upstream's documented centre (Work item 16's
       T-162 owns that check and T-163 runs it; T-031 calls it). → step 2.
+  - **Done (PR #72):** `v_score_snapshot` -> `:ScoreSnapshot`, all four lanes, in
+    `src/projection/score_snapshots.py` with `src/projection/source.py` and the CLI's logic in
+    `src/projection/project_scores.py`, behind the thin entry point `cli/project_scores.py` (tests:
+    `tests/test_score_snapshots.py`, `tests/test_project_scores.py`, and the entry point run as a
+    subprocess in `tests/test_cli_project_scores.py`; shared rows in `tests/fixtures/`). Read -> source
+    check -> boundary -> one Turtle batch per graph -> `kg_store.gate`; a dry run by default,
+    `--write` appends. SECTOR joined `RESCALED_SCORE_TYPES`. A real read showed that upstream keeps
+    its schema version in the `schema_version` table and leaves `PRAGMA user_version` at 0, so
+    `FinancialSource` reads the table (`Database.schema_version` would fail every real database).
+  - **Where a row goes:** FUNDAMENTAL to the quarter graph of its `available_at`; VALORIZATION,
+    TECHNICAL and SECTOR to the graph of the run day (UTC by default).
+  - **When a FUNDAMENTAL quarter is written:** once it is closed by the run day *and* a full
+    upstream analysis run in `v_analysis_run` (read through the boundary) covered it: `completed`,
+    every ticker, both forms, years reaching the quarter, as of a later quarter and no later than
+    the run day. A scoped run, an `as_of` inside the quarter or a row's `computed_at` does not
+    count, since upstream computes in batches after the fact. Only completed runs are parsed; any
+    other run is counted and never stops a projection. Assumed: upstream's first full run after a
+    quarter covers every filing usable in it; a filing it failed on is an accepted loss. Until
+    SPEC Q7 is answered the year bounds are read as fiscal years, so the first year of a run's
+    range waits for a broader run.
+  - **The run day is the as-of day:** a row is projected only once its `available_at` is on or
+    before it. A run day after today is refused. A `--write` with a past run day needs `--replay`
+    (which needs `--write`) and never writes to the production repository (`KG_REPOSITORY=portfolio`),
+    so a replay rebuilds a throwaway store day by day while production stays a truthful record of
+    when each graph was loaded. A replay reads upstream as it is now, so a replay graph's date
+    means "usable by", not "known on" (it holds rows computed after that day and may hold rows
+    production lost): query a replay store by `availableAt`, never as a transaction-time record.
+  - **Append-only outcomes:** a snapshot already in the store is skipped, and a graph that already
+    exists is never appended to (the gate would refuse it). A FUNDAMENTAL row for it is listed in
+    the report's `lost` (a `graph_written` outcome, SPEC §13 item 10); a cycle-lane row waits for
+    the next run day. So a re-run never fails on what an earlier run wrote. A loss leaves the exit
+    status at 0, as a boundary loss within its cap does (the row stays in the view, so a failing
+    status would fail every later run).
+  - **Skipped and deferred:** left out by design and counted once: a malformed ticker, a ticker
+    outside the universe database, a row without its lane's required value; a cycle-lane row with a
+    NULL `available_at` is left to the boundary's count. Listed apart, under `deferred` (a later run
+    writes them): a row not yet available on the run day, a FUNDAMENTAL quarter open or not yet
+    covered, a cycle-lane row whose run-day graph exists.
+  - **Key files:** on a write, a late key leaves the late-key file once its row is settled
+    (written, already in the store, or left out by design, each reported); a key upstream no longer
+    has is reported and dropped; a dry run removes no key. A write keeps lost keys beside the
+    late-key file (`late.lost.json`), so later runs list only new losses. A write to any repository
+    other than production keeps both files in a folder named for it (`keys/late.json` ->
+    `keys/<repository>/late.json`), so a replay never settles or hides production's rows. The
+    CLI creates the key folder; both files are checked before upstream is read, so a missing
+    folder or a malformed file stops a run before it writes, and both are replaced atomically
+    (`keys/` is git-ignored: the files are local run state).
+  - **Errors:** a missing or table-less source database, or a key file that is damaged or cannot
+    be read or written, exits 1 with a message; a store failure partway (an HTTP error, a closed
+    connection or a timeout, all `GraphDBError`) prints what was already written and settles its
+    keys. Only a graph that was sent but whose answer was lost (`AnswerLost` on the send, raised
+    by the gate as `WriteInDoubt`) is listed as *in doubt*, since the store may have applied it:
+    not counted as written, its keys kept, found by the next run if it was applied. A failed check
+    before sending, or an HTTP error (the store's answer), leaves nothing in doubt.
+  - **On today's upstream data** the cycle lanes are all skipped (every `available_at` is NULL), so
+    only FUNDAMENTAL snapshots are produced until upstream's T-144.
+  - **Open:** the other views (T-155 and the rest of Work item 4's list), `:runId` (T-151's rule),
+    the `:rawValue` ranges, SEMANTIC, trimming `view_contract.py` once every projection is in, the
+    late-key round trip against a live store (`--write` is untested against GraphDB), the
+    cohort-mean guard for FUNDAMENTAL (waits for upstream's T-144), and upstream's answer to Q7
+    (with round 4's additions: the `status` values, when a run row's columns are filled, and
+    whether filing acquisition always precedes an analysis run).
+  - **Follow-ups (PR #72 round 3):** every run re-reads the whole view, builds every row's Turtle
+    and asks the store about every snapshot subject (in batches of 200; a dry run also
+    SHACL-validates every graph). That is fine at today's size but grows by one row per asset per
+    cycle lane per day once T-144 lands, so skip what an earlier run settled (a high-water `id`, or
+    graphs whose subjects are all stored). The first `--write` after upstream's T-144 loads every
+    cycle-lane row accumulated until then into that one day's graph, an honest transaction-time
+    record that `docs/07` now states.
 - [ ] **T-032** Decide and implement `:supersededBy` semantics for a
       restatement. → step 3.
 - [ ] **T-033** Retire or explicitly fold in today's `src/etl/` shortcut
@@ -485,6 +554,6 @@ T-151's rule recorded (PR #60), its checks waiting on T-031/T-163; T-158's
 ownership question (before their T-141) is unblocked; the rest of T-152–T-158 waits on upstream's
 T-144 (views), T-145 (ids), T-074 (flags) and, after their T-100, their T-082 and their Work item 4.
 Work item 16 (T-160–T-165): T-160 done (plain checks, quarantine-with-cap), T-161 closed with it (no dependency) and T-162 done (JSON files per view, strict loader);
-T-163 (function done, PR #68) closes with T-031, which calls it on the real read and re-reads the late keys; T-164 done (PR #69).
+T-163 (function done, PR #68) closes with T-031, whose first slice (PR #72) calls it on the real read and re-reads the late keys for `v_score_snapshot`; T-164 done (PR #69).
 Work item 8 (T-070–T-071) is independent but needs a human at a Protégé
 session, not a coding session.

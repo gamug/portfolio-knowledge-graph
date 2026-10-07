@@ -21,7 +21,9 @@ from projection.boundary import (
     CASCADE,
     CHECK_KINDS,
     FORENSIC_FLAGS,
+    GRAPH_WRITTEN,
     INGESTION_DATED,
+    PROJECTION_OUTCOMES,
     SOURCE_CHECKS,
     VIEW_CHECKS,
     BoundaryError,
@@ -940,9 +942,11 @@ def test_a_view_check_kind_passes_good_rows_and_reports_bad_ones(
 def test_every_check_kind_the_runner_can_report_has_its_cases() -> None:
     """``Failure`` refuses a kind outside ``CHECK_KINDS``, so a new kind lands there. A view kind
     fails here until it has a row in ``_KINDS``; a source kind fails the source-check test above
-    until that test triggers it; ``CASCADE`` is asserted by the cascade test."""
+    until that test triggers it; ``CASCADE`` is asserted by the cascade test, and the projection
+    outcome ``GRAPH_WRITTEN`` by ``tests/test_score_snapshots.py``'s written-quarter test."""
     assert {k[0] for k in _KINDS} == VIEW_CHECKS
-    assert {CASCADE} == CHECK_KINDS - VIEW_CHECKS - SOURCE_CHECKS  # fails if edited outside a group
+    assert {GRAPH_WRITTEN} == PROJECTION_OUTCOMES
+    assert {CASCADE} == CHECK_KINDS - VIEW_CHECKS - SOURCE_CHECKS - PROJECTION_OUTCOMES
 
 
 def test_a_failure_of_an_unknown_kind_is_refused() -> None:

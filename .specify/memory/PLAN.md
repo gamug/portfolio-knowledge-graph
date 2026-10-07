@@ -929,7 +929,9 @@ re-declare an individual already in the store):
   store, so once upstream fixes it, a later run writes it into that run's new graph, which is the
   honest record of when it arrived. **Re-read mechanism:** T-163's report persists the keys of its late
   rows, and the next run (T-031) re-reads those keys along with its own rows, dropping a key from the
-  list once its row is written. Until T-031 implements that, a late row is reported as lost.
+  list once its row is settled (written, already in the store, or left out by design, each reported).
+  T-031 implements it for `v_score_snapshot` (PR #72); for a view without a projection yet, a late
+  row is reported as lost.
 - **Graphs dated by the data**, and **every graph not listed above**:
   `urn:graph:ingest:ORCHESTRATOR:{date}` (keyed by the scheme's `cycleDate`, T-121),
   `urn:graph:ingest:FUNDAMENTAL:{year}-Q{n}`,
@@ -938,6 +940,11 @@ re-declare an individual already in the store):
   `urn:graph:derived:entity-resolution:{date}` (`v_shared_executive_edge`). A quarantined row is
   **lost for that date**, since its graph cannot be appended to once written and a later graph would
   misdate it. The only recovery is a re-run before the graph is written. The report lists it as lost.
+  A projection never asks the gate to append to such a graph: it lists the row as lost instead
+  (a `graph_written` outcome, T-031), and writes a FUNDAMENTAL quarter only once it is complete:
+  closed by the run day and covered by a full upstream analysis run (`v_analysis_run`) as of a
+  later quarter, no later than the run day. A loss stays in the view, so a run with a late-key
+  file keeps lost keys beside it and lists only new losses.
   A graph added to `docs/07` later is data-dated unless this list says otherwise.
 
 The run stops when a view's quarantined share exceeds its cap. Caps are set per view in T-162's
@@ -951,7 +958,7 @@ for a row-level check, or the group for an aggregate one; `uv run pytest` covers
 row set per check kind and the selected policy's behaviour; `SPEC.md` §13 item 10 records what is checked
 at the boundary and what is not.
 
-**Blocked on**: nothing for T-162 (T-160 done, T-161 closed: no library, no amendment). T-163's function is done (`src/projection/boundary.py`, PR #68), the task stays open: calling it on the real read and counting T-151's and T-155's skips land with T-031; T-164 is done (PR #69: every kind in `boundary.CHECK_KINDS` has a passing and a failing case, and a late key's round trip across two runs is tested over synthetic rows); T-031 tests that round trip on the real read.
+**Blocked on**: nothing for T-162 (T-160 done, T-161 closed: no library, no amendment). T-163's function is done (`src/projection/boundary.py`, PR #68), the task stays open: T-031's first slice (PR #72) calls it on the real read for `v_score_snapshot`; counting T-151's and T-155's skips lands with the rest of T-031; T-164 is done (PR #69: every kind in `boundary.CHECK_KINDS` has a passing and a failing case, and a late key's round trip across two runs is tested over synthetic rows); T-031's first slice tests that round trip on the real read (`tests/test_score_snapshots.py`).
 
 ## Sequencing
 
@@ -982,7 +989,7 @@ Work item 14 (PR #48 follow-ups) — independent; T-140 and T-142 (PR #63) done,
 Work item 15 (upstream's v_* changes) — T-150, T-170 and T-171 (PR #56) done, with T-155's schema half (PR #58), T-153's comments (PR #59)
   and T-151's rule (PR #60); the step-3 shape corrections now;
   the rest as upstream's T-144/T-145 ship; feeds Work item 4 (T-031) and 12 (T-121)
-Work item 16 (boundary validation of upstream rows) — T-160 done (plain checks), T-161 closed, T-162 done; T-163 open (its function is done, the wiring into the read path lands with Work item 4's T-031)
+Work item 16 (boundary validation of upstream rows) — T-160 done (plain checks), T-161 closed, T-162 done; T-163 open (its function is done, the wiring into the read path started with Work item 4's T-031, PR #72)
 ```
 
 Work items 1, 2, and 9 have no dependencies and no blockers — they can land

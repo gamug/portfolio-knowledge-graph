@@ -33,8 +33,8 @@ is ``SectorRelativeMomentum`` (``SPEC.md`` D6) and SEMANTIC snapshots are ``Sent
 bounds ``Sentiment``'s to [-1, 1] (T-081) and SECTOR's to [-100, 100] (T-140, widened by
 T-155: upstream's TECHNICAL points, read verbatim), so only SEMANTIC's mapping into its range
 is open, for T-031. SECTOR's 0-100 ``normalized_score`` becomes an optional
-``normalizedScore`` (T-155): T-031 adds SECTOR to :data:`RESCALED_SCORE_TYPES` with the write
-path; until then this module rejects the lane. SEMANTIC's is not projected.
+``normalizedScore`` (T-155), converted like the other two lanes (SECTOR joined
+:data:`RESCALED_SCORE_TYPES` with the write path, T-031). SEMANTIC's is not projected.
 """
 
 from __future__ import annotations
@@ -48,6 +48,7 @@ UPSTREAM_MAX = Decimal(100)
 RESCALED_SCORE_TYPES: dict[str, str] = {
     "VALORIZATION": "ScoreCuantitativo",
     "TECHNICAL": "ScoreTecnico",
+    "SECTOR": "SectorRelativeMomentum",
 }
 
 
