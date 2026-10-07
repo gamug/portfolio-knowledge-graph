@@ -114,6 +114,8 @@ class BoundaryReport:
     lost: list[Failure] = field(default_factory=list)  # quarantined, gone for that date
     skipped_by_design: Counter[tuple[str, str]] = field(default_factory=Counter)
     inactive: list[str] = field(default_factory=list)  # pending views and columns, with reasons
+    # Row-level failures found in a run an aggregate failure stopped: reported, not quarantined.
+    row_failures: list[Failure] = field(default_factory=list)
 
     def summary(self) -> str:
         lines = [f"stopped: {self.stopped}"]
@@ -125,6 +127,7 @@ class BoundaryReport:
             f"  skipped by design: {v} / {r}: {n}" for (v, r), n in self.skipped_by_design.items()
         ]
         lines += [f"  inactive: {i}" for i in self.inactive]
+        lines += [f"  row (not quarantined, run stopped): {f}" for f in self.row_failures]
         return "\n".join(lines)
 
 
@@ -497,6 +500,7 @@ def validate(
         views[name] = view
         report.aggregate_failures += view.aggregate
     if report.aggregate_failures:
+        _keep_row_evidence(views, report)
         return _stop(report, "an aggregate check failed")
 
     dropped = _cascade(views)
@@ -513,6 +517,12 @@ def validate(
         for name, view in views.items()
     }
     return BoundaryResult(kept, report)
+
+
+def _keep_row_evidence(views: Mapping[str, _View], report: BoundaryReport) -> None:
+    """An aggregate stop drops no row, but the same pass found row failures: report them too."""
+    for view in views.values():
+        report.row_failures += [f for i in sorted(view.by_row) for f in view.by_row[i]]
 
 
 def _stop(report: BoundaryReport, why: str) -> BoundaryResult:

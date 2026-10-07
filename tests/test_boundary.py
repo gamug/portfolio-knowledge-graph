@@ -175,6 +175,17 @@ def test_a_pinned_column_the_rows_lack_is_an_aggregate_failure() -> None:
     assert stop.value.report.aggregate_failures[0].check == "missing_column"
 
 
+def test_an_aggregate_stop_still_reports_the_row_failures_of_the_same_pass() -> None:
+    exp = view(row_count={"min": 3}, ranges=[{"column": "top_n", "min": 1}])
+    with pytest.raises(BoundaryError) as stop:
+        validate({"v_weight_scheme": [full(1), full(2, top_n=0)]}, {"v_weight_scheme": exp})
+    report = stop.value.report
+    assert [f.check for f in report.aggregate_failures] == ["row_count"]
+    assert [(f.check, f.key) for f in report.row_failures] == [("range", (2,))]
+    assert report.quarantined == []
+    assert "row (not quarantined, run stopped): v_weight_scheme.top_n row (2,)" in str(stop.value)
+
+
 # --- row-level failures -------------------------------------------------------------------------
 
 
