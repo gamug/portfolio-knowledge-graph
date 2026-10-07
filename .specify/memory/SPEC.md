@@ -430,10 +430,11 @@ non-finite value or one outside [0, 100] is an error, not clipped. Upstream's se
 `raw_value` (the score before normalization) is what maps to `:rawValue`; for FUNDAMENTAL,
 VALORIZATION and TECHNICAL its range is decided in T-031 (FUNDAMENTAL's needs upstream's answer
 to Q6). SECTOR (= `SectorRelativeMomentum`, D6) and
-SEMANTIC (= `Sentiment`, FR-005) carry no `normalizedScore` and compare on a `rawValue` the
-shape bounds to [-1, 1] for both (T-081, T-140), so T-031 has to map upstream's SECTOR and
-SEMANTIC values into that range; upstream SECTOR is "own TECHNICAL raw minus sector mean" on
-the raw scale (D6), not a difference of two [0, 1] scores as `docs/06` §1.8 defines it.
+SEMANTIC (= `Sentiment`, FR-005) carry no `normalizedScore` and compare on a `rawValue`. The
+shape bounds SECTOR's to [-100, 100] (T-140, widened by T-155: upstream's "own TECHNICAL raw
+minus sector mean", in TECHNICAL points, read verbatim, D6) and SEMANTIC's to [-1, 1] (T-081),
+so only SEMANTIC's values need mapping into range (T-031); its 0–100 `normalized_score` is
+an optional `normalizedScore` for SECTOR, rescaled by T-031 like the other lanes.
 Neither `ScoreSnapshotShape` nor `WeightComponent.inverted` changes.
 
 ## 3. Technology Stack & Architecture Decisions

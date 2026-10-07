@@ -1,7 +1,7 @@
 # Attractiveness Score + Sector-Relative Momentum — Design Spec
 
 **Date:** 2026-08-13
-**Status:** Approved for implementation (brainstorming session, chat-approved 2026-08-13)
+**Status:** Design history (T-155, 2026-10-07). Approved for implementation 2026-08-13 (brainstorming session), but the blend this spec defines is computed upstream by `portfolio-financial-analysis`'s cycle runner; this repo reads it (`SPEC.md` §2.5 item 1) and the schema no longer bounds `SectorRelativeMomentum`'s `rawValue` to `[-1, 1]` or `attractivenessScore` to `[0, 1]`.
 **Closes:** critique-and-evolution.md gap #2 (no inclusion mechanics) in part — the ranking half
 of B3, not the sizing/rebalancing half — and gap #3 (no sector layer) in part — the
 sector-relative-momentum signal half of B2, not the full Sector/Industry roll-up dashboard.
