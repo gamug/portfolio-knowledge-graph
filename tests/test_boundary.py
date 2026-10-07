@@ -19,6 +19,7 @@ import pytest
 
 from projection.boundary import (
     CASCADE,
+    CHECK_KINDS,
     FORENSIC_FLAGS,
     INGESTION_DATED,
     SOURCE_CHECKS,
@@ -450,6 +451,109 @@ def test_each_cascaded_row_counts_against_its_own_views_cap() -> None:
     assert [r.split(":")[0] for r in stop.value.report.stop_reasons] == ["v_weight_scheme"]
 
 
+def _read_components(shipped: dict[str, ViewExpectation], **over: Any) -> ViewExpectation:
+    """``v_cycle_ranking_component`` as if upstream's T-144 had shipped it: ``pending`` lifted by
+    ``dataclasses.replace`` (the loader would refuse it), the rest of the shipped file kept."""
+    return dataclasses.replace(
+        shipped["v_cycle_ranking_component"], pending=None, pending_columns={}, **over
+    )
+
+
+def ranking(run: int, asset: int, **over: Any) -> dict[str, Any]:
+    return {
+        "cycle_run_id": run,
+        "asset_id": asset,
+        "rank": asset,
+        "blended_score": 60.0,
+        "target_weight": 0.1,
+    } | over
+
+
+def component(run: int, asset: int, score_type: str, value: float) -> dict[str, Any]:
+    return {
+        "cycle_run_id": run,
+        "asset_id": asset,
+        "score_type": score_type,
+        "component_value": value,
+    }
+
+
+def _ranking_rows() -> dict[str, list[dict[str, Any]]]:
+    return {
+        "v_cycle_ranking": [ranking(1, 1), ranking(1, 2)],
+        "v_cycle_ranking_component": [
+            component(1, 1, "TECHNICAL", 50.0),
+            component(1, 1, "SEMANTIC", 50.0),
+            component(1, 2, "TECHNICAL", 50.0),
+            component(1, 2, "SEMANTIC", 50.0),
+        ],
+    }
+
+
+def test_a_failing_ranking_component_takes_its_ranking_row(
+    shipped: dict[str, ViewExpectation],
+) -> None:
+    rows = _ranking_rows()
+    rows["v_cycle_ranking_component"][1]["component_value"] = 150.0  # asset 1, outside [0, 100]
+    exps = {
+        "v_cycle_ranking": dataclasses.replace(
+            shipped["v_cycle_ranking"], cap=1.0, cap_reason="test"
+        ),
+        "v_cycle_ranking_component": _read_components(shipped, cap=1.0, cap_reason="test"),
+    }
+    result = validate(rows, exps)
+    assert [r["asset_id"] for r in result.rows["v_cycle_ranking"]] == [2]
+    assert [r["asset_id"] for r in result.rows["v_cycle_ranking_component"]] == [2, 2]
+    taken = [f for f in result.report.quarantined if f.check == CASCADE]
+    assert {(f.view, f.key) for f in taken} == {
+        ("v_cycle_ranking", (1, 1)),
+        ("v_cycle_ranking_component", (0,)),  # the sibling component, keyless: by index
+    }
+
+    # the ranking row it took counts against v_cycle_ranking's own cap
+    exps["v_cycle_ranking"] = shipped["v_cycle_ranking"]
+    with pytest.raises(BoundaryError) as stop:
+        validate(rows, exps)
+    assert stop.value.report.stop_reasons == [
+        "v_cycle_ranking: 1/2 rows quarantined, over the cap 0.0"
+    ]
+
+
+def test_a_failing_ranking_row_takes_its_components(
+    shipped: dict[str, ViewExpectation],
+) -> None:
+    rows = _ranking_rows()
+    rows["v_cycle_ranking"][0]["rank"] = 0  # asset 1, below the minimum rank
+    exps = {
+        "v_cycle_ranking": dataclasses.replace(
+            shipped["v_cycle_ranking"], cap=1.0, cap_reason="test"
+        ),
+        "v_cycle_ranking_component": _read_components(shipped, cap=1.0, cap_reason="test"),
+    }
+    result = validate(rows, exps)
+    assert [r["asset_id"] for r in result.rows["v_cycle_ranking"]] == [2]
+    assert [r["asset_id"] for r in result.rows["v_cycle_ranking_component"]] == [2, 2]
+    assert [(f.view, f.check) for f in result.report.quarantined] == [
+        ("v_cycle_ranking", "range")
+    ] + [("v_cycle_ranking_component", CASCADE)] * 2
+
+
+def test_the_shipped_component_group_mean_holds_each_runs_lane_near_50(
+    shipped: dict[str, ViewExpectation],
+) -> None:
+    """PLAN's second grouping: FUNDAMENTAL over ``component_value`` by run and lane (D17)."""
+    exps = {"v_cycle_ranking_component": _read_components(shipped)}
+    near = [component(1, 1, "FUNDAMENTAL", 46.0), component(1, 2, "FUNDAMENTAL", 53.0)]
+    result = validate({"v_cycle_ranking_component": near}, exps)
+    assert len(result.rows["v_cycle_ranking_component"]) == 2
+
+    drifted = [component(1, 1, "FUNDAMENTAL", 80.0), component(1, 2, "FUNDAMENTAL", 90.0)]
+    with pytest.raises(BoundaryError) as stop:
+        validate({"v_cycle_ranking_component": drifted}, exps)
+    [failure] = stop.value.report.aggregate_failures
+    assert (failure.check, failure.group) == ("group_mean", (1, "FUNDAMENTAL"))
+
+
 # --- late or lost -------------------------------------------------------------------------------
 
 
@@ -554,9 +658,7 @@ def test_a_late_key_persisted_by_one_run_is_re_read_and_dropped_once_written_by_
     # the next run reads the file run 1 wrote and merges the fixed row into its read by key
     late = load_late_keys(path)["v_score_snapshot"]
     assert late == {"columns": ["id"], "keys": [[2]]}
-    fixed = {tuple(k) for k in late["keys"]}
-    read = [snapshot(3, "VALORIZATION"), snapshot(2, "VALORIZATION")]
-    assert {(r["id"],) for r in read} >= fixed
+    read = [snapshot(3, "VALORIZATION")] + [snapshot(k, "VALORIZATION") for [k] in late["keys"]]
     second = validate({"v_score_snapshot": read}, view_exp, late_keys_path=path)
     assert [r["id"] for r in second.rows["v_score_snapshot"]] == [3, 2]
     assert second.report.quarantined == []
@@ -837,6 +939,7 @@ def test_every_check_kind_the_runner_can_report_has_its_cases() -> None:
     fails here until it has a row in ``_KINDS``; a source kind fails the source-check test above
     until that test triggers it; ``CASCADE`` is asserted by the cascade test."""
     assert {k[0] for k in _KINDS} == VIEW_CHECKS
+    assert {CASCADE} == CHECK_KINDS - VIEW_CHECKS - SOURCE_CHECKS  # fails if edited outside a group
 
 
 def test_a_failure_of_an_unknown_kind_is_refused() -> None:

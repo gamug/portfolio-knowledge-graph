@@ -98,7 +98,7 @@ VIEW_CHECKS = frozenset(
     }
 )
 CASCADE = "cascade"  # not a check: the row was taken with a failing row of its group
-CHECK_KINDS = SOURCE_CHECKS | VIEW_CHECKS | {CASCADE}
+CHECK_KINDS = SOURCE_CHECKS | VIEW_CHECKS | {CASCADE}  # add a kind to a group, never here
 
 
 class Source(Protocol):
