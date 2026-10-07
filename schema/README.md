@@ -85,9 +85,9 @@ what the store *enforces*.
    **2400 quads; conforms: True.**
    **T-140 (Work item 14, 2026-10-06: PR #48 post-merge review).** Three gaps the T-081 rewrite left:
    `SectorRelativeMomentum` was exempt from `normalizedScore` without needing a `rawValue` (an empty
-   snapshot conformed), so it now requires one in `[-1, 1]` — the range `06` §1.8 defines (a
-   `ScoreTecnico` minus its sector aggregate) and the attractiveness formula's `(rawValue + 1) / 2`
-   needs; mapping upstream's SECTOR score into it is T-031's job; `rawValue` gets `sh:maxCount 1` on every `ScoreSnapshot`, matching its
+   snapshot conformed), so it now requires one, at first in `[-1, 1]` (the range `06` §1.8 defined for a
+   `ScoreTecnico` minus its sector aggregate, and the attractiveness formula's `(rawValue + 1) / 2`
+   needed; widened to `[-100, 100]` by T-155, below); mapping upstream's SECTOR score into it is T-031's job; `rawValue` gets `sh:maxCount 1` on every `ScoreSnapshot`, matching its
    `owl:FunctionalProperty` in `tbox.ttl` (two `rawValue`s conformed); and an `sh:xone` ties
    `agentOrigin` to `metricType` one-to-one (FUNDAMENTAL→`ScoreFinanciero`, VALORIZATION→
    `ScoreCuantitativo`, TECHNICAL→`ScoreTecnico`, SECTOR→`SectorRelativeMomentum`, SEMANTIC→
@@ -119,6 +119,21 @@ what the store *enforces*.
    FUNDAMENTAL lane, pinned by `tests/test_score_scale.py`, since the shape alone can't (it keeps
    `normalizedScore` optional for legacy data). No new class or property.
    **2474 quads; conforms: True.**
+   **T-155 (Work item 15, second reply, 2026-10-06: the schema half; the projection waits on T-031).**
+   Two bounds only served a formula this repo no longer computes. `SectorRelativeMomentum`'s `rawValue`
+   widens from `[-1, 1]` (justified only by `(rawValue + 1) / 2`) to `[-100, 100]`: upstream's SECTOR
+   `raw_value` is the asset's TECHNICAL raw score minus its sector's mean, in TECHNICAL points
+   (observed -54 to +46), read verbatim; its 0–100 `normalized_score` stays an optional
+   `normalizedScore` (T-031 rescales it). `AttractivenessSnapshotShape` drops `attractivenessScore`'s
+   lower bound and keeps `maxInclusive 1.0`: upstream's `blended_score / 100` goes negative when
+   SOFT-veto penalties (15 points each) exceed the blend. The `attractivenessScore`,
+   `AttractivenessWeightScheme`, `WeightComponent` and `:inverted` comments in `tbox.ttl`, the
+   `SectorRelativeMomentum` comment in `reference.ttl`, `rules.ttl`'s `WeightScheme_v1` header, `docs/06`
+   §1.8 (the formula is kept as design history) and the 2026-08-13 design spec no longer describe the
+   blend as computed here. Eleven synthetic cases agree: a SECTOR `rawValue` of -54, 46, ±100 pass and
+   ±146 fail; an `attractivenessScore` of -0.10, 0.5 and 1.0 pass and 1.2 fails (the pre-change shape
+   rejects -54, 46 and -0.10, so each case fails without the change). No new class or property;
+   `AllDisjointClasses` is unchanged. **2473 quads; conforms: True** (one `sh:minInclusive` less).
 3. **Two more named-graph placements (a third added by T-108).** `07-ontology-topology.md` assigned graphs to every
    *agent's* daily output but not to the Orchestrator's own decisions or to entity resolution's
    derived facts. Resolved: `urn:graph:ingest:ORCHESTRATOR:{date}` and
@@ -172,11 +187,12 @@ what the store *enforces*.
    because upstream rewrites its `normalized_score` in place, see refinement 2), and for `v_sector_aggregate_snapshot.mean_normalized` (the
    mean of members' TECHNICAL score) into `SectorAggregateSnapshot.normalizedScore`, so no shape
    and no `inverted` flag changes. Upstream's
-   own `raw_value` maps to `rawValue`. **Open, not fixed:** SECTOR (=
-   `SectorRelativeMomentum`) and SEMANTIC (= `Sentiment`) have a 0–100 `normalized_score`
-   upstream but no `normalizedScore` here, and their `rawValue` must land in `[-1, 1]`
-   (refinement 2, T-081/T-140); mapping upstream's values into that range is T-031's to decide
-   (`SPEC.md` §2.6).
+   own `raw_value` maps to `rawValue`. **Open, not fixed:** SEMANTIC (= `Sentiment`) has a 0–100 `normalized_score`
+   upstream but no `normalizedScore` here, and its `rawValue` must land in `[-1, 1]`
+   (refinement 2, T-081); mapping upstream's values into that range is T-031's to decide
+   (`SPEC.md` §2.6). SECTOR (= `SectorRelativeMomentum`) is settled by T-155: `rawValue` is read
+   verbatim in `[-100, 100]`, and its 0–100 `normalized_score` is an optional `normalizedScore` that
+   T-031 rescales like the other lanes.
 
 ## Validation
 

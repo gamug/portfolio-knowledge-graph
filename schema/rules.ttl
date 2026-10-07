@@ -209,6 +209,8 @@
 :Cmp_COMP03_TecHigh   a :ThresholdComparison ; :metricName "ScoreTecnico"      ; :operator ">" ; :thresholdValue "0.75"^^xsd:decimal .
 
 # --- Rank 7: VETO_MKT_02 — Market/Sector-Momentum, single signal (added 2026-08-13) ---
+# Design history (T-155): its -0.50 threshold is on SectorRelativeMomentum's original [-1, 1] scale. The shape
+# now allows [-100, 100] (upstream's TECHNICAL points), so do not reuse or extend this rule as written.
 # Closes part of critique #3 (sector layer) — see docs/superpowers/specs/2026-08-13-
 # attractiveness-sector-momentum-design.md. Appended after the original 6; none of their
 # already-validated thresholds change.
@@ -226,9 +228,10 @@
 # Attractiveness weight scheme (added 2026-08-13) — the positive
 # counterpart to this rule catalog. Versioned graph data, same
 # pattern as RuleDefinition above (critique #6's principle applied
-# to weights, not just thresholds). Formula this scheme feeds:
-# docs/superpowers/specs/2026-08-13-attractiveness-sector-momentum-
-# design.md §3. Placeholder weights pending calibration (B5).
+# to weights, not just thresholds). Design history (T-155): the blend
+# this scheme once fed is computed upstream (portfolio-financial-analysis'
+# cycle runner), not here; see the 2026-08-13 design spec, marked as design
+# history. Placeholder weights, never applied by this repo.
 #################################################################
 :WeightScheme_v1 a :AttractivenessWeightScheme ;
     :schemeId "ATTR_WEIGHTS_V1" ; :validFrom "2026-08-13"^^xsd:date ;

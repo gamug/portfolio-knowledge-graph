@@ -47,11 +47,13 @@
             [ sh:path :rawValue ; sh:datatype xsd:decimal ; sh:minCount 1 ; sh:minInclusive -1.0 ; sh:maxInclusive 1.0 ] ) ;
     # T-140: rawValue is owl:FunctionalProperty (tbox.ttl); enforce it closed-world for every metric.
     sh:property [ sh:path :rawValue ; sh:datatype xsd:decimal ; sh:maxCount 1 ] ;
-    # T-140: SectorRelativeMomentum compares on rawValue too (WC_SectorMom), so it must carry one, in [-1,1]:
-    # ScoreTecnico minus its sector aggregate, both [0,1] (docs/06 §1.8), which the attractiveness formula's
-    # (rawValue + 1) / 2 needs. Mapping upstream's SECTOR score into this range is the projector's job (T-031).
+    # T-140: SectorRelativeMomentum compares on rawValue too (WC_SectorMom), so it must carry one. T-155 widened
+    # its range from [-1,1] (that bound only served the attractiveness formula's (rawValue + 1) / 2, which is not
+    # computed here) to [-100,100]: upstream's SECTOR raw_value is the asset's TECHNICAL raw score minus its
+    # sector's mean, in TECHNICAL points (observed -54 to +46), read verbatim. Its 0-100 normalized_score is an
+    # optional normalizedScore (T-031 rescales it).
     sh:or ( [ sh:not [ sh:path :metricType ; sh:hasValue "SectorRelativeMomentum" ] ]
-            [ sh:path :rawValue ; sh:datatype xsd:decimal ; sh:minCount 1 ; sh:minInclusive -1.0 ; sh:maxInclusive 1.0 ] ) ;
+            [ sh:path :rawValue ; sh:datatype xsd:decimal ; sh:minCount 1 ; sh:minInclusive -100.0 ; sh:maxInclusive 100.0 ] ) ;
     # T-171 (D17): dropping normalizedScore's requirement for ScoreFinanciero must not leave it free to carry
     # neither value, so rawValue becomes its mandatory replacement, same pairing as the two sh:or above. No
     # bounds yet (unlike those two): Q6, FUNDAMENTAL's rawValue range, is still open with upstream.
@@ -256,7 +258,8 @@
     a sh:NodeShape ;
     sh:targetClass :AttractivenessSnapshot ;
     sh:property [ sh:path :attractivenessOfAsset ; sh:minCount 1 ; sh:maxCount 1 ] ;
-    sh:property [ sh:path :attractivenessScore ; sh:datatype xsd:decimal ; sh:minInclusive 0.0 ; sh:maxInclusive 1.0 ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    # T-155: no lower bound: upstream's blended_score / 100 goes negative when SOFT-veto penalties (15 points each) exceed the blend.
+    sh:property [ sh:path :attractivenessScore ; sh:datatype xsd:decimal ; sh:maxInclusive 1.0 ; sh:minCount 1 ; sh:maxCount 1 ] ;
     sh:property [ sh:path :computedAt ; sh:datatype xsd:dateTime ; sh:minCount 1 ; sh:maxCount 1 ] ;
     sh:property [ sh:path :computedWithScheme ; sh:minCount 1 ; sh:maxCount 1 ] .
 

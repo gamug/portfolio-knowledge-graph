@@ -164,12 +164,12 @@
 :AttractivenessWeightScheme
     a owl:Class ;
     rdfs:label "Attractiveness Weight Scheme" ;
-    rdfs:comment "A versioned set of per-metric weights the Orchestrator applies to compute AttractivenessSnapshot.attractivenessScore, valid over [validFrom, validTo) -- mirrors RuleDefinition's 'rules live in the graph, not code' pattern (critique #6), applied to weights instead of thresholds. Added 2026-08-13." .
+    rdfs:comment "A versioned set of per-metric weights, as upstream's cycle runner configured them for the blend behind AttractivenessSnapshot.attractivenessScore (read from upstream, never applied here), valid over [validFrom, validTo) -- mirrors RuleDefinition's 'rules live in the graph, not code' pattern (critique #6), applied to weights instead of thresholds. Added 2026-08-13." .
 
 :WeightComponent
     a owl:Class ;
     rdfs:label "Weight Component" ;
-    rdfs:comment "One (metric, weight, inverted) triple within an AttractivenessWeightScheme. inverted=true marks risk-oriented metrics (e.g. ScoreFinanciero) that must be flipped (1 - normalizedScore) before weighting -- see attractivenessScore's comment. Added 2026-08-13." .
+    rdfs:comment "One (metric, weight) pair within an AttractivenessWeightScheme, as configured upstream. :inverted is design history from the 2026-08-13 formula, which is not computed here (T-155); its fate is decided with T-121. Added 2026-08-13." .
 
 #################################################################
 # 1.1 SHARED-PROPERTY SUPERCLASSES — precise ranges for properties
@@ -545,14 +545,14 @@
 
 # --- AttractivenessSnapshot / AttractivenessWeightScheme / WeightComponent (added 2026-08-13) ---
 :attractivenessScore a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :AttractivenessSnapshot ; rdfs:range xsd:decimal ;
-    rdfs:comment "[0.0, 1.0], 1=most attractive -- the inverse sense of ScoreSnapshot.normalizedScore's risk convention. Formula: docs/superpowers/specs/2026-08-13-attractiveness-sector-momentum-design.md SS3." .
+    rdfs:comment "Upstream v_cycle_ranking.blended_score / 100: higher = more attractive, at most 1.0, negative when SOFT-veto penalties exceed the blend (T-155). Read, never computed here (SPEC 2.5); the inverse sense of ScoreSnapshot.normalizedScore's risk convention." .
 :computedAt a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :AttractivenessSnapshot ; rdfs:range xsd:dateTime .
 :schemeId a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :AttractivenessWeightScheme ; rdfs:range xsd:string .
 :weightMetricName a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :WeightComponent ; rdfs:range xsd:string ;
     rdfs:comment "Matches a ScoreSnapshot.metricType value. Named distinctly from ThresholdComparison's metricName to avoid a shared-property domain clash (see ObservationSnapshot's rationale)." .
 :weightValue a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :WeightComponent ; rdfs:range xsd:decimal .
 :inverted a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :WeightComponent ; rdfs:range xsd:boolean ;
-    rdfs:comment "true for risk-oriented metrics that must be read as (1 - normalizedScore) before weighting." .
+    rdfs:comment "Design history (2026-08-13 formula, not computed here since T-155): true for risk-oriented metrics that would be read as (1 - normalizedScore) before weighting. Upstream has no counterpart; T-121 decides whether it stays." .
 
 #################################################################
 # 4. OWL CARDINALITY RESTRICTIONS (semantic, complements SHACL's

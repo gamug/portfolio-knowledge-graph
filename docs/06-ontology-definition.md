@@ -336,7 +336,7 @@ attractiveness-ranking feature, see §1.8, plus `VetoShape` added 2026-10-03 for
 
 | Shape | Constraint | Closes |
 |---|---|---|
-| `ScoreSnapshotShape` | `normalizedScore` ∈ `[0.0, 1.0]`, required unless `metricType` is `SectorRelativeMomentum`, `Sentiment`, or `ScoreFinanciero` (T-171: upstream rewrites a FUNDAMENTAL row's `normalized_score` in place every cycle, which a `ScoreSnapshot` individual can't carry without breaking the audit-trail principle); every `Sentiment` snapshot requires a `rawValue` ∈ `[-1.0, 1.0]` (T-081), every `SectorRelativeMomentum` snapshot a `rawValue` ∈ `[-1.0, 1.0]` (T-140), and every `ScoreFinanciero` snapshot a `rawValue` with no bound yet (T-171; the range is upstream's still-open Q6); `rawValue` at most once (T-140; it is `owl:FunctionalProperty`); `agentOrigin` and `metricType` paired one-to-one: FUNDAMENTAL/`ScoreFinanciero`, VALORIZATION/`ScoreCuantitativo`, TECHNICAL/`ScoreTecnico`, SECTOR/`SectorRelativeMomentum`, SEMANTIC/`Sentiment` (T-140); `agentOrigin` ∈ the 5 known agents (`FUNDAMENTAL`, `SEMANTIC`, `VALORIZATION`, `TECHNICAL`, `SECTOR`); `metricType`/`timestamp`/`availableAt` required (T-101); `eventTime` optional and ≤ `availableAt`; optional `runId`/`runAsOf`/`codeVersion`/`engineVersion` (T-106; the same four are optional on `SectorAggregateSnapshotShape`, `VetoShape`, `PortfolioPositionShape` and `DataQualityIssueShape`); optional `scoreMethod`, at most one, open vocabulary (T-111; set on every SEMANTIC snapshot) | Prevents a malformed snapshot from silently entering veto evaluation. |
+| `ScoreSnapshotShape` | `normalizedScore` ∈ `[0.0, 1.0]`, required unless `metricType` is `SectorRelativeMomentum`, `Sentiment`, or `ScoreFinanciero` (T-171: upstream rewrites a FUNDAMENTAL row's `normalized_score` in place every cycle, which a `ScoreSnapshot` individual can't carry without breaking the audit-trail principle); every `Sentiment` snapshot requires a `rawValue` ∈ `[-1.0, 1.0]` (T-081), every `SectorRelativeMomentum` snapshot a `rawValue` required (T-140) and ∈ `[-100.0, 100.0]` (T-155: TECHNICAL points, read verbatim), and every `ScoreFinanciero` snapshot a `rawValue` with no bound yet (T-171; the range is upstream's still-open Q6); `rawValue` at most once (T-140; it is `owl:FunctionalProperty`); `agentOrigin` and `metricType` paired one-to-one: FUNDAMENTAL/`ScoreFinanciero`, VALORIZATION/`ScoreCuantitativo`, TECHNICAL/`ScoreTecnico`, SECTOR/`SectorRelativeMomentum`, SEMANTIC/`Sentiment` (T-140); `agentOrigin` ∈ the 5 known agents (`FUNDAMENTAL`, `SEMANTIC`, `VALORIZATION`, `TECHNICAL`, `SECTOR`); `metricType`/`timestamp`/`availableAt` required (T-101); `eventTime` optional and ≤ `availableAt`; optional `runId`/`runAsOf`/`codeVersion`/`engineVersion` (T-106; the same four are optional on `SectorAggregateSnapshotShape`, `VetoShape`, `PortfolioPositionShape` and `DataQualityIssueShape`); optional `scoreMethod`, at most one, open vocabulary (T-111; set on every SEMANTIC snapshot) | Prevents a malformed snapshot from silently entering veto evaluation. |
 | `RiskEventShape` | `backedBy` `sh:minCount 1`; `severity`/`category` from closed vocabularies | Critique #5 (no null-handling policy) — evidence-free risk events are now a validation failure, not a silent gap. |
 | `RuleDefinitionShape` | `validFrom` required; exactly one `hasClause`; `priorityRank` ∈ `[1,7]`; `ruleSeverity` ∈ `{HARD, SOFT}`, required unless the rule is closed with `validTo` (T-103) | Critique #6 — a rule can't be persisted without being properly temporal and ranked. |
 | `RuleClauseShape` | `clauseType` ∈ `{AND, OR}`; both operands required | Structural half of the critique #1 fix — a clause literally cannot be built with a missing operand or an unrecognized operator. |
@@ -388,26 +388,29 @@ disjoint leaf types) and `shapes.ttl` to 14 shapes (§1.6):
   the `ObservationSnapshot` note below for how that reuse was made OWL-safe. The same agent also
   writes a per-asset `SectorRelativeMomentum` — not a new class, but a new `metricType` value on
   the existing `ScoreSnapshot`, computed as that asset's `ScoreTecnico` minus its sector's
-  aggregate and stored in `rawValue` (signed, `[-1.0, 1.0]`); it is the first `ScoreSnapshot`
+  aggregate and stored in `rawValue` (signed; `[-1.0, 1.0]` until T-155 widened it to `[-100.0, 100.0]`, upstream's TECHNICAL points); it is the first `ScoreSnapshot`
   `metricType` that leaves `normalizedScore` unset, which required relaxing `ScoreSnapshotShape`'s
-  `sh:minCount 1` on that field to a conditional exempting this one `metricType`; T-081 added the same exemption for `Sentiment`, and requires every `Sentiment` snapshot to carry a `rawValue` in `[-1.0, 1.0]`; T-140 requires the same `rawValue` of every `SectorRelativeMomentum` snapshot (the attractiveness formula's `(rawValue + 1) / 2` assumes that range), allows `rawValue` at most once, and pairs each `agentOrigin` with its one `metricType`; T-171 (D17) adds `ScoreFinanciero` (FUNDAMENTAL) as a third exemption, for an unrelated reason — upstream rewrites its `normalized_score` in place every cycle, which a `ScoreSnapshot` individual can't carry without becoming a mutable observation — and requires every `ScoreFinanciero` snapshot to carry a `rawValue` too, with no bound yet (upstream's range answer, Q6, is still open).
+  `sh:minCount 1` on that field to a conditional exempting this one `metricType`; T-081 added the same exemption for `Sentiment`, and requires every `Sentiment` snapshot to carry a `rawValue` in `[-1.0, 1.0]`; T-140 requires a `rawValue` of every `SectorRelativeMomentum` snapshot (first in `[-1.0, 1.0]`, for the attractiveness formula's `(rawValue + 1) / 2`; T-155 widened it to `[-100.0, 100.0]` once that formula was no longer computed here), allows `rawValue` at most once, and pairs each `agentOrigin` with its one `metricType`; T-171 (D17) adds `ScoreFinanciero` (FUNDAMENTAL) as a third exemption, for an unrelated reason — upstream rewrites its `normalized_score` in place every cycle, which a `ScoreSnapshot` individual can't carry without becoming a mutable observation — and requires every `ScoreFinanciero` snapshot to carry a `rawValue` too, with no bound yet (upstream's range answer, Q6, is still open).
 - **`AttractivenessSnapshot`** — the Orchestrator's computed ranking output for one `Asset` in one
   cycle: the positive counterpart to `Veto` (v1 modeled exclusion only). Closes part of critique
   #2/evolution layer B3's ranking half, not the position-sizing half. Carries `attractivenessScore`
-  (functional, `[0.0, 1.0]`, 1 = most attractive), `computedAt`, and an audit-trail pointer
+  (functional, at most `1.0`, 1 = most attractive; no lower bound since T-155, because upstream's `blended_score / 100` goes negative when SOFT-veto penalties exceed the blend), `computedAt`, and an audit-trail pointer
   `computedWithScheme` back to the `AttractivenessWeightScheme` that produced it — the same role
   `appliesRule`/`primaryRule` play for `Veto`. No stored rank field: rank is relative to whatever
   comparison set a query defines, so it is always a query-time `ORDER BY attractivenessScore`,
   never a persisted fact.
-- **`AttractivenessWeightScheme`** — a versioned set of per-metric weights the Orchestrator applies
-  to compute `attractivenessScore`, valid over `[validFrom, validTo)` — mirrors
+- **`AttractivenessWeightScheme`** — a versioned set of per-metric weights as upstream's cycle
+  runner configured them for the blend behind `attractivenessScore` (read, never applied here, T-155), valid over `[validFrom, validTo)` — mirrors
   `RuleDefinition`'s "rules live in the graph, not code" pattern (critique #6), applied to weights
   instead of thresholds.
-- **`WeightComponent`** — one `(metric, weight, inverted)` triple within an
-  `AttractivenessWeightScheme`. `inverted=true` marks risk-oriented metrics (e.g.
-  `ScoreFinanciero`) that must be flipped (`1 - normalizedScore`) before weighting.
+- **`WeightComponent`** — one `(metric, weight)` pair within an
+  `AttractivenessWeightScheme`. `inverted` is design history from the formula below (not
+  computed here since T-155); T-121 decides its remaining purpose.
 
-**Attractiveness score formula** (spec §3):
+**Attractiveness score formula — design history, not computed here (T-155).** The blend is
+upstream's: `portfolio-financial-analysis`'s cycle runner produces `blended_score` and its
+per-asset effective weights, and this repo reads them (`SPEC.md` §2.5 item 1; T-121, T-155). The
+2026-08-13 design (spec §3) is kept below for the record only:
 
 ```
 attractivenessScore = Σ weight_i * component_i   (weights sum to 1.0)
@@ -429,7 +432,9 @@ calibration, same status as every veto threshold today.
 The same `SectorRelativeMomentum` signal also feeds a new 7th veto rule, `VETO_MKT_02` (rank 7,
 single-signal, threshold `-0.50` on `rawValue` — `rules.ttl`): an asset can now be excluded for
 badly underperforming its sector peers, independent of and in addition to the six original
-dimensions.
+dimensions. That threshold is on the original `[-1, 1]` scale; since T-155 the shape
+allows `[-100, 100]` (upstream's TECHNICAL points), and the rule, closed with `validTo`, is design
+history: don't reuse or extend it as written.
 
 **Domain-collision fix (`ObservationSnapshot`).** `SectorAggregateSnapshot` reuses
 `ScoreSnapshot`'s `metricType`/`agentOrigin`/`timestamp`/`normalizedScore` properties, but those
