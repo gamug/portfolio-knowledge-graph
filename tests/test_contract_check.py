@@ -1,12 +1,13 @@
 """``projection.contract_check``: the pinned ``v_*`` contract vs. a synthetic miniature upstream."""
 
+import sqlite3
 import sys
 from collections.abc import Callable
 from pathlib import Path
 
 import pytest
 
-from projection import contract_check
+from projection import contract_check, view_contract
 
 # Upstream checkout builder: (views: name -> SELECT, broken: names whose view is never created).
 MakeUpstream = Callable[..., Path]
@@ -67,7 +68,8 @@ def test_view_gone_upstream_is_drift(make_upstream: MakeUpstream) -> None:
     assert report.drift == ["v_b: no longer defined upstream"]
 
 
-def test_view_that_did_not_build_is_drift(make_upstream: MakeUpstream) -> None:
+def test_view_reporting_no_columns_is_drift_did_not_build(make_upstream: MakeUpstream) -> None:
+    # The fake ``ensure`` never creates v_b, so upstream reports it with no columns.
     report = contract_check.check(make_upstream(_AB, broken=("v_b",)))
     assert len(report.drift) == 1
     assert report.drift[0].startswith("v_b: did not build")
@@ -96,6 +98,25 @@ def test_reordered_columns_are_a_note_not_drift(make_upstream: MakeUpstream) -> 
     report = contract_check.check(make_upstream(views))
     assert report.drift == []
     assert report.notes == ["v_a: column order changed"]
+
+
+def test_view_selecting_a_missing_column_fails_loudly(make_upstream: MakeUpstream) -> None:
+    # What a renamed column in an upstream base table does on SQLite: ensure() itself raises,
+    # so check() surfaces the error rather than reporting drift (documented in the module).
+    views = {**_AB, "v_a": "SELECT id, renamed_ticker FROM assets"}
+    with pytest.raises(sqlite3.OperationalError, match="renamed_ticker"):
+        contract_check.check(make_upstream(views))
+    assert not [m for m in sys.modules if m.startswith("_upstream_kg_schema")]
+
+
+def test_real_pin_is_well_formed() -> None:
+    # The autouse fixture swaps the pin for a small one; this checks the real one.
+    assert view_contract.VIEW_COLUMNS
+    for view, columns in view_contract.VIEW_COLUMNS.items():
+        assert view.startswith("v_")
+        assert columns
+        assert len(set(columns)) == len(columns), f"{view}: duplicate pinned column"
+    assert not set(view_contract.NOT_READ) & set(view_contract.VIEW_COLUMNS)
 
 
 def test_upstream_kg_schema_is_loaded_privately_and_unloaded(

@@ -116,7 +116,7 @@ once T-131 lands.*
       `.code_quality/mypy.ini`'s `files`; a `conftest.py` for shared fixtures only (no `sys.path`
       edits). → Approach 2.
 - [x] **T-132** *(done 2026-10-07: `tests/test_score_scale.py` in PR #56, every case listed below
-      for it, verified to fail on the pre-T-171 module; `tests/test_contract_check.py` here, each
+      for it, verified to fail on the pre-T-171 module; `tests/test_contract_check.py` in PR #57, each
       drift/note case checked to fail when its branch of `check` is broken)* Tests for `src/projection/score_scale.py` (0, 50, 100, `None`, out of range, decimal
       exactness, and `"FUNDAMENTAL"` raising `ValueError`, so T-171's removal can't silently
       regress) and `contract_check.py` against a synthetic miniature upstream (removed column, new
