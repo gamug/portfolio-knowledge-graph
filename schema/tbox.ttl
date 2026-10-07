@@ -399,7 +399,7 @@
 
 # --- ScoreSnapshot / SectorAggregateSnapshot (via ObservationSnapshot union) ---
 :normalizedScore a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :ObservationSnapshot ; rdfs:range xsd:decimal ;
-    rdfs:comment "[0.0, 1.0], 0=no risk, 1=critical risk on ScoreSnapshot; sector-aggregate reading on SectorAggregateSnapshot. Range enforced by SHACL. Optional (not required, not forbidden) on a FUNDAMENTAL ScoreSnapshot (ScoreFinanciero) since T-171/D17: upstream rewrites this value in place on every cycle that re-normalizes the filing, which would make an individual carrying it a mutable observation. The per-cycle value is read instead as :componentValue on the matching AttractivenessSnapshot's WeightComponent, scoped to its cycle_run." .
+    rdfs:comment "[0.0, 1.0], 0=no risk, 1=critical risk on ScoreSnapshot; sector-aggregate reading on SectorAggregateSnapshot. Range enforced by SHACL. Projected as 1 - x/100 from upstream's normalized_score (50 + 10*z, clamped to [0, 100]), so it is relative to the cohort, not an absolute risk level. Optional (not required, not forbidden) on a FUNDAMENTAL ScoreSnapshot (ScoreFinanciero) since T-171/D17: upstream rewrites this value in place on every cycle that re-normalizes the filing, which would make an individual carrying it a mutable observation. The per-cycle value is read instead as :componentValue on the matching AttractivenessSnapshot's WeightComponent, scoped to its cycle_run." .
 :rawValue    a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :ScoreSnapshot ; rdfs:range xsd:decimal ;
     rdfs:comment "Stable at the source, unlike normalizedScore for some metrics (D17). Carried for SectorRelativeMomentum, Sentiment, and FUNDAMENTAL (ScoreFinanciero, T-171); FUNDAMENTAL's bounds are not yet asserted here, pending upstream's answer (Q6)." .
 :metricType  a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :ObservationSnapshot ; rdfs:range xsd:string .
@@ -411,7 +411,7 @@
 :eventTime   a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :ScoreSnapshot ; rdfs:range xsd:date ;
     rdfs:comment "T-101 (D2): what the observation is ABOUT -- filing period-end (FUNDAMENTAL), cycle date (TECHNICAL, VALORIZATION -- formerly QUANTITATIVE, SECTOR), article day (SEMANTIC). Never used to filter as-of reads; see availableAt." .
 :availableAt a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :ScoreSnapshot ; rdfs:range xsd:date ;
-    rdfs:comment "T-101 (D2): first date the observation may be used by a reader (look-ahead guard; for FUNDAMENTAL, the first NYSE trading day after the filing date). Every as-of-D query MUST filter availableAt <= D, never eventTime or timestamp. Distinct from timestamp, which is when the row was computed/ingested." .
+    rdfs:comment "T-101 (D2): first date the observation may be used by a reader (look-ahead guard; for FUNDAMENTAL, the first NYSE trading day after the filing date; for TECHNICAL, VALORIZATION and SECTOR, the cycle date, as upstream's v_score_snapshot defines it). Read from upstream, never filled in here: a row without it is not projected. Every as-of-D query MUST filter availableAt <= D, never eventTime or timestamp. Distinct from timestamp, which is when the row was computed/ingested." .
 
 # T-106 (D7): upstream run provenance. No rdfs:domain on purpose (like :provenanceId): D7 says every upstream row carries run_id, and a domain would
 # entail :ScoreSnapshot on a :Veto/:PortfolioPosition, contradicting AllDisjointClasses. Per-class use is constrained by SHACL (ScoreSnapshot,

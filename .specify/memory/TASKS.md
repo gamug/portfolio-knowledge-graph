@@ -240,7 +240,7 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       and `v_rule_catalog.param_metric`. Read `unit` (`ratio` = fraction, `x` = multiple, `usd`)
       verbatim; `value` is never converted. `is_current` marks at most one row per key: a filing with
       no current row gets no observation. → step 3.
-- [ ] **T-153** Add `:promptHash` to `ScoreSnapshot` (SHACL: only when `agentOrigin` is FUNDAMENTAL)
+- [ ] **T-153** *(comment half done 2026-10-07 in PR #59: `:availableAt` and `:normalizedScore`; open: `:promptHash` and the forensic flags, which wait on upstream's T-144/T-074)* Add `:promptHash` to `ScoreSnapshot` (SHACL: only when `agentOrigin` is FUNDAMENTAL)
       and a multi-valued forensic-flag code (from `forensic_flags_json`, once upstream's T-074 fills
       it and documents the codes). Reverses D7's "extras rejected" for these two; `correction_rule`
       stays rejected. **Second reply:** `forensic_flags_json` is an object of four booleans
@@ -450,8 +450,8 @@ follow in dependency order (Work items 3 and 11 are closed, so Work item 4 is un
 Work item 12 (T-120–T-121): T-120 closed by T-150; T-121 is unblocked.
 Work item 13 (T-130–T-136): constitution rules in place (1.5.0); T-131 and T-132 done; next T-133, T-134 and T-136; T-130 closes with T-134.
 Work item 14 (T-140–T-142): T-140 done; T-141 needs a live GraphDB; T-142 is unblocked.
-Work item 15 (T-150–T-159, T-170–T-171): T-150 and T-170 done; T-155's schema half done (PR #58);
-T-151's rule, the shape corrections in T-153, T-171's `normalizedScore` drop and T-158's
+Work item 15 (T-150–T-159, T-170–T-171): T-150 and T-170 done; T-155's schema half done (PR #58); T-153's comment half (PR #59);
+T-151's rule, T-171's `normalizedScore` drop and T-158's
 ownership question (before their T-141) are unblocked; the rest of T-152–T-158 waits on upstream's
 T-144 (views), T-145 (ids), T-074 (flags) and, after their T-100, their T-082 and their Work item 4.
 Work item 16 (T-160–T-165): T-160 first (policy and tool); T-162's cohort-mean scope corrected
