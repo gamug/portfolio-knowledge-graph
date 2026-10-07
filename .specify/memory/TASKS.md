@@ -115,9 +115,9 @@ once T-131 lands.*
       `integration` marker and `addopts = "-m 'not integration'"`; `tests` added to
       `.code_quality/mypy.ini`'s `files`; a `conftest.py` for shared fixtures only (no `sys.path`
       edits). → Approach 2.
-- [ ] **T-132** *(`score_scale.py` half done 2026-10-06 in PR #56: `tests/test_score_scale.py`, every
-      case listed below for it, verified to fail on the pre-T-171 module; still open: the
-      `contract_check.py` half)* Tests for `src/projection/score_scale.py` (0, 50, 100, `None`, out of range, decimal
+- [x] **T-132** *(done 2026-10-07: `tests/test_score_scale.py` in PR #56, every case listed below
+      for it, verified to fail on the pre-T-171 module; `tests/test_contract_check.py` here, each
+      drift/note case checked to fail when its branch of `check` is broken)* Tests for `src/projection/score_scale.py` (0, 50, 100, `None`, out of range, decimal
       exactness, and `"FUNDAMENTAL"` raising `ValueError`, so T-171's removal can't silently
       regress) and `contract_check.py` against a synthetic miniature upstream (removed column, new
       unlisted view and view that did not build are drift; added or reordered columns are notes),
@@ -446,7 +446,7 @@ Closed Work items 1, 2, 3, 5, 7 (superseded/decided by T-007), 9, 10 and 11 are 
 Work items 4 and 6 (T-030–T-035, T-050–T-053)
 follow in dependency order (Work items 3 and 11 are closed, so Work item 4 is unblocked).
 Work item 12 (T-120–T-121): T-120 closed by T-150; T-121 is unblocked.
-Work item 13 (T-130–T-136): constitution rules in place (1.5.0); T-131 done (PR #56) and T-132's `score_scale.py` half; next the rest of T-132, T-133, T-134 and T-136; T-130 closes with T-134.
+Work item 13 (T-130–T-136): constitution rules in place (1.5.0); T-131 and T-132 done; next T-133, T-134 and T-136; T-130 closes with T-134.
 Work item 14 (T-140–T-142): T-140 done; T-141 needs a live GraphDB; T-142 is unblocked.
 Work item 15 (T-150–T-159, T-170–T-171): T-150 and T-170 done; T-151's rule, T-155's formula
 removal, the shape corrections in T-153/T-155, T-171's `normalizedScore` drop and T-158's
