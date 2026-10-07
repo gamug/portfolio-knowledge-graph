@@ -433,8 +433,8 @@ to Q6). SECTOR (= `SectorRelativeMomentum`, D6) and
 SEMANTIC (= `Sentiment`, FR-005) carry no `normalizedScore` and compare on a `rawValue`. The
 shape bounds SECTOR's to [-100, 100] (T-140, widened by T-155: upstream's "own TECHNICAL raw
 minus sector mean", in TECHNICAL points, read verbatim, D6) and SEMANTIC's to [-1, 1] (T-081),
-so only SEMANTIC's values need mapping into range (T-031); its 0–100 `normalized_score` is
-an optional `normalizedScore` for SECTOR, rescaled by T-031 like the other lanes.
+so only SEMANTIC's values need mapping into range (T-031); SECTOR's 0–100 `normalized_score`
+is an optional `normalizedScore`, rescaled by T-031 like the other lanes.
 `ScoreSnapshotShape` changes only as T-171 and T-155 describe (`schema/README.md` refinement 2); `WeightComponent.inverted` is untouched (its remaining purpose is T-121's).
 
 ## 3. Technology Stack & Architecture Decisions
