@@ -461,7 +461,8 @@ See `PLAN.md` Work item 16.*
       behaviour of the policy T-160 selected: an aggregate failure, a quarantine under the cap, a stop
       above it (the default cap of 0 included), and the group cascade (a failing component takes its
       ranking row; a failing scheme takes its components and that run's rankings; each cascaded row
-      counted against its own view's cap), under Work item 13's
+      counted against its own view's cap; a late row's key persisted by one run and re-read, then
+      dropped once written, by the next), under Work item 13's
       structure (T-131, landed in PR #56). → step 4.
 - [ ] **T-165** Verify and document: `SPEC.md` §13 item 10 (today the pin and the drift check) gains
       what is checked at the boundary and what is not, including that polarity is not detectable;

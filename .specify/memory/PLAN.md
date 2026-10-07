@@ -868,8 +868,9 @@ since a polarity change leaves the column set untouched.
    Work item 15).
 3. Run them on the read path, source check first, so T-031's first real projection already goes
    through them (T-163).
-4. Test the selected policy (the cap, a stop on exceeding it, the group cascade) and every check kind
-   with synthetic rows under Work item 13's structure (T-164).
+4. Test the selected policy (the cap, a stop on exceeding it, the group cascade, a late row's key
+   persisted and re-read) and every check kind with synthetic rows under Work item 13's structure
+   (T-164).
 
 **Decided (T-160, 2026-10-07): plain checks, no library.** Rows reach this repo as
 `portfolio_common.db` row objects, not frames, and a frame library (pandera, Great Expectations,
@@ -919,8 +920,9 @@ re-declare an individual already in the store):
   honest record of when it arrived. **Re-read mechanism:** T-163's report persists the keys of its late
   rows, and the next run (T-031) re-reads those keys along with its own rows, dropping a key from the
   list once its row is written. Until T-031 implements that, a late row is reported as lost.
-- **Graphs dated by the data**, and **every graph not listed above**: `urn:graph:ingest:ORCHESTRATOR:{date}`
-  (keyed by the scheme's `cycleDate`, T-121), `urn:graph:ingest:FUNDAMENTAL:{year}-Q{n}`,
+- **Graphs dated by the data**, and **every graph not listed above**:
+  `urn:graph:ingest:ORCHESTRATOR:{date}` (keyed by the scheme's `cycleDate`, T-121),
+  `urn:graph:ingest:FUNDAMENTAL:{year}-Q{n}`,
   `urn:graph:universe:{year}-Q{n}`, `urn:graph:ingest:EDGAR:{date-or-quarter}` (`v_sec_filing`),
   `urn:graph:derived:quant:{date}` (`v_quant_*`, the book's `as_of`) and
   `urn:graph:derived:entity-resolution:{date}` (`v_shared_executive_edge`). A quarantined row is
