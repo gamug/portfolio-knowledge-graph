@@ -407,7 +407,7 @@ def test_a_fundamental_row_and_any_other_view_is_lost(tmp_path: Path) -> None:
     )
     assert [f.key for f in result.report.lost] == [(1,)]
     assert result.report.late == []
-    assert json.loads(path.read_text()) == {}
+    assert not path.exists()  # nothing late, so no file is created
     other = validate(
         {"v_weight_scheme": [full(1, top_n=0)]},
         {"v_weight_scheme": lenient({"ranges": [{"column": "top_n", "min": 1}]})},
@@ -440,7 +440,7 @@ def test_a_keyless_view_never_persists_a_row_index(tmp_path: Path) -> None:
     )
     assert result.report.late == []
     assert len(result.report.lost) == 1
-    assert json.loads(path.read_text()) == {}
+    assert not path.exists()  # nothing late, so no file is created
 
 
 def test_every_ingestion_dated_view_has_a_natural_key(shipped: dict[str, ViewExpectation]) -> None:
@@ -601,3 +601,22 @@ def test_a_utc_timestamp_needs_the_t_separator() -> None:
     ]
     result = validate({"v_weight_scheme": rows}, {"v_weight_scheme": exp})
     assert [r["cycle_run_id"] for r in result.rows["v_weight_scheme"]] == [2]
+
+
+def test_a_malformed_key_file_fails_before_any_check_runs(tmp_path: Path) -> None:
+    """The row count would fail too; the key file is read first, so its error comes first."""
+    path = tmp_path / "late.json"
+    path.write_text("not json")
+    exp = view(row_count={"min": 5})
+    with pytest.raises(ValueError, match="the late-key file is not JSON"):
+        validate({"v_weight_scheme": [full(1)]}, {"v_weight_scheme": exp}, late_keys_path=path)
+
+
+def test_no_key_file_is_created_when_there_is_nothing_to_keep(tmp_path: Path) -> None:
+    path = tmp_path / "late.json"
+    validate(
+        {"v_score_snapshot": [snapshot(1)]},
+        {"v_score_snapshot": snapshot_view()},
+        late_keys_path=path,
+    )
+    assert not path.exists()

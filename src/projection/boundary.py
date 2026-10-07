@@ -499,6 +499,8 @@ def validate(
         _stop(report, "the source database fails its check")
 
     _check_inputs(rows, expectations)
+    # Read the key file before the checks, so a malformed one fails fast, not after a full pass.
+    stored = load_late_keys(late_keys_path) if late_keys_path is not None else {}
 
     views: dict[str, _View] = {}
     for name, exp in sorted(expectations.items()):
@@ -528,7 +530,7 @@ def validate(
         for name, view in views.items()
     }
     if late_keys_path is not None:
-        _persist_late(report, views, late_keys_path)
+        _persist_late(report, views, stored, late_keys_path)
     return BoundaryResult(kept, report)
 
 
@@ -662,27 +664,46 @@ def load_late_keys(path: Path) -> LateKeys:
 
 
 def _write_late_keys(path: Path, data: LateKeys) -> None:
-    """Replace the file atomically and durably: a crash leaves the old file, never a truncated one."""
+    """Replace the file atomically and durably: a crash leaves the old file, never a truncated one.
+
+    With nothing to keep and no file yet, nothing is created.
+    """
     out = {
         view: {"columns": entry["columns"], "keys": sorted(entry["keys"], key=_json_key)}
         for view, entry in data.items()
         if entry["keys"]
     }
+    if not out and not path.exists():
+        return
     tmp = path.with_name(f".{path.name}.tmp")
     with tmp.open("w") as handle:
         handle.write(json.dumps(out, indent=2, sort_keys=True) + "\n")
         handle.flush()
         os.fsync(handle.fileno())  # on disk before the rename, so a power loss cannot empty it
     os.replace(tmp, path)
+    _fsync_dir(path.parent)
 
 
-def _persist_late(report: BoundaryReport, views: Mapping[str, _View], path: Path) -> None:
+def _fsync_dir(directory: Path) -> None:
+    """Make the rename itself durable; a no-op where directories cannot be opened (Windows)."""
+    try:
+        fd = os.open(directory, os.O_RDONLY)
+    except OSError:
+        return
+    try:
+        os.fsync(fd)
+    finally:
+        os.close(fd)
+
+
+def _persist_late(
+    report: BoundaryReport, views: Mapping[str, _View], data: LateKeys, path: Path
+) -> None:
     """Add this run's late keys to ``path``; never remove one (:func:`mark_written` does that).
 
     A view whose key columns changed since its keys were stored cannot match them again: those
     keys are dropped and listed in ``report.stale_late_keys``.
     """
-    data = load_late_keys(path)
     for view, entry in list(data.items()):
         current = views[view].row_key if view in views else None
         if current is not None and list(current) != entry["columns"]:

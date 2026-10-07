@@ -5,7 +5,7 @@ reads them (``PLAN.md`` Work item 16, decided in ``SPEC.md`` §13 item 10): type
 ranges, formats, natural keys, row count, the D2 ordered pair, group means and the view's
 quarantine cap. ``view_expectations/_source.json`` holds the one aggregate check on the database
 itself. This module only parses and validates those files, strictly, so a typo fails at load and
-not on the first real run. Running them over rows is T-163's job.
+not on the first real run. :mod:`projection.boundary` runs them over the rows (T-163).
 
 Column names are checked against :data:`projection.view_contract.VIEW_COLUMNS`, so the column list
 is not repeated here. A column or a whole view upstream has not shipped yet is declared under
