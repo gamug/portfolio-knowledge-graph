@@ -1,11 +1,15 @@
 """``projection.boundary``: the expectations run over synthetic rows (T-163, ``PLAN.md`` Work item 16).
 
-T-164 widens this to a passing and a failing case per check kind; here each behaviour T-163 names
-(source first, stop, quarantine, cascade, late or lost, skipped by design, pending) has one test.
+Each behaviour T-163 names (source first, stop, quarantine, cascade, late or lost, skipped by design,
+pending) has one test. T-164 adds a passing and a failing case for every view check kind
+(``test_a_view_check_kind_passes_good_rows_and_reports_bad_ones``, which also says whether the
+failure stops the run or quarantines the row), the shipped look-ahead boundaries, and a guard that
+ties the cases to the runner's ``CHECK_KINDS``; the source kinds' cases are the two source-check tests.
 """
 
 from __future__ import annotations
 
+import dataclasses
 import json
 import sqlite3
 from pathlib import Path
@@ -14,9 +18,15 @@ from typing import Any
 import pytest
 
 from projection.boundary import (
+    CASCADE,
+    CHECK_KINDS,
+    FORENSIC_FLAGS,
     INGESTION_DATED,
+    SOURCE_CHECKS,
+    VIEW_CHECKS,
     BoundaryError,
     BoundaryReport,
+    Failure,
     check_source,
     load_late_keys,
     mark_written,
@@ -93,6 +103,8 @@ def test_source_check_names_a_stale_schema_and_a_replay_run() -> None:
         ("source", "schema_version"),
         ("v_cycle_run", "forbidden_cycle_type"),
     ]
+    # every source kind fails here and passes in the test above
+    assert {f.check for f in failures} == SOURCE_CHECKS
     assert "2 run(s) of type REPLAY" in failures[1].detail
 
 
@@ -336,13 +348,87 @@ def test_a_failing_component_takes_its_scheme_and_that_runs_rankings(
     assert [r["cycle_run_id"] for r in result.rows["v_weight_scheme"]] == [2]
     assert [r["cycle_run_id"] for r in result.rows["v_weight_component"]] == [2]
     assert [r["cycle_run_id"] for r in result.rows["v_cycle_ranking"]] == [2]
-    cascaded = [f for f in result.report.quarantined if f.check == "cascade"]
+    cascaded = [f for f in result.report.quarantined if f.check == CASCADE]
+    assert cascaded, "the cascade kind has its failing case here"
     assert {f.view for f in cascaded} == {
         "v_weight_scheme",
         "v_cycle_ranking",
         "v_weight_component",
     }
-    assert all(f.cascaded_from for f in cascaded)
+    # every taken row names the component that failed, and a second hop names the row it went with
+    root = "v_weight_component (1, 'SECTOR')"
+    assert {(f.view, f.key, f.cascaded_from, f.detail) for f in cascaded} == {
+        ("v_weight_scheme", (0,), root, "shares cycle_run_id (1,) with the failing row"),
+        (
+            "v_cycle_ranking",
+            (0,),
+            root,
+            "shares cycle_run_id (1,) with v_weight_scheme (0,)",
+        ),
+        (
+            "v_weight_component",
+            (1, "TECHNICAL"),
+            root,
+            "shares cycle_run_id (1,) with v_weight_scheme (0,)",
+        ),
+    }
+    # the rendered report says each hop once: who it went with, and where the cascade started
+    rendered = {str(f) for f in cascaded}
+    assert (
+        "v_weight_scheme row (0,): cascade: shares cycle_run_id (1,) with the failing row "
+        f"(cascade started by {root})"
+    ) in rendered
+    assert (
+        "v_cycle_ranking row (0,): cascade: shares cycle_run_id (1,) with v_weight_scheme (0,) "
+        f"(cascade started by {root})"
+    ) in rendered
+
+
+def test_a_keyless_failing_row_is_named_by_its_index_in_the_cascade() -> None:
+    schemes = parse_view_expectation(
+        "v_weight_scheme",
+        {
+            "view": "v_weight_scheme",
+            "cap": 1,
+            "cap_reason": "test",
+            "ranges": [{"column": "top_n", "min": 1}],
+        },
+    )
+    rankings = parse_view_expectation(
+        "v_cycle_ranking", {"view": "v_cycle_ranking", "cap": 1, "cap_reason": "test"}
+    )
+    rows = {
+        "v_weight_scheme": [full(1), full(2, top_n=0)],
+        "v_cycle_ranking": [{"cycle_run_id": 2, "asset_id": 1}],
+    }
+    result = validate(rows, {"v_weight_scheme": schemes, "v_cycle_ranking": rankings})
+    [taken] = [f for f in result.report.quarantined if f.check == CASCADE]
+    assert taken.cascaded_from == "v_weight_scheme (1,)"  # its index, never an empty key
+
+
+def test_a_row_two_failing_rows_reach_names_one_and_both_are_reported() -> None:
+    components = parse_view_expectation(
+        "v_weight_component",
+        {
+            "view": "v_weight_component",
+            "cap": 1,
+            "cap_reason": "test",
+            "keys": [["cycle_run_id", "score_type"]],
+            "ranges": [{"column": "weight", "min": 0, "max": 1}],
+        },
+    )
+    rows = {
+        "v_weight_scheme": [full(1)],
+        "v_weight_component": [
+            {"cycle_run_id": 1, "score_type": "SECTOR", "weight": 7.0},
+            {"cycle_run_id": 1, "score_type": "TECHNICAL", "weight": -1.0},
+        ],
+    }
+    result = validate(rows, {"v_weight_scheme": lenient({}), "v_weight_component": components})
+    roots = {"v_weight_component (1, 'SECTOR')", "v_weight_component (1, 'TECHNICAL')"}
+    [scheme_row] = [f for f in result.report.quarantined if f.view == "v_weight_scheme"]
+    assert scheme_row.cascaded_from in roots
+    assert {f"{f.view} {f.key}" for f in result.report.quarantined if f.check == "range"} == roots
 
 
 def test_each_cascaded_row_counts_against_its_own_views_cap() -> None:
@@ -363,6 +449,112 @@ def test_each_cascaded_row_counts_against_its_own_views_cap() -> None:
     with pytest.raises(BoundaryError) as stop:
         validate(rows, {"v_weight_scheme": schemes, "v_weight_component": components})
     assert [r.split(":")[0] for r in stop.value.report.stop_reasons] == ["v_weight_scheme"]
+
+
+def _read_components(shipped: dict[str, ViewExpectation], **over: Any) -> ViewExpectation:
+    """``v_cycle_ranking_component`` as if upstream's T-144 had shipped it: ``pending`` lifted by
+    ``dataclasses.replace`` (the loader would refuse it), the rest of the shipped file kept."""
+    return dataclasses.replace(
+        shipped["v_cycle_ranking_component"], pending=None, pending_columns={}, **over
+    )
+
+
+def ranking(run: int, asset: int, **over: Any) -> dict[str, Any]:
+    return {
+        "cycle_run_id": run,
+        "asset_id": asset,
+        "rank": asset,
+        "blended_score": 60.0,
+        "target_weight": 0.1,
+    } | over
+
+
+def component(run: int, asset: int, score_type: str, value: float) -> dict[str, Any]:
+    return {
+        "cycle_run_id": run,
+        "asset_id": asset,
+        "score_type": score_type,
+        "component_value": value,
+    }
+
+
+def _ranking_rows() -> dict[str, list[dict[str, Any]]]:
+    return {
+        "v_cycle_ranking": [ranking(1, 1), ranking(1, 2)],
+        "v_cycle_ranking_component": [
+            component(1, 1, "TECHNICAL", 50.0),
+            component(1, 1, "SEMANTIC", 50.0),
+            component(1, 2, "TECHNICAL", 50.0),
+            component(1, 2, "SEMANTIC", 50.0),
+        ],
+    }
+
+
+def test_a_failing_ranking_component_takes_its_ranking_row(
+    shipped: dict[str, ViewExpectation],
+) -> None:
+    rows = _ranking_rows()
+    rows["v_cycle_ranking_component"][1]["component_value"] = 150.0  # asset 1, outside [0, 100]
+    exps = {
+        "v_cycle_ranking": dataclasses.replace(
+            shipped["v_cycle_ranking"], cap=1.0, cap_reason="test"
+        ),
+        "v_cycle_ranking_component": _read_components(shipped, cap=1.0, cap_reason="test"),
+    }
+    result = validate(rows, exps)
+    assert [r["asset_id"] for r in result.rows["v_cycle_ranking"]] == [2]
+    assert [r["asset_id"] for r in result.rows["v_cycle_ranking_component"]] == [2, 2]
+    taken = [f for f in result.report.quarantined if f.check == CASCADE]
+    root = "v_cycle_ranking_component (1,)"  # the failing component, keyless: named by its index
+    assert {(f.view, f.key, f.cascaded_from) for f in taken} == {
+        ("v_cycle_ranking", (1, 1), root),
+        ("v_cycle_ranking_component", (0,), root),  # the sibling, taken through the ranking row
+    }
+    [sibling] = [f for f in taken if f.view == "v_cycle_ranking_component"]
+    assert sibling.detail == "shares cycle_run_id, asset_id (1, 1) with v_cycle_ranking (1, 1)"
+    assert str(sibling).endswith(f"(cascade started by {root})")
+
+    # the ranking row it took counts against v_cycle_ranking's own cap
+    exps["v_cycle_ranking"] = shipped["v_cycle_ranking"]
+    with pytest.raises(BoundaryError) as stop:
+        validate(rows, exps)
+    [reason] = stop.value.report.stop_reasons
+    assert reason.startswith("v_cycle_ranking: 1/2 rows quarantined, over the cap")
+
+
+def test_a_failing_ranking_row_takes_its_components(
+    shipped: dict[str, ViewExpectation],
+) -> None:
+    rows = _ranking_rows()
+    rows["v_cycle_ranking"][0]["rank"] = 0  # asset 1, below the minimum rank
+    exps = {
+        "v_cycle_ranking": dataclasses.replace(
+            shipped["v_cycle_ranking"], cap=1.0, cap_reason="test"
+        ),
+        "v_cycle_ranking_component": _read_components(shipped, cap=1.0, cap_reason="test"),
+    }
+    result = validate(rows, exps)
+    assert [r["asset_id"] for r in result.rows["v_cycle_ranking"]] == [2]
+    assert [r["asset_id"] for r in result.rows["v_cycle_ranking_component"]] == [2, 2]
+    assert [(f.view, f.check, f.cascaded_from) for f in result.report.quarantined] == [
+        ("v_cycle_ranking", "range", None)
+    ] + [("v_cycle_ranking_component", CASCADE, "v_cycle_ranking (1, 1)")] * 2
+
+
+def test_the_shipped_component_group_mean_holds_each_runs_lane_near_50(
+    shipped: dict[str, ViewExpectation],
+) -> None:
+    """PLAN's second grouping: FUNDAMENTAL over ``component_value`` by run and lane (D17)."""
+    exps = {"v_cycle_ranking_component": _read_components(shipped)}
+    near = [component(1, 1, "FUNDAMENTAL", 46.0), component(1, 2, "FUNDAMENTAL", 53.0)]
+    result = validate({"v_cycle_ranking_component": near}, exps)
+    assert len(result.rows["v_cycle_ranking_component"]) == 2
+
+    drifted = [component(1, 1, "FUNDAMENTAL", 80.0), component(1, 2, "FUNDAMENTAL", 90.0)]
+    with pytest.raises(BoundaryError) as stop:
+        validate({"v_cycle_ranking_component": drifted}, exps)
+    [failure] = stop.value.report.aggregate_failures
+    assert (failure.check, failure.group) == ("group_mean", (1, "FUNDAMENTAL"))
 
 
 # --- late or lost -------------------------------------------------------------------------------
@@ -450,6 +642,33 @@ def test_every_ingestion_dated_view_has_a_natural_key(shipped: dict[str, ViewExp
 
 def stored(*keys: int, columns: tuple[str, ...] = ("id",)) -> dict[str, Any]:
     return {"v_score_snapshot": {"columns": list(columns), "keys": [[k] for k in keys]}}
+
+
+def test_a_late_key_persisted_by_one_run_is_re_read_and_dropped_once_written_by_the_next(
+    tmp_path: Path,
+) -> None:
+    """The runner's half of the round trip (T-164); T-031 tests it on the real read."""
+    path = tmp_path / "late.json"
+    view_exp = {"v_score_snapshot": snapshot_view()}
+
+    first = validate(
+        {"v_score_snapshot": [snapshot(1), snapshot(2, "VALORIZATION", normalized_score=101.0)]},
+        view_exp,
+        late_keys_path=path,
+    )
+    assert [f.key for f in first.report.late] == [(2,)]
+
+    # the next run reads the file run 1 wrote and merges the fixed row into its read by key
+    late = load_late_keys(path)["v_score_snapshot"]
+    assert late == {"columns": ["id"], "keys": [[2]]}
+    read = [snapshot(3, "VALORIZATION")] + [snapshot(k, "VALORIZATION") for [k] in late["keys"]]
+    second = validate({"v_score_snapshot": read}, view_exp, late_keys_path=path)
+    assert [r["id"] for r in second.rows["v_score_snapshot"]] == [3, 2]
+    assert second.report.quarantined == []
+    assert load_late_keys(path) == stored(2)  # passed, not written yet
+
+    mark_written(path, "v_score_snapshot", [(r["id"],) for r in second.rows["v_score_snapshot"]])
+    assert load_late_keys(path) == {}
 
 
 def test_validate_only_adds_late_keys_and_mark_written_removes_them(tmp_path: Path) -> None:
@@ -620,3 +839,244 @@ def test_no_key_file_is_created_when_there_is_nothing_to_keep(tmp_path: Path) ->
         late_keys_path=path,
     )
     assert not path.exists()
+
+
+# --- one passing and one failing case per check kind (T-164) ----------------------------------
+
+Rows = list[dict[str, Any]]
+
+# (kind, expectation fields, rows that pass, rows that fail, whether the failure stops the run)
+_KINDS: list[tuple[str, dict[str, Any], Rows, Rows, bool]] = [
+    (
+        "missing_column",
+        {"types": {"top_n": "integer"}},
+        [full(1)],
+        [{"cycle_run_id": 1}],
+        True,
+    ),
+    ("row_count", {"row_count": {"min": 2}}, [full(1), full(2)], [full(1)], True),
+    (
+        "null_rate",
+        {"null_rate": [{"column": "top_n", "max": 0.5}]},
+        [full(1), full(2, top_n=None)],
+        [full(1, top_n=None), full(2, top_n=None)],
+        True,
+    ),
+    (
+        "type",
+        {"types": {"top_n": "integer"}},
+        [full(1)],
+        [full(1, top_n="ten")],
+        False,
+    ),
+    (
+        "range",
+        {"ranges": [{"column": "top_n", "min": 1, "max": 20}]},
+        [full(1, top_n=1), full(2, top_n=20)],
+        [full(1, top_n=0), full(2, top_n=21)],
+        False,
+    ),
+    (
+        "format",
+        {"formats": {"cycle_date": "utc_timestamp"}},
+        [full(1, cycle_date="2026-10-01T06:00:00Z")],
+        [full(1, cycle_date="2026-10-01 06:00:00")],
+        False,
+    ),
+    ("unique", {}, [full(1), full(2)], [full(1), full(1)], False),
+    (
+        "ordered_pair",
+        {"ordered_pairs": [{"left": "cycle_date", "op": "<=", "right": "weights_json"}]},
+        [full(1, cycle_date="2026-10-01", weights_json="2026-10-02")],
+        [full(1, cycle_date="2026-10-03", weights_json="2026-10-02")],
+        False,
+    ),
+    (
+        "group_mean",
+        {
+            "group_means": [
+                {
+                    "column": "top_n",
+                    "group_by": ["cycle_type"],
+                    "target": 10,
+                    "tolerance": 1,
+                }
+            ]
+        },
+        [full(1, top_n=10), full(2, top_n=11)],
+        [full(1, top_n=30), full(2, top_n=31)],
+        True,
+    ),
+]
+
+
+@pytest.mark.parametrize(
+    ("kind", "fields", "good", "bad", "stops"), _KINDS, ids=[k[0] for k in _KINDS]
+)
+def test_a_view_check_kind_passes_good_rows_and_reports_bad_ones(
+    kind: str,
+    fields: dict[str, Any],
+    good: Rows,
+    bad: Rows,
+    stops: bool,
+) -> None:
+    exp = lenient(fields)
+    clean = validate({"v_weight_scheme": good}, {"v_weight_scheme": exp})
+    assert clean.report.quarantined == [] and clean.report.aggregate_failures == []
+    assert len(clean.rows["v_weight_scheme"]) == len(good)
+
+    if stops:
+        with pytest.raises(BoundaryError) as stop:
+            validate({"v_weight_scheme": bad}, {"v_weight_scheme": exp})
+        assert {f.check for f in stop.value.report.aggregate_failures} == {kind}
+        assert stop.value.report.quarantined == []
+    else:
+        result = validate({"v_weight_scheme": bad}, {"v_weight_scheme": exp})
+        assert {f.check for f in result.report.quarantined} == {kind}
+        assert result.report.aggregate_failures == []
+        assert result.rows["v_weight_scheme"] == []
+
+
+def test_every_check_kind_the_runner_can_report_has_its_cases() -> None:
+    """``Failure`` refuses a kind outside ``CHECK_KINDS``, so a new kind lands there. A view kind
+    fails here until it has a row in ``_KINDS``; a source kind fails the source-check test above
+    until that test triggers it; ``CASCADE`` is asserted by the cascade test."""
+    assert {k[0] for k in _KINDS} == VIEW_CHECKS
+    assert {CASCADE} == CHECK_KINDS - VIEW_CHECKS - SOURCE_CHECKS  # fails if edited outside a group
+
+
+def test_a_failure_of_an_unknown_kind_is_refused() -> None:
+    with pytest.raises(TypeError, match="unknown check kind 'monotonic'"):
+        Failure("v_weight_scheme", "monotonic", None, "a kind with no test")
+
+
+# --- the type kinds -----------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("kind", "good", "bad"),
+    [
+        ("integer", 3, [True, 3.0, "3"]),
+        ("number", 3.5, [True, float("nan"), float("inf"), "3.5"]),
+        ("string", "x", [3, True]),
+    ],
+)
+def test_each_type_kind_passes_its_values_and_quarantines_the_rest(
+    kind: str, good: object, bad: list[object]
+) -> None:
+    exp = lenient({"types": {"top_n": kind}})
+    rows = [full(1, top_n=good), full(2, top_n=None)] + [
+        full(3 + i, top_n=value) for i, value in enumerate(bad)
+    ]
+    result = validate({"v_weight_scheme": rows}, {"v_weight_scheme": exp})
+    assert [r["cycle_run_id"] for r in result.rows["v_weight_scheme"]] == [
+        1,
+        2,
+    ]  # NULL is not a type
+    assert {f.check for f in result.report.quarantined} == {"type"}
+    assert len(result.report.quarantined) == len(bad)
+
+
+# --- range and group mean filtered by ``where`` -----------------------------------------------
+
+
+def test_a_range_applies_only_to_the_rows_its_where_selects() -> None:
+    exp = lenient(
+        {"ranges": [{"column": "top_n", "max": 20, "where": {"cycle_type": ["SELECTION"]}}]}
+    )
+    rows = [full(1, top_n=50, cycle_type="MONITORING"), full(2, top_n=50)]
+    result = validate({"v_weight_scheme": rows}, {"v_weight_scheme": exp})
+    assert [r["cycle_run_id"] for r in result.rows["v_weight_scheme"]] == [1]
+    assert [(f.check, f.key) for f in result.report.quarantined] == [("range", (2,))]
+
+
+def test_a_group_mean_reads_only_the_rows_its_where_selects() -> None:
+    rule = {"column": "top_n", "group_by": ["scheme_id"], "target": 10, "tolerance": 1}
+    exp = lenient({"group_means": [rule | {"where": {"cycle_type": ["SELECTION"]}}]})
+    rows = [full(1, top_n=10), full(2, top_n=90, cycle_type="MONITORING")]
+    assert (
+        len(validate({"v_weight_scheme": rows}, {"v_weight_scheme": exp}).rows["v_weight_scheme"])
+        == 2
+    )
+    with pytest.raises(BoundaryError):
+        validate({"v_weight_scheme": rows}, {"v_weight_scheme": lenient({"group_means": [rule]})})
+
+
+# --- the forensic-flags format (T-153) ---------------------------------------------------------
+
+
+def _flags(**over: object) -> str:
+    return json.dumps(dict.fromkeys(sorted(FORENSIC_FLAGS), False) | over)
+
+
+def test_the_forensic_flags_format_passes_null_and_the_four_booleans() -> None:
+    exp = lenient({"formats": {"scheme_id": "forensic_flags"}})
+    rows = [
+        full(1, scheme_id=_flags()),
+        full(2, scheme_id=dict.fromkeys(FORENSIC_FLAGS, True)),  # an object, not only its JSON
+        full(3, scheme_id=None),  # NULL on every row today, by design
+    ]
+    result = validate({"v_weight_scheme": rows}, {"v_weight_scheme": exp})
+    assert len(result.rows["v_weight_scheme"]) == 3
+    assert result.report.quarantined == []
+
+
+def test_the_forensic_flags_format_fails_an_extra_or_missing_key_or_a_non_boolean() -> None:
+    exp = lenient({"formats": {"scheme_id": "forensic_flags"}})
+    missing = json.dumps(dict.fromkeys(sorted(FORENSIC_FLAGS)[1:], False))
+    rows = [
+        full(1, scheme_id=_flags(extra=True)),
+        full(2, scheme_id=missing),
+        full(3, scheme_id=_flags(data_error_suspected=1)),
+        full(4, scheme_id="not json"),
+    ]
+    result = validate({"v_weight_scheme": rows}, {"v_weight_scheme": exp})
+    assert result.rows["v_weight_scheme"] == []
+    assert [(f.check, f.key) for f in result.report.quarantined] == [
+        ("format", (i,)) for i in range(1, 5)
+    ]
+
+
+# --- the shipped D2 look-ahead boundaries -----------------------------------------------------
+
+
+def _lenient_scores(shipped: dict[str, ViewExpectation]) -> dict[str, ViewExpectation]:
+    # ``dataclasses.replace`` skips the loader's checks; fine to look at each quarantined row in a
+    # test, never on the read path, where a cap comes from its JSON file with its reason.
+    exp = dataclasses.replace(shipped["v_score_snapshot"], cap=1.0, cap_reason="test")
+    return {"v_score_snapshot": exp}
+
+
+def test_a_fundamental_row_needs_available_at_strictly_after_its_event(
+    shipped: dict[str, ViewExpectation],
+) -> None:
+    rows = [
+        snapshot(1, "FUNDAMENTAL", available_at="2026-10-02"),  # after: passes
+        snapshot(2, "FUNDAMENTAL"),  # same day: fails, the rule is strict
+        snapshot(3, "FUNDAMENTAL", available_at=None),  # NULL on a "fail" pair: fails
+        snapshot(4, "FUNDAMENTAL", available_at="the next day"),  # not a date: fails
+    ]
+    result = validate({"v_score_snapshot": rows}, _lenient_scores(shipped))
+    assert [r["id"] for r in result.rows["v_score_snapshot"]] == [1]
+    failures = result.report.quarantined
+    assert [(f.check, f.key) for f in failures] == [("ordered_pair", (i,)) for i in (2, 3, 4)]
+    assert "does not hold" in failures[0].detail
+    assert "is NULL" in failures[1].detail
+    assert "cannot read" in failures[2].detail
+    assert result.report.skipped_by_design == {}
+
+
+def test_a_cycle_lane_row_needs_available_at_equal_to_its_event(
+    shipped: dict[str, ViewExpectation],
+) -> None:
+    rows = [
+        snapshot(1),  # equal: passes
+        snapshot(2, available_at="2026-10-02"),  # later: fails
+        snapshot(3, available_at="2026-09-30"),  # earlier: fails
+    ]
+    result = validate({"v_score_snapshot": rows}, _lenient_scores(shipped))
+    assert [r["id"] for r in result.rows["v_score_snapshot"]] == [1]
+    assert [(f.check, f.key) for f in result.report.quarantined] == [
+        ("ordered_pair", (2,)),
+        ("ordered_pair", (3,)),
+    ]

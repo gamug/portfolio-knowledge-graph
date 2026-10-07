@@ -81,6 +81,27 @@ FORENSIC_FLAGS = frozenset(
 )
 
 
+# Every ``Failure.check`` the runner may write. A new kind is added here (``Failure`` refuses any
+# other name) and gets its passing and failing case in ``tests/test_boundary.py`` (T-164).
+SOURCE_CHECKS = frozenset({"schema_version", "forbidden_cycle_type"})
+VIEW_CHECKS = frozenset(
+    {
+        "missing_column",
+        "row_count",
+        "null_rate",
+        "type",
+        "range",
+        "format",
+        "unique",
+        "ordered_pair",
+        "group_mean",
+    }
+)
+# Not a check: the row was taken in the cascade a failing row of its group started.
+CASCADE = "cascade"
+CHECK_KINDS = SOURCE_CHECKS | VIEW_CHECKS | {CASCADE}  # add a kind to a group, never here
+
+
 class Source(Protocol):
     """What :func:`check_source` needs of ``portfolio_common.db.Database``."""
 
@@ -101,14 +122,24 @@ class Failure:
     detail: str
     key: Key | None = None
     group: Key | None = None
-    cascaded_from: str | None = None  # the row that took this one, when it did not fail itself
+    # The failing row that started the cascade this row was taken in; None if the row failed itself.
+    # On a later hop it is not the row this one was taken with: ``detail`` names that one.
+    cascaded_from: str | None = None
 
     def __str__(self) -> str:
         where = f"{self.view}.{self.column}" if self.column else self.view
         scope = f" row {self.key}" if self.key is not None else ""
         scope += f" group {self.group}" if self.group is not None else ""
-        cause = f" (taken with {self.cascaded_from})" if self.cascaded_from else ""
+        cause = f" (cascade started by {self.cascaded_from})" if self.cascaded_from else ""
         return f"{where}{scope}: {self.check}: {self.detail}{cause}"
+
+    def __post_init__(self) -> None:
+        # A TypeError, not the ValueError ``validate`` raises for a caller's bad input: an unknown
+        # kind is a bug in the runner.
+        if self.check not in CHECK_KINDS:
+            raise TypeError(
+                f"unknown check kind {self.check!r}: add it to CHECK_KINDS with its test"
+            )
 
 
 @dataclass
@@ -286,9 +317,14 @@ class _View:
     def _agg(self, check: str, column: str | None, detail: str, group: Key | None = None) -> None:
         self.aggregate.append(Failure(self.exp.view, check, column, detail, group=group))
 
+    def key_of(self, index: int) -> Key:
+        """The row's natural key, or its index in the read for a view that declares none."""
+        return _key(self.rows[index], self.row_key) if self.row_key else (index,)
+
     def _row(self, index: int, check: str, column: str | None, detail: str) -> None:
-        key = _key(self.rows[index], self.row_key) if self.row_key else (index,)
-        self.by_row[index].append(Failure(self.exp.view, check, column, detail, key=key))
+        self.by_row[index].append(
+            Failure(self.exp.view, check, column, detail, key=self.key_of(index))
+        )
 
     def run(self) -> None:
         self._missing_columns()
@@ -559,14 +595,22 @@ def _stop(report: BoundaryReport, why: str) -> NoReturn:
 
 
 def _cascade(views: Mapping[str, _View]) -> dict[str, set[int]]:
-    """Row indexes to drop per view: the failing rows plus everything they take with them."""
+    """Row indexes to drop per view: the failing rows plus everything they take with them.
+
+    A taken row names the failing row that started the cascade (``cascaded_from``), not the row
+    it was taken with when that row was itself taken; the detail names that intermediate hop.
+    When several failing rows reach the same row, it names one of them, the first to reach it;
+    the others are each in the report as failures of their own.
+    """
     dropped: dict[str, set[int]] = {
         n: {i for i, f in v.by_row.items() if f} for n, v in views.items()
     }
-    queue = [(n, i) for n, idxs in dropped.items() for i in idxs]
+    # (view, row index, the failing row that started this cascade)
+    queue = [(n, i, f"{n} {views[n].key_of(i)}") for n, idxs in dropped.items() for i in idxs]
     while queue:
-        name, index = queue.pop()
+        name, index, root = queue.pop()
         source = views[name]
+        here = f"{name} {source.key_of(index)}"
         for target_name, on in CASCADES.get(name, ()):
             target = views.get(target_name)
             if target is None:
@@ -574,20 +618,21 @@ def _cascade(views: Mapping[str, _View]) -> dict[str, set[int]]:
             key = _key(source.rows[index], on)
             if None in key:
                 continue
+            via = "the failing row" if here == root else here
             for j, row in enumerate(target.rows):
                 if j not in dropped[target_name] and _key(row, on) == key:
                     dropped[target_name].add(j)
                     target.by_row[j].append(
                         Failure(
                             target_name,
-                            "cascade",
+                            CASCADE,
                             None,
-                            f"shares {', '.join(on)} {key} with a failing row",
-                            key=_key(row, target.row_key) if target.row_key else (j,),
-                            cascaded_from=f"{name} {_key(source.rows[index], source.row_key)}",
+                            f"shares {', '.join(on)} {key} with {via}",
+                            key=target.key_of(j),
+                            cascaded_from=root,
                         )
                     )
-                    queue.append((target_name, j))
+                    queue.append((target_name, j, root))
     return dropped
 
 

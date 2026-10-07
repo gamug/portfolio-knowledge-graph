@@ -887,7 +887,7 @@ rejected once the pin gains it. A cap above 0 needs a `cap_reason`. The files on
 the check kinds, the cascade and the report are code (T-163).
 
 *Check kinds* (T-164 tests one passing and one failing case per kind; a new kind is added to this
-list with its test):
+list, to `boundary.CHECK_KINDS` (`Failure` refuses any other) and to its test):
 
 - **source** (aggregate, runs first): the database meets the `schema_version` floor and holds no
   `cycle_run` with `cycle_type = 'REPLAY'` (T-157);
@@ -951,7 +951,7 @@ for a row-level check, or the group for an aggregate one; `uv run pytest` covers
 row set per check kind and the selected policy's behaviour; `SPEC.md` §13 item 10 records what is checked
 at the boundary and what is not.
 
-**Blocked on**: nothing for T-162 (T-160 done, T-161 closed: no library, no amendment). T-163's function is done (`src/projection/boundary.py`, PR #68), the task stays open: calling it on the real read and counting T-151's and T-155's skips land with T-031; T-164's prerequisite, Work item 13's skeleton (T-131), has landed (PR #56).
+**Blocked on**: nothing for T-162 (T-160 done, T-161 closed: no library, no amendment). T-163's function is done (`src/projection/boundary.py`, PR #68), the task stays open: calling it on the real read and counting T-151's and T-155's skips land with T-031; T-164 is done (PR #69: every kind in `boundary.CHECK_KINDS` has a passing and a failing case, and a late key's round trip across two runs is tested over synthetic rows); T-031 tests that round trip on the real read.
 
 ## Sequencing
 

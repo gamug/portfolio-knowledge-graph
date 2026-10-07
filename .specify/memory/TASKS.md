@@ -46,7 +46,8 @@ are closed (see `CHANGELOG.md`).*
       in Work item 16's boundary report (T-163), so no row is dropped silently; never fill it in. Parse
       `computed_at` with `+00:00` or `Z`. Re-read the keys of the late rows T-163's previous report
       persisted (quarantined rows bound for an ingestion-dated graph, `PLAN.md` Work item 16), and drop
-      each key once its row is written. And guard
+      each key once its row is written, with a test of that round trip on the real read (T-164 tests
+      the runner's half over synthetic rows). And guard
       against a change of *meaning* the column-name check cannot see (e.g. upstream moving
       `normalized_score` to [0, 1] would pass the [0, 100] check and become ~0.99 risk), for
       instance a per-lane cohort mean near 50, upstream's documented centre (Work item 16's
@@ -448,7 +449,7 @@ See `PLAN.md` Work item 16.*
       `cycle_type = 'REPLAY'` (T-157's rule; a backfill's REPLAY rows land in the shared tables,
       D8); T-163 runs it first. Update an all-NULL-by-design expectation when upstream fills the
       column (T-154 for the edge dates, T-158 for SEMANTIC). → step 2.
-- [ ] **T-163** *(function done in PR #68: `src/projection/boundary.py` (`check_source`, `validate`, `BoundaryReport`) and `tests/test_boundary.py`; rows of a cycle lane with a NULL `available_at` are counted, and `BoundaryReport.skip` lets the caller count the rest. Open: calling it on the real read and re-reading the persisted late keys (T-031), and counting T-155's no-component ranking rows and T-151's run-keyed rows through `skip` (with T-031 and T-151). Until a caller passes `late_keys_path`, every quarantined row is reported lost. `validate` only adds keys to that file (written atomically, with each view's key columns; keys under old columns are dropped and reported); T-031 drops a key with `mark_written` once its row is written, merges each re-read row into its read by natural key (appending it would duplicate the key and stop the run), and reports the keys its re-read did not find. First picks, to check against a real view: the cascade links of `v_cycle_ranking_component` assume `cycle_run_id` and `asset_id`; an ordered pair parses ISO values, a bare date as midnight UTC. The missing-column check covers only the columns an expectation names, so T-031 can trim the pin.)* Run the expectations on the read path: a function that returns the validated rows
+- [ ] **T-163** *(function done in PR #68: `src/projection/boundary.py` (`check_source`, `validate`, `BoundaryReport`) and `tests/test_boundary.py`; rows of a cycle lane with a NULL `available_at` are counted, and `BoundaryReport.skip` lets the caller count the rest. Open: calling it on the real read and re-reading the persisted late keys (T-031), and counting T-155's no-component ranking rows and T-151's run-keyed rows through `skip` (with T-031 and T-151). Until a caller passes `late_keys_path`, every quarantined row is reported lost. `validate` only adds keys to that file (written atomically, with each view's key columns; keys under old columns are dropped and reported); T-031 drops a key with `mark_written` once its row is written, merges each re-read row into its read by natural key (appending it would duplicate the key and stop the run), and reports the keys its re-read did not find. First picks, to check against a real view: the cascade links of `v_cycle_ranking_component` assume `cycle_run_id` and `asset_id`; an ordered pair parses ISO values, a bare date as midnight UTC. The missing-column check covers only the columns an expectation names, so T-031 can trim the pin. `v_cycle_ranking_component.json` declares no `keys`: when upstream's T-144 ships the view, add its natural key (`cycle_run_id`, `asset_id`, `score_type` expected) so its uniqueness is checked and its rows are named by key, not by index, in the report and the cascade.)* Run the expectations on the read path: a function that returns the validated rows
       and a report naming the view and column of every failure, with the row key for a row-level
       check and the group for an aggregate one, applying the T-160 policy. It runs T-162's source
       check first and stops on its failure. It skips a `pending` view or column (one upstream has
@@ -459,7 +460,7 @@ See `PLAN.md` Work item 16.*
       (ingestion-dated graph) or lost (any other graph), per `PLAN.md` Work item 16, and persists
       the late rows' keys for the next run to re-read. Lands with T-031.
       → step 3.
-- [ ] **T-164** Tests with synthetic rows: one passing and one failing case per check kind, and the
+- [x] **T-164** *(done in PR #69: `tests/test_boundary.py` has a passing and a failing case for each view check kind, saying whether it stops the run or quarantines the row, plus the type kinds, `where` filters, the forensic-flags format and the shipped look-ahead boundaries (FUNDAMENTAL strict `>`, cycle lanes `=`); the source kinds' cases are the two source-check tests and the cascade kind's are the cascade tests, both pairs in `CASCADES` included: a failing weight component takes its scheme and that run's rankings, and a failing ranking component takes its ranking row and back (`v_cycle_ranking_component` read with `pending` lifted in the test, so the `cycle_run_id`/`asset_id` first pick is pinned as behaviour, still to check against the real view), each cascaded row counted against its own view's cap and naming the failing row that started it (PR #70). The shipped FUNDAMENTAL component group mean has its pass and fail case the same way. `Failure` refuses a kind outside `boundary.CHECK_KINDS`, and a guard test fails until a new view kind has its cases. A late key persisted by one run is read back, passed and dropped once written by the next run (the caller's merge simulated); T-031 tests the same round trip on the real read.)* Tests with synthetic rows: one passing and one failing case per check kind, and the
       behaviour of the policy T-160 selected: an aggregate failure, a quarantine under the cap, a stop
       above it (the default cap of 0 included), and the group cascade (a failing component takes its
       ranking row; a failing scheme takes its components and that run's rankings; each cascaded row
@@ -484,6 +485,6 @@ T-151's rule recorded (PR #60), its checks waiting on T-031/T-163; T-158's
 ownership question (before their T-141) is unblocked; the rest of T-152–T-158 waits on upstream's
 T-144 (views), T-145 (ids), T-074 (flags) and, after their T-100, their T-082 and their Work item 4.
 Work item 16 (T-160–T-165): T-160 done (plain checks, quarantine-with-cap), T-161 closed with it (no dependency) and T-162 done (JSON files per view, strict loader);
-T-163 lands with T-031; T-164's prerequisite, Work item 13's skeleton (T-131), has landed (PR #56).
+T-163 (function done, PR #68) closes with T-031, which calls it on the real read and re-reads the late keys; T-164 done (PR #69).
 Work item 8 (T-070–T-071) is independent but needs a human at a Protégé
 session, not a coding session.
