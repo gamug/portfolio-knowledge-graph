@@ -44,6 +44,16 @@ def check_query(db: GraphDB) -> str:
     return f"{len(rows)} assets returned, first {rows[0]['s']}"
 
 
+def violations(
+    results: rdflib.Graph,
+) -> list[tuple[rdflib.term.Node | None, rdflib.term.Node | None]]:
+    """``(sh:resultPath, sh:sourceConstraintComponent)`` of each ``sh:ValidationResult``."""
+    return [
+        (results.value(r, SH.resultPath), results.value(r, SH.sourceConstraintComponent))
+        for r in results.subjects(rdflib.RDF.type, SH.ValidationResult)
+    ]
+
+
 def check_gate(db: GraphDB) -> str:
     before = db.size()
     try:
@@ -56,10 +66,7 @@ def check_gate(db: GraphDB) -> str:
         raise AssertionError("the malformed batch was accepted")
     # "Valid except for :timestamp" means that is the only violation, so a shape change that
     # makes the probe fail for another reason is caught here instead of passing silently.
-    found = [
-        (results.value(r, SH.resultPath), results.value(r, SH.sourceConstraintComponent))
-        for r in results.subjects(rdflib.RDF.type, SH.ValidationResult)
-    ]
+    found = violations(results)
     if found != [EXPECTED_VIOLATION]:
         raise AssertionError(f"expected :timestamp minCount to be the only violation, got {found}")
     after = db.size()

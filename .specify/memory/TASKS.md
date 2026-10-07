@@ -135,7 +135,7 @@ independent of each other once T-131 lands.*
       check by the projector against the live DB's views before each read, an `integration` test
       against a pinned upstream commit, or both; and whether to ask upstream for a contract
       endpoint/constant (see `SPEC.md` D15: the HTTP `api/` is not a source today). → Approach 4.
-- [ ] **T-136** Tests for `src/kg_store/` and the `cli/` exit codes, hermetic (a fake `GraphDB`, no
+- [x] **T-136** *(done 2026-10-07 in PR #64: `tests/test_kg_gate.py`, `test_kg_load_schema.py`, `test_cli_check_view_contract.py`; `derived:quant:{date}` added to `APPEND_ONLY_PATTERNS`; three worked-example graphs the gate cannot take as a batch are strict xfails, T-143)* Tests for `src/kg_store/` and the `cli/` exit codes, hermetic (a fake `GraphDB`, no
       running store). **Includes a fix found in PR #62's review:** `gate.check_target` rejects
       `urn:graph:derived:quant:{date}`, which `docs/07` defines (T-108) and `instances.trig` uses, so
       add it to `APPEND_ONLY_PATTERNS` with a test that every `instances.trig` graph is accepted
@@ -159,6 +159,15 @@ independent of each other once T-131 lands.*
       `agentOrigin` ↔ `metricType` one-to-one via `sh:xone`. 2458 quads, conforms; 18 synthetic
       cases, the acceptance probe (one violation), `docs/09`'s example and the ETL smoke run agree.
       → `PLAN.md` Work item 14, step 1.
+- [ ] **T-143** Let the gate take the worked example's own batches (found writing T-136's tests):
+      `gate.validate` checks a batch alone, so three `instances.trig` graphs fail it:
+      `derived:entity-resolution:2026-08-05` (`sh:class :Asset` on `:coOccurrenceAsset` values typed
+      in another graph), `derived:quant:2026-08-05` (`sh:class` on `:quantAsset`/`:quantPortfolio`
+      values typed elsewhere) and `ingest:ORCHESTRATOR:2026-08-05` (closing a Veto with `:clearedOn`,
+      which the untyped-subject rule allows only for `:validTo`). Decide per case: type the
+      references in the batch's data graph for validation (without writing them), or relax the shape;
+      allow `:clearedOn` as a closing property. Then drop the three `xfail`s in
+      `tests/test_kg_gate.py` (strict, so they fail once it is fixed). Constitution Code & Git #9.
 - [ ] **T-141** Run `cli/verify_store.py` against the live GraphDB repository with the current
       acceptance probe and record the result in `docs/graphdb-setup.md`. → step 2.
 - [x] **T-142** *(done 2026-10-07 in PR #63: `gate.validate` raises `ShaclRejected`, an `IngestRejected` carrying pyshacl's results graph; `check_gate` requires exactly one `sh:ValidationResult`, a `:timestamp` `MinCountConstraintComponent`, with `tests/test_acceptance_gate.py` covering wording-independence, a second violation, a single violation of another kind, a non-SHACL rejection and an accepted batch)* Have `kg_store.gate.validate` expose pyshacl's results graph and make
@@ -455,8 +464,8 @@ Closed Work items 1, 2, 3, 5, 7 (superseded/decided by T-007), 9, 10 and 11 are 
 Work items 4 and 6 (T-030–T-035, T-050–T-053)
 follow in dependency order (Work items 3 and 11 are closed, so Work item 4 is unblocked).
 Work item 12 (T-120–T-121): T-120 closed by T-150; T-121 is unblocked.
-Work item 13 (T-130–T-136): constitution rules in place (1.5.0); T-130–T-134 done; next T-136 (T-135 is an open decision).
-Work item 14 (T-140–T-142): T-140 and T-142 done; T-141 needs a live GraphDB.
+Work item 13 (T-130–T-136): constitution rules in place (1.5.0); T-130–T-134 and T-136 done (PR #64); T-135 is an open decision.
+Work item 14 (T-140–T-143): T-140 and T-142 done; T-141 needs a live GraphDB; T-143 found by T-136's tests.
 Work item 15 (T-150–T-159, T-170–T-171): T-150, T-170 and T-171 (PR #56) done; T-155's schema half done (PR #58); T-153's comment half (PR #59);
 T-151's rule recorded (PR #60), its checks waiting on T-031/T-163; T-158's
 ownership question (before their T-141) is unblocked; the rest of T-152–T-158 waits on upstream's
