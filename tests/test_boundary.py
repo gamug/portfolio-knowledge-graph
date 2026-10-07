@@ -484,7 +484,13 @@ def test_keys_stored_under_old_key_columns_are_dropped_and_reported(tmp_path: Pa
 
 @pytest.mark.parametrize(
     "content",
-    ["[1, 2]", "not json", '{"v_score_snapshot": [[1]]}', '{"v": {"columns": [], "keys": []}}'],
+    [
+        "[1, 2]",
+        "not json",
+        '{"v_score_snapshot": [[1]]}',
+        '{"v": {"columns": [], "keys": []}}',
+        '{"v": {"columns": ["id"], "keys": [[1, 2, 3]]}}',  # a key of the wrong length
+    ],
 )
 def test_a_malformed_late_key_file_is_refused_and_named(tmp_path: Path, content: str) -> None:
     path = tmp_path / "late.json"
@@ -574,3 +580,24 @@ def test_a_pending_component_value_is_typed_so_range_and_mean_cannot_skip_it(
     shipped: dict[str, ViewExpectation],
 ) -> None:
     assert shipped["v_cycle_ranking_component"].types == {"component_value": "number"}
+
+
+def test_a_re_read_row_appended_beside_its_copy_stops_the_run(
+    shipped: dict[str, ViewExpectation],
+) -> None:
+    """Pins the contract T-031 must respect: merge a re-read row by key, never append it."""
+    only = {"v_score_snapshot": shipped["v_score_snapshot"]}
+    with pytest.raises(BoundaryError) as stop:
+        validate({"v_score_snapshot": [snapshot(5), snapshot(6), snapshot(5)]}, only)
+    assert {f.check for f in stop.value.report.quarantined} == {"unique"}
+    assert "over the cap 0" in stop.value.report.stop_reasons[0]
+
+
+def test_a_utc_timestamp_needs_the_t_separator() -> None:
+    exp = lenient({"formats": {"cycle_date": "utc_timestamp"}})
+    rows = [
+        full(1, cycle_date="2026-10-01 06:00:00+00:00"),
+        full(2, cycle_date="2026-10-01T06:00:00Z"),
+    ]
+    result = validate({"v_weight_scheme": rows}, {"v_weight_scheme": exp})
+    assert [r["cycle_run_id"] for r in result.rows["v_weight_scheme"]] == [2]

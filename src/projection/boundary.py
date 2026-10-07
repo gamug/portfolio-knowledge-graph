@@ -18,7 +18,9 @@ and the caller persists the late keys (``late_keys_path``) for the next run to r
 is *lost*. ``validate`` only adds keys to that file; a key leaves it through :func:`mark_written`,
 which the caller calls once the row is written to the store, so a failed write never loses one.
 Re-reading those keys is T-031's, as is counting the rows T-151 and T-155 skip, through
-:meth:`BoundaryReport.skip`.
+:meth:`BoundaryReport.skip`. A re-read row must be merged into the read by its natural key, never
+appended: a second copy of a row is a duplicate key, which quarantines both copies and, under the
+default cap of 0, stops the run.
 
 Nothing here reads a database except :func:`check_source`; rows are plain mappings, so the same
 code runs over ``portfolio_common.db`` rows and over the synthetic rows of T-164.
@@ -67,7 +69,8 @@ CASCADES: dict[str, tuple[tuple[str, tuple[str, ...]], ...]] = {
     "v_weight_component": (("v_weight_scheme", ("cycle_run_id",)),),
 }
 
-_UTC_TIMESTAMP = re.compile(r"\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}(\.\d+)?(\+00:00|Z)")
+# ISO 8601 with a ``T`` separator and a UTC offset written ``+00:00`` (upstream's form) or ``Z``.
+_UTC_TIMESTAMP = re.compile(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(\+00:00|Z)")
 FORENSIC_FLAGS = frozenset(
     {
         "data_error_suspected",
@@ -623,12 +626,18 @@ def _json_key(key: Sequence[Any]) -> str:
     return json.dumps(list(key), default=str)
 
 
-def _is_key_list(value: object) -> bool:
-    return isinstance(value, list) and all(isinstance(k, list) and k for k in value)
+def _is_key_list(value: object, arity: int) -> bool:
+    return isinstance(value, list) and all(isinstance(k, list) and len(k) == arity for k in value)
 
 
 def load_late_keys(path: Path) -> LateKeys:
-    """The late keys persisted by earlier runs (T-031 re-reads their rows); ``{}`` if none yet."""
+    """The late keys persisted by earlier runs (T-031 re-reads their rows); ``{}`` if none yet.
+
+    The caller merges each re-read row into its read by natural key, never appends it: the same
+    row twice fails the uniqueness check. The file only shrinks through :func:`mark_written`, so a
+    key whose row upstream deleted stays until the caller reports and drops it (T-031 reports the
+    keys its re-read did not find).
+    """
     if not path.exists():
         return {}
     try:
@@ -642,7 +651,7 @@ def load_late_keys(path: Path) -> LateKeys:
         and isinstance(entry["columns"], list)
         and entry["columns"]
         and all(isinstance(c, str) for c in entry["columns"])
-        and _is_key_list(entry["keys"])
+        and _is_key_list(entry["keys"], len(entry["columns"]))
         for view, entry in data.items()
     ):
         raise ValueError(
@@ -653,14 +662,17 @@ def load_late_keys(path: Path) -> LateKeys:
 
 
 def _write_late_keys(path: Path, data: LateKeys) -> None:
-    """Replace the file atomically: a crash mid-write leaves the old file, never a truncated one."""
+    """Replace the file atomically and durably: a crash leaves the old file, never a truncated one."""
     out = {
         view: {"columns": entry["columns"], "keys": sorted(entry["keys"], key=_json_key)}
         for view, entry in data.items()
         if entry["keys"]
     }
     tmp = path.with_name(f".{path.name}.tmp")
-    tmp.write_text(json.dumps(out, indent=2, sort_keys=True) + "\n")
+    with tmp.open("w") as handle:
+        handle.write(json.dumps(out, indent=2, sort_keys=True) + "\n")
+        handle.flush()
+        os.fsync(handle.fileno())  # on disk before the rename, so a power loss cannot empty it
     os.replace(tmp, path)
 
 

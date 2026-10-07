@@ -836,8 +836,8 @@ treating a related FR/NR as done:
     runs them over the rows read (T-163: `check_source`, then `validate`, which
     returns the surviving rows and a report, or raises `BoundaryError`; it
     only adds late keys to their file, and `mark_written` drops one once its
-    row is written). Not
-    detectable: a reversed polarity, or whether upstream's numbers are right.
+    row is written). Not detectable: a reversed polarity, or whether
+    upstream's numbers are right.
 11. **The computation decision is resolved: the SEMANTIC score is not computed
     here; who materializes it is disputed, and the cut-over is still pending.** The earlier plan to
     aggregate `article_sentiment` per `(asset, day)` in this repo (old Work
