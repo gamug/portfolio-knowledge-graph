@@ -7,9 +7,9 @@ Reads ``SQL_FINANCIAL_DB`` and ``SQL_UNIVERSE_DB`` (``.env``). The late-key file
 runs, the rows the boundary delayed; ``--late-keys`` names it (default: not kept). Beside it
 (``late.json`` -> ``late.lost.json``) a write keeps the rows already listed as lost, so a later run
 lists only new losses (without a late-key file, every loss is listed every run). The key files
-belong to one repository: a write to any repository other than production uses its own pair, named
-for it (``late.json`` -> ``late.<repository>.json``), so a replay never settles or hides
-production's rows.
+belong to one repository: a write to any repository other than production keeps its own pair in a
+folder named for it, beside the given file (``keys/late.json`` -> ``keys/<repository>/late.json``
+and ``keys/<repository>/late.lost.json``), so a replay never settles or hides production's rows.
 
 ``--run-day`` (``YYYY-MM-DD``, default today in UTC) dates the cycle lanes' graphs and is the day
 the run sees upstream as of: a row not yet available on it is left for a later run. A day after
@@ -105,13 +105,17 @@ _REPOSITORY_ID = re.compile(r"[A-Za-z0-9_-]+")
 
 def key_file(path: Path | None, store: GraphDB | None) -> Path | None:
     """The late-key file of the repository written to: ``path`` itself for production (and a dry
-    run), ``late.<repository>.json`` for any other, so a replay keeps its own keys."""
+    run), and for any other the same name in a folder named for the repository, beside ``path``
+    (created if missing). Its lost-key file lands beside it too, so no file of one repository can
+    share a name with a file of another, whatever the repository or ``path`` is called."""
     if path is None or store is None or store.repository == PRODUCTION_REPOSITORY:
         return path
     if not _REPOSITORY_ID.fullmatch(store.repository):
-        print(f"KG_REPOSITORY {store.repository!r} cannot name a key file", file=sys.stderr)
+        print(f"KG_REPOSITORY {store.repository!r} cannot name a key folder", file=sys.stderr)
         raise SystemExit(2)
-    return path.with_name(f"{path.stem}.{store.repository}{path.suffix}")
+    own = path.parent / store.repository / path.name
+    own.parent.mkdir(parents=True, exist_ok=True)
+    return own
 
 
 def project(args: argparse.Namespace) -> RunResult:

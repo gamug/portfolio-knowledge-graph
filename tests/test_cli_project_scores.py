@@ -14,7 +14,12 @@ import pytest
 
 from kg_store.graphdb import GraphDBError
 from projection.boundary import GRAPH_WRITTEN, BoundaryReport, Failure
-from projection.score_snapshots import ProjectionError, RunResult, StoreInterrupted
+from projection.score_snapshots import (
+    ProjectionError,
+    RunResult,
+    StoreInterrupted,
+    lost_keys_path,
+)
 
 CLI = Path(__file__).resolve().parent.parent / "cli" / "project_scores.py"
 
@@ -140,8 +145,8 @@ def test_a_replay_never_writes_to_the_production_repository(
     ("repository", "expected"),
     [
         ("portfolio", "late.json"),
-        ("replay", "late.replay.json"),
-        ("bt-2026_q3", "late.bt-2026_q3.json"),
+        ("replay", "replay/late.json"),
+        ("bt-2026_q3", "bt-2026_q3/late.json"),
     ],
 )
 def test_each_repository_keeps_its_own_key_files(
@@ -151,8 +156,23 @@ def test_each_repository_keeps_its_own_key_files(
     cli = _frozen(monkeypatch)
     store = cli.GraphDB("http://h", repository, "", "")
     assert cli.key_file(tmp_path / "late.json", store) == tmp_path / expected
+    assert (tmp_path / expected).parent.is_dir()  # the folder is created
     assert cli.key_file(tmp_path / "late.json", None) == tmp_path / "late.json"  # dry run
     assert cli.key_file(None, store) is None
+
+
+@pytest.mark.parametrize("late", ["late.json", "late", "keys/late.json", "late.lost.json"])
+@pytest.mark.parametrize("repository", ["replay", "lost", "late", "json", "portfolio-bt"])
+def test_no_key_file_of_another_repository_can_share_a_name_with_productions(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, late: str, repository: str
+) -> None:
+    # Review round 5, finding 1: "late" with no extension, or a repository named "lost", made
+    # round 4's file names collide with production's.
+    cli = _frozen(monkeypatch)
+    given = tmp_path / late
+    own = cli.key_file(given, cli.GraphDB("http://h", repository, "", ""))
+    files = {given, lost_keys_path(given), own, lost_keys_path(own)}
+    assert len(files) == 4
 
 
 def test_a_repository_name_that_cannot_name_a_file_is_refused(
@@ -186,7 +206,7 @@ def test_a_replay_and_a_production_run_given_the_same_late_keys_use_different_fi
             classmethod(lambda _c, repo=repository: cli.GraphDB("http://h", repo, "", "")),
         )
         assert cli.main([*argv, "--late-keys", str(tmp_path / "late.json")]) == 0
-    assert used == [tmp_path / "late.replay.json", tmp_path / "late.json"]
+    assert used == [tmp_path / "replay" / "late.json", tmp_path / "late.json"]
 
 
 def test_a_missing_source_database_exits_1_with_a_message(

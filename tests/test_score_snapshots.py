@@ -290,6 +290,19 @@ def test_a_run_whose_params_cannot_be_read_stops_the_projection(params_json: Any
         ss.AnalysisRun.from_row(row)
 
 
+def test_a_completed_run_without_its_as_of_is_named_by_its_run_id() -> None:
+    # Review round 5, finding 2: the message named v_score_snapshot and no row.
+    row = {"run_id": 7, "as_of": None, "status": "completed", "params_json": "{}"}
+    with pytest.raises(ss.ProjectionError) as stop:
+        ss.AnalysisRun.from_row(row)
+    assert str(stop.value) == "v_analysis_run run_id=7: as_of None is not a date"
+
+
+def test_a_snapshot_row_with_a_bad_date_is_named_by_its_id() -> None:
+    with pytest.raises(ss.ProjectionError, match=r"^v_score_snapshot id=9: event_time 'x'"):
+        ss.snapshot_block(_row(id=9, event_time="x"))
+
+
 # --- the run day is the as-of day ----------------------------------------------------------------
 
 
@@ -648,9 +661,10 @@ def test_a_replay_with_its_own_key_files_never_hides_a_production_loss(
     tmp_path: Path, make_db: MakeDB
 ) -> None:
     # Review round 4, finding 1: the CLI gives a replay repository its own key files
-    # (``late.<repository>.json``); with them, production still lists its own new loss.
+    # (``<repository>/late.json``); with them, production still lists its own new loss.
     rows = [_fundamental(id=10), _fundamental(id=11, ticker="BBB")]
-    replay_keys, production_keys = tmp_path / "late.replay.json", tmp_path / "late.json"
+    replay_keys, production_keys = tmp_path / "replay" / "late.json", tmp_path / "late.json"
+    replay_keys.parent.mkdir()  # the CLI's key_file creates it
     ss.run(
         _database(tmp_path, rows), ASSETS, _written_q1(make_db).db, "2026-10-06",
         late_keys_path=replay_keys,

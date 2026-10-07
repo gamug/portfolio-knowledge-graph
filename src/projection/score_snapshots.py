@@ -171,9 +171,15 @@ def _timestamp(text: str) -> str:
     return moment.astimezone(datetime.UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
-def _day(text: object, column: str, row: Row) -> str:
+def _where(row: Row) -> str:
+    """How a failure names a ``v_score_snapshot`` row."""
+    return f"{VIEW} id={row.get('id')}"
+
+
+def _day(text: object, column: str, where: str) -> str:
+    """``text`` as a ``YYYY-MM-DD`` day; ``where`` names the view and row in the error."""
     if not isinstance(text, str) or not _ISO_DATE.fullmatch(text[:10]):
-        raise ProjectionError(f"{VIEW} id={row.get('id')}: {column} {text!r} is not a date")
+        raise ProjectionError(f"{where}: {column} {text!r} is not a date")
     return text[:10]
 
 
@@ -197,7 +203,7 @@ def lane_of(graph: str) -> str:
 def snapshot_iri(row: Row) -> str:
     """The snapshot's local name: ticker, lane stem, event day and the upstream row id."""
     _, stem = LANES[row["score_type"]]
-    day = _day(row["event_time"], "event_time", row).replace("-", "")
+    day = _day(row["event_time"], "event_time", _where(row)).replace("-", "")
     return f"Snap_{row['ticker']}_{stem}_{day}_{row['id']}"
 
 
@@ -215,13 +221,13 @@ def snapshot_block(row: Row) -> Block:
     score_type = row["score_type"]
     metric, _ = LANES[score_type]
     iri = snapshot_iri(row)
-    available = _day(row["available_at"], "available_at", row)
+    available = _day(row["available_at"], "available_at", _where(row))
     lines = [
         f":{iri} a :ScoreSnapshot ;",
         f'    :agentOrigin "{score_type}" ;',
         f'    :metricType "{metric}" ;',
         f'    :timestamp "{_timestamp(row["computed_at"])}"^^xsd:dateTime ;',
-        f'    :eventTime "{_day(row["event_time"], "event_time", row)}"^^xsd:date ;',
+        f'    :eventTime "{_day(row["event_time"], "event_time", _where(row))}"^^xsd:date ;',
         f'    :availableAt "{available}"^^xsd:date',
     ]
     if row["raw_value"] is not None:
@@ -265,7 +271,7 @@ class AnalysisRun:
             raise ProjectionError(f"{where}: params_json is not JSON") from None
         if not isinstance(params, dict):
             raise ProjectionError(f"{where}: params_json is not an object")
-        return cls(int(row["run_id"]), _day(row["as_of"], "as_of", row), row["status"], params)
+        return cls(int(row["run_id"]), _day(row["as_of"], "as_of", where), row["status"], params)
 
     def covers(self, year: int) -> bool:
         """Whether this run read every filing, of every asset, that can be usable in ``year``.
@@ -353,7 +359,7 @@ def project(
         if row[needed] is None:
             out.leave_out(row, SKIP_NO_VALUE)
             continue
-        available = _day(row["available_at"], "available_at", row)
+        available = _day(row["available_at"], "available_at", _where(row))
         # Deferred, not "left out" (no late key would close): a later run writes these.
         if available > run_day:
             out.deferred[DEFER_NOT_AVAILABLE] += 1
@@ -463,6 +469,10 @@ def run(
 
     If the store fails partway, the graphs written so far are settled in both key files and
     :class:`StoreInterrupted` carries the result up to that point.
+
+    The key files must belong to ``store``'s repository: this function does not check it. The
+    CLI keeps a non-production repository's files apart (``cli/project_scores.py``'s
+    ``key_file``), so a replay never settles or hides production's rows.
     """
     read = read_rows(source)
     result = validate(
