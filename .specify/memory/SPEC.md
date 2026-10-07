@@ -653,13 +653,12 @@ production system this project isn't. What exists instead:
 
 ## 10. Testing Strategy & Acceptance Criteria
 
-- **No `pytest` tests exist yet for `src/etl/`** (NR-005) — the suite's skeleton and its first
-  test (`tests/test_score_scale.py`, `src/projection/`) landed with T-131 in PR #56, but, unlike
-  `portfolio-nlp`, `src/etl/` has no hermetic unit tests for its severity
-  formulas, ticker skip-set logic, or provenance-ID formatting; only the
-  end-to-end SHACL sample/smoke check (FR-006) exercises it, indirectly and
-  only for schema conformance, not for the correctness of the G1–G3/G9
-  formulas themselves.
+- **`src/etl/` has hermetic unit tests for its shared helpers** (T-133; NR-005, §13 item 7 and §14 still
+  say there is none until T-130 reverses them):
+  `tests/test_etl_common.py` (severity G1–G3, GICS rollup, provenance IDs, Turtle literals) and
+  `tests/test_asset_master.py` (the ticker skip-set). The rest of `src/etl/` (`news_to_rdf.py`,
+  `build_data_ttl.py`) is still exercised only by the end-to-end SHACL sample/smoke check
+  (FR-006), which checks schema conformance, not the correctness of the G1–G3/G9 formulas.
 - **The parse + `pyshacl` conformance check (FR-001) is the actual gate**
   today, run manually before merge — see `.specify/memory/constitution.md`
   §Executable cmds.
