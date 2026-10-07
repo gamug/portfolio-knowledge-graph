@@ -1,6 +1,8 @@
 """Synthetic ``v_score_snapshot`` rows, analysis runs, databases and a live fake store.
 
-Shared by ``test_score_snapshots.py`` and ``test_cli_project_scores.py`` (T-031).
+Built in memory and shared by ``test_score_snapshots.py``, ``test_project_scores.py`` and
+``test_cli_project_scores.py`` (T-031), under ``tests/fixtures/`` as constitution Project
+structure #10 places shared fixtures.
 """
 
 from __future__ import annotations

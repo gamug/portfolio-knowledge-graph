@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import pytest
-from snapshot_helpers import (
+from fixtures.snapshot_rows import (
     ASSETS,
     NS,
     RUNS,
@@ -645,6 +645,26 @@ def test_a_store_failure_partway_keeps_what_was_written_and_its_late_keys(
         )
     assert stop.value.result.written == {"urn:graph:ingest:FUNDAMENTAL:2025-Q1": 7}
     assert _late(keys) == [[3]]  # its graph was never written: the next run re-reads it
+    # Review round 8, finding 2: the graph being sent may be in the store; it is named, not
+    # counted as written, and its keys stay until a run finds it.
+    result = stop.value.result
+    assert result.in_doubt == "urn:graph:ingest:TECHNICAL:2026-10-08"
+    assert "in doubt: urn:graph:ingest:TECHNICAL:2026-10-08: the store failed" in result.summary()
+
+
+def test_a_store_failure_before_a_graph_is_sent_leaves_nothing_in_doubt(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, make_db: MakeDB
+) -> None:
+    store = make_db()
+
+    def fail(_sparql: str) -> list[dict[str, str]]:
+        raise GraphDBError("HTTP 503")
+
+    monkeypatch.setattr(store, "select", fail)
+    with pytest.raises(ss.StoreInterrupted) as stop:
+        ss.run(financial_db(tmp_path, [fundamental_row(id=10)]), ASSETS, store.db, "2026-10-07")
+    assert stop.value.result.in_doubt is None
+    assert "in doubt" not in stop.value.result.summary()
 
 
 # --- the late-key round trip, on the real read ---------------------------------------------------

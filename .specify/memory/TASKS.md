@@ -53,8 +53,10 @@ are closed (see `CHANGELOG.md`).*
       instance a per-lane cohort mean near 50, upstream's documented centre (Work item 16's
       T-162 owns that check and T-163 runs it; T-031 calls it). → step 2.
   - **Done (PR #72):** `v_score_snapshot` -> `:ScoreSnapshot`, all four lanes, in
-    `src/projection/score_snapshots.py` with `src/projection/source.py` and `cli/project_scores.py`
-    (tests: `tests/test_score_snapshots.py`, `tests/test_cli_project_scores.py`). Read -> source
+    `src/projection/score_snapshots.py` with `src/projection/source.py` and the CLI's logic in
+    `src/projection/project_scores.py`, behind the thin entry point `cli/project_scores.py` (tests:
+    `tests/test_score_snapshots.py`, `tests/test_project_scores.py`, and the entry point run as a
+    subprocess in `tests/test_cli_project_scores.py`; shared rows in `tests/fixtures/`). Read -> source
     check -> boundary -> one Turtle batch per graph -> `kg_store.gate`; a dry run by default,
     `--write` appends. SECTOR joined `RESCALED_SCORE_TYPES`. A real read showed that upstream keeps
     its schema version in the `schema_version` table and leaves `PRAGMA user_version` at 0, so
@@ -100,7 +102,8 @@ are closed (see `CHANGELOG.md`).*
   - **Errors:** a missing or table-less source database, or a key file that is damaged or cannot
     be read or written, exits 1 with a message; a store failure partway (an HTTP error, a closed
     connection or a timeout, all `GraphDBError`) prints what was already written and settles its
-    keys.
+    keys. A graph whose sending failed is listed as *in doubt* (the store may have applied it
+    before the answer was lost): not counted as written, its keys kept, found by the next run.
   - **On today's upstream data** the cycle lanes are all skipped (every `available_at` is NULL), so
     only FUNDAMENTAL snapshots are produced until upstream's T-144.
   - **Open:** the other views (T-155 and the rest of Work item 4's list), `:runId` (T-151's rule),

@@ -412,6 +412,8 @@ class RunResult:
     lost_before: int = 0  # losses an earlier run already listed (with a late-key file)
     store_consulted: bool = True  # False on a dry run: ``already_in_store`` was not checked
     runs_not_counted: int = 0  # analysis runs that are not ``completed``: never full, not parsed
+    #: The graph being written when the store failed: its answer was lost, so it may be written.
+    in_doubt: str | None = None
 
     def summary(self) -> str:
         lines = [self.report.summary()]
@@ -427,6 +429,11 @@ class RunResult:
         lines += [f"  written: {g}: {n} triples" for g, n in sorted(self.written.items())]
         lines += [f"  SHACL-valid, not written (store not consulted): {g}" for g in self.checked]
         lines += [f"  rejected: {g}: {why}" for g, why in sorted(self.rejected.items())]
+        if self.in_doubt:
+            lines += [
+                f"  in doubt: {self.in_doubt}: the store failed while it was being written, so it "
+                "may be written too; the next run finds its snapshots already in the store"
+            ]
         lines += [f"  late key not found in the re-read: {k}" for k in self.late_not_found]
         lines += [f"  late key closed without a write: {k}" for k in self.late_closed]
         return "\n".join(lines)
@@ -469,11 +476,16 @@ def run(
     lost-key file, but the boundary still records the keys of the rows it delays.
 
     Both key files, and their folder, are checked before upstream is read, so a missing folder
-    or a malformed file stops the run before anything is written (the CLI creates the folder). If the store fails partway, the graphs written so far are
-    settled in both key files and :class:`StoreInterrupted` carries the result up to that point.
+    or a malformed file stops the run before anything is written (the CLI creates the folder).
+
+    If the store fails partway, the graphs written so far are settled in both key files and
+    :class:`StoreInterrupted` carries the result up to that point. A failure while a graph is
+    being sent leaves that graph in doubt (``RunResult.in_doubt``): the store may have applied it
+    before the answer was lost, so it is neither counted as written nor settled, and the next
+    run finds its snapshots already in the store.
 
     The key files must belong to ``store``'s repository: this function does not check it. The
-    CLI keeps a non-production repository's files apart (``cli/project_scores.py``'s
+    CLI keeps a non-production repository's files apart (``projection.project_scores``'s
     ``key_file``), so a replay never settles or hides production's rows.
     """
     # Before anything is read or written, so a key file never stops a run after a write.
@@ -559,7 +571,12 @@ def _write_graph(
             gate.validate(gate.parse_batch(data))
             out.checked.append(graph)
         else:
-            out.written[graph] = gate.ingest(store, data, graph)
+            try:
+                out.written[graph] = gate.ingest(store, data, graph)
+            except GraphDBError:
+                # Sent, but the answer never came (or came as an error): it may be in the store.
+                out.in_doubt = graph
+                raise
     except gate.IngestRejected as exc:
         out.rejected[graph] = str(exc)
         return
