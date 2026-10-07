@@ -12,8 +12,10 @@ under a private module name and without touching ``sys.path``, so a ``kg_schema`
 imported from elsewhere is never reused. The three agent-owned run tables
 (``analysis_run``, ``pricing_run``, ``quant_run``) are created by agent modules with
 heavier dependencies, so they are stubbed here with just the columns their views select;
-a renamed column then makes SQLite reject the view and it is reported as not building --
-still drift, with a less precise message.
+a renamed column then makes SQLite reject the view as ``kg_schema.ensure`` creates it, so
+``ensure`` raises ``sqlite3.OperationalError`` and the check fails loudly with that error
+(the CLI exits non-zero) instead of producing a drift report. A view that is created but
+reports no columns is the "did not build" drift below.
 """
 
 from __future__ import annotations
