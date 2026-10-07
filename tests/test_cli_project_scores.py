@@ -50,8 +50,9 @@ def test_today_is_the_utc_date() -> None:
         (["--run-day", "2026-10-08"], "is after today (2026-10-07 UTC)"),
         (["--run-day", "2026-10-08", "--write", "--replay"], "is after today"),
         (["--run-day", "2026-03-01", "--write"], "--write with it needs --replay"),
+        (["--run-day", "2026-03-01", "--replay"], "--replay only matters with --write"),
     ],
-    ids=["future", "future-replay", "past-write-without-replay"],
+    ids=["future", "future-replay", "past-write-without-replay", "replay-without-write"],
 )
 def test_a_run_day_the_run_cannot_use_is_refused_before_anything_is_read(
     monkeypatch: pytest.MonkeyPatch,
@@ -133,6 +134,59 @@ def test_a_replay_never_writes_to_the_production_repository(
     )
     monkeypatch.setattr(cli, "run", lambda *_a, **_k: _result())
     assert cli.main(["--run-day", "2026-03-01", "--write", "--replay"]) == 0
+
+
+@pytest.mark.parametrize(
+    ("repository", "expected"),
+    [
+        ("portfolio", "late.json"),
+        ("replay", "late.replay.json"),
+        ("bt-2026_q3", "late.bt-2026_q3.json"),
+    ],
+)
+def test_each_repository_keeps_its_own_key_files(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, repository: str, expected: str
+) -> None:
+    # Review round 4, finding 1: a replay never settles or hides production's keys.
+    cli = _frozen(monkeypatch)
+    store = cli.GraphDB("http://h", repository, "", "")
+    assert cli.key_file(tmp_path / "late.json", store) == tmp_path / expected
+    assert cli.key_file(tmp_path / "late.json", None) == tmp_path / "late.json"  # dry run
+    assert cli.key_file(None, store) is None
+
+
+def test_a_repository_name_that_cannot_name_a_file_is_refused(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    cli = _frozen(monkeypatch)
+    with pytest.raises(SystemExit) as stop:
+        cli.key_file(tmp_path / "late.json", cli.GraphDB("http://h", "../x", "", ""))
+    assert stop.value.code == 2
+
+
+def test_a_replay_and_a_production_run_given_the_same_late_keys_use_different_files(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    cli = _frozen(monkeypatch)
+    _stub(monkeypatch, cli, _result())
+    used: list[Path] = []
+
+    def record(*_: Any, late_keys_path: Path, **__: Any) -> RunResult:
+        used.append(late_keys_path)
+        return _result()
+
+    monkeypatch.setattr(cli, "run", record)
+    for repository, argv in [
+        ("replay", ["--run-day", "2026-03-01", "--write", "--replay"]),
+        ("portfolio", ["--write"]),
+    ]:
+        monkeypatch.setattr(
+            cli.GraphDB,
+            "from_env",
+            classmethod(lambda _c, repo=repository: cli.GraphDB("http://h", repo, "", "")),
+        )
+        assert cli.main([*argv, "--late-keys", str(tmp_path / "late.json")]) == 0
+    assert used == [tmp_path / "late.replay.json", tmp_path / "late.json"]
 
 
 def test_a_missing_source_database_exits_1_with_a_message(

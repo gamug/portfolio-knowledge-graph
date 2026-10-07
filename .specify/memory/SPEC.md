@@ -416,7 +416,13 @@ one assumption of the second reply.
   its year, and it reads the year bounds as fiscal years. To confirm: whether the year bounds are
   fiscal or filing years; whether `planned_units` and `completed_units` can be compared (they do
   not count the same thing today); and whether a filing a run failed on (`failed_units`) is
-  retried with a new row in a later run (T-031 accepts it as lost).
+  retried with a new row in a later run (T-031 accepts it as lost). Also (PR #72 round 4): the
+  full list of `status` values (T-031 counts only `completed`, so a finished run under another
+  status would leave quarters deferred); whether `as_of`, `status` and `params_json` are filled
+  when the run row is inserted or only when it ends (T-031 parses only completed runs, so either
+  is safe); and whether an analysis run as of D always sees every filing usable by D, that is,
+  whether `portfolio-data-mining`'s EDGAR fetch is guaranteed to run before it (if it can lag, a
+  filing it missed arrives later and is lost).
 
 **Read contract and score scale (T-030, 2026-10-05).** `src/projection/view_contract.py`
 pins a full snapshot of the columns of 30 of upstream's 31 `v_*` views (taken from

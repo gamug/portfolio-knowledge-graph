@@ -6,11 +6,16 @@ uv run python cli/project_scores.py --write    # also append them to the store t
 Reads ``SQL_FINANCIAL_DB`` and ``SQL_UNIVERSE_DB`` (``.env``). The late-key file persists, between
 runs, the rows the boundary delayed; ``--late-keys`` names it (default: not kept). Beside it
 (``late.json`` -> ``late.lost.json``) a write keeps the rows already listed as lost, so a later run
-lists only new losses (without a late-key file, every loss is listed every run). ``--run-day`` (``YYYY-MM-DD``, default today
-in UTC) dates the cycle lanes' graphs and is the day the run sees upstream as of: a row not yet
-available on it is left for a later run. A day after today is refused. A past day is a replay:
-``--write`` with it needs ``--replay``, and ``--replay`` never writes to the production repository
-(``KG_REPOSITORY=portfolio``), whose graphs record what was loaded on which day.
+lists only new losses (without a late-key file, every loss is listed every run). The key files
+belong to one repository: a write to any repository other than production uses its own pair, named
+for it (``late.json`` -> ``late.<repository>.json``), so a replay never settles or hides
+production's rows.
+
+``--run-day`` (``YYYY-MM-DD``, default today in UTC) dates the cycle lanes' graphs and is the day
+the run sees upstream as of: a row not yet available on it is left for a later run. A day after
+today is refused. A past day is a replay: ``--write`` with it needs ``--replay``, ``--replay`` needs
+``--write``, and it never writes to the production repository (``KG_REPOSITORY=portfolio``), whose
+graphs record what was loaded on which day.
 A dry run does not consult the store, so it cannot see which graphs already exist.
 Exit status: 0 on success; 1 if the boundary or the projection stopped the run, the source could
 not be read, the store failed or the gate refused a graph; 2 on a bad argument. Rows lost (listed
@@ -21,6 +26,7 @@ from __future__ import annotations
 
 import argparse
 import datetime
+import re
 import sqlite3
 import sys
 from collections.abc import Sequence
@@ -64,7 +70,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--replay",
         action="store_true",
-        help="allow --write with a past run day (never to the production repository)",
+        help="with --write: allow a past run day (never to the production repository)",
     )
     args = parser.parse_args(argv)
     now = today()
@@ -72,6 +78,8 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         args.run_day = now
     if args.run_day > now:
         parser.error(f"--run-day {args.run_day} is after today ({now} UTC)")
+    if args.replay and not args.write:
+        parser.error("--replay only matters with --write (a dry run with a past day needs no flag)")
     if args.write and args.run_day < now and not args.replay:
         parser.error(f"--run-day {args.run_day} is in the past: --write with it needs --replay")
     return args
@@ -92,13 +100,30 @@ def open_store(args: argparse.Namespace) -> GraphDB | None:
     return store
 
 
+_REPOSITORY_ID = re.compile(r"[A-Za-z0-9_-]+")
+
+
+def key_file(path: Path | None, store: GraphDB | None) -> Path | None:
+    """The late-key file of the repository written to: ``path`` itself for production (and a dry
+    run), ``late.<repository>.json`` for any other, so a replay keeps its own keys."""
+    if path is None or store is None or store.repository == PRODUCTION_REPOSITORY:
+        return path
+    if not _REPOSITORY_ID.fullmatch(store.repository):
+        print(f"KG_REPOSITORY {store.repository!r} cannot name a key file", file=sys.stderr)
+        raise SystemExit(2)
+    return path.with_name(f"{path.stem}.{store.repository}{path.suffix}")
+
+
 def project(args: argparse.Namespace) -> RunResult:
     """Open the store and the sources, then run; nothing is read before the store is settled."""
     store = open_store(args)
+    keys = key_file(args.late_keys, store)
+    if keys != args.late_keys:
+        print(f"key files of repository {store.repository if store else ''}: {keys}")
     db = FinancialSource.open(config.financial_db_path())
     try:
         assets = universe_symbols(config.universe_db_path())
-        return run(db, assets, store, args.run_day, late_keys_path=args.late_keys)
+        return run(db, assets, store, args.run_day, late_keys_path=keys)
     finally:
         db.close()
 

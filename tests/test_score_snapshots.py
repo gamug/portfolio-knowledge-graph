@@ -380,6 +380,8 @@ def test_a_dry_run_validates_every_graph_and_writes_nothing(tmp_path: Path) -> N
     assert not out.rejected
     # It never asked the store, so it does not claim what the gate would say.
     assert "SHACL-valid, not written (store not consulted)" in out.summary()
+    # Review round 4, finding 5: no store count it never took.
+    assert "already in the store: not checked (dry run)" in out.summary()
     assert "accepted by the gate" not in out.summary()
 
 
@@ -550,6 +552,34 @@ def test_a_quarter_is_not_written_from_a_database_without_a_full_run(tmp_path: P
     assert out.deferred == {ss.DEFER_QUARTER_UNCOVERED: 1}
 
 
+def test_a_run_upstream_has_not_finished_is_counted_and_never_stops_the_projection(
+    tmp_path: Path,
+) -> None:
+    # Review round 4, finding 2: a run just started may lack its as_of and params.
+    source = _database(tmp_path, [_fundamental(id=10)])
+    conn = sqlite3.connect(tmp_path / "financial.db")
+    conn.execute("INSERT INTO v_analysis_run (run_id, status) VALUES (2, 'running')")
+    conn.execute("INSERT INTO v_analysis_run (run_id) VALUES (3)")  # no status yet
+    conn.commit()
+    conn.close()
+    out = ss.run(source, ASSETS, None, "2026-10-07")
+    assert out.runs_not_counted == 2
+    assert out.checked == ["urn:graph:ingest:FUNDAMENTAL:2025-Q1"]  # run 1 still covers it
+    assert "analysis runs not completed, not counted: 2" in out.summary()
+
+
+def test_a_completed_run_without_its_params_stops_the_projection(tmp_path: Path) -> None:
+    source = _database(tmp_path, [_fundamental(id=10)], runs=[])
+    conn = sqlite3.connect(tmp_path / "financial.db")
+    conn.execute(
+        "INSERT INTO v_analysis_run (run_id, as_of, status) VALUES (5, '2026-10-05', 'completed')"
+    )
+    conn.commit()
+    conn.close()
+    with pytest.raises(ss.ProjectionError, match="run_id=5: params_json is not JSON"):
+        ss.run(source, ASSETS, None, "2026-10-07")
+
+
 # --- losses: a new one stands out -------------------------------------------------------------
 
 
@@ -612,6 +642,26 @@ def test_a_malformed_lost_key_file_stops_the_run(tmp_path: Path, make_db: MakeDB
             "2026-10-07",
             late_keys_path=keys,
         )
+
+
+def test_a_replay_with_its_own_key_files_never_hides_a_production_loss(
+    tmp_path: Path, make_db: MakeDB
+) -> None:
+    # Review round 4, finding 1: the CLI gives a replay repository its own key files
+    # (``late.<repository>.json``); with them, production still lists its own new loss.
+    rows = [_fundamental(id=10), _fundamental(id=11, ticker="BBB")]
+    replay_keys, production_keys = tmp_path / "late.replay.json", tmp_path / "late.json"
+    ss.run(
+        _database(tmp_path, rows), ASSETS, _written_q1(make_db).db, "2026-10-06",
+        late_keys_path=replay_keys,
+    )  # fmt: skip
+    (tmp_path / "financial.db").unlink()
+    out = ss.run(
+        _database(tmp_path, rows), ASSETS, _written_q1(make_db).db, "2026-10-07",
+        late_keys_path=production_keys,
+    )  # fmt: skip
+    assert [f.key for f in out.report.lost] == [(11,)]
+    assert out.lost_before == 0
 
 
 # --- the store failing partway -------------------------------------------------------------------

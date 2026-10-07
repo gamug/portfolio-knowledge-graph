@@ -41,6 +41,10 @@ The run day is also the as-of day of a replay: a row is projected only once its 
 is on or before it, so a replay over past days (into a store that is not production; the CLI
 enforces that) writes each row into the first day it was usable. ``:availableAt`` stays the
 row's own, whatever graph it lands in, and remains the date a point-in-time query filters on.
+A replay reads upstream as it is now, so a replay graph's date means "usable by", not "known on":
+it holds rows computed after that day, counts full runs that finished after it, and may hold rows
+production lost. A replay store answers point-in-time questions by ``availableAt``; it is not a
+transaction-time record and not a copy of production.
 
 Skipped by design (no later run writes them), counted in the report, never dropped silently:
 
@@ -399,13 +403,20 @@ class RunResult:
     late_not_found: list[str] = field(default_factory=list)
     late_closed: list[str] = field(default_factory=list)  # late keys closed without a write
     lost_before: int = 0  # losses an earlier run already listed (with a late-key file)
+    store_consulted: bool = True  # False on a dry run: ``already_in_store`` was not checked
+    runs_not_counted: int = 0  # analysis runs that are not ``completed``: never full, not parsed
 
     def summary(self) -> str:
         lines = [self.report.summary()]
         if self.lost_before:
             lines += [f"  lost in an earlier run (listed then): {self.lost_before}"]
         lines += [f"  deferred: {reason}: {n}" for reason, n in self.deferred.items()]
-        lines += [f"  already in the store: {self.already_in_store}"]
+        if self.store_consulted:
+            lines += [f"  already in the store: {self.already_in_store}"]
+        else:
+            lines += ["  already in the store: not checked (dry run)"]
+        if self.runs_not_counted:
+            lines += [f"  analysis runs not completed, not counted: {self.runs_not_counted}"]
         lines += [f"  written: {g}: {n} triples" for g, n in sorted(self.written.items())]
         lines += [f"  SHACL-valid, not written (store not consulted): {g}" for g in self.checked]
         lines += [f"  rejected: {g}: {why}" for g, why in sorted(self.rejected.items())]
@@ -424,8 +435,10 @@ def run(
 ) -> RunResult:
     """Read, check, project and (when ``store`` is given) write ``v_score_snapshot``.
 
-    ``v_analysis_run`` is read through the boundary too: it says which FUNDAMENTAL quarters
-    upstream has covered (:func:`quarter_covered`).
+    ``v_analysis_run`` is read through the boundary too: its completed runs say which
+    FUNDAMENTAL quarters upstream has covered (:func:`quarter_covered`). A run in any other
+    status is counted in ``runs_not_counted`` and never parsed, so a run upstream has just
+    started (which may still lack its ``as_of`` or ``params_json``) never stops a projection.
 
     With ``store=None`` nothing is written: the batches are still checked against ``shapes.ttl``.
     A dry run does not consult the store, so it cannot tell which graphs already exist: a graph
@@ -458,11 +471,16 @@ def run(
         source_failures=check_source(source, load_source()),
         late_keys_path=late_keys_path,
     )
-    runs = [AnalysisRun.from_row(r) for r in result.rows[ANALYSIS_RUNS]]
+    # Only a completed run can be full; another (running, failed) may still lack its as_of or
+    # params, so it is counted and never parsed. A completed run without them stops the run.
+    completed = [r for r in result.rows[ANALYSIS_RUNS] if r["status"] == "completed"]
+    runs = [AnalysisRun.from_row(r) for r in completed]
     projection = project(result.rows[VIEW], assets, run_day, runs)
     for reason, n in projection.skipped.items():
         result.report.skip(VIEW, reason, n)
     out = RunResult(result.report, projection.skipped, projection.deferred)
+    out.store_consulted = store is not None
+    out.runs_not_counted = len(result.rows[ANALYSIS_RUNS]) - len(completed)
     # key -> why not written (None: written)
     settled: dict[int, str | None] = dict(projection.left_out)
 
