@@ -116,6 +116,9 @@ against ground truth:
 | G3 | `creation_gate` bars (`negative ≥ 0.50` **or** `cat_score ≥ 0.70`); severity ladder + hard-trigger keyword bump (one tier up when SOURCE `articles.body_text` contains a keyword; the ETL's only use of the text, allowed by `SPEC.md` FR-005 because no processed store publishes a keyword escalation). A category-confidence-only RiskEvent with `negative` below every tier is mapped to `LOW`. |
 | G9 | `publishedDate = pub_date`, falling back to `fetched_at` when `pub_date` is null; rows with neither are skipped |
 
+`tests/test_etl_common.py` pins these thresholds; update its boundary cases with any
+calibration change.
+
 ## Coupling notes
 
 - **`reference.ttl` stays authoritative for its own `:Asset`s.** Any ticker

@@ -283,7 +283,7 @@ ad-hoc invocations:
 ```bash
 uv sync                                     # install deps
 
-# Ontology validation (run from schema/) -- the only automated gate today
+# Ontology validation (run from schema/) -- also run by `uv run pytest` (tests/test_schema_gate.py)
 uv run python -c "
 import rdflib
 g = rdflib.Dataset()
@@ -310,7 +310,7 @@ uv run pre-commit run --all-files           # all of the above hooks, plus hygie
 ```
 
 1. **There is no CI workflow configured** (`.github/` does not exist) — the
-   parse+`pyshacl` check, `uv run pytest` (once T-131 lands) and the
+   `uv run pytest` suite (which includes the parse+`pyshacl` check) and the
    lint/type/pre-commit hooks above are run manually before a PR. This is a
    documented gap (`SPEC.md` §9/§14), not an
    oversight to silently work around by inventing a workflow file outside a
@@ -399,7 +399,7 @@ Compliance is expected to be checked the same way a schema-parse/`pyshacl`
 gate is — a reviewer (human or agent) rejecting a PR that violates a
 principle above should cite the section by name.
 
-**Version**: 1.5.0 | **Ratified**: 2026-09-12 | **Last Amended**: 2026-10-06
+**Version**: 1.5.1 | **Ratified**: 2026-09-12 | **Last Amended**: 2026-10-07
 
 <!--
 1.0.1 (2026-09-12): PATCH, wording/self-consistency fix only. The "Executable
@@ -449,4 +449,9 @@ Executable cmds. Modelled on the sibling
 `portfolio-financial-analysis` constitution (Project structure #3). It does not yet
 reverse `SPEC.md` NR-005, §10, §13 item 7 and §14, which say there is no suite: that
 happens when the suite exists (T-131, T-134).
+
+1.5.1 (2026-10-07): PATCH, wording only. Executable cmds and its rule 1 still
+said `uv run pytest` would arrive "once T-131 lands" and called the schema
+parse+`pyshacl` script the only automated gate; T-134 made that check part of
+the suite. Raised in the PR #62 review. No principle changed.
 -->

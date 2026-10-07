@@ -102,8 +102,8 @@ built upstream); it makes no portfolio or trading decision and renders no report
   worked-example assets + the `MetricType` vocabulary), `rules.ttl` (a
   6 active upstream veto rules as single-leaf `RuleDefinition`s, the 7 original tree rules kept
   closed with `validTo`, + `AttractivenessWeightScheme`),
-  `instances.trig` (a 15-named-graph worked-example ABox) — roadmap step 0,
-  done and verified (**2458 quads, `pyshacl conforms: True**).
+  `instances.trig` (a 16-named-graph worked-example ABox) — roadmap step 0,
+  done and verified (**2473 quads, `pyshacl conforms: True**).
 - The five numbered architecture/spec docs (`06`–`10`) plus
   `critique-and-evolution.md` as the traceability anchor every class/
   property/graph-placement decision elsewhere cites back to.
@@ -174,7 +174,7 @@ built upstream); it makes no portfolio or trading decision and renders no report
 
 | ID | Requirement | Acceptance criteria |
 |---|---|---|
-| **FR-001** | The `tbox.ttl`/`shapes.ttl`/`reference.ttl`/`rules.ttl`/`instances.trig` bundle parses as a single `rdflib.Dataset` in the documented load order and `pyshacl`-conforms against `shapes.ttl`. | The `schema/README.md` parse script reports `quads: 2458`; a `pyshacl.validate` run over the same combined graph reports `conforms: True` — both required after any schema edit. |
+| **FR-001** | The `tbox.ttl`/`shapes.ttl`/`reference.ttl`/`rules.ttl`/`instances.trig` bundle parses as a single `rdflib.Dataset` in the documented load order and `pyshacl`-conforms against `shapes.ttl`. | The `schema/README.md` parse script reports `quads: 2473`; a `pyshacl.validate` run over the same combined graph reports `conforms: True` — both required after any schema edit. |
 | **FR-002** | Every domain class in `tbox.ttl` that is not a shared-property superclass (`ObservationSnapshot`/`EvidenceSource`/`RuleOperand`) belongs to exactly one `AllDisjointClasses` set and reaches at least one of the 6 taxonomy roots via `rdfs:subClassOf`. | `tbox.ttl`'s `AllDisjointClasses` block lists exactly 25 leaf classes; a taxonomy audit (cycle/orphan/multi-parent detection over the `subClassOf` graph) reports 0 cycles, 0 self-loops, all 38 classes reaching a root, exactly 3 legitimately multi-parented classes (`schema/README.md`'s implementation addendum). |
 | **FR-003** | Every `RuleDefinition` in `rules.ttl` expresses its veto condition as an explicit `RuleClause` tree (`AND`/`OR` of `ThresholdComparison`/`CategoricalComparison`/`GraphPredicate` leaves), never as an infix boolean string. | No `RuleDefinition` in `rules.ttl` carries a rule condition as a literal string to be re-parsed; every `hasClause` path terminates in one of the three documented leaf operand kinds. A single leaf (upstream's six rules, T-103) is a valid tree. |
 | **FR-004** | `cli/build_data_ttl.py` projects `portfolio-data-mining`'s point-in-time `universe.db` (`SQL_UNIVERSE_DB`, read-only through `portfolio_common.db`) into one `:UniverseMembership` per `universe_membership` stint (`validFrom` = `valid_from`; `validTo` = `valid_to`, exclusive, absent while the stint is open) in the single `:SP500Index` `:Universe`, and one `:Asset` per symbol with `:classifiedAs` when upstream has a sub-industry. A symbol whose stints are all closed has only `tickerSymbol` and `companyName`: upstream has no CIK or sector for it, and none is invented (`AssetShape` allows a missing `cikNumber` only then). Tickers `reference.ttl` already declares as `:Asset` get memberships but are not re-emitted (so `cikNumber` never collides under the functional-property `sh:maxCount 1` contract). Each run prints `universe.db`'s latest recorded change and its file modification date, because upstream refreshes it by hand. | A full run's `:Asset` count plus `reference.ttl`'s tickers equals `universe.db`'s distinct symbols; its `:UniverseMembership` count equals `universe_membership`'s rows; none of `reference.ttl`'s tickers appears as a second `:Asset` declaration in `data.ttl`; the run summary prints the freshness line. |
@@ -189,7 +189,7 @@ built upstream); it makes no portfolio or trading decision and renders no report
 | **NR-002** | A database-engine change (away from SQLite, or a `portfolio-common` results-contract bump) must not require touching this repo's ETL logic beyond a version/tag bump. | `grep -rn "import sqlite3" src` returns nothing; the only engine-specific access goes through `portfolio_common.db`/`portfolio_common.news_export`. |
 | **NR-003** | Raw OHLCV/tick-level price data never enters the ontology or the ETL output (`07-ontology-topology.md`'s explicit warning). | `tbox.ttl` defines no tick-level price class; `grep` for a raw-bar/tick field name in `schema/` or `src/etl/` returns nothing beyond the bounded `PriceObservation` summary class. |
 | **NR-004** | The IRI namespace stays `https://thesis.local/kg/portfolio#` for every new term across `schema/*.ttl`/`.trig` unless deliberately aligning to an external vocabulary. | A bare `owl:Class`/`owl:ObjectProperty`/`owl:DatatypeProperty` declaration outside that namespace, excluding the documented FIBO `rdfs:seeAlso` and GICS `skos:Concept` alignments, does not occur. |
-| **NR-005** | The only automated gate is the `rdflib` parse + `pyshacl` conformance check (FR-001) — there is no full `pytest` suite and no CI workflow configured today (T-131 added the `tests/` skeleton and `tests/test_score_scale.py` in PR #56, as constitution Code & Git #9 requires for a `src/` fix; reversing this NR is T-130's, once T-134 lands). | The parse+`pyshacl` script passes locally before merge; this NR exists so the absence of a test suite/CI is a documented decision (§14), not an oversight a reader might mistake for one. |
+| **NR-005** | Two automated gates exist and no CI workflow is configured: the hermetic `pytest` suite (`uv run pytest`; constitution Project structure #10) and, inside it, the FR-001 `rdflib` parse + `pyshacl` conformance check (`tests/test_schema_gate.py`, T-134). Both are run locally before merge. | `uv run pytest` passes on a clean checkout, and `tests/test_schema_gate.py` fails if the schema stops parsing or conforming, if a deliberately broken `:Asset` is not rejected, or if any quad count or the named-graph count this SPEC states drifts from the real one. This NR records that nothing runs them in CI (§11, §14), so that absence is a documented decision, not an oversight. |
 
 ### 2.5 Scope boundary — what this repo owns vs. consumes
 
@@ -483,7 +483,7 @@ re-litigated without a constitution amendment:
 
 ```mermaid
 flowchart TB
-    SCHEMA["schema/ -- step 0, DONE<br/>tbox+shapes+reference+rules+instances<br/>2458 quads * pyshacl conforms"]
+    SCHEMA["schema/ -- step 0, DONE<br/>tbox+shapes+reference+rules+instances<br/>2473 quads * pyshacl conforms"]
     STORE["triple store -- step 1, DONE<br/>GraphDB repository portfolio<br/>src/kg_store/, cli/load_schema.py"]
     GRAPHS["named graphs -- step 1, DONE<br/>static: tbox/reference/rules<br/>ingest:{agent}:{date} * portfolio:current<br/>worked example only"]
     GATE["SHACL ingest gate -- DONE<br/>pyshacl, src/kg_store/gate.py<br/>cli/ingest.py"]
@@ -558,7 +558,7 @@ snapshot to carry a `rawValue` in `[-1, 1]` (option 1; see `schema/README.md`, r
 **Schema validation** (`schema/README.md`, run from inside `schema/`):
 
 1. Parse `tbox.ttl → shapes.ttl → reference.ttl → rules.ttl` then
-   `instances.trig` into one `rdflib.Dataset`; assert `quads: 2458`.
+   `instances.trig` into one `rdflib.Dataset`; assert `quads: 2473`.
 2. `pyshacl.validate` the same combined graph against `shapes.ttl`; assert
    `conforms: True`.
 3. Run after **every** schema edit — `tbox.ttl`'s `AllDisjointClasses` block
@@ -653,26 +653,22 @@ production system this project isn't. What exists instead:
 
 ## 10. Testing Strategy & Acceptance Criteria
 
-- **`src/etl/` has hermetic unit tests for its shared helpers** (T-133; NR-005 and §14 still say
-  there is no suite until T-130 reverses them): `tests/test_etl_common.py` (the G1–G3 formulas, GICS
-  rollup, provenance IDs, Turtle literals) and `tests/test_asset_master.py` (the `reference.ttl`
-  ticker skip-set, `reference_asset_tickers()` and `build_assets(already_defined=...)`, plus
-  `read_stints`'s ticker-shape and empty-stint filters and the rollup warnings). The rest of
-  `src/etl/` (`news_to_rdf.py`, `build_data_ttl.generate`) is still exercised only by the
-  end-to-end SHACL sample/smoke check (FR-006), which checks schema conformance, not the
-  correctness of the G9 `publishedDate` fallback.
-- **The parse + `pyshacl` conformance check (FR-001) is the actual gate**
-  today, run manually before merge — see `.specify/memory/constitution.md`
+- **`src/etl/` has hermetic unit tests for its shared helpers** (T-133): `tests/test_etl_common.py`
+  (the G1–G3 formulas, GICS rollup, provenance IDs, Turtle literals) and `tests/test_asset_master.py`
+  (the `reference.ttl` ticker skip-set, `reference_asset_tickers()` and
+  `build_assets(already_defined=...)`, plus `read_stints`'s ticker-shape and empty-stint filters and
+  the rollup warnings). The rest of `src/etl/` (`news_to_rdf.py`, `build_data_ttl.generate`) is still
+  exercised only by the end-to-end SHACL sample/smoke check (FR-006), which checks schema
+  conformance, not the correctness of the G9 `publishedDate` fallback.
+- **The parse + `pyshacl` conformance check (FR-001) runs as a test**
+  (`tests/test_schema_gate.py`, T-134), so `uv run pytest` covers the schema too; the script in
+  `schema/README.md` still does the same by hand — see `.specify/memory/constitution.md`
   §Executable cmds.
-- **Acceptance criteria in §2.3/§2.4 are the closest thing to a test spec**
-  that exists — each row above is written to be directly checkable by
-  inspection or the parse/`pyshacl`/`grep` commands cited, in the absence of
-  an actual test suite.
-- **New requirement → new test first** (once a test suite exists) is the
-  aspirational standard this repo has not yet built infrastructure for — a
-  `pytest` suite for `src/etl/` (being revisited: `PLAN.md` Work item 13) is accepted as permanently out of scope at
-  current scale (§14), not a pending backlog item, unless Work item 4's
-  larger projection changes that calculus.
+- **Acceptance criteria in §2.3/§2.4 are checked by the suite where it reaches them** and
+  otherwise by inspection or the parse/`pyshacl`/`grep` commands cited.
+- **New requirement → new test first**: `src/`/`cli/` code lands with its test (constitution
+  Code & Git #9). The suite is hermetic, flat `tests/test_<module>.py`; tests that need an upstream
+  checkout or a live store are marked `integration` and deselected by default.
 
 ## 11. Deployment Procedures
 
@@ -896,9 +892,10 @@ of what this project is, not a gap someone forgot to close:
   the shared `fetch_processed_articles` join shape (§13 item 9) — accepted
   at this scale; a `portfolio-nlp` schema change breaking this repo silently
   is a known, accepted risk.
-- **A `pytest` suite for `src/etl/`** (§13 item 7; being revisited by `PLAN.md` Work item 13) — accepted at current
-  scale; the end-to-end SHACL check is judged a sufficient substitute for
-  now, not upgraded just because the surrounding architecture grows.
+- **Tests for the rest of `src/etl/`** (§13 item 7) — its shared helpers are tested (T-133), and
+  leaving `news_to_rdf.py` and `build_data_ttl.generate` untested is the accepted part: they are
+  transitional (T-033), backfilled only if they survive, with the end-to-end SHACL check as their
+  substitute meanwhile.
 
 ### §13 items: disposition
 
@@ -913,7 +910,7 @@ of what this project is, not a gap someone forgot to close:
 | 4 — `protege-view.ttl` stale | **Pending development** (manual, needs a real Protégé session) | `PLAN.md` Work item 8 |
 | 5 — `CLAUDE.md` can lag `origin/master` | **Resolved** for this checkout; general risk stays covered by constitution conduct #2 | `PLAN.md` Work item 2 — done |
 | 6 — `ScoreSnapshotShape` vs. Sentiment `rawValue` | **Resolved** (T-081: `Sentiment` exempt from `normalizedScore`, `rawValue` required) | `PLAN.md` Work item 9 — done |
-| 7 — no test suite for `src/etl/` | **Permanently out of scope** at current scale — **being revisited:** `PLAN.md` Work item 13 (T-133 updated §10 and §13 item 7; T-130 reverses this row and NR-005) | See above |
+| 7 — `src/etl/`'s tests cover its helpers only | **Resolved** for the shared helpers (hermetic suite, T-130–T-134); **permanently out of scope** for the transitional rest of `src/etl/` (T-033) | §10 |
 | 8 — uncalibrated severity formulas | **Permanently out of scope** (research task) | See above |
 | 9 — no pinned SOURCE/RESULTS contract | **Permanently out of scope** (accepted risk) | See above |
 
