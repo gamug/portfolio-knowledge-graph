@@ -16,7 +16,8 @@
 # Neither the CHANGED lines nor PART 2 are on our master yet; they are
 # planned in our Work items 12 (T-121) and 15 (T-151..T-156, T-171).
 # T-171's two shape changes and two comments are already in our
-# schema/ in portfolio-knowledge-graph PR #56.
+# schema/ in portfolio-knowledge-graph PR #56; T-121's scheme terms are
+# in PR #65 (see the T-121 block below: the date became :cycleDate).
 #
 # Namespace: https://thesis.local/kg/portfolio#  (prefix ":")
 # OWL = what can be inferred (open world); SHACL = what our ingest
@@ -1147,11 +1148,12 @@
 
 # --- T-121: v_weight_scheme / v_weight_component -> AttractivenessWeightScheme
 # One scheme per cycle_run: schemeId = "cycle_run:<id>" (PART 1, CHANGED
-# comment), validFrom = cycle_date. OPEN (T-121): with no validTo, a
-# per-run scheme reads as "still active" under our valid-time convention,
-# so we will either close each run's scheme when the next run is
-# projected, or replace validFrom with a run-date property. Treat
-# validFrom here as provisional. Your scheme_id is the book-weighting
+# comment). DECIDED (T-121, portfolio-knowledge-graph PR #65): a per-run
+# scheme is an observation, not a valid-time record. Its date is a new
+# :cycleDate (your cycle_date verbatim), not validFrom, and it is never
+# closed; the shape takes either validFrom (our design-history
+# WeightScheme_v1) or cycleDate with no validTo. The validFrom shape in
+# PART 1 is therefore superseded for your schemes. Your scheme_id is the book-weighting
 # rule and gets its own property, beside the scalar knobs. New runs carry
 # three components (1/3 each), older runs four (0.4/0.3/0.2/0.1).
 :bookWeightingRule a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :AttractivenessWeightScheme ; rdfs:range xsd:string ;

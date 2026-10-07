@@ -401,11 +401,11 @@ disjoint leaf types) and `shapes.ttl` to 14 shapes (§1.6):
   never a persisted fact.
 - **`AttractivenessWeightScheme`** — the blend behind `attractivenessScore` as upstream's cycle
   runner recorded it for **one `cycle_run`** (read, never applied here, T-155; per-run since T-121):
-  `schemeId` `cycle_run:<id>`, `runAsOf` = the run's cycle date, upstream's book-weighting rule
+  `schemeId` `cycle_run:<id>`, `cycleDate` = upstream's `v_weight_scheme.cycle_date`, upstream's book-weighting rule
   (`bookWeightingRule`: `score_proportional`, `score_tilt`) and its scalar knobs (`topN`, `maxNameWeight`,
   `maxSectorWeight`, `softVetoPenalty`), all read verbatim. A per-run scheme is an immutable
   observation, **not a valid-time record**: it is never closed or updated, a later run is a new scheme,
-  and its absent `validTo` never means "still active" (the shape requires `validFrom` *or* `runAsOf`).
+  and its absent `validTo` never means "still active". The shape requires exactly one of the two kinds (`sh:xone`): a `validFrom`, or a `cycleDate` with no `validTo`. It is written to `urn:graph:ingest:ORCHESTRATOR:{date}` with the snapshots that point at it (`docs/07`).
   The design-history `WeightScheme_v1` keeps the valid-time form, `[validFrom, validTo)`, mirroring
   `RuleDefinition`'s "rules live in the graph, not code" pattern (critique #6).
 - **`WeightComponent`** — one `(metric, weight)` pair within an `AttractivenessWeightScheme`: for an

@@ -266,13 +266,16 @@
 :AttractivenessWeightSchemeShape
     a sh:NodeShape ;
     sh:targetClass :AttractivenessWeightScheme ;
-    # T-121: an upstream scheme is a per-run observation (runAsOf = its cycle date), the design-history
-    # WeightScheme_v1 a valid-time record (validFrom); one of the two dates is required, so neither kind
-    # is undated, and a per-run scheme needs no validFrom (an absent validTo would read "still active").
-    sh:or ( [ sh:path :validFrom ; sh:minCount 1 ] [ sh:path :runAsOf ; sh:minCount 1 ] ) ;
+    # T-121: exactly one of two kinds. An upstream scheme is a per-run observation dated by :cycleDate
+    # (v_weight_scheme.cycle_date) and never closed, so it carries no validTo; the design-history
+    # WeightScheme_v1 is a valid-time record (validFrom, optionally validTo). A scheme with both dates,
+    # or neither, or a per-run scheme with a validTo, fails the sh:xone.
+    sh:xone ( [ sh:path :validFrom ; sh:minCount 1 ]
+              [ sh:property [ sh:path :cycleDate ; sh:minCount 1 ] ; sh:property [ sh:path :validTo ; sh:maxCount 0 ] ] ) ;
     sh:property [ sh:path :schemeId ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ] ;
     sh:property [ sh:path :validFrom ; sh:datatype xsd:date ; sh:maxCount 1 ] ;
-    sh:property [ sh:path :runAsOf ; sh:datatype xsd:date ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :cycleDate ; sh:datatype xsd:date ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :runId ; sh:datatype xsd:string ; sh:maxCount 1 ] ;
     sh:property [ sh:path :bookWeightingRule ; sh:datatype xsd:string ; sh:maxCount 1 ] ;
     sh:property [ sh:path :topN ; sh:datatype xsd:integer ; sh:minInclusive 1 ; sh:maxCount 1 ] ;
     sh:property [ sh:path :maxNameWeight ; sh:datatype xsd:decimal ; sh:minInclusive 0.0 ; sh:maxInclusive 1.0 ; sh:maxCount 1 ] ;

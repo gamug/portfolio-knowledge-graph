@@ -121,39 +121,39 @@ def test_named_graphs_match_spec(bundle: rdflib.Dataset, spec_text: str) -> None
 
 # --- per-run weight schemes (T-121) -----------------------------------------------------------
 
-_COMPONENT = (KG.WC_Run, rdflib.RDF.type, KG.WeightComponent)
 _SCHEME = KG.WS_Run
+_DEC = rdflib.XSD.decimal
+_INT = rdflib.XSD.integer
+Extra = list[tuple[rdflib.term.Node, rdflib.term.Node]]
 
 
-def _scheme(
-    bundle: rdflib.Dataset, extra: list[tuple[rdflib.term.Node, rdflib.term.Node]]
-) -> rdflib.Graph:
+def _date(text: str = "2026-10-07") -> rdflib.Literal:
+    return rdflib.Literal(text, datatype=rdflib.XSD.date)
+
+
+def _scheme(bundle: rdflib.Dataset, extra: Extra) -> rdflib.Graph:
     """The worked example plus one scheme (one component, no ``:inverted``) with ``extra`` triples."""
     g = _flat(bundle)
-    D, L = rdflib.XSD.decimal, rdflib.Literal
-    g.add(_COMPONENT)
-    g.add((KG.WC_Run, KG.weightMetricName, L("ScoreFinanciero")))
-    g.add((KG.WC_Run, KG.weightValue, L("0.4", datatype=D)))
+    g.add((KG.WC_Run, rdflib.RDF.type, KG.WeightComponent))
+    g.add((KG.WC_Run, KG.weightMetricName, rdflib.Literal("ScoreFinanciero")))
+    g.add((KG.WC_Run, KG.weightValue, rdflib.Literal("0.4", datatype=_DEC)))
     g.add((_SCHEME, rdflib.RDF.type, KG.AttractivenessWeightScheme))
-    g.add((_SCHEME, KG.schemeId, L("cycle_run:42")))
+    g.add((_SCHEME, KG.schemeId, rdflib.Literal("cycle_run:42")))
     g.add((_SCHEME, KG.hasWeightComponent, KG.WC_Run))
     for p, o in extra:
         g.add((_SCHEME, p, o))
     return g
 
 
-_DATE = rdflib.Literal("2026-10-08", datatype=rdflib.XSD.date)
-_DEC = rdflib.XSD.decimal
-_INT = rdflib.XSD.integer
-
-
 @pytest.mark.parametrize(
     "extra",
     [
-        [(KG.runAsOf, _DATE)],
-        [(KG.validFrom, _DATE)],
+        [(KG.cycleDate, _date())],
+        [(KG.validFrom, _date())],
+        [(KG.validFrom, _date()), (KG.validTo, _date("2026-10-08"))],
         [
-            (KG.runAsOf, _DATE),
+            (KG.cycleDate, _date()),
+            (KG.runId, rdflib.Literal("cycle_run:42")),
             (KG.bookWeightingRule, rdflib.Literal("score_tilt")),
             (KG.topN, rdflib.Literal("30", datatype=_INT)),
             (KG.maxNameWeight, rdflib.Literal("0.05", datatype=_DEC)),
@@ -161,56 +161,59 @@ _INT = rdflib.XSD.integer
             (KG.softVetoPenalty, rdflib.Literal("15", datatype=_DEC)),
         ],
     ],
-    ids=["run date only", "valid-time only", "every knob"],
+    ids=["per-run", "valid-time", "valid-time closed", "per-run, every knob"],
 )
-def test_a_per_run_scheme_conforms(
-    bundle: rdflib.Dataset,
-    shapes: rdflib.Graph,
-    extra: list[tuple[rdflib.term.Node, rdflib.term.Node]],
+def test_a_weight_scheme_of_either_kind_conforms(
+    bundle: rdflib.Dataset, shapes: rdflib.Graph, extra: Extra
 ) -> None:
     assert _violations(_scheme(bundle, extra), shapes) == set()
+
+
+_RUN = (KG.cycleDate, _date())
 
 
 @pytest.mark.parametrize(
     ("extra", "path"),
     [
-        ([], None),  # neither date: the sh:or fails on the node itself
+        ([], None),  # neither kind: the sh:xone fails on the node itself
+        ([_RUN, (KG.validFrom, _date())], None),  # both kinds
+        ([_RUN, (KG.validTo, _date("2026-10-08"))], None),  # a per-run scheme is never closed
+        ([_RUN, (KG.cycleDate, _date("2026-10-08"))], KG.cycleDate),
+        ([_RUN, (KG.cycleDate, rdflib.Literal("2026-10-07"))], KG.cycleDate),  # wrong type too
+        ([_RUN, (KG.topN, rdflib.Literal("0", datatype=_INT))], KG.topN),
+        ([_RUN, (KG.topN, rdflib.Literal("5.5", datatype=_DEC))], KG.topN),
+        ([_RUN, (KG.maxNameWeight, rdflib.Literal("1.5", datatype=_DEC))], KG.maxNameWeight),
+        ([_RUN, (KG.maxSectorWeight, rdflib.Literal("-0.1", datatype=_DEC))], KG.maxSectorWeight),
+        ([_RUN, (KG.softVetoPenalty, rdflib.Literal("-1", datatype=_DEC))], KG.softVetoPenalty),
+        ([_RUN, (KG.bookWeightingRule, rdflib.Literal(1))], KG.bookWeightingRule),
         (
             [
-                (KG.runAsOf, _DATE),
-                (KG.runAsOf, rdflib.Literal("2026-10-09", datatype=rdflib.XSD.date)),
+                _RUN,
+                (KG.bookWeightingRule, rdflib.Literal("a")),
+                (KG.bookWeightingRule, rdflib.Literal("b")),
             ],
-            KG.runAsOf,
-        ),
-        ([(KG.runAsOf, _DATE), (KG.topN, rdflib.Literal("0", datatype=_INT))], KG.topN),
-        ([(KG.runAsOf, _DATE), (KG.topN, rdflib.Literal("5.5", datatype=_DEC))], KG.topN),
-        (
-            [(KG.runAsOf, _DATE), (KG.maxNameWeight, rdflib.Literal("1.5", datatype=_DEC))],
-            KG.maxNameWeight,
-        ),
-        (
-            [(KG.runAsOf, _DATE), (KG.maxSectorWeight, rdflib.Literal("-0.1", datatype=_DEC))],
-            KG.maxSectorWeight,
-        ),
-        (
-            [(KG.runAsOf, _DATE), (KG.softVetoPenalty, rdflib.Literal("-1", datatype=_DEC))],
-            KG.softVetoPenalty,
+            KG.bookWeightingRule,
         ),
     ],
     ids=[
         "no date",
-        "two run dates",
+        "both dates",
+        "closed per-run",
+        "two cycle dates",
+        "cycle date not a date",
         "topN 0",
         "topN not an integer",
         "name cap above 1",
         "sector cap below 0",
         "negative penalty",
+        "rule not a string",
+        "two rules",
     ],
 )
-def test_a_malformed_per_run_scheme_is_caught(
+def test_a_malformed_weight_scheme_is_caught(
     bundle: rdflib.Dataset,
     shapes: rdflib.Graph,
-    extra: list[tuple[rdflib.term.Node, rdflib.term.Node]],
+    extra: Extra,
     path: rdflib.term.Node | None,
 ) -> None:
     assert _violations(_scheme(bundle, extra), shapes) == {(_SCHEME, path)}
@@ -218,7 +221,7 @@ def test_a_malformed_per_run_scheme_is_caught(
 
 def test_a_weight_component_may_omit_inverted(bundle: rdflib.Dataset, shapes: rdflib.Graph) -> None:
     """``_scheme`` builds its component without ``:inverted``; one given still has to be a boolean."""
-    g = _scheme(bundle, [(KG.runAsOf, _DATE)])
+    g = _scheme(bundle, [_RUN])
     assert _violations(g, shapes) == set()
     g.add((KG.WC_Run, KG.inverted, rdflib.Literal("yes")))
     assert _violations(g, shapes) == {(KG.WC_Run, KG.inverted)}
