@@ -138,7 +138,9 @@ once T-131 lands.*
       `acceptance.check_gate`'s violation count (whatever T-142 makes it count);
       `load_schema.main(argv)` called directly; `cli/check_view_contract.py` run as a subprocess
       (constitution #10) against a synthetic upstream in `tmp_path`, exiting 1 on drift and 0
-      otherwise. `cli/load_schema.py`, `verify_store.py` and `ingest.py` need a live store: their
+      otherwise, plus the error case (a view `ensure` cannot create raises, so the exit is 1 with
+      a traceback and no `DRIFT` lines: the exit code alone does not tell it from drift, PR #57
+      review). `cli/load_schema.py`, `verify_store.py` and `ingest.py` need a live store: their
       exit codes are `integration` tests with T-141. `cli/build_data_ttl.py` is transitional
       (T-033). → Approach 3.
 
