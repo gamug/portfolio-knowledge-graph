@@ -4,6 +4,7 @@
   "pending_columns": {"cycle_run_id": "T-144", "score_type": "T-144", "component_value": "T-144"},
   "cap": 0,
   "null_rate": [{"column": "component_value", "max": 0}],
+  "types": {"component_value": "number"},
   "ranges": [{"column": "component_value", "min": 0, "max": 100}],
   "group_means": [
     {

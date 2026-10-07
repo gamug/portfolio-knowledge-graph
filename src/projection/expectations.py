@@ -5,7 +5,7 @@ reads them (``PLAN.md`` Work item 16, decided in ``SPEC.md`` §13 item 10): type
 ranges, formats, natural keys, row count, the D2 ordered pair, group means and the view's
 quarantine cap. ``view_expectations/_source.json`` holds the one aggregate check on the database
 itself. This module only parses and validates those files, strictly, so a typo fails at load and
-not on the first real run. Running them over rows is T-163's job.
+not on the first real run. :mod:`projection.boundary` runs them over the rows (T-163).
 
 Column names are checked against :data:`projection.view_contract.VIEW_COLUMNS`, so the column list
 is not repeated here. A column or a whole view upstream has not shipped yet is declared under
@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, TypeGuard
 
@@ -103,6 +103,7 @@ class ViewExpectation:
     formats: Mapping[str, str]
     ordered_pairs: tuple[OrderedPair, ...]
     group_means: tuple[GroupMean, ...]
+    pending_columns: Mapping[str, str] = field(default_factory=dict)  # column -> reason, unread
 
 
 @dataclass(frozen=True)
@@ -130,6 +131,7 @@ class _Checker:
         self.name = name
         self.problems: list[str] = []
         self.allowed: set[str] = set()  # the columns a rule may name: pinned plus pending
+        self.pending_columns: dict[str, str] = {}
 
     def bad(self, where: str, why: str) -> None:
         self.problems.append(f"{where}: {why}")
@@ -204,6 +206,7 @@ def _scope(chk: _Checker, name: str, data: Mapping[str, Any]) -> str | None:
         if pinned is not None and column in pinned:
             chk.bad("pending_columns", f"{column!r} is pinned now, so drop the marker")
     chk.allowed = set(pinned or ()) | set(pending_columns)
+    chk.pending_columns = dict(pending_columns)
     return pending
 
 
@@ -372,6 +375,7 @@ def parse_view_expectation(name: str, data: Mapping[str, Any]) -> ViewExpectatio
         formats=_named(chk, data, "formats", FORMATS),
         ordered_pairs=_ordered_pairs(chk, data),
         group_means=_group_means(chk, data),
+        pending_columns=dict(chk.pending_columns),
     )
     chk.raise_if_any()
     return parsed
