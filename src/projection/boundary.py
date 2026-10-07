@@ -286,9 +286,14 @@ class _View:
     def _agg(self, check: str, column: str | None, detail: str, group: Key | None = None) -> None:
         self.aggregate.append(Failure(self.exp.view, check, column, detail, group=group))
 
+    def key_of(self, index: int) -> Key:
+        """The row's natural key, or its index in the read for a view that declares none."""
+        return _key(self.rows[index], self.row_key) if self.row_key else (index,)
+
     def _row(self, index: int, check: str, column: str | None, detail: str) -> None:
-        key = _key(self.rows[index], self.row_key) if self.row_key else (index,)
-        self.by_row[index].append(Failure(self.exp.view, check, column, detail, key=key))
+        self.by_row[index].append(
+            Failure(self.exp.view, check, column, detail, key=self.key_of(index))
+        )
 
     def run(self) -> None:
         self._missing_columns()
@@ -559,14 +564,20 @@ def _stop(report: BoundaryReport, why: str) -> NoReturn:
 
 
 def _cascade(views: Mapping[str, _View]) -> dict[str, set[int]]:
-    """Row indexes to drop per view: the failing rows plus everything they take with them."""
+    """Row indexes to drop per view: the failing rows plus everything they take with them.
+
+    A taken row names the failing row that started the cascade (``cascaded_from``), not the row
+    it was taken with when that row was itself taken; the detail names that intermediate hop.
+    """
     dropped: dict[str, set[int]] = {
         n: {i for i, f in v.by_row.items() if f} for n, v in views.items()
     }
-    queue = [(n, i) for n, idxs in dropped.items() for i in idxs]
+    # (view, row index, the failing row that started this cascade)
+    queue = [(n, i, f"{n} {views[n].key_of(i)}") for n, idxs in dropped.items() for i in idxs]
     while queue:
-        name, index = queue.pop()
+        name, index, root = queue.pop()
         source = views[name]
+        here = f"{name} {source.key_of(index)}"
         for target_name, on in CASCADES.get(name, ()):
             target = views.get(target_name)
             if target is None:
@@ -574,6 +585,7 @@ def _cascade(views: Mapping[str, _View]) -> dict[str, set[int]]:
             key = _key(source.rows[index], on)
             if None in key:
                 continue
+            via = "the failing row" if here == root else f"{here}, itself taken with {root}"
             for j, row in enumerate(target.rows):
                 if j not in dropped[target_name] and _key(row, on) == key:
                     dropped[target_name].add(j)
@@ -582,12 +594,12 @@ def _cascade(views: Mapping[str, _View]) -> dict[str, set[int]]:
                             target_name,
                             "cascade",
                             None,
-                            f"shares {', '.join(on)} {key} with a failing row",
-                            key=_key(row, target.row_key) if target.row_key else (j,),
-                            cascaded_from=f"{name} {_key(source.rows[index], source.row_key)}",
+                            f"shares {', '.join(on)} {key} with {via}",
+                            key=target.key_of(j),
+                            cascaded_from=root,
                         )
                     )
-                    queue.append((target_name, j))
+                    queue.append((target_name, j, root))
     return dropped
 
 

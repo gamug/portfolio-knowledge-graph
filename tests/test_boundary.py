@@ -342,7 +342,45 @@ def test_a_failing_component_takes_its_scheme_and_that_runs_rankings(
         "v_cycle_ranking",
         "v_weight_component",
     }
-    assert all(f.cascaded_from for f in cascaded)
+    # every taken row names the component that failed, and a second hop names the row it went with
+    root = "v_weight_component (1, 'SECTOR')"
+    assert {(f.view, f.key, f.cascaded_from, f.detail) for f in cascaded} == {
+        ("v_weight_scheme", (0,), root, "shares cycle_run_id (1,) with the failing row"),
+        (
+            "v_cycle_ranking",
+            (0,),
+            root,
+            f"shares cycle_run_id (1,) with v_weight_scheme (0,), itself taken with {root}",
+        ),
+        (
+            "v_weight_component",
+            (1, "TECHNICAL"),
+            root,
+            f"shares cycle_run_id (1,) with v_weight_scheme (0,), itself taken with {root}",
+        ),
+    }
+
+
+def test_a_keyless_failing_row_is_named_by_its_index_in_the_cascade() -> None:
+    schemes = parse_view_expectation(
+        "v_weight_scheme",
+        {
+            "view": "v_weight_scheme",
+            "cap": 1,
+            "cap_reason": "test",
+            "ranges": [{"column": "top_n", "min": 1}],
+        },
+    )
+    rankings = parse_view_expectation(
+        "v_cycle_ranking", {"view": "v_cycle_ranking", "cap": 1, "cap_reason": "test"}
+    )
+    rows = {
+        "v_weight_scheme": [full(1), full(2, top_n=0)],
+        "v_cycle_ranking": [{"cycle_run_id": 2, "asset_id": 1}],
+    }
+    result = validate(rows, {"v_weight_scheme": schemes, "v_cycle_ranking": rankings})
+    [taken] = [f for f in result.report.quarantined if f.check == "cascade"]
+    assert taken.cascaded_from == "v_weight_scheme (1,)"  # its index, never an empty key
 
 
 def test_each_cascaded_row_counts_against_its_own_views_cap() -> None:
