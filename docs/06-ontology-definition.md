@@ -116,7 +116,7 @@ Portfolio Knowledge Graph
 | `RiskEvent`, `Veto` | Risk And Decision | v1 §3B/§4 | A flagged event, SHACL-required to carry evidence (closes critique #5); and the orchestrator's per-cycle exclusion decision. |
 | `RuleDefinition`, `RuleClause` | Rule System | v1 §4, critique #1 & #6 | The veto catalog's tree structure, versioned as graph data — see §1.5. |
 | `ThresholdComparison`, `CategoricalComparison`, `GraphPredicate` | Rule System → Rule Operand | v1 §4, critique #1 | The three leaf-operand kinds a `RuleClause` can compare — see §1.5. |
-| `AttractivenessWeightScheme`, `WeightComponent` | Rule System → Attractiveness Scheme | critique #2/#3, §1.8 | Versioned per-metric weights feeding the attractiveness score. |
+| `AttractivenessWeightScheme`, `WeightComponent` | Rule System → Attractiveness Scheme | critique #2/#3, §1.8 | Per-metric weights feeding the attractiveness score: per run for upstream schemes (one `cycle_run`, dated by `cycleDate`, never closed; T-121), versioned (`validFrom`/`validTo`) for the design-history `WeightScheme_v1`. |
 
 ### 1.2.1 Taxonomic backbone, formally
 

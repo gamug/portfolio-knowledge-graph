@@ -179,7 +179,16 @@ _RUN = (KG.cycleDate, _date())
         ([_RUN, (KG.validFrom, _date())], None),  # both kinds
         ([_RUN, (KG.validTo, _date("2026-10-08"))], None),  # a per-run scheme is never closed
         ([_RUN, (KG.cycleDate, _date("2026-10-08"))], KG.cycleDate),
-        ([_RUN, (KG.cycleDate, rdflib.Literal("2026-10-07"))], KG.cycleDate),  # wrong type too
+        ([(KG.cycleDate, rdflib.Literal("2026-10-07"))], KG.cycleDate),  # the only date, a string
+        ([_RUN, (KG.runId, rdflib.Literal(42))], KG.runId),
+        (
+            [
+                _RUN,
+                (KG.runId, rdflib.Literal("cycle_run:42")),
+                (KG.runId, rdflib.Literal("cycle_run:43")),
+            ],
+            KG.runId,
+        ),
         ([_RUN, (KG.topN, rdflib.Literal("0", datatype=_INT))], KG.topN),
         ([_RUN, (KG.topN, rdflib.Literal("5.5", datatype=_DEC))], KG.topN),
         ([_RUN, (KG.maxNameWeight, rdflib.Literal("1.5", datatype=_DEC))], KG.maxNameWeight),
@@ -201,6 +210,8 @@ _RUN = (KG.cycleDate, _date())
         "closed per-run",
         "two cycle dates",
         "cycle date not a date",
+        "run id not a string",
+        "two run ids",
         "topN 0",
         "topN not an integer",
         "name cap above 1",
