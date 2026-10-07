@@ -164,12 +164,12 @@
 :AttractivenessWeightScheme
     a owl:Class ;
     rdfs:label "Attractiveness Weight Scheme" ;
-    rdfs:comment "A versioned set of per-metric weights, as upstream's cycle runner configured them for the blend behind AttractivenessSnapshot.attractivenessScore (read from upstream, never applied here), valid over [validFrom, validTo) -- mirrors RuleDefinition's 'rules live in the graph, not code' pattern (critique #6), applied to weights instead of thresholds. Added 2026-08-13." .
+    rdfs:comment "The blend behind AttractivenessSnapshot.attractivenessScore, as upstream's cycle runner recorded it for ONE cycle_run (read from upstream, never applied here; T-121). Two shapes of individual: an upstream scheme is a per-run observation (schemeId 'cycle_run:<id>', cycleDate = v_weight_scheme.cycle_date, never closed, never updated: a later run is a new scheme; written to urn:graph:ingest:ORCHESTRATOR:{cycleDate} with the snapshots that point at it); the design-history WeightScheme_v1 is a versioned scheme valid over [validFrom, validTo). A per-run scheme is deliberately NOT valid-time, so its absent validTo never reads as 'still active'. Carries upstream's book-weighting rule (:bookWeightingRule) and scalar knobs. Added 2026-08-13; per-run since T-121." .
 
 :WeightComponent
     a owl:Class ;
     rdfs:label "Weight Component" ;
-    rdfs:comment "One (metric, weight) pair within an AttractivenessWeightScheme, as configured upstream. :inverted is design history from the 2026-08-13 formula, which is not computed here (T-155); its fate is decided with T-121. Added 2026-08-13." .
+    rdfs:comment "One (metric, weight) pair within an AttractivenessWeightScheme, as configured upstream for one run: one per score_type (FUNDAMENTAL, VALORIZATION, TECHNICAL, plus SEMANTIC in older runs); SectorRelativeMomentum has no upstream weight. :inverted is optional design history (T-121). Added 2026-08-13." .
 
 #################################################################
 # 1.1 SHARED-PROPERTY SUPERCLASSES — precise ranges for properties
@@ -552,7 +552,19 @@
     rdfs:comment "Matches a ScoreSnapshot.metricType value. Named distinctly from ThresholdComparison's metricName to avoid a shared-property domain clash (see ObservationSnapshot's rationale)." .
 :weightValue a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :WeightComponent ; rdfs:range xsd:decimal .
 :inverted a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :WeightComponent ; rdfs:range xsd:boolean ;
-    rdfs:comment "Design history (2026-08-13 formula, not computed here since T-155): true for risk-oriented metrics that would be read as (1 - normalizedScore) before weighting. Upstream has no counterpart; T-121 decides whether it stays." .
+    rdfs:comment "Design history (2026-08-13 formula, not computed here since T-155): true for risk-oriented metrics that would be read as (1 - normalizedScore) before weighting. Optional since T-121: upstream has no counterpart (D13 item 4), so it is emitted for no upstream scheme and kept only on WeightScheme_v1." .
+:cycleDate a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:range xsd:date ;
+    rdfs:comment "T-121: the date of the cycle_run that recorded the individual; on an AttractivenessWeightScheme, upstream v_weight_scheme.cycle_date verbatim. No rdfs:domain, like :runId/:runAsOf: upstream also carries cycle_date on v_cycle_ranking, v_cycle_ranking_component, v_weight_component and v_sector_aggregate_snapshot, and a domain would type any such individual as a scheme (contradicting AllDisjointClasses); each class that uses it constrains it in its shape. An observation date, NOT valid time: a per-run scheme is never closed, and its lack of validTo does not mean 'still active'. Distinct from :runAsOf (the run log's as_of, v_cycle_run), which T-151's checks compare it with but which this repo does not assume equal." .
+:bookWeightingRule a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :AttractivenessWeightScheme ; rdfs:range xsd:string ;
+    rdfs:comment "T-121 (D13): upstream v_weight_scheme.scheme_id, the rule that turns the ranking into book weights (score_proportional, score_tilt). Open vocabulary, read verbatim. NOT the blend, which is identified by the cycle_run (:schemeId)." .
+:topN a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :AttractivenessWeightScheme ; rdfs:range xsd:integer ;
+    rdfs:comment "T-121: upstream top_n, the number of assets a SELECTION run holds. At least 1." .
+:maxNameWeight a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :AttractivenessWeightScheme ; rdfs:range xsd:decimal ;
+    rdfs:comment "T-121: upstream max_name_weight, a fraction of the book (0.05 = 5%), [0, 1]. Optional: NULL on a MONITORING run by default. The EFFECTIVE cap on a SELECTION run (derived from N since upstream's Work item 18, relaxations in params_json), the CONFIGURED one on a MONITORING run. Read verbatim." .
+:maxSectorWeight a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :AttractivenessWeightScheme ; rdfs:range xsd:decimal ;
+    rdfs:comment "T-121: upstream max_sector_weight, a fraction of the book (0.25 = 25%), [0, 1]. The EFFECTIVE cap on a SELECTION run (relaxations are in upstream's params_json since its Work item 18), the CONFIGURED one on a MONITORING run, as for :maxNameWeight. Read verbatim." .
+:softVetoPenalty a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :AttractivenessWeightScheme ; rdfs:range xsd:decimal ;
+    rdfs:comment "T-121: upstream soft_veto_penalty, in points of upstream's 0-100 blend (15 by default), charged once per active SOFT veto stint. Not a fraction: do not divide by 100 here. At least 0." .
 
 #################################################################
 # 4. OWL CARDINALITY RESTRICTIONS (semantic, complements SHACL's

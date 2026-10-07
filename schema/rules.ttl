@@ -226,9 +226,12 @@
 
 #################################################################
 # Attractiveness weight scheme (added 2026-08-13) — the positive
-# counterpart to this rule catalog. Versioned graph data, same
-# pattern as RuleDefinition above (critique #6's principle applied
-# to weights, not just thresholds). Design history (T-155): the blend
+# counterpart to this rule catalog. WeightScheme_v1 is versioned graph
+# data, same pattern as RuleDefinition above (critique #6's principle
+# applied to weights, not just thresholds). Since T-121 an upstream
+# scheme is NOT versioned: it is one cycle_run, dated by :cycleDate,
+# never closed, and written to urn:graph:ingest:ORCHESTRATOR:{date},
+# not to this catalog. Design history (T-155): the blend
 # this scheme once fed is computed upstream (portfolio-financial-analysis'
 # cycle runner), not here; see the 2026-08-13 design spec, marked as design
 # history. Placeholder weights, never applied by this repo.

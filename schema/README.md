@@ -141,6 +141,25 @@ what the store *enforces*.
    upstream's cohort-relative `normalized_score` (50 + 10·z, clamped to [0, 100]), a relative risk reading,
    not an absolute level. Comments only (the same text `kg_target_schema.ttl` proposes); the shapes,
    `:promptHash` and the forensic flags wait on upstream's T-144/T-074. **2473 quads; conforms: True.**
+   **T-121 (Work item 12, 2026-10-07: per-run weight schemes).** An `AttractivenessWeightScheme` is now
+   one upstream `cycle_run`, not a standing versioned scheme. *Decision:* a per-run scheme is an
+   immutable observation, not a valid-time record. Closing the previous run's scheme with `validTo`
+   would mutate old records and is ambiguous when SELECTION and MONITORING runs interleave. Its date is a
+   new functional `:cycleDate` (`v_weight_scheme.cycle_date` verbatim; no `rdfs:domain`, like `:runId`, since other views carry `cycle_date` too), not `:runAsOf`, which is the run
+   log's `as_of` and is not assumed equal to it (T-151 checks the two). `AttractivenessWeightSchemeShape`
+   requires exactly one of two kinds (`sh:xone`): a `validFrom` (the design-history `WeightScheme_v1`,
+   unchanged), or a `cycleDate` with no `validTo` (never closed). Five more functional properties, read
+   verbatim: `:bookWeightingRule` (upstream `scheme_id`, open vocabulary), `:topN` (integer, at least 1),
+   `:maxNameWeight` and `:maxSectorWeight` (fractions of the book, [0, 1]; effective cap on SELECTION,
+   configured on MONITORING; `maxNameWeight` optional) and `:softVetoPenalty` (points of upstream's
+   0-100 blend, default 15, at least 0, not a fraction). `:runId` may also appear once (as proposed
+   upstream); it equals `schemeId` and is emitted only under T-151's checks. `:inverted` becomes optional
+   (`minCount` dropped). Placement: `urn:graph:ingest:ORCHESTRATOR:{cycleDate}`, beside the snapshots
+   that point at the scheme (`docs/07`). Nineteen cases in `tests/test_schema_gate.py` (each kind, every
+   knob, both dates, neither, a closed per-run scheme, `cycleDate` and `runId` typed and single-valued, each bound, `bookWeightingRule` typed and
+   single-valued, `inverted` omitted or not a boolean) and one in `tests/test_kg_gate.py` (a per-run
+   scheme batch is accepted into an ORCHESTRATOR graph). No new class; `AllDisjointClasses` is
+   unchanged. **2547 quads; conforms: True.**
    **T-151, the rule half (Work item 15, 2026-10-07).** Upstream can reuse a run id after a deletion, so
    `:runId` (`<run table>:<id>`) is not unique on its own. Its comment in `tbox.ttl` now says it is
    emitted only when read checks pass (run row exists, `cycle_type` matches for `cycle_run`, row time

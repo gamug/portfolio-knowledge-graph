@@ -266,8 +266,21 @@
 :AttractivenessWeightSchemeShape
     a sh:NodeShape ;
     sh:targetClass :AttractivenessWeightScheme ;
+    # T-121: exactly one of two kinds. An upstream scheme is a per-run observation dated by :cycleDate
+    # (v_weight_scheme.cycle_date) and never closed, so it carries no validTo; the design-history
+    # WeightScheme_v1 is a valid-time record (validFrom, optionally validTo). A scheme with both dates,
+    # or neither, or a per-run scheme with a validTo, fails the sh:xone.
+    sh:xone ( [ sh:path :validFrom ; sh:minCount 1 ]
+              [ sh:property [ sh:path :cycleDate ; sh:minCount 1 ] ; sh:property [ sh:path :validTo ; sh:maxCount 0 ] ] ) ;
     sh:property [ sh:path :schemeId ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ] ;
-    sh:property [ sh:path :validFrom ; sh:datatype xsd:date ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :validFrom ; sh:datatype xsd:date ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :cycleDate ; sh:datatype xsd:date ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :runId ; sh:datatype xsd:string ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :bookWeightingRule ; sh:datatype xsd:string ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :topN ; sh:datatype xsd:integer ; sh:minInclusive 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :maxNameWeight ; sh:datatype xsd:decimal ; sh:minInclusive 0.0 ; sh:maxInclusive 1.0 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :maxSectorWeight ; sh:datatype xsd:decimal ; sh:minInclusive 0.0 ; sh:maxInclusive 1.0 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :softVetoPenalty ; sh:datatype xsd:decimal ; sh:minInclusive 0.0 ; sh:maxCount 1 ] ;
     sh:property [ sh:path :hasWeightComponent ; sh:minCount 1 ] .
 
 :WeightComponentShape
@@ -276,4 +289,4 @@
     sh:property [ sh:path :weightMetricName ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ;
                   sh:in ("ScoreFinanciero" "ScoreCuantitativo" "ScoreTecnico" "Sentiment" "SectorRelativeMomentum") ] ;
     sh:property [ sh:path :weightValue ; sh:datatype xsd:decimal ; sh:minInclusive 0.0 ; sh:maxInclusive 1.0 ; sh:minCount 1 ; sh:maxCount 1 ] ;
-    sh:property [ sh:path :inverted ; sh:datatype xsd:boolean ; sh:minCount 1 ; sh:maxCount 1 ] .
+    sh:property [ sh:path :inverted ; sh:datatype xsd:boolean ; sh:maxCount 1 ] .

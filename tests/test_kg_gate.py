@@ -198,6 +198,23 @@ def test_the_orchestrator_gap_is_the_untyped_subject_rule_on_cleared_on() -> Non
     assert ":clearedOn" in message
 
 
+def test_a_per_run_weight_scheme_is_accepted_into_an_orchestrator_graph(make_db: MakeDB) -> None:
+    """T-121 places a per-run scheme (and its components) in the ORCHESTRATOR graph of its date."""
+    batch = (
+        PREFIXES
+        + b"@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .\n"
+        + b':WS_cycle_run_42 a :AttractivenessWeightScheme ; :schemeId "cycle_run:42" ;'
+        + b' :cycleDate "2026-10-07"^^xsd:date ; :bookWeightingRule "score_tilt" ;'
+        + b' :topN 30 ; :softVetoPenalty "15"^^xsd:decimal ; :hasWeightComponent :WC_42_FUND .\n'
+        + b':WC_42_FUND a :WeightComponent ; :weightMetricName "ScoreFinanciero" ;'
+        + b' :weightValue "0.3333"^^xsd:decimal .\n'
+    )
+    fake = make_db()
+    written = gate.ingest(fake.db, batch, "urn:graph:ingest:ORCHESTRATOR:2026-10-07")
+    assert written == 10
+    assert fake.added[0][2] == "urn:graph:ingest:ORCHESTRATOR:2026-10-07"
+
+
 def test_validate_rejects_an_unknown_type() -> None:
     message = _reject(gate.parse_batch(PREFIXES + b":a a :ScoreSnapshott ."))
     assert "not leaf classes" in message

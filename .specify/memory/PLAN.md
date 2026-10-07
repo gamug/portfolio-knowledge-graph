@@ -482,7 +482,7 @@ schemes (one per `cycle_run`, keyed by `score_type`, plus scalar knobs) do not m
 **Acceptance**: T-120's outcome is recorded in `SPEC.md` D9 and `docs/10`; T-121 changes pass the
 FR-001 parse + `pyshacl` check and update `schema/README.md`'s counts (NR-001).
 
-**Blocked on**: nothing. T-120's answer arrived 2026-10-05 and is recorded by T-150 (Work item 15); T-121 must first take in that reply's weight facts (see T-121).
+**Blocked on**: nothing; both done. T-120's answer is recorded by T-150 (Work item 15); T-121 (PR #65) made a per-run scheme an immutable observation dated by `:cycleDate`, not a valid-time record.
 
 ## Work item 13 — A `pytest` suite for the code this repo owns
 
