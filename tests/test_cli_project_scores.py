@@ -8,9 +8,10 @@ import sqlite3
 from collections import Counter
 from pathlib import Path
 from types import ModuleType
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import pytest
+from test_score_snapshots import ASSETS, _database, _fundamental, _live_store
 
 from kg_store.graphdb import GraphDBError
 from projection.boundary import GRAPH_WRITTEN, BoundaryReport, Failure
@@ -20,6 +21,9 @@ from projection.score_snapshots import (
     StoreInterrupted,
     lost_keys_path,
 )
+
+if TYPE_CHECKING:
+    from test_score_snapshots import MakeDB
 
 CLI = Path(__file__).resolve().parent.parent / "cli" / "project_scores.py"
 
@@ -173,6 +177,53 @@ def test_no_key_file_of_another_repository_can_share_a_name_with_productions(
     own = cli.key_file(given, cli.GraphDB("http://h", repository, "", ""))
     files = {given, lost_keys_path(given), own, lost_keys_path(own)}
     assert len(files) == 4
+
+
+@pytest.mark.parametrize("repository", ["portfolio", "replay", None], ids=str)
+def test_the_key_folder_is_created_for_every_repository_and_a_dry_run(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, repository: str | None
+) -> None:
+    # Review round 6, finding 1: only a non-production repository got its folder created.
+    cli = _frozen(monkeypatch)
+    store = cli.GraphDB("http://h", repository, "", "") if repository else None
+    keys = cli.key_file(tmp_path / "keys" / "late.json", store)
+    assert keys.parent.is_dir()
+
+
+def test_a_production_write_with_the_documented_key_path_writes_and_reports(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    make_db: MakeDB,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    # Review round 6, finding 1: ``--late-keys keys/late.json`` on a fresh checkout wrote the
+    # graph, then crashed saving the lost-key file into a folder that did not exist.
+    cli = _frozen(monkeypatch)
+    _database(tmp_path, [_fundamental(id=10)]).close()
+    store = _live_store(make_db)
+    store.repository = "portfolio"
+    monkeypatch.setattr(cli.GraphDB, "from_env", classmethod(lambda _c: store.db))
+    monkeypatch.setattr(cli.config, "financial_db_path", lambda: tmp_path / "financial.db")
+    monkeypatch.setattr(cli, "universe_symbols", lambda _path: ASSETS)
+    keys = tmp_path / "keys" / "late.json"
+    assert cli.main(["--write", "--late-keys", str(keys)]) == 0
+    assert "written: urn:graph:ingest:FUNDAMENTAL:2025-Q1" in capsys.readouterr().out
+    assert [g for _, _, g in store.added] == ["urn:graph:ingest:FUNDAMENTAL:2025-Q1"]
+    assert keys.parent.is_dir()
+
+
+def test_a_key_file_that_cannot_be_written_exits_1_with_a_message(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    cli = _frozen(monkeypatch)
+    _stub(monkeypatch, cli, _result())
+
+    def fail(*_: Any, **__: Any) -> None:
+        raise PermissionError(13, "Permission denied", "keys/late.lost.json")
+
+    monkeypatch.setattr(cli, "run", fail)
+    assert cli.main([]) == 1
+    assert "file error:" in capsys.readouterr().err
 
 
 def test_a_repository_name_that_cannot_name_a_file_is_refused(

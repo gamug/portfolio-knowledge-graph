@@ -643,18 +643,59 @@ def test_a_dry_run_reads_the_lost_key_file_but_never_writes_it(tmp_path: Path) -
     assert not lost.exists()
 
 
-def test_a_malformed_lost_key_file_stops_the_run(tmp_path: Path, make_db: MakeDB) -> None:
+@pytest.mark.parametrize("damaged", ["[1]", '{"v_score_snapshot": [[1'], ids=["shape", "truncated"])
+def test_a_malformed_lost_key_file_stops_the_run_before_anything_is_written(
+    tmp_path: Path, make_db: MakeDB, damaged: str
+) -> None:
+    # Review round 6, finding 2: it was read after the writes, so the run stopped having written.
     keys = tmp_path / "late.json"
     lost = ss.lost_keys_path(keys)
-    lost.write_text("[1]")
+    lost.write_text(damaged)
+    store = _live_store(make_db)
     with pytest.raises(ss.ProjectionError, match="lost-key file"):
         ss.run(
             _database(tmp_path, [_fundamental(id=10)]),
             ASSETS,
-            make_db().db,
+            store.db,
             "2026-10-07",
             late_keys_path=keys,
         )
+    assert not store.added
+    assert lost.read_text() == damaged
+
+
+def test_a_missing_key_folder_stops_the_run_before_anything_is_written(
+    tmp_path: Path, make_db: MakeDB
+) -> None:
+    # Review round 6, finding 1: the lost-key file could not be saved after the graph was written.
+    store = _live_store(make_db)
+    with pytest.raises(ss.ProjectionError, match="key files' folder does not exist"):
+        ss.run(
+            _database(tmp_path, [_fundamental(id=10)]),
+            ASSETS,
+            store.db,
+            "2026-10-07",
+            late_keys_path=tmp_path / "keys" / "late.json",
+        )
+    assert not store.added
+
+
+def test_the_lost_key_file_is_kept_only_with_a_loss_and_replaced_whole(
+    tmp_path: Path, make_db: MakeDB
+) -> None:
+    keys = tmp_path / "late.json"
+    lost = ss.lost_keys_path(keys)
+    rows = [_fundamental(id=10)]
+    ss.run(_database(tmp_path, rows), ASSETS, _live_store(make_db).db, "2026-10-07",
+           late_keys_path=keys)  # fmt: skip
+    assert not lost.exists()  # nothing lost, nothing to keep
+
+    (tmp_path / "financial.db").unlink()
+    rows.append(_fundamental(id=11, ticker="BBB"))
+    ss.run(_database(tmp_path, rows), ASSETS, _written_q1(make_db).db, "2026-10-07",
+           late_keys_path=keys)  # fmt: skip
+    assert json.loads(lost.read_text()) == {"v_score_snapshot": [[11]]}
+    assert sorted(p.name for p in tmp_path.iterdir() if "lost" in p.name) == ["late.lost.json"]
 
 
 def test_a_replay_with_its_own_key_files_never_hides_a_production_loss(

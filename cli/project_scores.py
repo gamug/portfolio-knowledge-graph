@@ -18,7 +18,8 @@ today is refused. A past day is a replay: ``--write`` with it needs ``--replay``
 graphs record what was loaded on which day.
 A dry run does not consult the store, so it cannot see which graphs already exist.
 Exit status: 0 on success; 1 if the boundary or the projection stopped the run, the source could
-not be read, the store failed or the gate refused a graph; 2 on a bad argument. Rows lost (listed
+not be read, a key file could not be read or written, the store failed or the gate refused a
+graph; 2 on a bad argument. Rows lost (listed
 under ``lost``) do not change it.
 """
 
@@ -105,15 +106,18 @@ _REPOSITORY_ID = re.compile(r"[A-Za-z0-9_-]+")
 
 def key_file(path: Path | None, store: GraphDB | None) -> Path | None:
     """The late-key file of the repository written to: ``path`` itself for production (and a dry
-    run), and for any other the same name in a folder named for the repository, beside ``path``
-    (created if missing). Its lost-key file lands beside it too, so no file of one repository can
-    share a name with a file of another, whatever the repository or ``path`` is called."""
-    if path is None or store is None or store.repository == PRODUCTION_REPOSITORY:
-        return path
-    if not _REPOSITORY_ID.fullmatch(store.repository):
-        print(f"KG_REPOSITORY {store.repository!r} cannot name a key folder", file=sys.stderr)
-        raise SystemExit(2)
-    own = path.parent / store.repository / path.name
+    run), and for any other the same name in a folder named for the repository, beside ``path``.
+    Its lost-key file lands beside it too, so no file of one repository can share a name with a
+    file of another, whatever the repository or ``path`` is called. The folder is created if
+    missing, before anything is read, so a write never fails on it after the store took a graph."""
+    if path is None:
+        return None
+    own = path
+    if store is not None and store.repository != PRODUCTION_REPOSITORY:
+        if not _REPOSITORY_ID.fullmatch(store.repository):
+            print(f"KG_REPOSITORY {store.repository!r} cannot name a key folder", file=sys.stderr)
+            raise SystemExit(2)
+        own = path.parent / store.repository / path.name
     own.parent.mkdir(parents=True, exist_ok=True)
     return own
 
@@ -152,6 +156,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 1
     except sqlite3.Error as exc:  # a missing database, or one without upstream's tables
         print(f"source error: {exc} (SQL_FINANCIAL_DB, SQL_UNIVERSE_DB)", file=sys.stderr)
+        return 1
+    except OSError as exc:  # a key file or its folder that cannot be read or written
+        print(f"file error: {exc}", file=sys.stderr)
         return 1
     print(result.summary())
     return 1 if result.rejected else 0

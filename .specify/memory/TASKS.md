@@ -93,9 +93,13 @@ are closed (see `CHANGELOG.md`).*
     has is reported and dropped; a dry run removes no key. A write keeps lost keys beside the
     late-key file (`late.lost.json`), so later runs list only new losses. A write to any repository
     other than production keeps both files in a folder named for it (`keys/late.json` ->
-    `keys/<repository>/late.json`), so a replay never settles or hides production's rows.
-  - **Errors:** a missing or table-less source database exits 1 with a message; a store failure
-    partway prints what was already written and settles its keys.
+    `keys/<repository>/late.json`), so a replay never settles or hides production's rows. The
+    CLI creates the key folder; both files are checked before upstream is read, so a missing
+    folder or a malformed file stops a run before it writes, and both are replaced atomically
+    (`keys/` is git-ignored: the files are local run state).
+  - **Errors:** a missing or table-less source database, or a key file that cannot be read or
+    written, exits 1 with a message; a store failure partway prints what was already written and
+    settles its keys.
   - **On today's upstream data** the cycle lanes are all skipped (every `available_at` is NULL), so
     only FUNDAMENTAL snapshots are produced until upstream's T-144.
   - **Open:** the other views (T-155 and the rest of Work item 4's list), `:runId` (T-151's rule),

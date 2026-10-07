@@ -725,9 +725,14 @@ def _write_late_keys(path: Path, data: LateKeys) -> None:
     }
     if not out and not path.exists():
         return
+    write_json_atomically(path, out)
+
+
+def write_json_atomically(path: Path, data: object) -> None:
+    """Replace ``path`` with ``data`` as JSON: a crash leaves the old file, never a truncated one."""
     tmp = path.with_name(f".{path.name}.tmp")
     with tmp.open("w") as handle:
-        handle.write(json.dumps(out, indent=2, sort_keys=True) + "\n")
+        handle.write(json.dumps(data, indent=2, sort_keys=True) + "\n")
         handle.flush()
         os.fsync(handle.fileno())  # on disk before the rename, so a power loss cannot empty it
     os.replace(tmp, path)

@@ -89,6 +89,7 @@ from projection.boundary import (
     load_late_keys,
     mark_written,
     validate,
+    write_json_atomically,
 )
 from projection.expectations import load_expectations, load_source
 from projection.score_scale import to_normalized_score
@@ -464,16 +465,22 @@ def run(
     with the rest). On a write, a key leaves it once its row is settled: written, already in the
     store, or left out by design (``Projection.left_out``, listed in ``late_closed``), or gone
     from upstream (listed in ``late_not_found``). A key whose row waits for a later graph, or
-    whose graph the gate refused, stays. A dry run reports but removes or adds no key; the
-    boundary still adds the keys of the rows it delays.
+    whose graph the gate refused, stays. A dry run never removes a key and never writes the
+    lost-key file, but the boundary still records the keys of the rows it delays.
 
-    If the store fails partway, the graphs written so far are settled in both key files and
-    :class:`StoreInterrupted` carries the result up to that point.
+    Both key files, and their folder, are checked before upstream is read, so a missing folder
+    or a malformed file stops the run before anything is written (the CLI creates the folder). If the store fails partway, the graphs written so far are
+    settled in both key files and :class:`StoreInterrupted` carries the result up to that point.
 
     The key files must belong to ``store``'s repository: this function does not check it. The
     CLI keeps a non-production repository's files apart (``cli/project_scores.py``'s
     ``key_file``), so a replay never settles or hides production's rows.
     """
+    # Before anything is read or written, so a key file never stops a run after a write.
+    if late_keys_path is not None and not late_keys_path.parent.is_dir():
+        raise ProjectionError(f"{late_keys_path.parent}: the key files' folder does not exist")
+    lost_path = lost_keys_path(late_keys_path) if late_keys_path is not None else None
+    known_lost = load_lost_keys(lost_path) if lost_path is not None else {}
     read = read_rows(source)
     result = validate(
         {VIEW: read, ANALYSIS_RUNS: read_runs(source)},
@@ -495,9 +502,9 @@ def run(
     settled: dict[int, str | None] = dict(projection.left_out)
 
     def finish() -> None:
-        if late_keys_path is not None:
+        if late_keys_path is not None and lost_path is not None:
             _settle_late_keys(late_keys_path, read, settled, out, drop=store is not None)
-            _sort_losses(lost_keys_path(late_keys_path), out, save=store is not None)
+            _sort_losses(lost_path, known_lost, out, save=store is not None)
 
     try:
         for graph in sorted(projection.graphs):
@@ -576,18 +583,30 @@ def lost_keys_path(late_keys_path: Path) -> Path:
     return late_keys_path.with_name(f"{late_keys_path.stem}.lost.json")
 
 
-def _sort_losses(path: Path, out: RunResult, *, save: bool) -> None:
-    """Keep only this run's new losses in ``report.lost``; on a write, remember them in ``path``.
+LostKeys = dict[str, list[list[object]]]
+
+
+def load_lost_keys(path: Path) -> LostKeys:
+    """The keys of the rows earlier runs listed as lost, per view; ``{}`` if none yet.
 
     The file maps a view to the keys of its lost rows (JSON). A lost row stays in the view, so
     every later run finds the same loss again: the file is what tells a new one apart.
     """
     try:
-        known: dict[str, list[list[object]]] = json.loads(path.read_text()) if path.exists() else {}
+        known = json.loads(path.read_text()) if path.exists() else {}
     except ValueError:
         raise ProjectionError(f"{path}: the lost-key file is not JSON") from None
     if not isinstance(known, dict) or not all(isinstance(v, list) for v in known.values()):
         raise ProjectionError(f"{path}: the lost-key file must map a view to a list of keys")
+    return known
+
+
+def _sort_losses(path: Path, known: LostKeys, out: RunResult, *, save: bool) -> None:
+    """Keep only this run's new losses in ``report.lost``; on a write, remember them in ``path``.
+
+    ``known`` is what :func:`load_lost_keys` read before the run. The file is replaced
+    atomically, and not created while there is nothing to keep.
+    """
     new = []
     for failure in out.report.lost:
         key = list(failure.key) if failure.key is not None else None
@@ -598,8 +617,8 @@ def _sort_losses(path: Path, out: RunResult, *, save: bool) -> None:
             if key is not None:
                 known.setdefault(failure.view, []).append(key)
     out.report.lost[:] = new
-    if save:
-        path.write_text(json.dumps(known, indent=2, sort_keys=True) + "\n")
+    if save and (known or path.exists()):
+        write_json_atomically(path, known)
 
 
 _NS = "https://thesis.local/kg/portfolio#"
