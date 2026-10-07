@@ -511,7 +511,8 @@ def test_a_failing_ranking_component_takes_its_ranking_row(
         ("v_cycle_ranking_component", (0,), root),  # the sibling, taken through the ranking row
     }
     [sibling] = [f for f in taken if f.view == "v_cycle_ranking_component"]
-    assert "with v_cycle_ranking (1, 1), itself taken with" in sibling.detail
+    assert sibling.detail == "shares cycle_run_id, asset_id (1, 1) with v_cycle_ranking (1, 1)"
+    assert str(sibling).endswith(f"(cascade started by {root})")
 
     # the ranking row it took counts against v_cycle_ranking's own cap
     exps["v_cycle_ranking"] = shipped["v_cycle_ranking"]
