@@ -133,8 +133,10 @@ class Failure:
         return f"{where}{scope}: {self.check}: {self.detail}{cause}"
 
     def __post_init__(self) -> None:
+        # A TypeError, not the ValueError ``validate`` raises for a caller's bad input: an unknown
+        # kind is a bug in the runner.
         if self.check not in CHECK_KINDS:
-            raise ValueError(
+            raise TypeError(
                 f"unknown check kind {self.check!r}: add it to CHECK_KINDS with its test"
             )
 

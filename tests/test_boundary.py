@@ -19,7 +19,6 @@ import pytest
 
 from projection.boundary import (
     CASCADE,
-    CHECK_KINDS,
     FORENSIC_FLAGS,
     INGESTION_DATED,
     SOURCE_CHECKS,
@@ -103,9 +102,8 @@ def test_source_check_names_a_stale_schema_and_a_replay_run() -> None:
         ("source", "schema_version"),
         ("v_cycle_run", "forbidden_cycle_type"),
     ]
-    assert {
-        f.check for f in failures
-    } == SOURCE_CHECKS  # every source kind fails here, passes above
+    # every source kind fails here and passes in the test above
+    assert {f.check for f in failures} == SOURCE_CHECKS
     assert "2 run(s) of type REPLAY" in failures[1].detail
 
 
@@ -349,7 +347,8 @@ def test_a_failing_component_takes_its_scheme_and_that_runs_rankings(
     assert [r["cycle_run_id"] for r in result.rows["v_weight_scheme"]] == [2]
     assert [r["cycle_run_id"] for r in result.rows["v_weight_component"]] == [2]
     assert [r["cycle_run_id"] for r in result.rows["v_cycle_ranking"]] == [2]
-    cascaded = [f for f in result.report.quarantined if f.check == "cascade"]
+    cascaded = [f for f in result.report.quarantined if f.check == CASCADE]
+    assert cascaded, "the cascade kind has its failing case here"
     assert {f.view for f in cascaded} == {
         "v_weight_scheme",
         "v_cycle_ranking",
@@ -536,6 +535,35 @@ def test_every_ingestion_dated_view_has_a_natural_key(shipped: dict[str, ViewExp
 
 def stored(*keys: int, columns: tuple[str, ...] = ("id",)) -> dict[str, Any]:
     return {"v_score_snapshot": {"columns": list(columns), "keys": [[k] for k in keys]}}
+
+
+def test_a_late_key_persisted_by_one_run_is_re_read_and_dropped_once_written_by_the_next(
+    tmp_path: Path,
+) -> None:
+    """The runner's half of the round trip (T-164); T-031 tests it on the real read."""
+    path = tmp_path / "late.json"
+    view_exp = {"v_score_snapshot": snapshot_view()}
+
+    first = validate(
+        {"v_score_snapshot": [snapshot(1), snapshot(2, "VALORIZATION", normalized_score=101.0)]},
+        view_exp,
+        late_keys_path=path,
+    )
+    assert [f.key for f in first.report.late] == [(2,)]
+
+    # the next run reads the file run 1 wrote and merges the fixed row into its read by key
+    late = load_late_keys(path)["v_score_snapshot"]
+    assert late == {"columns": ["id"], "keys": [[2]]}
+    fixed = {tuple(k) for k in late["keys"]}
+    read = [snapshot(3, "VALORIZATION"), snapshot(2, "VALORIZATION")]
+    assert {(r["id"],) for r in read} >= fixed
+    second = validate({"v_score_snapshot": read}, view_exp, late_keys_path=path)
+    assert [r["id"] for r in second.rows["v_score_snapshot"]] == [3, 2]
+    assert second.report.quarantined == []
+    assert load_late_keys(path) == stored(2)  # passed, not written yet
+
+    mark_written(path, "v_score_snapshot", [(r["id"],) for r in second.rows["v_score_snapshot"]])
+    assert load_late_keys(path) == {}
 
 
 def test_validate_only_adds_late_keys_and_mark_written_removes_them(tmp_path: Path) -> None:
@@ -805,14 +833,14 @@ def test_a_view_check_kind_passes_good_rows_and_reports_bad_ones(
 
 
 def test_every_check_kind_the_runner_can_report_has_its_cases() -> None:
-    """``Failure`` refuses a kind outside ``CHECK_KINDS``, so a new kind lands there and fails here
-    until it gets a row in ``_KINDS`` (a view kind) or in the source-check tests (a source kind)."""
+    """``Failure`` refuses a kind outside ``CHECK_KINDS``, so a new kind lands there. A view kind
+    fails here until it has a row in ``_KINDS``; a source kind fails the source-check test above
+    until that test triggers it; ``CASCADE`` is asserted by the cascade test."""
     assert {k[0] for k in _KINDS} == VIEW_CHECKS
-    assert VIEW_CHECKS | SOURCE_CHECKS | {CASCADE} == CHECK_KINDS
 
 
 def test_a_failure_of_an_unknown_kind_is_refused() -> None:
-    with pytest.raises(ValueError, match="unknown check kind 'monotonic'"):
+    with pytest.raises(TypeError, match="unknown check kind 'monotonic'"):
         Failure("v_weight_scheme", "monotonic", None, "a kind with no test")
 
 
@@ -907,6 +935,8 @@ def test_the_forensic_flags_format_fails_an_extra_or_missing_key_or_a_non_boolea
 
 
 def _lenient_scores(shipped: dict[str, ViewExpectation]) -> dict[str, ViewExpectation]:
+    # ``dataclasses.replace`` skips the loader's checks; fine to look at each quarantined row in a
+    # test, never on the read path, where a cap comes from its JSON file with its reason.
     exp = dataclasses.replace(shipped["v_score_snapshot"], cap=1.0, cap_reason="test")
     return {"v_score_snapshot": exp}
 

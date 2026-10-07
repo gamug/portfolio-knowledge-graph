@@ -951,7 +951,7 @@ for a row-level check, or the group for an aggregate one; `uv run pytest` covers
 row set per check kind and the selected policy's behaviour; `SPEC.md` §13 item 10 records what is checked
 at the boundary and what is not.
 
-**Blocked on**: nothing for T-162 (T-160 done, T-161 closed: no library, no amendment). T-163's function is done (`src/projection/boundary.py`, PR #68), the task stays open: calling it on the real read and counting T-151's and T-155's skips land with T-031; T-164's runner tests are done (PR #69; every kind in `boundary.CHECK_KINDS` has a passing and a failing case), the task stays open for the re-read across two runs, which needs T-031's caller.
+**Blocked on**: nothing for T-162 (T-160 done, T-161 closed: no library, no amendment). T-163's function is done (`src/projection/boundary.py`, PR #68), the task stays open: calling it on the real read and counting T-151's and T-155's skips land with T-031; T-164 is done (PR #69: every kind in `boundary.CHECK_KINDS` has a passing and a failing case, and a late key's round trip across two runs is tested over synthetic rows); T-031 tests that round trip on the real read.
 
 ## Sequencing
 
