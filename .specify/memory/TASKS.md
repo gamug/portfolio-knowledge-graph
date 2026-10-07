@@ -107,7 +107,8 @@ once T-131 lands.*
       `integration` marker skipped by default, `uv run pytest`); add the command to §Executable cmds;
       reverse NR-005, `SPEC.md` §10, §13 item 7 and §14. Its own reviewed change. → Approach 1.
       *(Constitution 1.5.0 done: Project structure #10, Code & Git #9, `uv run pytest`. Still open:
-      the `SPEC.md` reversals, which wait until the suite exists, so close this task with T-134.)*
+      the `SPEC.md` reversals, which wait until the suite exists, so close this task with T-134;
+      §10's first bullet and §13 item 7 were updated by PR #61 (T-133), NR-005 and §14 remain.)*
 - [x] **T-131** *(done 2026-10-06 in PR #56, pulled forward because constitution Code & Git #9
       required a test for T-171's `score_scale.py` fix in the same PR; `tests/fixtures/` is created
       by the first test that needs one)* Add `pytest` to the `dev` group and the `tests/` skeleton per constitution #10:
@@ -125,8 +126,9 @@ once T-131 lands.*
       `bool` or a non-numeric string raises `ValueError`. → Approach 3.
 - [x] **T-133** Tests for `src/etl/common` (severity/G1–G3, GICS rollup, provenance IDs, Turtle
       literals) and the ticker skip-set logic (`SPEC.md` §10). → Approach 3.
-      *(done: `tests/test_etl_common.py` and `tests/test_asset_master.py`; the rollup test also checks
-      every target against `reference.ttl`)*
+      *(done in PR #61: `tests/test_etl_common.py` and `tests/test_asset_master.py`; the skip-set is
+      `reference_asset_tickers()` plus `build_assets(already_defined=...)`; the rollup test also
+      checks every target against `reference.ttl`)*
 - [ ] **T-134** The FR-001 parse + `pyshacl` conformance gate as a test, so `uv run pytest` covers
       the schema too. → Approach 3.
 - [ ] **T-135** Decide where the real-checkout drift check (`cli/check_view_contract.py`) runs: a

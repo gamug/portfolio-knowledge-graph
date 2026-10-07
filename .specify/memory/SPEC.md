@@ -653,12 +653,14 @@ production system this project isn't. What exists instead:
 
 ## 10. Testing Strategy & Acceptance Criteria
 
-- **`src/etl/` has hermetic unit tests for its shared helpers** (T-133; NR-005, §13 item 7 and §14 still
-  say there is none until T-130 reverses them):
-  `tests/test_etl_common.py` (severity G1–G3, GICS rollup, provenance IDs, Turtle literals) and
-  `tests/test_asset_master.py` (the ticker skip-set). The rest of `src/etl/` (`news_to_rdf.py`,
-  `build_data_ttl.py`) is still exercised only by the end-to-end SHACL sample/smoke check
-  (FR-006), which checks schema conformance, not the correctness of the G1–G3/G9 formulas.
+- **`src/etl/` has hermetic unit tests for its shared helpers** (T-133; NR-005 and §14 still say
+  there is no suite until T-130 reverses them): `tests/test_etl_common.py` (the G1–G3 formulas, GICS
+  rollup, provenance IDs, Turtle literals) and `tests/test_asset_master.py` (the `reference.ttl`
+  ticker skip-set, `reference_asset_tickers()` and `build_assets(already_defined=...)`, plus
+  `read_stints`'s ticker-shape and empty-stint filters and the rollup warnings). The rest of
+  `src/etl/` (`news_to_rdf.py`, `build_data_ttl.generate`) is still exercised only by the
+  end-to-end SHACL sample/smoke check (FR-006), which checks schema conformance, not the
+  correctness of the G9 `publishedDate` fallback.
 - **The parse + `pyshacl` conformance check (FR-001) is the actual gate**
   today, run manually before merge — see `.specify/memory/constitution.md`
   §Executable cmds.
@@ -787,8 +789,9 @@ treating a related FR/NR as done:
 6. ~~**`ScoreSnapshotShape`'s `normalizedScore` requirement doesn't fit
    Sentiment snapshots**~~ — resolved by T-081 (`Sentiment` is exempt from
    `normalizedScore` and must carry `rawValue`; §5's former known divergence).
-7. **No test suite exists for `src/etl/`** (NR-005/§10) — the severity
-   formulas, ticker skip-set logic, and provenance-ID formatting are
+7. **`src/etl/`'s tests cover its helpers only** (§10, T-133) — the G1–G3
+   formulas, GICS rollup, ticker skip-set and provenance-ID formatting have
+   hermetic tests; `news_to_rdf.py` (G9) and `build_data_ttl.generate` are
    exercised only indirectly by the end-to-end SHACL check.
 8. **The G1/G2/G3/G9 formulas in `etl/common/severity.py` are documented
    assumptions, not calibrated against ground truth** — see §7.

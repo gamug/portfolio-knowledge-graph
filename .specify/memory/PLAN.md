@@ -504,7 +504,8 @@ follow it.
 **Approach**:
 
 1. Amend `constitution.md` (MINOR, per its Governance) with the testing rules above (done, 1.5.0),
-   then reverse NR-005, §10, §13 item 7 and §14 in `SPEC.md` once the suite exists (with T-134).
+   then reverse NR-005, §10, §13 item 7 and §14 in `SPEC.md` once the suite exists (with T-134;
+   §10 and §13 item 7 already updated by T-133, PR #61).
 2. Add `pytest` to the dev group and the `tests/` skeleton.
 3. Write the pending tests: `projection/score_scale` (0, 50, 100, `None`, out of range, decimal
    exactness, `"FUNDAMENTAL"` rejected per T-171); `projection/contract_check` against a synthetic miniature upstream (a pin, then the
