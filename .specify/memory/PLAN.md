@@ -559,8 +559,8 @@ new acceptance probe; and `acceptance.check_gate` counts violations by matching 
    `:agentOrigin` (or a value outside the allowed list); graphs `schema/` does not own are reported, not
    failed, so projections can write there (T-176, read-only, with tests, no go-ahead needed; done 2026-10-08).
 7. `integration` tests for the exit codes of `verify_store.py`, `load_schema.py` and `ingest.py` (T-175);
-   the two that write use a repository of their own, never `portfolio`. Written; `portfolio.app` cannot create a
-   repository (HTTP 403), so those tests need `KG_ADMIN_USER`/`KG_ADMIN_PASSWORD` and have not run yet.
+   the two that write use a repository of their own, never `portfolio`. Done 2026-10-08; `portfolio.app` cannot create a
+   repository (HTTP 403), so those tests need `KG_ADMIN_USER`/`KG_ADMIN_PASSWORD`.
 
 **Acceptance**: FR-001 parse + `pyshacl` pass with the new count; the store acceptance probe still
 yields exactly one violation (`:timestamp`); T-141's run is recorded in `docs/graphdb-setup.md` (done); T-142's
