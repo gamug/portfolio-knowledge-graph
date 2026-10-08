@@ -542,8 +542,8 @@ new acceptance probe; and `acceptance.check_gate` counts violations by matching 
 1. Tighten `ScoreSnapshotShape` (T-140): `rawValue` in `[-1, 1]` required for `SectorRelativeMomentum` (the
    range `docs/06` §1.8 defines; mapping upstream SECTOR into it is T-031's), `sh:maxCount 1` on `rawValue`, an `sh:xone` pairing each `agentOrigin` with its one
    `metricType`. Update `docs/06`, `schema/README.md` and every quad count (NR-001).
-2. Run `cli/verify_store.py` once against the live repository (T-141, done 2026-10-08: passes; the store's
-   schema graph is older than `schema/` and it holds a conflicting leftover graph, steps 5–6).
+2. Run `cli/verify_store.py` once against the live repository (T-141, done 2026-10-08: passes; it found the
+   store's schema graph older than `schema/` and a conflicting leftover graph, fixed by step 5; the guard is step 6).
 3. Make `gate.validate` expose the results graph, and count `sh:ValidationResult` nodes in
    `check_gate` instead of matching text (T-142).
 4. Let the gate take the worked example's own batches (T-146, found by T-136's tests): three
@@ -552,9 +552,9 @@ new acceptance probe; and `acceptance.check_gate` counts violations by matching 
    `cli/ingest.py`. Land it before Work item 4 writes through the gate.
 5. Bring the live store in line with `schema/` (T-174, found by T-141, done 2026-10-08): reload `schema/` with
    `cli/load_schema.py`, then export and drop the leftover `urn:graph:ingest:QUANTITATIVE:2026-08-05`
-   (the loader does not touch it; it duplicates five snapshots of the `VALORIZATION` graph with the
-   old `:agentOrigin`, so the store is inconsistent until it goes). Both are writes to production and
-   wait for the maintainer's go-ahead.
+   (the loader does not touch it; it duplicated five snapshots of the `VALORIZATION` graph with the
+   old `:agentOrigin`, so the store was inconsistent until it went). Both were writes to production,
+   made after the maintainer's go-ahead; the record is in `docs/graphdb-setup.md`.
 6. Make `verify_store` fail on a `schema/` graph of the wrong size and on an individual with more than one
    `:agentOrigin` (or a value outside the allowed list); graphs `schema/` does not own are reported, not
    failed, so projections can write there (T-176, read-only, with tests, no go-ahead needed).
@@ -565,7 +565,7 @@ new acceptance probe; and `acceptance.check_gate` counts violations by matching 
 yields exactly one violation (`:timestamp`); T-141's run is recorded in `docs/graphdb-setup.md` (done); T-142's
 `check_gate` does not depend on pyshacl's report wording; T-146 drops the three strict `xfail`s in
 `tests/test_kg_gate.py`; T-174 leaves every graph of the store at its expected size with no leftover;
-T-176's `verify_store` fails on a stale or doubled store (it failed on the store before T-174) and exits 0 on a healthy one; T-175's tests pass or skip.
+T-176's `verify_store` fails on a stale or doubled store (it would have failed on the store before T-174; the fake-store tests show it) and exits 0 on a healthy one; T-175's tests pass or skip.
 
 **Blocked on**: nothing; T-146, T-175 and T-176 are open.
 

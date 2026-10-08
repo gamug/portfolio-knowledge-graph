@@ -281,7 +281,7 @@ independent of each other once T-131 lands.*
       allow `:clearedOn` as a closing property. Then drop the three `xfail`s in
       `tests/test_kg_gate.py` (strict, so they fail once it is fixed). Constitution Code & Git #9.
       → `PLAN.md` Work item 14, step 4.
-- [x] **T-174** *(done 2026-10-08, after the maintainer's go-ahead: `cli/load_schema.py` reloaded the 19 graphs of `schema/` (2547 triples match the local parse); the leftover `QUANTITATIVE` graph was exported (35 triples, outside the repository) and dropped, `/size` 2582 → 2547; every `VALORIZATION` snapshot has one `:agentOrigin`, none has two anywhere; `verify_store` exit 0; recorded in `docs/graphdb-setup.md`; the text below is the original task, kept for the record)* Bring the live store's schema in line with `schema/` (found by T-141). Per graph,
+- [x] **T-174** *(done 2026-10-08, after the maintainer's go-ahead: `cli/load_schema.py` reloaded the 19 graphs of `schema/` (2547 triples match the local parse); the leftover `QUANTITATIVE` graph was exported (35 triples, outside the repository) and dropped, `/size` 2582 → 2547; every `VALORIZATION` snapshot has one `:agentOrigin`, none has two anywhere; `verify_store` exit 0; recorded in `docs/graphdb-setup.md`. The leftover's absence is shown by the size (2547 is the total of the 19 graphs), not by a direct graph-list query: that query was blocked by the permission classifier and not retried; the text below is the original task, kept for the record)* Bring the live store's schema in line with `schema/` (found by T-141). Per graph,
       `urn:graph:tbox` holds 1420 triples against 1567 (it lacks the changes since the last load:
       T-121's per-run scheme terms and edits from T-151, T-153, T-155 and T-171, among others), and the
       store holds `urn:graph:ingest:QUANTITATIVE:2026-08-05` (35 triples), which `schema/` no longer
@@ -310,7 +310,7 @@ independent of each other once T-131 lands.*
 - [ ] **T-175** `integration` tests for the exit codes of `cli/verify_store.py`, `cli/load_schema.py` and
       `cli/ingest.py` (constitution Code & Git #9 lists them; the T-141 text covered only the run).
       `verify_store.py` writes nothing, so its test can run against the live repository (0 on a
-      healthy store; with T-176 in, that is a store that matches `schema/`, so this test needed T-174 first, now done). `load_schema.py` and `ingest.py` write, so they need a repository of their own
+      healthy store; with T-176 in, that is a store that matches `schema/`, as the live one now does). `load_schema.py` and `ingest.py` write, so they need a repository of their own
       (as `project_scores --replay` does), never `portfolio`. Opt in with `-m integration`, skipped
       when the store is unreachable. → `PLAN.md` Work item 14, step 7.
 
@@ -327,8 +327,9 @@ independent of each other once T-131 lands.*
       and a healthy store must still exit 0. A total-size or one-term check would hide both
       differences. Tests with a fake store: equal sizes pass; a short graph fails; an extra graph is
       reported and passes; a doubled `:agentOrigin` fails; an `:agentOrigin` outside the list fails;
-      the existing three checks are unchanged (constitution Code & Git #9). On today's store it
-      fails (a) on `tbox` and (b) on the five snapshots, which proves it; it passes after T-174. T-174 is done, so the live store can no longer show that: the fake-store tests carry the proof.
+      the existing three checks are unchanged (constitution Code & Git #9). Before T-174 it would have
+      failed (a) on `tbox` and (b) on the five snapshots; the live store no longer shows that (T-174 is done),
+      so the fake-store tests carry the proof, and the live store must pass.
       → `PLAN.md` Work item 14, step 6.
 ## Work item 15 — Adopt upstream's `v_*` contract changes (replies of 2026-10-05, 2026-10-06 x2)
 

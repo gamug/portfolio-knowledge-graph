@@ -131,7 +131,7 @@ current acceptance probe (T-142's `sh:ValidationResult` count): exit 0, all thre
 
 The script writes nothing, and nothing was written.
 
-**Found by the run: the store's schema graphs are older than `schema/`, and it holds a graph `schema/`
+**Found by the run (at the time; fixed by T-174, below): the store's schema graphs were older than `schema/`, and it held a graph `schema/`
 no longer has.** Compared per graph (`kg_store.load_schema.expected_sizes` against the store's
 asserted sizes; the totals, 2435 against 2547, hide two opposite differences):
 
@@ -146,7 +146,7 @@ asserted sizes; the totals, 2435 against 2547, hide two opposite differences):
   `:maxNameWeight`, `:maxSectorWeight`, `:softVetoPenalty` and their shapes), and edits to
   `:rawValue`, `:normalizedScore`, `:availableAt`, `:runId`, `:attractivenessScore` and
   `ScoreSnapshotShape`/`AttractivenessSnapshotShape` (from the tasks since the last load, among them T-121, T-151, T-153, T-155 and T-171).
-- **The 35-triple graph is a leftover, and it makes the live store inconsistent today.** It holds
+- **The 35-triple graph is a leftover, and it made the live store inconsistent until T-174.** It holds
   five snapshots (`Snap_AAPL_Quant_20260805`, `Snap_JNJ_…`, `Snap_JPM_…`, `Snap_PG_…`, `Snap_XOM_…`)
   under the agent name `QUANTITATIVE`, which T-105 renamed to `VALORIZATION` on 2026-10-03. The
   `VALORIZATION` graph is in the store, matches `schema/` (60 triples) and holds **the same five
@@ -164,8 +164,8 @@ asserted sizes; the totals, 2435 against 2547, hide two opposite differences):
 The check does not look at either difference, so it passes either way. The gate reads `tbox.ttl` and
 `shapes.ttl` from disk, so writes through `cli/ingest.py` are validated against the current shapes,
 but the store's own copy (what a SPARQL query and the reasoner see) lacks the newer terms.
-Reloading and dropping the leftover are writes, so neither was done; both need the maintainer's
-go-ahead (T-174).
+Reloading and dropping the leftover are writes, so neither was done in this run; both needed the
+maintainer's go-ahead (T-174, done below).
 
 ### Bringing the store in line (T-174, 2026-10-08)
 
@@ -184,7 +184,9 @@ Both writes were made after the maintainer's go-ahead, by a Claude Code session 
 4. `uv run python cli/verify_store.py` again: exit 0, all three checks pass, the probe's "store size
    unchanged" reads 2547.
 
-The store now matches `schema/`. This is a one-time record; the standing guard is T-176.
+The leftover's absence is shown by the size, not by a direct query: the read-only `ASK { GRAPH
+<urn:graph:ingest:QUANTITATIVE:2026-08-05> { ?s ?p ?o } }` was blocked by the permission classifier and
+not retried; it should answer false. The store now matches `schema/`. This is a one-time record; the standing guard is T-176.
 
 ## Connecting
 
