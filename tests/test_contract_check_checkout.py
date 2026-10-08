@@ -8,12 +8,13 @@ constitution Code & Git #1).
 """
 
 import os
+import shutil
 import subprocess
 from collections.abc import Mapping
 from pathlib import Path
 
 import pytest
-from dotenv import load_dotenv
+from dotenv import dotenv_values
 
 from projection import contract_check
 
@@ -21,7 +22,7 @@ ENV_VAR = "PFA_CHECKOUT"
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
 
-def checkout_from_env(env: Mapping[str, str]) -> Path:
+def checkout_from_env(env: Mapping[str, str | None]) -> Path:
     """The checkout ``PFA_CHECKOUT`` names: skip when it is unset, fail when it is wrong.
 
     A path that is not a checkout must not skip: "1 skipped" reads as nothing to report, so a
@@ -38,12 +39,15 @@ def checkout_from_env(env: Mapping[str, str]) -> Path:
     return path
 
 
-def _git(path: Path, *args: str) -> str:
+def _git(path: Path, *args: str, isolated: bool = False) -> str:
+    """Run git in ``path``. ``isolated`` ignores the machine's git configuration (throwaway repos)."""
+    env = {**os.environ, "GIT_CONFIG_GLOBAL": os.devnull, "GIT_CONFIG_SYSTEM": os.devnull}
     out = subprocess.run(  # noqa: S603 -- fixed git command, the path is an argument
         ["git", "-C", str(path), *args],  # noqa: S607
         capture_output=True,
         text=True,
         check=True,
+        env=env if isolated else None,
     )
     return out.stdout.strip()
 
@@ -88,20 +92,34 @@ def test_the_commit_is_unknown_outside_a_git_tree(tmp_path: Path) -> None:
     assert checkout_commit(tmp_path / "missing") == "unknown"
 
 
+needs_git = pytest.mark.skipif(shutil.which("git") is None, reason="git is not installed")
+
+
 def _commit_in(repo: Path) -> str:
-    _git(repo, "init", "-q")
+    """A repository with one commit, whatever the machine's git signing, hooks or defaults say."""
+    _git(repo, "init", "-q", isolated=True)
     (repo / "f.txt").write_text("x")
-    _git(repo, "add", "f.txt")
-    _git(repo, "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "-m", "m")
-    return _git(repo, "rev-parse", "--short", "HEAD")
+    _git(repo, "add", "f.txt", isolated=True)
+    _git(
+        repo,
+        "-c", "user.name=t",
+        "-c", "user.email=t@t",
+        "-c", "commit.gpgsign=false",
+        "-c", f"core.hooksPath={os.devnull}",
+        "commit", "-q", "-m", "m",
+        isolated=True,
+    )  # fmt: skip
+    return _git(repo, "rev-parse", "--short", "HEAD", isolated=True)
 
 
+@needs_git
 def test_the_commit_is_the_checkouts_head(tmp_path: Path) -> None:
     assert checkout_commit(tmp_path) == "unknown"  # not a repository yet
     head = _commit_in(tmp_path)
     assert checkout_commit(tmp_path) == head
 
 
+@needs_git
 def test_a_folder_inside_another_repository_is_not_given_its_commit(tmp_path: Path) -> None:
     _commit_in(tmp_path)
     inner = tmp_path / "inner"
@@ -114,8 +132,10 @@ def test_a_folder_inside_another_repository_is_not_given_its_commit(tmp_path: Pa
 
 @pytest.mark.integration
 def test_the_pin_matches_the_upstream_checkout() -> None:
-    load_dotenv(REPO_ROOT / ".env", override=False)
-    checkout = checkout_from_env(os.environ)
+    # An exported value wins; the repo-root .env is read for this one key only, so the rest of it
+    # does not leak into the process environment.
+    env = {**dotenv_values(REPO_ROOT / ".env"), **os.environ}
+    checkout = checkout_from_env(env)
     commit = checkout_commit(checkout)
     report = contract_check.check(checkout)
     print(f"\nchecked {checkout} at commit {commit}")
