@@ -17,7 +17,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from collections.abc import Iterator
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from email.message import Message
 from pathlib import Path
 
@@ -62,7 +62,7 @@ class GraphDB:
     host: str
     repository: str
     user: str
-    password: str
+    password: str = field(repr=False)
 
     @classmethod
     def from_env(cls) -> GraphDB:
