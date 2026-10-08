@@ -131,7 +131,7 @@ current acceptance probe (T-142's `sh:ValidationResult` count): exit 0, all thre
 
 The script writes nothing, and nothing was written.
 
-**Found by the run: the store's schema graphs are older than `schema/`, and it holds a graph `schema/`
+**Found by the run (at the time; fixed by T-174, below): the store's schema graphs were older than `schema/`, and it held a graph `schema/`
 no longer has.** Compared per graph (`kg_store.load_schema.expected_sizes` against the store's
 asserted sizes; the totals, 2435 against 2547, hide two opposite differences):
 
@@ -146,26 +146,47 @@ asserted sizes; the totals, 2435 against 2547, hide two opposite differences):
   `:maxNameWeight`, `:maxSectorWeight`, `:softVetoPenalty` and their shapes), and edits to
   `:rawValue`, `:normalizedScore`, `:availableAt`, `:runId`, `:attractivenessScore` and
   `ScoreSnapshotShape`/`AttractivenessSnapshotShape` (from the tasks since the last load, among them T-121, T-151, T-153, T-155 and T-171).
-- **The 35-triple graph is a leftover, and it makes the live store inconsistent today.** It holds
+- **The 35-triple graph is a leftover, and it made the live store inconsistent until T-174.** It held
   five snapshots (`Snap_AAPL_Quant_20260805`, `Snap_JNJ_…`, `Snap_JPM_…`, `Snap_PG_…`, `Snap_XOM_…`)
   under the agent name `QUANTITATIVE`, which T-105 renamed to `VALORIZATION` on 2026-10-03. The
-  `VALORIZATION` graph is in the store, matches `schema/` (60 triples) and holds **the same five
+  `VALORIZATION` graph was in the store, matched `schema/` (60 triples) and held **the same five
   IRIs** with the same `:metricType` and `:rawValue`; the only difference is `:agentOrigin`
-  (`"QUANTITATIVE"` against `"VALORIZATION"`). So each of those five individuals has two
+  (`"QUANTITATIVE"` against `"VALORIZATION"`). So each of those five individuals had two
   `:agentOrigin` values in the store. A query over the union of graphs (the reasoner's
-  `?x a :Observation`, "latest snapshot per asset") sees both. Checked with `pyshacl` on one of the
+  `?x a :Observation`, "latest snapshot per asset") saw both. Checked with `pyshacl` on one of the
   five (`Snap_AAPL_Quant_20260805`) with the extra value added: it does not conform, because
   `"QUANTITATIVE"` is not in `ScoreSnapshotShape`'s `sh:in` list for `:agentOrigin` and its
   `sh:maxCount 1` is broken (`:agentOrigin` is also an `owl:FunctionalProperty` in `tbox.ttl`).
   `load_schema.load` drops only the graphs it is about to load, so a reload does **not** remove it;
-  it prints it afterwards as a graph "not in `schema/`". Removing it is a separate write. Dropping
-  it deletes no audit data: every individual in it still exists in the `VALORIZATION` graph.
+  it prints it afterwards as a graph "not in `schema/`". Removing it was a separate write. Dropping
+  it deleted no audit data: every individual in it still exists in the `VALORIZATION` graph.
 
 The check does not look at either difference, so it passes either way. The gate reads `tbox.ttl` and
 `shapes.ttl` from disk, so writes through `cli/ingest.py` are validated against the current shapes,
-but the store's own copy (what a SPARQL query and the reasoner see) lacks the newer terms.
-Reloading and dropping the leftover are writes, so neither was done; both need the maintainer's
-go-ahead (T-174).
+but the store's own copy (what a SPARQL query and the reasoner see) lacked the newer terms.
+Reloading and dropping the leftover are writes, so neither was done in this run; both needed the
+maintainer's go-ahead (T-174, done below).
+
+### Bringing the store in line (T-174, 2026-10-08)
+
+Both writes were made after the maintainer's go-ahead, by a Claude Code session they asked to run them.
+
+1. `uv run python cli/load_schema.py`: reloaded the 19 graphs of `schema/`; its own check found all 19
+   and 2547 asserted triples matching the local parse, and noted 1 other graph left untouched (the
+   leftover). The store went from 2435 to 2582 triples (`tbox` +147; the leftover's 35 are still
+   there).
+2. The leftover `urn:graph:ingest:QUANTITATIVE:2026-08-05` was exported first (35 triples, N-Triples, kept
+   outside the repository), then dropped with `DROP GRAPH` (HTTP 204). `/size` read 2582 just before
+   and 2547 after: down by exactly 35, which is the total of the 19 graphs of `schema/`, so nothing is
+   left outside them.
+3. Each of the five snapshots in the `VALORIZATION` graph has exactly one `:agentOrigin`, and a query
+   for any individual with more than one `:agentOrigin` over all graphs returns nothing.
+4. `uv run python cli/verify_store.py` again: exit 0, all three checks pass, the probe's "store size
+   unchanged" reads 2547.
+
+The leftover's absence is shown by the size, not by a direct query: the read-only `ASK { GRAPH
+<urn:graph:ingest:QUANTITATIVE:2026-08-05> { ?s ?p ?o } }` was blocked by the permission classifier and
+not retried; it should answer false. The store now matches `schema/`. This is a one-time record; the standing guard is T-176.
 
 ## Connecting
 

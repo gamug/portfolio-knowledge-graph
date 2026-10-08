@@ -281,7 +281,7 @@ independent of each other once T-131 lands.*
       allow `:clearedOn` as a closing property. Then drop the three `xfail`s in
       `tests/test_kg_gate.py` (strict, so they fail once it is fixed). Constitution Code & Git #9.
       → `PLAN.md` Work item 14, step 4.
-- [ ] **T-174** Bring the live store's schema in line with `schema/` (found by T-141). Per graph,
+- [x] **T-174** *(done 2026-10-08, after the maintainer's go-ahead: `cli/load_schema.py` reloaded the 19 graphs of `schema/` (2547 triples match the local parse); the leftover `QUANTITATIVE` graph was exported (35 triples, outside the repository) and dropped, `/size` 2582 → 2547; every `VALORIZATION` snapshot has one `:agentOrigin`, none has two anywhere; `verify_store` exit 0; recorded in `docs/graphdb-setup.md`. The leftover's absence is shown by the size (2547 is the total of the 19 graphs), not by a direct graph-list query: that query was blocked by the permission classifier and not retried; the text below is the original task, kept for the record)* Bring the live store's schema in line with `schema/` (found by T-141). Per graph,
       `urn:graph:tbox` holds 1420 triples against 1567 (it lacks the changes since the last load:
       T-121's per-run scheme terms and edits from T-151, T-153, T-155 and T-171, among others), and the
       store holds `urn:graph:ingest:QUANTITATIVE:2026-08-05` (35 triples), which `schema/` no longer
@@ -310,8 +310,7 @@ independent of each other once T-131 lands.*
 - [ ] **T-175** `integration` tests for the exit codes of `cli/verify_store.py`, `cli/load_schema.py` and
       `cli/ingest.py` (constitution Code & Git #9 lists them; the T-141 text covered only the run).
       `verify_store.py` writes nothing, so its test can run against the live repository (0 on a
-      healthy store; with T-176 in, that is a store that matches `schema/`, so this test needs T-174
-      done first). `load_schema.py` and `ingest.py` write, so they need a repository of their own
+      healthy store; with T-176 in, that is a store that matches `schema/`, as the live one now does). `load_schema.py` and `ingest.py` write, so they need a repository of their own
       (as `project_scores --replay` does), never `portfolio`. Opt in with `-m integration`, skipped
       when the store is unreachable. → `PLAN.md` Work item 14, step 7.
 
@@ -328,8 +327,9 @@ independent of each other once T-131 lands.*
       and a healthy store must still exit 0. A total-size or one-term check would hide both
       differences. Tests with a fake store: equal sizes pass; a short graph fails; an extra graph is
       reported and passes; a doubled `:agentOrigin` fails; an `:agentOrigin` outside the list fails;
-      the existing three checks are unchanged (constitution Code & Git #9). On today's store it
-      fails (a) on `tbox` and (b) on the five snapshots, which proves it; it passes after T-174.
+      the existing three checks are unchanged (constitution Code & Git #9). Before T-174 it would have
+      failed (a) on `tbox` and (b) on the five snapshots; the live store no longer shows that (T-174 is done),
+      so the fake-store tests carry the proof, and the live store must pass.
       → `PLAN.md` Work item 14, step 6.
 ## Work item 15 — Adopt upstream's `v_*` contract changes (replies of 2026-10-05, 2026-10-06 x2)
 
@@ -638,7 +638,7 @@ Work items 4 and 6 (T-030–T-035, T-050–T-053)
 follow in dependency order (Work items 3 and 11 are closed, so Work item 4 is unblocked).
 Work item 12 (T-120–T-121): T-120 closed by T-150; T-121 done (PR #65).
 Work item 13 (T-130–T-136): constitution rules in place (1.5.0); T-130–T-136 done (T-135 as an `integration` test, `PFA_CHECKOUT`). T-173 waits on upstream's reply.
-Work item 14 (T-140–T-142 and T-146): T-140, T-141 and T-142 done; T-174 (store schema out of line with `schema/`, found by T-141) waits on the maintainer; T-175 (CLI exit-code tests, after T-174) and T-176 (the two `verify_store` checks) open; T-146 found by T-136's tests.
+Work item 14 (T-140–T-142 and T-146): T-140, T-141 and T-142 done; T-174 (store schema, found by T-141) done; T-175 (CLI exit-code tests) and T-176 (the two `verify_store` checks) open; T-146 found by T-136's tests.
 Work item 15 (T-150–T-159, T-170–T-171): T-150, T-170 and T-171 (PR #56) done; T-155's schema half done (PR #58); T-153's comment half (PR #59);
 T-151's rule recorded (PR #60), its checks waiting on T-031/T-163; T-158's
 ownership question (before their T-141) is unblocked; the rest of T-152–T-158 waits on upstream's
