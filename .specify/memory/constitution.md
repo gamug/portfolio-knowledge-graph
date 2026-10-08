@@ -376,7 +376,7 @@ uv run pre-commit run --all-files           # all of the above hooks, plus hygie
    skip-set, `cli/check_view_contract.py`'s exit code, the FR-001 gate). The
    other `cli/` entrypoints wrap that `src/` code; `load_schema.py`,
    `verify_store.py` and `ingest.py` need a live store, so their own exit codes
-   are `integration` (T-141). The rest of `src/etl/` is transitional (T-033) and
+   are `integration` (T-175). The rest of `src/etl/` is transitional (T-033) and
    is backfilled only if it survives that decision. A schema or shape change is
    tested by the FR-001 parse + `pyshacl` gate, plus a synthetic case that must
    fail when the change rejects something.
@@ -399,7 +399,7 @@ Compliance is expected to be checked the same way a schema-parse/`pyshacl`
 gate is — a reviewer (human or agent) rejecting a PR that violates a
 principle above should cite the section by name.
 
-**Version**: 1.5.1 | **Ratified**: 2026-09-12 | **Last Amended**: 2026-10-07
+**Version**: 1.5.2 | **Ratified**: 2026-09-12 | **Last Amended**: 2026-10-08
 
 <!--
 1.0.1 (2026-09-12): PATCH, wording/self-consistency fix only. The "Executable
@@ -454,4 +454,9 @@ happens when the suite exists (T-131, T-134).
 said `uv run pytest` would arrive "once T-131 lands" and called the schema
 parse+`pyshacl` script the only automated gate; T-134 made that check part of
 the suite. Raised in the PR #62 review. No principle changed.
+
+1.5.2 (2026-10-08): PATCH, wording only. Code & Git #9 said the exit codes of
+`load_schema.py`, `verify_store.py` and `ingest.py` are `integration` tests "(T-141)",
+but T-141 was only the run against the live store; the tests are now T-175. Raised in
+the PR #77 review. No principle changed.
 -->

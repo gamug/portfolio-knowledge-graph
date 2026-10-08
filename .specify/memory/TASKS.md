@@ -255,8 +255,8 @@ independent of each other once T-131 lands.*
       otherwise, plus the error case (a view `ensure` cannot create raises, so the exit is 1 with
       a traceback and no `DRIFT` lines: the exit code alone does not tell it from drift, PR #57
       review). `cli/load_schema.py`, `verify_store.py` and `ingest.py` need a live store: their
-      exit codes are `integration` tests with T-141. `cli/build_data_ttl.py` is transitional
-      (T-033). → Approach 3.
+      exit codes are `integration` tests (T-175; T-141 itself was only the run and the
+      record). `cli/build_data_ttl.py` is transitional (T-033). → Approach 3.
 
 ## Work item 14 — `ScoreSnapshotShape` and store-gate follow-ups (PR #48 post-merge review)
 
@@ -266,7 +266,7 @@ independent of each other once T-131 lands.*
       `agentOrigin` ↔ `metricType` one-to-one via `sh:xone`. 2458 quads, conforms; 18 synthetic
       cases, the acceptance probe (one violation), `docs/09`'s example and the ETL smoke run agree.
       → `PLAN.md` Work item 14, step 1.
-- [ ] **T-141** Run `cli/verify_store.py` against the live GraphDB repository with the current
+- [x] **T-141** *(done 2026-10-08: `cli/verify_store.py` against the live `portfolio` repository, exit 0, all three checks pass; recorded in `docs/graphdb-setup.md`. It found that the store's schema graph is out of date and that the store holds a conflicting leftover graph: see T-174)* Run `cli/verify_store.py` against the live GraphDB repository with the current
       acceptance probe and record the result in `docs/graphdb-setup.md`. → step 2.
 - [x] **T-142** *(done 2026-10-07 in PR #63: `gate.validate` raises `ShaclRejected`, an `IngestRejected` carrying pyshacl's results graph; `check_gate` requires exactly one `sh:ValidationResult`, a `:timestamp` `MinCountConstraintComponent`, with `tests/test_acceptance_gate.py` covering wording-independence, a second violation, a single violation of another kind, a non-SHACL rejection and an accepted batch)* Have `kg_store.gate.validate` expose pyshacl's results graph and make
       `acceptance.check_gate` count `sh:ValidationResult` nodes instead of matching
@@ -281,7 +281,56 @@ independent of each other once T-131 lands.*
       allow `:clearedOn` as a closing property. Then drop the three `xfail`s in
       `tests/test_kg_gate.py` (strict, so they fail once it is fixed). Constitution Code & Git #9.
       → `PLAN.md` Work item 14, step 4.
+- [ ] **T-174** Bring the live store's schema in line with `schema/` (found by T-141). Per graph,
+      `urn:graph:tbox` holds 1420 triples against 1567 (it lacks the changes since the last load:
+      T-121's per-run scheme terms and edits from T-151, T-153, T-155 and T-171, among others), and the
+      store holds `urn:graph:ingest:QUANTITATIVE:2026-08-05` (35 triples), which `schema/` no longer
+      has. That graph asserts the same five snapshot IRIs as `urn:graph:ingest:VALORIZATION:2026-08-05`
+      with the old `:agentOrigin "QUANTITATIVE"`, so each of them has two `:agentOrigin` values in the
+      store now (a defect, not just a tidy-up: `"QUANTITATIVE"` is outside `sh:in` and breaks
+      `sh:maxCount 1`; dropping it loses no data). Two writes to the
+      production repository, each run by the maintainer, or by a session they name, after their
+      go-ahead (the gate does not cover a drop):
+      (1) `uv run python cli/load_schema.py` (it drops and reloads every graph in `schema/`: `tbox`,
+      `reference`, `rules:catalog` **and the worked-example data graphs of `instances.trig`**, so it
+      leaves the leftover and prints it as "not in schema/"; reloading the example graphs is safe
+      only because nothing else has been written into them, which the store's graph list confirms:
+      it holds the example graphs and the leftover, no projected graph);
+      (2) drop the leftover: first download that one graph as N-Triples
+      (`GET {KG_HOST}/repositories/portfolio/rdf-graphs/service?graph=urn:graph:ingest:QUANTITATIVE:2026-08-05`
+      with `Accept: application/n-triples`) to a file outside the repository, then run the update
+      `DROP GRAPH <urn:graph:ingest:QUANTITATIVE:2026-08-05>` on `/statements`.
+      Note `/size` immediately before (2) (step (1) changes `tbox` by +147, so a size taken earlier
+      is no baseline). After (2), check read-only: the graph is absent from the graph list, `/size`
+      is that number minus 35, and each of the five snapshots in the `VALORIZATION` graph has exactly
+      one `:agentOrigin`.
+      Then re-run `cli/verify_store.py` and add the per-graph sizes to the `docs/graphdb-setup.md`
+      record. Done when every graph in `schema/` has its expected size, the leftover is gone, and
+      the checks above pass. → `PLAN.md` Work item 14, step 5.
+- [ ] **T-175** `integration` tests for the exit codes of `cli/verify_store.py`, `cli/load_schema.py` and
+      `cli/ingest.py` (constitution Code & Git #9 lists them; the T-141 text covered only the run).
+      `verify_store.py` writes nothing, so its test can run against the live repository (0 on a
+      healthy store; with T-176 in, that is a store that matches `schema/`, so this test needs T-174
+      done first). `load_schema.py` and `ingest.py` write, so they need a repository of their own
+      (as `project_scores --replay` does), never `portfolio`. Opt in with `-m integration`, skipped
+      when the store is unreachable. → `PLAN.md` Work item 14, step 7.
 
+- [ ] **T-176** Make `cli/verify_store.py` check the schema graphs and the defect T-174 found (read-only;
+      found by T-141, split from T-174 so it does not wait for the production writes). Two new
+      checks, reusing `load_schema.expected_sizes` and `verify`: (a) a graph that `schema/` owns and
+      whose asserted size differs fails (owned = the graphs of `tbox`, `shapes`, `reference` and
+      `rules` always; the worked-example graphs of `instances.trig` too, while that file is what
+      `schema/` ships: when Work item 4 or T-035 replaces the example with real data, that task
+      edits `instances.trig` and this check follows it, since `expected_sizes` reads the file); (b) no individual has more than one `:agentOrigin` (one
+      `SELECT` over all graphs), and none has a value outside `ScoreSnapshotShape`'s `sh:in` list (read from `shapes.ttl`, parsed once as the gate does, not copied into the check).
+      A graph the store holds that `schema/` does not own is **reported, not failed**, as
+      `load_schema.verify` already does: Work item 4 writes dated `urn:graph:ingest:…` graphs there,
+      and a healthy store must still exit 0. A total-size or one-term check would hide both
+      differences. Tests with a fake store: equal sizes pass; a short graph fails; an extra graph is
+      reported and passes; a doubled `:agentOrigin` fails; an `:agentOrigin` outside the list fails;
+      the existing three checks are unchanged (constitution Code & Git #9). On today's store it
+      fails (a) on `tbox` and (b) on the five snapshots, which proves it; it passes after T-174.
+      → `PLAN.md` Work item 14, step 6.
 ## Work item 15 — Adopt upstream's `v_*` contract changes (replies of 2026-10-05, 2026-10-06 x2)
 
 *Upstream's reply to the gaps in `SPEC.md` §2.6 (checked against their `0a528be`), their second
@@ -589,7 +638,7 @@ Work items 4 and 6 (T-030–T-035, T-050–T-053)
 follow in dependency order (Work items 3 and 11 are closed, so Work item 4 is unblocked).
 Work item 12 (T-120–T-121): T-120 closed by T-150; T-121 done (PR #65).
 Work item 13 (T-130–T-136): constitution rules in place (1.5.0); T-130–T-136 done (T-135 as an `integration` test, `PFA_CHECKOUT`). T-173 waits on upstream's reply.
-Work item 14 (T-140–T-142 and T-146): T-140 and T-142 done; T-141 needs a live GraphDB; T-146 found by T-136's tests.
+Work item 14 (T-140–T-142 and T-146): T-140, T-141 and T-142 done; T-174 (store schema out of line with `schema/`, found by T-141) waits on the maintainer; T-175 (CLI exit-code tests, after T-174) and T-176 (the two `verify_store` checks) open; T-146 found by T-136's tests.
 Work item 15 (T-150–T-159, T-170–T-171): T-150, T-170 and T-171 (PR #56) done; T-155's schema half done (PR #58); T-153's comment half (PR #59);
 T-151's rule recorded (PR #60), its checks waiting on T-031/T-163; T-158's
 ownership question (before their T-141) is unblocked; the rest of T-152–T-158 waits on upstream's

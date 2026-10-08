@@ -118,6 +118,55 @@ non-zero if any fails ([`kg_store.acceptance`](../src/kg_store/acceptance.py)). 
 | Malformed write | a `ScoreSnapshot` that is valid except for the missing `:timestamp` is refused by the gate with a SHACL `minCount` violation on `:timestamp`, and that is the only violation reported (a rejection for any other reason fails the check; the probe carries `rawValue` and `availableAt` so `ScoreSnapshotShape` is otherwise satisfied); the store's size is unchanged and the target graph does not exist |
 | Reasoning profile | the repository reports `rdfsplus-optimized` and `disableSameAs` true, and `?x a :Observation` is answered by inference (nothing is asserted with it) and includes a `ScoreSnapshot`, which is two `rdfs:subClassOf` steps below it, so the chain is followed and not just one hop |
 
+### Live run (T-141, 2026-10-08)
+
+`uv run python cli/verify_store.py` against the live repository `portfolio` (GraphDB 11.5.1) with the
+current acceptance probe (T-142's `sh:ValidationResult` count): exit 0, all three checks pass.
+
+| Check | Result |
+|---|---|
+| SPARQL query | 5 assets returned, the first `:AAPL` |
+| Malformed write | rejected by SHACL (`:timestamp` `minCount`, the only violation); store size unchanged at 2435; `urn:graph:ingest:SEMANTIC:2099-01-01` absent |
+| Reasoning profile | `rdfsplus-optimized`, `disableSameAs` true; `?x a :Observation` = 41 inferred, 0 asserted |
+
+The script writes nothing, and nothing was written.
+
+**Found by the run: the store's schema graphs are older than `schema/`, and it holds a graph `schema/`
+no longer has.** Compared per graph (`kg_store.load_schema.expected_sizes` against the store's
+asserted sizes; the totals, 2435 against 2547, hide two opposite differences):
+
+| Graph | Store | `schema/` |
+|---|---|---|
+| `urn:graph:tbox` | 1420 | 1567 |
+| `urn:graph:ingest:QUANTITATIVE:2026-08-05` | 35 | not in `schema/` |
+| every other graph in `schema/` | equal | equal |
+
+- **`tbox` is short by 147 triples.** They are the changes made since the last load, not T-121
+  alone: the per-run weight-scheme terms (`:cycleDate`, `:bookWeightingRule`, `:topN`,
+  `:maxNameWeight`, `:maxSectorWeight`, `:softVetoPenalty` and their shapes), and edits to
+  `:rawValue`, `:normalizedScore`, `:availableAt`, `:runId`, `:attractivenessScore` and
+  `ScoreSnapshotShape`/`AttractivenessSnapshotShape` (from the tasks since the last load, among them T-121, T-151, T-153, T-155 and T-171).
+- **The 35-triple graph is a leftover, and it makes the live store inconsistent today.** It holds
+  five snapshots (`Snap_AAPL_Quant_20260805`, `Snap_JNJ_…`, `Snap_JPM_…`, `Snap_PG_…`, `Snap_XOM_…`)
+  under the agent name `QUANTITATIVE`, which T-105 renamed to `VALORIZATION` on 2026-10-03. The
+  `VALORIZATION` graph is in the store, matches `schema/` (60 triples) and holds **the same five
+  IRIs** with the same `:metricType` and `:rawValue`; the only difference is `:agentOrigin`
+  (`"QUANTITATIVE"` against `"VALORIZATION"`). So each of those five individuals has two
+  `:agentOrigin` values in the store. A query over the union of graphs (the reasoner's
+  `?x a :Observation`, "latest snapshot per asset") sees both. Checked with `pyshacl` on one of the
+  five (`Snap_AAPL_Quant_20260805`) with the extra value added: it does not conform, because
+  `"QUANTITATIVE"` is not in `ScoreSnapshotShape`'s `sh:in` list for `:agentOrigin` and its
+  `sh:maxCount 1` is broken (`:agentOrigin` is also an `owl:FunctionalProperty` in `tbox.ttl`).
+  `load_schema.load` drops only the graphs it is about to load, so a reload does **not** remove it;
+  it prints it afterwards as a graph "not in `schema/`". Removing it is a separate write. Dropping
+  it deletes no audit data: every individual in it still exists in the `VALORIZATION` graph.
+
+The check does not look at either difference, so it passes either way. The gate reads `tbox.ttl` and
+`shapes.ttl` from disk, so writes through `cli/ingest.py` are validated against the current shapes,
+but the store's own copy (what a SPARQL query and the reasoner see) lacks the newer terms.
+Reloading and dropping the leftover are writes, so neither was done; both need the maintainer's
+go-ahead (T-174).
+
 ## Connecting
 
 Variables are documented in [`.env.example`](../.env.example); real values live in the gitignored
