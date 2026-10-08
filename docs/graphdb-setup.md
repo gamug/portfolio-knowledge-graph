@@ -153,8 +153,10 @@ asserted sizes; the totals, 2435 against 2547, hide two opposite differences):
   IRIs** with the same `:metricType` and `:rawValue`; the only difference is `:agentOrigin`
   (`"QUANTITATIVE"` against `"VALORIZATION"`). So each of those five individuals has two
   `:agentOrigin` values in the store. A query over the union of graphs (the reasoner's
-  `?x a :Observation`, "latest snapshot per asset") sees both, and the union does not conform to
-  `ScoreSnapshotShape`, which pairs `:agentOrigin` with `:metricType` one-to-one.
+  `?x a :Observation`, "latest snapshot per asset") sees both. Checked with `pyshacl` on one of the
+  five (`Snap_AAPL_Quant_20260805`) with the extra value added: it does not conform, because
+  `"QUANTITATIVE"` is not in `ScoreSnapshotShape`'s `sh:in` list for `:agentOrigin` and its
+  `sh:maxCount 1` is broken (`:agentOrigin` is also an `owl:FunctionalProperty` in `tbox.ttl`).
   `load_schema.load` drops only the graphs it is about to load, so a reload does **not** remove it;
   it prints it afterwards as a graph "not in `schema/`". Removing it is a separate write. Dropping
   it deletes no audit data: every individual in it still exists in the `VALORIZATION` graph.
