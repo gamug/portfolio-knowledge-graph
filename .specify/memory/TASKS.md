@@ -223,9 +223,11 @@ independent of each other once T-131 lands.*
       checkout at the commit being pinned (named by `PFA_CHECKOUT`), now; no check by the projector before each read (the `schema_version`
       floor and the row-level boundary already guard what it reads, and a column check against
       the live DB would be new runtime code with no observed need); and upstream is asked for a
-      contract endpoint in its FastAPI (T-173). **To do:** one `integration` test that runs
-      `projection.contract_check.check` on the checkout named by an environment variable
-      (`PFA_CHECKOUT`, skipped when unset) and asserts no drift; document in T-157 that it runs
+      contract endpoint in its FastAPI (T-173). **Done:** one `integration` test runs
+      `projection.contract_check.check` on the checkout named by `PFA_CHECKOUT` and asserts no
+      drift. It skips when the variable is unset and fails when it names something that is not
+      a checkout (a typo must not read as "nothing to report"); with `-s` it prints the commit
+      checked and any columns upstream added, to note in the re-pin. T-157 says it runs
       before every re-pin, and that without CI nothing forces it (constitution Code & Git #1).
       Revisit a check in the projector only if drift is seen in practice. → Approach 4.
 - [ ] **T-173** *(waits on upstream's answer)* Track the request to `portfolio-financial-analysis` for a
@@ -443,7 +445,7 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       columns, the commit in its docstring and in `SPEC.md` §2.6), raise the `schema_version` floor
       (D16; the value is `schema_version_floor` in `src/projection/view_expectations/_source.json`),
       and run `cli/check_view_contract.py` against that commit, or the T-135 test
-      (`PFA_CHECKOUT=<checkout> uv run pytest -m integration tests/test_contract_check_checkout.py`);
+      (`PFA_CHECKOUT=<checkout> uv run pytest -s -m integration tests/test_contract_check_checkout.py`);
       without CI nothing forces either. Repeat for
       `v_media_cooccurrence_edge`. Pin their T-144's `v_cycle_ranking_component` too. Every contract
       change carries a marker migration, so each raises the floor; repeat for their T-145.
