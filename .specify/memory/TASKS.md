@@ -314,7 +314,7 @@ independent of each other once T-131 lands.*
       (as `project_scores --replay` does), never `portfolio`. Opt in with `-m integration`, skipped
       when the store is unreachable. → `PLAN.md` Work item 14, step 7.
 
-- [x] **T-176** *(done 2026-10-08: two checks in `kg_store.acceptance`, ten fake-store tests in `tests/test_acceptance_schema_checks.py`; the live store passes, exit 0, five checks; the text below is the original)* Make `cli/verify_store.py` check the schema graphs and the defect T-174 found (read-only;
+- [x] **T-176** *(done 2026-10-08: two checks in `kg_store.acceptance`, twelve fake-store tests in `tests/test_acceptance_schema_checks.py`; the live store passes, exit 0, five checks; the text below is the original)* Make `cli/verify_store.py` check the schema graphs and the defect T-174 found (read-only;
       found by T-141, split from T-174 so it does not wait for the production writes). Two new
       checks, reusing `load_schema.expected_sizes` and `verify`: (a) a graph that `schema/` owns and
       whose asserted size differs fails (owned = the graphs of `tbox`, `shapes`, `reference` and

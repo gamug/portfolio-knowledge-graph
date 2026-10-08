@@ -3,7 +3,8 @@
 
     python cli/verify_store.py
 
-Exit status is 0 when all three pass, 1 otherwise. See ``kg_store.acceptance``.
+Exit status is 0 when all five pass, 1 otherwise; a graph in the store that ``schema/`` does
+not own is reported, not failed. See ``kg_store.acceptance``.
 """
 
 from __future__ import annotations
@@ -15,6 +16,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
 from kg_store.acceptance import CHECKS
 from kg_store.graphdb import GraphDB, GraphDBError
+from kg_store.load_schema import SchemaError
 
 
 def main() -> int:
@@ -27,7 +29,7 @@ def main() -> int:
     for name, check in CHECKS:
         try:
             print(f"PASS  {name}: {check(db)}")
-        except (AssertionError, GraphDBError) as exc:
+        except (AssertionError, GraphDBError, SchemaError, OSError) as exc:
             failed += 1
             print(f"FAIL  {name}: {exc}")
     return 1 if failed else 0

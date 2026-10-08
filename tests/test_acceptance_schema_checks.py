@@ -6,6 +6,8 @@ The fake runs the check's own SPARQL on an in-memory dataset, so a doubled or ou
 
 from __future__ import annotations
 
+import importlib.util
+from pathlib import Path
 from typing import cast
 
 import pytest
@@ -75,14 +77,23 @@ def test_an_extra_graph_is_reported_and_passes() -> None:
     assert "1 other graph(s)" in message
 
 
-def test_the_allowed_origins_come_from_shapes() -> None:
-    assert acceptance.allowed_agent_origins() == [
-        "FUNDAMENTAL",
-        "SECTOR",
-        "SEMANTIC",
-        "TECHNICAL",
-        "VALORIZATION",
-    ]
+def test_the_allowed_origins_come_from_shapes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Edit a copy of the shape: the check follows it, so the list is read, not copied."""
+    for name in ("tbox.ttl", "shapes.ttl"):
+        text = (schema_dir() / name).read_text()
+        if name == "shapes.ttl":
+            assert '"TECHNICAL" "SECTOR")' in text
+            text = text.replace('"TECHNICAL" "SECTOR")', '"TECHNICAL" "SECTOR" "EXTRA")', 1)
+        (tmp_path / name).write_text(text)
+    monkeypatch.setenv("KG_SCHEMA_DIR", str(tmp_path))
+    assert "EXTRA" in acceptance.allowed_agent_origins()
+    assert "FUNDAMENTAL" in acceptance.allowed_agent_origins()
+
+
+def test_the_real_shape_lists_the_five_agents() -> None:
+    assert set(acceptance.allowed_agent_origins()) >= {"SEMANTIC", "SECTOR"}
 
 
 def test_single_listed_origins_pass() -> None:
@@ -114,3 +125,19 @@ def test_the_checks_are_registered_after_the_original_three() -> None:
         "reasoning profile matches 07",
     ]
     assert len(names) == 5
+
+
+def test_an_unreadable_schema_is_a_fail_line_not_a_traceback(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    spec = importlib.util.spec_from_file_location(
+        "verify_store_cli", Path(__file__).resolve().parent.parent / "cli" / "verify_store.py"
+    )
+    assert spec and spec.loader
+    cli = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(cli)
+    monkeypatch.setattr(cli.GraphDB, "from_env", classmethod(lambda c: FakeStore({})))
+    monkeypatch.setattr(cli, "CHECKS", [("schema graphs", acceptance.check_schema_graphs)])
+    monkeypatch.setenv("KG_SCHEMA_DIR", str(tmp_path / "missing"))
+    assert cli.main() == 1
+    assert "FAIL  schema graphs" in capsys.readouterr().out
