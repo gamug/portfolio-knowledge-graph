@@ -827,7 +827,8 @@ treating a related FR/NR as done:
    assumptions, not calibrated against ground truth** — see §7.
 9. **No SOURCE/RESULTS schema contract is pinned beyond
    `fetch_processed_articles`'s join shape** — a `portfolio-nlp` schema
-   change could silently break this repo's ETL with no signal.
+   change could silently break this repo's ETL with no signal. Accepted
+   risk for now; T-172 revisits it after T-033 (§14).
 10. **Vocabulary and semantic drift between `kg_schema` (in
     `portfolio-financial-analysis`) and `schema/` (here).** Both name the same
     concepts; neither is generated from the other, and `kg_schema`'s `v_*`
