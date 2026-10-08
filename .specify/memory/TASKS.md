@@ -218,14 +218,16 @@ independent of each other once T-131 lands.*
       checks every target against `reference.ttl`)*
 - [x] **T-134** *(done in PR #62: `tests/test_schema_gate.py` parses the bundle in load order, runs `pyshacl`, shows the ticker rule alone rejects a broken `:Asset`, and pins every quad count and the named-graph count `SPEC.md` states to the real ones, which had drifted from 2458 to 2473 quads and 15 to 16 graphs)* The FR-001 parse + `pyshacl` conformance gate as a test, so `uv run pytest` covers
       the schema too. → Approach 3.
-- [ ] **T-135** *(decided 2026-10-08; the test is still to write)* Where the real-checkout drift check
+- [x] **T-135** *(decided 2026-10-08; test written: `tests/test_contract_check_checkout.py`)* Where the real-checkout drift check
       (`cli/check_view_contract.py`) runs. **Decision:** an `integration` test against an upstream
       checkout at the commit being pinned (named by `PFA_CHECKOUT`), now; no check by the projector before each read (the `schema_version`
       floor and the row-level boundary already guard what it reads, and a column check against
       the live DB would be new runtime code with no observed need); and upstream is asked for a
-      contract endpoint in its FastAPI (T-173). **To do:** one `integration` test that runs
-      `projection.contract_check.check` on the checkout named by an environment variable
-      (`PFA_CHECKOUT`, skipped when unset) and asserts no drift; document in T-157 that it runs
+      contract endpoint in its FastAPI (T-173). **Done:** one `integration` test runs
+      `projection.contract_check.check` on the checkout named by `PFA_CHECKOUT` and asserts no
+      drift. It skips when the variable is unset and fails when it names something that is not
+      a checkout (a typo must not read as "nothing to report"); with `-s` it prints the commit
+      checked and any columns upstream added, to note in the re-pin. T-157 says it runs
       before every re-pin, and that without CI nothing forces it (constitution Code & Git #1).
       Revisit a check in the projector only if drift is seen in practice. → Approach 4.
 - [ ] **T-173** *(waits on upstream's answer)* Track the request to `portfolio-financial-analysis` for a
@@ -442,7 +444,9 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
 - [ ] **T-157** When upstream ships: re-pin `src/projection/view_contract.py` (new view, new
       columns, the commit in its docstring and in `SPEC.md` §2.6), raise the `schema_version` floor
       (D16; the value is `schema_version_floor` in `src/projection/view_expectations/_source.json`),
-      and run `cli/check_view_contract.py` against that commit. Repeat for
+      and run `cli/check_view_contract.py` against that commit, or the T-135 test
+      (`PFA_CHECKOUT=<checkout> uv run pytest -s -m integration tests/test_contract_check_checkout.py`);
+      without CI nothing forces either. Repeat for
       `v_media_cooccurrence_edge`. Pin their T-144's `v_cycle_ranking_component` too. Every contract
       change carries a marker migration, so each raises the floor; repeat for their T-145.
       Raise the floor and re-pin the views in the same change: upstream rebuilds its views on every
@@ -584,7 +588,7 @@ Closed Work items 1, 2, 3, 5, 7 (superseded/decided by T-007), 9, 10 and 11 are 
 Work items 4 and 6 (T-030–T-035, T-050–T-053)
 follow in dependency order (Work items 3 and 11 are closed, so Work item 4 is unblocked).
 Work item 12 (T-120–T-121): T-120 closed by T-150; T-121 done (PR #65).
-Work item 13 (T-130–T-136): constitution rules in place (1.5.0); T-130–T-134 and T-136 done (PR #64); T-135 is decided (an `integration` test, still to write) and T-173 waits on upstream's reply.
+Work item 13 (T-130–T-136): constitution rules in place (1.5.0); T-130–T-136 done (T-135 as an `integration` test, `PFA_CHECKOUT`). T-173 waits on upstream's reply.
 Work item 14 (T-140–T-142 and T-146): T-140 and T-142 done; T-141 needs a live GraphDB; T-146 found by T-136's tests.
 Work item 15 (T-150–T-159, T-170–T-171): T-150, T-170 and T-171 (PR #56) done; T-155's schema half done (PR #58); T-153's comment half (PR #59);
 T-151's rule recorded (PR #60), its checks waiting on T-031/T-163; T-158's
