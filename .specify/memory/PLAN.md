@@ -703,8 +703,10 @@ second reply checked out. One assumption of ours needs correcting, and it change
 - **Pilot REPLAY:** `financial_pilot.db` holds 0 REPLAY runs; their backfill ran on a separate,
   unshared copy. Their next pilot (T-143) is a fresh database.
 
-**Fourth reply (2026-10-07, their `master` at `49d7438`).** We asked how to read their schema
-version, and asked Q6. They confirmed the read rule and did not answer Q6:
+**Fourth reply (2026-10-07, T-031, their `master` at `49d7438`).** Recorded here with the other
+replies, under T-031 (which asked it), not as part of this work item's steps below; `SPEC.md` §2.6
+holds the matching block. We asked how to read their schema version, and asked Q6. They confirmed
+the read rule and did not answer Q6:
 
 - **The floor is `SELECT MAX(version) FROM schema_version`**, the rule their own code uses.
   `PRAGMA user_version` is not theirs and stays 0. An empty or missing table means `migrate` was
