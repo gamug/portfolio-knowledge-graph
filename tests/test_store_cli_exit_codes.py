@@ -3,11 +3,17 @@ GraphDB (T-175; constitution Code & Git #9).
 
 Opt in with ``uv run pytest -m integration tests/test_store_cli_exit_codes.py``; skipped when the
 store in ``.env`` is unreachable. ``verify_store`` writes nothing, so one test runs it on the
-configured repository. ``load_schema`` and ``ingest`` write, so every other test runs on a scratch
-repository created from ``schema/graphdb-repo-config.ttl`` under a name of its own and deleted
-afterwards: never ``portfolio`` (the guard is checked before anything is created or deleted).
-The application user cannot create a repository (HTTP 403), so those tests use the account in
-``KG_ADMIN_USER``/``KG_ADMIN_PASSWORD`` (``.env.example``) and skip when it is not set or cannot.
+configured repository (only when that is ``portfolio``, the store that must match ``schema/``).
+Where a CLI writes, the test runs it on a scratch repository created from
+``schema/graphdb-repo-config.ttl`` under a name of its own and deleted afterwards: never
+``portfolio`` (the guard is checked before anything is created or deleted). The two tests that
+point a CLI at a repository that does not exist need none. The application user cannot create a
+repository (HTTP 403), so the scratch tests use the account in ``KG_ADMIN_USER``/
+``KG_ADMIN_PASSWORD`` (``.env.example``) and skip only when ``KG_ADMIN_USER`` is not set: with it
+set, an account that cannot create a repository (a wrong password, say) fails the test.
+
+A run killed in the middle leaves its ``kgtest-...`` repository behind: delete it in the Workbench
+(Setup -> Repositories) or with ``DELETE {KG_HOST}/rest/repositories/<id>``.
 """
 
 from __future__ import annotations
@@ -93,10 +99,7 @@ def scratch(configured: GraphDB, monkeypatch: pytest.MonkeyPatch) -> Iterator[Gr
     password = os.environ.get("KG_ADMIN_PASSWORD", "")
     name = f"kgtest-{uuid.uuid4().hex[:12]}"
     admin = GraphDB(configured.host, name, user, password)
-    try:
-        _create(admin, name)
-    except GraphDBError as exc:
-        pytest.skip(f"the admin account cannot create a repository: {exc}")
+    _create(admin, name)
     monkeypatch.setenv("KG_REPOSITORY", name)
     monkeypatch.setenv("KG_USER", user)
     monkeypatch.setenv("KG_PASSWORD", password)
@@ -107,6 +110,8 @@ def scratch(configured: GraphDB, monkeypatch: pytest.MonkeyPatch) -> Iterator[Gr
 
 
 def test_verify_store_passes_on_the_configured_store(configured: GraphDB) -> None:
+    if configured.repository != PRODUCTION_REPOSITORY:
+        pytest.skip(f"KG_REPOSITORY is {configured.repository}, not {PRODUCTION_REPOSITORY}")
     assert _cli("verify_store")() == 0
 
 
@@ -142,9 +147,13 @@ def test_ingest_exits_0_then_2_for_a_graph_that_exists_and_for_a_batch_that_fail
     good.write_bytes(BATCH)
     bad = tmp_path / "bad.ttl"
     bad.write_bytes(BATCH.replace(b"AAA", b"BBB").replace(b"0000000001", b"1"))
+    other = tmp_path / "other.ttl"
+    other.write_bytes(BATCH.replace(b":a a", b":b a").replace(b"AAA", b"CCC"))
     assert ingest([str(good), "--graph", GRAPH]) == 0
     assert scratch.explicit_graph_sizes()[GRAPH] == 3
-    assert ingest([str(good), "--graph", GRAPH]) == 2
+    # a new individual, so only the "graph already exists" rule can refuse this one
+    assert ingest([str(other), "--graph", GRAPH]) == 2
+    assert scratch.explicit_graph_sizes()[GRAPH] == 3
     assert ingest([str(bad), "--graph", "urn:graph:ingest:ORCHESTRATOR:2026-10-09"]) == 2
     assert "urn:graph:ingest:ORCHESTRATOR:2026-10-09" not in scratch.explicit_graph_sizes()
 

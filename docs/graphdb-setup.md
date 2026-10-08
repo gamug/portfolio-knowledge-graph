@@ -200,7 +200,7 @@ Variables are documented in [`.env.example`](../.env.example); real values live 
 | `KG_HOST` | `http://host.docker.internal:7200` from the devcontainer (`localhost` is the container itself) |
 | `KG_REPOSITORY` | `portfolio` (production; a replay, `cli/project_scores.py --replay`, refuses it and needs a repository of its own, which also keeps its own key files) |
 | `KG_USER` / `KG_PASSWORD` | HTTP Basic credentials of `portfolio.app` |
-| `KG_ADMIN_USER` / `KG_ADMIN_PASSWORD` | optional; an account that may create repositories, read only by the T-175 integration tests (`portfolio.app` gets HTTP 403) |
+| `KG_ADMIN_USER` / `KG_ADMIN_PASSWORD` | optional; an account that may create repositories, read only by the T-175 integration tests (`portfolio.app` gets HTTP 403); a run killed midway leaves a `kgtest-…` repository, to delete in the Workbench |
 
 | Operation | Endpoint |
 |---|---|
