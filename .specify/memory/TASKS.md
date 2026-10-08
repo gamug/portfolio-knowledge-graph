@@ -129,6 +129,19 @@ are closed (see `CHANGELOG.md`).*
       once the real projection covers the SEMANTIC lane, i.e. once the
       upstream `score_snapshot[SEMANTIC]` row exists to project (Work item
       5's remainder). → step 4.
+- [ ] **T-172** *(decision; after T-033, which fixes whether `src/etl/` survives)* Decide whether
+      to define a read contract with `portfolio-nlp`, as T-030 did for `financial-analysis`'s
+      `v_*` views, or keep the accepted risk of `SPEC.md` §13 item 9. Today the only NLP read is
+      `portfolio_common.news_export.fetch_processed_articles`, pinned by the `portfolio-common`
+      git tag (`v1.2.1`), so a `portfolio-nlp` schema change reaches this repo only through a tag
+      bump. Decide on the facts at that point: (a) T-033 keeps `src/etl/` (otherwise there is
+      nothing to protect); (b) the SEMANTIC aggregation (Work item 5, reassigned upstream)
+      exposes views or tables this repo reads directly, which would make NLP resemble
+      `financial-analysis`; (c) a `portfolio-nlp` change has already broken a run silently. The
+      options are: keep the accepted risk; one `integration` test of the `fetch_processed_articles`
+      columns `news_to_rdf.py` reads; or a pinned column contract plus a drift check shaped like
+      T-030/T-135. Record the outcome in `SPEC.md` §13 item 9 and §14 row 9. Not before T-033; it
+      is not part of T-135. → step 6.
 - [ ] **T-034** Grow the ABox to the full ~503-constituent universe across
       all agent lanes once this projection can produce them. → step 5.
 - [ ] **T-035** Verify: a real-data projection run produces SHACL-conformant

@@ -77,9 +77,10 @@ above, not a non-goal:
 - Item 8 — calibrating the G1/G2/G3/G9 severity formulas: a research task
   needing ground-truth labels this plan has no way to produce.
 - Item 9 — pinning a formal SOURCE/RESULTS schema contract with
-  `portfolio-nlp`: accepted risk at this scale; would only become a work
-  item here if a `portfolio-nlp` schema change actually broke Work item 4's
-  projection.
+  `portfolio-nlp`: accepted risk at this scale; revisited as a decision by
+  T-172 (Work item 4, after T-033), and it becomes work only if that decision
+  says so, for instance after a `portfolio-nlp` schema change actually broke
+  the projection.
 - **Productizing this system** (access control, monitoring, a scheduler-
   backed SLA) — permanently out of scope regardless of how much of the Goal
   list above gets built (`SPEC.md` §14).
@@ -265,6 +266,9 @@ architecture, and not partitioned for the bitemporal audit trail
    EDGAR, ORCHESTRATOR — the lanes `instances.trig`'s worked example already
    demonstrates one dated graph per lane for) once this projection can
    produce them.
+6. Decide whether to define a read contract with `portfolio-nlp` (T-172), once T-033 has
+   settled whether `src/etl/` survives. Until then `SPEC.md` §13 item 9 stands as an accepted
+   risk: the only NLP read is the tag-pinned `news_export.fetch_processed_articles`.
 
 **Prerequisite**: Work item 11 (the §2.6 drift decisions) — met: it closed
 2026-10-05 (see `CHANGELOG.md`).
