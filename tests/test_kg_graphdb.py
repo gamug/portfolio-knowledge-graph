@@ -66,3 +66,8 @@ def test_an_answer_or_a_failure_to_send_is_not_an_answer_lost(
     with pytest.raises(GraphDBError) as raised:
         db.add(b"", "text/turtle", "urn:graph:x")
     assert not isinstance(raised.value, AnswerLost)
+
+
+def test_the_password_is_not_in_the_repr() -> None:
+    # A failing test prints its fixtures, so a repr with the password would put it in the log.
+    assert "s3cret" not in repr(GraphDB("http://h", "r", "u", "s3cret"))
