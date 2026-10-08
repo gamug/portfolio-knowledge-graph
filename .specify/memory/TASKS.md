@@ -314,7 +314,7 @@ independent of each other once T-131 lands.*
       (as `project_scores --replay` does), never `portfolio`. Opt in with `-m integration`, skipped
       when the store is unreachable. → `PLAN.md` Work item 14, step 7.
 
-- [ ] **T-176** Make `cli/verify_store.py` check the schema graphs and the defect T-174 found (read-only;
+- [x] **T-176** *(done 2026-10-08: two checks in `kg_store.acceptance`, ten fake-store tests in `tests/test_acceptance_schema_checks.py`; the live store passes, exit 0, five checks; the text below is the original)* Make `cli/verify_store.py` check the schema graphs and the defect T-174 found (read-only;
       found by T-141, split from T-174 so it does not wait for the production writes). Two new
       checks, reusing `load_schema.expected_sizes` and `verify`: (a) a graph that `schema/` owns and
       whose asserted size differs fails (owned = the graphs of `tbox`, `shapes`, `reference` and
@@ -638,7 +638,7 @@ Work items 4 and 6 (T-030–T-035, T-050–T-053)
 follow in dependency order (Work items 3 and 11 are closed, so Work item 4 is unblocked).
 Work item 12 (T-120–T-121): T-120 closed by T-150; T-121 done (PR #65).
 Work item 13 (T-130–T-136): constitution rules in place (1.5.0); T-130–T-136 done (T-135 as an `integration` test, `PFA_CHECKOUT`). T-173 waits on upstream's reply.
-Work item 14 (T-140–T-142 and T-146): T-140, T-141 and T-142 done; T-174 (store schema, found by T-141) done; T-175 (CLI exit-code tests) and T-176 (the two `verify_store` checks) open; T-146 found by T-136's tests.
+Work item 14 (T-140–T-142 and T-146): T-140, T-141 and T-142 done; T-174 (store schema, found by T-141) done; T-176 (the two `verify_store` checks) done; T-175 (CLI exit-code tests) open; T-146 found by T-136's tests.
 Work item 15 (T-150–T-159, T-170–T-171): T-150, T-170 and T-171 (PR #56) done; T-155's schema half done (PR #58); T-153's comment half (PR #59);
 T-151's rule recorded (PR #60), its checks waiting on T-031/T-163; T-158's
 ownership question (before their T-141) is unblocked; the rest of T-152–T-158 waits on upstream's
