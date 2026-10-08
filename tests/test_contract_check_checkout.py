@@ -1,6 +1,7 @@
 """``projection.contract_check`` against a real ``portfolio-financial-analysis`` checkout.
 
-Opt in with ``-m integration`` and ``PFA_CHECKOUT=<path to the checkout>``; add ``-s`` to see the
+Opt in with ``-m integration`` and ``PFA_CHECKOUT=<path to the checkout>`` (exported, or set in the
+repo-root ``.env`` like the other paths, see ``.env.example``); add ``-s`` to see the
 commit that was checked and any columns upstream added. Run it before every re-pin of
 ``view_contract.py`` and note the commit in the re-pin; nothing runs it for you (no CI,
 constitution Code & Git #1).
@@ -12,10 +13,12 @@ from collections.abc import Mapping
 from pathlib import Path
 
 import pytest
+from dotenv import load_dotenv
 
 from projection import contract_check
 
 ENV_VAR = "PFA_CHECKOUT"
+REPO_ROOT = Path(__file__).resolve().parents[1]
 
 
 def checkout_from_env(env: Mapping[str, str]) -> Path:
@@ -35,18 +38,28 @@ def checkout_from_env(env: Mapping[str, str]) -> Path:
     return path
 
 
+def _git(path: Path, *args: str) -> str:
+    out = subprocess.run(  # noqa: S603 -- fixed git command, the path is an argument
+        ["git", "-C", str(path), *args],  # noqa: S607
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    return out.stdout.strip()
+
+
 def checkout_commit(path: Path) -> str:
-    """The checkout's short ``HEAD`` sha, or ``unknown`` if it is not a git working tree."""
+    """The checkout's short ``HEAD`` sha, or ``unknown``.
+
+    ``unknown`` when ``path`` is not itself the top of a git working tree: a folder inside some
+    other repository would otherwise report that repository's commit.
+    """
     try:
-        out = subprocess.run(  # noqa: S603 -- fixed git command, the path is an argument
-            ["git", "-C", str(path), "rev-parse", "--short", "HEAD"],  # noqa: S607
-            capture_output=True,
-            text=True,
-            check=True,
-        )
+        if Path(_git(path, "rev-parse", "--show-toplevel")).resolve() != path.resolve():
+            return "unknown"
+        return _git(path, "rev-parse", "--short", "HEAD") or "unknown"
     except (OSError, subprocess.CalledProcessError):
         return "unknown"
-    return out.stdout.strip() or "unknown"
 
 
 # --- the rule that picks the checkout (hermetic) -------------------------------------------------
@@ -75,11 +88,33 @@ def test_the_commit_is_unknown_outside_a_git_tree(tmp_path: Path) -> None:
     assert checkout_commit(tmp_path / "missing") == "unknown"
 
 
+def _commit_in(repo: Path) -> str:
+    _git(repo, "init", "-q")
+    (repo / "f.txt").write_text("x")
+    _git(repo, "add", "f.txt")
+    _git(repo, "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "-m", "m")
+    return _git(repo, "rev-parse", "--short", "HEAD")
+
+
+def test_the_commit_is_the_checkouts_head(tmp_path: Path) -> None:
+    assert checkout_commit(tmp_path) == "unknown"  # not a repository yet
+    head = _commit_in(tmp_path)
+    assert checkout_commit(tmp_path) == head
+
+
+def test_a_folder_inside_another_repository_is_not_given_its_commit(tmp_path: Path) -> None:
+    _commit_in(tmp_path)
+    inner = tmp_path / "inner"
+    inner.mkdir()
+    assert checkout_commit(inner) == "unknown"
+
+
 # --- the real checkout (opt in: -m integration) --------------------------------------------------
 
 
 @pytest.mark.integration
 def test_the_pin_matches_the_upstream_checkout() -> None:
+    load_dotenv(REPO_ROOT / ".env", override=False)
     checkout = checkout_from_env(os.environ)
     commit = checkout_commit(checkout)
     report = contract_check.check(checkout)

@@ -975,7 +975,7 @@ of what this project is, not a gap someone forgot to close:
 |---|---|---|
 | 1 — integrative layer partly built (step 1 done; step 2 and query surface pending); compute steps owned upstream | **Pending development** (integrative layer only) | The actual backlog — `PLAN.md` Work items 4, 6 (Work item 3, step 1, done); Work items 5 and 7 are now scope-reassigned upstream (§2.5) |
 | 12 — FR-005 vs. the ETL's `body_text` read | **Resolved** (spec amended to match the code, 2026-10-05) | `PLAN.md` Work item 11, T-113 — done |
-| 10 — `kg_schema`/`schema/` vocabulary and semantic drift | **Mitigated; automation pending** | `PLAN.md` Work item 11 (decisions closed 2026-10-05, T-100–T-113; dispositions in §2.6); Work item 4, T-030 done (pin + manual drift check); T-135 done (an `integration` test, manual), and an upstream contract endpoint requested (T-173) |
+| 10 — `kg_schema`/`schema/` vocabulary and semantic drift | **Mitigated; manual check done (T-135); automation waits on T-173** | `PLAN.md` Work item 11 (decisions closed 2026-10-05, T-100–T-113; dispositions in §2.6); Work item 4, T-030 done (pin + manual drift check); T-135 done (an `integration` test, manual), and an upstream contract endpoint requested (T-173) |
 | 11 — SEMANTIC score not computed here | **Computation resolved; materialization disputed (§2.6 D14, T-158); cut-over pending** (upstream aggregation + local replacement) | `PLAN.md` Work items 4–5 (reassigned), §2.5 |
 | 2 — no `v_*`-views projection | **Pending development** | Folded into `PLAN.md` Work item 4 (the real step-2 projection); today's `src/etl/` shortcut stays live until that lands |
 | 3 — roadmap names superseded repos | **Pending development** (cheap, no blockers) | `PLAN.md` Work item 1 |

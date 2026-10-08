@@ -588,7 +588,7 @@ Closed Work items 1, 2, 3, 5, 7 (superseded/decided by T-007), 9, 10 and 11 are 
 Work items 4 and 6 (T-030–T-035, T-050–T-053)
 follow in dependency order (Work items 3 and 11 are closed, so Work item 4 is unblocked).
 Work item 12 (T-120–T-121): T-120 closed by T-150; T-121 done (PR #65).
-Work item 13 (T-130–T-136): constitution rules in place (1.5.0); T-130–T-136 done; T-135 decided and its test written (`PFA_CHECKOUT`, `-m integration`). T-173 waits on upstream's reply.
+Work item 13 (T-130–T-136): constitution rules in place (1.5.0); T-130–T-136 done (T-135 as an `integration` test, `PFA_CHECKOUT`). T-173 waits on upstream's reply.
 Work item 14 (T-140–T-142 and T-146): T-140 and T-142 done; T-141 needs a live GraphDB; T-146 found by T-136's tests.
 Work item 15 (T-150–T-159, T-170–T-171): T-150, T-170 and T-171 (PR #56) done; T-155's schema half done (PR #58); T-153's comment half (PR #59);
 T-151's rule recorded (PR #60), its checks waiting on T-031/T-163; T-158's
