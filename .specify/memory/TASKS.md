@@ -410,9 +410,13 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       `engine_version` stays opaque (`opt-v1+9d34ff69`). → step 3.
 - [ ] **T-157** When upstream ships: re-pin `src/projection/view_contract.py` (new view, new
       columns, the commit in its docstring and in `SPEC.md` §2.6), raise the `schema_version` floor
-      (D16), and run `cli/check_view_contract.py` against that commit. Repeat for
+      (D16; the value is `schema_version_floor` in `src/projection/view_expectations/_source.json`),
+      and run `cli/check_view_contract.py` against that commit. Repeat for
       `v_media_cooccurrence_edge`. Pin their T-144's `v_cycle_ranking_component` too. Every contract
       change carries a marker migration, so each raises the floor; repeat for their T-145.
+      Raise the floor and re-pin the views in the same change: upstream rebuilds its views on every
+      run but moves the floor only when `migrate` runs (fourth reply, `SPEC.md` §2.6), so a database
+      that has the new views but has not run `migrate` is refused until it does.
       Project only from a database that meets the floor and holds no REPLAY run (no `cycle_run`
       row with `cycle_type = 'REPLAY'`; a backfill's REPLAY scores and vetoes land in the shared
       tables, D8). This task sets the rule; the check is one of T-162's expectations, run by T-163
