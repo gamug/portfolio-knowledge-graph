@@ -518,12 +518,15 @@ follow it.
    as a test; `src/kg_store/` (loader, ingest gate, `acceptance.check_gate`) against a fake store
    and `cli/check_view_contract.py`'s exit code via subprocess (T-136). The rest of `src/etl/` is transitional (T-033) and is backfilled
    only if it survives.
-4. Decide, and document, where the real-checkout drift check runs (see T-135).
+4. Decide, and document, where the real-checkout drift check runs (T-135, decided 2026-10-08): an
+   `integration` test against a pinned upstream checkout, not a check by the projector. Ask
+   upstream for a contract endpoint in its FastAPI, metadata only (T-173), and consume it when it
+   ships.
 
 **Acceptance**: `uv run pytest` passes hermetically on a clean checkout; the constitution
 documents the structure; NR-005/§10/§13/§14 no longer claim there is no suite.
 
-**Blocked on**: nothing for T-130–T-134 and T-136; T-135 depends on how upstream exposes its contract (open).
+**Blocked on**: nothing for T-130–T-134 and T-136; T-135 is decided (an `integration` test; its test is to write) and T-173 waits on upstream's reply, neither blocking.
 
 ## Work item 14 — `ScoreSnapshotShape` and store-gate follow-ups (PR #48 post-merge review)
 
@@ -1008,7 +1011,7 @@ Work item 7 (orchestrator)         — decided: delegate to financial-analysis `
 
 Work item 8 (protege-view.ttl) — independent, manual, land whenever convenient
 Work item 13 (pytest suite) — independent; rules in constitution 1.5.0, T-130–T-134 and T-136 done (PR #64);
-  T-135 is an open decision
+  T-135 decided, its test still to write; T-173 (an upstream contract endpoint) waits on their reply
 Work item 14 (PR #48 follow-ups) — independent; T-140 and T-142 (PR #63) done, T-141 needs a live GraphDB, T-146 (gate vs. the worked example's batches) open
 Work item 15 (upstream's v_* changes) — T-150, T-170 and T-171 (PR #56) done, with T-155's schema half (PR #58), T-153's comments (PR #59)
   and T-151's rule (PR #60); the step-3 shape corrections now;

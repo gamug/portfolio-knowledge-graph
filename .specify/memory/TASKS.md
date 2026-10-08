@@ -218,10 +218,28 @@ independent of each other once T-131 lands.*
       checks every target against `reference.ttl`)*
 - [x] **T-134** *(done in PR #62: `tests/test_schema_gate.py` parses the bundle in load order, runs `pyshacl`, shows the ticker rule alone rejects a broken `:Asset`, and pins every quad count and the named-graph count `SPEC.md` states to the real ones, which had drifted from 2458 to 2473 quads and 15 to 16 graphs)* The FR-001 parse + `pyshacl` conformance gate as a test, so `uv run pytest` covers
       the schema too. → Approach 3.
-- [ ] **T-135** Decide where the real-checkout drift check (`cli/check_view_contract.py`) runs: a
-      check by the projector against the live DB's views before each read, an `integration` test
-      against a pinned upstream commit, or both; and whether to ask upstream for a contract
-      endpoint/constant (see `SPEC.md` D15: the HTTP `api/` is not a source today). → Approach 4.
+- [ ] **T-135** *(decided 2026-10-08; the test is still to write)* Where the real-checkout drift check
+      (`cli/check_view_contract.py`) runs. **Decision:** an `integration` test against a pinned
+      upstream checkout, now; no check by the projector before each read (the `schema_version`
+      floor and the row-level boundary already guard what it reads, and a column check against
+      the live DB would be new runtime code with no observed need); and upstream is asked for a
+      contract endpoint in its FastAPI (T-173). **To do:** one `integration` test that runs
+      `projection.contract_check.check` on the checkout named by an environment variable
+      (`PFA_CHECKOUT`, skipped when unset) and asserts no drift; document in T-157 that it runs
+      before every re-pin, and that without CI nothing forces it (constitution Code & Git #1).
+      Revisit a check in the projector only if drift is seen in practice. → Approach 4.
+- [ ] **T-173** *(waits on upstream's answer)* Track the request to `portfolio-financial-analysis` for a
+      read-only contract endpoint in its FastAPI, the channel between our services: the `v_*` view
+      names and columns generated from `kg_schema.views.VIEWS`, a contract version that rises
+      with their marker migrations, and optionally what the connected database holds
+      (`schema_version`, views present and missing). Metadata only: `SPEC.md` D15 stands, the
+      HTTP `api/` is not a data source. **Ask:** send the request, then record their answer
+      (willing or not, the route paths, the commit) in `SPEC.md` §2.6. **When it ships:** let
+      `cli/check_view_contract.py` take a URL as well as a checkout, compare the declared contract
+      with our pin and, if offered, the database's state with it, and verify or generate
+      `view_contract.py` from the answer (with T-157); keep the offline pin and the checkout check
+      as the fallback. Tests are hermetic: a fake response, no running service. Not a blocker for
+      anything: T-135 covers the gap until then. → Approach 4.
 - [x] **T-136** *(done 2026-10-07 in PR #64: `tests/test_kg_gate.py`, `test_kg_load_schema.py`, `test_cli_check_view_contract.py`; `derived:quant:{date}` added to `APPEND_ONLY_PATTERNS`; three worked-example graphs the gate cannot take as a batch are strict xfails, T-146; `check_gate` and its test also share one `violations()` helper, the PR #63 nit)* Tests for `src/kg_store/` and the `cli/` exit codes, hermetic (a fake `GraphDB`, no
       running store). **Includes a fix found in PR #62's review:** `gate.check_target` rejects
       `urn:graph:derived:quant:{date}`, which `docs/07` defines (T-108) and `instances.trig` uses, so
