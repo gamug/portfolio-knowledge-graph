@@ -67,8 +67,8 @@ veto, sentiment or filing metric belongs in an upstream repo's plan.
 
 ## Non-goals
 
-Only the three items `SPEC.md` §14 places in **permanently out of scope**
-are excluded from this plan — everything else in `SPEC.md` §13 is a Goal
+Only the three items `SPEC.md` §14 places in **out of scope** (item 9 is
+permanent only until T-172 decides) are excluded from this plan — everything else in `SPEC.md` §13 is a Goal
 above, not a non-goal:
 
 - Item 7 — adding a `pytest` suite for `src/etl/`: accepted at current
@@ -77,7 +77,7 @@ above, not a non-goal:
 - Item 8 — calibrating the G1/G2/G3/G9 severity formulas: a research task
   needing ground-truth labels this plan has no way to produce.
 - Item 9 — pinning a formal SOURCE/RESULTS schema contract with
-  `portfolio-nlp`: accepted risk at this scale; revisited as a decision by
+  `portfolio-nlp`: accepted risk at this scale, and the one non-permanent item here; reopened as a decision by
   T-172 (Work item 4, after T-033), and it becomes work only if that decision
   says so, for instance after a `portfolio-nlp` schema change actually broke
   the projection.

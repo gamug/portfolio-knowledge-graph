@@ -958,8 +958,10 @@ of what this project is, not a gap someone forgot to close:
 - **A pinned SOURCE/RESULTS schema contract with `portfolio-nlp`** beyond
   the shared `fetch_processed_articles` join shape (§13 item 9) — accepted
   at this scale; a `portfolio-nlp` schema change breaking this repo silently
-  is a known, accepted risk. T-172 revisits it as a decision once T-033 has
-  settled whether `src/etl/` survives; until it is decided the risk stands.
+  is a known, accepted risk. **The one item on this list that is not
+  permanent:** T-172 reopens it as a decision once T-033 has settled whether
+  `src/etl/` survives; until T-172 decides, it stays out of scope and the risk
+  stands.
 - **Tests for the rest of `src/etl/`** (§13 item 7) — its shared helpers are tested (T-133), and
   leaving `news_to_rdf.py` and `build_data_ttl.generate` untested is the accepted part: they are
   transitional (T-033), backfilled only if they survive, with the end-to-end SHACL check as their
@@ -980,7 +982,7 @@ of what this project is, not a gap someone forgot to close:
 | 6 — `ScoreSnapshotShape` vs. Sentiment `rawValue` | **Resolved** (T-081: `Sentiment` exempt from `normalizedScore`, `rawValue` required) | `PLAN.md` Work item 9 — done |
 | 7 — `src/etl/`'s tests cover its helpers only | **Resolved** for the shared helpers (hermetic suite, T-130–T-134); **permanently out of scope** for the transitional rest of `src/etl/` (T-033) | §10 |
 | 8 — uncalibrated severity formulas | **Permanently out of scope** (research task) | See above |
-| 9 — no pinned SOURCE/RESULTS contract | **Accepted risk; revisited by decision T-172** (after T-033) | See above |
+| 9 — no pinned SOURCE/RESULTS contract | **Out of scope until T-172 decides** (accepted risk; the one non-permanent item, reopened after T-033) | See above |
 
 Items 1, 2, and 4 are genuinely large or decision-blocked and are tracked at
 the work-item/decision-point level rather than fully detailed here (the same
