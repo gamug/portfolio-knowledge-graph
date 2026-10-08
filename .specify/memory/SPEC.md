@@ -915,7 +915,8 @@ limitations, most of §13 here is this project's **actual unbuilt future
 work** — `10-integration-roadmap.md`'s steps 1–9 are a real, intended
 roadmap, not a wishlist that was decided against. This section therefore
 splits §13's items into two genuinely different categories, and only the
-second one is "out of scope, not deferred":
+second one is "out of scope, not deferred". Item 9 is the one exception: it
+sits in the second category today, and T-172 may move it to the first:
 
 - **Pending development** — real, intended future work, tracked at the
   work-item level in `PLAN.md` even where a work item is coarse-grained or
@@ -939,7 +940,7 @@ Per §2.3/§2.4 and the design rationale in §7, this repo currently validates:
   every veto condition is unambiguous by construction, independently of
   whether any particular rule's thresholds are well-calibrated.
 
-### What this project explicitly does not do (permanently out of scope)
+### What this project explicitly does not do (out of scope; item 9 only until T-172 decides)
 
 None of the following exist today, none are assumed by any FR/NR above, and
 none are planned **regardless of how much of the §13-item-1 roadmap gets

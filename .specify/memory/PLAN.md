@@ -9,7 +9,8 @@ The implementation plan for the live backlog identified in
 `SPEC.md` §14's disposition table splits `SPEC.md` §13's nine open items into
 two different categories, and most of them land on the larger side: only
 three items (7, 8, 9 — no test suite, uncalibrated severity formulas, no
-pinned SOURCE/RESULTS contract) are **permanently out of scope**. The other
+pinned SOURCE/RESULTS contract) are out of scope: items 7 and 8 permanently,
+item 9 until T-172 decides. The other
 six are **pending development** — this repo's actual unbuilt roadmap
 (`10-integration-roadmap.md` steps 1–9), not a closed list of accepted
 limitations. This plan covers all six, at a level of detail matched to how
