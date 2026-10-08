@@ -167,6 +167,25 @@ but the store's own copy (what a SPARQL query and the reasoner see) lacks the ne
 Reloading and dropping the leftover are writes, so neither was done; both need the maintainer's
 go-ahead (T-174).
 
+### Bringing the store in line (T-174, 2026-10-08)
+
+Both writes were made after the maintainer's go-ahead, by a Claude Code session they asked to run them.
+
+1. `uv run python cli/load_schema.py`: reloaded the 19 graphs of `schema/`; its own check found all 19
+   and 2547 asserted triples matching the local parse, and noted 1 other graph left untouched (the
+   leftover). The store went from 2435 to 2582 triples (`tbox` +147; the leftover's 35 are still
+   there).
+2. The leftover `urn:graph:ingest:QUANTITATIVE:2026-08-05` was exported first (35 triples, N-Triples, kept
+   outside the repository), then dropped with `DROP GRAPH` (HTTP 204). `/size` read 2582 just before
+   and 2547 after: down by exactly 35, which is the total of the 19 graphs of `schema/`, so nothing is
+   left outside them.
+3. Each of the five snapshots in the `VALORIZATION` graph has exactly one `:agentOrigin`, and a query
+   for any individual with more than one `:agentOrigin` over all graphs returns nothing.
+4. `uv run python cli/verify_store.py` again: exit 0, all three checks pass, the probe's "store size
+   unchanged" reads 2547.
+
+The store now matches `schema/`. This is a one-time record; the standing guard is T-176.
+
 ## Connecting
 
 Variables are documented in [`.env.example`](../.env.example); real values live in the gitignored

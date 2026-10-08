@@ -550,7 +550,7 @@ new acceptance probe; and `acceptance.check_gate` counts violations by matching 
    `instances.trig` graphs fail `gate.validate` taken alone (references typed in another graph;
    `:clearedOn`), so the entity-resolution, quant and Veto-closing lanes cannot write through
    `cli/ingest.py`. Land it before Work item 4 writes through the gate.
-5. Bring the live store in line with `schema/` (T-174, found by T-141): reload `schema/` with
+5. Bring the live store in line with `schema/` (T-174, found by T-141, done 2026-10-08): reload `schema/` with
    `cli/load_schema.py`, then export and drop the leftover `urn:graph:ingest:QUANTITATIVE:2026-08-05`
    (the loader does not touch it; it duplicates five snapshots of the `VALORIZATION` graph with the
    old `:agentOrigin`, so the store is inconsistent until it goes). Both are writes to production and
@@ -565,9 +565,9 @@ new acceptance probe; and `acceptance.check_gate` counts violations by matching 
 yields exactly one violation (`:timestamp`); T-141's run is recorded in `docs/graphdb-setup.md` (done); T-142's
 `check_gate` does not depend on pyshacl's report wording; T-146 drops the three strict `xfail`s in
 `tests/test_kg_gate.py`; T-174 leaves every graph of the store at its expected size with no leftover;
-T-176's `verify_store` fails on a stale or doubled store (it fails on today's) and exits 0 on a healthy one; T-175's tests pass or skip.
+T-176's `verify_store` fails on a stale or doubled store (it failed on the store before T-174) and exits 0 on a healthy one; T-175's tests pass or skip.
 
-**Blocked on**: T-174's two writes need the maintainer's go-ahead; T-146, T-175 and T-176 are open and need nothing.
+**Blocked on**: nothing; T-146, T-175 and T-176 are open.
 
 ## Work item 15 — Adopt upstream's `v_*` contract changes (replies of 2026-10-05 and 2026-10-06)
 
@@ -1025,7 +1025,7 @@ Work item 7 (orchestrator)         — decided: delegate to financial-analysis `
 Work item 8 (protege-view.ttl) — independent, manual, land whenever convenient
 Work item 13 (pytest suite) — independent; rules in constitution 1.5.0, T-130–T-134 and T-136 done (PR #64);
   T-135 done (its `integration` test); T-173 (an upstream contract endpoint) waits on their reply
-Work item 14 (PR #48 follow-ups) — independent; T-140, T-141 and T-142 done, T-174 (store schema out of line with `schema/`) waits on the maintainer, T-175 (CLI exit-code tests, after T-174), T-176 (the two `verify_store` checks) and T-146 (gate vs. the worked example's batches) open
+Work item 14 (PR #48 follow-ups) — independent; T-140, T-141 and T-142 done, T-174 (store schema) done, T-175 (CLI exit-code tests), T-176 (the two `verify_store` checks) and T-146 (gate vs. the worked example's batches) open
 Work item 15 (upstream's v_* changes) — T-150, T-170 and T-171 (PR #56) done, with T-155's schema half (PR #58), T-153's comments (PR #59)
   and T-151's rule (PR #60); the step-3 shape corrections now;
   the rest as upstream's T-144/T-145 ship; feeds Work item 4 (T-031) and 12 (T-121)
