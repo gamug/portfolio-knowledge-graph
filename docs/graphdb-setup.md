@@ -109,14 +109,16 @@ existence check and the write are two requests, so two simultaneous writers coul
 uv run python cli/verify_store.py
 ```
 
-Runs the three checks Work item 3 requires of a running store with `schema/` loaded, and exits
-non-zero if any fails ([`kg_store.acceptance`](../src/kg_store/acceptance.py)). It writes nothing.
+Runs the three checks Work item 3 requires of a running store with `schema/` loaded, plus the two
+of T-176 below, and exits non-zero if any fails ([`kg_store.acceptance`](../src/kg_store/acceptance.py)). It writes nothing.
 
 | Check | What it proves |
 |---|---|
 | SPARQL query | `SELECT ?s WHERE { ?s a :Asset } LIMIT 5` over HTTP returns individuals |
 | Malformed write | a `ScoreSnapshot` that is valid except for the missing `:timestamp` is refused by the gate with a SHACL `minCount` violation on `:timestamp`, and that is the only violation reported (a rejection for any other reason fails the check; the probe carries `rawValue` and `availableAt` so `ScoreSnapshotShape` is otherwise satisfied); the store's size is unchanged and the target graph does not exist |
 | Reasoning profile | the repository reports `rdfsplus-optimized` and `disableSameAs` true, and `?x a :Observation` is answered by inference (nothing is asserted with it) and includes a `ScoreSnapshot`, which is two `rdfs:subClassOf` steps below it, so the chain is followed and not just one hop |
+| Schema graphs (T-176) | each graph `schema/` owns (read from `schema/` by `load_schema.expected_sizes`) has the asserted size a fresh load gives; a graph the store holds that `schema/` does not own is reported, not failed, so dated `urn:graph:ingest:…` graphs do not break a healthy store |
+| `:agentOrigin` (T-176) | no individual has more than one `:agentOrigin`, and none has a value outside the `sh:in` list of `ScoreSnapshotShape`, read from `shapes.ttl` |
 
 ### Live run (T-141, 2026-10-08)
 
@@ -186,7 +188,7 @@ Both writes were made after the maintainer's go-ahead, by a Claude Code session 
 
 The leftover's absence is shown by the size, not by a direct query: the read-only `ASK { GRAPH
 <urn:graph:ingest:QUANTITATIVE:2026-08-05> { ?s ?p ?o } }` was blocked by the permission classifier and
-not retried; it should answer false. The store now matches `schema/`. This is a one-time record; the standing guard is T-176.
+not retried; it should answer false. The store now matches `schema/`. This is a one-time record; the standing guard is T-176, now in `verify_store` (two more checks; on the store above, exit 0, all five pass).
 
 ## Connecting
 
