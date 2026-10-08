@@ -255,7 +255,7 @@ independent of each other once T-131 lands.*
       otherwise, plus the error case (a view `ensure` cannot create raises, so the exit is 1 with
       a traceback and no `DRIFT` lines: the exit code alone does not tell it from drift, PR #57
       review). `cli/load_schema.py`, `verify_store.py` and `ingest.py` need a live store: their
-      exit codes are `integration` tests with T-141. `cli/build_data_ttl.py` is transitional
+      exit codes are `integration` tests (T-175; T-141 itself was only the run and the record). `cli/build_data_ttl.py` is transitional
       (T-033). → Approach 3.
 
 ## Work item 14 — `ScoreSnapshotShape` and store-gate follow-ups (PR #48 post-merge review)
@@ -266,7 +266,7 @@ independent of each other once T-131 lands.*
       `agentOrigin` ↔ `metricType` one-to-one via `sh:xone`. 2458 quads, conforms; 18 synthetic
       cases, the acceptance probe (one violation), `docs/09`'s example and the ETL smoke run agree.
       → `PLAN.md` Work item 14, step 1.
-- [ ] **T-141** Run `cli/verify_store.py` against the live GraphDB repository with the current
+- [x] **T-141** *(done 2026-10-08: `cli/verify_store.py` against the live `portfolio` repository, exit 0, all three checks pass; recorded in `docs/graphdb-setup.md`. It found that the store's schema copy predates T-121: see T-174)* Run `cli/verify_store.py` against the live GraphDB repository with the current
       acceptance probe and record the result in `docs/graphdb-setup.md`. → step 2.
 - [x] **T-142** *(done 2026-10-07 in PR #63: `gate.validate` raises `ShaclRejected`, an `IngestRejected` carrying pyshacl's results graph; `check_gate` requires exactly one `sh:ValidationResult`, a `:timestamp` `MinCountConstraintComponent`, with `tests/test_acceptance_gate.py` covering wording-independence, a second violation, a single violation of another kind, a non-SHACL rejection and an accepted batch)* Have `kg_store.gate.validate` expose pyshacl's results graph and make
       `acceptance.check_gate` count `sh:ValidationResult` nodes instead of matching
@@ -281,6 +281,20 @@ independent of each other once T-131 lands.*
       allow `:clearedOn` as a closing property. Then drop the three `xfail`s in
       `tests/test_kg_gate.py` (strict, so they fail once it is fixed). Constitution Code & Git #9.
       → `PLAN.md` Work item 14, step 4.
+
+- [ ] **T-174** Reload `schema/` into the live store (found by T-141): the store holds 2435 triples,
+      `schema/` parses to 2547 quads, and the store lacks `:cycleDate` and `:bookWeightingRule` (T-121,
+      PR #65). `cli/load_schema.py` is a write to the production repository, so it waits for the
+      maintainer's go-ahead. After it: re-run `cli/verify_store.py` and add the new size to the
+      `docs/graphdb-setup.md` record. Consider a check in `verify_store` that the store's size or a
+      sentinel term matches `schema/`, since today it passes either way. → `PLAN.md` Work item 14.
+
+- [ ] **T-175** `integration` tests for the exit codes of `cli/verify_store.py`, `cli/load_schema.py` and
+      `cli/ingest.py` (constitution Code & Git #9 lists them; the T-141 text covered only the run).
+      `verify_store.py` writes nothing, so its test can run against the live repository (0 on a
+      healthy store). `load_schema.py` and `ingest.py` write, so they need a repository of their own
+      (as `project_scores --replay` does), never `portfolio`. Opt in with `-m integration`, skipped
+      when the store is unreachable. → `PLAN.md` Work item 14.
 
 ## Work item 15 — Adopt upstream's `v_*` contract changes (replies of 2026-10-05, 2026-10-06 x2)
 
@@ -589,7 +603,7 @@ Work items 4 and 6 (T-030–T-035, T-050–T-053)
 follow in dependency order (Work items 3 and 11 are closed, so Work item 4 is unblocked).
 Work item 12 (T-120–T-121): T-120 closed by T-150; T-121 done (PR #65).
 Work item 13 (T-130–T-136): constitution rules in place (1.5.0); T-130–T-136 done (T-135 as an `integration` test, `PFA_CHECKOUT`). T-173 waits on upstream's reply.
-Work item 14 (T-140–T-142 and T-146): T-140 and T-142 done; T-141 needs a live GraphDB; T-146 found by T-136's tests.
+Work item 14 (T-140–T-142 and T-146): T-140, T-141 and T-142 done; T-174 (reload the store's schema, found by T-141) waits on the maintainer; T-175 (CLI exit-code tests) open; T-146 found by T-136's tests.
 Work item 15 (T-150–T-159, T-170–T-171): T-150, T-170 and T-171 (PR #56) done; T-155's schema half done (PR #58); T-153's comment half (PR #59);
 T-151's rule recorded (PR #60), its checks waiting on T-031/T-163; T-158's
 ownership question (before their T-141) is unblocked; the rest of T-152–T-158 waits on upstream's

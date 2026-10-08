@@ -542,7 +542,7 @@ new acceptance probe; and `acceptance.check_gate` counts violations by matching 
 1. Tighten `ScoreSnapshotShape` (T-140): `rawValue` in `[-1, 1]` required for `SectorRelativeMomentum` (the
    range `docs/06` §1.8 defines; mapping upstream SECTOR into it is T-031's), `sh:maxCount 1` on `rawValue`, an `sh:xone` pairing each `agentOrigin` with its one
    `metricType`. Update `docs/06`, `schema/README.md` and every quad count (NR-001).
-2. Run `cli/verify_store.py` once against the live repository (T-141).
+2. Run `cli/verify_store.py` once against the live repository (T-141, done 2026-10-08: passes; the store's schema copy is older than `schema/`, so T-174 reloads it).
 3. Make `gate.validate` expose the results graph, and count `sh:ValidationResult` nodes in
    `check_gate` instead of matching text (T-142).
 4. Let the gate take the worked example's own batches (T-146, found by T-136's tests): three
@@ -551,11 +551,11 @@ new acceptance probe; and `acceptance.check_gate` counts violations by matching 
    `cli/ingest.py`. Land it before Work item 4 writes through the gate.
 
 **Acceptance**: FR-001 parse + `pyshacl` pass with the new count; the store acceptance probe still
-yields exactly one violation (`:timestamp`); T-141's run is recorded in `docs/graphdb-setup.md`; T-142's
+yields exactly one violation (`:timestamp`); T-141's run is recorded in `docs/graphdb-setup.md` (done); T-142's
 `check_gate` does not depend on pyshacl's report wording; T-146 drops the three strict `xfail`s in
 `tests/test_kg_gate.py`.
 
-**Blocked on**: T-141 needs a running GraphDB; nothing else.
+**Blocked on**: T-174 (a write to the live store) needs the maintainer's go-ahead; T-146 is open.
 
 ## Work item 15 — Adopt upstream's `v_*` contract changes (replies of 2026-10-05 and 2026-10-06)
 
@@ -1013,7 +1013,7 @@ Work item 7 (orchestrator)         — decided: delegate to financial-analysis `
 Work item 8 (protege-view.ttl) — independent, manual, land whenever convenient
 Work item 13 (pytest suite) — independent; rules in constitution 1.5.0, T-130–T-134 and T-136 done (PR #64);
   T-135 done (its `integration` test); T-173 (an upstream contract endpoint) waits on their reply
-Work item 14 (PR #48 follow-ups) — independent; T-140 and T-142 (PR #63) done, T-141 needs a live GraphDB, T-146 (gate vs. the worked example's batches) open
+Work item 14 (PR #48 follow-ups) — independent; T-140, T-141 and T-142 done, T-174 (reload the store's schema) waits on the maintainer, T-146 (gate vs. the worked example's batches) open
 Work item 15 (upstream's v_* changes) — T-150, T-170 and T-171 (PR #56) done, with T-155's schema half (PR #58), T-153's comments (PR #59)
   and T-151's rule (PR #60); the step-3 shape corrections now;
   the rest as upstream's T-144/T-145 ship; feeds Work item 4 (T-031) and 12 (T-121)

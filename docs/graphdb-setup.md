@@ -118,6 +118,26 @@ non-zero if any fails ([`kg_store.acceptance`](../src/kg_store/acceptance.py)). 
 | Malformed write | a `ScoreSnapshot` that is valid except for the missing `:timestamp` is refused by the gate with a SHACL `minCount` violation on `:timestamp`, and that is the only violation reported (a rejection for any other reason fails the check; the probe carries `rawValue` and `availableAt` so `ScoreSnapshotShape` is otherwise satisfied); the store's size is unchanged and the target graph does not exist |
 | Reasoning profile | the repository reports `rdfsplus-optimized` and `disableSameAs` true, and `?x a :Observation` is answered by inference (nothing is asserted with it) and includes a `ScoreSnapshot`, which is two `rdfs:subClassOf` steps below it, so the chain is followed and not just one hop |
 
+### Live run (T-141, 2026-10-08)
+
+`uv run python cli/verify_store.py` against the live repository `portfolio` (GraphDB 11.5.1) with the
+current acceptance probe (T-142's `sh:ValidationResult` count): exit 0, all three checks pass.
+
+| Check | Result |
+|---|---|
+| SPARQL query | 5 assets returned, the first `:AAPL` |
+| Malformed write | rejected by SHACL (`:timestamp` `minCount`, the only violation); store size unchanged at 2435; `urn:graph:ingest:SEMANTIC:2099-01-01` absent |
+| Reasoning profile | `rdfsplus-optimized`, `disableSameAs` true; `?x a :Observation` = 41 inferred, 0 asserted |
+
+The script writes nothing, and nothing was written.
+
+**Found by the run: the store's schema is older than the repository's.** The store holds 2435
+triples; `schema/` parses to 2547 quads (T-121 added the per-run weight-scheme terms). The check
+does not look at this, so it passes either way. The gate reads `tbox.ttl` and `shapes.ttl` from disk,
+so writes through `cli/ingest.py` are validated against the current shapes, but the store's own copy
+(what a SPARQL query and the reasoner see) lacks the T-121 terms. Reloading is a write
+(`cli/load_schema.py`), so it was not done; it needs the maintainer's go-ahead (T-174). The store has neither `:cycleDate` nor `:bookWeightingRule`.
+
 ## Connecting
 
 Variables are documented in [`.env.example`](../.env.example); real values live in the gitignored

@@ -376,7 +376,7 @@ uv run pre-commit run --all-files           # all of the above hooks, plus hygie
    skip-set, `cli/check_view_contract.py`'s exit code, the FR-001 gate). The
    other `cli/` entrypoints wrap that `src/` code; `load_schema.py`,
    `verify_store.py` and `ingest.py` need a live store, so their own exit codes
-   are `integration` (T-141). The rest of `src/etl/` is transitional (T-033) and
+   are `integration` (T-175). The rest of `src/etl/` is transitional (T-033) and
    is backfilled only if it survives that decision. A schema or shape change is
    tested by the FR-001 parse + `pyshacl` gate, plus a synthetic case that must
    fail when the change rejects something.
