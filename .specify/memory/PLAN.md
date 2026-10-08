@@ -9,7 +9,8 @@ The implementation plan for the live backlog identified in
 `SPEC.md` §14's disposition table splits `SPEC.md` §13's nine open items into
 two different categories, and most of them land on the larger side: only
 three items (7, 8, 9 — no test suite, uncalibrated severity formulas, no
-pinned SOURCE/RESULTS contract) are **permanently out of scope**. The other
+pinned SOURCE/RESULTS contract) are out of scope: items 7 and 8 permanently,
+item 9 until T-172 decides. The other
 six are **pending development** — this repo's actual unbuilt roadmap
 (`10-integration-roadmap.md` steps 1–9), not a closed list of accepted
 limitations. This plan covers all six, at a level of detail matched to how
@@ -67,8 +68,8 @@ veto, sentiment or filing metric belongs in an upstream repo's plan.
 
 ## Non-goals
 
-Only the three items `SPEC.md` §14 places in **permanently out of scope**
-are excluded from this plan — everything else in `SPEC.md` §13 is a Goal
+Only the three items `SPEC.md` §14 places in **out of scope** (item 9 is
+permanent only until T-172 decides) are excluded from this plan — everything else in `SPEC.md` §13 is a Goal
 above, not a non-goal:
 
 - Item 7 — adding a `pytest` suite for `src/etl/`: accepted at current
@@ -77,9 +78,10 @@ above, not a non-goal:
 - Item 8 — calibrating the G1/G2/G3/G9 severity formulas: a research task
   needing ground-truth labels this plan has no way to produce.
 - Item 9 — pinning a formal SOURCE/RESULTS schema contract with
-  `portfolio-nlp`: accepted risk at this scale; would only become a work
-  item here if a `portfolio-nlp` schema change actually broke Work item 4's
-  projection.
+  `portfolio-nlp`: accepted risk at this scale, and the one non-permanent item here; reopened as a decision by
+  T-172 (Work item 4, after T-033), and it becomes work only if that decision
+  says so, for instance after a `portfolio-nlp` schema change actually broke
+  the projection.
 - **Productizing this system** (access control, monitoring, a scheduler-
   backed SLA) — permanently out of scope regardless of how much of the Goal
   list above gets built (`SPEC.md` §14).
@@ -265,6 +267,9 @@ architecture, and not partitioned for the bitemporal audit trail
    EDGAR, ORCHESTRATOR — the lanes `instances.trig`'s worked example already
    demonstrates one dated graph per lane for) once this projection can
    produce them.
+6. Decide whether to define a read contract with `portfolio-nlp` (T-172), once T-033 has
+   settled whether `src/etl/` survives. Until then `SPEC.md` §13 item 9 stands as an accepted
+   risk: the only NLP read is the tag-pinned `news_export.fetch_processed_articles`.
 
 **Prerequisite**: Work item 11 (the §2.6 drift decisions) — met: it closed
 2026-10-05 (see `CHANGELOG.md`).
@@ -514,12 +519,15 @@ follow it.
    as a test; `src/kg_store/` (loader, ingest gate, `acceptance.check_gate`) against a fake store
    and `cli/check_view_contract.py`'s exit code via subprocess (T-136). The rest of `src/etl/` is transitional (T-033) and is backfilled
    only if it survives.
-4. Decide, and document, where the real-checkout drift check runs (see T-135).
+4. Decide, and document, where the real-checkout drift check runs (T-135, decided 2026-10-08): an
+   `integration` test against a pinned upstream checkout, not a check by the projector. Ask
+   upstream for a contract endpoint in its FastAPI, metadata only (T-173), and consume it when it
+   ships.
 
 **Acceptance**: `uv run pytest` passes hermetically on a clean checkout; the constitution
 documents the structure; NR-005/§10/§13/§14 no longer claim there is no suite.
 
-**Blocked on**: nothing for T-130–T-134 and T-136; T-135 depends on how upstream exposes its contract (open).
+**Blocked on**: nothing for T-130–T-134 and T-136; T-135 is decided (an `integration` test; its test is to write) and T-173 waits on upstream's reply, neither blocking.
 
 ## Work item 14 — `ScoreSnapshotShape` and store-gate follow-ups (PR #48 post-merge review)
 
@@ -1004,7 +1012,7 @@ Work item 7 (orchestrator)         — decided: delegate to financial-analysis `
 
 Work item 8 (protege-view.ttl) — independent, manual, land whenever convenient
 Work item 13 (pytest suite) — independent; rules in constitution 1.5.0, T-130–T-134 and T-136 done (PR #64);
-  T-135 is an open decision
+  T-135 decided, its test still to write; T-173 (an upstream contract endpoint) waits on their reply
 Work item 14 (PR #48 follow-ups) — independent; T-140 and T-142 (PR #63) done, T-141 needs a live GraphDB, T-146 (gate vs. the worked example's batches) open
 Work item 15 (upstream's v_* changes) — T-150, T-170 and T-171 (PR #56) done, with T-155's schema half (PR #58), T-153's comments (PR #59)
   and T-151's rule (PR #60); the step-3 shape corrections now;

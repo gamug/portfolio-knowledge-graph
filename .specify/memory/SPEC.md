@@ -302,7 +302,7 @@ open part waits on another repo.
 | D12 | Translated; raised upstream | Vetoes projected as outcomes with evidence; upstream's rules are not re-evaluated in the graph. | Upstream's T-144 exposes the inputs as finished numbers: `v_fundamental_metric` with market cap as its `market_capitalization` metric, `metric_id` (`metric_group \|\| '.' \|\| metric_name`, the join to `ThresholdComparison.metricName`), `unit` (`ratio`, `x`, `usd`) and `is_current` (at most one row per key; a filing not recomputed under the newest metric version has none), plus `forensic_flags_json` and `prompt_hash` on `v_score_snapshot`. Projected by T-152 and T-153; flag values wait on their T-074. Declined: `inputs_json` and a stored daily market cap. |
 | D13 | Translated; raised upstream | Mapping checked against `v_weight_scheme`/`v_weight_component` (T-109). Upstream confirmed (2026-10-05, 2026-10-06): `score_weights` holds the configured weights; `v_weight_scheme.scheme_id` is the position-weighting rule (`score_proportional`, `score_tilt`), and a blend is identified by its `cycle_run`; `blended_score` is the weighted mean of normalized components minus `soft_veto_penalty` per active SOFT veto, so it can be negative (0.0 for an asset with no component). **Answered, third reply:** (Q1) a no-component asset is always `vetoed = 1` with `"UNSCORED"` in `veto_rules_json`, no dedicated marker beyond the missing component rows. (Q2) `rank` excludes nobody; their T-144 produces one component row per non-null component of every ranking row regardless of `vetoed`/`selected` (tested); `vetoedAtRanking` is true only for a HARD veto or `UNSCORED`, never SOFT alone. (Q5) `target_weight`/`max_name_weight`/`max_sector_weight` are fractions of the book, [0, 1]; `max_name_weight` is `NULL` by default on a MONITORING run; the recorded value is the effective cap on a SELECTION run, the configured value on a MONITORING run. **Also, `component_value` is not a repeat of a `ScoreSnapshot` value for FUNDAMENTAL (D17)** — read it verbatim as `:componentValue` (T-155, T-171); `configured_weight` stays declined. | Schema work: T-121 (**done**, PR #65: per-run schemes dated by `:cycleDate`, never closed, in `urn:graph:ingest:ORCHESTRATOR:{date}`; configured weights from `v_weight_component`, effective caps from `v_weight_scheme`, both read verbatim), T-155 (ranking, with per-asset effective weights and `componentValue` read from upstream's `v_cycle_ranking_component`, their T-144, never derived here). |
 | D14 | Adopted; raised upstream | `:scoreMethod` discriminator; no write-back code existed to remove (T-111). | **Still unanswered:** upstream's SEMANTIC method value (replaces `ASSET_DAY_AGGREGATE`, T-158); it comes with their Work item 4, after their T-100. **Ownership disagreement:** upstream's second reply places its SEMANTIC-writer doc fix with their T-141 but states that, per their `docs/semantic-score-boundary.md`, the future writer is this repo, from `portfolio-nlp`'s measure. That contradicts §13 item 11 and PLAN Work item 5 (`portfolio-nlp` computes, `financial-analysis` materializes, this repo stops writing `score_snapshot[SEMANTIC]`). Not settled; raised upstream by T-158 before any work relies on either reading. |
-| D15 | Adopted | Read the SQLite `v_*` views via `portfolio_common.db` read-only; the HTTP `api/` is not a source. | Implementation: Work item 4's projector. |
+| D15 | Adopted | Read the SQLite `v_*` views via `portfolio_common.db` read-only; the HTTP `api/` is not a data source. A contract-metadata endpoint (view names, columns, contract version) is requested, not a data route (T-173). | Implementation: Work item 4's projector. |
 | D16 | Adopted; raised upstream | `schema_version` floor 9 (T-109); `portfolio-common` re-pinned to `v1.2.1` (T-110). | Each upstream contract change adds a marker migration, so the floor advances with their T-144 and T-145 (T-157). The floor is asserted by T-031's source check (PR #72), read through `FinancialSource` as `MAX(version)` of upstream's `schema_version` table; an empty or missing table reads as 0 and stops the run (fourth reply, PR #73); `portfolio-nlp` is still on `v1.2.0` (theirs to move). Production is at `schema_version` 8, below the floor; the pilot is at 9; their T-100 starts a fresh database. Upstream's current engines are `metrics-v5` and `opt-v2` (production still holds `metrics-v2` and `opt-v1`), and a filing's period is now identified by its period end rather than the `fiscal_period` label; the accession number is the filing key (T-151). **Answered, third reply (Q4):** `accession_number` is never NULL or empty (0 of 5,076 production rows, 0 of 449 pilot rows); it is not unique in production (30 numbers shared by 60 legacy rows predating their T-091), but production is already excluded by the schema floor; it is unique in the pilot and will be in their T-100 rebuild, and their T-145 adds a verifier check for it. |
 | D17 | Adopted; raised upstream | `ScoreSnapshotShape`'s `sh:or` widened so FUNDAMENTAL (`ScoreFinanciero`) no longer requires `normalizedScore`, joining `SectorRelativeMomentum`/`Sentiment` (optional, not forbidden; T-171), paired with a second `sh:or` requiring `rawValue` instead (`minCount 1`, no bounds yet), so it can never conform with neither value. | The per-cycle, cohort-relative value lives instead as `:componentValue` on `AttractivenessSnapshot`'s effective-weight `WeightComponent` (T-155). FUNDAMENTAL's `rawValue` is carried on the snapshot instead, pending upstream's answer on its bounds (Q6, asked on 2026-10-07, still open). |
 
@@ -827,7 +827,8 @@ treating a related FR/NR as done:
    assumptions, not calibrated against ground truth** — see §7.
 9. **No SOURCE/RESULTS schema contract is pinned beyond
    `fetch_processed_articles`'s join shape** — a `portfolio-nlp` schema
-   change could silently break this repo's ETL with no signal.
+   change could silently break this repo's ETL with no signal. Accepted
+   risk for now; T-172 revisits it after T-033 (§14).
 10. **Vocabulary and semantic drift between `kg_schema` (in
     `portfolio-financial-analysis`) and `schema/` (here).** Both name the same
     concepts; neither is generated from the other, and `kg_schema`'s `v_*`
@@ -839,8 +840,10 @@ treating a related FR/NR as done:
     item 4 then pins and checks the view columns it reads: T-030 added the
     pin (`src/projection/view_contract.py`) and `cli/check_view_contract.py`,
     which fails on a removed column or view against an upstream checkout
-    (§2.6). It runs manually today; where it runs automatically is T-135. No
-    cross-repo schema generation is planned.
+    (§2.6). It runs manually today. T-135 (decided 2026-10-08) adds an `integration` test
+    of it against an upstream checkout, not a check by the projector; T-173 asks upstream for a
+    contract endpoint in its FastAPI (metadata only), which would let the check run against a URL.
+    No cross-repo schema generation is planned.
     **Row-level validation (T-160, decided 2026-10-07):** plain checks, no
     validation library (no dependency, no constitution amendment, T-161): rows
     arrive as `portfolio_common.db` row objects, a cycle is a few thousand rows,
@@ -913,7 +916,8 @@ limitations, most of §13 here is this project's **actual unbuilt future
 work** — `10-integration-roadmap.md`'s steps 1–9 are a real, intended
 roadmap, not a wishlist that was decided against. This section therefore
 splits §13's items into two genuinely different categories, and only the
-second one is "out of scope, not deferred":
+second one is "out of scope, not deferred". Item 9 is the one exception: it
+sits in the second category today, and T-172 may move it to the first:
 
 - **Pending development** — real, intended future work, tracked at the
   work-item level in `PLAN.md` even where a work item is coarse-grained or
@@ -937,7 +941,7 @@ Per §2.3/§2.4 and the design rationale in §7, this repo currently validates:
   every veto condition is unambiguous by construction, independently of
   whether any particular rule's thresholds are well-calibrated.
 
-### What this project explicitly does not do (permanently out of scope)
+### What this project explicitly does not do (out of scope; item 9 only until T-172 decides)
 
 None of the following exist today, none are assumed by any FR/NR above, and
 none are planned **regardless of how much of the §13-item-1 roadmap gets
@@ -956,7 +960,10 @@ of what this project is, not a gap someone forgot to close:
 - **A pinned SOURCE/RESULTS schema contract with `portfolio-nlp`** beyond
   the shared `fetch_processed_articles` join shape (§13 item 9) — accepted
   at this scale; a `portfolio-nlp` schema change breaking this repo silently
-  is a known, accepted risk.
+  is a known, accepted risk. **The one item on this list that is not
+  permanent:** T-172 reopens it as a decision once T-033 has settled whether
+  `src/etl/` survives; until T-172 decides, it stays out of scope and the risk
+  stands.
 - **Tests for the rest of `src/etl/`** (§13 item 7) — its shared helpers are tested (T-133), and
   leaving `news_to_rdf.py` and `build_data_ttl.generate` untested is the accepted part: they are
   transitional (T-033), backfilled only if they survive, with the end-to-end SHACL check as their
@@ -968,7 +975,7 @@ of what this project is, not a gap someone forgot to close:
 |---|---|---|
 | 1 — integrative layer partly built (step 1 done; step 2 and query surface pending); compute steps owned upstream | **Pending development** (integrative layer only) | The actual backlog — `PLAN.md` Work items 4, 6 (Work item 3, step 1, done); Work items 5 and 7 are now scope-reassigned upstream (§2.5) |
 | 12 — FR-005 vs. the ETL's `body_text` read | **Resolved** (spec amended to match the code, 2026-10-05) | `PLAN.md` Work item 11, T-113 — done |
-| 10 — `kg_schema`/`schema/` vocabulary and semantic drift | **Mitigated; automation pending** | `PLAN.md` Work item 11 (decisions closed 2026-10-05, T-100–T-113; dispositions in §2.6); Work item 4, T-030 done (pin + manual drift check); where the check runs automatically: T-135 |
+| 10 — `kg_schema`/`schema/` vocabulary and semantic drift | **Mitigated; automation pending** | `PLAN.md` Work item 11 (decisions closed 2026-10-05, T-100–T-113; dispositions in §2.6); Work item 4, T-030 done (pin + manual drift check); T-135 decided (an `integration` test), and an upstream contract endpoint requested (T-173) |
 | 11 — SEMANTIC score not computed here | **Computation resolved; materialization disputed (§2.6 D14, T-158); cut-over pending** (upstream aggregation + local replacement) | `PLAN.md` Work items 4–5 (reassigned), §2.5 |
 | 2 — no `v_*`-views projection | **Pending development** | Folded into `PLAN.md` Work item 4 (the real step-2 projection); today's `src/etl/` shortcut stays live until that lands |
 | 3 — roadmap names superseded repos | **Pending development** (cheap, no blockers) | `PLAN.md` Work item 1 |
@@ -977,7 +984,7 @@ of what this project is, not a gap someone forgot to close:
 | 6 — `ScoreSnapshotShape` vs. Sentiment `rawValue` | **Resolved** (T-081: `Sentiment` exempt from `normalizedScore`, `rawValue` required) | `PLAN.md` Work item 9 — done |
 | 7 — `src/etl/`'s tests cover its helpers only | **Resolved** for the shared helpers (hermetic suite, T-130–T-134); **permanently out of scope** for the transitional rest of `src/etl/` (T-033) | §10 |
 | 8 — uncalibrated severity formulas | **Permanently out of scope** (research task) | See above |
-| 9 — no pinned SOURCE/RESULTS contract | **Permanently out of scope** (accepted risk) | See above |
+| 9 — no pinned SOURCE/RESULTS contract | **Out of scope until T-172 decides** (accepted risk; the one non-permanent item, reopened after T-033) | See above |
 
 Items 1, 2, and 4 are genuinely large or decision-blocked and are tracked at
 the work-item/decision-point level rather than fully detailed here (the same
