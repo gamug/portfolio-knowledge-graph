@@ -266,7 +266,7 @@ independent of each other once T-131 lands.*
       `agentOrigin` ↔ `metricType` one-to-one via `sh:xone`. 2458 quads, conforms; 18 synthetic
       cases, the acceptance probe (one violation), `docs/09`'s example and the ETL smoke run agree.
       → `PLAN.md` Work item 14, step 1.
-- [x] **T-141** *(done 2026-10-08: `cli/verify_store.py` against the live `portfolio` repository, exit 0, all three checks pass; recorded in `docs/graphdb-setup.md`. It found that the store's schema copy predates T-121: see T-174)* Run `cli/verify_store.py` against the live GraphDB repository with the current
+- [x] **T-141** *(done 2026-10-08: `cli/verify_store.py` against the live `portfolio` repository, exit 0, all three checks pass; recorded in `docs/graphdb-setup.md`. It found that the store's schema graph is out of date and that the store holds a conflicting leftover graph: see T-174)* Run `cli/verify_store.py` against the live GraphDB repository with the current
       acceptance probe and record the result in `docs/graphdb-setup.md`. → step 2.
 - [x] **T-142** *(done 2026-10-07 in PR #63: `gate.validate` raises `ShaclRejected`, an `IngestRejected` carrying pyshacl's results graph; `check_gate` requires exactly one `sh:ValidationResult`, a `:timestamp` `MinCountConstraintComponent`, with `tests/test_acceptance_gate.py` covering wording-independence, a second violation, a single violation of another kind, a non-SHACL rejection and an accepted batch)* Have `kg_store.gate.validate` expose pyshacl's results graph and make
       `acceptance.check_gate` count `sh:ValidationResult` nodes instead of matching
@@ -291,8 +291,11 @@ independent of each other once T-131 lands.*
       `sh:maxCount 1`; dropping it loses no data). Two writes to the
       production repository, each run by the maintainer, or by a session they name, after their
       go-ahead (the gate does not cover a drop):
-      (1) `uv run python cli/load_schema.py` (it drops and reloads only the graphs in `schema/`, so
-      it leaves the leftover and prints it as "not in schema/");
+      (1) `uv run python cli/load_schema.py` (it drops and reloads every graph in `schema/`: `tbox`,
+      `reference`, `rules:catalog` **and the worked-example data graphs of `instances.trig`**, so it
+      leaves the leftover and prints it as "not in schema/"; reloading the example graphs is safe
+      only because nothing else has been written into them, which the store's graph list confirms:
+      it holds the example graphs and the leftover, no projected graph);
       (2) drop the leftover: first download that one graph as N-Triples
       (`GET {KG_HOST}/repositories/portfolio/rdf-graphs/service?graph=urn:graph:ingest:QUANTITATIVE:2026-08-05`
       with `Accept: application/n-triples`) to a file outside the repository, then run the update
@@ -315,8 +318,11 @@ independent of each other once T-131 lands.*
 - [ ] **T-176** Make `cli/verify_store.py` check the schema graphs and the defect T-174 found (read-only;
       found by T-141, split from T-174 so it does not wait for the production writes). Two new
       checks, reusing `load_schema.expected_sizes` and `verify`: (a) a graph that `schema/` owns and
-      whose asserted size differs fails; (b) no individual has more than one `:agentOrigin` (one
-      `SELECT` over all graphs), and none has a value outside `ScoreSnapshotShape`'s `sh:in` list.
+      whose asserted size differs fails (owned = the graphs of `tbox`, `shapes`, `reference` and
+      `rules` always; the worked-example graphs of `instances.trig` too, while that file is what
+      `schema/` ships: when Work item 4 or T-035 replaces the example with real data, that task
+      edits `instances.trig` and this check follows it, since `expected_sizes` reads the file); (b) no individual has more than one `:agentOrigin` (one
+      `SELECT` over all graphs), and none has a value outside `ScoreSnapshotShape`'s `sh:in` list (read from `shapes.ttl`, parsed once as the gate does, not copied into the check).
       A graph the store holds that `schema/` does not own is **reported, not failed**, as
       `load_schema.verify` already does: Work item 4 writes dated `urn:graph:ingest:…` graphs there,
       and a healthy store must still exit 0. A total-size or one-term check would hide both
