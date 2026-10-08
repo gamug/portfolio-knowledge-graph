@@ -6,6 +6,7 @@ import dataclasses
 import json
 import sqlite3
 from collections.abc import Callable
+from contextlib import closing
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -312,16 +313,38 @@ def test_a_dry_run_validates_every_graph_and_writes_nothing(tmp_path: Path) -> N
     assert "accepted by the gate" not in out.summary()
 
 
-def test_the_source_check_runs_first_and_stops_a_database_below_the_floor(tmp_path: Path) -> None:
-    with pytest.raises(BoundaryError, match="schema_version"):
-        ss.run(
-            financial_db(tmp_path, _cohort("TECHNICAL", 1), version=8), ASSETS, None, "2026-10-07"
-        )
+def _drop_schema_version(path: Path) -> None:
+    with closing(sqlite3.connect(path)) as conn:
+        conn.execute("DROP TABLE schema_version")
+        conn.commit()
+
+
+@pytest.mark.parametrize(
+    ("drop", "version"), [(False, 8), (True, 0)], ids=["version-8", "no-table"]
+)
+def test_the_source_check_runs_first_and_stops_a_database_below_the_floor(
+    tmp_path: Path, drop: bool, version: int
+) -> None:
+    source = financial_db(tmp_path, _cohort("TECHNICAL", 1), version=8)
+    if drop:
+        _drop_schema_version(tmp_path / "financial.db")
+    with pytest.raises(BoundaryError, match=f"schema_version.*{version} is below the floor 9"):
+        ss.run(source, ASSETS, None, "2026-10-07")
 
 
 def test_the_schema_version_is_read_from_upstreams_table_not_the_pragma(tmp_path: Path) -> None:
     source = financial_db(tmp_path, [])
     assert source.schema_version == 9  # PRAGMA user_version is 0 in this database
+
+
+def test_a_missing_or_empty_schema_version_table_reads_as_zero(tmp_path: Path) -> None:
+    source = financial_db(tmp_path, [])
+    with closing(sqlite3.connect(tmp_path / "financial.db")) as conn:
+        conn.execute("DELETE FROM schema_version")
+        conn.commit()
+    assert source.schema_version == 0
+    _drop_schema_version(tmp_path / "financial.db")
+    assert source.schema_version == 0
 
 
 def test_a_cycle_row_with_no_available_at_is_counted_once_and_not_projected(tmp_path: Path) -> None:

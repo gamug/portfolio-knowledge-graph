@@ -675,7 +675,7 @@ second reply checked out. One assumption of ours needs correcting, and it change
   requirement (optional, not forbidden, so neither the FUNDAMENTAL individuals already in
   `instances.trig` nor the closed design-history rules that compare on `ScoreFinanciero`'s
   `normalizedScore` stop conforming) doesn't leave the snapshot free to carry neither value. Its
-  bounds are a new open question (Q6, below).
+  bounds are a new open question (Q6, below; asked on 2026-10-07, still open).
 - **The five questions, answered** (folding into `SPEC.md` §2.6's D6/D13/D16, T-170): **Q1**, a
   no-component asset has no dedicated marker — it is always `vetoed = 1` with `"UNSCORED"` in
   `veto_rules_json` (D4), detected exactly as planned, by its missing component rows. **Q2**,
@@ -702,6 +702,26 @@ second reply checked out. One assumption of ours needs correcting, and it change
   Q5's units; T-145 adds the accession-number uniqueness check.
 - **Pilot REPLAY:** `financial_pilot.db` holds 0 REPLAY runs; their backfill ran on a separate,
   unshared copy. Their next pilot (T-143) is a fresh database.
+
+**Fourth reply (2026-10-07, T-031, their `master` at `49d7438`).** Recorded here with the other
+replies, under T-031 (which asked it), not as part of this work item's steps below; `SPEC.md` §2.6
+holds the matching block. We asked how to read their schema version, and asked Q6. They confirmed
+the read rule and did not answer Q6:
+
+- **The floor is `SELECT MAX(version) FROM schema_version`**, the rule their own code uses.
+  `PRAGMA user_version` is not theirs and stays 0. An empty or missing table means `migrate` was
+  never run and reads as 0, below our floor (PR #73). Only `version` carries the contract; a
+  change to how it is stored would be announced first.
+- **Each contract change adds a row**, and only `migrate` adds one: their T-144 ships a marker
+  migration, their T-145 a table-rebuild migration.
+- **The views and the floor move in separate steps:** views are rebuilt on every run, the floor
+  only when `migrate` runs, so a database can show new views under the old floor. Read the floor
+  as "at least this contract"; their view changes are additive, and their T-144 stops older code
+  from rebuilding (downgrading) the views. Fresh databases (their T-143, T-100) run `migrate`
+  first.
+- **Cycle rows with a NULL `available_at`:** skipping and counting them until their T-144 is the
+  right behaviour on our side.
+- **Q6 (the range of `raw_value`) is still open.** Q7 was not asked yet.
 
 **Approach**:
 

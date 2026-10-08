@@ -33,7 +33,7 @@ are closed (see `CHANGELOG.md`).*
 - [ ] **T-031** *(first slice done in PR #72; its status is the sub-list after this entry)* Design and implement the SHACL-validated-on-write path into
       fresh `urn:graph:ingest:{agent}:{date}` graphs. Also: trim `view_contract.py` to the
       columns read; decide the `:rawValue` range for FUNDAMENTAL (T-171 drops its
-      `normalizedScore` instead; the range needs Q6, asked with T-150's next follow-up) and for
+      `normalizedScore` instead; the range needs Q6, asked on 2026-10-07 and still open) and for
       VALORIZATION/TECHNICAL, and map
       upstream SEMANTIC into the `[-1, 1]` `rawValue` `ScoreSnapshotShape` requires of it (T-081;
       `SPEC.md` §2.6). SECTOR's `raw_value` is read verbatim into the [-100, 100] bound T-155 sets,
@@ -61,6 +61,8 @@ are closed (see `CHANGELOG.md`).*
     `--write` appends. SECTOR joined `RESCALED_SCORE_TYPES`. A real read showed that upstream keeps
     its schema version in the `schema_version` table and leaves `PRAGMA user_version` at 0, so
     `FinancialSource` reads the table (`Database.schema_version` would fail every real database).
+    Upstream confirmed the rule (reply of 2026-10-07, `SPEC.md` D16): an empty or missing table
+    reads as 0, below the floor, so the source check stops the run (PR #73).
   - **Where a row goes:** FUNDAMENTAL to the quarter graph of its `available_at`; VALORIZATION,
     TECHNICAL and SECTOR to the graph of the run day (UTC by default).
   - **When a FUNDAMENTAL quarter is written:** once it is closed by the run day *and* a full
@@ -408,9 +410,13 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       `engine_version` stays opaque (`opt-v1+9d34ff69`). → step 3.
 - [ ] **T-157** When upstream ships: re-pin `src/projection/view_contract.py` (new view, new
       columns, the commit in its docstring and in `SPEC.md` §2.6), raise the `schema_version` floor
-      (D16), and run `cli/check_view_contract.py` against that commit. Repeat for
+      (D16; the value is `schema_version_floor` in `src/projection/view_expectations/_source.json`),
+      and run `cli/check_view_contract.py` against that commit. Repeat for
       `v_media_cooccurrence_edge`. Pin their T-144's `v_cycle_ranking_component` too. Every contract
       change carries a marker migration, so each raises the floor; repeat for their T-145.
+      Raise the floor and re-pin the views in the same change: upstream rebuilds its views on every
+      run but moves the floor only when `migrate` runs (fourth reply, `SPEC.md` §2.6), so a database
+      that has the new views but has not run `migrate` is refused until it does.
       Project only from a database that meets the floor and holds no REPLAY run (no `cycle_run`
       row with `cycle_type = 'REPLAY'`; a backfill's REPLAY scores and vetoes land in the shared
       tables, D8). This task sets the rule; the check is one of T-162's expectations, run by T-163
@@ -438,7 +444,7 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       (accession numbers) into D16's; and their T-144/T-145 scope additions (keep `component_value`
       and `configured_weight`; a Q2 test; `docs/kg_schema.md`; an accession-number uniqueness
       check). → `PLAN.md` Work item 15, step 1.
-- [x] **T-171** *(D17, raised by the third reply; done in PR #56: the `sh:or` change, comments, docs, `score_scale.py` and its tests; FUNDAMENTAL `rawValue`'s bounds stay open as Q6, asked with T-150's next follow-up)* Decide how `ScoreSnapshot` keeps its
+- [x] **T-171** *(D17, raised by the third reply; done in PR #56: the `sh:or` change, comments, docs, `score_scale.py` and its tests; FUNDAMENTAL `rawValue`'s bounds stay open as Q6, asked on 2026-10-07 and not yet answered)* Decide how `ScoreSnapshot` keeps its
       immutable-observation principle (constitution; `docs/06` conventions) now that upstream
       rewrites a FUNDAMENTAL row's `normalized_score` in place on every cycle that re-normalizes
       its filing against that cycle's cohort (measured: 33/40 production, 1/60 pilot, 2,267/2,799
@@ -457,7 +463,7 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       (`minCount 1`, no bounds yet) the same way the shape already pairs `SectorRelativeMomentum`'s
       and `Sentiment`'s exemptions with a mandatory `rawValue` — otherwise a FUNDAMENTAL snapshot
       could conform while carrying neither value (PR #56 review). Its bounds are unknown, so ask
-      upstream (new question, Q6, with T-150's next follow-up) before adding a
+      upstream (new question, Q6, asked on 2026-10-07, still open) before adding a
       `minInclusive`/`maxInclusive` pair, matching how SECTOR's `rawValue` range wasn't bounded
       until confirmed (T-140/T-155). Update `:normalizedScore`'s and `:rawValue`'s `tbox.ttl`
       comments and `schema/README.md` (flagged as a design gap found against real data, per
