@@ -131,12 +131,32 @@ current acceptance probe (T-142's `sh:ValidationResult` count): exit 0, all thre
 
 The script writes nothing, and nothing was written.
 
-**Found by the run: the store's schema is older than the repository's.** The store holds 2435
-triples; `schema/` parses to 2547 quads (T-121 added the per-run weight-scheme terms). The check
-does not look at this, so it passes either way. The gate reads `tbox.ttl` and `shapes.ttl` from disk,
-so writes through `cli/ingest.py` are validated against the current shapes, but the store's own copy
-(what a SPARQL query and the reasoner see) lacks the T-121 terms. Reloading is a write
-(`cli/load_schema.py`), so it was not done; it needs the maintainer's go-ahead (T-174). The store has neither `:cycleDate` nor `:bookWeightingRule`.
+**Found by the run: the store's schema graphs are older than `schema/`, and it holds a graph `schema/`
+no longer has.** Compared per graph (`kg_store.load_schema.expected_sizes` against the store's
+asserted sizes; the totals, 2435 against 2547, hide two opposite differences):
+
+| Graph | Store | `schema/` |
+|---|---|---|
+| `urn:graph:tbox` | 1420 | 1567 |
+| `urn:graph:ingest:QUANTITATIVE:2026-08-05` | 35 | not in `schema/` |
+| every other graph in `schema/` | equal | equal |
+
+- **`tbox` is short by 147 triples.** They are the changes made since the last load, not T-121
+  alone: the per-run weight-scheme terms (`:cycleDate`, `:bookWeightingRule`, `:topN`,
+  `:maxNameWeight`, `:maxSectorWeight`, `:softVetoPenalty` and their shapes), and edits to
+  `:rawValue`, `:normalizedScore`, `:availableAt`, `:runId`, `:attractivenessScore` and
+  `ScoreSnapshotShape`/`AttractivenessSnapshotShape` (from the tasks since the last load, among them T-121, T-151, T-153, T-155 and T-171).
+- **The 35-triple graph is a leftover.** It holds the old `Snap_*_Quant_20260805` snapshots under
+  the agent name `QUANTITATIVE`, which T-105 renamed to `VALORIZATION` on 2026-10-03 (the
+  `VALORIZATION` graph is in the store and matches). `load_schema.load` drops only the graphs it is
+  about to load, so a reload does **not** remove it; it prints it afterwards as a graph "not in
+  `schema/`". Removing it is a separate write.
+
+The check does not look at either difference, so it passes either way. The gate reads `tbox.ttl` and
+`shapes.ttl` from disk, so writes through `cli/ingest.py` are validated against the current shapes,
+but the store's own copy (what a SPARQL query and the reasoner see) lacks the newer terms.
+Reloading and dropping the leftover are writes, so neither was done; both need the maintainer's
+go-ahead (T-174).
 
 ## Connecting
 
