@@ -284,16 +284,31 @@ independent of each other once T-131 lands.*
 - [ ] **T-174** Bring the live store's schema in line with `schema/` (found by T-141). Per graph,
       `urn:graph:tbox` holds 1420 triples against 1567 (it lacks the changes since the last load:
       T-121's per-run scheme terms and edits from T-151, T-153, T-155 and T-171, among others), and the
-      store holds `urn:graph:ingest:QUANTITATIVE:2026-08-05` (35 triples, the pre-T-105 agent name),
-      which `schema/` no longer has. Two writes to the production repository, so each waits for the
-      maintainer's go-ahead: (1) `cli/load_schema.py` (it drops and reloads only the graphs in
-      `schema/`, so it leaves the leftover and prints it as "not in schema/"); (2) drop the leftover
-      graph by hand. Then re-run `cli/verify_store.py` and add the per-graph sizes to the
-      `docs/graphdb-setup.md` record. Also add a read-only check to `verify_store` that compares each
-      graph with `schema/` (reuse `load_schema.verify`) and lists graphs `schema/` does not have, so
-      this case fails instead of passing; a total-size or one-term check would hide it. Done when
-      every graph in `schema/` has its expected size, the leftover is gone, and `verify_store` fails
-      on a store that differs. → `PLAN.md` Work item 14, steps 5–6.
+      store holds `urn:graph:ingest:QUANTITATIVE:2026-08-05` (35 triples), which `schema/` no longer
+      has. That graph asserts the same five snapshot IRIs as `urn:graph:ingest:VALORIZATION:2026-08-05`
+      with the old `:agentOrigin "QUANTITATIVE"`, so each of them has two `:agentOrigin` values in the
+      store now (a defect, not just a tidy-up; dropping it loses no data). Two writes to the
+      production repository, each run by the maintainer, or by a session they name, after their
+      go-ahead (the gate does not cover a drop):
+      (1) `uv run python cli/load_schema.py` (it drops and reloads only the graphs in `schema/`, so
+      it leaves the leftover and prints it as "not in schema/");
+      (2) drop the leftover: first download that one graph as N-Triples
+      (`GET {KG_HOST}/repositories/portfolio/rdf-graphs/service?graph=urn:graph:ingest:QUANTITATIVE:2026-08-05`
+      with `Accept: application/n-triples`) to a file outside the repository, then run the update
+      `DROP GRAPH <urn:graph:ingest:QUANTITATIVE:2026-08-05>` on `/statements`.
+      After (2), check read-only: the graph is absent from the graph list, `/size` fell by 35, and
+      each of the five snapshots in the `VALORIZATION` graph has exactly one `:agentOrigin`.
+      Then re-run `cli/verify_store.py` and add the per-graph sizes to the `docs/graphdb-setup.md`
+      record. Done when every graph in `schema/` has its expected size, the leftover is gone, and
+      the checks above pass. → `PLAN.md` Work item 14, step 5.
+- [ ] **T-176** Make `cli/verify_store.py` compare each graph with `schema/` (read-only; found by
+      T-141, split from T-174 so it does not wait for the production writes). Reuse
+      `load_schema.expected_sizes` and `verify`: a graph whose asserted size differs fails, and a graph
+      in the store that `schema/` does not have is reported (as a failure, since the leftover above
+      would otherwise pass). A total-size or one-term check would hide both differences. Tests with a
+      fake store: equal sizes pass; a short graph fails; an extra graph fails; the existing three
+      checks are unchanged (constitution Code & Git #9). On today's store it fails with the two
+      differences of T-174, which proves it; it passes after T-174. → `PLAN.md` Work item 14, step 6.
 - [ ] **T-175** `integration` tests for the exit codes of `cli/verify_store.py`, `cli/load_schema.py` and
       `cli/ingest.py` (constitution Code & Git #9 lists them; the T-141 text covered only the run).
       `verify_store.py` writes nothing, so its test can run against the live repository (0 on a
@@ -608,7 +623,7 @@ Work items 4 and 6 (T-030–T-035, T-050–T-053)
 follow in dependency order (Work items 3 and 11 are closed, so Work item 4 is unblocked).
 Work item 12 (T-120–T-121): T-120 closed by T-150; T-121 done (PR #65).
 Work item 13 (T-130–T-136): constitution rules in place (1.5.0); T-130–T-136 done (T-135 as an `integration` test, `PFA_CHECKOUT`). T-173 waits on upstream's reply.
-Work item 14 (T-140–T-142 and T-146): T-140, T-141 and T-142 done; T-174 (store schema out of line with `schema/`, found by T-141) waits on the maintainer; T-175 (CLI exit-code tests) open; T-146 found by T-136's tests.
+Work item 14 (T-140–T-142 and T-146): T-140, T-141 and T-142 done; T-174 (store schema out of line with `schema/`, found by T-141) waits on the maintainer; T-176 (per-graph `verify_store` check) and T-175 (CLI exit-code tests) open; T-146 found by T-136's tests.
 Work item 15 (T-150–T-159, T-170–T-171): T-150, T-170 and T-171 (PR #56) done; T-155's schema half done (PR #58); T-153's comment half (PR #59);
 T-151's rule recorded (PR #60), its checks waiting on T-031/T-163; T-158's
 ownership question (before their T-141) is unblocked; the rest of T-152–T-158 waits on upstream's
