@@ -22,6 +22,17 @@ ENV_VAR = "PFA_CHECKOUT"
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
 
+def read_setting(env_file: Path, environ: Mapping[str, str]) -> dict[str, str | None]:
+    """``environ`` over the repo-root ``.env``, for the one key only.
+
+    An exported value wins (even an empty one, which reads as unset); a missing ``.env`` is fine.
+    Only ``PFA_CHECKOUT`` is taken from the file, so the rest of it never enters the process.
+    """
+    from_file = dotenv_values(env_file).get(ENV_VAR) if env_file.is_file() else None
+    exported = environ.get(ENV_VAR)
+    return {ENV_VAR: exported if exported is not None else from_file}
+
+
 def checkout_from_env(env: Mapping[str, str | None]) -> Path:
     """The checkout ``PFA_CHECKOUT`` names: skip when it is unset, fail when it is wrong.
 
@@ -55,6 +66,9 @@ def _git(path: Path, *args: str, isolated: bool = False) -> str:
 def checkout_commit(path: Path) -> str:
     """The checkout's short ``HEAD`` sha, or ``unknown``.
 
+    Uses the machine's own git configuration on purpose (it is a real checkout); only the
+    throwaway repositories in the tests below are isolated from it.
+
     ``unknown`` when ``path`` is not itself the top of a git working tree: a folder inside some
     other repository would otherwise report that repository's commit.
     """
@@ -83,9 +97,52 @@ def test_a_variable_that_is_not_a_checkout_fails_instead_of_skipping(tmp_path: P
         checkout_from_env({ENV_VAR: str(tmp_path)})
 
 
+def test_a_file_is_not_a_checkout_either(tmp_path: Path) -> None:
+    a_file = tmp_path / "kg_schema"
+    a_file.write_text("x")
+    with pytest.raises(pytest.fail.Exception, match="has no src/kg_schema"):
+        checkout_from_env({ENV_VAR: str(a_file)})
+
+
 def test_a_checkout_is_returned_as_given(tmp_path: Path) -> None:
     (tmp_path / "src" / "kg_schema").mkdir(parents=True)
     assert checkout_from_env({ENV_VAR: str(tmp_path)}) == tmp_path
+
+
+# --- where the variable comes from: the environment over .env (hermetic) --------------------------
+
+
+def test_a_value_in_dot_env_is_used_when_nothing_is_exported(tmp_path: Path) -> None:
+    env_file = tmp_path / ".env"
+    env_file.write_text(f"OTHER=1\n{ENV_VAR}=/some/checkout\n")
+    assert read_setting(env_file, {}) == {ENV_VAR: "/some/checkout"}
+
+
+def test_an_exported_value_beats_dot_env(tmp_path: Path) -> None:
+    env_file = tmp_path / ".env"
+    env_file.write_text(f"{ENV_VAR}=/from/file\n")
+    assert read_setting(env_file, {ENV_VAR: "/exported"}) == {ENV_VAR: "/exported"}
+
+
+def test_an_empty_or_valueless_setting_reads_as_unset_and_skips(tmp_path: Path) -> None:
+    env_file = tmp_path / ".env"
+    env_file.write_text(f"{ENV_VAR}\n")  # a line with no value
+    with pytest.raises(pytest.skip.Exception):
+        checkout_from_env(read_setting(env_file, {}))
+    env_file.write_text(f"{ENV_VAR}=/from/file\n")
+    with pytest.raises(pytest.skip.Exception):  # exported empty: the shell said "unset" on purpose
+        checkout_from_env(read_setting(env_file, {ENV_VAR: ""}))
+
+
+def test_a_missing_dot_env_is_fine(tmp_path: Path) -> None:
+    assert read_setting(tmp_path / ".env", {}) == {ENV_VAR: None}
+    assert read_setting(tmp_path / ".env", {ENV_VAR: "/x"}) == {ENV_VAR: "/x"}
+
+
+def test_the_rest_of_dot_env_is_not_returned(tmp_path: Path) -> None:
+    env_file = tmp_path / ".env"
+    env_file.write_text(f"SQL_FINANCIAL_DB=/secret.db\n{ENV_VAR}=/c\n")
+    assert set(read_setting(env_file, {})) == {ENV_VAR}
 
 
 def test_the_commit_is_unknown_outside_a_git_tree(tmp_path: Path) -> None:
@@ -132,10 +189,7 @@ def test_a_folder_inside_another_repository_is_not_given_its_commit(tmp_path: Pa
 
 @pytest.mark.integration
 def test_the_pin_matches_the_upstream_checkout() -> None:
-    # An exported value wins; the repo-root .env is read for this one key only, so the rest of it
-    # does not leak into the process environment.
-    env = {**dotenv_values(REPO_ROOT / ".env"), **os.environ}
-    checkout = checkout_from_env(env)
+    checkout = checkout_from_env(read_setting(REPO_ROOT / ".env", os.environ))
     commit = checkout_commit(checkout)
     report = contract_check.check(checkout)
     print(f"\nchecked {checkout} at commit {commit}")
