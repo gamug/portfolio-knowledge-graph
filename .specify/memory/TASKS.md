@@ -401,8 +401,8 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       empty (0 of 5,076 production rows, 0 of 449 pilot rows), so the key is always available.
       It is *not* unique in production: 30 accession numbers are shared by 60 legacy rows from
       before upstream's T-091 (a 10-Q's quarters stored as separate rows under one accession,
-      repaired by their T-120) — harmless here, since production (`schema_version` 8) is already
-      excluded by T-157's floor. It is unique in the pilot and will be in their T-100 rebuild; no
+      repaired by their T-120) — harmless here, since production (reported at `schema_version` 8, unconfirmed:
+      `SPEC.md` §2.6 fifth reply) is excluded by T-157's floor if it is below it. It is unique in the pilot and will be in their T-100 rebuild; no
       constraint enforces it today, but their T-145 adds a uniqueness check to their pilot
       verifier. → step 3.
 - [ ] **T-152** Model `v_fundamental_metric`: one immutable observation per (filing, metric, engine
@@ -498,7 +498,7 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       `Portfolio` (already enforced by `PortfolioShape`); stop expecting `equal_weight`/
       `cap_weight`. `is_current` marks at most one book per `(as_of, kind)`, the newest `opt-v*`;
       `engine_version` stays opaque (`opt-v1+9d34ff69`). → step 3.
-- [ ] **T-157** *(their T-144 landed 2026-10-09 at `6bf4d7e`, `schema_version` 10: re-pin against a database migrated with it, not production, which stays at 8; whether to read production, and so the floor, is for the maintainer: `SPEC.md` §2.6 fifth reply)* When upstream ships: re-pin `src/projection/view_contract.py` (new view, new
+- [ ] **T-157** *(their T-144 landed 2026-10-09 at `6bf4d7e`, `schema_version` 10: re-pin against a database migrated with it; the floor stays 9 until then; upstream's "production stays at 8" is disputed and unconfirmed, `SPEC.md` §2.6 fifth reply)* When upstream ships: re-pin `src/projection/view_contract.py` (new view, new
       columns, the commit in its docstring and in `SPEC.md` §2.6), raise the `schema_version` floor
       (D16; the value is `schema_version_floor` in `src/projection/view_expectations/_source.json`),
       and run `cli/check_view_contract.py` against that commit, or the T-135 test
@@ -512,7 +512,7 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       Project only from a database that meets the floor and holds no REPLAY run (no `cycle_run`
       row with `cycle_type = 'REPLAY'`; a backfill's REPLAY scores and vetoes land in the shared
       tables, D8). This task sets the rule; the check is one of T-162's expectations, run by T-163
-      at the start of each projection. Production (at 8) fails the floor; the pilot (at 9) and
+      at the start of each projection. Production (reported at 8, unconfirmed) fails the floor if it is below it; the pilot (at 9) and
       their T-100 rebuild qualify if the check passes.
       → step 4.
 - [ ] **T-158** Replace the `ASSET_DAY_AGGREGATE` placeholder with upstream's SEMANTIC
