@@ -45,6 +45,7 @@ from __future__ import annotations
 import datetime
 import functools
 import re
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import cast
@@ -301,24 +302,22 @@ def nested_paths(schema: GateSchema, relation: rdflib.URIRef) -> set[rdflib.URIR
 
 
 def fetch_context(
-    db: GraphDB, refs: set[rdflib.URIRef], schema: GateSchema, batch: rdflib.Graph | None = None
+    db: GraphDB, refs: set[rdflib.URIRef], schema: GateSchema, batch: rdflib.Graph
 ) -> rdflib.Graph:
     """What the store holds (explicit statements, any graph) about ``refs``, as a graph.
 
-    With ``batch`` only the properties its shapes read are fetched (:func:`context_predicates`,
-    and :func:`nested_paths` one step further when a shape reads through a relation, as the
-    Asset shape does through its memberships); without it, every statement of ``refs``.
+    Only the properties the shapes read for what ``batch`` expects of ``refs`` are fetched
+    (:func:`context_predicates`, and :func:`nested_paths` one step further when a shape reads
+    through a relation, as the Asset shape does through its memberships).
     """
     iris = sorted(str(r) for r in refs)
     _refuse_illegal_iris(iris)
-    restrict = ""
+    paths = context_predicates(batch, refs, schema)
+    restrict = f"VALUES ?p {{ {_iri_list(paths)} }} "
     hops: dict[rdflib.URIRef, set[rdflib.URIRef]] = {}
-    if batch is not None:
-        paths = context_predicates(batch, refs, schema)
-        restrict = f"VALUES ?p {{ {_iri_list(paths)} }} "
-        for relation in sorted(paths, key=str):
-            if nested := nested_paths(schema, relation):
-                hops[relation] = nested
+    for relation in sorted(paths, key=str):
+        if nested := nested_paths(schema, relation):
+            hops[relation] = nested
     context = rdflib.Graph()
     for i in range(0, len(iris), 200):
         values = " ".join(f"<{iri}>" for iri in iris[i : i + 200])
@@ -343,12 +342,15 @@ def _iri_list(iris: set[rdflib.URIRef]) -> str:
 
 
 def validate(
-    batch: rdflib.Graph, directory: Path | None = None, context: rdflib.Graph | None = None
+    batch: rdflib.Graph,
+    directory: Path | None = None,
+    context: rdflib.Graph | Callable[[], rdflib.Graph] | None = None,
 ) -> None:
     """Raise :class:`IngestRejected` unless ``batch`` passes the type, untyped-subject and shape checks.
 
     ``context`` holds what is already known about the individuals the batch points at
-    (:func:`fetch_context`); the shapes see it beside the batch. A shape failure raises
+    (:func:`fetch_context`); the shapes see it beside the batch. It may be a callable, called only
+    once the checks that need no store have passed, so a refused batch costs no query. A shape failure raises
     :class:`ShaclRejected`, which carries the results graph.
     """
     schema = load_gate_schema((directory or schema_dir()).resolve())
@@ -364,6 +366,8 @@ def validate(
             "individuals and an xsd:date :validTo or :clearedOn are allowed there): "
             + ", ".join(stray)
         )
+    if callable(context):
+        context = context()
     data = batch
     if context is not None and len(context):
         data = rdflib.Graph()
@@ -398,14 +402,14 @@ def ingest(db: GraphDB, data: bytes, graph: str, directory: Path | None = None) 
     batch = parse_batch(data)
     schema = load_gate_schema((directory or schema_dir()).resolve())
     refs = references(batch, schema)
-    validate(batch, directory, fetch_context(db, refs, schema, batch) if refs else None)
+    validate(batch, directory, (lambda: fetch_context(db, refs, schema, batch)) if refs else None)
     if append_only and db.select(f"SELECT * WHERE {{ GRAPH <{graph}> {{ ?s ?p ?o }} }} LIMIT 1"):
         raise IngestRejected(f"{graph} already exists and is append-only; write a new dated graph")
     taken = existing_subjects(db, batch)
     if taken:
         raise IngestRejected(
             "individuals that already exist in the store (observations are immutable; use a "
-            "new IRI, or :validTo to close one): " + ", ".join(taken)
+            "new IRI, or :validTo / :clearedOn to close one): " + ", ".join(taken)
         )
     try:
         db.add(batch.serialize(format="nt").encode(), "application/n-triples", graph)

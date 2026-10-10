@@ -220,7 +220,8 @@ def test_fetch_context_types_the_stored_values(make_db: MakeDB, schema: gate.Gat
             {"s": str(KG.P)},  # a row without a statement is skipped
         ]
     )
-    context = gate.fetch_context(fake.db, {KG.P}, schema)
+    batch = gate.parse_batch(PREFIXES + b":o a :BenchmarkObservation ; :quantPortfolio :P .")
+    context = gate.fetch_context(fake.db, {KG.P}, schema, batch)
     assert (KG.P, rdflib.RDF.type, KG.Portfolio) in context
     assert (
         KG.P,
@@ -236,11 +237,6 @@ def test_fetch_context_also_reads_the_memberships_of_a_referenced_asset(
 ) -> None:
     """An Asset without a CIK conforms only if its memberships are closed (``validTo``), so
     the query follows ``hasUniverseMembership`` one step (a reviewer's catch on PR #86)."""
-    fake = make_db()
-    gate.fetch_context(fake.db, {KG.GONE}, schema)
-    assert "VALUES ?r {" in fake.queries[0]
-    assert "hasUniverseMembership" not in fake.queries[0]  # no batch: every statement, no hop
-
     batch = gate.parse_batch(
         PREFIXES + b":c a :AssetCoOccurrence ; :coOccurrenceAsset :GONE, :OTHER ;"
         b' :coOccurrenceKind "SHARED_EXECUTIVE_CANDIDATE" ; :coOccurrenceMethod "m" ;'
@@ -255,6 +251,10 @@ def test_fetch_context_also_reads_the_memberships_of_a_referenced_asset(
         if t[0] != KG.UM or t[1] != rdflib.RDF.type:  # the stored memberships' type is not needed
             context.add(t)
     gate.validate(batch, context=context)
+    fake = make_db()
+    gate.fetch_context(fake.db, {KG.GONE}, schema, batch)
+    assert "VALUES ?r {" in fake.queries[0]
+    assert f"?r <{KG.hasUniverseMembership}> ?s" in fake.queries[0]
 
 
 def test_the_context_reads_only_what_the_shapes_of_the_references_read(
@@ -306,11 +306,24 @@ def test_the_quant_context_reads_the_portfolio_kind(schema: gate.GateSchema) -> 
     assert {KG.portfolioKind, KG.portfolioName} <= paths
 
 
+def test_a_refused_batch_costs_no_context_query(make_db: MakeDB) -> None:
+    """The store-free checks run first: an unknown type is refused before any SELECT."""
+    fake = make_db()
+    batch = (
+        PREFIXES + b":c a :AssetCoOccurrence ; :coOccurrenceAsset :A, :B . :x a :ScoreSnapshott .\n"
+    )
+    with pytest.raises(gate.IngestRejected, match="not leaf classes"):
+        gate.ingest(fake.db, batch, "urn:graph:derived:entity-resolution:2026-08-05")
+    assert fake.queries == []
+
+
 def test_fetch_context_refuses_an_iri_that_could_inject_sparql(
     make_db: MakeDB, schema: gate.GateSchema
 ) -> None:
     with pytest.raises(gate.IngestRejected, match="illegal in an IRI"):
-        gate.fetch_context(make_db().db, {rdflib.URIRef("https://x.test/a b")}, schema)
+        gate.fetch_context(
+            make_db().db, {rdflib.URIRef("https://x.test/a b")}, schema, rdflib.Graph()
+        )
 
 
 @pytest.mark.parametrize("prop", ["validTo", "clearedOn"])
