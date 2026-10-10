@@ -4,7 +4,8 @@
 reads them (``PLAN.md`` Work item 16, decided in ``SPEC.md`` §13 item 10): types, NULL rates,
 ranges, formats, natural keys, row count, the D2 ordered pair, group means and the view's
 quarantine cap. ``view_expectations/_source.json`` holds the one aggregate check on the database
-itself. This module only parses and validates those files, strictly, so a typo fails at load and
+(the ``schema_version`` floor, the forbidden run types) and the pin's optional ``contract_version``
+(T-178). This module only parses and validates those files, strictly, so a typo fails at load and
 not on the first real run. :mod:`projection.boundary` runs them over the rows (T-163).
 
 Column names are checked against :data:`projection.view_contract.VIEW_COLUMNS`, so the column list
@@ -46,7 +47,7 @@ _VIEW_KEYS = {
     "ordered_pairs",
     "group_means",
 }
-_SOURCE_KEYS = {"schema_version_floor", "forbidden_cycle_types"}
+_SOURCE_KEYS = {"schema_version_floor", "forbidden_cycle_types", "contract_version"}
 
 Where = dict[str, tuple[Any, ...]]
 
@@ -110,6 +111,7 @@ class ViewExpectation:
 class SourceExpectation:
     schema_version_floor: int
     forbidden_cycle_types: tuple[str, ...]
+    contract_version: int | None = None  # absent until T-157's re-pin writes it
 
 
 def _is_number(value: object) -> TypeGuard[int | float]:
@@ -382,7 +384,12 @@ def parse_view_expectation(name: str, data: Mapping[str, Any]) -> ViewExpectatio
 
 
 def load_source(directory: Path = EXPECTATIONS_DIR) -> SourceExpectation:
-    """The aggregate check on the source database: the ``schema_version`` floor, no forbidden run type."""
+    """The aggregate check on the source database: the ``schema_version`` floor, no forbidden run type.
+
+    ``contract_version`` is optional until T-157 writes it; when present it is a positive integer
+    and not below the floor (T-178's rule: a floor above ``contract_version`` is refused; the two
+    numbers are different quantities, the database's version and the code's highest migration).
+    """
     data = _read(directory / SOURCE_FILE)
     chk = _Checker(SOURCE_FILE)
     chk.unknown_keys("file", data, _SOURCE_KEYS)
@@ -394,8 +401,19 @@ def load_source(directory: Path = EXPECTATIONS_DIR) -> SourceExpectation:
     if not isinstance(forbidden, list) or not forbidden or not all(_text(t) for t in forbidden):
         chk.bad("forbidden_cycle_types", "must be a non-empty list of cycle types")
         forbidden = []
+    contract: int | None = None  # absent is allowed until T-157; null is not
+    if "contract_version" in data:
+        contract = data["contract_version"]
+        if not _is_int(contract) or contract < 1:
+            chk.bad("contract_version", "must be a positive integer")
+            contract = None
+        elif floor > contract:
+            chk.bad(
+                "schema_version_floor",
+                f"{floor} is above contract_version {contract}",
+            )
     chk.raise_if_any()
-    return SourceExpectation(floor, tuple(forbidden))
+    return SourceExpectation(floor, tuple(forbidden), contract)
 
 
 def load_expectations(directory: Path = EXPECTATIONS_DIR) -> dict[str, ViewExpectation]:

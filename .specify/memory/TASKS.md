@@ -252,9 +252,9 @@ independent of each other once T-131 lands.*
       version guard prints that it has nothing to compare against and skips that one check (never
       passes it silently); the floor check does not depend on it. Tests are hermetic: a fake response, no running service, with these cases: equal versions pass;
       a different `contract_version` fails; a database below the floor fails; a database above the floor
-      passes; a database below `contract_version` warns; a pin without the key skips with a notice. The version guard needs T-178 (the pin's loader refuses
-      the `contract_version` key until then, so the guard could never see it); the floor check does not. Not a blocker for
-      anything: T-135 covers the gap until then. → Approach 4.
+      passes; a database below `contract_version` warns; a pin without the key skips with a notice.
+      The version guard can read the key now (T-178, done, made the pin's loader accept it); the floor
+      check never needed it. Not a blocker for anything: T-135 covers the gap until then. → Approach 4.
 - [x] **T-136** *(done 2026-10-07 in PR #64: `tests/test_kg_gate.py`, `test_kg_load_schema.py`, `test_cli_check_view_contract.py`; `derived:quant:{date}` added to `APPEND_ONLY_PATTERNS`; three worked-example graphs the gate cannot take as a batch are strict xfails, T-146; `check_gate` and its test also share one `violations()` helper, the PR #63 nit)* Tests for `src/kg_store/` and the `cli/` exit codes, hermetic (a fake `GraphDB`, no
       running store). **Includes a fix found in PR #62's review:** `gate.check_target` rejects
       `urn:graph:derived:quant:{date}`, which `docs/07` defines (T-108) and `instances.trig` uses, so
@@ -364,11 +364,11 @@ independent of each other once T-131 lands.*
       below 0, above 100; done: also a wrong type, a bound broken beside a `normalizedScore`, a second
       value). The store reload is T-179. A schema change, so its own PR on a `feat/` branch.
       → `PLAN.md` Work item 15.
-- [ ] **T-178** *(found in PR #81's review; independent of upstream, can land before T-157)* Teach the pin's
-      loader a `contract_version` key: add it to `_SOURCE_KEYS` in `src/projection/expectations.py`, optional
-      until T-157 writes it (T-173's guard skips with a notice while it is absent), a positive integer when
-      present, and refuse a pin whose `schema_version_floor` is above its `contract_version`. Tests in
-      `tests/test_expectations.py`: the key present, absent, of the wrong type, and the floor above it; the
+- [x] **T-178** *(found in PR #81's review; independent of upstream; done 2026-10-10 in PR #85; the text below is the original task)* Teach the pin's
+      loader a `contract_version` key: it was added to `_SOURCE_KEYS` in `src/projection/expectations.py`, optional
+      until T-157 writes it (T-173's guard skips with a notice while it is absent; `null` is refused), a positive integer when
+      present, and a pin whose `schema_version_floor` is above its `contract_version` is refused. Tests in
+      `tests/test_expectations.py`: the key present, absent, null, of the wrong type, and the floor above it; the
       existing "unknown key" case keeps another name (constitution Code & Git #9). Code, so its own PR on a `feat/`
       branch. → `PLAN.md` Work item 15.
 
@@ -533,7 +533,7 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       columns, the commit in its docstring and in `SPEC.md` §2.6), raise the `schema_version` floor
       (D16; the value is `schema_version_floor` in `src/projection/view_expectations/_source.json`),
       and write the upstream `contract_version` the pin was built against beside it (the key and its
-      checks are T-178; T-173's guard compares against it),
+      checks are T-178, done; T-173's guard compares against it),
       and run `cli/check_view_contract.py` against that commit, or the T-135 test
       (`PFA_CHECKOUT=<checkout> uv run pytest -s -m integration tests/test_contract_check_checkout.py`);
       without CI nothing forces either. Repeat for
@@ -680,7 +680,7 @@ follow in dependency order (Work items 3 and 11 are closed, so Work item 4 is un
 Work item 12 (T-120–T-121): T-120 closed by T-150; T-121 done (PR #65).
 Work item 13 (T-130–T-136): constitution rules in place (1.5.0); T-130–T-136 done (T-135 as an `integration` test, `PFA_CHECKOUT`).
 Work item 14 (T-140–T-142 and T-146): T-140, T-141 and T-142 done; T-174 (store schema, found by T-141) done; T-176 (the two `verify_store` checks) done; T-175 (CLI exit-code tests) done (PR #80); T-146 found by T-136's tests; T-179 (the store reload after T-177) done.
-Work item 15 (T-150–T-159, T-170–T-173, T-177–T-178): T-173: upstream said yes (their T-152, after their T-144 which landed), waits on their commit; T-177 (the FUNDAMENTAL `rawValue` bound) done in PR #82; T-178 (the pin's `contract_version` key, independent of upstream) open; T-150, T-170 and T-171 (PR #56) done; T-155's schema half done (PR #58); T-153's comment half (PR #59);
+Work item 15 (T-150–T-159, T-170–T-173, T-177–T-178): T-173: upstream said yes (their T-152, after their T-144 which landed), waits on their commit; T-177 (the FUNDAMENTAL `rawValue` bound) done in PR #82; T-178 (the pin's `contract_version` key) done; T-150, T-170 and T-171 (PR #56) done; T-155's schema half done (PR #58); T-153's comment half (PR #59);
 T-151's rule recorded (PR #60), its checks waiting on T-031/T-163; T-158's
 ownership question (before their T-141) is unblocked; the rest of T-152–T-158 waits on upstream's
 T-144 (views), T-145 (ids), T-074 (flags) and, after their T-100, their T-082 and their Work item 4.
