@@ -238,7 +238,10 @@ independent of each other once T-131 lands.*
       HTTP `api/` is not a data source. **Ask:** send the request, then record their answer
       (willing or not, the route paths, the commit) in `SPEC.md` §2.6. **When it ships:** let
       `cli/check_view_contract.py` take a URL as well as a checkout, compare the declared contract
-      with our pin and, if offered, the database's state with it, and verify or generate
+      with our pin and, if offered, the database's state with it, **and make the version a thing
+      we verify, not one we are told (the 2026-10-10 "production at 8" mistake): fail when the
+      declared `contract_version` differs from the pin's, or when the database's `schema_version`
+      is below `schema_version_floor` or differs from the one the pin was built against**, and verify or generate
       `view_contract.py` from the answer (with T-157); keep the offline pin and the checkout check
       as the fallback. Tests are hermetic: a fake response, no running service. Not a blocker for
       anything: T-135 covers the gap until then. → Approach 4.
