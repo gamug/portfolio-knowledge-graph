@@ -305,11 +305,13 @@
                 sh:minInclusive -100.0 ;
                 sh:path :rawValue ] ),
         # CHANGED (T-171, D17): new. With normalizedScore optional for FUNDAMENTAL (above), rawValue
-        # becomes mandatory in its place, so a FUNDAMENTAL snapshot can't carry neither. No bounds yet:
-        # we need your FUNDAMENTAL raw_value range first (Q6).
+        # becomes mandatory in its place, so a FUNDAMENTAL snapshot can't carry neither.
+        # T-177: bounded to [0,100], your answer to Q6 (2026-10-09).
         ( [ sh:not [ sh:hasValue "ScoreFinanciero" ;
                         sh:path :metricType ] ] [ sh:datatype xsd:decimal ;
+                sh:maxInclusive 100.0 ;
                 sh:minCount 1 ;
+                sh:minInclusive 0.0 ;
                 sh:path :rawValue ] ) ;
     sh:property [ sh:datatype xsd:decimal ;
             sh:maxCount 1 ;
@@ -886,7 +888,7 @@
 :rawValue a owl:DatatypeProperty,
         owl:FunctionalProperty ;
     # CHANGED (T-171, D17): comment added.
-    rdfs:comment "Stable at the source, unlike normalizedScore for some metrics (D17). Carried for SectorRelativeMomentum, Sentiment, and FUNDAMENTAL (ScoreFinanciero, T-171); FUNDAMENTAL's bounds are not yet asserted here, pending upstream's answer (Q6)." ;
+    rdfs:comment "Stable at the source, unlike normalizedScore for some metrics (D17). Carried for SectorRelativeMomentum, Sentiment, and FUNDAMENTAL (ScoreFinanciero, T-171); FUNDAMENTAL's rawValue is bounded to [0, 100] in shapes.ttl (T-177, upstream's answer to Q6)." ;
     rdfs:domain :ScoreSnapshot ;
     rdfs:range xsd:decimal .
 

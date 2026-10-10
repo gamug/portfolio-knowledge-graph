@@ -33,7 +33,7 @@ are closed (see `CHANGELOG.md`).*
 - [ ] **T-031** *(first slice done in PR #72; its status is the sub-list after this entry)* Design and implement the SHACL-validated-on-write path into
       fresh `urn:graph:ingest:{agent}:{date}` graphs. Also: trim `view_contract.py` to the
       columns read; decide the `:rawValue` range for FUNDAMENTAL (T-171 drops its
-      `normalizedScore` instead; the range needs Q6, asked on 2026-10-07 and still open) and for
+      `normalizedScore` instead; the range is [0, 100], Q6 answered 2026-10-09; the bound is T-177) and for
       VALORIZATION/TECHNICAL, and map
       upstream SEMANTIC into the `[-1, 1]` `rawValue` `ScoreSnapshotShape` requires of it (T-081;
       `SPEC.md` §2.6). SECTOR's `raw_value` is read verbatim into the [-100, 100] bound T-155 sets,
@@ -230,7 +230,7 @@ independent of each other once T-131 lands.*
       checked and any columns upstream added, to note in the re-pin. T-157 says it runs
       before every re-pin, and that without CI nothing forces it (constitution Code & Git #1).
       Revisit a check in the projector only if drift is seen in practice. → Approach 4.
-- [ ] **T-173** *(waits on upstream's answer)* Track the request to `portfolio-financial-analysis` for a
+- [ ] **T-173** *(upstream answered 2026-10-09, recorded in `SPEC.md` §2.6 (fifth reply): yes, their T-152 after their T-144 (landed), routes `GET /api/v1/contract` and `GET /api/v1/contract/database`; open: their commit, then our side of "When it ships")* Track the request to `portfolio-financial-analysis` for a
       read-only contract endpoint in its FastAPI, the channel between our services: the `v_*` view
       names and columns generated from `kg_schema.views.VIEWS`, a contract version that rises
       with their marker migrations, and optionally what the connected database holds
@@ -238,9 +238,22 @@ independent of each other once T-131 lands.*
       HTTP `api/` is not a data source. **Ask:** send the request, then record their answer
       (willing or not, the route paths, the commit) in `SPEC.md` §2.6. **When it ships:** let
       `cli/check_view_contract.py` take a URL as well as a checkout, compare the declared contract
-      with our pin and, if offered, the database's state with it, and verify or generate
+      with our pin and, if offered, the database's state with it, **and make the version a thing
+      we verify, not one we are told (the 2026-10-10 "production at 8" mistake). Two different
+      comparisons, because the two numbers mean different things: fail when the declared
+      `contract_version` (the code's highest migration) is not equal to the one recorded in the pin
+      (`contract_version` in `_source.json`, written by T-157's re-pin and read by T-178's loader; expected 10 at `6bf4d7e` (`m010`), to be read from the endpoint or the commit, not copied from here), and fail when the
+      database's `schema_version` is below `schema_version_floor`. A database above the floor passes
+      on its number; whether its views drifted is decided by comparing column lists, never by the
+      number (additive within a version). A database below the declared `contract_version` is
+      reported as lagging its code, a warning that never fails the run**, and verify or generate
       `view_contract.py` from the answer (with T-157); keep the offline pin and the checkout check
-      as the fallback. Tests are hermetic: a fake response, no running service. Not a blocker for
+      as the fallback. T-173 can land before T-157: until the pin records a `contract_version`, the
+      version guard prints that it has nothing to compare against and skips that one check (never
+      passes it silently); the floor check does not depend on it. Tests are hermetic: a fake response, no running service, with these cases: equal versions pass;
+      a different `contract_version` fails; a database below the floor fails; a database above the floor
+      passes; a database below `contract_version` warns; a pin without the key skips with a notice. The version guard needs T-178 (the pin's loader refuses
+      the `contract_version` key until then, so the guard could never see it); the floor check does not. Not a blocker for
       anything: T-135 covers the gap until then. → Approach 4.
 - [x] **T-136** *(done 2026-10-07 in PR #64: `tests/test_kg_gate.py`, `test_kg_load_schema.py`, `test_cli_check_view_contract.py`; `derived:quant:{date}` added to `APPEND_ONLY_PATTERNS`; three worked-example graphs the gate cannot take as a batch are strict xfails, T-146; `check_gate` and its test also share one `violations()` helper, the PR #63 nit)* Tests for `src/kg_store/` and the `cli/` exit codes, hermetic (a fake `GraphDB`, no
       running store). **Includes a fix found in PR #62's review:** `gate.check_target` rejects
@@ -331,7 +344,33 @@ independent of each other once T-131 lands.*
       failed (a) on `tbox` and (b) on the five snapshots; the live store no longer shows that (T-174 is done),
       so the fake-store tests carry the proof, and the live store must pass.
       → `PLAN.md` Work item 14, step 6.
+- [ ] **T-179** *(needs the maintainer's explicit go-ahead; found by T-177)* Reload the live store with
+      `cli/load_schema.py` (T-174's procedure: the `urn:graph:tbox` graph grows by 2, to the size T-176's
+      check expects from `schema/`: 1567 to 1569 triples there, 2547 to 2549 over the 19 graphs, the figures
+      T-174 left in `docs/graphdb-setup.md`), then run `cli/verify_store.py` and record the result in
+      `docs/graphdb-setup.md`. Until then `verify_store` fails its "schema graphs have their expected
+      size" check, by design, and so does the `integration` test
+      `test_verify_store_passes_on_the_configured_store` (T-175): both are expected to fail between the merge and
+      this reload. → `PLAN.md` Work item 14, step 8.
 ## Work item 15 — Adopt upstream's `v_*` contract changes (replies of 2026-10-05, 2026-10-06 x2)
+- [x] **T-177** *(from upstream's answer to Q6, 2026-10-09; done 2026-10-10 in PR #82: the shape, 2549 quads, nine synthetic cases in `tests/test_schema_gate.py` and a check that `kg_target_schema.ttl` carries the same `rawValue` bounds as `shapes.ttl` (FUNDAMENTAL, SECTOR, Sentiment); `schema/protege-view.ttl` is left to Work item 8 (T-070); the store reload is T-179; the text below is the original task, edited where the work differed)* Bound FUNDAMENTAL's `rawValue` in `ScoreSnapshotShape` to
+      `[0, 100]` (`minInclusive`/`maxInclusive` on the branch that pairs it with a mandatory `rawValue`,
+      the way T-140/T-155 bounded SECTOR's). Update the `tbox.ttl` comment, `schema/README.md`,
+      `docs/06-ontology-definition.md`'s shape row, the `score_snapshots.py` docstring that says it
+      waits for Q6, `kg_target_schema.ttl`'s copy of the branch, and the quad count `SPEC.md` states in four places (the §1 summary, FR-001's
+      acceptance criterion, the architecture diagram and the validation step) and
+      `schema/README.md`'s running count. Leave `schema/protege-view.ttl` to its regeneration
+      (Work item 8, T-070), as T-155 did: it is generated in Protégé. Add synthetic cases (in range,
+      below 0, above 100; done: also a wrong type, a bound broken beside a `normalizedScore`, a second
+      value). The store reload is T-179. A schema change, so its own PR on a `feat/` branch.
+      → `PLAN.md` Work item 15.
+- [ ] **T-178** *(found in PR #81's review; independent of upstream, can land before T-157)* Teach the pin's
+      loader a `contract_version` key: add it to `_SOURCE_KEYS` in `src/projection/expectations.py`, optional
+      until T-157 writes it (T-173's guard skips with a notice while it is absent), a positive integer when
+      present, and refuse a pin whose `schema_version_floor` is above its `contract_version`. Tests in
+      `tests/test_expectations.py`: the key present, absent, of the wrong type, and the floor above it; the
+      existing "unknown key" case keeps another name (constitution Code & Git #9). Code, so its own PR on a `feat/`
+      branch. → `PLAN.md` Work item 15.
 
 *Upstream's reply to the gaps in `SPEC.md` §2.6 (checked against their `0a528be`), their second
 reply (`597832a`), which accepts our asks as their T-144 and T-145 and corrects six assumptions,
@@ -355,7 +394,7 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       corrections (D6 SECTOR range, D13 `blended_score` and `scheme_id`, D2 `available_at` on cycle
       lanes, D12 `metric_id`/`unit`, D11/D12 `is_current` as at most one), the forensic-flag
       format, `+00:00` timestamps, id reuse on all four run tables and `sec_filings` (D7),
-      production at `schema_version` 8 (D16), cohort-relative `normalized_score`, their weights
+      production's `schema_version` (unconfirmed, `SPEC.md` §2.6 fifth reply), cohort-relative `normalized_score`, their weights
       change (D13: 1/3 each for new runs, SEMANTIC out of the blend), and the upstream task each ask
       maps to (their T-144, T-145, T-074 and T-141, their Work item 2, and after their T-100).
       → `PLAN.md` Work item 15, step 1.
@@ -393,8 +432,8 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       empty (0 of 5,076 production rows, 0 of 449 pilot rows), so the key is always available.
       It is *not* unique in production: 30 accession numbers are shared by 60 legacy rows from
       before upstream's T-091 (a 10-Q's quarters stored as separate rows under one accession,
-      repaired by their T-120) — harmless here, since production (`schema_version` 8) is already
-      excluded by T-157's floor. It is unique in the pilot and will be in their T-100 rebuild; no
+      repaired by their T-120) — harmless here, since production's `schema_version` (unconfirmed, `SPEC.md` §2.6 fifth reply)
+      is not a precondition of this task. It is unique in the pilot and will be in their T-100 rebuild; no
       constraint enforces it today, but their T-145 adds a uniqueness check to their pilot
       verifier. → step 3.
 - [ ] **T-152** Model `v_fundamental_metric`: one immutable observation per (filing, metric, engine
@@ -490,9 +529,11 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       `Portfolio` (already enforced by `PortfolioShape`); stop expecting `equal_weight`/
       `cap_weight`. `is_current` marks at most one book per `(as_of, kind)`, the newest `opt-v*`;
       `engine_version` stays opaque (`opt-v1+9d34ff69`). → step 3.
-- [ ] **T-157** When upstream ships: re-pin `src/projection/view_contract.py` (new view, new
+- [ ] **T-157** *(their T-144 landed 2026-10-09 at `6bf4d7e`, `schema_version` 10: re-pin against a database migrated with it; the floor stays 9 until then; production's version is unconfirmed, `SPEC.md` §2.6 fifth reply)* When upstream ships: re-pin `src/projection/view_contract.py` (new view, new
       columns, the commit in its docstring and in `SPEC.md` §2.6), raise the `schema_version` floor
       (D16; the value is `schema_version_floor` in `src/projection/view_expectations/_source.json`),
+      and write the upstream `contract_version` the pin was built against beside it (the key and its
+      checks are T-178; T-173's guard compares against it),
       and run `cli/check_view_contract.py` against that commit, or the T-135 test
       (`PFA_CHECKOUT=<checkout> uv run pytest -s -m integration tests/test_contract_check_checkout.py`);
       without CI nothing forces either. Repeat for
@@ -504,7 +545,7 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       Project only from a database that meets the floor and holds no REPLAY run (no `cycle_run`
       row with `cycle_type = 'REPLAY'`; a backfill's REPLAY scores and vetoes land in the shared
       tables, D8). This task sets the rule; the check is one of T-162's expectations, run by T-163
-      at the start of each projection. Production (at 8) fails the floor; the pilot (at 9) and
+      at the start of each projection. Production's version is unconfirmed (`SPEC.md` §2.6): whichever it is, it passes only if it meets the floor; the pilot (at 9) and
       their T-100 rebuild qualify if the check passes.
       → step 4.
 - [ ] **T-158** Replace the `ASSET_DAY_AGGREGATE` placeholder with upstream's SEMANTIC
@@ -521,14 +562,14 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       every upstream change this work item reads is recorded in `SPEC.md` §2.6 with its commit. →
       `PLAN.md` acceptance criteria.
 - [x] **T-170** *(third reply, 2026-10-06, checked against their `597832a`, production, the pilot
-      and its replay copy; our ask was `kg_handoff_second_followup.md`, PR #54, T-150's own
+      and its replay copy; our ask was the second follow-up, PR #54, T-150's own
       follow-up)* Record the reply in `SPEC.md` §2.6: new row D17 (FUNDAMENTAL's `normalized_score`
       is rewritten in place every cycle, not immutable at the source); the `component_value`
       correction and Q1/Q2/Q5 folded into D13's disposition; Q3 (SECTOR confirmed) into D6's; Q4
       (accession numbers) into D16's; and their T-144/T-145 scope additions (keep `component_value`
       and `configured_weight`; a Q2 test; `docs/kg_schema.md`; an accession-number uniqueness
       check). → `PLAN.md` Work item 15, step 1.
-- [x] **T-171** *(D17, raised by the third reply; done in PR #56: the `sh:or` change, comments, docs, `score_scale.py` and its tests; FUNDAMENTAL `rawValue`'s bounds stay open as Q6, asked on 2026-10-07 and not yet answered)* Decide how `ScoreSnapshot` keeps its
+- [x] **T-171** *(D17, raised by the third reply; done in PR #56: the `sh:or` change, comments, docs, `score_scale.py` and its tests; FUNDAMENTAL `rawValue`'s bounds stay open as Q6, asked on 2026-10-07, answered 2026-10-09: [0, 100], T-177)* Decide how `ScoreSnapshot` keeps its
       immutable-observation principle (constitution; `docs/06` conventions) now that upstream
       rewrites a FUNDAMENTAL row's `normalized_score` in place on every cycle that re-normalizes
       its filing against that cycle's cohort (measured: 33/40 production, 1/60 pilot, 2,267/2,799
@@ -547,7 +588,7 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       (`minCount 1`, no bounds yet) the same way the shape already pairs `SectorRelativeMomentum`'s
       and `Sentiment`'s exemptions with a mandatory `rawValue` — otherwise a FUNDAMENTAL snapshot
       could conform while carrying neither value (PR #56 review). Its bounds are unknown, so ask
-      upstream (new question, Q6, asked on 2026-10-07, still open) before adding a
+      upstream (new question, Q6, asked on 2026-10-07; answered 2026-10-09: [0, 100], now T-177) before adding a
       `minInclusive`/`maxInclusive` pair, matching how SECTOR's `rawValue` range wasn't bounded
       until confirmed (T-140/T-155). Update `:normalizedScore`'s and `:rawValue`'s `tbox.ttl`
       comments and `schema/README.md` (flagged as a design gap found against real data, per
@@ -637,9 +678,9 @@ Closed Work items 1, 2, 3, 5, 7 (superseded/decided by T-007), 9, 10 and 11 are 
 Work items 4 and 6 (T-030–T-035, T-050–T-053)
 follow in dependency order (Work items 3 and 11 are closed, so Work item 4 is unblocked).
 Work item 12 (T-120–T-121): T-120 closed by T-150; T-121 done (PR #65).
-Work item 13 (T-130–T-136): constitution rules in place (1.5.0); T-130–T-136 done (T-135 as an `integration` test, `PFA_CHECKOUT`). T-173 waits on upstream's reply.
-Work item 14 (T-140–T-142 and T-146): T-140, T-141 and T-142 done; T-174 (store schema, found by T-141) done; T-176 (the two `verify_store` checks) done; T-175 (CLI exit-code tests) done; T-146 found by T-136's tests.
-Work item 15 (T-150–T-159, T-170–T-171): T-150, T-170 and T-171 (PR #56) done; T-155's schema half done (PR #58); T-153's comment half (PR #59);
+Work item 13 (T-130–T-136): constitution rules in place (1.5.0); T-130–T-136 done (T-135 as an `integration` test, `PFA_CHECKOUT`).
+Work item 14 (T-140–T-142 and T-146): T-140, T-141 and T-142 done; T-174 (store schema, found by T-141) done; T-176 (the two `verify_store` checks) done; T-175 (CLI exit-code tests) done (PR #80); T-146 found by T-136's tests; T-179 (the store reload after T-177, waits on the maintainer's go-ahead) open.
+Work item 15 (T-150–T-159, T-170–T-173, T-177–T-178): T-173: upstream said yes (their T-152, after their T-144 which landed), waits on their commit; T-177 (the FUNDAMENTAL `rawValue` bound) done in PR #82; T-178 (the pin's `contract_version` key, independent of upstream) open; T-150, T-170 and T-171 (PR #56) done; T-155's schema half done (PR #58); T-153's comment half (PR #59);
 T-151's rule recorded (PR #60), its checks waiting on T-031/T-163; T-158's
 ownership question (before their T-141) is unblocked; the rest of T-152–T-158 waits on upstream's
 T-144 (views), T-145 (ids), T-074 (flags) and, after their T-100, their T-082 and their Work item 4.

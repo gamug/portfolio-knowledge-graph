@@ -561,6 +561,8 @@ new acceptance probe; and `acceptance.check_gate` counts violations by matching 
 7. `integration` tests for the exit codes of `verify_store.py`, `load_schema.py` and `ingest.py` (T-175);
    the two that write use a repository of their own, never `portfolio`. Done 2026-10-08; `portfolio.app` cannot create a
    repository (HTTP 403), so those tests need `KG_ADMIN_USER`/`KG_ADMIN_PASSWORD`.
+8. Reload the live store after T-177 changed `shapes.ttl` (T-179): needs the maintainer's explicit go-ahead; until
+   then `verify_store` fails its `urn:graph:tbox` size check, by design.
 
 **Acceptance**: FR-001 parse + `pyshacl` pass with the new count; the store acceptance probe still
 yields exactly one violation (`:timestamp`); T-141's run is recorded in `docs/graphdb-setup.md` (done); T-142's
@@ -570,7 +572,7 @@ T-176's `verify_store` fails on a stale or doubled store (it would have failed o
 
 **Blocked on**: nothing; T-146 and T-175 are open.
 
-## Work item 15 — Adopt upstream's `v_*` contract changes (replies of 2026-10-05 and 2026-10-06)
+## Work item 15 — Adopt upstream's `v_*` contract changes (replies of 2026-10-05, 2026-10-06 and 2026-10-09)
 
 **Why**: the `portfolio-financial-analysis` maintainers answered the gaps §2.6 lists as "raised
 upstream" (D8–D14), checking their `master` at `0a528be` and their production and pilot databases.
@@ -669,7 +671,7 @@ shapes widen to their documented ranges, and a ÷100 stays the only conversion (
 (step 2) states each decision and carries the updated target schema.
 
 **Third reply (2026-10-06, same `597832a`, checked against production, the pilot and its replay
-copy, answering `kg_handoff_second_followup.md`'s five questions).** All six corrections of the
+copy, answering our second follow-up's five questions).** All six corrections of the
 second reply checked out. One assumption of ours needs correcting, and it changes a declined item:
 
 - **`v_cycle_ranking_component.component_value` does not repeat a `ScoreSnapshot` value, for
@@ -696,7 +698,7 @@ second reply checked out. One assumption of ours needs correcting, and it change
   requirement (optional, not forbidden, so neither the FUNDAMENTAL individuals already in
   `instances.trig` nor the closed design-history rules that compare on `ScoreFinanciero`'s
   `normalizedScore` stop conforming) doesn't leave the snapshot free to carry neither value. Its
-  bounds are a new open question (Q6, below; asked on 2026-10-07, still open).
+  bounds are a new open question (Q6, below; asked on 2026-10-07; answered 2026-10-09: [0, 100], T-177).
 - **The five questions, answered** (folding into `SPEC.md` §2.6's D6/D13/D16, T-170): **Q1**, a
   no-component asset has no dedicated marker — it is always `vetoed = 1` with `"UNSCORED"` in
   `veto_rules_json` (D4), detected exactly as planned, by its missing component rows. **Q2**,
@@ -742,7 +744,8 @@ the read rule and did not answer Q6:
   first.
 - **Cycle rows with a NULL `available_at`:** skipping and counting them until their T-144 is the
   right behaviour on our side.
-- **Q6 (the range of `raw_value`) is still open.** Q7 was not asked yet.
+- **Q6 (the range of `raw_value`) was still open here; answered in the fifth reply (2026-10-09): [0, 100], bounded by T-177.** Q7 was not asked yet.
+- **Fifth reply (2026-10-09, `SPEC.md` §2.6):** upstream accepted the contract endpoint (their T-152, T-173 here), landed their T-144 (`schema_version` 10, T-157 here) and answered Q6 (T-177); their statement about production's version is disputed and unconfirmed. Two new tasks follow from the review of the record, besides T-173 and T-157: T-177 (the shape bound) and T-178 (the pin's loader learns `contract_version`, before T-157's re-pin writes it).
 
 **Approach**:
 
@@ -806,7 +809,7 @@ the read rule and did not answer Q6:
    - FUNDAMENTAL `ScoreSnapshot`'s `normalizedScore` is dropped (optional, not forbidden) rather
      than kept as a mutable-in-place exception to the immutable-observation principle (T-171); its
      `rawValue` is carried instead (mandatory, `minCount 1`, so dropping one required field doesn't
-     leave the snapshot free to carry neither), pending Q6's bound.
+     leave the snapshot free to carry neither); bounded to `[0, 100]` by T-177 (Q6 answered).
    - Forensic flags: one `:forensicFlag` per key set to `true`, from the four documented keys, and
      a `:forensicFlagsEvaluated` boolean so "evaluated, none fired" differs from "not evaluated"
      (T-153).
@@ -1025,10 +1028,12 @@ Work item 7 (orchestrator)         — decided: delegate to financial-analysis `
 
 Work item 8 (protege-view.ttl) — independent, manual, land whenever convenient
 Work item 13 (pytest suite) — independent; rules in constitution 1.5.0, T-130–T-134 and T-136 done (PR #64);
-  T-135 done (its `integration` test); T-173 (an upstream contract endpoint) waits on their reply
-Work item 14 (PR #48 follow-ups) — independent; T-140, T-141 and T-142 done, T-174 (store schema) done, T-176 (the two `verify_store` checks) done, T-175 (CLI exit-code tests) and T-146 (gate vs. the worked example's batches) open
+  T-135 done (its `integration` test)
+Work item 14 (PR #48 follow-ups) — independent; T-140, T-141 and T-142 done, T-174 (store schema) done, T-176 (the two `verify_store` checks) done, T-175 (CLI exit-code tests) done; T-146 (gate vs. the worked example's batches) and T-179 (the store reload after T-177, waits on a go-ahead) open
 Work item 15 (upstream's v_* changes) — T-150, T-170 and T-171 (PR #56) done, with T-155's schema half (PR #58), T-153's comments (PR #59)
-  and T-151's rule (PR #60); the step-3 shape corrections now;
+  and T-151's rule (PR #60); T-173 (the contract endpoint): upstream said yes, waits on their T-152 commit, and its version guard
+  needs T-178 first; T-177 (the `rawValue` bound) done (PR #82); T-178 (the pin's loader key, no upstream dependency) can
+  start now; the step-3 shape corrections now;
   the rest as upstream's T-144/T-145 ship; feeds Work item 4 (T-031) and 12 (T-121)
 Work item 16 (boundary validation of upstream rows) — T-160 done (plain checks), T-161 closed, T-162 done; T-163 open (its function is done, the wiring into the read path started with Work item 4's T-031, PR #72)
 ```

@@ -16,9 +16,9 @@ TECHNICAL      ScoreTecnico            ``1 - n/100``          ``ingest:TECHNICAL
 SECTOR         SectorRelativeMomentum  ``1 - n/100``          ``ingest:SECTOR:{run day}``
 =============  ======================  =====================  ================================
 
-``:rawValue`` is upstream's ``raw_value`` verbatim, for every lane. The shape bounds only SECTOR's
-(``[-100, 100]``); FUNDAMENTAL's range waits for upstream's Q6, and VALORIZATION's and TECHNICAL's
-are left unbounded until it is decided. SEMANTIC is not projected here (T-158, T-081).
+``:rawValue`` is upstream's ``raw_value`` verbatim, for every lane. The shape bounds SECTOR's
+(``[-100, 100]``) and FUNDAMENTAL's (``[0, 100]``, T-177, upstream's answer to Q6); VALORIZATION's
+and TECHNICAL's are left unbounded until their range is decided. SEMANTIC is not projected here (T-158, T-081).
 
 A FUNDAMENTAL snapshot goes to the graph of the quarter its ``available_at`` falls in: the day the
 filing became usable, as ``schema/instances.trig``'s worked example does. The other lanes are

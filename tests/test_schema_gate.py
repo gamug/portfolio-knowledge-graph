@@ -14,6 +14,7 @@ from pathlib import Path
 import pyshacl
 import pytest
 import rdflib
+import rdflib.collection
 from rdflib.namespace import SH
 
 SCHEMA = Path(__file__).resolve().parent.parent / "schema"
@@ -236,3 +237,111 @@ def test_a_weight_component_may_omit_inverted(bundle: rdflib.Dataset, shapes: rd
     assert _violations(g, shapes) == set()
     g.add((KG.WC_Run, KG.inverted, rdflib.Literal("yes")))
     assert _violations(g, shapes) == {(KG.WC_Run, KG.inverted)}
+
+
+# --- FUNDAMENTAL's rawValue range (T-177) -------------------------------------------------------
+
+
+def _fundamental(bundle: rdflib.Dataset, raw: str) -> rdflib.Graph:
+    """The worked example plus one FUNDAMENTAL snapshot with ``raw`` as its ``rawValue``."""
+    g = _flat(bundle)
+    snap = KG.Snap_Fundamental_T177
+    g.add((snap, rdflib.RDF.type, KG.ScoreSnapshot))
+    g.add((snap, KG.agentOrigin, rdflib.Literal("FUNDAMENTAL")))
+    g.add((snap, KG.metricType, rdflib.Literal("ScoreFinanciero")))
+    g.add((snap, KG.timestamp, rdflib.Literal("2026-10-09T06:00:00", datatype=rdflib.XSD.dateTime)))
+    g.add((snap, KG.availableAt, _date("2026-10-09")))
+    g.add((snap, KG.rawValue, rdflib.Literal(raw, datatype=_DEC)))
+    return g
+
+
+@pytest.mark.parametrize(
+    "raw", ["0.0", "57.3", "100.0"], ids=["lower bound", "middle", "upper bound"]
+)
+def test_a_fundamental_raw_value_in_0_to_100_conforms(
+    bundle: rdflib.Dataset, shapes: rdflib.Graph, raw: str
+) -> None:
+    assert _violations(_fundamental(bundle, raw), shapes) == set()
+
+
+@pytest.mark.parametrize("raw", ["-0.1", "100.1"], ids=["below 0", "above 100"])
+def test_a_fundamental_raw_value_outside_0_to_100_is_rejected(
+    bundle: rdflib.Dataset, shapes: rdflib.Graph, raw: str
+) -> None:
+    """Only ``rawValue`` differs from the conforming cases above, so the bound is what rejects it."""
+    assert _violations(_fundamental(bundle, raw), shapes) == {(KG.Snap_Fundamental_T177, None)}
+
+
+@pytest.mark.parametrize(
+    "value",
+    [rdflib.Literal("50", datatype=_INT), rdflib.Literal("50")],
+    ids=["integer", "string"],
+)
+def test_a_fundamental_raw_value_that_is_not_a_decimal_is_rejected(
+    bundle: rdflib.Dataset, shapes: rdflib.Graph, value: rdflib.Literal
+) -> None:
+    """In range by value, wrong by type: the new branch keeps ``sh:datatype xsd:decimal``.
+
+    The property's own datatype shape also reports on ``rawValue``, so both results are expected.
+    """
+    g = _fundamental(bundle, "50.0")
+    g.remove((KG.Snap_Fundamental_T177, KG.rawValue, None))
+    g.add((KG.Snap_Fundamental_T177, KG.rawValue, value))
+    assert _violations(g, shapes) == {
+        (KG.Snap_Fundamental_T177, None),
+        (KG.Snap_Fundamental_T177, KG.rawValue),
+    }
+
+
+def test_a_fundamental_raw_value_is_bounded_even_with_a_normalized_score(
+    bundle: rdflib.Dataset, shapes: rdflib.Graph
+) -> None:
+    """``normalizedScore`` is optional for FUNDAMENTAL (T-171), not a way around the bound."""
+    g = _fundamental(bundle, "100.1")
+    g.add((KG.Snap_Fundamental_T177, KG.normalizedScore, rdflib.Literal("0.5", datatype=_DEC)))
+    assert _violations(g, shapes) == {(KG.Snap_Fundamental_T177, None)}
+
+
+def test_a_second_fundamental_raw_value_is_rejected_whatever_its_range(
+    bundle: rdflib.Dataset, shapes: rdflib.Graph
+) -> None:
+    """Two values, one of them out of range: the functional-property rule and the bound both apply."""
+    g = _fundamental(bundle, "50.0")
+    g.add((KG.Snap_Fundamental_T177, KG.rawValue, rdflib.Literal("150.0", datatype=_DEC)))
+    assert (KG.Snap_Fundamental_T177, KG.rawValue) in _violations(g, shapes)
+
+
+def _raw_value_bounds(path: Path, metric: str) -> set[tuple[str, str]]:
+    """``(minInclusive, maxInclusive)`` of the ``rawValue`` branch that pairs with ``metric``."""
+    g = rdflib.Graph()
+    g.parse(path, format="turtle")
+    bounds: set[tuple[str, str]] = set()
+    for or_list in g.objects(None, SH["or"]):
+        branches = list(rdflib.collection.Collection(g, or_list))
+        if not any(
+            (inner, SH.hasValue, rdflib.Literal(metric)) in g
+            for b in branches
+            for inner in g.objects(b, SH["not"])
+        ):
+            continue
+        for b in branches:
+            if (b, SH.path, KG.rawValue) in g:
+                bounds.add((str(g.value(b, SH.minInclusive)), str(g.value(b, SH.maxInclusive))))
+    return bounds
+
+
+@pytest.mark.parametrize(
+    ("metric", "expected"),
+    [
+        ("ScoreFinanciero", ("0.0", "100.0")),
+        ("SectorRelativeMomentum", ("-100.0", "100.0")),
+        ("Sentiment", ("-1.0", "1.0")),
+    ],
+)
+def test_the_target_schema_bounds_raw_value_like_shapes_ttl(
+    metric: str, expected: tuple[str, str]
+) -> None:
+    """``kg_target_schema.ttl`` is the proposal sent upstream; round 5 of PR #82 found it unbounded."""
+    in_shapes = _raw_value_bounds(SCHEMA / "shapes.ttl", metric)
+    assert in_shapes == {expected}
+    assert _raw_value_bounds(SCHEMA.parent / "kg_target_schema.ttl", metric) == in_shapes
