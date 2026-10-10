@@ -35,7 +35,7 @@ On a **fresh** mount, once:
    (Setup → Repositories → Create → upload RDF config). It carries the reasoning profile.
 3. Enable security (Setup → Users and Access) and create the application user `portfolio.app` with
    read, write and maintain on `portfolio` (`READ_REPO_portfolio`, `WRITE_REPO_portfolio`,
-   `MAINTAIN_REPO_portfolio`; the Workbench lists these as Read / Write / Repository admin). Without repository roles the user gets 403 on every query.
+   `MAINTAIN_REPO_portfolio`; the Workbench lists these as Read / Write / Repository admin). Without repository roles the user gets 403 on every query (HTTP 401 means the login itself is rejected, so check the credentials or whether the user exists; 403 means the roles above are missing).
 
 ## Reasoning profile (T-022)
 
@@ -186,12 +186,16 @@ Both writes were made after the maintainer's go-ahead, by a Claude Code session 
 4. `uv run python cli/verify_store.py` again: exit 0, all three checks pass, the probe's "store size
    unchanged" reads 2547.
 
+The leftover's absence is shown by the size, not by a direct query: the read-only `ASK { GRAPH
+<urn:graph:ingest:QUANTITATIVE:2026-08-05> { ?s ?p ?o } }` was blocked by the permission classifier and
+not retried; it should answer false. The store now matches `schema/`. This is a one-time record; the standing guard is T-176, now in `verify_store` (two more checks; on the store above, exit 0, all five pass).
+
 ### Reloading after T-177 (T-179, 2026-10-10)
 
 T-177 (PR #82) put two triples in `urn:graph:tbox` (1567 to 1569; 2547 to 2549 over the 19 graphs), so the
 store was two behind `schema/`. Written after the maintainer's go-ahead, by a Claude Code session they asked to run it.
 
-1. `uv run python cli/verify_store.py` before: four checks passed; "schema graphs have their expected size"
+1. `uv run python cli/verify_store.py` before (`/size` read 2547): four checks passed; "schema graphs have their expected size"
    failed with `urn:graph:tbox: expected 1569, store has 1567`, as expected.
 2. `uv run python cli/load_schema.py`: exit 0, `verified: 19 graphs, 2549 asserted triples match the local parse`.
 3. `uv run python cli/verify_store.py` after: exit 0, all five checks pass, the probe's "store size unchanged"
@@ -199,12 +203,10 @@ store was two behind `schema/`. Written after the maintainer's go-ahead, by a Cl
 4. `uv run pytest -m integration tests/test_store_cli_exit_codes.py`: 6 passed, including
    `test_verify_store_passes_on_the_configured_store`.
 
-Before the run, the application user had no grant on the `portfolio` repository (the server answered 403), so
-the maintainer restored it in the Workbench; nothing in the repository changed for that.
-
-The leftover's absence is shown by the size, not by a direct query: the read-only `ASK { GRAPH
-<urn:graph:ingest:QUANTITATIVE:2026-08-05> { ?s ?p ?o } }` was blocked by the permission classifier and
-not retried; it should answer false. The store now matches `schema/`. This is a one-time record; the standing guard is T-176, now in `verify_store` (two more checks; on the store above, exit 0, all five pass).
+The first attempts failed before the reload: `HTTP 401` (`/rest/login` answered "Bad credentials", for the
+application and the admin account alike), then `HTTP 403` once the login was accepted (`portfolio.app` held no
+role on `portfolio`; the admin account read the repository and its 2547 triples). The next attempt succeeded
+and the cause was not observed from the repository's side; nothing in the repository changed.
 
 ## Connecting
 
