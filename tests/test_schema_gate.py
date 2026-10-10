@@ -254,15 +254,57 @@ def _fundamental(bundle: rdflib.Dataset, raw: str) -> rdflib.Graph:
     return g
 
 
-@pytest.mark.parametrize("raw", ["0.0", "57.3", "100.0"])
+@pytest.mark.parametrize(
+    "raw", ["0.0", "57.3", "100.0"], ids=["lower bound", "middle", "upper bound"]
+)
 def test_a_fundamental_raw_value_in_0_to_100_conforms(
     bundle: rdflib.Dataset, shapes: rdflib.Graph, raw: str
 ) -> None:
     assert _violations(_fundamental(bundle, raw), shapes) == set()
 
 
-@pytest.mark.parametrize("raw", ["-0.1", "100.1"])
+@pytest.mark.parametrize("raw", ["-0.1", "100.1"], ids=["below 0", "above 100"])
 def test_a_fundamental_raw_value_outside_0_to_100_is_rejected(
     bundle: rdflib.Dataset, shapes: rdflib.Graph, raw: str
 ) -> None:
+    """Only ``rawValue`` differs from the conforming cases above, so the bound is what rejects it."""
     assert _violations(_fundamental(bundle, raw), shapes) == {(KG.Snap_Fundamental_T177, None)}
+
+
+@pytest.mark.parametrize(
+    "value",
+    [rdflib.Literal("50", datatype=_INT), rdflib.Literal("50")],
+    ids=["integer", "string"],
+)
+def test_a_fundamental_raw_value_that_is_not_a_decimal_is_rejected(
+    bundle: rdflib.Dataset, shapes: rdflib.Graph, value: rdflib.Literal
+) -> None:
+    """In range by value, wrong by type: the new branch keeps ``sh:datatype xsd:decimal``.
+
+    The property's own datatype shape also reports on ``rawValue``, so both results are expected.
+    """
+    g = _fundamental(bundle, "50.0")
+    g.remove((KG.Snap_Fundamental_T177, KG.rawValue, None))
+    g.add((KG.Snap_Fundamental_T177, KG.rawValue, value))
+    assert _violations(g, shapes) == {
+        (KG.Snap_Fundamental_T177, None),
+        (KG.Snap_Fundamental_T177, KG.rawValue),
+    }
+
+
+def test_a_fundamental_raw_value_is_bounded_even_with_a_normalized_score(
+    bundle: rdflib.Dataset, shapes: rdflib.Graph
+) -> None:
+    """``normalizedScore`` is optional for FUNDAMENTAL (T-171), not a way around the bound."""
+    g = _fundamental(bundle, "100.1")
+    g.add((KG.Snap_Fundamental_T177, KG.normalizedScore, rdflib.Literal("0.5", datatype=_DEC)))
+    assert _violations(g, shapes) == {(KG.Snap_Fundamental_T177, None)}
+
+
+def test_a_second_fundamental_raw_value_is_rejected_whatever_its_range(
+    bundle: rdflib.Dataset, shapes: rdflib.Graph
+) -> None:
+    """Two values, one of them out of range: the functional-property rule and the bound both apply."""
+    g = _fundamental(bundle, "50.0")
+    g.add((KG.Snap_Fundamental_T177, KG.rawValue, rdflib.Literal("150.0", datatype=_DEC)))
+    assert (KG.Snap_Fundamental_T177, KG.rawValue) in _violations(g, shapes)

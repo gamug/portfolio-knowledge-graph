@@ -344,16 +344,24 @@ independent of each other once T-131 lands.*
       failed (a) on `tbox` and (b) on the five snapshots; the live store no longer shows that (T-174 is done),
       so the fake-store tests carry the proof, and the live store must pass.
       → `PLAN.md` Work item 14, step 6.
+- [ ] **T-179** *(needs the maintainer's explicit go-ahead; found by T-177)* Reload the live store with
+      `cli/load_schema.py` (T-174's procedure: the `urn:graph:tbox` graph grows by 2, to the size T-176's
+      check expects from `schema/`: 1567 to 1569 triples there, 2547 to 2549 over the 19 graphs, the figures
+      T-174 left in `docs/graphdb-setup.md`), then run `cli/verify_store.py` and record the result in
+      `docs/graphdb-setup.md`. Until then `verify_store` fails its "schema graphs have their expected
+      size" check, by design. → `PLAN.md` Work item 14, step 8.
 ## Work item 15 — Adopt upstream's `v_*` contract changes (replies of 2026-10-05, 2026-10-06 x2)
-- [x] **T-177** *(from upstream's answer to Q6, 2026-10-09; done 2026-10-10 in the shape, 2549 quads, five synthetic cases in `tests/test_schema_gate.py`; the live store still holds the old shape until `cli/load_schema.py` reloads it, which needs the maintainer's go-ahead, and `verify_store` fails on the `urn:graph:tbox` size until then; the text below is the original)* Bound FUNDAMENTAL's `rawValue` in `ScoreSnapshotShape` to
+- [x] **T-177** *(from upstream's answer to Q6, 2026-10-09; done 2026-10-10 in the shape, 2549 quads, nine synthetic cases in `tests/test_schema_gate.py`; `schema/protege-view.ttl` is left to Work item 8 (T-070); the store reload is T-179; the text below is the original)* Bound FUNDAMENTAL's `rawValue` in `ScoreSnapshotShape` to
       `[0, 100]` (`minInclusive`/`maxInclusive` on the branch that pairs it with a mandatory `rawValue`,
       the way T-140/T-155 bounded SECTOR's). Update the `tbox.ttl` comment, `schema/README.md`,
       `docs/06-ontology-definition.md`'s shape row, the `score_snapshots.py` docstring that says it
       waits for Q6, and the quad count `SPEC.md` states in four places (the §1 summary, FR-001's
       acceptance criterion, the architecture diagram and the validation step) and
       `schema/README.md`'s running count. Leave `schema/protege-view.ttl` to its regeneration
-      (Work item 8, T-070), as T-155 did: it is generated in Protégé. Add synthetic cases (in range, below 0, above 100). Reload the store after merge (T-174's loader,
-      then `verify_store`). A schema change, so its own PR on a `feat/` branch. → `PLAN.md` Work item 15.
+      (Work item 8, T-070), as T-155 did: it is generated in Protégé. Add synthetic cases (in range,
+      below 0, above 100; done: also a wrong type, a bound broken beside a `normalizedScore`, a second
+      value). The store reload is T-179. A schema change, so its own PR on a `feat/` branch.
+      → `PLAN.md` Work item 15.
 - [ ] **T-178** *(found in PR #81's review; independent of upstream, can land before T-157)* Teach the pin's
       loader a `contract_version` key: add it to `_SOURCE_KEYS` in `src/projection/expectations.py`, optional
       until T-157 writes it (T-173's guard skips with a notice while it is absent), a positive integer when
@@ -361,7 +369,6 @@ independent of each other once T-131 lands.*
       `tests/test_expectations.py`: the key present, absent, of the wrong type, and the floor above it; the
       existing "unknown key" case keeps another name (constitution Code & Git #9). Code, so its own PR on a `feat/`
       branch. → `PLAN.md` Work item 15.
-
 
 *Upstream's reply to the gaps in `SPEC.md` §2.6 (checked against their `0a528be`), their second
 reply (`597832a`), which accepts our asks as their T-144 and T-145 and corrects six assumptions,

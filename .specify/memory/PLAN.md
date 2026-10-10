@@ -561,6 +561,8 @@ new acceptance probe; and `acceptance.check_gate` counts violations by matching 
 7. `integration` tests for the exit codes of `verify_store.py`, `load_schema.py` and `ingest.py` (T-175);
    the two that write use a repository of their own, never `portfolio`. Done 2026-10-08; `portfolio.app` cannot create a
    repository (HTTP 403), so those tests need `KG_ADMIN_USER`/`KG_ADMIN_PASSWORD`.
+8. Reload the live store after T-177 changed `shapes.ttl` (T-179): needs the maintainer's explicit go-ahead; until
+   then `verify_store` fails its `urn:graph:tbox` size check, by design.
 
 **Acceptance**: FR-001 parse + `pyshacl` pass with the new count; the store acceptance probe still
 yields exactly one violation (`:timestamp`); T-141's run is recorded in `docs/graphdb-setup.md` (done); T-142's
