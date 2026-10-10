@@ -242,7 +242,7 @@ independent of each other once T-131 lands.*
       we verify, not one we are told (the 2026-10-10 "production at 8" mistake). Two different
       comparisons, because the two numbers mean different things: fail when the declared
       `contract_version` (the code's highest migration) is not equal to the one recorded in the pin
-      (`contract_version` in `_source.json`, written by T-157's re-pin; 10 at `6bf4d7e`), and fail when the
+      (`contract_version` in `_source.json`, written by T-157's re-pin and read by T-178's loader; expected 10 at `6bf4d7e` (`m010`), to be read from the endpoint or the commit, not copied from here), and fail when the
       database's `schema_version` is below `schema_version_floor`. A database above the floor passes
       on its number; whether its views drifted is decided by comparing column lists, never by the
       number (additive within a version). A database below the declared `contract_version` is
@@ -250,7 +250,9 @@ independent of each other once T-131 lands.*
       `view_contract.py` from the answer (with T-157); keep the offline pin and the checkout check
       as the fallback. T-173 can land before T-157: until the pin records a `contract_version`, the
       version guard prints that it has nothing to compare against and skips that one check (never
-      passes it silently); the floor check does not depend on it. Tests are hermetic: a fake response, no running service. Not a blocker for
+      passes it silently); the floor check does not depend on it. Tests are hermetic: a fake response, no running service, with these cases: equal versions pass;
+      a different `contract_version` fails; a database below the floor fails; a database above the floor
+      passes; a database below `contract_version` warns; a pin without the key skips with a notice. Not a blocker for
       anything: T-135 covers the gap until then. → Approach 4.
 - [x] **T-136** *(done 2026-10-07 in PR #64: `tests/test_kg_gate.py`, `test_kg_load_schema.py`, `test_cli_check_view_contract.py`; `derived:quant:{date}` added to `APPEND_ONLY_PATTERNS`; three worked-example graphs the gate cannot take as a batch are strict xfails, T-146; `check_gate` and its test also share one `violations()` helper, the PR #63 nit)* Tests for `src/kg_store/` and the `cli/` exit codes, hermetic (a fake `GraphDB`, no
       running store). **Includes a fix found in PR #62's review:** `gate.check_target` rejects
@@ -351,6 +353,12 @@ independent of each other once T-131 lands.*
       `schema/README.md`'s running count. Leave `schema/protege-view.ttl` to its regeneration
       (Work item 8, T-070), as T-155 did: it is generated in Protégé. Add synthetic cases (in range, below 0, above 100). Reload the store after merge (T-174's loader,
       then `verify_store`). A schema change, so its own PR on a `feat/` branch. → `PLAN.md` Work item 15.
+- [ ] **T-178** *(found in PR #81's review; independent of upstream, can land before T-157)* Teach the pin's
+      loader a `contract_version` key: add it to `_SOURCE_KEYS` in `src/projection/expectations.py`, optional
+      until T-157 writes it (T-173's guard skips with a notice while it is absent), a positive integer when
+      present, and refuse a pin whose `schema_version_floor` is above its `contract_version`. Tests in
+      `tests/test_expectations.py`: the key present, absent, of the wrong type, and the floor above it; the
+      existing "unknown key" case keeps another name (constitution Code & Git #9). → `PLAN.md` Work item 15.
 
 
 *Upstream's reply to the gaps in `SPEC.md` §2.6 (checked against their `0a528be`), their second
@@ -513,11 +521,8 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
 - [ ] **T-157** *(their T-144 landed 2026-10-09 at `6bf4d7e`, `schema_version` 10: re-pin against a database migrated with it; the floor stays 9 until then; production's version is unconfirmed, `SPEC.md` §2.6 fifth reply)* When upstream ships: re-pin `src/projection/view_contract.py` (new view, new
       columns, the commit in its docstring and in `SPEC.md` §2.6), raise the `schema_version` floor
       (D16; the value is `schema_version_floor` in `src/projection/view_expectations/_source.json`),
-      and record the upstream `contract_version` the pin was built against beside it in the same file
-      (T-173's guard compares against it). That key is new to the loader: add it to `_SOURCE_KEYS` in
-      `src/projection/expectations.py`, parse it as a positive integer like the floor, and extend
-      `tests/test_expectations.py` (the key present, absent, and of the wrong type; the existing
-      "unknown key" case keeps another name) in the same PR, or the pin stops loading,
+      and write the upstream `contract_version` the pin was built against beside it (the key and its
+      checks are T-178; T-173's guard compares against it),
       and run `cli/check_view_contract.py` against that commit, or the T-135 test
       (`PFA_CHECKOUT=<checkout> uv run pytest -s -m integration tests/test_contract_check_checkout.py`);
       without CI nothing forces either. Repeat for

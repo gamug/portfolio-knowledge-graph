@@ -743,7 +743,7 @@ the read rule and did not answer Q6:
 - **Cycle rows with a NULL `available_at`:** skipping and counting them until their T-144 is the
   right behaviour on our side.
 - **Q6 (the range of `raw_value`) was still open here; answered in the fifth reply (2026-10-09): [0, 100], bounded by T-177.** Q7 was not asked yet.
-- **Fifth reply (2026-10-09, `SPEC.md` §2.6):** upstream accepted the contract endpoint (their T-152, T-173 here), landed their T-144 (`schema_version` 10, T-157 here) and answered Q6 (T-177); their statement about production's version is disputed and unconfirmed.
+- **Fifth reply (2026-10-09, `SPEC.md` §2.6):** upstream accepted the contract endpoint (their T-152, T-173 here), landed their T-144 (`schema_version` 10, T-157 here) and answered Q6 (T-177); their statement about production's version is disputed and unconfirmed. Two tasks follow from the review of the record: T-177 (the shape bound) and T-178 (the pin's loader learns `contract_version`, before T-157's re-pin writes it).
 
 **Approach**:
 
