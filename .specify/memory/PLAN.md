@@ -554,7 +554,8 @@ new acceptance probe; and `acceptance.check_gate` counts violations by matching 
    `cli/load_schema.py`, then export and drop the leftover `urn:graph:ingest:QUANTITATIVE:2026-08-05`
    (the loader does not touch it; it duplicated five snapshots of the `VALORIZATION` graph with the
    old `:agentOrigin`, so the store was inconsistent until it went). Both were writes to production,
-   made after the maintainer's go-ahead; the record is in `docs/graphdb-setup.md`.
+   made after the maintainer's go-ahead; the record is in `docs/graphdb-setup.md`. T-177 later put the store two triples behind
+   `schema/` again; step 8 (T-179) reloaded it.
 6. Make `verify_store` fail on a `schema/` graph of the wrong size and on an individual with more than one
    `:agentOrigin` (or a value outside the allowed list); graphs `schema/` does not own are reported, not
    failed, so projections can write there (T-176, read-only, with tests, no go-ahead needed; done 2026-10-08).
@@ -568,7 +569,7 @@ new acceptance probe; and `acceptance.check_gate` counts violations by matching 
 yields exactly one violation (`:timestamp`); T-141's run is recorded in `docs/graphdb-setup.md` (done); T-142's
 `check_gate` does not depend on pyshacl's report wording; T-146 drops the three strict `xfail`s in
 `tests/test_kg_gate.py`; T-174 leaves every graph of the store at its expected size with no leftover;
-T-176's `verify_store` fails on a stale or doubled store (it would have failed on the store before T-174; the fake-store tests show it) and exits 0 on a healthy one (done: the live store passes); T-175's tests pass or skip.
+T-176's `verify_store` fails on a stale or doubled store (it would have failed on the store before T-174; the fake-store tests show it) and exits 0 on a healthy one (done: the live store passes); T-175's tests pass or skip; T-179 leaves the live store at `schema/`'s 2549 triples with `verify_store` exiting 0 (done).
 
 **Blocked on**: nothing; T-146 and T-175 are open.
 
