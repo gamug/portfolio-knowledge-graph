@@ -14,6 +14,7 @@ from pathlib import Path
 import pyshacl
 import pytest
 import rdflib
+import rdflib.collection
 from rdflib.namespace import SH
 
 SCHEMA = Path(__file__).resolve().parent.parent / "schema"
@@ -308,3 +309,33 @@ def test_a_second_fundamental_raw_value_is_rejected_whatever_its_range(
     g = _fundamental(bundle, "50.0")
     g.add((KG.Snap_Fundamental_T177, KG.rawValue, rdflib.Literal("150.0", datatype=_DEC)))
     assert (KG.Snap_Fundamental_T177, KG.rawValue) in _violations(g, shapes)
+
+
+def _fundamental_raw_value_bounds(path: Path) -> set[tuple[str, str]]:
+    """``(minInclusive, maxInclusive)`` of the ``rawValue`` branch that pairs with ``ScoreFinanciero``."""
+    g = rdflib.Graph()
+    g.parse(path, format="turtle")
+    bounds: set[tuple[str, str]] = set()
+    for or_list in g.objects(None, SH["or"]):
+        branches = list(rdflib.collection.Collection(g, or_list))
+        guard = [b for b in branches if (b, SH["not"], None) in g]
+        if not any(
+            (inner, SH.hasValue, rdflib.Literal("ScoreFinanciero")) in g
+            for b in guard
+            for inner in g.objects(b, SH["not"])
+        ):
+            continue
+        for b in branches:
+            if (b, SH.path, KG.rawValue) in g:
+                lo = g.value(b, SH.minInclusive)
+                hi = g.value(b, SH.maxInclusive)
+                bounds.add((str(lo), str(hi)))
+    return bounds
+
+
+def test_the_target_schema_bounds_fundamental_raw_value_like_shapes_ttl() -> None:
+    """``kg_target_schema.ttl`` is the proposal sent upstream; round 5 of PR #82 found it unbounded."""
+    root = SCHEMA.parent
+    in_shapes = _fundamental_raw_value_bounds(SCHEMA / "shapes.ttl")
+    assert in_shapes == {("0.0", "100.0")}
+    assert _fundamental_raw_value_bounds(root / "kg_target_schema.ttl") == in_shapes

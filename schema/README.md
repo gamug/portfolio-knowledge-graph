@@ -113,7 +113,7 @@ what the store *enforces*.
    correction to the same reply already adds. Unlike `SectorRelativeMomentum`/`Sentiment`,
    FUNDAMENTAL's `rawValue` was first left unbounded — upstream confirmed it is stable at the
    source but had not stated its range (open question Q6); the shape required it present and
-   stayed silent on bounding it for `ScoreFinanciero` until T-177 (below). Four synthetic FUNDAMENTAL
+   stayed silent on bounding it for `ScoreFinanciero` until T-177 (below). Four synthetic FUNDAMENTAL (T-171)
    snapshots agree (neither value and `normalizedScore` only fail; `rawValue` only and both pass),
    and the projector stops writing the value too: `src/projection/score_scale.py` rejects the
    FUNDAMENTAL lane, pinned by `tests/test_score_scale.py`, since the shape alone can't (it keeps
