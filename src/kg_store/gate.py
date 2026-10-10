@@ -346,12 +346,16 @@ def validate(
     directory: Path | None = None,
     context: rdflib.Graph | Callable[[], rdflib.Graph] | None = None,
 ) -> None:
-    """Raise :class:`IngestRejected` unless ``batch`` passes the type, untyped-subject and shape checks.
+    """Raise :class:`IngestRejected` unless ``batch`` passes the checks, run in this order: the types,
+    the untyped subjects, then the shapes beside ``context``.
 
     ``context`` holds what is already known about the individuals the batch points at
-    (:func:`fetch_context`); the shapes see it beside the batch. It may be a callable, called only
-    once the checks that need no store have passed, so a refused batch costs no query. A shape failure raises
-    :class:`ShaclRejected`, which carries the results graph.
+    (:func:`fetch_context`).
+
+    It may be a callable, called once and only after the first two checks pass, so a batch refused
+    by them costs no query.
+
+    A shape failure raises :class:`ShaclRejected`, which carries the results graph.
     """
     schema = load_gate_schema((directory or schema_dir()).resolve())
     unknown = unknown_types(batch, schema)
@@ -402,6 +406,8 @@ def ingest(db: GraphDB, data: bytes, graph: str, directory: Path | None = None) 
     batch = parse_batch(data)
     schema = load_gate_schema((directory or schema_dir()).resolve())
     refs = references(batch, schema)
+    # Every store query comes after validate's store-free checks, so a batch they refuse costs none:
+    # the context is fetched lazily, and the two checks below it run on a batch that passed.
     validate(batch, directory, (lambda: fetch_context(db, refs, schema, batch)) if refs else None)
     if append_only and db.select(f"SELECT * WHERE {{ GRAPH <{graph}> {{ ?s ?p ?o }} }} LIMIT 1"):
         raise IngestRejected(f"{graph} already exists and is append-only; write a new dated graph")

@@ -306,6 +306,36 @@ def test_the_quant_context_reads_the_portfolio_kind(schema: gate.GateSchema) -> 
     assert {KG.portfolioKind, KG.portfolioName} <= paths
 
 
+def _counting_context(calls: list[int]) -> Callable[[], rdflib.Graph]:
+    def context() -> rdflib.Graph:
+        calls.append(1)
+        return rdflib.Graph()
+
+    return context
+
+
+@pytest.mark.parametrize(
+    "body",
+    [b":x a :ScoreSnapshott .", b':x :rawValue "1.0" .'],  # an unknown type; a stray write
+)
+def test_validate_does_not_call_the_context_for_a_batch_the_first_checks_refuse(
+    body: bytes,
+) -> None:
+    calls: list[int] = []
+    with pytest.raises(gate.IngestRejected):
+        gate.validate(gate.parse_batch(PREFIXES + body), context=_counting_context(calls))
+    assert calls == []
+
+
+def test_validate_calls_the_context_once_for_a_batch_that_passes_the_first_checks() -> None:
+    calls: list[int] = []
+    gate.validate(
+        gate.parse_batch(PREFIXES + b':a a :Asset ; :tickerSymbol "A" ; :cikNumber "1" .'),
+        context=_counting_context(calls),
+    )
+    assert calls == [1]
+
+
 def test_a_refused_batch_costs_no_context_query(make_db: MakeDB) -> None:
     """The store-free checks run first: an unknown type is refused before any SELECT."""
     fake = make_db()
