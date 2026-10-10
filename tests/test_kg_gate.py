@@ -257,6 +257,32 @@ def test_fetch_context_also_reads_the_memberships_of_a_referenced_asset(
     gate.validate(batch, context=context)
 
 
+def test_the_context_reads_only_what_the_shapes_of_the_references_read(
+    make_db: MakeDB, schema: gate.GateSchema
+) -> None:
+    """A referenced Asset's snapshot links grow with the store's history; none is fetched."""
+    name = "urn:graph:derived:entity-resolution:2026-08-05"
+    batch = _instance_graphs()[name]
+    refs = gate.references(batch, schema)
+    paths = gate.context_predicates(batch, refs, schema)
+    assert {rdflib.RDF.type, KG.tickerSymbol, KG.cikNumber, KG.hasUniverseMembership} <= paths
+    assert KG.hasScoreObservation not in paths
+    assert KG.portfolioKind not in paths  # a Portfolio's shape is not the batch's concern
+
+    fake = make_db()
+    gate.fetch_context(fake.db, refs, schema, batch)
+    assert "VALUES ?p {" in fake.queries[0]
+    assert "hasScoreObservation" not in fake.queries[0]
+    assert f"FILTER(?p = <{KG.validTo}>)" in fake.queries[0]
+
+
+def test_the_quant_context_reads_the_portfolio_kind(schema: gate.GateSchema) -> None:
+    name = "urn:graph:derived:quant:2026-08-05"
+    batch = _instance_graphs()[name]
+    paths = gate.context_predicates(batch, gate.references(batch, schema), schema)
+    assert {KG.portfolioKind, KG.portfolioName} <= paths
+
+
 def test_fetch_context_refuses_an_iri_that_could_inject_sparql(
     make_db: MakeDB, schema: gate.GateSchema
 ) -> None:
@@ -335,6 +361,7 @@ def test_ingest_checks_a_batch_against_what_the_store_holds_about_its_references
         if "SELECT ?s ?p ?o" not in sparql:
             return []
         assert "VALUES ?r {" in sparql  # bounded to the referenced IRIs, never the whole store
+        assert "VALUES ?p {" in sparql  # and to the properties the shapes read
         return rows
 
     fake.select = select  # type: ignore[method-assign]

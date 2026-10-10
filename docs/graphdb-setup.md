@@ -92,6 +92,8 @@ nothing written:
 5. the batch conforms to `shapes.ttl` under `pyshacl`, together with what the store holds about the
    individuals the batch points at but does not declare (T-146): a co-occurrence batch names two
    Assets and a quant batch a Portfolio, and the shapes check their class and the Portfolio's kind.
+   Only the properties those classes' shapes read are fetched (for an Asset also its memberships'
+   `:validTo`, which its CIK-or-closed rule reads), not the individual's snapshots;
    A referenced individual the store does not hold fails the class check, so load the universe and
    the portfolio before the lanes that point at them;
 6. no typed individual in the batch already exists in the store (explicit statements, any graph):
@@ -101,7 +103,7 @@ nothing written:
 What is written is the validated triples as N-Triples, not the submitted text. `--check` runs
 checks 1, 3, 4 and 5 without contacting the store, so it cannot see an existing graph (check 2)
 or an existing individual (check 6), and a batch that points at individuals it does not declare
-fails check 5 under `--check` for want of what the store holds about them.
+fails check 5 under `--check` for want of what the store holds about them (the rejection says so).
 Validation reads `tbox.ttl` and `shapes.ttl` from `schema/` on disk (once per process); reload with
 `cli/load_schema.py` after a schema edit so the store's copy matches. Limits: this is a code path,
 not a server-side lock, so anyone holding the write credentials can still write around it; and the

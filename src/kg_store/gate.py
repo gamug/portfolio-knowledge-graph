@@ -242,20 +242,68 @@ def _context_term(schema: GateSchema, p: rdflib.term.Node, o: str) -> rdflib.ter
     return rdflib.Literal(o, datatype=datatype if isinstance(datatype, rdflib.URIRef) else None)
 
 
-def fetch_context(db: GraphDB, refs: set[rdflib.URIRef], schema: GateSchema) -> rdflib.Graph:
-    """What the store holds (explicit statements, any graph) about ``refs``, as a graph."""
+def context_predicates(
+    batch: rdflib.Graph, refs: set[rdflib.URIRef], schema: GateSchema
+) -> set[rdflib.URIRef]:
+    """The properties of ``refs`` that a shape reads: ``rdf:type`` and the paths of the shapes
+    targeting the classes the batch's own shapes expect those references to have.
+
+    A referenced Asset also has a link per snapshot per day and more; none of them is read, so
+    none is fetched (the context would otherwise grow with the store's history).
+    """
+    sh = rdflib.namespace.SH
+    used = {p for _, p, o in batch if o in refs}
+    classes: set[rdflib.term.Node] = set()
+    for prop in schema.shapes.subjects(sh.path, None):
+        if schema.shapes.value(prop, sh.path) in used:
+            classes.update(schema.shapes.objects(prop, sh["class"]))
+    wanted = {sub for c in classes for sub in schema.tbox.transitive_subjects(RDFS.subClassOf, c)}
+    paths: set[rdflib.URIRef] = {RDF.type}  # type: ignore[assignment]
+    for shape in schema.shapes.subjects(sh.targetClass, None):
+        if not wanted & set(schema.shapes.objects(shape, sh.targetClass)):
+            continue
+        seen: set[rdflib.term.Node] = set()
+        todo: list[rdflib.term.Node] = [shape]
+        while todo:  # the shape's own blank nodes: property shapes, sh:or lists, sh:node
+            node = todo.pop()
+            if node in seen:
+                continue
+            seen.add(node)
+            for _, p, o in schema.shapes.triples((node, None, None)):
+                if p == sh.path and isinstance(o, rdflib.URIRef):
+                    paths.add(o)
+                elif isinstance(o, rdflib.BNode) or p == sh.node:
+                    todo.append(o)
+    return paths
+
+
+def fetch_context(
+    db: GraphDB, refs: set[rdflib.URIRef], schema: GateSchema, batch: rdflib.Graph | None = None
+) -> rdflib.Graph:
+    """What the store holds (explicit statements, any graph) about ``refs``, as a graph.
+
+    With ``batch`` only the properties its shapes read are fetched (:func:`context_predicates`);
+    without it, every statement.
+    """
     iris = sorted(str(r) for r in refs)
     _refuse_illegal_iris(iris)
+    restrict = ""
+    if batch is not None:
+        wanted = " ".join(
+            f"<{p}>" for p in sorted(context_predicates(batch, refs, schema), key=str)
+        )
+        restrict = f"VALUES ?p {{ {wanted} }} "
     context = rdflib.Graph()
     for i in range(0, len(iris), 200):
         values = " ".join(f"<{iri}>" for iri in iris[i : i + 200])
         # The Asset shape reads its memberships' ``validTo`` (an Asset without a CIK must have only
-        # closed ones), so the memberships' own statements come too.
+        # closed ones), so that one property of each membership comes too.
         rows = db.select(
             "SELECT ?s ?p ?o FROM <http://www.ontotext.com/explicit> "  # noqa: S608 - IRIs checked above
             f"WHERE {{ VALUES ?r {{ {values} }} "
-            "{ ?r ?p ?o . BIND(?r AS ?s) } UNION "
-            f"{{ ?r <{_PORTFOLIO.hasUniverseMembership}> ?s . ?s ?p ?o }} }}"
+            f"{{ {restrict}?r ?p ?o . BIND(?r AS ?s) }} UNION "
+            f"{{ ?r <{_PORTFOLIO.hasUniverseMembership}> ?s . ?s ?p ?o "
+            f"FILTER(?p = <{_PORTFOLIO.validTo}>) }} }}"
         )
         for row in rows:
             if {"s", "p", "o"} <= row.keys():
@@ -320,7 +368,7 @@ def ingest(db: GraphDB, data: bytes, graph: str, directory: Path | None = None) 
     batch = parse_batch(data)
     schema = load_gate_schema((directory or schema_dir()).resolve())
     refs = references(batch, schema)
-    validate(batch, directory, fetch_context(db, refs, schema) if refs else None)
+    validate(batch, directory, fetch_context(db, refs, schema, batch) if refs else None)
     if append_only and db.select(f"SELECT * WHERE {{ GRAPH <{graph}> {{ ?s ?p ?o }} }} LIMIT 1"):
         raise IngestRejected(f"{graph} already exists and is append-only; write a new dated graph")
     taken = existing_subjects(db, batch)
