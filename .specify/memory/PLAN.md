@@ -561,8 +561,8 @@ new acceptance probe; and `acceptance.check_gate` counts violations by matching 
 7. `integration` tests for the exit codes of `verify_store.py`, `load_schema.py` and `ingest.py` (T-175);
    the two that write use a repository of their own, never `portfolio`. Done 2026-10-08; `portfolio.app` cannot create a
    repository (HTTP 403), so those tests need `KG_ADMIN_USER`/`KG_ADMIN_PASSWORD`.
-8. Reload the live store after T-177 changed `shapes.ttl` (T-179): needs the maintainer's explicit go-ahead; until
-   then `verify_store` fails its `urn:graph:tbox` size check, by design.
+8. Reload the live store after T-177 changed `shapes.ttl` (T-179): done 2026-10-10 after the maintainer's go-ahead;
+   the store holds 2549 triples and `verify_store` passes (`docs/graphdb-setup.md`).
 
 **Acceptance**: FR-001 parse + `pyshacl` pass with the new count; the store acceptance probe still
 yields exactly one violation (`:timestamp`); T-141's run is recorded in `docs/graphdb-setup.md` (done); T-142's
@@ -1029,7 +1029,7 @@ Work item 7 (orchestrator)         — decided: delegate to financial-analysis `
 Work item 8 (protege-view.ttl) — independent, manual, land whenever convenient
 Work item 13 (pytest suite) — independent; rules in constitution 1.5.0, T-130–T-134 and T-136 done (PR #64);
   T-135 done (its `integration` test)
-Work item 14 (PR #48 follow-ups) — independent; T-140, T-141 and T-142 done, T-174 (store schema) done, T-176 (the two `verify_store` checks) done, T-175 (CLI exit-code tests) done; T-146 (gate vs. the worked example's batches) and T-179 (the store reload after T-177, waits on a go-ahead) open
+Work item 14 (PR #48 follow-ups) — independent; T-140, T-141 and T-142 done, T-174 (store schema) done, T-176 (the two `verify_store` checks) done, T-175 (CLI exit-code tests) done; T-179 (the store reload after T-177) done; T-146 (gate vs. the worked example's batches) open
 Work item 15 (upstream's v_* changes) — T-150, T-170 and T-171 (PR #56) done, with T-155's schema half (PR #58), T-153's comments (PR #59)
   and T-151's rule (PR #60); T-173 (the contract endpoint): upstream said yes, waits on their T-152 commit, and its version guard
   needs T-178 first; T-177 (the `rawValue` bound) done (PR #82); T-178 (the pin's loader key, no upstream dependency) can
