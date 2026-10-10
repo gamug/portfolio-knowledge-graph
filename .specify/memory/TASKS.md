@@ -252,8 +252,7 @@ independent of each other once T-131 lands.*
       version guard prints that it has nothing to compare against and skips that one check (never
       passes it silently); the floor check does not depend on it. Tests are hermetic: a fake response, no running service, with these cases: equal versions pass;
       a different `contract_version` fails; a database below the floor fails; a database above the floor
-      passes; a database below `contract_version` warns; a pin without the key skips with a notice. The version guard needs T-178 (the pin's loader refuses
-      the `contract_version` key until then, so the guard could never see it); the floor check does not. Not a blocker for
+      passes; a database below `contract_version` warns; a pin without the key skips with a notice. The version guard can read the key now (T-178, done, made the pin's loader accept it); the floor check never needed it. Not a blocker for
       anything: T-135 covers the gap until then. → Approach 4.
 - [x] **T-136** *(done 2026-10-07 in PR #64: `tests/test_kg_gate.py`, `test_kg_load_schema.py`, `test_cli_check_view_contract.py`; `derived:quant:{date}` added to `APPEND_ONLY_PATTERNS`; three worked-example graphs the gate cannot take as a batch are strict xfails, T-146; `check_gate` and its test also share one `violations()` helper, the PR #63 nit)* Tests for `src/kg_store/` and the `cli/` exit codes, hermetic (a fake `GraphDB`, no
       running store). **Includes a fix found in PR #62's review:** `gate.check_target` rejects
@@ -533,7 +532,7 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       columns, the commit in its docstring and in `SPEC.md` §2.6), raise the `schema_version` floor
       (D16; the value is `schema_version_floor` in `src/projection/view_expectations/_source.json`),
       and write the upstream `contract_version` the pin was built against beside it (the key and its
-      checks are T-178; T-173's guard compares against it),
+      checks are T-178, done; T-173's guard compares against it),
       and run `cli/check_view_contract.py` against that commit, or the T-135 test
       (`PFA_CHECKOUT=<checkout> uv run pytest -s -m integration tests/test_contract_check_checkout.py`);
       without CI nothing forces either. Repeat for

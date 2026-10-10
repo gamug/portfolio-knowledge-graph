@@ -324,26 +324,6 @@ def test_invalid_json_and_non_objects_are_rejected(tmp_path: Path) -> None:
             {
                 "schema_version_floor": 9,
                 "forbidden_cycle_types": ["REPLAY"],
-                "contract_version": "10",
-            },
-            "contract_version: must be a positive integer",
-        ),
-        (
-            {
-                "schema_version_floor": 9,
-                "forbidden_cycle_types": ["REPLAY"],
-                "contract_version": True,
-            },
-            "contract_version: must be a positive integer",
-        ),
-        (
-            {"schema_version_floor": 9, "forbidden_cycle_types": ["REPLAY"], "contract_version": 0},
-            "contract_version: must be a positive integer",
-        ),
-        (
-            {
-                "schema_version_floor": 9,
-                "forbidden_cycle_types": ["REPLAY"],
                 "contract_version": None,
             },
             "contract_version: must be a positive integer",
@@ -367,6 +347,18 @@ def test_a_malformed_source_file_is_rejected(
 ) -> None:
     (tmp_path / "_source.json").write_text(json.dumps(source))
     with pytest.raises(ExpectationError, match=why):
+        load_source(tmp_path)
+
+
+@pytest.mark.parametrize("value", ["10", True, 0, -1, 10.0, [10]])
+def test_a_contract_version_of_the_wrong_kind_is_rejected(tmp_path: Path, value: object) -> None:
+    source = {
+        "schema_version_floor": 9,
+        "forbidden_cycle_types": ["REPLAY"],
+        "contract_version": value,
+    }
+    (tmp_path / "_source.json").write_text(json.dumps(source))
+    with pytest.raises(ExpectationError, match="contract_version: must be a positive integer"):
         load_source(tmp_path)
 
 
