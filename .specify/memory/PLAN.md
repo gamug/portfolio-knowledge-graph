@@ -1026,10 +1026,11 @@ Work item 7 (orchestrator)         — decided: delegate to financial-analysis `
 
 Work item 8 (protege-view.ttl) — independent, manual, land whenever convenient
 Work item 13 (pytest suite) — independent; rules in constitution 1.5.0, T-130–T-134 and T-136 done (PR #64);
-  T-135 done (its `integration` test); T-173 (an upstream contract endpoint) waits on their reply
+  T-135 done (its `integration` test)
 Work item 14 (PR #48 follow-ups) — independent; T-140, T-141 and T-142 done, T-174 (store schema) done, T-176 (the two `verify_store` checks) done, T-175 (CLI exit-code tests) and T-146 (gate vs. the worked example's batches) open
 Work item 15 (upstream's v_* changes) — T-150, T-170 and T-171 (PR #56) done, with T-155's schema half (PR #58), T-153's comments (PR #59)
-  and T-151's rule (PR #60); the step-3 shape corrections now;
+  and T-151's rule (PR #60); T-173 (the contract endpoint): upstream said yes, waits on their T-152 commit; T-177 (the
+  `rawValue` bound) and T-178 (the pin's loader key, no upstream dependency) can start now; the step-3 shape corrections now;
   the rest as upstream's T-144/T-145 ship; feeds Work item 4 (T-031) and 12 (T-121)
 Work item 16 (boundary validation of upstream rows) — T-160 done (plain checks), T-161 closed, T-162 done; T-163 open (its function is done, the wiring into the read path started with Work item 4's T-031, PR #72)
 ```
