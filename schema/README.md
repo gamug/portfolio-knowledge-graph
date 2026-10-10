@@ -172,7 +172,7 @@ what the store *enforces*.
    rule-based fallback clamps to the same range. The `ScoreFinanciero` branch of `ScoreSnapshotShape`
    that requires a `rawValue` now also has `sh:minInclusive 0.0` and `sh:maxInclusive 100.0`. No new
    class or property; `AllDisjointClasses` is unchanged; the worked example conforms unchanged.
-   Nine synthetic cases in `tests/test_schema_gate.py` (0, 100, a mid value pass; below 0, above
+   Nine synthetic cases in `tests/test_schema_gate.py`, plus a check that `kg_target_schema.ttl` bounds `rawValue` like this file (FUNDAMENTAL, SECTOR, Sentiment) (0, 100, a mid value pass; below 0, above
    100, an integer, a string, a bound broken beside a `normalizedScore`, and a second value fail).
    Reloading the store (`cli/load_schema.py`, then `cli/verify_store.py`; the `urn:graph:tbox` graph grows by 2)
    is T-179 and waits for the maintainer's go-ahead, so `verify_store` fails its size check until then.
