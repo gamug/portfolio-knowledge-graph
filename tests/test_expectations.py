@@ -330,7 +330,7 @@ def test_invalid_json_and_non_objects_are_rejected(tmp_path: Path) -> None:
         ),
         (
             {"schema_version_floor": 0, "forbidden_cycle_types": ["REPLAY"], "contract_version": 0},
-            "schema_version_floor: must be a positive integer; contract_version: must be",
+            "schema_version_floor: must be a positive integer; contract_version: must be a positive integer",
         ),
         (
             {
