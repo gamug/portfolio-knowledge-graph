@@ -186,8 +186,21 @@ Both writes were made after the maintainer's go-ahead, by a Claude Code session 
 4. `uv run python cli/verify_store.py` again: exit 0, all three checks pass, the probe's "store size
    unchanged" reads 2547.
 
-*Since T-177 (PR #82) `schema/` holds 2549 triples (`urn:graph:tbox` 1569), so the store's 2547 is two behind
-until T-179 reloads it; `verify_store` fails its size check in the meantime.*
+### Reloading after T-177 (T-179, 2026-10-10)
+
+T-177 (PR #82) put two triples in `urn:graph:tbox` (1567 to 1569; 2547 to 2549 over the 19 graphs), so the
+store was two behind `schema/`. Written after the maintainer's go-ahead, by a Claude Code session they asked to run it.
+
+1. `uv run python cli/verify_store.py` before: four checks passed; "schema graphs have their expected size"
+   failed with `urn:graph:tbox: expected 1569, store has 1567`, as expected.
+2. `uv run python cli/load_schema.py`: exit 0, `verified: 19 graphs, 2549 asserted triples match the local parse`.
+3. `uv run python cli/verify_store.py` after: exit 0, all five checks pass, the probe's "store size unchanged"
+   reads 2549.
+4. `uv run pytest -m integration tests/test_store_cli_exit_codes.py`: 6 passed, including
+   `test_verify_store_passes_on_the_configured_store`.
+
+Before the run, the application user had no grant on the `portfolio` repository (the server answered 403), so
+the maintainer restored it in the Workbench; nothing in the repository changed for that.
 
 The leftover's absence is shown by the size, not by a direct query: the read-only `ASK { GRAPH
 <urn:graph:ingest:QUANTITATIVE:2026-08-05> { ?s ?p ?o } }` was blocked by the permission classifier and
