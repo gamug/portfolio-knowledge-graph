@@ -554,21 +554,22 @@ new acceptance probe; and `acceptance.check_gate` counts violations by matching 
    `cli/load_schema.py`, then export and drop the leftover `urn:graph:ingest:QUANTITATIVE:2026-08-05`
    (the loader does not touch it; it duplicated five snapshots of the `VALORIZATION` graph with the
    old `:agentOrigin`, so the store was inconsistent until it went). Both were writes to production,
-   made after the maintainer's go-ahead; the record is in `docs/graphdb-setup.md`.
+   made after the maintainer's go-ahead; the record is in `docs/graphdb-setup.md`. T-177 later put the store two triples behind
+   `schema/` again; step 8 (T-179) reloaded it.
 6. Make `verify_store` fail on a `schema/` graph of the wrong size and on an individual with more than one
    `:agentOrigin` (or a value outside the allowed list); graphs `schema/` does not own are reported, not
    failed, so projections can write there (T-176, read-only, with tests, no go-ahead needed; done 2026-10-08).
 7. `integration` tests for the exit codes of `verify_store.py`, `load_schema.py` and `ingest.py` (T-175);
    the two that write use a repository of their own, never `portfolio`. Done 2026-10-08; `portfolio.app` cannot create a
    repository (HTTP 403), so those tests need `KG_ADMIN_USER`/`KG_ADMIN_PASSWORD`.
-8. Reload the live store after T-177 changed `shapes.ttl` (T-179): needs the maintainer's explicit go-ahead; until
-   then `verify_store` fails its `urn:graph:tbox` size check, by design.
+8. Reload the live store after T-177 changed `shapes.ttl` (T-179): done 2026-10-10 after the maintainer's go-ahead;
+   the store holds 2549 triples and `verify_store` passes (`docs/graphdb-setup.md`).
 
 **Acceptance**: FR-001 parse + `pyshacl` pass with the new count; the store acceptance probe still
 yields exactly one violation (`:timestamp`); T-141's run is recorded in `docs/graphdb-setup.md` (done); T-142's
 `check_gate` does not depend on pyshacl's report wording; T-146 drops the three strict `xfail`s in
 `tests/test_kg_gate.py`; T-174 leaves every graph of the store at its expected size with no leftover;
-T-176's `verify_store` fails on a stale or doubled store (it would have failed on the store before T-174; the fake-store tests show it) and exits 0 on a healthy one (done: the live store passes); T-175's tests pass or skip.
+T-176's `verify_store` fails on a stale or doubled store (it would have failed on the store before T-174; the fake-store tests show it) and exits 0 on a healthy one (done: the live store passes); T-175's tests pass or skip; T-179 leaves the live store at `schema/`'s 2549 triples with `verify_store` exiting 0 (done).
 
 **Blocked on**: nothing; T-146 and T-175 are open.
 
@@ -1029,7 +1030,7 @@ Work item 7 (orchestrator)         — decided: delegate to financial-analysis `
 Work item 8 (protege-view.ttl) — independent, manual, land whenever convenient
 Work item 13 (pytest suite) — independent; rules in constitution 1.5.0, T-130–T-134 and T-136 done (PR #64);
   T-135 done (its `integration` test)
-Work item 14 (PR #48 follow-ups) — independent; T-140, T-141 and T-142 done, T-174 (store schema) done, T-176 (the two `verify_store` checks) done, T-175 (CLI exit-code tests) done; T-146 (gate vs. the worked example's batches) and T-179 (the store reload after T-177, waits on a go-ahead) open
+Work item 14 (PR #48 follow-ups) — independent; T-140, T-141 and T-142 done, T-174 (store schema) done, T-176 (the two `verify_store` checks) done, T-175 (CLI exit-code tests) done; T-179 (the store reload after T-177) done; T-146 (gate vs. the worked example's batches) open
 Work item 15 (upstream's v_* changes) — T-150, T-170 and T-171 (PR #56) done, with T-155's schema half (PR #58), T-153's comments (PR #59)
   and T-151's rule (PR #60); T-173 (the contract endpoint): upstream said yes, waits on their T-152 commit, and its version guard
   needs T-178 first; T-177 (the `rawValue` bound) done (PR #82); T-178 (the pin's loader key, no upstream dependency) can
