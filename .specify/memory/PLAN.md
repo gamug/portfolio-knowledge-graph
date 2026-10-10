@@ -743,7 +743,7 @@ the read rule and did not answer Q6:
 - **Cycle rows with a NULL `available_at`:** skipping and counting them until their T-144 is the
   right behaviour on our side.
 - **Q6 (the range of `raw_value`) was still open here; answered in the fifth reply (2026-10-09): [0, 100], bounded by T-177.** Q7 was not asked yet.
-- **Fifth reply (2026-10-09, `SPEC.md` §2.6):** upstream accepted the contract endpoint (their T-152, T-173 here), landed their T-144 (`schema_version` 10, T-157 here) and answered Q6 (T-177); their statement about production's version is disputed and unconfirmed. Two tasks follow from the review of the record: T-177 (the shape bound) and T-178 (the pin's loader learns `contract_version`, before T-157's re-pin writes it).
+- **Fifth reply (2026-10-09, `SPEC.md` §2.6):** upstream accepted the contract endpoint (their T-152, T-173 here), landed their T-144 (`schema_version` 10, T-157 here) and answered Q6 (T-177); their statement about production's version is disputed and unconfirmed. Two new tasks follow from the review of the record, besides T-173 and T-157: T-177 (the shape bound) and T-178 (the pin's loader learns `contract_version`, before T-157's re-pin writes it).
 
 **Approach**:
 
@@ -1029,8 +1029,9 @@ Work item 13 (pytest suite) — independent; rules in constitution 1.5.0, T-130�
   T-135 done (its `integration` test)
 Work item 14 (PR #48 follow-ups) — independent; T-140, T-141 and T-142 done, T-174 (store schema) done, T-176 (the two `verify_store` checks) done, T-175 (CLI exit-code tests) and T-146 (gate vs. the worked example's batches) open
 Work item 15 (upstream's v_* changes) — T-150, T-170 and T-171 (PR #56) done, with T-155's schema half (PR #58), T-153's comments (PR #59)
-  and T-151's rule (PR #60); T-173 (the contract endpoint): upstream said yes, waits on their T-152 commit; T-177 (the
-  `rawValue` bound) and T-178 (the pin's loader key, no upstream dependency) can start now; the step-3 shape corrections now;
+  and T-151's rule (PR #60); T-173 (the contract endpoint): upstream said yes, waits on their T-152 commit, and its version guard
+  needs T-178 first; T-177 (the `rawValue` bound) and T-178 (the pin's loader key, no upstream dependency) can
+  start now; the step-3 shape corrections now;
   the rest as upstream's T-144/T-145 ship; feeds Work item 4 (T-031) and 12 (T-121)
 Work item 16 (boundary validation of upstream rows) — T-160 done (plain checks), T-161 closed, T-162 done; T-163 open (its function is done, the wiring into the read path started with Work item 4's T-031, PR #72)
 ```

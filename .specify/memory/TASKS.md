@@ -252,7 +252,8 @@ independent of each other once T-131 lands.*
       version guard prints that it has nothing to compare against and skips that one check (never
       passes it silently); the floor check does not depend on it. Tests are hermetic: a fake response, no running service, with these cases: equal versions pass;
       a different `contract_version` fails; a database below the floor fails; a database above the floor
-      passes; a database below `contract_version` warns; a pin without the key skips with a notice. Not a blocker for
+      passes; a database below `contract_version` warns; a pin without the key skips with a notice. The version guard needs T-178 (the pin's loader refuses
+      the `contract_version` key until then, so the guard could never see it); the floor check does not. Not a blocker for
       anything: T-135 covers the gap until then. → Approach 4.
 - [x] **T-136** *(done 2026-10-07 in PR #64: `tests/test_kg_gate.py`, `test_kg_load_schema.py`, `test_cli_check_view_contract.py`; `derived:quant:{date}` added to `APPEND_ONLY_PATTERNS`; three worked-example graphs the gate cannot take as a batch are strict xfails, T-146; `check_gate` and its test also share one `violations()` helper, the PR #63 nit)* Tests for `src/kg_store/` and the `cli/` exit codes, hermetic (a fake `GraphDB`, no
       running store). **Includes a fix found in PR #62's review:** `gate.check_target` rejects
