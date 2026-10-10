@@ -305,11 +305,13 @@
                 sh:minInclusive -100.0 ;
                 sh:path :rawValue ] ),
         # CHANGED (T-171, D17): new. With normalizedScore optional for FUNDAMENTAL (above), rawValue
-        # becomes mandatory in its place, so a FUNDAMENTAL snapshot can't carry neither. No bounds yet:
-        # we need your FUNDAMENTAL raw_value range first (Q6).
+        # becomes mandatory in its place, so a FUNDAMENTAL snapshot can't carry neither.
+        # T-177: bounded to [0,100], your answer to Q6 (2026-10-09).
         ( [ sh:not [ sh:hasValue "ScoreFinanciero" ;
                         sh:path :metricType ] ] [ sh:datatype xsd:decimal ;
+                sh:maxInclusive 100.0 ;
                 sh:minCount 1 ;
+                sh:minInclusive 0.0 ;
                 sh:path :rawValue ] ) ;
     sh:property [ sh:datatype xsd:decimal ;
             sh:maxCount 1 ;

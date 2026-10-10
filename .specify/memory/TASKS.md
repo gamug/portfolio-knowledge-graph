@@ -349,13 +349,15 @@ independent of each other once T-131 lands.*
       check expects from `schema/`: 1567 to 1569 triples there, 2547 to 2549 over the 19 graphs, the figures
       T-174 left in `docs/graphdb-setup.md`), then run `cli/verify_store.py` and record the result in
       `docs/graphdb-setup.md`. Until then `verify_store` fails its "schema graphs have their expected
-      size" check, by design. → `PLAN.md` Work item 14, step 8.
+      size" check, by design, and so does the `integration` test
+      `test_verify_store_passes_on_the_configured_store` (T-175): both are expected to fail between the merge and
+      this reload. → `PLAN.md` Work item 14, step 8.
 ## Work item 15 — Adopt upstream's `v_*` contract changes (replies of 2026-10-05, 2026-10-06 x2)
-- [x] **T-177** *(from upstream's answer to Q6, 2026-10-09; done 2026-10-10 in PR #82: the shape, 2549 quads, nine synthetic cases in `tests/test_schema_gate.py`; `schema/protege-view.ttl` is left to Work item 8 (T-070); the store reload is T-179; the text below is the original)* Bound FUNDAMENTAL's `rawValue` in `ScoreSnapshotShape` to
+- [x] **T-177** *(from upstream's answer to Q6, 2026-10-09; done 2026-10-10 in PR #82: the shape, 2549 quads, nine synthetic cases in `tests/test_schema_gate.py`; `schema/protege-view.ttl` is left to Work item 8 (T-070); the store reload is T-179; the text below is the original task, edited where the work differed)* Bound FUNDAMENTAL's `rawValue` in `ScoreSnapshotShape` to
       `[0, 100]` (`minInclusive`/`maxInclusive` on the branch that pairs it with a mandatory `rawValue`,
       the way T-140/T-155 bounded SECTOR's). Update the `tbox.ttl` comment, `schema/README.md`,
       `docs/06-ontology-definition.md`'s shape row, the `score_snapshots.py` docstring that says it
-      waits for Q6, and the quad count `SPEC.md` states in four places (the §1 summary, FR-001's
+      waits for Q6, `kg_target_schema.ttl`'s copy of the branch, and the quad count `SPEC.md` states in four places (the §1 summary, FR-001's
       acceptance criterion, the architecture diagram and the validation step) and
       `schema/README.md`'s running count. Leave `schema/protege-view.ttl` to its regeneration
       (Work item 8, T-070), as T-155 did: it is generated in Protégé. Add synthetic cases (in range,

@@ -186,6 +186,9 @@ Both writes were made after the maintainer's go-ahead, by a Claude Code session 
 4. `uv run python cli/verify_store.py` again: exit 0, all three checks pass, the probe's "store size
    unchanged" reads 2547.
 
+*Since T-177 (PR #82) `schema/` holds 2549 triples (`urn:graph:tbox` 1569), so the store's 2547 is two behind
+until T-179 reloads it; `verify_store` fails its size check in the meantime.*
+
 The leftover's absence is shown by the size, not by a direct query: the read-only `ASK { GRAPH
 <urn:graph:ingest:QUANTITATIVE:2026-08-05> { ?s ?p ?o } }` was blocked by the permission classifier and
 not retried; it should answer false. The store now matches `schema/`. This is a one-time record; the standing guard is T-176, now in `verify_store` (two more checks; on the store above, exit 0, all five pass).

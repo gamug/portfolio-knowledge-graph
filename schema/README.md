@@ -173,8 +173,10 @@ what the store *enforces*.
    that requires a `rawValue` now also has `sh:minInclusive 0.0` and `sh:maxInclusive 100.0`. No new
    class or property; `AllDisjointClasses` is unchanged; the worked example conforms unchanged.
    Nine synthetic cases in `tests/test_schema_gate.py` (0, 100, a mid value pass; below 0, above
-   100, an integer, a string, a bound broken beside a `normalizedScore`, and a second value fail). Reloading the store (`cli/load_schema.py`, then `cli/verify_store.py`; the `urn:graph:tbox` graph
-   grows by 2) is T-179 and waits for the maintainer's go-ahead, so `verify_store` fails its size check until then. **2549 quads (2547 before this change, plus the two bounds); conforms: True.**
+   100, an integer, a string, a bound broken beside a `normalizedScore`, and a second value fail).
+   Reloading the store (`cli/load_schema.py`, then `cli/verify_store.py`; the `urn:graph:tbox` graph grows by 2)
+   is T-179 and waits for the maintainer's go-ahead, so `verify_store` fails its size check until then.
+   **2549 quads (2547 before this change, plus the two bounds); conforms: True.**
 3. **Two more named-graph placements (a third added by T-108).** `07-ontology-topology.md` assigned graphs to every
    *agent's* daily output but not to the Orchestrator's own decisions or to entity resolution's
    derived facts. Resolved: `urn:graph:ingest:ORCHESTRATOR:{date}` and
