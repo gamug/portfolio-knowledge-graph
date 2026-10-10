@@ -49,6 +49,7 @@ def test_the_source_check_is_the_documented_one() -> None:
     source = load_source()
     assert source.schema_version_floor == 9
     assert source.forbidden_cycle_types == ("REPLAY",)
+    assert source.contract_version is None  # T-157 writes it with the re-pin
 
 
 def test_score_snapshot_carries_the_documented_rules(shipped: dict[str, ViewExpectation]) -> None:
@@ -320,6 +321,34 @@ def test_invalid_json_and_non_objects_are_rejected(tmp_path: Path) -> None:
             {"schema_version_floor": 9, "forbidden_cycle_types": ["REPLAY"], "x": 1},
             "unknown key 'x'",
         ),
+        (
+            {
+                "schema_version_floor": 9,
+                "forbidden_cycle_types": ["REPLAY"],
+                "contract_version": "10",
+            },
+            "contract_version: must be a positive integer",
+        ),
+        (
+            {
+                "schema_version_floor": 9,
+                "forbidden_cycle_types": ["REPLAY"],
+                "contract_version": True,
+            },
+            "contract_version: must be a positive integer",
+        ),
+        (
+            {"schema_version_floor": 9, "forbidden_cycle_types": ["REPLAY"], "contract_version": 0},
+            "contract_version: must be a positive integer",
+        ),
+        (
+            {
+                "schema_version_floor": 10,
+                "forbidden_cycle_types": ["REPLAY"],
+                "contract_version": 9,
+            },
+            "schema_version_floor: 10 is above contract_version 9",
+        ),
     ],
 )
 def test_a_malformed_source_file_is_rejected(
@@ -328,6 +357,24 @@ def test_a_malformed_source_file_is_rejected(
     (tmp_path / "_source.json").write_text(json.dumps(source))
     with pytest.raises(ExpectationError, match=why):
         load_source(tmp_path)
+
+
+def test_the_contract_version_is_read_when_present(tmp_path: Path) -> None:
+    for floor, contract in ((9, 10), (9, 9)):
+        source = {
+            "schema_version_floor": floor,
+            "forbidden_cycle_types": ["REPLAY"],
+            "contract_version": contract,
+        }
+        (tmp_path / "_source.json").write_text(json.dumps(source))
+        assert load_source(tmp_path).contract_version == contract
+
+
+def test_a_source_file_without_the_contract_version_loads(tmp_path: Path) -> None:
+    (tmp_path / "_source.json").write_text(
+        json.dumps({"schema_version_floor": 9, "forbidden_cycle_types": ["REPLAY"]})
+    )
+    assert load_source(tmp_path).contract_version is None
 
 
 def test_a_duplicate_key_is_rejected(tmp_path: Path) -> None:
