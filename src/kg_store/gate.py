@@ -242,14 +242,36 @@ def _context_term(schema: GateSchema, p: rdflib.term.Node, o: str) -> rdflib.ter
     return rdflib.Literal(o, datatype=datatype if isinstance(datatype, rdflib.URIRef) else None)
 
 
+def _paths_below(shapes: rdflib.Graph, starts: list[rdflib.term.Node]) -> set[rdflib.URIRef]:
+    """Every ``sh:path`` IRI reachable from ``starts`` through a shape's own blank nodes (property
+    shapes, ``sh:or`` lists) and ``sh:node`` links."""
+    sh = rdflib.namespace.SH
+    paths: set[rdflib.URIRef] = set()
+    seen: set[rdflib.term.Node] = set()
+    todo = list(starts)
+    while todo:
+        node = todo.pop()
+        if node in seen:
+            continue
+        seen.add(node)
+        for _, p, o in shapes.triples((node, None, None)):
+            if p == sh.path and isinstance(o, rdflib.URIRef):
+                paths.add(o)
+            elif isinstance(o, rdflib.BNode) or p == sh.node:
+                todo.append(o)
+    return paths
+
+
 def context_predicates(
     batch: rdflib.Graph, refs: set[rdflib.URIRef], schema: GateSchema
 ) -> set[rdflib.URIRef]:
-    """The properties of ``refs`` that a shape reads: ``rdf:type`` and the paths of the shapes
-    targeting the classes the batch's own shapes expect those references to have.
+    """The properties of ``refs`` that a shape reads: ``rdf:type`` and the ``sh:path``s of the shapes
+    that target the class required where the batch points at a reference (the ``sh:class`` of the
+    relation it uses), or a subclass of it.
 
     A referenced Asset also has a link per snapshot per day and more; none of them is read, so
-    none is fetched (the context would otherwise grow with the store's history).
+    none is fetched (the context would otherwise grow with the store's history). A relation with no
+    ``sh:class`` requires nothing of its target, so only ``rdf:type`` is fetched for it.
     """
     sh = rdflib.namespace.SH
     used = {p for _, p, o in batch if o in refs}
@@ -258,23 +280,24 @@ def context_predicates(
         if schema.shapes.value(prop, sh.path) in used:
             classes.update(schema.shapes.objects(prop, sh["class"]))
     wanted = {sub for c in classes for sub in schema.tbox.transitive_subjects(RDFS.subClassOf, c)}
-    paths: set[rdflib.URIRef] = {RDF.type}  # type: ignore[assignment]
-    for shape in schema.shapes.subjects(sh.targetClass, None):
-        if not wanted & set(schema.shapes.objects(shape, sh.targetClass)):
-            continue
-        seen: set[rdflib.term.Node] = set()
-        todo: list[rdflib.term.Node] = [shape]
-        while todo:  # the shape's own blank nodes: property shapes, sh:or lists, sh:node
-            node = todo.pop()
-            if node in seen:
-                continue
-            seen.add(node)
-            for _, p, o in schema.shapes.triples((node, None, None)):
-                if p == sh.path and isinstance(o, rdflib.URIRef):
-                    paths.add(o)
-                elif isinstance(o, rdflib.BNode) or p == sh.node:
-                    todo.append(o)
-    return paths
+    targets = [
+        shape
+        for shape in schema.shapes.subjects(sh.targetClass, None)
+        if wanted & set(schema.shapes.objects(shape, sh.targetClass))
+    ]
+    return {rdflib.URIRef(RDF.type)} | _paths_below(schema.shapes, targets)
+
+
+def nested_paths(schema: GateSchema, relation: rdflib.URIRef) -> set[rdflib.URIRef]:
+    """The properties a shape reads on the individuals reached through ``relation`` (its
+    ``sh:node``): for ``hasUniverseMembership``, the ``validTo`` of the Asset's CIK-or-closed rule."""
+    sh = rdflib.namespace.SH
+    starts = [
+        node
+        for prop in schema.shapes.subjects(sh.path, relation)
+        for node in schema.shapes.objects(prop, sh.node)
+    ]
+    return _paths_below(schema.shapes, starts)
 
 
 def fetch_context(
@@ -282,34 +305,41 @@ def fetch_context(
 ) -> rdflib.Graph:
     """What the store holds (explicit statements, any graph) about ``refs``, as a graph.
 
-    With ``batch`` only the properties its shapes read are fetched (:func:`context_predicates`);
-    without it, every statement.
+    With ``batch`` only the properties its shapes read are fetched (:func:`context_predicates`,
+    and :func:`nested_paths` one step further when a shape reads through a relation, as the
+    Asset shape does through its memberships); without it, every statement of ``refs``.
     """
     iris = sorted(str(r) for r in refs)
     _refuse_illegal_iris(iris)
     restrict = ""
+    hops: dict[rdflib.URIRef, set[rdflib.URIRef]] = {}
     if batch is not None:
-        wanted = " ".join(
-            f"<{p}>" for p in sorted(context_predicates(batch, refs, schema), key=str)
-        )
-        restrict = f"VALUES ?p {{ {wanted} }} "
+        paths = context_predicates(batch, refs, schema)
+        restrict = f"VALUES ?p {{ {_iri_list(paths)} }} "
+        for relation in sorted(paths, key=str):
+            if nested := nested_paths(schema, relation):
+                hops[relation] = nested
     context = rdflib.Graph()
     for i in range(0, len(iris), 200):
         values = " ".join(f"<{iri}>" for iri in iris[i : i + 200])
-        # The Asset shape reads its memberships' ``validTo`` (an Asset without a CIK must have only
-        # closed ones), so that one property of each membership comes too.
+        hop_queries = "".join(
+            f" UNION {{ ?r <{relation}> ?s . ?s ?p ?o . VALUES ?p {{ {_iri_list(nested)} }} }}"
+            for relation, nested in hops.items()
+        )
         rows = db.select(
             "SELECT ?s ?p ?o FROM <http://www.ontotext.com/explicit> "  # noqa: S608 - IRIs checked above
             f"WHERE {{ VALUES ?r {{ {values} }} "
-            f"{{ {restrict}?r ?p ?o . BIND(?r AS ?s) }} UNION "
-            f"{{ ?r <{_PORTFOLIO.hasUniverseMembership}> ?s . ?s ?p ?o "
-            f"FILTER(?p = <{_PORTFOLIO.validTo}>) }} }}"
+            f"{{ {restrict}?r ?p ?o . BIND(?r AS ?s) }}{hop_queries} }}"
         )
         for row in rows:
             if {"s", "p", "o"} <= row.keys():
                 p = rdflib.URIRef(row["p"])
                 context.add((rdflib.URIRef(row["s"]), p, _context_term(schema, p, row["o"])))
     return context
+
+
+def _iri_list(iris: set[rdflib.URIRef]) -> str:
+    return " ".join(f"<{p}>" for p in sorted(iris, key=str))
 
 
 def validate(

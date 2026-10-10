@@ -238,8 +238,8 @@ def test_fetch_context_also_reads_the_memberships_of_a_referenced_asset(
     the query follows ``hasUniverseMembership`` one step (a reviewer's catch on PR #86)."""
     fake = make_db()
     gate.fetch_context(fake.db, {KG.GONE}, schema)
-    assert "hasUniverseMembership" in fake.queries[0]
     assert "VALUES ?r {" in fake.queries[0]
+    assert "hasUniverseMembership" not in fake.queries[0]  # no batch: every statement, no hop
 
     batch = gate.parse_batch(
         PREFIXES + b":c a :AssetCoOccurrence ; :coOccurrenceAsset :GONE, :OTHER ;"
@@ -273,7 +273,30 @@ def test_the_context_reads_only_what_the_shapes_of_the_references_read(
     gate.fetch_context(fake.db, refs, schema, batch)
     assert "VALUES ?p {" in fake.queries[0]
     assert "hasScoreObservation" not in fake.queries[0]
-    assert f"FILTER(?p = <{KG.validTo}>)" in fake.queries[0]
+    assert f"?r <{KG.hasUniverseMembership}> ?s" in fake.queries[0]
+    assert f"VALUES ?p {{ <{KG.validTo}> }}" in fake.queries[0]
+    assert gate.nested_paths(schema, KG.hasUniverseMembership) == {KG.validTo}
+    assert gate.nested_paths(schema, KG.coOccurrenceAsset) == set()
+
+
+def test_a_portfolio_reference_makes_no_membership_hop(
+    make_db: MakeDB, schema: gate.GateSchema
+) -> None:
+    batch = gate.parse_batch(
+        PREFIXES + b':o a :BenchmarkObservation ; :quantPortfolio :P ; :quantMetric "m" .'
+    )
+    fake = make_db()
+    gate.fetch_context(fake.db, gate.references(batch, schema), schema, batch)
+    assert "VALUES ?p {" in fake.queries[0]
+    assert "hasUniverseMembership" not in fake.queries[0]
+
+
+def test_a_relation_without_a_class_asks_only_for_the_type(schema: gate.GateSchema) -> None:
+    """``:supersededBy`` requires nothing of its target, so nothing but ``rdf:type`` is fetched."""
+    batch = gate.parse_batch(PREFIXES + b":x :supersededBy :y .")
+    assert gate.context_predicates(batch, gate.references(batch, schema), schema) == {
+        rdflib.RDF.type
+    }
 
 
 def test_the_quant_context_reads_the_portfolio_kind(schema: gate.GateSchema) -> None:

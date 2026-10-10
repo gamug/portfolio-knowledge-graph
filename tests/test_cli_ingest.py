@@ -1,4 +1,8 @@
-"""``cli/ingest.py --check``: it reports a batch's undeclared references, not a bare class error (T-146)."""
+"""``cli/ingest.py --check``: it reports a batch's undeclared references, not a bare class error (T-146).
+
+The script runs as a subprocess (constitution #10), so these tests write their own small Turtle
+batches and share nothing with ``test_kg_gate.py``, whose helpers read the worked example in process.
+"""
 
 from __future__ import annotations
 
