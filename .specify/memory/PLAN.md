@@ -669,7 +669,7 @@ shapes widen to their documented ranges, and a ÷100 stays the only conversion (
 (step 2) states each decision and carries the updated target schema.
 
 **Third reply (2026-10-06, same `597832a`, checked against production, the pilot and its replay
-copy, answering `kg_handoff_second_followup.md`'s five questions).** All six corrections of the
+copy, answering our second follow-up's five questions).** All six corrections of the
 second reply checked out. One assumption of ours needs correcting, and it changes a declined item:
 
 - **`v_cycle_ranking_component.component_value` does not repeat a `ScoreSnapshot` value, for

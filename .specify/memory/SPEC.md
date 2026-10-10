@@ -364,7 +364,7 @@ sent 2026-10-06) were accepted in the second reply as their **T-144** (one addit
   number (Q4); the unit of `target_weight`, `max_name_weight` and `max_sector_weight` (Q5).
 
 **Third upstream reply (2026-10-06, T-170), checked against the same `597832a`, production, the
-pilot and its replay copy.** Answers `kg_handoff_second_followup.md`'s five questions and corrects
+pilot and its replay copy.** Answers our second follow-up's five questions and corrects
 one assumption of the second reply.
 
 - **Correction: `component_value` is not a repeat of a `ScoreSnapshot` value, for FUNDAMENTAL
