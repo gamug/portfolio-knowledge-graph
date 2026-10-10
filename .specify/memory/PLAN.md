@@ -570,7 +570,7 @@ T-176's `verify_store` fails on a stale or doubled store (it would have failed o
 
 **Blocked on**: nothing; T-146 and T-175 are open.
 
-## Work item 15 — Adopt upstream's `v_*` contract changes (replies of 2026-10-05 and 2026-10-06)
+## Work item 15 — Adopt upstream's `v_*` contract changes (replies of 2026-10-05, 2026-10-06 and 2026-10-09)
 
 **Why**: the `portfolio-financial-analysis` maintainers answered the gaps §2.6 lists as "raised
 upstream" (D8–D14), checking their `master` at `0a528be` and their production and pilot databases.
@@ -696,7 +696,7 @@ second reply checked out. One assumption of ours needs correcting, and it change
   requirement (optional, not forbidden, so neither the FUNDAMENTAL individuals already in
   `instances.trig` nor the closed design-history rules that compare on `ScoreFinanciero`'s
   `normalizedScore` stop conforming) doesn't leave the snapshot free to carry neither value. Its
-  bounds are a new open question (Q6, below; asked on 2026-10-07, still open).
+  bounds are a new open question (Q6, below; asked on 2026-10-07; answered 2026-10-09: [0, 100], T-177).
 - **The five questions, answered** (folding into `SPEC.md` §2.6's D6/D13/D16, T-170): **Q1**, a
   no-component asset has no dedicated marker — it is always `vetoed = 1` with `"UNSCORED"` in
   `veto_rules_json` (D4), detected exactly as planned, by its missing component rows. **Q2**,
@@ -742,7 +742,8 @@ the read rule and did not answer Q6:
   first.
 - **Cycle rows with a NULL `available_at`:** skipping and counting them until their T-144 is the
   right behaviour on our side.
-- **Q6 (the range of `raw_value`) is still open.** Q7 was not asked yet.
+- **Q6 (the range of `raw_value`) was still open here; answered in the fifth reply (2026-10-09): [0, 100], bounded by T-177.** Q7 was not asked yet.
+- **Fifth reply (2026-10-09, `SPEC.md` §2.6):** upstream accepted the contract endpoint (their T-152, T-173 here), landed their T-144 (`schema_version` 10, T-157 here) and answered Q6 (T-177); their statement about production's version is disputed and unconfirmed.
 
 **Approach**:
 
@@ -806,7 +807,7 @@ the read rule and did not answer Q6:
    - FUNDAMENTAL `ScoreSnapshot`'s `normalizedScore` is dropped (optional, not forbidden) rather
      than kept as a mutable-in-place exception to the immutable-observation principle (T-171); its
      `rawValue` is carried instead (mandatory, `minCount 1`, so dropping one required field doesn't
-     leave the snapshot free to carry neither), pending Q6's bound.
+     leave the snapshot free to carry neither); bounded to `[0, 100]` by T-177 (Q6 answered).
    - Forensic flags: one `:forensicFlag` per key set to `true`, from the four documented keys, and
      a `:forensicFlagsEvaluated` boolean so "evaluated, none fired" differs from "not evaluated"
      (T-153).

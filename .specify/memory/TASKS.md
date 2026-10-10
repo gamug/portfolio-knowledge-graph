@@ -239,9 +239,14 @@ independent of each other once T-131 lands.*
       (willing or not, the route paths, the commit) in `SPEC.md` §2.6. **When it ships:** let
       `cli/check_view_contract.py` take a URL as well as a checkout, compare the declared contract
       with our pin and, if offered, the database's state with it, **and make the version a thing
-      we verify, not one we are told (the 2026-10-10 "production at 8" mistake): fail when the
-      declared `contract_version` differs from the pin's, or when the database's `schema_version`
-      is below `schema_version_floor` or differs from the one the pin was built against**, and verify or generate
+      we verify, not one we are told (the 2026-10-10 "production at 8" mistake). Two different
+      comparisons, because the two numbers mean different things: fail when the declared
+      `contract_version` (the code's highest migration) is not equal to the one recorded in the pin
+      (`contract_version` in `_source.json`, written by T-157's re-pin; 10 at `6bf4d7e`), and fail when the
+      database's `schema_version` is below `schema_version_floor`. A database above the floor passes
+      on its number; whether its views drifted is decided by comparing column lists, never by the
+      number (additive within a version). A database below the declared `contract_version` is
+      reported as lagging its code, not failed**, and verify or generate
       `view_contract.py` from the answer (with T-157); keep the offline pin and the checkout check
       as the fallback. Tests are hermetic: a fake response, no running service. Not a blocker for
       anything: T-135 covers the gap until then. → Approach 4.
@@ -339,8 +344,10 @@ independent of each other once T-131 lands.*
       `[0, 100]` (`minInclusive`/`maxInclusive` on the branch that pairs it with a mandatory `rawValue`,
       the way T-140/T-155 bounded SECTOR's). Update the `tbox.ttl` comment, `schema/README.md`,
       `docs/06-ontology-definition.md`'s shape row, the `score_snapshots.py` docstring that says it
-      waits for Q6, regenerate `protege-view.ttl` and the triple counts the docs assert, and add
-      synthetic cases (in range, below 0, above 100). Reload the store after merge (T-174's loader,
+      waits for Q6, and the quad count `SPEC.md` states in four places (the §1 summary, FR-001's
+      acceptance criterion, the architecture diagram and the validation step) and
+      `schema/README.md`'s running count. Leave `schema/protege-view.ttl` to its regeneration
+      (Work item 8, T-070), as T-155 did: it is generated in Protégé. Add synthetic cases (in range, below 0, above 100). Reload the store after merge (T-174's loader,
       then `verify_store`). A schema change, so its own PR on a `feat/` branch. → `PLAN.md` Work item 15.
 
 
@@ -366,7 +373,7 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       corrections (D6 SECTOR range, D13 `blended_score` and `scheme_id`, D2 `available_at` on cycle
       lanes, D12 `metric_id`/`unit`, D11/D12 `is_current` as at most one), the forensic-flag
       format, `+00:00` timestamps, id reuse on all four run tables and `sec_filings` (D7),
-      production at `schema_version` 8 (D16), cohort-relative `normalized_score`, their weights
+      production's `schema_version` (unconfirmed, `SPEC.md` §2.6 fifth reply), cohort-relative `normalized_score`, their weights
       change (D13: 1/3 each for new runs, SEMANTIC out of the blend), and the upstream task each ask
       maps to (their T-144, T-145, T-074 and T-141, their Work item 2, and after their T-100).
       → `PLAN.md` Work item 15, step 1.
@@ -404,8 +411,8 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       empty (0 of 5,076 production rows, 0 of 449 pilot rows), so the key is always available.
       It is *not* unique in production: 30 accession numbers are shared by 60 legacy rows from
       before upstream's T-091 (a 10-Q's quarters stored as separate rows under one accession,
-      repaired by their T-120) — harmless here, since production (reported at `schema_version` 8, unconfirmed:
-      `SPEC.md` §2.6 fifth reply) is excluded by T-157's floor if it is below it. It is unique in the pilot and will be in their T-100 rebuild; no
+      repaired by their T-120) — harmless here, since production's `schema_version` (unconfirmed, `SPEC.md` §2.6 fifth reply)
+      is not a precondition of this task. It is unique in the pilot and will be in their T-100 rebuild; no
       constraint enforces it today, but their T-145 adds a uniqueness check to their pilot
       verifier. → step 3.
 - [ ] **T-152** Model `v_fundamental_metric`: one immutable observation per (filing, metric, engine
@@ -501,9 +508,11 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       `Portfolio` (already enforced by `PortfolioShape`); stop expecting `equal_weight`/
       `cap_weight`. `is_current` marks at most one book per `(as_of, kind)`, the newest `opt-v*`;
       `engine_version` stays opaque (`opt-v1+9d34ff69`). → step 3.
-- [ ] **T-157** *(their T-144 landed 2026-10-09 at `6bf4d7e`, `schema_version` 10: re-pin against a database migrated with it; the floor stays 9 until then; upstream's "production stays at 8" is disputed and unconfirmed, `SPEC.md` §2.6 fifth reply)* When upstream ships: re-pin `src/projection/view_contract.py` (new view, new
+- [ ] **T-157** *(their T-144 landed 2026-10-09 at `6bf4d7e`, `schema_version` 10: re-pin against a database migrated with it; the floor stays 9 until then; production's version is unconfirmed, `SPEC.md` §2.6 fifth reply)* When upstream ships: re-pin `src/projection/view_contract.py` (new view, new
       columns, the commit in its docstring and in `SPEC.md` §2.6), raise the `schema_version` floor
       (D16; the value is `schema_version_floor` in `src/projection/view_expectations/_source.json`),
+      and record the upstream `contract_version` the pin was built against beside it in the same file
+      (T-173's guard compares against it),
       and run `cli/check_view_contract.py` against that commit, or the T-135 test
       (`PFA_CHECKOUT=<checkout> uv run pytest -s -m integration tests/test_contract_check_checkout.py`);
       without CI nothing forces either. Repeat for
@@ -515,7 +524,7 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       Project only from a database that meets the floor and holds no REPLAY run (no `cycle_run`
       row with `cycle_type = 'REPLAY'`; a backfill's REPLAY scores and vetoes land in the shared
       tables, D8). This task sets the rule; the check is one of T-162's expectations, run by T-163
-      at the start of each projection. Production (reported at 8, unconfirmed) fails the floor if it is below it; the pilot (at 9) and
+      at the start of each projection. Production's version is unconfirmed (`SPEC.md` §2.6): whichever it is, it passes only if it meets the floor; the pilot (at 9) and
       their T-100 rebuild qualify if the check passes.
       → step 4.
 - [ ] **T-158** Replace the `ASSET_DAY_AGGREGATE` placeholder with upstream's SEMANTIC
