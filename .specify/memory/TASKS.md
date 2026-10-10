@@ -358,7 +358,8 @@ independent of each other once T-131 lands.*
       until T-157 writes it (T-173's guard skips with a notice while it is absent), a positive integer when
       present, and refuse a pin whose `schema_version_floor` is above its `contract_version`. Tests in
       `tests/test_expectations.py`: the key present, absent, of the wrong type, and the floor above it; the
-      existing "unknown key" case keeps another name (constitution Code & Git #9). → `PLAN.md` Work item 15.
+      existing "unknown key" case keeps another name (constitution Code & Git #9). Code, so its own PR on a `feat/`
+      branch. → `PLAN.md` Work item 15.
 
 
 *Upstream's reply to the gaps in `SPEC.md` §2.6 (checked against their `0a528be`), their second
@@ -558,7 +559,7 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       (accession numbers) into D16's; and their T-144/T-145 scope additions (keep `component_value`
       and `configured_weight`; a Q2 test; `docs/kg_schema.md`; an accession-number uniqueness
       check). → `PLAN.md` Work item 15, step 1.
-- [x] **T-171** *(D17, raised by the third reply; done in PR #56: the `sh:or` change, comments, docs, `score_scale.py` and its tests; FUNDAMENTAL `rawValue`'s bounds stay open as Q6, asked on 2026-10-07 and not yet answered)* Decide how `ScoreSnapshot` keeps its
+- [x] **T-171** *(D17, raised by the third reply; done in PR #56: the `sh:or` change, comments, docs, `score_scale.py` and its tests; FUNDAMENTAL `rawValue`'s bounds stay open as Q6, asked on 2026-10-07, answered 2026-10-09: [0, 100], T-177)* Decide how `ScoreSnapshot` keeps its
       immutable-observation principle (constitution; `docs/06` conventions) now that upstream
       rewrites a FUNDAMENTAL row's `normalized_score` in place on every cycle that re-normalizes
       its filing against that cycle's cohort (measured: 33/40 production, 1/60 pilot, 2,267/2,799
