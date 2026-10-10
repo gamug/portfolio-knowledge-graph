@@ -350,8 +350,8 @@ independent of each other once T-131 lands.*
       T-174 left in `docs/graphdb-setup.md`), then run `cli/verify_store.py` and record the result in
       `docs/graphdb-setup.md`. Until the reload `verify_store` failed its "schema graphs have their expected
       size" check, by design, and so did the `integration` test
-      `test_verify_store_passes_on_the_configured_store` (T-175); both pass since (2549 triples, 6 tests
-      passed). → `PLAN.md` Work item 14, step 8.
+      `test_verify_store_passes_on_the_configured_store` (T-175); both pass since the reload (figures in
+      `docs/graphdb-setup.md`). → `PLAN.md` Work item 14, step 8.
 ## Work item 15 — Adopt upstream's `v_*` contract changes (replies of 2026-10-05, 2026-10-06 x2)
 - [x] **T-177** *(from upstream's answer to Q6, 2026-10-09; done 2026-10-10 in PR #82: the shape, 2549 quads, nine synthetic cases in `tests/test_schema_gate.py` and a check that `kg_target_schema.ttl` carries the same `rawValue` bounds as `shapes.ttl` (FUNDAMENTAL, SECTOR, Sentiment); `schema/protege-view.ttl` is left to Work item 8 (T-070); the store reload is T-179; the text below is the original task, edited where the work differed)* Bound FUNDAMENTAL's `rawValue` in `ScoreSnapshotShape` to
       `[0, 100]` (`minInclusive`/`maxInclusive` on the branch that pairs it with a mandatory `rawValue`,

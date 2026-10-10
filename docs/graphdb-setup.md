@@ -195,18 +195,21 @@ not retried; it should answer false. The store now matches `schema/`. This is a 
 T-177 (PR #82) put two triples in `urn:graph:tbox` (1567 to 1569; 2547 to 2549 over the 19 graphs), so the
 store was two behind `schema/`. Written after the maintainer's go-ahead, by a Claude Code session they asked to run it.
 
+Before step 1, two attempts failed: `HTTP 401` (`/rest/login` answered "Bad credentials", for the application and
+the admin account alike), then `HTTP 403` once the login was accepted (`portfolio.app` held no role on
+`portfolio`; the admin account read the repository and its 2547 triples). The next attempt succeeded. The server's
+user list was not inspected, so no cause is claimed; nothing in the repository changed.
+
 1. `uv run python cli/verify_store.py` before (`/size` read 2547): four checks passed; "schema graphs have their expected size"
    failed with `urn:graph:tbox: expected 1569, store has 1567`, as expected.
-2. `uv run python cli/load_schema.py`: exit 0, `verified: 19 graphs, 2549 asserted triples match the local parse`.
+2. `uv run python cli/load_schema.py`: exit 0, `verified: 19 graphs, 2549 asserted triples match the local parse`,
+   and no "other graph" line (the leftover T-174 dropped is not back).
 3. `uv run python cli/verify_store.py` after: exit 0, all five checks pass, the probe's "store size unchanged"
    reads 2549.
 4. `uv run pytest -m integration tests/test_store_cli_exit_codes.py`: 6 passed, including
-   `test_verify_store_passes_on_the_configured_store`.
-
-The first attempts failed before the reload: `HTTP 401` (`/rest/login` answered "Bad credentials", for the
-application and the admin account alike), then `HTTP 403` once the login was accepted (`portfolio.app` held no
-role on `portfolio`; the admin account read the repository and its 2547 triples). The next attempt succeeded
-and the cause was not observed from the repository's side; nothing in the repository changed.
+   `test_verify_store_passes_on_the_configured_store`. Run with `KG_ADMIN_USER`/`KG_ADMIN_PASSWORD` set: without
+   them the scratch-repository tests skip instead of passing. Afterwards the server listed only `portfolio`, so no
+   `kgtest-…` repository was left behind.
 
 ## Connecting
 
