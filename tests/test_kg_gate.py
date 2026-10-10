@@ -149,41 +149,38 @@ def test_a_typed_subject_is_not_an_untyped_write(schema: gate.GateSchema) -> Non
 # --- validate ---------------------------------------------------------------------------------
 
 
-#: Worked-example graphs that cannot be a batch on their own: they point at individuals the
-#: batch does not declare (an Asset or Portfolio typed in another graph, or a Veto closed by
-#: ``:clearedOn``), which ``validate`` refuses. ``strict`` xfail: it fails loudly once fixed.
-_NOT_SELF_CONTAINED = {
-    "urn:graph:derived:entity-resolution:2026-08-05": "sh:class :Asset on an Asset typed elsewhere",
-    "urn:graph:derived:quant:2026-08-05": "sh:class on an Asset/Portfolio typed elsewhere",
-    "urn:graph:ingest:ORCHESTRATOR:2026-08-05": ":clearedOn on a Veto typed elsewhere",
-}
-_SHACL_GAPS = [n for n in _NOT_SELF_CONTAINED if "ORCHESTRATOR" not in n]
+def _context_for(name: str) -> rdflib.Graph:
+    """What the rest of the worked example says about the individuals graph ``name`` points at,
+    as the store would hold it once the other graphs are loaded (T-146)."""
+    graphs = _instance_graphs()
+    schema = gate.load_gate_schema(SCHEMA.resolve())
+    refs = gate.references(graphs[name], schema)
+    # The Assets are typed in reference.ttl; the other graphs hold the Portfolios.
+    others = {k: g for k, g in graphs.items() if k != name}
+    others["urn:graph:reference"] = rdflib.Graph().parse(SCHEMA / "reference.ttl", format="turtle")
+    context = rdflib.Graph()
+    for graph in others.values():
+        for ref in refs:
+            for p, o in graph.predicate_objects(ref):
+                context.add((ref, p, o))
+    return context
 
 
-def _batch_params() -> list[object]:
-    return [
-        pytest.param(
-            name,
-            marks=pytest.mark.xfail(
-                strict=True, raises=gate.IngestRejected, reason=_NOT_SELF_CONTAINED[name]
-            ),
-        )
-        if name in _NOT_SELF_CONTAINED
-        else name
-        for name in sorted(_instance_graphs())
-        if "portfolio:current" not in name
-    ]
-
-
-@pytest.mark.parametrize("name", _batch_params())
+@pytest.mark.parametrize(
+    "name", [n for n in sorted(_instance_graphs()) if "portfolio:current" not in n]
+)
 def test_a_conforming_batch_passes(name: str) -> None:
-    """Each worked-example graph, taken alone as a batch, clears every check."""
-    gate.validate(_instance_graphs()[name])
+    """Each worked-example graph, taken as a batch beside what the store holds about the
+    individuals it points at, clears every check."""
+    gate.validate(_instance_graphs()[name], context=_context_for(name))
 
 
-@pytest.mark.parametrize("name", _SHACL_GAPS)
-def test_the_standalone_gap_is_only_a_class_check_on_a_reference(name: str) -> None:
-    """The two SHACL xfails fail for the documented reason and no other (T-146)."""
+@pytest.mark.parametrize(
+    "name",
+    ["urn:graph:derived:entity-resolution:2026-08-05", "urn:graph:derived:quant:2026-08-05"],
+)
+def test_a_reference_the_store_does_not_hold_fails_the_class_check(name: str) -> None:
+    """Without the referenced Assets and Portfolios the batch fails for that reason only."""
     with pytest.raises(gate.ShaclRejected) as info:
         gate.validate(_instance_graphs()[name])
     components = {
@@ -192,11 +189,68 @@ def test_the_standalone_gap_is_only_a_class_check_on_a_reference(name: str) -> N
     assert components == {rdflib.namespace.SH.ClassConstraintComponent}
 
 
-def test_the_orchestrator_gap_is_the_untyped_subject_rule_on_cleared_on() -> None:
-    graph = _instance_graphs()["urn:graph:ingest:ORCHESTRATOR:2026-08-05"]
-    message = _reject(graph)
-    assert "no rdf:type" in message
-    assert ":clearedOn" in message
+def test_the_stored_portfolio_kind_is_what_the_quant_rule_reads() -> None:
+    """A book metric about the stored LIVE portfolio is refused; about a BENCHMARK one it passes."""
+    name = "urn:graph:derived:quant:2026-08-05"
+    batch = rdflib.Graph()
+    batch += _instance_graphs()[name]
+    live_obs = KG.BObs_LiveActive_20260805
+    batch.set((live_obs, KG.quantMetric, rdflib.Literal("sharpe")))
+    context = _context_for(name)
+    with pytest.raises(gate.ShaclRejected):
+        gate.validate(batch, context=context)
+    context.set((KG.MainPortfolio_2026, KG.portfolioKind, rdflib.Literal("BENCHMARK")))
+    gate.validate(batch, context=context)
+
+
+def test_references_are_the_untyped_objects_of_relations(schema: gate.GateSchema) -> None:
+    batch = gate.parse_batch(
+        PREFIXES + b":c a :AssetCoOccurrence ; :coOccurrenceAsset :A, :B . :A a :Asset ."
+    )
+    assert gate.references(batch, schema) == {KG.B}
+
+
+def test_fetch_context_types_the_stored_values(make_db: MakeDB, schema: gate.GateSchema) -> None:
+    type_iri = str(rdflib.RDF.type)
+    fake = make_db(
+        rows=[
+            {"s": str(KG.P), "p": type_iri, "o": str(KG.Portfolio)},
+            {"s": str(KG.P), "p": str(KG.portfolioKind), "o": "BENCHMARK"},
+            {"s": str(KG.P), "p": "https://x.test/odd", "o": "free"},
+            {"s": str(KG.P)},  # a row without a statement is skipped
+        ]
+    )
+    context = gate.fetch_context(fake.db, {KG.P}, schema)
+    assert (KG.P, rdflib.RDF.type, KG.Portfolio) in context
+    assert (
+        KG.P,
+        KG.portfolioKind,
+        rdflib.Literal("BENCHMARK", datatype=rdflib.XSD.string),
+    ) in context
+    assert (KG.P, rdflib.URIRef("https://x.test/odd"), rdflib.Literal("free")) in context
+    assert "http://www.ontotext.com/explicit" in fake.queries[0]
+
+
+def test_fetch_context_refuses_an_iri_that_could_inject_sparql(
+    make_db: MakeDB, schema: gate.GateSchema
+) -> None:
+    with pytest.raises(gate.IngestRejected, match="illegal in an IRI"):
+        gate.fetch_context(make_db().db, {rdflib.URIRef("https://x.test/a b")}, schema)
+
+
+@pytest.mark.parametrize("prop", ["validTo", "clearedOn"])
+def test_a_closing_date_is_allowed_on_an_untyped_subject(
+    prop: str, schema: gate.GateSchema
+) -> None:
+    batch = gate.parse_batch(
+        PREFIXES + f':x :{prop} "2026-01-31"^^<http://www.w3.org/2001/XMLSchema#date> .'.encode()
+    )
+    assert gate.untyped_writes(batch, schema) == []
+
+
+def test_a_cleared_on_that_is_not_a_date_is_flagged(schema: gate.GateSchema) -> None:
+    batch = gate.parse_batch(PREFIXES + b':x :clearedOn "2026-01-31" .')
+    assert "must be an xsd:date literal" in gate.untyped_writes(batch, schema)[0]
 
 
 def test_a_per_run_weight_scheme_is_accepted_into_an_orchestrator_graph(make_db: MakeDB) -> None:
@@ -237,6 +291,31 @@ def test_validate_rejects_a_shape_violation_with_the_results_graph() -> None:
 # --- existing_subjects and ingest -------------------------------------------------------------
 
 GOOD = PREFIXES + b':a a :Asset ; :tickerSymbol "AAA" ; :cikNumber "0000000001" .'
+
+
+def test_ingest_checks_a_batch_against_what_the_store_holds_about_its_references(
+    make_db: MakeDB,
+) -> None:
+    """T-146: the co-occurrence batch names Assets typed elsewhere; the store's answer lets it in."""
+    name = "urn:graph:derived:entity-resolution:2026-08-05"
+    batch = _instance_graphs()[name].serialize(format="turtle").encode()
+    rows = [
+        {"s": str(s), "p": str(p), "o": str(o)} for s, p, o in _context_for(name)
+    ]  # what GraphDB returns: lexical values only
+    fake = make_db()
+
+    def select(sparql: str) -> list[dict[str, str]]:
+        fake.queries.append(sparql)
+        return rows if "?s ?p ?o FROM" in sparql else []
+
+    fake.select = select  # type: ignore[method-assign]
+    assert gate.ingest(fake.db, batch, name) > 0
+    assert fake.added[0][2] == name
+
+    empty = make_db()  # the store holds neither Asset: the class check refuses the batch
+    with pytest.raises(gate.ShaclRejected):
+        gate.ingest(empty.db, batch, name)
+    assert empty.added == []
 
 
 def test_existing_subjects_reports_what_the_store_has(make_db: MakeDB) -> None:
