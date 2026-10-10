@@ -345,7 +345,7 @@ independent of each other once T-131 lands.*
       so the fake-store tests carry the proof, and the live store must pass.
       → `PLAN.md` Work item 14, step 6.
 ## Work item 15 — Adopt upstream's `v_*` contract changes (replies of 2026-10-05, 2026-10-06 x2)
-- [ ] **T-177** *(from upstream's answer to Q6, 2026-10-09)* Bound FUNDAMENTAL's `rawValue` in `ScoreSnapshotShape` to
+- [x] **T-177** *(from upstream's answer to Q6, 2026-10-09; done 2026-10-10 in the shape, 2549 quads, five synthetic cases in `tests/test_schema_gate.py`; the live store still holds the old shape until `cli/load_schema.py` reloads it, which needs the maintainer's go-ahead, and `verify_store` fails on the `urn:graph:tbox` size until then; the text below is the original)* Bound FUNDAMENTAL's `rawValue` in `ScoreSnapshotShape` to
       `[0, 100]` (`minInclusive`/`maxInclusive` on the branch that pairs it with a mandatory `rawValue`,
       the way T-140/T-155 bounded SECTOR's). Update the `tbox.ttl` comment, `schema/README.md`,
       `docs/06-ontology-definition.md`'s shape row, the `score_snapshots.py` docstring that says it

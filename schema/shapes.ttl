@@ -55,10 +55,11 @@
     sh:or ( [ sh:not [ sh:path :metricType ; sh:hasValue "SectorRelativeMomentum" ] ]
             [ sh:path :rawValue ; sh:datatype xsd:decimal ; sh:minCount 1 ; sh:minInclusive -100.0 ; sh:maxInclusive 100.0 ] ) ;
     # T-171 (D17): dropping normalizedScore's requirement for ScoreFinanciero must not leave it free to carry
-    # neither value, so rawValue becomes its mandatory replacement, same pairing as the two sh:or above. No
-    # bounds yet (unlike those two): Q6, FUNDAMENTAL's rawValue range, is still open with upstream.
+    # neither value, so rawValue becomes its mandatory replacement, same pairing as the two sh:or above.
+    # T-177: bounded to [0,100], upstream's answer to Q6 (2026-10-09): it is the assessment's score, which their
+    # model bounds with ge=0 and le=100 (the rule-based fallback clamps to the same range).
     sh:or ( [ sh:not [ sh:path :metricType ; sh:hasValue "ScoreFinanciero" ] ]
-            [ sh:path :rawValue ; sh:datatype xsd:decimal ; sh:minCount 1 ] ) ;
+            [ sh:path :rawValue ; sh:datatype xsd:decimal ; sh:minCount 1 ; sh:minInclusive 0.0 ; sh:maxInclusive 100.0 ] ) ;
     # T-140: each agent writes exactly one metric (SPEC D6; upstream score_type = agentOrigin).
     sh:xone ( [ sh:property [ sh:path :agentOrigin ; sh:hasValue "FUNDAMENTAL" ] , [ sh:path :metricType ; sh:hasValue "ScoreFinanciero" ] ]
               [ sh:property [ sh:path :agentOrigin ; sh:hasValue "VALORIZATION" ] , [ sh:path :metricType ; sh:hasValue "ScoreCuantitativo" ] ]

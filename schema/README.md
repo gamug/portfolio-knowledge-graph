@@ -111,9 +111,9 @@ what the store *enforces*.
    actually lost: it is correctly scoped to one `cycle_run` as `:componentValue` on
    `AttractivenessSnapshot`'s effective-weight `WeightComponent` (T-155, PROPOSED), which upstream's
    correction to the same reply already adds. Unlike `SectorRelativeMomentum`/`Sentiment`,
-   FUNDAMENTAL's `rawValue` is not yet given a bound here — upstream confirms it is stable at the
-   source but has not stated its range (open question Q6); the shape requires it present but stays
-   silent on bounding it for `ScoreFinanciero` until that answer lands. Four synthetic FUNDAMENTAL
+   FUNDAMENTAL's `rawValue` was first left unbounded — upstream confirmed it is stable at the
+   source but had not stated its range (open question Q6); the shape required it present and
+   stayed silent on bounding it for `ScoreFinanciero` until T-177 (below). Four synthetic FUNDAMENTAL
    snapshots agree (neither value and `normalizedScore` only fail; `rawValue` only and both pass),
    and the projector stops writing the value too: `src/projection/score_scale.py` rejects the
    FUNDAMENTAL lane, pinned by `tests/test_score_scale.py`, since the shape alone can't (it keeps
@@ -166,6 +166,14 @@ what the store *enforces*.
    inside the run), which lowers the risk but does not prove uniqueness, until upstream's T-145 and T-100
    have landed; the full rule is in `SPEC.md` D7. Comment only (the same text `kg_target_schema.ttl`
    proposes); the checks themselves are code and land with T-031/T-163. **2473 quads; conforms: True.**
+   **T-177, FUNDAMENTAL's `rawValue` range (Work item 15, 2026-10-10).** Upstream answered Q6 (fifth
+   reply): `raw_value` is the assessment's `score`, bounded `[0, 100]` by their model, and the
+   rule-based fallback clamps to the same range. The `ScoreFinanciero` branch of `ScoreSnapshotShape`
+   that requires a `rawValue` now also has `sh:minInclusive 0.0` and `sh:maxInclusive 100.0`. No new
+   class or property; `AllDisjointClasses` is unchanged; the worked example conforms unchanged.
+   Five synthetic cases in `tests/test_schema_gate.py` (0, 100, a mid value pass; below 0 and above
+   100 fail). Reload the store with `cli/load_schema.py` (the `urn:graph:tbox` graph grows by 2) and
+   run `cli/verify_store.py`. **2549 quads; conforms: True.**
 3. **Two more named-graph placements (a third added by T-108).** `07-ontology-topology.md` assigned graphs to every
    *agent's* daily output but not to the Orchestrator's own decisions or to entity resolution's
    derived facts. Resolved: `urn:graph:ingest:ORCHESTRATOR:{date}` and

@@ -236,3 +236,33 @@ def test_a_weight_component_may_omit_inverted(bundle: rdflib.Dataset, shapes: rd
     assert _violations(g, shapes) == set()
     g.add((KG.WC_Run, KG.inverted, rdflib.Literal("yes")))
     assert _violations(g, shapes) == {(KG.WC_Run, KG.inverted)}
+
+
+# --- FUNDAMENTAL's rawValue range (T-177) -------------------------------------------------------
+
+
+def _fundamental(bundle: rdflib.Dataset, raw: str) -> rdflib.Graph:
+    """The worked example plus one FUNDAMENTAL snapshot with ``raw`` as its ``rawValue``."""
+    g = _flat(bundle)
+    snap = KG.Snap_Fundamental_T177
+    g.add((snap, rdflib.RDF.type, KG.ScoreSnapshot))
+    g.add((snap, KG.agentOrigin, rdflib.Literal("FUNDAMENTAL")))
+    g.add((snap, KG.metricType, rdflib.Literal("ScoreFinanciero")))
+    g.add((snap, KG.timestamp, rdflib.Literal("2026-10-09T06:00:00", datatype=rdflib.XSD.dateTime)))
+    g.add((snap, KG.availableAt, _date("2026-10-09")))
+    g.add((snap, KG.rawValue, rdflib.Literal(raw, datatype=_DEC)))
+    return g
+
+
+@pytest.mark.parametrize("raw", ["0.0", "57.3", "100.0"])
+def test_a_fundamental_raw_value_in_0_to_100_conforms(
+    bundle: rdflib.Dataset, shapes: rdflib.Graph, raw: str
+) -> None:
+    assert _violations(_fundamental(bundle, raw), shapes) == set()
+
+
+@pytest.mark.parametrize("raw", ["-0.1", "100.1"])
+def test_a_fundamental_raw_value_outside_0_to_100_is_rejected(
+    bundle: rdflib.Dataset, shapes: rdflib.Graph, raw: str
+) -> None:
+    assert _violations(_fundamental(bundle, raw), shapes) == {(KG.Snap_Fundamental_T177, None)}
