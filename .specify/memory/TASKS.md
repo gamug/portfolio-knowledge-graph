@@ -364,11 +364,11 @@ independent of each other once T-131 lands.*
       below 0, above 100; done: also a wrong type, a bound broken beside a `normalizedScore`, a second
       value). The store reload is T-179. A schema change, so its own PR on a `feat/` branch.
       → `PLAN.md` Work item 15.
-- [x] **T-178** *(found in PR #81's review; independent of upstream, can land before T-157; done 2026-10-10)* Teach the pin's
-      loader a `contract_version` key: add it to `_SOURCE_KEYS` in `src/projection/expectations.py`, optional
-      until T-157 writes it (T-173's guard skips with a notice while it is absent), a positive integer when
-      present, and refuse a pin whose `schema_version_floor` is above its `contract_version`. Tests in
-      `tests/test_expectations.py`: the key present, absent, of the wrong type, and the floor above it; the
+- [x] **T-178** *(found in PR #81's review; independent of upstream; done 2026-10-10 in PR #85; the text below is the original task)* Teach the pin's
+      loader a `contract_version` key: it was added to `_SOURCE_KEYS` in `src/projection/expectations.py`, optional
+      until T-157 writes it (T-173's guard skips with a notice while it is absent; `null` is refused), a positive integer when
+      present, and a pin whose `schema_version_floor` is above its `contract_version` is refused. Tests in
+      `tests/test_expectations.py`: the key present, absent, null, of the wrong type, and the floor above it; the
       existing "unknown key" case keeps another name (constitution Code & Git #9). Code, so its own PR on a `feat/`
       branch. → `PLAN.md` Work item 15.
 

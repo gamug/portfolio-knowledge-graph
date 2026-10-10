@@ -4,7 +4,7 @@
 reads them (``PLAN.md`` Work item 16, decided in ``SPEC.md`` §13 item 10): types, NULL rates,
 ranges, formats, natural keys, row count, the D2 ordered pair, group means and the view's
 quarantine cap. ``view_expectations/_source.json`` holds the one aggregate check on the database
-itself. This module only parses and validates those files, strictly, so a typo fails at load and
+(the ``schema_version`` floor, the forbidden run types) and the pin's optional ``contract_version`` (T-178). This module only parses and validates those files, strictly, so a typo fails at load and
 not on the first real run. :mod:`projection.boundary` runs them over the rows (T-163).
 
 Column names are checked against :data:`projection.view_contract.VIEW_COLUMNS`, so the column list
@@ -400,7 +400,7 @@ def load_source(directory: Path = EXPECTATIONS_DIR) -> SourceExpectation:
         chk.bad("forbidden_cycle_types", "must be a non-empty list of cycle types")
         forbidden = []
     contract = data.get("contract_version")
-    if contract is not None:
+    if "contract_version" in data:  # absent is allowed until T-157; null is not
         if not _is_int(contract) or contract < 1:
             chk.bad("contract_version", "must be a positive integer")
             contract = None
