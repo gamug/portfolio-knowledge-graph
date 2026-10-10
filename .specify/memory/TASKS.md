@@ -33,7 +33,7 @@ are closed (see `CHANGELOG.md`).*
 - [ ] **T-031** *(first slice done in PR #72; its status is the sub-list after this entry)* Design and implement the SHACL-validated-on-write path into
       fresh `urn:graph:ingest:{agent}:{date}` graphs. Also: trim `view_contract.py` to the
       columns read; decide the `:rawValue` range for FUNDAMENTAL (T-171 drops its
-      `normalizedScore` instead; the range needs Q6, asked on 2026-10-07 and still open) and for
+      `normalizedScore` instead; the range is [0, 100], Q6 answered 2026-10-09; the bound is T-177) and for
       VALORIZATION/TECHNICAL, and map
       upstream SEMANTIC into the `[-1, 1]` `rawValue` `ScoreSnapshotShape` requires of it (T-081;
       `SPEC.md` §2.6). SECTOR's `raw_value` is read verbatim into the [-100, 100] bound T-155 sets,
@@ -230,7 +230,7 @@ independent of each other once T-131 lands.*
       checked and any columns upstream added, to note in the re-pin. T-157 says it runs
       before every re-pin, and that without CI nothing forces it (constitution Code & Git #1).
       Revisit a check in the projector only if drift is seen in practice. → Approach 4.
-- [ ] **T-173** *(waits on upstream's answer)* Track the request to `portfolio-financial-analysis` for a
+- [ ] **T-173** *(upstream answered 2026-10-09, recorded in `SPEC.md` §2.6 (fifth reply): yes, their T-152 after their T-144 (landed), routes `GET /api/v1/contract` and `GET /api/v1/contract/database`; open: their commit, then our side of "When it ships")* Track the request to `portfolio-financial-analysis` for a
       read-only contract endpoint in its FastAPI, the channel between our services: the `v_*` view
       names and columns generated from `kg_schema.views.VIEWS`, a contract version that rises
       with their marker migrations, and optionally what the connected database holds
@@ -332,6 +332,14 @@ independent of each other once T-131 lands.*
       so the fake-store tests carry the proof, and the live store must pass.
       → `PLAN.md` Work item 14, step 6.
 ## Work item 15 — Adopt upstream's `v_*` contract changes (replies of 2026-10-05, 2026-10-06 x2)
+- [ ] **T-177** *(from upstream's answer to Q6, 2026-10-09)* Bound FUNDAMENTAL's `rawValue` in `ScoreSnapshotShape` to
+      `[0, 100]` (`minInclusive`/`maxInclusive` on the branch that pairs it with a mandatory `rawValue`,
+      the way T-140/T-155 bounded SECTOR's). Update the `tbox.ttl` comment, `schema/README.md`,
+      `docs/06-ontology-definition.md`'s shape row, the `score_snapshots.py` docstring that says it
+      waits for Q6, regenerate `protege-view.ttl` and the triple counts the docs assert, and add
+      synthetic cases (in range, below 0, above 100). Reload the store after merge (T-174's loader,
+      then `verify_store`). A schema change, so its own PR on a `feat/` branch. → `PLAN.md` Work item 15.
+
 
 *Upstream's reply to the gaps in `SPEC.md` §2.6 (checked against their `0a528be`), their second
 reply (`597832a`), which accepts our asks as their T-144 and T-145 and corrects six assumptions,
@@ -490,7 +498,7 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       `Portfolio` (already enforced by `PortfolioShape`); stop expecting `equal_weight`/
       `cap_weight`. `is_current` marks at most one book per `(as_of, kind)`, the newest `opt-v*`;
       `engine_version` stays opaque (`opt-v1+9d34ff69`). → step 3.
-- [ ] **T-157** When upstream ships: re-pin `src/projection/view_contract.py` (new view, new
+- [ ] **T-157** *(their T-144 landed 2026-10-09 at `6bf4d7e`, `schema_version` 10: re-pin against a database migrated with it, not production, which stays at 8; whether to read production, and so the floor, is for the maintainer: `SPEC.md` §2.6 fifth reply)* When upstream ships: re-pin `src/projection/view_contract.py` (new view, new
       columns, the commit in its docstring and in `SPEC.md` §2.6), raise the `schema_version` floor
       (D16; the value is `schema_version_floor` in `src/projection/view_expectations/_source.json`),
       and run `cli/check_view_contract.py` against that commit, or the T-135 test
@@ -547,7 +555,7 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       (`minCount 1`, no bounds yet) the same way the shape already pairs `SectorRelativeMomentum`'s
       and `Sentiment`'s exemptions with a mandatory `rawValue` — otherwise a FUNDAMENTAL snapshot
       could conform while carrying neither value (PR #56 review). Its bounds are unknown, so ask
-      upstream (new question, Q6, asked on 2026-10-07, still open) before adding a
+      upstream (new question, Q6, asked on 2026-10-07; answered 2026-10-09: [0, 100], now T-177) before adding a
       `minInclusive`/`maxInclusive` pair, matching how SECTOR's `rawValue` range wasn't bounded
       until confirmed (T-140/T-155). Update `:normalizedScore`'s and `:rawValue`'s `tbox.ttl`
       comments and `schema/README.md` (flagged as a design gap found against real data, per
@@ -637,7 +645,7 @@ Closed Work items 1, 2, 3, 5, 7 (superseded/decided by T-007), 9, 10 and 11 are 
 Work items 4 and 6 (T-030–T-035, T-050–T-053)
 follow in dependency order (Work items 3 and 11 are closed, so Work item 4 is unblocked).
 Work item 12 (T-120–T-121): T-120 closed by T-150; T-121 done (PR #65).
-Work item 13 (T-130–T-136): constitution rules in place (1.5.0); T-130–T-136 done (T-135 as an `integration` test, `PFA_CHECKOUT`). T-173 waits on upstream's reply.
+Work item 13 (T-130–T-136): constitution rules in place (1.5.0); T-130–T-136 done (T-135 as an `integration` test, `PFA_CHECKOUT`). T-173: upstream said yes (their T-152, after their T-144 which landed); waits on their commit.
 Work item 14 (T-140–T-142 and T-146): T-140, T-141 and T-142 done; T-174 (store schema, found by T-141) done; T-176 (the two `verify_store` checks) done; T-175 (CLI exit-code tests) done; T-146 found by T-136's tests.
 Work item 15 (T-150–T-159, T-170–T-171): T-150, T-170 and T-171 (PR #56) done; T-155's schema half done (PR #58); T-153's comment half (PR #59);
 T-151's rule recorded (PR #60), its checks waiting on T-031/T-163; T-158's
