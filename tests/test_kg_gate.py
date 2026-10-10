@@ -231,6 +231,32 @@ def test_fetch_context_types_the_stored_values(make_db: MakeDB, schema: gate.Gat
     assert "http://www.ontotext.com/explicit" in fake.queries[0]
 
 
+def test_fetch_context_also_reads_the_memberships_of_a_referenced_asset(
+    make_db: MakeDB, schema: gate.GateSchema
+) -> None:
+    """An Asset without a CIK conforms only if its memberships are closed (``validTo``), so
+    the query follows ``hasUniverseMembership`` one step (a reviewer's catch on PR #86)."""
+    fake = make_db()
+    gate.fetch_context(fake.db, {KG.GONE}, schema)
+    assert "hasUniverseMembership" in fake.queries[0]
+    assert "VALUES ?r {" in fake.queries[0]
+
+    batch = gate.parse_batch(
+        PREFIXES + b":c a :AssetCoOccurrence ; :coOccurrenceAsset :GONE, :OTHER ;"
+        b' :coOccurrenceKind "SHARED_EXECUTIVE_CANDIDATE" ; :coOccurrenceMethod "m" ;'
+        b' :coOccurrenceWeight 1.0 . :OTHER a :Asset ; :tickerSymbol "O" ; :cikNumber "1" .'
+    )
+    stored = gate.parse_batch(
+        PREFIXES + b':GONE a :Asset ; :tickerSymbol "G" ; :hasUniverseMembership :UM .'
+        b' :UM a :UniverseMembership ; :validTo "2026-01-31"^^<http://www.w3.org/2001/XMLSchema#date> .'
+    )
+    context = rdflib.Graph()
+    for t in stored:
+        if t[0] != KG.UM or t[1] != rdflib.RDF.type:  # the stored memberships' type is not needed
+            context.add(t)
+    gate.validate(batch, context=context)
+
+
 def test_fetch_context_refuses_an_iri_that_could_inject_sparql(
     make_db: MakeDB, schema: gate.GateSchema
 ) -> None:
@@ -306,7 +332,10 @@ def test_ingest_checks_a_batch_against_what_the_store_holds_about_its_references
 
     def select(sparql: str) -> list[dict[str, str]]:
         fake.queries.append(sparql)
-        return rows if "?s ?p ?o FROM" in sparql else []
+        if "SELECT ?s ?p ?o" not in sparql:
+            return []
+        assert "VALUES ?r {" in sparql  # bounded to the referenced IRIs, never the whole store
+        return rows
 
     fake.select = select  # type: ignore[method-assign]
     assert gate.ingest(fake.db, batch, name) > 0

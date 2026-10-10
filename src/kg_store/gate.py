@@ -249,9 +249,13 @@ def fetch_context(db: GraphDB, refs: set[rdflib.URIRef], schema: GateSchema) -> 
     context = rdflib.Graph()
     for i in range(0, len(iris), 200):
         values = " ".join(f"<{iri}>" for iri in iris[i : i + 200])
+        # The Asset shape reads its memberships' ``validTo`` (an Asset without a CIK must have only
+        # closed ones), so the memberships' own statements come too.
         rows = db.select(
             "SELECT ?s ?p ?o FROM <http://www.ontotext.com/explicit> "  # noqa: S608 - IRIs checked above
-            f"WHERE {{ VALUES ?s {{ {values} }} ?s ?p ?o }}"
+            f"WHERE {{ VALUES ?r {{ {values} }} "
+            "{ ?r ?p ?o . BIND(?r AS ?s) } UNION "
+            f"{{ ?r <{_PORTFOLIO.hasUniverseMembership}> ?s . ?s ?p ?o }} }}"
         )
         for row in rows:
             if {"s", "p", "o"} <= row.keys():
@@ -279,7 +283,8 @@ def validate(
     if stray:
         raise IngestRejected(
             "triples about a subject with no rdf:type in the batch (only relations between "
-            "individuals and an xsd:date :validTo are allowed there): " + ", ".join(stray)
+            "individuals and an xsd:date :validTo or :clearedOn are allowed there): "
+            + ", ".join(stray)
         )
     data = batch
     if context is not None and len(context):
