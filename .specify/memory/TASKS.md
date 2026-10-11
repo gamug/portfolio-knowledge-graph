@@ -367,7 +367,7 @@ independent of each other once T-131 lands.*
       row, so no existing caller changes), use it in `fetch_context`, and add a test with a stored literal
       of the wrong datatype. Code, so its own PR on a `feat/` branch. → `PLAN.md` Work item 14, step 9.
 - [x] **T-185** *(found in PR #90's review; the gate)* Check a Veto's `:clearedOn` against its `:lastSeenOn`:
-      **Done 2026-10-11 in PR #94**, after the maintainer chose to check at three places (his decision of 2026-10-11, `PLAN.md` Work item 14, step 10): the gate
+      **Done 2026-10-11 in PR #94**, after the maintainer chose to check at three places (`PLAN.md` Work item 14, step 10): the gate
       refuses a `clearedOn` earlier than the latest `lastSeenOn` of a stored Veto (`gate.CLOSABLE` carries a
       `last_seen` property); `VetoShape` refuses the same in a batch that declares a Veto with both dates
       (`sh:lessThanOrEquals :clearedOn` on `lastSeenOn`, 2550 quads, the twin in `kg_target_schema.ttl` too); T-192
@@ -393,7 +393,8 @@ independent of each other once T-131 lands.*
       check. → `PLAN.md` Work item 14, step 9.
 - [ ] **T-193** *(from T-185; the maintainer, not code)* Reload the live store from `schema/` after PR #94 merges:
       `shapes.ttl` loads into `urn:graph:tbox`, which grows by 1 triple (2549 to 2550 over the 19 graphs), so
-      `verify_store`'s "schema graphs have their expected size" check fails until then. With the maintainer's
+      `verify_store`'s "schema graphs have their expected size" check fails until then, with
+      `urn:graph:tbox: expected 1570, store has 1569` (the expected failure; any other line is a different problem). With the maintainer's
       go-ahead: `uv run python cli/verify_store.py` (that check fails as expected), `uv run python cli/load_schema.py`
       (exit 0, `2550 asserted triples match the local parse`), `uv run python cli/verify_store.py` (exit 0), and a dated
       row in `docs/graphdb-setup.md`, as T-179 did. The agent's sandbox cannot reach the store.
@@ -724,8 +725,8 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       of their T-145 and T-100 -> T-151, T-154, T-158.
       **No reply:** if there is none by a date the maintainer sets, the unanswered asks are listed in `SPEC.md`
       §2.6 as open, T-187 and T-188 stay deferred (Work item 15's Acceptance allows deferral) and this task is
-      closed with them listed. -> `PLAN.md` Work item 15.
-      **Not in the letter, for the next message to them (from T-185):** does upstream set `last_seen_on` on the
+      closed with them listed; ask (6) below is listed open like the others. -> `PLAN.md` Work item 15.
+      **Ask (6), not in the letter, for the next message to them (from T-185):** does upstream set `last_seen_on` on the
       clearing cycle, and can `cleared_on` be earlier than a recorded `last_seen_on`? The answer settles whether the
       same-day tolerance in the gate and `VetoShape` (`<=`) stays or becomes `<`.
       - [ ] (1) filing date or `available_at`
@@ -733,6 +734,7 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       - [ ] (3) notes match the file's version
       - [ ] (4) rule definitions: (a) thresholds, (b) `penalty_points`, (c) the redefinition's date, (d) who clears an expired stint, (e) `expires_on` on SOFT
       - [ ] (5) T-145 and T-100 dates
+      - [ ] (6) not in the letter: `last_seen_on` on the clearing cycle, and `cleared_on` against `last_seen_on` (T-185)
 
 - [ ] **T-187** *(from T-183 (1); waits on upstream's definitions, so on T-157 or T-191, the answer to the T-184 letter)* Add the
       three rules and the redefinition to `schema/rules.ttl`. `BREAK_TREND_200`, `VOLATILITY_SHOCK` and
