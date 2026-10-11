@@ -772,9 +772,15 @@ def _declared_veto(cleared: str, seen: str) -> bytes:
 def test_a_veto_declared_with_a_sighting_after_its_clearing_is_refused(make_db: MakeDB) -> None:
     """The shape, not the closing check, catches it: the batch declares the Veto itself."""
     fake = make_db()
-    with pytest.raises(gate.IngestRejected, match=r"(?s)LessThanOrEquals.*lastSeenOn") as refused:
+    with pytest.raises(gate.ShaclRejected) as refused:
         gate.ingest(fake.db, _declared_veto("2026-03-31", "2026-04-07"), GRAPH_ORCH)
-    assert "2026-04-07" in str(refused.value)  # the offending sighting is named
+    results = refused.value.results  # counted, not matched on pyshacl's wording (T-142)
+    sh = rdflib.SH
+    assert list(results.objects(None, sh.resultPath)) == [KG.lastSeenOn]
+    assert list(results.objects(None, sh.sourceConstraintComponent)) == [
+        sh.LessThanOrEqualsConstraintComponent
+    ]
+    assert len(list(results.subjects(rdflib.RDF.type, sh.ValidationResult))) == 1
     assert fake.added == []
 
 

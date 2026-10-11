@@ -367,21 +367,22 @@ independent of each other once T-131 lands.*
       row, so no existing caller changes), use it in `fetch_context`, and add a test with a stored literal
       of the wrong datatype. Code, so its own PR on a `feat/` branch. → `PLAN.md` Work item 14, step 9.
 - [x] **T-185** *(found in PR #90's review; the gate)* Check a Veto's `:clearedOn` against its `:lastSeenOn`:
-      **Done 2026-10-11 in PR #94**, after the maintainer chose to check at three places (decision D10): the gate
+      **Done 2026-10-11 in PR #94**, after the maintainer chose to check at three places (his decision of 2026-10-11, `PLAN.md` Work item 14, step 10): the gate
       refuses a `clearedOn` earlier than the latest `lastSeenOn` of a stored Veto (`gate.CLOSABLE` carries a
       `last_seen` property); `VetoShape` refuses the same in a batch that declares a Veto with both dates
       (`sh:lessThanOrEquals :clearedOn` on `lastSeenOn`, 2550 quads, the twin in `kg_target_schema.ttl` too); T-192
       adds the read-boundary check. The same day passes, an assumption about upstream's `last_seen_on` on the
       clearing cycle (unverified). **Limit:** the gate cannot append a `lastSeenOn` to a stored Veto today
       (T-194), so the closing check compares with the sightings declared with the Veto; it is complete for
-      stints loaded whole, which backtests use. The store reload is T-193. Tests in `tests/test_kg_gate.py` and
+      stints loaded whole, which backtests use. **Open follow-ups:** T-192 (the read-boundary check), T-193 (the
+      store reload, the maintainer's) and T-194 (append a `lastSeenOn`). Tests in `tests/test_kg_gate.py` and
       `tests/test_schema_gate.py`. The text below is the original task.
       `lastSeenOn` is multi-valued (one per cycle, current = MAX) and no shape relates it to `clearedOn`, so
       a Veto can be cleared on a date earlier than a cycle that still saw it raised. T-180's closing check
       already reads the Veto's stored state; read `lastSeenOn` there (or add `sh:lessThanOrEquals` to the
       shape, which changes the quad count SPEC states) and refuse a `clearedOn` earlier than its maximum.
       Decide with the maintainer whether a clearing run may predate a later sighting from another run.
-      Code, so its own PR on a `feat/` branch. → `PLAN.md` Work item 14, step 9.
+      Code, so its own PR on a `feat/` branch. → `PLAN.md` Work item 14, step 10.
 - [ ] **T-186** *(found in PR #91's review; the maintainer, not code)* Run `uv run python cli/verify_store.py`
       against the live repository, which T-181 made six checks (the sixth runs the worked example's quant batch
       beside the stored Portfolios and Assets, so it needs `instances.trig` and `reference.ttl` loaded), and record
@@ -395,7 +396,7 @@ independent of each other once T-131 lands.*
       go-ahead: `uv run python cli/verify_store.py` (that check fails as expected), `uv run python cli/load_schema.py`
       (exit 0, `2550 asserted triples match the local parse`), `uv run python cli/verify_store.py` (exit 0), and a dated
       row in `docs/graphdb-setup.md`, as T-179 did. The agent's sandbox cannot reach the store.
-      → `PLAN.md` Work item 14, step 9.
+      → `PLAN.md` Work item 14, step 10.
 - [ ] **T-194** *(from PR #94's third review; the gate)* Let a later cycle append a `lastSeenOn` to a stored Veto.
       `docs/07` says a stint is appended to by later cycles (`lastSeenOn`, `clearedOn`) and `lastSeenOn` is
       multi-valued for that, but `gate.untyped_writes` allows only relations and `validTo`/`clearedOn` on a
@@ -403,7 +404,7 @@ independent of each other once T-131 lands.*
       like a closing (`gate.CLOSABLE`-style): the subject is a stored Veto, not cleared, the date not before
       `raisedOn` and not before its latest stored `lastSeenOn`. Tests with a fake store (the closing tests'
       pattern). T-031's vetoes lane needs it for live cycles; stints loaded whole for backtests do not.
-      Code, so its own PR on a `feat/` branch. → `PLAN.md` Work item 14, step 9.
+      Code, so its own PR on a `feat/` branch. → `PLAN.md` Work item 14, step 10.
 ## Work item 15 — Adopt upstream's `v_*` contract changes (replies of 2026-10-05, 2026-10-06 x2)
 - [x] **T-177** *(from upstream's answer to Q6, 2026-10-09; done 2026-10-10 in PR #82: the shape, 2549 quads, nine synthetic cases in `tests/test_schema_gate.py` and a check that `kg_target_schema.ttl` carries the same `rawValue` bounds as `shapes.ttl` (FUNDAMENTAL, SECTOR, Sentiment); `schema/protege-view.ttl` is left to Work item 8 (T-070); the store reload is T-179; the text below is the original task, edited where the work differed)* Bound FUNDAMENTAL's `rawValue` in `ScoreSnapshotShape` to
       `[0, 100]` (`minInclusive`/`maxInclusive` on the branch that pairs it with a mandatory `rawValue`,
@@ -752,7 +753,7 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       temporary HARD rules, and NULL maps to no triple. Settle with upstream whether an expired stint is cleared
       by them (`cleared_on`) or only by this predicate, and write the answer in `tbox.ttl`'s comment and in
       `SPEC.md` §2.6. When it lands, the live store is reloaded from `schema/` (the maintainer's go-ahead; the check in T-176 compares each graph's size with `schema/`) and a dated row goes in `docs/graphdb-setup.md`, as T-179 did. The active-at-cutoff SPARQL (D3) gains the `expiresOn` test only if upstream says the date
-      closes a stint by itself. Synthetic cases (before `raisedOn` fails; absent passes). Follow T-185's decision (D10, PR #94), which put the same check in `VetoShape` (for a Veto declared with the date) and in the gate (for a stored Veto closed later). `expiresOn` is set when the Veto is declared, not by a later triple, so the shape is the one that applies; the gate only if upstream says the date closes a stint by itself. A `feat/` PR.
+      closes a stint by itself. Synthetic cases (before `raisedOn` fails; absent passes). Follow T-185's decision (the maintainer's, 2026-10-11, PR #94), which put the same check in `VetoShape` (for a Veto declared with the date) and in the gate (for a stored Veto closed later). `expiresOn` is set when the Veto is declared, not by a later triple, so the shape is the one that applies; the gate only if upstream says the date closes a stint by itself. A `feat/` PR.
       -> `PLAN.md` Work item 15.
 - [ ] **T-189** *(from T-183 (4))* Read the SOFT penalty as the sum of the active SOFT stints' rules'
       `penalty_points` (T-155's note already says so, from T-183); the projector derives no pre-penalty score.
@@ -835,7 +836,7 @@ See `PLAN.md` Work item 16.*
 - [ ] **T-165** Verify and document: `SPEC.md` §13 item 10 (today the pin and the drift check) gains
       what is checked at the boundary and what is not, including that polarity is not detectable;
       `uv run pytest` passes; the FR-001 gate is unchanged. → `PLAN.md` acceptance criteria.
-- [ ] **T-192** *(from T-185, decision D10; adds one row check to the expectations T-162 wrote, so it is no acceptance condition of Work item 16, which T-165 verifies for the views read so far)* Add the same rule at the read boundary: an expectation on
+- [ ] **T-192** *(from T-185, the maintainer's decision of 2026-10-11; adds one row check to the expectations T-162 wrote, so it is no acceptance condition of Work item 16, which T-165 verifies for the views read so far)* Add the same rule at the read boundary: an expectation on
       `v_veto` that `cleared_on` is not earlier than `last_seen_on`, in T-162's per-view files, run by T-163's
       function. A failing row is quarantined and reported, not a stop of the run, so one odd stint does not block a
       backtest over a long history. Waits on the vetoes lane of T-031, which reads `v_veto`. Code and a test with

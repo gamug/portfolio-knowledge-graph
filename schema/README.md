@@ -177,10 +177,6 @@ what the store *enforces*.
    Reloading the store (`cli/load_schema.py`, then `cli/verify_store.py`; the `urn:graph:tbox` graph grows by 2)
    was T-179, done 2026-10-10: the store holds 2549 triples and `verify_store` passes (`docs/graphdb-setup.md`).
    **2549 quads (2547 before this change, plus the two bounds); conforms: True.**
-   T-185 then added one triple to `shapes.ttl` (`sh:lessThanOrEquals :clearedOn` on `VetoShape`'s `lastSeenOn`: no
-   sighting is later than the clearing; the same day passes), **2550 quads; conforms: True.** The store's
-   `urn:graph:tbox` graph (which holds `shapes.ttl` too) grows by 1 and is reloaded by the maintainer (`cli/load_schema.py`, then
-   `cli/verify_store.py`, as T-179 did).
 3. **Two more named-graph placements (a third added by T-108).** `07-ontology-topology.md` assigned graphs to every
    *agent's* daily output but not to the Orchestrator's own decisions or to entity resolution's
    derived facts. Resolved: `urn:graph:ingest:ORCHESTRATOR:{date}` and
@@ -263,12 +259,19 @@ block and the 14 node shapes are unchanged.
 **T-102 (veto stints), same day:** `:Veto` gains `raisedOn` (required), `clearedOn`, `lastSeenOn`
 (`xsd:date` cycle dates) and `vetoSeverity` (HARD | SOFT, per stint; absent = the `primaryRule`'s
 `ruleSeverity`), enforced by a new `VetoShape` (node shapes 14 → 15) that also rejects a
-`clearedOn`/`lastSeenOn` earlier than `raisedOn`, and (T-185) a `lastSeenOn` later than `clearedOn`: a cycle that clears a stint did not see it raised, and the same day passes. `lastSeenOn` is deliberately multi-valued
+`clearedOn`/`lastSeenOn` earlier than `raisedOn` (T-185, in the next paragraph, adds a `lastSeenOn` later than `clearedOn`).
+`lastSeenOn` is deliberately multi-valued
 because the ORCHESTRATOR graphs are append-only: each cycle adds its own value, current = `MAX`.
 A stint is closed by writing `clearedOn` in the clearing cycle's graph, never by deleting the
 `Veto`; the worked example closes `Veto_XOM_20260804` on 2026-08-05 and gives
 `Veto_XOM_MKT_20260805` a SOFT `vetoSeverity`. Upstream's wall-clock `cleared_at` is dropped.
 **1771 quads; conforms: True.**
+
+**T-185 (a Veto's sightings against its clearing, 2026-10-11).** `VetoShape`'s `lastSeenOn` gains
+`sh:lessThanOrEquals :clearedOn`: a cycle that clears a stint did not see it raised, so no sighting is later
+than the clearing (the same day passes). One triple in `shapes.ttl`; no class or property; **2550 quads;
+conforms: True.** The `urn:graph:tbox` graph (which holds `shapes.ttl`) grows by 1 in the store; the reload is
+the maintainer's, T-193, as T-179 was.
 
 **T-104 (D5, decided 2026-10-03: model it).** `:DataQualityIssue` is an `EvidenceSource` leaf — one row of upstream's `data_quality_issue` (`dqGateCode`, `dqSeverity`, `quarantined`, `gatedValue`, `dqIssueOfAsset`) — so a HARD gate that raises the `DATA_QUALITY` veto has an evidence target: a `RiskEvent` is `backedBy` it. Written to the FUNDAMENTAL ingest graph (the Ring-1 gates run in the fundamental agent). `DataQualityIssueShape` is the 16th shape; `dqSeverity` is not enumerated because only HARD is documented upstream. The 25th class joins `AllDisjointClasses`. Review follow-up: the issue also carries `dqRaisedOn` (required, the as-of key), optional `dqIssueOfFiling`/`dqMetricName`/`provenanceId`, and the worked example is a HARD issue on JNJ (graph `FUNDAMENTAL:2026-Q4`) backing `Veto_JNJ_DQ_20261005` through a `RiskEvent` in `ORCHESTRATOR:2026-10-05` — dated after `Rule_DATA_QUALITY`'s `validFrom` (2026-10-02) so `:appliesRule` resolves to a rule valid on the veto's date; the gate code and values are illustrative. `instances.trig` now has 14 `GRAPH` blocks. The cutoff checks above (08-03…08-05) are unchanged; at 2026-10-05 the query also returns `Veto_JNJ_DQ_20261005` (plus the earlier stints, whose `lastSeenOn` the worked data does not advance). `protege-view.ttl` has no generator in this repo and is stale (it predates T-102–T-104); regenerate it before relying on it in Protégé. **1881 quads; conforms: True.**
 

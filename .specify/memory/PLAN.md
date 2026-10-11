@@ -569,6 +569,15 @@ new acceptance probe; and `acceptance.check_gate` counts violations by matching 
    the store holds 2549 triples and `verify_store` passes (`docs/graphdb-setup.md`).
 9. Two limits of the gate found in PR #86's review: a closing triple is not checked against the store (T-180), and
    `select` dropped a literal's datatype, so the context took the declared one (T-181, done: `GraphDB.select_terms` keeps it).
+10. A Veto's `clearedOn` against its `lastSeenOn` (T-185, found in PR #90's review; the maintainer's decision of
+   2026-10-11, PR #94). Cycles are at least 15 days apart and a cycle that clears a stint did not see it raised, so a
+   sighting later than the clearing is a contradiction and a closed stint is never edited. It is checked at three
+   places: the gate, when a stored Veto is cleared (done, T-185); `VetoShape`, when a batch declares a Veto with both
+   dates, which is how backtests load past stints (done, T-185); and the read boundary, quarantining the `v_veto`
+   row (T-192, Work item 16, after T-031's vetoes lane). The same day passes, an assumption about upstream's
+   `last_seen_on` on the clearing cycle that stays unverified. The gate cannot yet append a later cycle's `lastSeenOn`
+   to a stored Veto (T-194, needed by live cycles). The store reload after the `shapes.ttl` change is the maintainer's
+   (T-193), as T-179 was.
 
 **Acceptance**: FR-001 parse + `pyshacl` pass with the new count; the store acceptance probe still
 yields exactly one violation (`:timestamp`); T-141's run is recorded in `docs/graphdb-setup.md` (done); T-142's
