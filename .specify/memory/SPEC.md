@@ -409,7 +409,7 @@ one assumption of the second reply.
 - **Open question (Q6, asked on 2026-10-07, not answered in that reply; answered in the fifth reply: [0, 100]):** the bounds of FUNDAMENTAL's
   `rawValue`, needed before `ScoreSnapshotShape` can bound it the way SECTOR's was bounded once
   confirmed (T-140/T-155).
-- **Open question (Q7, raised by T-031, PR #72; answered in the sixth reply):** which
+- **Question Q7 (raised by T-031, PR #72; its details went with our follow-up of 2026-10-10, answered in the sixth reply):** which
   `v_analysis_run` fields define a run that read every filing usable in a quarter. T-031 counts a
   run as full when its `status` is `completed` and its `params_json` has `tickers` and `limit`
   null, both forms, `since_year` at most the year before the quarter and `until_year` at least
@@ -487,7 +487,7 @@ theirs, copied from their message and not read from the commit, merged 2026-10-0
 - **Q6 answered: FUNDAMENTAL's `raw_value` is in [0, 100].** It is the assessment's `score`
   (`Field(ge=0.0, le=100.0)`); the rule-based fallback clamps to the same range. `normalized_score`
   is a separate field (50 + 10z over the cohort, clamped to [0, 100]). The shape bound is T-177.
-- **Q7 still open:** they wait for the details we said would come with our next follow-up (answered in the sixth reply).
+- **Q7 was not yet asked here:** they waited for the details we said would come with our next follow-up; answered in the sixth reply.
 
 **Sixth upstream reply (2026-10-10, T-173/T-157), answering our follow-up of 2026-10-10.** The facts are
 theirs, copied from their message; the endpoint's answers were also read from a running instance of
@@ -500,7 +500,7 @@ feature commits `8c2e62e` and `95ba2f3`).
   (T-107), 2026-09-26; it lacks `m009` (the veto stints), so its `v_veto` still has `cycle_date` and
   lacks `raised_on`, `cleared_on`, `last_seen_on`. The pilot (`financial_pilot.db`, SHA-256
   `01170d97…`) is at **9** (`m001`–`m009`, built with their `8da3868`). So the maintainer was right
-  about the pinned commit and the pilot, and they were right about production: it is at 8, and they
+  about the pinned commit and the pilot (9); upstream was right about production (8), and they
   will not migrate it (frozen until their T-100 builds a fresh database). **The floor stays 9 (D16):**
   everything they send us (pilot, version-10 copy, final pilot T-143, the T-100 database) is at 9 or
   above, and a reader enforcing the floor refusing production is correct. If we ever need to read
@@ -577,9 +577,9 @@ feature commits `8c2e62e` and `95ba2f3`).
 - **Not yet decided here:** whether `schema/rules.ttl` takes the three new rules and the redefinition
   (the catalog is upstream's, T-103); a `Veto` `expiresOn` property and its shape; whether
   `PriceObservation` takes the five price columns; how T-155 reads the penalty identity; the
-  `is_current` filter in the quant projection; the relaxed weight-component shape. Each becomes a
-  task when decided. T-173 can start (the routes exist), and must read `contract_version` from the
-  endpoint, not from the figure in its text.
+  `is_current` filter in the quant projection; the relaxed weight-component shape. They are listed in
+  `TASKS.md` (T-183) until decided, and Q7's answer is T-182. T-173 reads the routes and takes
+  `contract_version` from the endpoint, not from a figure in its text.
 
 **Read contract and score scale (T-030, 2026-10-05).** `src/projection/view_contract.py`
 pins a full snapshot of the columns of 30 of upstream's 31 `v_*` views (taken from
