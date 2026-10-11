@@ -25,7 +25,11 @@ A batch is Turtle destined for one named graph. It is written only if
    fails the class check; and
 6. no typed individual in it already exists in the store (any graph, explicit statements):
    a batch only introduces new individuals, so an immutable observation cannot be
-   re-declared with a second value.
+   re-declared with a second value; and
+7. every closing triple (point 4) closes a stored individual of a class that is closed by that
+   property (``CLOSABLE``: ``validTo``: a membership, position, rule or design-history weight
+   scheme; ``clearedOn``: a Veto) which is not closed yet, on a date after it opened, and closes
+   it once (T-180). Read, then written, not atomic: see the limit below.
 
 Anything else raises :class:`IngestRejected` with the reason and nothing reaches the
 store. What is written is the validated triples (as N-Triples), not the submitted text.
@@ -36,8 +40,9 @@ Validation uses ``tbox.ttl``/``shapes.ttl`` from ``schema/`` on disk, the versio
 source, read once per process. ``cli/load_schema.py`` is what brings the store's copy
 in line; reload after a schema edit.
 
-Limit: this is a code path, not a server-side lock. A client holding the GraphDB
-write credentials can still write around it; run ingestion through this module.
+Limit: this is a code path, not a server-side lock: two batches closing the same record, or
+declaring the same individual, can both pass checks 6 and 7 before either is written. A client
+holding the GraphDB write credentials can still write around it; run ingestion through this module.
 """
 
 from __future__ import annotations
@@ -45,10 +50,11 @@ from __future__ import annotations
 import datetime
 import functools
 import re
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import cast
+from types import MappingProxyType
+from typing import NamedTuple, cast
 
 import pyshacl
 import rdflib
@@ -124,6 +130,17 @@ def check_target(graph: str) -> bool:
     )
 
 
+def _calendar_date(text: str) -> datetime.date | None:
+    """The date of a strict ``YYYY-MM-DD`` text, else None (``fromisoformat`` alone also takes
+    ``20260101`` and ``2026-W01-1``, which are no ``xsd:date``)."""
+    if not re.fullmatch(_DATE, text):
+        return None
+    try:
+        return datetime.date.fromisoformat(text)
+    except ValueError:
+        return None
+
+
 def _date_ok(text: str) -> bool:
     """True for a quarter label or a real calendar date."""
     if "Q" in text:
@@ -194,11 +211,134 @@ def untyped_writes(batch: rdflib.Graph, schema: GateSchema) -> list[str]:
                     f"{s.n3(nm)} {p.n3(nm)} {o.n3(nm)} (a relation needs an individual, not a literal)"
                 )
         elif p in CLOSING_PROPERTIES:
-            if not (isinstance(o, rdflib.Literal) and o.datatype == XSD.date and _date_ok(str(o))):
+            if not isinstance(s, rdflib.URIRef):
+                problems.append(
+                    f"{s.n3(nm)} {p.n3(nm)} (a closure needs the IRI of a stored record)"
+                )
+            elif not (
+                isinstance(o, rdflib.Literal) and o.datatype == XSD.date and _calendar_date(str(o))
+            ):
                 problems.append(f"{s.n3(nm)} {p.n3(nm)} {o.n3(nm)} (must be an xsd:date literal)")
         else:
             problems.append(f"{s.n3(nm)} {p.n3(nm)}")
     return sorted(problems)
+
+
+def closing_values(batch: rdflib.Graph) -> dict[tuple[rdflib.term.Node, rdflib.URIRef], list[str]]:
+    """The closing triples about subjects with no ``rdf:type`` in the batch: (subject, property) ->
+    the dates written."""
+    typed = set(batch.subjects(RDF.type, None))
+    closing: dict[tuple[rdflib.term.Node, rdflib.URIRef], list[str]] = {}
+    for s, p, o in batch:
+        if s not in typed and isinstance(s, rdflib.URIRef) and p in CLOSING_PROPERTIES:
+            closing.setdefault((s, cast(rdflib.URIRef, p)), []).append(str(o))
+    return closing
+
+
+#: Per closing property: the classes whose records it closes and the property holding the date the
+#: record opened (the closing date must be later: the shapes' ``sh:lessThan``, which the stored
+#: record is never validated against here). Explicit, not read from the shapes: a class is closable
+#: because its design says so (``07``), and ``PortfolioPositionShape`` does not mention ``validTo``.
+class Closable(NamedTuple):
+    """What a closing property closes: the classes, and the property holding the date they opened."""
+
+    classes: frozenset[rdflib.URIRef]
+    opened: rdflib.URIRef
+
+
+CLOSABLE: Mapping[rdflib.URIRef, Closable] = MappingProxyType(
+    {
+        _PORTFOLIO.validTo: Closable(
+            frozenset(
+                {
+                    _PORTFOLIO.UniverseMembership,
+                    _PORTFOLIO.PortfolioPosition,
+                    _PORTFOLIO.RuleDefinition,
+                    _PORTFOLIO.AttractivenessWeightScheme,
+                }
+            ),
+            _PORTFOLIO.validFrom,
+        ),
+        _PORTFOLIO.clearedOn: Closable(frozenset({_PORTFOLIO.Veto}), _PORTFOLIO.raisedOn),
+    }
+)
+#: A per-run weight scheme (it has a ``cycleDate``) is an observation, never closed (``tbox.ttl``).
+_PER_RUN_MARKER = _PORTFOLIO.cycleDate
+
+
+#: subject IRI -> {property: lexical values the store holds}, as :func:`fetch_closing_state` reads it.
+ClosingState = dict[str, dict[rdflib.URIRef, set[str]]]
+
+
+def fetch_closing_state(db: GraphDB, subjects: set[rdflib.term.Node]) -> ClosingState:
+    """What the store holds (explicit statements, any graph) about ``subjects`` that decides whether
+    they can be closed: subject -> {property: lexical values} for ``rdf:type``, the closing
+    properties, the opening dates and ``cycleDate``."""
+    iris = sorted(str(s) for s in subjects)
+    _refuse_illegal_iris(iris)
+    read = {
+        rdflib.URIRef(RDF.type),
+        _PER_RUN_MARKER,
+        *CLOSING_PROPERTIES,
+        *(c.opened for c in CLOSABLE.values()),
+    }
+    state: ClosingState = {}
+    for i in range(0, len(iris), 200):
+        values = " ".join(f"<{iri}>" for iri in iris[i : i + 200])
+        rows = db.select(
+            "SELECT ?s ?p ?o FROM <http://www.ontotext.com/explicit> "  # noqa: S608 - IRIs checked above
+            f"WHERE {{ VALUES ?s {{ {values} }} VALUES ?p {{ {_iri_list(read)} }} ?s ?p ?o }}"
+        )
+        for row in rows:
+            p = rdflib.URIRef(row.get("p", ""))
+            if {"s", "o"} <= row.keys() and p in read:
+                state.setdefault(row["s"], {}).setdefault(p, set()).add(row["o"])
+    return state
+
+
+def _date_order(closes_on: str, began: set[str], opened: rdflib.URIRef) -> str | None:
+    """Why a closing date is refused against the stored opening date(s), or None."""
+    if len(began) > 1:
+        name = opened.rpartition("#")[2]
+        return f"the store holds {len(began)} values for {name}, so not when it opened"
+    if not began:
+        return None
+    closes, opens = _calendar_date(closes_on), _calendar_date(next(iter(began)))
+    if opens is None or closes is None:
+        return f"{closes_on} cannot be compared with the stored {next(iter(began))}"
+    return f"{closes_on} is not after the date it opened on, {opens}" if closes <= opens else None
+
+
+def _refusal(p: rdflib.URIRef, dates: list[str], held: dict[rdflib.URIRef, set[str]]) -> str | None:
+    """Why the closing of one stored subject by ``p`` is refused, or None."""
+    classes, opened = CLOSABLE[p]
+    types = {rdflib.URIRef(t) for t in held.get(rdflib.URIRef(RDF.type), set())}
+    if len(dates) > 1:
+        return f"is given {len(dates)} dates in the batch"
+    if not types:
+        return "the store does not hold it"
+    if not types & classes or held.get(_PER_RUN_MARKER):
+        return f"it is not a record that {p.rpartition('#')[2]} closes"
+    if held.get(p):
+        was = sorted(held[p])[0]
+        retry = (
+            ": the same date, so perhaps this batch was already written" if was == dates[0] else ""
+        )
+        return f"it is already closed ({was}{retry})"
+    return _date_order(dates[0], held.get(opened, set()), opened)
+
+
+def refused_closures(batch: rdflib.Graph, state: ClosingState) -> list[str]:
+    """Closing triples that do not close a stored, still open record, on a date after it opened, or
+    that give one subject two dates."""
+    nm = batch.namespace_manager
+    problems: list[str] = []
+    for (s, p), dates in sorted(
+        closing_values(batch).items(), key=lambda kv: (str(kv[0][0]), str(kv[0][1]))
+    ):
+        if why := _refusal(p, dates, state.get(str(s), {})):
+            problems.append(f"{s.n3(nm)} {p.n3(nm)}: {why}")
+    return problems
 
 
 def with_superclass_types(batch: rdflib.Graph, schema: GateSchema) -> rdflib.Graph:
@@ -401,7 +541,11 @@ def existing_subjects(db: GraphDB, batch: rdflib.Graph) -> list[str]:
 
 
 def ingest(db: GraphDB, data: bytes, graph: str, directory: Path | None = None) -> int:
-    """Validate a Turtle batch and, only if it passes, append it to ``graph``. Returns triples written."""
+    """Validate a Turtle batch and, only if it passes, append it to ``graph``. Returns triples written.
+
+    The store is read for the individuals the batch points at, whether the graph exists (append-only
+    ones), the closing triples' subjects and the typed individuals it declares, in that order, each
+    only after the checks before it passed."""
     append_only = check_target(graph)
     batch = parse_batch(data)
     schema = load_gate_schema((directory or schema_dir()).resolve())
@@ -411,6 +555,14 @@ def ingest(db: GraphDB, data: bytes, graph: str, directory: Path | None = None) 
     validate(batch, directory, (lambda: fetch_context(db, refs, schema, batch)) if refs else None)
     if append_only and db.select(f"SELECT * WHERE {{ GRAPH <{graph}> {{ ?s ?p ?o }} }} LIMIT 1"):
         raise IngestRejected(f"{graph} already exists and is append-only; write a new dated graph")
+    closing = {s for s, _ in closing_values(batch)}
+    if closing:
+        stray = refused_closures(batch, fetch_closing_state(db, closing))
+        if stray:
+            raise IngestRejected(
+                "closing triples that do not close a stored, open record (T-180): "
+                + "; ".join(stray)
+            )
     taken = existing_subjects(db, batch)
     if taken:
         raise IngestRejected(
