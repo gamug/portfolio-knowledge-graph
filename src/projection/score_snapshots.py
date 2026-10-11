@@ -35,7 +35,8 @@ row's ``computed_at`` is not either: a run scoped to one ticker, one form or a f
 run whose ``as_of`` is earlier than its ``computed_at``, says nothing about the rest of the
 quarter. The assumption is that upstream's first full run after a quarter covers every filing
 usable in it. A filing it failed on (``failed_units``) or computes later still is lost, and
-listed. For a cycle lane the row waits for the next run day's graph.
+listed; a run that analyzed no filing at all (``completed_units`` 0) closes nothing. For a
+cycle lane the row waits for the next run day's graph.
 
 The run day is also the as-of day of a replay: a row is projected only once its ``available_at``
 is on or before it, so a replay over past days (into a store that is not production; the CLI
@@ -247,7 +248,7 @@ def snapshot_block(row: Row) -> Block:
 
 ANALYSIS_RUNS = "v_analysis_run"
 #: The columns of ``v_analysis_run`` that say what a run looked at.
-RUN_COLUMNS = ("run_id", "as_of", "status", "failed_units", "params_json")
+RUN_COLUMNS = ("run_id", "as_of", "status", "completed_units", "failed_units", "params_json")
 #: The forms a full run reads: every FUNDAMENTAL snapshot comes from one of them.
 FULL_FORMS = frozenset({"10-K", "10-Q"})
 #: The ``params_json`` keys whose value narrows a run; each must be present for a run to be full.
@@ -262,6 +263,9 @@ class AnalysisRun:
     as_of: str
     status: str
     params: dict[str, object]
+    #: Filings the run analyzed. A run that completed with none (every task failed) read nothing,
+    #: whatever its scope. None only for a run built by hand: a row's NULL is read as 0.
+    completed_units: int | None = None
 
     @classmethod
     def from_row(cls, row: Row) -> AnalysisRun:
@@ -272,21 +276,41 @@ class AnalysisRun:
             raise ProjectionError(f"{where}: params_json is not JSON") from None
         if not isinstance(params, dict):
             raise ProjectionError(f"{where}: params_json is not an object")
-        return cls(int(row["run_id"]), _day(row["as_of"], "as_of", where), row["status"], params)
+        # Upstream fills the counters during a run, so a completed row carries a number; a NULL
+        # is read as nothing analyzed (the quarter waits, and is reported as uncovered).
+        completed = row.get("completed_units")
+        return cls(
+            int(row["run_id"]),
+            _day(row["as_of"], "as_of", where),
+            row["status"],
+            params,
+            0 if completed is None else int(completed),
+        )
 
     def covers(self, year: int) -> bool:
-        """Whether this run read every filing, of every asset, that can be usable in ``year``.
+        """Whether this run read every filing, of every asset, that became usable in ``year``.
 
+        ``year`` is the year a filing became usable (its ``available_at``), and ``since_year`` and
+        ``until_year`` are filing years, the year of the filing date (upstream, Q7, sixth reply;
+        a NULL bound is open). The two are taken to be the same year: on the pilot database
+        ``available_at`` differs from ``filing_date`` by a few days in all 449 FUNDAMENTAL rows
+        and the years agree in all 449, but a filing filed in the last days of December and usable
+        in January would be tested against January's year (asked upstream, ``SPEC.md`` §2.6).
+        That a run never reads a filing filed after its ``as_of``, and that ``until_year`` is
+        capped at the ``as_of`` year, are upstream's; the ordering is enforced one level up, by
+        :func:`quarter_covered`, which asks for a run as of a later quarter than the filing's.
         Full scope: completed, every ticker (``tickers`` and ``limit`` null), both forms, and a
-        year range that reaches ``year`` (a NULL bound is open). The year bounds are read as
-        fiscal years, so a filing usable in ``year`` may belong to ``year - 1``: the range must
-        start by then. A missing scope key means the run is not known to be full. Upstream's
-        unit counts are not compared, since ``planned_units`` and ``completed_units`` do not
-        count the same thing; a run with ``failed_units`` still covers (its failures are lost).
-        Which fields define a full run is a question for upstream (``SPEC.md`` Q7).
+        year range that includes ``year``. A missing scope key means the run is not known to be
+        full. A run that completed with no filing analyzed (``completed_units`` 0) read nothing.
+        Upstream's unit counts are otherwise not compared, since ``planned_units`` and
+        ``completed_units`` do not count the same thing; a run with ``failed_units`` still covers
+        (its failures are lost). "Every ticker" means the members on the run's ``as_of``: a
+        company that left the index before it is not read.
         """
         p = self.params
         if self.status != "completed" or any(k not in p for k in _SCOPE_KEYS):
+            return False
+        if self.completed_units is not None and self.completed_units <= 0:
             return False
         forms = p["forms"]
         since, until = p["since_year"], p["until_year"]
@@ -295,7 +319,7 @@ class AnalysisRun:
             and p["limit"] is None
             and isinstance(forms, list)
             and set(forms) >= FULL_FORMS
-            and (since is None or (isinstance(since, int) and since <= year - 1))
+            and (since is None or (isinstance(since, int) and since <= year))
             and (until is None or (isinstance(until, int) and until >= year))
         )
 
@@ -412,6 +436,7 @@ class RunResult:
     lost_before: int = 0  # losses an earlier run already listed (with a late-key file)
     store_consulted: bool = True  # False on a dry run: ``already_in_store`` was not checked
     runs_not_counted: int = 0  # analysis runs that are not ``completed``: never full, not parsed
+    runs_without_count: int = 0  # completed runs with a NULL ``completed_units``: read as 0
     #: The graph being written when the store failed: its answer was lost, so it may be written.
     in_doubt: str | None = None
 
@@ -426,6 +451,11 @@ class RunResult:
             lines += ["  already in the store: not checked (dry run)"]
         if self.runs_not_counted:
             lines += [f"  analysis runs not completed, not counted: {self.runs_not_counted}"]
+        if self.runs_without_count:
+            lines += [
+                "  completed analysis runs with no completed_units, read as none analyzed: "
+                f"{self.runs_without_count}"
+            ]
         lines += [f"  written: {g}: {n} triples" for g, n in sorted(self.written.items())]
         lines += [f"  SHACL-valid, not written (store not consulted): {g}" for g in self.checked]
         lines += [f"  rejected: {g}: {why}" for g, why in sorted(self.rejected.items())]
@@ -517,6 +547,7 @@ def run(
     out = RunResult(result.report, projection.skipped, projection.deferred)
     out.store_consulted = store is not None
     out.runs_not_counted = len(result.rows[ANALYSIS_RUNS]) - len(completed)
+    out.runs_without_count = sum(r.get("completed_units") is None for r in completed)
     # key -> why not written (None: written)
     settled: dict[int, str | None] = dict(projection.left_out)
 

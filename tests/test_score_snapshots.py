@@ -225,6 +225,7 @@ def test_a_full_run_with_failed_units_still_closes_the_quarter() -> None:
             "run_id": 1,
             "as_of": "2026-10-04",
             "status": "completed",
+            "completed_units": 20,
             "failed_units": 3,
             "params_json": json.dumps(full_run().params),
         }
@@ -233,11 +234,59 @@ def test_a_full_run_with_failed_units_still_closes_the_quarter() -> None:
     assert list(out.graphs) == ["urn:graph:ingest:FUNDAMENTAL:2026-Q3"]
 
 
-def test_the_run_years_must_reach_the_quarter_and_the_fiscal_year_before_it() -> None:
+def test_the_run_years_are_filing_years_and_must_include_the_year_the_filing_became_usable() -> (
+    None
+):
+    """T-182 (upstream, Q7): the bounds are the years filings were filed, not fiscal years."""
+    assert full_run(since_year=2026, until_year=2026).covers(2026)  # was refused as fiscal years
     assert full_run(since_year=2025, until_year=2026).covers(2026)
-    assert not full_run(since_year=2026, until_year=2026).covers(2026)
-    assert not full_run(since_year=2020, until_year=2025).covers(2026)
+    assert full_run(since_year=2021, until_year=2026).covers(2021)  # the first year is included
+    assert not full_run(since_year=2027, until_year=2028).covers(2026)  # starts after it
+    assert not full_run(since_year=2020, until_year=2025).covers(2026)  # ends before it
     assert full_run(since_year=None, until_year=None).covers(2026)
+    assert full_run(since_year=None, until_year=2026).covers(2026)
+    assert full_run(since_year=2026, until_year=None).covers(2026)
+
+
+def test_a_filing_year_run_closes_a_quarter_when_it_starts_in_that_year() -> None:
+    # A run read from 2026 on: a filing that became usable in August 2026 is in its range.
+    out = ss.project(
+        [_AUGUST], ASSETS, "2026-10-05", [full_run(as_of="2026-10-04", since_year=2026)]
+    )
+    assert list(out.graphs) == ["urn:graph:ingest:FUNDAMENTAL:2026-Q3"]
+
+
+@pytest.mark.parametrize(
+    ("completed", "covers"), [(None, True), (448, True), (1, True), (0, False)]
+)
+def test_a_run_that_analyzed_no_filing_closes_nothing(completed: int | None, covers: bool) -> None:
+    run = dataclasses.replace(full_run(), completed_units=completed)
+    assert run.covers(2026) is covers
+
+
+def test_completed_units_are_read_from_the_row_and_a_null_counts_as_none_analyzed() -> None:
+    row = {
+        "run_id": 3,
+        "as_of": "2026-10-04",
+        "status": "completed",
+        "completed_units": 12,
+        "failed_units": 12,
+        "params_json": json.dumps(full_run().params),
+    }
+    assert ss.AnalysisRun.from_row(row).completed_units == 12
+    del row["completed_units"]  # a missing column and a NULL read the same way
+    assert ss.AnalysisRun.from_row(row).completed_units == 0
+    assert not ss.AnalysisRun.from_row(row).covers(2026)
+    row["completed_units"] = None
+    assert ss.AnalysisRun.from_row(row).completed_units == 0
+
+
+def test_a_run_that_completed_with_every_task_failed_does_not_close_the_quarter() -> None:
+    # Production's runs 5 to 8 were `completed` with all 200 of 200 tasks failed.
+    run = dataclasses.replace(full_run(as_of="2026-10-04"), completed_units=0)
+    out = ss.project([_AUGUST], ASSETS, "2026-10-05", [run])
+    assert not out.graphs
+    assert out.deferred == {ss.DEFER_QUARTER_UNCOVERED: 1}
 
 
 @pytest.mark.parametrize("params_json", [None, "not json", "[1]"])
@@ -892,3 +941,38 @@ def test_a_refused_graph_is_reported_and_keeps_its_late_key(
     assert not store.added
     assert not out.late_closed
     assert _late(keys) == [[3]]  # the row is not in the store: the next run re-reads it
+
+
+def test_the_year_of_available_at_is_the_year_tested_against_the_bounds() -> None:
+    """A filing filed on 30 December and usable on 2 January is January's year to ``covers``.
+
+    Upstream's bounds are filing-date years; ``available_at`` is the day the filing became usable
+    (a few days later, on the pilot database). The code takes the two years as one, so a run
+    ending at ``until_year`` 2025 does not close a quarter whose filing became usable in 2026,
+    even if it was filed on 30 December 2025. Asked upstream (``SPEC.md`` §2.6).
+    """
+    run = full_run(as_of="2026-10-04", since_year=2020, until_year=2025)
+    assert run.covers(2025)
+    assert not run.covers(2026)
+
+
+def test_a_completed_run_without_a_count_is_reported_and_does_not_close_the_quarter(
+    tmp_path: Path,
+) -> None:
+    source = financial_db(tmp_path, [fundamental_row(id=10)])
+    conn = sqlite3.connect(tmp_path / "financial.db")
+    conn.execute("UPDATE v_analysis_run SET completed_units = NULL")
+    conn.commit()
+    conn.close()
+    out = ss.run(source, ASSETS, None, "2026-10-07")
+    assert out.runs_without_count == 1
+    assert out.deferred == {ss.DEFER_QUARTER_UNCOVERED: 1}
+    assert (
+        "completed analysis runs with no completed_units, read as none analyzed: 1" in out.summary()
+    )
+
+
+def test_a_run_with_its_count_is_not_reported(tmp_path: Path) -> None:
+    out = ss.run(financial_db(tmp_path, [fundamental_row(id=10)]), ASSETS, None, "2026-10-07")
+    assert out.runs_without_count == 0
+    assert "no completed_units" not in out.summary()
