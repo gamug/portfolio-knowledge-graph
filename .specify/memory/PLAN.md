@@ -855,7 +855,9 @@ reads the new columns from a re-pinned `view_contract.py` and computes none of t
 step 2; no doc or schema comment describes the attractiveness blend as computed here; T-120 is closed;
 no shape rejects a value upstream documents as valid (the SECTOR `raw_value` range, a negative
 `blended_score`), checked with synthetic rows at those bounds, and a filing with no current metric
-row fails no shape.
+row fails no shape; T-187 to T-190 (version 11's content, decided in T-183) are built or explicitly
+deferred: the new rules with `penaltyPoints`, `Veto` `expiresOn`, the penalty identity in the docs, and
+the three-component scheme test (the five price columns wait for a consumer, T-183 (3)).
 
 **Blocked on**: nothing for T-150, T-170, T-151's rule, T-155's formula removal, T-171's
 `normalizedScore` drop, the shape corrections of step 3 (SECTOR range, `attractivenessScore`
@@ -863,7 +865,7 @@ bound, and the `tbox.ttl` comments) and T-158's ownership question (to be asked 
 T-141 ships its doc fix); upstream's T-144
 for T-152–T-156's projection and T-157's first re-pin; their T-145 and T-100 for relaxing T-151's
 checks; their T-074 for T-153's flag values; their T-082, after their T-100, for T-154's `MEDIA`
-kind and edge dates; their Work item 4, after their T-100, for T-158's method value. Closing this
+kind and edge dates; their Work item 4, after their T-100, for T-158's method value; the letter T-184 for T-187's rule definitions and T-188's expiry semantics (T-190 needs nothing). Closing this
 work item waits on what the acceptance names: T-158 (the ownership answer and the method value) and
 the upstream changes this work item reads having shipped (their T-144, T-074 and T-082). Their T-145
 and T-100 only relax T-151's checks and do not hold it open.

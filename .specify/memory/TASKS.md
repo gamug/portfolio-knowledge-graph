@@ -666,31 +666,41 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
 
 - [ ] **T-187** *(from T-183 (1); waits on upstream's definitions, so on T-157 or the T-184 letter)* Add the
       three rules and the redefinition to `schema/rules.ttl`. `BREAK_TREND_200`, `VOLATILITY_SHOCK` and
-      `CRASH_Z_SCORE` are single-leaf `RuleDefinition`s (a tree, like the six, `ThresholdComparison` on the raw
-      value); the redefined `LIQUIDITY_DISTRESS` is a new `RuleDefinition` valid from version 11's date, and the
-      present one is closed with `validTo` (it stays, as the seven tree rules did). Add an optional
+      `CRASH_Z_SCORE` are `RuleDefinition`s, each a tree like the six; the leaf kind is chosen from upstream's
+      definition, `ThresholdComparison` on the raw value when the rule compares one metric with a constant, and
+      a rule that compares two quantities (`BREAK_TREND_200` against `sma_200`, probably) needs another leaf kind
+      and is flagged in `schema/README.md` as the earlier gaps were, not forced into a threshold. Each rule's
+      `rdfs:comment` says its metric is computed upstream and is not a `:PriceObservation` property (as
+      `PRICE_CRASH`'s does; T-183 (3) leaves the price columns unprojected). The redefined `LIQUIDITY_DISTRESS`
+      is a new `RuleDefinition` (a new IRI, such as `:Rule_LIQUIDITY_DISTRESS_v11`, valid from version 11's
+      date with the same `:ruleId`) and the present one is closed with `validTo` (it stays, as the seven tree
+      rules did). A Veto stint resolves to the definition valid on its `raisedOn`: the projector picks it that
+      way, with a test for a stint raised before version 11 and one after. Add an optional
       `:penaltyPoints` (`xsd:decimal`, at least 0, at most one) on `RuleDefinition` in `tbox.ttl` and
       `shapes.ttl`, set on every rule in the catalog. Thresholds, ids and points are read from upstream's
       `v_rule_catalog` and `docs/kg_schema.md`, not written from memory; record the commit. Update the counts in
       `schema/README.md` and `docs/06`, add synthetic cases (a negative `penaltyPoints` fails), and add the
-      rules to `instances.trig` only where the worked example needs them. A `feat/` PR. -> `PLAN.md` Work item 15.
+      rules to `instances.trig` only where the worked example needs them. `SPEC.md` §2.6's D4 row and `CLAUDE.md` both say "six rules" and are brought up to the new catalog size. A `feat/` PR. -> `PLAN.md` Work item 15.
 - [ ] **T-188** *(from T-183 (2); the shape of `expires_on` is T-184 item 4)* Add an optional, functional
       `:expiresOn` (`xsd:date`) on `Veto`, with the shape: at most one value, not before `:raisedOn`. A stint
       without it never expires by date, as today; `v_veto.expires_on` is filled only on stints of the new
       temporary HARD rules, and NULL maps to no triple. Settle with upstream whether an expired stint is cleared
       by them (`cleared_on`) or only by this predicate, and write the answer in `tbox.ttl`'s comment and in
       `SPEC.md` §2.6. The active-at-cutoff SPARQL (D3) gains the `expiresOn` test only if upstream says the date
-      closes a stint by itself. Synthetic cases (before `raisedOn` fails; absent passes). A `feat/` PR.
+      closes a stint by itself. Synthetic cases (before `raisedOn` fails; absent passes). Take the same pattern as T-185's `clearedOn` against `lastSeenOn` (a shape or the gate, decided once, and the two may share a PR). A `feat/` PR.
       -> `PLAN.md` Work item 15.
 - [ ] **T-189** *(from T-183 (4))* Read the SOFT penalty as the sum of the active SOFT stints' rules'
-      `penalty_points`: T-155's note changes from "minus 15 per active SOFT veto" to this identity, and the
-      projector derives no pre-penalty score. `:softVetoPenalty`'s `tbox.ttl` comment says the flat 15 applies
-      to runs before version 11, and `docs/06`'s text follows. Needs T-187's `:penaltyPoints`. Docs and a
+      `penalty_points` (T-155's note already says so, from T-183); the projector derives no pre-penalty score.
+      `:softVetoPenalty`'s `tbox.ttl` comment says the flat 15 applies to runs before version 11, and the three
+      other places that say "15 points each" follow: `docs/06`, `shapes.ttl` (the `AttractivenessSnapshotShape`
+      comment) and `schema/README.md`. Needs T-187's `:penaltyPoints`. Docs and a
       comment; the check itself is T-155's test. -> `PLAN.md` Work item 15.
 - [ ] **T-190** *(from T-183 (6))* `WeightComponentShape` already counts no components (a scheme needs at least
       one), so the relaxed reading is a statement and a test, not a shape change: add synthetic cases (three
-      components with no `Sentiment` conform; four conform; a fourth name outside the list fails), and write in
-      `docs/06` and `schema/README.md` that a new run weighs three score types and an earlier one four. T-121's
+      components with no `Sentiment` conform; four conform; a name outside the five listed fails), and write in
+      `docs/06` and `schema/README.md` that a new run weighs three score types (upstream's FUNDAMENTAL, VALORIZATION and TECHNICAL, which are our
+      `ScoreFinanciero`, `ScoreCuantitativo` and `ScoreTecnico`) and an earlier one four (the SEMANTIC `Sentiment`
+      as well). T-121's
       data half projects whatever components the run has. A `chore/` PR. -> `PLAN.md` Work item 15.
 
 ## Work item 16 — Validate upstream rows at the read boundary
@@ -770,7 +780,7 @@ follow in dependency order (Work items 3 and 11 are closed, so Work item 4 is un
 Work item 12 (T-120–T-121): T-120 closed by T-150; T-121 done (PR #65).
 Work item 13 (T-130–T-136): constitution rules in place (1.5.0); T-130–T-136 done (T-135 as an `integration` test, `PFA_CHECKOUT`).
 Work item 14 (T-140–T-142 and T-146): T-140, T-141 and T-142 done; T-174 (store schema, found by T-141) done; T-176 (the two `verify_store` checks) done; T-175 (CLI exit-code tests) done (PR #80); T-146 (the gate vs. the worked example's batches) done; T-179 (the store reload after T-177) done; T-180 (the gate checks what a closing triple closes) done; T-181 (`select` keeps the term type) done; T-185 (a Veto's `clearedOn` against its `lastSeenOn`) open; T-186 (the live `verify_store` run for T-181's sixth check, the maintainer's) open.
-Work item 15 (T-150–T-159, T-170–T-173, T-177–T-178): T-173 (the contract endpoint check) done; T-177 (the FUNDAMENTAL `rawValue` bound) done in PR #82; T-178 (the pin's `contract_version` key) done; T-150, T-170 and T-171 (PR #56) done; T-155's schema half done (PR #58); T-153's comment half (PR #59);
+Work item 15 (T-150–T-159, T-170–T-173, T-177–T-178, T-182–T-184, T-187–T-190): T-173 (the contract endpoint check) done; T-177 (the FUNDAMENTAL `rawValue` bound) done in PR #82; T-178 (the pin's `contract_version` key) done; T-150, T-170 and T-171 (PR #56) done; T-155's schema half done (PR #58); T-153's comment half (PR #59);
 T-151's rule recorded (PR #60), its checks waiting on T-031/T-163; T-158's
 ownership question (before their T-141) is unblocked; the rest of T-152–T-158 waits on upstream's
 T-144 (views), T-145 (ids), T-074 (flags) and, after their T-100, their T-082 and their Work item 4.
