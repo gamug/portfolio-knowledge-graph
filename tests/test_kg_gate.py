@@ -604,20 +604,25 @@ DATE = "^^<http://www.w3.org/2001/XMLSchema#date>"
 CLOSE_MEMBERSHIP = PREFIXES + f':m :validTo "2026-03-31"{DATE} .'.encode()
 CLOSE_VETO = PREFIXES + f':v :clearedOn "2026-03-31"{DATE} .'.encode()
 GRAPH = "urn:graph:universe:2026-Q1"
+GRAPH_ORCH = "urn:graph:ingest:ORCHESTRATOR:2026-04-07"
 CLOSURES = [
     (CLOSE_MEMBERSHIP, ":m", "UniverseMembership", "validTo"),
     (CLOSE_VETO, ":v", "Veto", "clearedOn"),
 ]
 
 
-def _holding(make_db: MakeDB, subject: str, rdf_type: str | None, **held: str) -> FakeGraphDB:
+def _holding(
+    make_db: MakeDB, subject: str, rdf_type: str | None, **held: str | list[str]
+) -> FakeGraphDB:
     """A fake store that holds ``subject`` as ``rdf_type`` with the properties in ``held`` (name ->
     lexical value, e.g. ``validFrom="2026-01-01"``) and nothing else."""
     iri = str(KG) + subject.lstrip(":")
     rows = []
     if rdf_type:
         rows.append({"s": iri, "p": str(rdflib.RDF.type), "o": str(KG) + rdf_type})
-    rows += [{"s": iri, "p": str(KG) + name, "o": value} for name, value in held.items()]
+    for name, value in held.items():
+        for one in [value] if isinstance(value, str) else value:  # a list: several values
+            rows.append({"s": iri, "p": str(KG) + name, "o": one})
     fake = make_db()
 
     def select(sparql: str) -> list[dict[str, str]]:
@@ -716,6 +721,81 @@ def test_a_closure_not_after_the_opening_date_is_refused(
     assert gate.ingest(ok.db, batch, GRAPH) == 1
 
 
+@pytest.mark.parametrize(
+    ("seen", "outcome"),
+    [
+        (["2026-02-10", "2026-04-07"], "before the latest date a cycle saw it, 2026-04-07"),
+        (["2026-04-07", "2026-02-10"], "before the latest date a cycle saw it, 2026-04-07"),
+        (["2026-02-10", "2026-03-31"], None),  # the same day passes
+        (["2026-02-10"], None),
+        ([], None),  # never seen again: nothing to compare
+    ],
+    ids=["a later sighting", "a later sighting listed first", "same day", "one sighting", "none"],
+)
+def test_a_veto_is_not_cleared_before_the_latest_cycle_that_saw_it(
+    seen: list[str], outcome: str | None, make_db: MakeDB
+) -> None:
+    """lastSeenOn is one value per cycle; the clearing (2026-03-31) may not precede the latest."""
+    fake = _holding(make_db, ":v", "Veto", raisedOn="2026-01-01", lastSeenOn=seen)
+    if outcome:
+        with pytest.raises(gate.IngestRejected, match=outcome):
+            gate.ingest(fake.db, CLOSE_VETO, GRAPH)
+        assert fake.added == []
+    else:
+        assert gate.ingest(fake.db, CLOSE_VETO, GRAPH) == 1
+
+
+def test_the_opening_date_is_refused_before_the_last_sighting(make_db: MakeDB) -> None:
+    """Both fail (opened after the clearing, sighted after it): the opening date is what is reported."""
+    fake = _holding(make_db, ":v", "Veto", raisedOn="2026-04-15", lastSeenOn=["2026-04-20"])
+    with pytest.raises(gate.IngestRejected, match="not after the date it opened on"):
+        gate.ingest(fake.db, CLOSE_VETO, GRAPH)
+
+
+def test_a_stored_sighting_that_is_not_a_date_is_refused(make_db: MakeDB) -> None:
+    fake = _holding(make_db, ":v", "Veto", raisedOn="2026-01-01", lastSeenOn=["last tuesday"])
+    with pytest.raises(gate.IngestRejected, match=r"stored last seen dates \['last tuesday'\]"):
+        gate.ingest(fake.db, CLOSE_VETO, GRAPH)
+    assert fake.added == []
+
+
+def _declared_veto(cleared: str, seen: str) -> bytes:
+    """A whole past stint in one batch, as a backtest loads it (T-185)."""
+    return (
+        PREFIXES
+        + b"@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .\n"
+        + f':v a :Veto ; :raisedOn "2026-01-01"{DATE} ; :lastSeenOn "{seen}"{DATE} ;'.encode()
+        + f' :clearedOn "{cleared}"{DATE} .\n'.encode()
+    )
+
+
+def test_a_veto_declared_with_a_sighting_after_its_clearing_is_refused(make_db: MakeDB) -> None:
+    """The shape, not the closing check, catches it: the batch declares the Veto itself."""
+    fake = make_db()
+    with pytest.raises(gate.ShaclRejected) as refused:
+        gate.ingest(fake.db, _declared_veto("2026-03-31", "2026-04-07"), GRAPH_ORCH)
+    results = refused.value.results  # counted, not matched on pyshacl's wording (T-142)
+    sh = rdflib.SH
+    assert list(results.objects(None, sh.resultPath)) == [KG.lastSeenOn]
+    assert list(results.objects(None, sh.sourceConstraintComponent)) == [
+        sh.LessThanOrEqualsConstraintComponent
+    ]
+    assert len(list(results.subjects(rdflib.RDF.type, sh.ValidationResult))) == 1
+    assert fake.added == []
+
+
+@pytest.mark.parametrize("seen", ["2026-03-15", "2026-03-31"], ids=["before", "same day"])
+def test_a_whole_past_stint_is_written_in_one_batch(seen: str, make_db: MakeDB) -> None:
+    fake = make_db()
+    # the type and the three dates
+    assert gate.ingest(fake.db, _declared_veto("2026-03-31", seen), GRAPH_ORCH) == 4
+
+
+def test_a_membership_closing_ignores_last_seen_on(make_db: MakeDB) -> None:
+    fake = _holding(make_db, ":m", "UniverseMembership", lastSeenOn="2026-09-01")
+    assert gate.ingest(fake.db, CLOSE_MEMBERSHIP, GRAPH) == 1
+
+
 def test_two_closing_dates_for_one_subject_are_refused(make_db: MakeDB) -> None:
     batch = CLOSE_MEMBERSHIP + f':m :validTo "2026-04-30"{DATE} .'.encode()
     fake = _holding(make_db, ":m", "UniverseMembership")
@@ -727,7 +807,7 @@ def test_two_closing_dates_for_one_subject_are_refused(make_db: MakeDB) -> None:
 def test_every_closable_class_is_a_leaf_class_and_carries_its_opening_property(
     schema: gate.GateSchema,
 ) -> None:
-    for prop, (classes, opened) in gate.CLOSABLE.items():
+    for prop, (classes, opened, _seen) in gate.CLOSABLE.items():
         assert prop in gate.CLOSING_PROPERTIES
         assert classes <= schema.leaf_classes
         assert (opened, rdflib.RDF.type, rdflib.OWL.DatatypeProperty) in schema.tbox

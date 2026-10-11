@@ -569,14 +569,23 @@ new acceptance probe; and `acceptance.check_gate` counts violations by matching 
    the store holds 2549 triples and `verify_store` passes (`docs/graphdb-setup.md`).
 9. Two limits of the gate found in PR #86's review: a closing triple is not checked against the store (T-180), and
    `select` dropped a literal's datatype, so the context took the declared one (T-181, done: `GraphDB.select_terms` keeps it).
+10. A Veto's `clearedOn` against its `lastSeenOn` (T-185, found in PR #90's review; the maintainer's decision of
+   2026-10-11, PR #94). Cycles are at least 15 days apart and a cycle that clears a stint did not see it raised, so a
+   sighting later than the clearing is a contradiction and a closed stint is never edited. It is checked at three
+   places: the gate, when a stored Veto is cleared (done, T-185); `VetoShape`, when a batch declares a Veto with both
+   dates, which is how backtests load past stints (done, T-185); and the read boundary, quarantining the `v_veto`
+   row (T-192, Work item 16, after T-031's vetoes lane). The same day passes, an assumption about upstream's
+   `last_seen_on` on the clearing cycle, to be asked of upstream (listed in T-191). The gate cannot yet append a later cycle's `lastSeenOn`
+   to a stored Veto (T-194, needed by live cycles). The store reload after the `shapes.ttl` change is the maintainer's
+   (T-193), as T-179 was.
 
 **Acceptance**: FR-001 parse + `pyshacl` pass with the new count; the store acceptance probe still
 yields exactly one violation (`:timestamp`); T-141's run is recorded in `docs/graphdb-setup.md` (done); T-142's
 `check_gate` does not depend on pyshacl's report wording; T-146 dropped the three strict `xfail`s in
 `tests/test_kg_gate.py` (done); T-174 leaves every graph of the store at its expected size with no leftover;
-T-176's `verify_store` fails on a stale or doubled store (it would have failed on the store before T-174; the fake-store tests show it) and exits 0 on a healthy one (done: the live store passes); T-175's tests pass or skip; T-179 leaves the live store at `schema/`'s 2549 triples with `verify_store` exiting 0 (done). T-146 leaves the gate accepting every worked-example graph beside what the store holds about the individuals it points at, with the three `xfail`s gone and `--check` saying why it cannot resolve them (done); T-180 (done) makes it refuse a closing triple whose subject is not a stored record (or Veto) or is already closed, and T-181 (done) keeps a stored literal's datatype in the context, so a literal of the wrong datatype fails its shape.
+T-176's `verify_store` fails on a stale or doubled store (it would have failed on the store before T-174; the fake-store tests show it) and exits 0 on a healthy one (done: the live store passes); T-175's tests pass or skip; T-179 leaves the live store at `schema/`'s 2549 triples with `verify_store` exiting 0 (done). T-146 leaves the gate accepting every worked-example graph beside what the store holds about the individuals it points at, with the three `xfail`s gone and `--check` saying why it cannot resolve them (done); T-180 (done) makes it refuse a closing triple whose subject is not a stored record (or Veto) or is already closed, and T-181 (done) keeps a stored literal's datatype in the context, so a literal of the wrong datatype fails its shape. T-185 (done) refuses a clearing earlier than a sighting at the gate and in `VetoShape`; the store is back at `schema/`'s count only after T-193, so `verify_store` exits 0 again then.
 
-**Blocked on**: nothing; T-185 is open, and T-186 (the maintainer runs `verify_store` live for T-181's new check) is open.
+**Blocked on**: nothing; T-186 (the maintainer runs `verify_store` live for T-181's new check) and T-193 (the maintainer reloads the store after T-185's shape, one triple) are open. T-194 (append a `lastSeenOn` to a stored Veto, a `feat/` PR) is open too but outside this item's acceptance: live cycles need it, so it is gated by Work item 4's vetoes lane.
 
 ## Work item 15 — Adopt upstream's `v_*` contract changes (replies of 2026-10-05, 2026-10-06 and 2026-10-09)
 
@@ -1038,12 +1047,12 @@ Work item 7 (orchestrator)         — decided: delegate to financial-analysis `
 Work item 8 (protege-view.ttl) — independent, manual, land whenever convenient
 Work item 13 (pytest suite) — independent; rules in constitution 1.5.0, T-130–T-134 and T-136 done (PR #64);
   T-135 done (its `integration` test)
-Work item 14 (PR #48 follow-ups) — independent; T-140, T-141 and T-142 done, T-174 (store schema) done, T-176 (the two `verify_store` checks) done, T-175 (CLI exit-code tests) done; T-179 (the store reload after T-177) done; T-146 (gate vs. the worked example's batches) done; T-180 (closing triples checked against the store) done; T-181 (`select_terms` keeps the term type) done; T-185 (a Veto's `clearedOn` against its `lastSeenOn`) open; T-186 (live `verify_store` run, the maintainer's) open
+Work item 14 (PR #48 follow-ups) — independent; T-140, T-141 and T-142 done, T-174 (store schema) done, T-176 (the two `verify_store` checks) done, T-175 (CLI exit-code tests) done; T-179 (the store reload after T-177) done; T-146 (gate vs. the worked example's batches) done; T-180 (closing triples checked against the store) done; T-181 (`select_terms` keeps the term type) done; T-185 (a Veto's `clearedOn` against its `lastSeenOn`) done; T-192 (the same check at the read boundary, Work item 16) open; T-193 (reload the store after T-185's shape, the maintainer's) open; T-194 (append a `lastSeenOn` to a stored Veto) open; T-186 (live `verify_store` run, the maintainer's) open
 Work item 15 (upstream's v_* changes) — T-150, T-170 and T-171 (PR #56) done, with T-155's schema half (PR #58), T-153's comments (PR #59)
   and T-151's rule (PR #60); T-173 (the contract endpoint check) done 2026-10-11, its version guard reading T-178's `contract_version` key; T-177 (the `rawValue` bound) done (PR #82); T-178 (the pin's loader key)
   done 2026-10-10 (PR #85); the step-3 shape corrections can start now;
   the rest as upstream's T-144/T-145 ship; feeds Work item 4 (T-031) and 12 (T-121)
-Work item 16 (boundary validation of upstream rows) — T-160 done (plain checks), T-161 closed, T-162 done; T-163 open (its function is done, the wiring into the read path started with Work item 4's T-031, PR #72)
+Work item 16 (boundary validation of upstream rows; T-192 adds the veto stint check after T-031's vetoes lane) — T-160 done (plain checks), T-161 closed, T-162 done; T-163 open (its function is done, the wiring into the read path started with Work item 4's T-031, PR #72)
 ```
 
 Work items 1, 2, and 9 have no dependencies and no blockers — they can land

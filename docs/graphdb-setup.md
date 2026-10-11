@@ -109,7 +109,10 @@ nothing written:
    `:raisedOn`). A closure of an unknown subject, of an observation, of a record already closed or
    closed before it opened is refused. The store is read in any graph, so a new quarter's graph can
    close the previous quarter's memberships. The check reads, then writes: two batches closing the
-   same record at once can both pass it.
+   same record at once can both pass it. A Veto cleared before the latest `:lastSeenOn` is refused too
+   (T-185; the same day passes), and `VetoShape` makes the same check for a Veto declared with both
+   dates (one `sh:lessThanOrEquals`). The gate cannot yet append a later cycle's `:lastSeenOn` to a
+   stored Veto (T-194), so the closing check compares with the sightings declared with it.
 
 What is written is the validated triples as N-Triples, not the submitted text. `--check` runs
 checks 1, 3, 4 and 5 without contacting the store, so it cannot see an existing graph (check 2),

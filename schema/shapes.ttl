@@ -87,8 +87,10 @@
     sh:property [ sh:path :raisedOn ; sh:datatype xsd:date ; sh:minCount 1 ; sh:maxCount 1 ;
                   sh:lessThan :clearedOn ; sh:lessThanOrEquals :lastSeenOn ] ;
     sh:property [ sh:path :clearedOn ; sh:datatype xsd:date ; sh:maxCount 1 ] ;
-    # lastSeenOn is multi-valued (append-only graphs): one value per cycle, current = MAX.
-    sh:property [ sh:path :lastSeenOn ; sh:datatype xsd:date ] ;
+    # lastSeenOn is multi-valued (append-only graphs): one value per cycle, current = MAX. A cycle that
+    # clears a stint did not see it raised, so no sighting is later than the clearing (T-185; the same
+    # day passes). The gate makes the same check when a stored Veto is cleared later.
+    sh:property [ sh:path :lastSeenOn ; sh:datatype xsd:date ; sh:lessThanOrEquals :clearedOn ] ;
     sh:property [ sh:path :vetoSeverity ; sh:in ("HARD" "SOFT") ; sh:maxCount 1 ] .
 
 :DataQualityIssueShape

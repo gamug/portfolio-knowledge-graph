@@ -434,6 +434,7 @@
             sh:maxCount 1 ;
             sh:path :clearedOn ],
         [ sh:datatype xsd:date ;
+            sh:lessThanOrEquals :clearedOn ;
             sh:path :lastSeenOn ],
         [ sh:in ( "HARD" "SOFT" ) ;
             sh:maxCount 1 ;
