@@ -109,7 +109,8 @@ nothing written:
    `:raisedOn`). A closure of an unknown subject, of an observation, of a record already closed or
    closed before it opened is refused, as is a Veto cleared before the latest `:lastSeenOn` (T-185; the
    same day passes; a new Veto that carries both dates is checked by `VetoShape`, one
-   `sh:lessThanOrEquals`). The store is read in any graph, so a new quarter's graph can
+   `sh:lessThanOrEquals`). The gate cannot yet append a later cycle's `:lastSeenOn` to a stored Veto
+   (T-194), so the closing check compares with the sightings declared with it. The store is read in any graph, so a new quarter's graph can
    close the previous quarter's memberships. The check reads, then writes: two batches closing the
    same record at once can both pass it.
 

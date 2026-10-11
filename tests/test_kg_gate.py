@@ -754,7 +754,7 @@ def test_the_opening_date_is_refused_before_the_last_sighting(make_db: MakeDB) -
 
 def test_a_stored_sighting_that_is_not_a_date_is_refused(make_db: MakeDB) -> None:
     fake = _holding(make_db, ":v", "Veto", raisedOn="2026-01-01", lastSeenOn=["last tuesday"])
-    with pytest.raises(gate.IngestRejected, match="cannot be compared with the stored last seen"):
+    with pytest.raises(gate.IngestRejected, match=r"stored last seen dates \['last tuesday'\]"):
         gate.ingest(fake.db, CLOSE_VETO, GRAPH)
     assert fake.added == []
 
@@ -772,14 +772,16 @@ def _declared_veto(cleared: str, seen: str) -> bytes:
 def test_a_veto_declared_with_a_sighting_after_its_clearing_is_refused(make_db: MakeDB) -> None:
     """The shape, not the closing check, catches it: the batch declares the Veto itself."""
     fake = make_db()
-    with pytest.raises(gate.IngestRejected, match="lastSeenOn"):
+    with pytest.raises(gate.IngestRejected, match=r"(?s)LessThanOrEquals.*lastSeenOn") as refused:
         gate.ingest(fake.db, _declared_veto("2026-03-31", "2026-04-07"), GRAPH_ORCH)
+    assert "2026-04-07" in str(refused.value)  # the offending sighting is named
     assert fake.added == []
 
 
 @pytest.mark.parametrize("seen", ["2026-03-15", "2026-03-31"], ids=["before", "same day"])
 def test_a_whole_past_stint_is_written_in_one_batch(seen: str, make_db: MakeDB) -> None:
     fake = make_db()
+    # the type and the three dates
     assert gate.ingest(fake.db, _declared_veto("2026-03-31", seen), GRAPH_ORCH) == 4
 
 

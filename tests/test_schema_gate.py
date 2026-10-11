@@ -402,7 +402,8 @@ def _less_than_or_equals(path: Path) -> set[tuple[str, str]]:
 
 
 def test_the_target_schema_orders_a_veto_like_shapes_ttl() -> None:
-    """``kg_target_schema.ttl`` is the proposal sent upstream; it carries the same Veto date order."""
+    """``kg_target_schema.ttl`` carries the same Veto date order. The dates come from upstream's own
+    ``veto`` rows, so the proposal is kept equal to ``shapes.ttl`` and needs no action from them."""
     in_shapes = _less_than_or_equals(SCHEMA / "shapes.ttl")
     assert in_shapes == {("raisedOn", "lastSeenOn"), ("lastSeenOn", "clearedOn")}
     assert _less_than_or_equals(SCHEMA.parent / "kg_target_schema.ttl") == in_shapes

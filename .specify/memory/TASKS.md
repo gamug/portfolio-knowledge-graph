@@ -52,7 +52,7 @@ are closed (see `CHANGELOG.md`).*
       against a change of *meaning* the column-name check cannot see (e.g. upstream moving
       `normalized_score` to [0, 1] would pass the [0, 100] check and become ~0.99 risk), for
       instance a per-lane cohort mean near 50, upstream's documented centre (Work item 16's
-      T-162 owns that check and T-163 runs it; T-031 calls it). The vetoes lane also loads whole past stints (raised, sighted and cleared, all dates in one batch), which backtests need; `VetoShape` checks their dates (T-185) and T-192 checks the upstream row. → step 2.
+      T-162 owns that check and T-163 runs it; T-031 calls it). The vetoes lane also loads whole past stints (raised, sighted and cleared, all dates in one batch), which backtests need; live cycles need T-194 to append sightings; `VetoShape` checks their dates (T-185) and T-192 checks the upstream row. → step 2.
   - **Done (PR #72):** `v_score_snapshot` -> `:ScoreSnapshot`, all four lanes, in
     `src/projection/score_snapshots.py` with `src/projection/source.py` and the CLI's logic in
     `src/projection/project_scores.py`, behind the thin entry point `cli/project_scores.py` (tests:
@@ -366,7 +366,16 @@ independent of each other once T-131 lands.*
       had the right one. Return the type and datatype beside the value (a second method, or a richer
       row, so no existing caller changes), use it in `fetch_context`, and add a test with a stored literal
       of the wrong datatype. Code, so its own PR on a `feat/` branch. → `PLAN.md` Work item 14, step 9.
-- [x] **T-185** *(found in PR #90's review; the gate; done 2026-10-11 in PR #94, after the maintainer chose to check at three places (decision D10): the gate refuses a `clearedOn` earlier than the latest `lastSeenOn` of a stored Veto (`gate.CLOSABLE` carries a `last_seen` property), `VetoShape` refuses the same in a batch that declares a Veto with both dates (`sh:lessThanOrEquals :clearedOn` on `lastSeenOn`, 2550 quads), and T-192 adds the read-boundary check; the same day passes, which is an assumption about upstream's `last_seen_on` on the clearing cycle (unverified), and a stricter reading changes one comparison; the store reload is T-193; tests in `tests/test_kg_gate.py` and `tests/test_schema_gate.py`; the text below is the original task)* Check a Veto's `:clearedOn` against its `:lastSeenOn`:
+- [x] **T-185** *(found in PR #90's review; the gate)* Check a Veto's `:clearedOn` against its `:lastSeenOn`:
+      **Done 2026-10-11 in PR #94**, after the maintainer chose to check at three places (decision D10): the gate
+      refuses a `clearedOn` earlier than the latest `lastSeenOn` of a stored Veto (`gate.CLOSABLE` carries a
+      `last_seen` property); `VetoShape` refuses the same in a batch that declares a Veto with both dates
+      (`sh:lessThanOrEquals :clearedOn` on `lastSeenOn`, 2550 quads, the twin in `kg_target_schema.ttl` too); T-192
+      adds the read-boundary check. The same day passes, an assumption about upstream's `last_seen_on` on the
+      clearing cycle (unverified). **Limit:** the gate cannot append a `lastSeenOn` to a stored Veto today
+      (T-194), so the closing check compares with the sightings declared with the Veto; it is complete for
+      stints loaded whole, which backtests use. The store reload is T-193. Tests in `tests/test_kg_gate.py` and
+      `tests/test_schema_gate.py`. The text below is the original task.
       `lastSeenOn` is multi-valued (one per cycle, current = MAX) and no shape relates it to `clearedOn`, so
       a Veto can be cleared on a date earlier than a cycle that still saw it raised. T-180's closing check
       already reads the Veto's stored state; read `lastSeenOn` there (or add `sh:lessThanOrEquals` to the
@@ -387,6 +396,14 @@ independent of each other once T-131 lands.*
       (exit 0, `2550 asserted triples match the local parse`), `uv run python cli/verify_store.py` (exit 0), and a dated
       row in `docs/graphdb-setup.md`, as T-179 did. The agent's sandbox cannot reach the store.
       → `PLAN.md` Work item 14, step 9.
+- [ ] **T-194** *(from PR #94's third review; the gate)* Let a later cycle append a `lastSeenOn` to a stored Veto.
+      `docs/07` says a stint is appended to by later cycles (`lastSeenOn`, `clearedOn`) and `lastSeenOn` is
+      multi-valued for that, but `gate.untyped_writes` allows only relations and `validTo`/`clearedOn` on a
+      subject untyped in the batch, so the append is rejected. Allow an `xsd:date` `lastSeenOn` there and check it
+      like a closing (`gate.CLOSABLE`-style): the subject is a stored Veto, not cleared, the date not before
+      `raisedOn` and not before its latest stored `lastSeenOn`. Tests with a fake store (the closing tests'
+      pattern). T-031's vetoes lane needs it for live cycles; stints loaded whole for backtests do not.
+      Code, so its own PR on a `feat/` branch. → `PLAN.md` Work item 14, step 9.
 ## Work item 15 — Adopt upstream's `v_*` contract changes (replies of 2026-10-05, 2026-10-06 x2)
 - [x] **T-177** *(from upstream's answer to Q6, 2026-10-09; done 2026-10-10 in PR #82: the shape, 2549 quads, nine synthetic cases in `tests/test_schema_gate.py` and a check that `kg_target_schema.ttl` carries the same `rawValue` bounds as `shapes.ttl` (FUNDAMENTAL, SECTOR, Sentiment); `schema/protege-view.ttl` is left to Work item 8 (T-070); the store reload is T-179; the text below is the original task, edited where the work differed)* Bound FUNDAMENTAL's `rawValue` in `ScoreSnapshotShape` to
       `[0, 100]` (`minInclusive`/`maxInclusive` on the branch that pairs it with a mandatory `rawValue`,
@@ -832,7 +849,7 @@ Work items 4 and 6 (T-030–T-035, T-050–T-053)
 follow in dependency order (Work items 3 and 11 are closed, so Work item 4 is unblocked).
 Work item 12 (T-120–T-121): T-120 closed by T-150; T-121 done (PR #65).
 Work item 13 (T-130–T-136): constitution rules in place (1.5.0); T-130–T-136 done (T-135 as an `integration` test, `PFA_CHECKOUT`).
-Work item 14 (T-140–T-142 and T-146): T-140, T-141 and T-142 done; T-174 (store schema, found by T-141) done; T-176 (the two `verify_store` checks) done; T-175 (CLI exit-code tests) done (PR #80); T-146 (the gate vs. the worked example's batches) done; T-179 (the store reload after T-177) done; T-180 (the gate checks what a closing triple closes) done; T-181 (`select` keeps the term type) done; T-185 (a Veto's `clearedOn` against its `lastSeenOn`) done; T-192 (the same check at the read boundary) open, after T-031's vetoes lane; T-193 (reload the store after T-185's shape, the maintainer's) open; T-186 (the live `verify_store` run for T-181's sixth check, the maintainer's) open.
+Work item 14 (T-140–T-142 and T-146): T-140, T-141 and T-142 done; T-174 (store schema, found by T-141) done; T-176 (the two `verify_store` checks) done; T-175 (CLI exit-code tests) done (PR #80); T-146 (the gate vs. the worked example's batches) done; T-179 (the store reload after T-177) done; T-180 (the gate checks what a closing triple closes) done; T-181 (`select` keeps the term type) done; T-185 (a Veto's `clearedOn` against its `lastSeenOn`) done; T-192 (the same check at the read boundary) open, after T-031's vetoes lane; T-193 (reload the store after T-185's shape, the maintainer's) open; T-194 (append a `lastSeenOn` to a stored Veto) open; T-186 (the live `verify_store` run for T-181's sixth check, the maintainer's) open.
 Work item 15 (T-150–T-159, T-170–T-173, T-177–T-178, T-182–T-184, T-187–T-191): T-173 (the contract endpoint check) done; T-177 (the FUNDAMENTAL `rawValue` bound) done in PR #82; T-178 (the pin's `contract_version` key) done; T-150, T-170 and T-171 (PR #56) done; T-155's schema half done (PR #58); T-153's comment half (PR #59);
 T-151's rule recorded (PR #60), its checks waiting on T-031/T-163; T-158's
 ownership question (before their T-141) is unblocked; the rest of T-152–T-158 waits on upstream's

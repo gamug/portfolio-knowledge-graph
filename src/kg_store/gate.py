@@ -236,15 +236,14 @@ def closing_values(batch: rdflib.Graph) -> dict[tuple[rdflib.term.Node, rdflib.U
     return closing
 
 
-#: Per closing property: the classes whose records it closes and the property holding the date the
-#: record opened (the closing date must be later: the shapes' ``sh:lessThan``, which the stored
-#: record is never validated against here), and for a Veto the multi-valued ``lastSeenOn`` the closing
-#: date may not precede (the shapes' ``sh:lessThanOrEquals`` on ``lastSeenOn``, the same rule for a
-#: Veto declared with both dates, T-185). Explicit, not read from the shapes: a class is closable
-#: because its design says so (``07``), and ``PortfolioPositionShape`` does not mention ``validTo``.
+#: Per closing property: the classes whose records it closes, the property holding the date the record
+#: opened (the closing date must be later: the shapes' ``sh:lessThan``, which the stored record is never
+#: validated against here) and, for a Veto, the ``lastSeenOn`` it may not precede. Explicit, not read from
+#: the shapes: a class is closable because its design says so (``07``), and ``PortfolioPositionShape``
+#: does not mention ``validTo``.
 class Closable(NamedTuple):
-    """What a closing property closes: the classes, the property holding the date they opened, and
-    (if any) the multi-valued property whose latest date the closing date may not precede."""
+    """What a closing property closes: the classes, the date they opened, and (``last_seen``, T-185) the
+    multi-valued date the closing may not precede."""
 
     classes: frozenset[rdflib.URIRef]
     opened: rdflib.URIRef
@@ -347,7 +346,8 @@ def _before_last_seen(closes_on: str, seen: set[str]) -> str | None:
     dates = [_calendar_date(text) for text in seen]
     closes = _calendar_date(closes_on)
     if closes is None or None in dates:
-        return f"{closes_on} cannot be compared with the stored last seen dates"
+        bad = sorted(seen)
+        return f"{closes_on} cannot be compared with the stored last seen dates {bad}"
     latest = max(cast(list[datetime.date], dates))
     return (
         f"{closes_on} is before the latest date a cycle saw it, {latest}"
