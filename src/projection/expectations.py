@@ -118,7 +118,7 @@ def _is_number(value: object) -> TypeGuard[int | float]:
     return isinstance(value, (int, float)) and not isinstance(value, bool)
 
 
-def _is_int(value: object) -> TypeGuard[int]:
+def is_int(value: object) -> TypeGuard[int]:
     return isinstance(value, int) and not isinstance(value, bool)
 
 
@@ -226,12 +226,7 @@ def _row_count(chk: _Checker, data: Mapping[str, Any]) -> int | None:
     raw = data.get("row_count")
     if raw is None:
         return None
-    if (
-        not isinstance(raw, dict)
-        or set(raw) != {"min"}
-        or not _is_int(raw["min"])
-        or raw["min"] < 0
-    ):
+    if not isinstance(raw, dict) or set(raw) != {"min"} or not is_int(raw["min"]) or raw["min"] < 0:
         chk.bad("row_count", "must be {'min': a non-negative integer}")
         return None
     return raw["min"]
@@ -394,7 +389,7 @@ def load_source(directory: Path = EXPECTATIONS_DIR) -> SourceExpectation:
     chk = _Checker(SOURCE_FILE)
     chk.unknown_keys("file", data, _SOURCE_KEYS)
     floor = data.get("schema_version_floor")
-    if not _is_int(floor) or floor < 1:
+    if not is_int(floor) or floor < 1:
         chk.bad("schema_version_floor", "must be a positive integer")
         floor = 0
     forbidden = data.get("forbidden_cycle_types")
@@ -404,7 +399,7 @@ def load_source(directory: Path = EXPECTATIONS_DIR) -> SourceExpectation:
     contract: int | None = None  # absent is allowed until T-157; null is not
     if "contract_version" in data:
         contract = data["contract_version"]
-        if not _is_int(contract) or contract < 1:
+        if not is_int(contract) or contract < 1:
             chk.bad("contract_version", "must be a positive integer")
             contract = None
         elif floor > contract:
