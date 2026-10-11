@@ -202,12 +202,17 @@ class DeclaredContract:
 
 Fetch = Callable[[str], Any]
 _TIMEOUT_SECONDS = 15
+#: The real body is a few tens of kilobytes; anything past this is not the contract.
+_MAX_BODY_BYTES = 5_000_000
 
 
 def _get_json(url: str) -> Any:
     """GET ``url`` and parse the JSON body; ``urllib.error.HTTPError`` carries the status."""
     with urllib.request.urlopen(url, timeout=_TIMEOUT_SECONDS) as response:  # noqa: S310 - http(s) checked by the caller
-        return json.loads(response.read())
+        body = response.read(_MAX_BODY_BYTES + 1)
+    if len(body) > _MAX_BODY_BYTES:
+        raise ValueError(f"the answer is longer than {_MAX_BODY_BYTES} bytes")
+    return json.loads(body)
 
 
 def _names(value: object, what: str) -> tuple[str, ...]:
@@ -228,6 +233,8 @@ def _declared_columns(body: dict[str, Any]) -> dict[str, list[str]]:
             raise ContractFetchError(f"/contract: malformed view entry {view!r}")
         if not all(isinstance(c, dict) and isinstance(c.get("name"), str) for c in cols):
             raise ContractFetchError(f"/contract: {name}: columns must be objects with a name")
+        if name in columns:
+            raise ContractFetchError(f"/contract: view {name} appears twice")
         columns[name] = [c["name"] for c in cols]
     return columns
 

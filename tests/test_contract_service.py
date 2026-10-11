@@ -198,6 +198,13 @@ def test_a_body_that_is_not_the_contract_is_refused(body: Any, why: str) -> None
         contract_check.fetch_contract(BASE, _fetcher({"/contract": body}))
 
 
+def test_a_view_listed_twice_is_refused() -> None:
+    body = _contract()
+    body["views"].append(body["views"][0])
+    with pytest.raises(ContractFetchError, match="appears twice"):
+        contract_check.fetch_contract(BASE, _fetcher({"/contract": body}))
+
+
 def test_a_database_body_without_a_version_is_refused() -> None:
     routes = {"/contract": _contract(), "/contract/database": {"views_present": []}}
     with pytest.raises(ContractFetchError, match="no integer 'schema_version'"):
@@ -309,3 +316,22 @@ def test_cli_exits_2_when_nothing_listens() -> None:
     result = _run(f"http://127.0.0.1:{port}/api/v1")
     assert result.returncode == 2
     assert "cannot read" in result.stderr
+
+
+def test_an_answer_longer_than_the_cap_is_refused(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(contract_check, "_MAX_BODY_BYTES", 100)
+    with (
+        _serve({"/api/v1/contract": (200, _contract(10))}) as url,
+        pytest.raises(ContractFetchError, match="longer than 100 bytes"),
+    ):
+        contract_check.fetch_contract(url)
+
+
+def test_an_answer_within_the_cap_is_read() -> None:
+    routes = {
+        "/api/v1/contract": (200, _contract(10)),
+        "/api/v1/contract/database": (200, _database(10)),
+    }
+    with _serve(routes) as url:
+        declared = contract_check.fetch_contract(url)
+    assert declared.contract_version == 10
