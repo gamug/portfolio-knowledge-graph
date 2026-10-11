@@ -865,7 +865,7 @@ bound, and the `tbox.ttl` comments) and T-158's ownership question (to be asked 
 T-141 ships its doc fix); upstream's T-144
 for T-152–T-156's projection and T-157's first re-pin; their T-145 and T-100 for relaxing T-151's
 checks; their T-074 for T-153's flag values; their T-082, after their T-100, for T-154's `MEDIA`
-kind and edge dates; their Work item 4, after their T-100, for T-158's method value; the letter T-184 for T-187's rule definitions and T-188's expiry semantics (T-190 needs nothing). Closing this
+kind and edge dates; their Work item 4, after their T-100, for T-158's method value; upstream's answer to the letter T-184, recorded by T-191, for T-187's rule definitions and T-188's expiry semantics (T-190 needs nothing). Closing this
 work item waits on what the acceptance names: T-158 (the ownership answer and the method value) and
 the upstream changes this work item reads having shipped (their T-144, T-074 and T-082). Their T-145
 and T-100 only relax T-151's checks and do not hold it open.

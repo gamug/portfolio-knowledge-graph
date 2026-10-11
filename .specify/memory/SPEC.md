@@ -553,7 +553,7 @@ feature commits `8c2e62e` and `95ba2f3`).
   `VOLATILITY_SHOCK`, `CRASH_Z_SCORE`), a redefined `LIQUIDITY_DISTRESS`, and `penalty_points` on
   every rule, so the SOFT penalty is the sum of the active rules' `penalty_points` and not 15 per
   rule. The questions they raise for us are listed next.
-- **Asked, not yet answered (to send with the next follow-up, T-184):** which date their `since_year`/`until_year` filter uses, the filing date or the day the filing became usable (`available_at`). T-182 takes them as the same year, which holds in all 449 pilot FUNDAMENTAL rows (none was filed in the last days of December) and not in general.
+- **Asked, not yet answered (in the follow-up letter T-184; the answers are recorded by T-191):** which date their `since_year`/`until_year` filter uses, the filing date or the day the filing became usable (`available_at`). T-182 takes them as the same year, which holds in all 449 pilot FUNDAMENTAL rows (none was filed in the last days of December) and not in general.
 - **Decided here (maintainer, 2026-10-11, T-183):** `schema/rules.ttl` takes the three new rules and the
   redefined `LIQUIDITY_DISTRESS`, each with `penalty_points` (T-187; the catalog is upstream's, T-103); a
   `Veto` gets an optional `expiresOn` (T-188); the SOFT penalty is read as the sum of the active rules'
@@ -561,7 +561,7 @@ feature commits `8c2e62e` and `95ba2f3`).
   books are not projected (T-156); the weight-component shape reads the score types the run weighted,
   three for a new run and four for an earlier one (T-190). **Not taken:** the five `v_price_observation`
   columns stay unread until a consumer needs one, and that consumer files the task. What each rule's
-  thresholds are, and whether an expired stint is cleared upstream or by its date, is asked in T-184.
+  thresholds are, and whether an expired stint is cleared upstream or by its date, is asked in T-184 and recorded by T-191.
   T-173 reads the routes and takes `contract_version` from the endpoint, not from a figure in its text.
 
 **Read contract and score scale (T-030, 2026-10-05).** `src/projection/view_contract.py`
