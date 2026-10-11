@@ -9,6 +9,8 @@ from typing import TYPE_CHECKING
 
 import pytest
 import rdflib
+from conftest import context_for as _context_for
+from conftest import instance_graphs as _instance_graphs
 
 from kg_store import gate
 from kg_store.graphdb import AnswerLost, GraphDB, GraphDBError
@@ -21,12 +23,6 @@ if TYPE_CHECKING:
 SCHEMA = Path(__file__).resolve().parent.parent / "schema"
 KG = rdflib.Namespace("https://thesis.local/kg/portfolio#")
 PREFIXES = b"@prefix : <https://thesis.local/kg/portfolio#> .\n"
-
-
-def _instance_graphs() -> dict[str, rdflib.Graph]:
-    ds = rdflib.Dataset(default_union=False)
-    ds.parse(SCHEMA / "instances.trig", format="trig")
-    return {str(g.identifier): g for g in ds.graphs() if len(g)}
 
 
 def _reject(batch: rdflib.Graph) -> str:
@@ -148,23 +144,6 @@ def test_a_typed_subject_is_not_an_untyped_write(schema: gate.GateSchema) -> Non
 
 
 # --- validate ---------------------------------------------------------------------------------
-
-
-def _context_for(name: str) -> rdflib.Graph:
-    """What the rest of the worked example says about the individuals graph ``name`` points at,
-    as the store would hold it once the other graphs are loaded (T-146)."""
-    graphs = _instance_graphs()
-    schema = gate.load_gate_schema(SCHEMA.resolve())
-    refs = gate.references(graphs[name], schema)
-    # The Assets are typed in reference.ttl; the other graphs hold the Portfolios.
-    others = {k: g for k, g in graphs.items() if k != name}
-    others["urn:graph:reference"] = rdflib.Graph().parse(SCHEMA / "reference.ttl", format="turtle")
-    context = rdflib.Graph()
-    for graph in others.values():
-        for ref in refs:
-            for p, o in graph.predicate_objects(ref):
-                context.add((ref, p, o))
-    return context
 
 
 @pytest.mark.parametrize(

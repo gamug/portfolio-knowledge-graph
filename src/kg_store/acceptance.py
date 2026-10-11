@@ -14,7 +14,8 @@ T-176 adds two checks and T-181 a third that read the store against ``schema/``:
 6. the worked example's quant batch passes the gate beside what the store holds about its
    Portfolios, i.e. a stored string is read in the form the shapes compare (T-181).
 
-Needs the schema loaded (``cli/load_schema.py``). Read-only: the malformed batch is refused
+Needs the schema loaded (``cli/load_schema.py``), the worked example's Portfolios and Assets
+(``instances.trig``, ``reference.ttl``) included. Read-only: the malformed batch is refused
 before any write, and the run compares the store's size before and after to prove it.
 """
 
@@ -157,9 +158,13 @@ def check_string_terms(db: GraphDB) -> str:
     """The worked example's quant batch passes the gate beside what the store holds (T-181).
 
     Its shapes compare a stored ``:portfolioKind`` by term (``sh:in ("LIVE" "BENCHMARK")``,
-    ``sh:hasValue "BENCHMARK"``), and a plain literal is not equal to one typed ``xsd:string``, so this fails if the store writes a
-    string in a form ``GraphDB.select_terms`` does not read as the gate expects. Read-only: the
-    batch is read from ``schema/`` and only validated, never written.
+    ``sh:hasValue "BENCHMARK"``), and a plain literal is not equal to one typed ``xsd:string``,
+    so this fails if the store writes a string in a form ``GraphDB.select_terms`` does not read
+    as the gate expects. Read-only: the batch is read from ``schema/`` and only validated.
+
+    Like the schema-graphs check, it takes the store to be a fresh ``schema/`` load, the worked
+    example included: a store that holds none of the individuals the batch points at fails with
+    that message (load ``schema/``), not with a gate rejection.
     """
     schema = load_gate_schema(schema_dir())
     dataset = rdflib.Dataset(default_union=False)
@@ -168,13 +173,24 @@ def check_string_terms(db: GraphDB) -> str:
     for triple in dataset.graph(rdflib.URIRef(QUANT_GRAPH)):
         batch.add(triple)
     refs = references(batch, schema)
+    if not refs:  # an empty batch would pass vacuously
+        raise AssertionError(
+            f"instances.trig has no batch {QUANT_GRAPH} that points at individuals"
+        )
+    context = fetch_context(db, refs, schema, batch)
+    held = set(context.subjects())
+    if not held:
+        raise AssertionError(
+            "the store holds none of the individuals the quant batch points at: "
+            "load schema/ first (cli/load_schema.py)"
+        )
     try:
-        validate(batch, context=lambda: fetch_context(db, refs, schema, batch))
+        validate(batch, context=context)
     except IngestRejected as exc:
         raise AssertionError(
             f"the quant batch of instances.trig fails beside the store: {exc}"
         ) from exc
-    return f"the quant batch passes beside the {len(refs)} stored individual(s) it points at"
+    return f"the quant batch passes beside the {len(held)} stored individual(s) it points at"
 
 
 CHECKS: list[tuple[str, Callable[[GraphDB], str]]] = [

@@ -7,18 +7,16 @@ from typing import cast
 
 import pytest
 import rdflib
-from conftest import FakeGraphDB
+from conftest import FakeGraphDB, context_for
 
 from kg_store import acceptance
 from kg_store.gate import (
     IngestRejected,
     ShaclRejected,
-    load_gate_schema,
     parse_batch,
-    references,
     validate,
 )
-from kg_store.graphdb import GraphDB, schema_dir
+from kg_store.graphdb import GraphDB
 
 KG = rdflib.Namespace("https://thesis.local/kg/portfolio#")
 
@@ -100,19 +98,12 @@ def _raiser(exc: Exception) -> Callable[..., int]:
 
 
 def _stored_portfolios(kind: rdflib.term.Node | None = None) -> list[dict[str, rdflib.term.Node]]:
-    """What the store holds about the Portfolios of the quant batch once ``instances.trig`` and ``reference.ttl`` are loaded."""
-    schema = schema_dir()
-    dataset = rdflib.Dataset(default_union=False)
-    dataset.parse(schema / "instances.trig", format="trig")
-    batch = dataset.graph(rdflib.URIRef(acceptance.QUANT_GRAPH))
-    refs = references(batch, load_gate_schema(schema))
-    rows = []
-    others = [*dataset.graphs(), rdflib.Graph().parse(schema / "reference.ttl", format="turtle")]
-    for graph in others:  # the Assets are typed in reference.ttl
-        for ref in refs:
-            for p, o in graph.predicate_objects(ref):
-                stored = kind if kind is not None and p == KG.portfolioKind else o
-                rows.append({"s": ref, "p": p, "o": stored})
+    """What the store holds about the quant batch's Portfolios and Assets, as ``select_terms``
+    rows; ``kind`` replaces every stored ``:portfolioKind``."""
+    rows: list[dict[str, rdflib.term.Node]] = []
+    for s, p, o in context_for(acceptance.QUANT_GRAPH):
+        stored = kind if kind is not None and p == KG.portfolioKind else o
+        rows.append({"s": s, "p": p, "o": stored})
     return rows
 
 
@@ -121,13 +112,32 @@ def test_check_string_terms_passes_beside_the_stored_portfolios() -> None:
     assert "passes beside" in acceptance.check_string_terms(fake.db)
 
 
-def test_check_string_terms_fails_for_a_kind_stored_in_another_form() -> None:
-    """A kind read back typed ``xsd:string`` no longer satisfies the shape's ``sh:in``."""
-    typed = rdflib.Literal("LIVE", datatype=rdflib.XSD.string)
+@pytest.mark.parametrize(
+    "kind",
+    [
+        rdflib.Literal("LIVE", datatype=rdflib.XSD.string),
+        rdflib.Literal("7", datatype=rdflib.XSD.integer),
+    ],
+    ids=["typed-string", "integer"],
+)
+def test_check_string_terms_fails_for_a_kind_stored_in_another_form(
+    kind: rdflib.term.Node,
+) -> None:
+    """A kind read back typed ``xsd:string`` (or as a number) no longer satisfies ``sh:in``."""
     with pytest.raises(AssertionError, match="fails beside the store"):
-        acceptance.check_string_terms(FakeGraphDB(terms=_stored_portfolios(typed)).db)
+        acceptance.check_string_terms(FakeGraphDB(terms=_stored_portfolios(kind)).db)
 
 
-def test_check_string_terms_fails_when_the_store_holds_no_portfolio() -> None:
-    with pytest.raises(AssertionError, match="fails beside the store"):
+def test_check_string_terms_says_to_load_the_schema_for_an_empty_store() -> None:
+    with pytest.raises(AssertionError, match=r"none of the individuals.*load schema/"):
         acceptance.check_string_terms(FakeGraphDB().db)
+
+
+def test_check_string_terms_does_not_pass_on_an_empty_batch(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A renamed or removed example graph must not switch the guard off by validating nothing."""
+    fake = FakeGraphDB(terms=_stored_portfolios())
+    monkeypatch.setattr(acceptance, "QUANT_GRAPH", "urn:graph:derived:quant:renamed")
+    with pytest.raises(AssertionError, match="has no batch"):
+        acceptance.check_string_terms(fake.db)
