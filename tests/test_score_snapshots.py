@@ -233,11 +233,56 @@ def test_a_full_run_with_failed_units_still_closes_the_quarter() -> None:
     assert list(out.graphs) == ["urn:graph:ingest:FUNDAMENTAL:2026-Q3"]
 
 
-def test_the_run_years_must_reach_the_quarter_and_the_fiscal_year_before_it() -> None:
+def test_the_run_years_are_filing_years_and_must_include_the_year_the_filing_became_usable() -> (
+    None
+):
+    """T-182 (upstream, Q7): the bounds are the years filings were filed, not fiscal years."""
+    assert full_run(since_year=2026, until_year=2026).covers(2026)  # was refused as fiscal years
     assert full_run(since_year=2025, until_year=2026).covers(2026)
-    assert not full_run(since_year=2026, until_year=2026).covers(2026)
-    assert not full_run(since_year=2020, until_year=2025).covers(2026)
+    assert full_run(since_year=2021, until_year=2026).covers(2021)  # the first year is included
+    assert not full_run(since_year=2027, until_year=2028).covers(2026)  # starts after it
+    assert not full_run(since_year=2020, until_year=2025).covers(2026)  # ends before it
     assert full_run(since_year=None, until_year=None).covers(2026)
+    assert full_run(since_year=None, until_year=2026).covers(2026)
+    assert full_run(since_year=2026, until_year=None).covers(2026)
+
+
+def test_a_filing_year_run_closes_a_quarter_when_it_starts_in_that_year() -> None:
+    # A run read from 2026 on: a filing that became usable in August 2026 is in its range.
+    out = ss.project(
+        [_AUGUST], ASSETS, "2026-10-05", [full_run(as_of="2026-10-04", since_year=2026)]
+    )
+    assert list(out.graphs) == ["urn:graph:ingest:FUNDAMENTAL:2026-Q3"]
+
+
+@pytest.mark.parametrize(
+    ("completed", "covers"), [(None, True), (448, True), (1, True), (0, False)]
+)
+def test_a_run_that_analyzed_no_filing_closes_nothing(completed: int | None, covers: bool) -> None:
+    run = dataclasses.replace(full_run(), completed_units=completed)
+    assert run.covers(2026) is covers
+
+
+def test_completed_units_are_read_from_the_row_and_default_to_unknown() -> None:
+    row = {
+        "run_id": 3,
+        "as_of": "2026-10-04",
+        "status": "completed",
+        "completed_units": 12,
+        "failed_units": 12,
+        "params_json": json.dumps(full_run().params),
+    }
+    assert ss.AnalysisRun.from_row(row).completed_units == 12
+    del row["completed_units"]
+    assert ss.AnalysisRun.from_row(row).completed_units is None
+
+
+def test_a_run_that_completed_with_every_task_failed_does_not_close_the_quarter() -> None:
+    # Production's runs 5 to 8 were `completed` with all 200 of 200 tasks failed.
+    run = dataclasses.replace(full_run(as_of="2026-10-04"), completed_units=0)
+    out = ss.project([_AUGUST], ASSETS, "2026-10-05", [run])
+    assert not out.graphs
+    assert out.deferred == {ss.DEFER_QUARTER_UNCOVERED: 1}
 
 
 @pytest.mark.parametrize("params_json", [None, "not json", "[1]"])

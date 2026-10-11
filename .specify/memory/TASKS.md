@@ -71,9 +71,10 @@ are closed (see `CHANGELOG.md`).*
     the run day. A scoped run, an `as_of` inside the quarter or a row's `computed_at` does not
     count, since upstream computes in batches after the fact. Only completed runs are parsed; any
     other run is counted and never stops a projection. Assumed: upstream's first full run after a
-    quarter covers every filing usable in it; a filing it failed on is an accepted loss. Until
-    SPEC Q7 is answered the year bounds are read as fiscal years, so the first year of a run's
-    range waits for a broader run.
+    quarter covers every filing usable in it; a filing it failed on is an accepted loss. The
+    year bounds are filing years (SPEC Q7, answered; T-182): a run covers a filing that became
+    usable in a year inside its range, and a run that completed with no filing analyzed
+    (`completed_units` 0) covers nothing.
   - **The run day is the as-of day:** a row is projected only once its `available_at` is on or
     before it. A run day after today is refused. A `--write` with a past run day needs `--replay`
     (which needs `--write`) and never writes to the production repository (`KG_REPOSITORY=portfolio`),
@@ -614,9 +615,9 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       keeps FUNDAMENTAL `normalizedScore` optional for legacy data, so the projector is the only
       place it holds); `SPEC.md` §2.6's T-030 rescale paragraph and `schema/README.md` refinement 6
       stop listing FUNDAMENTAL as rescaled. → step 3.
-- [ ] **T-182** *(Q7 answered, `SPEC.md` §2.6 sixth reply; T-031's criterion)* Read `since_year` and
+- [x] **T-182** *(Q7 answered, `SPEC.md` §2.6 sixth reply; T-031's criterion; done 2026-10-11 in PR #89: `AnalysisRun.covers` reads `since_year`/`until_year` as filing years, a run with `completed_units` 0 covers nothing, and `completed_units` is read from `v_analysis_run`; a run with `failed_units` still covers, because the pilot's only full run (run 2) has `failed_units` 2 and the safe rule would defer every quarter; the filing deadlines need no code, since the quarter is the one the filing became usable in and the run's `as_of` must be in a later quarter; the text below is the original task)* Read `since_year` and
       `until_year` as filing years in `AnalysisRun.covers` (`src/projection/score_snapshots.py`), which
-      reads them as fiscal years (`since <= year - 1`, `until >= year`). A run covers the filings of a
+      read them as fiscal years (`since <= year - 1`, `until >= year`). A run covers the filings of a
       period ending in quarter Q of year Y when `since_year <= Y` and `until_year >= Y + 1` (or `= Y`
       while the run's `as_of` is still in Y), and its `as_of` is after the filings were due (10-K up
       to 90 days after the year end, 60 for large accelerated filers; 10-Q 45 days, 40 for
@@ -720,7 +721,7 @@ Work item 15 (T-150–T-159, T-170–T-173, T-177–T-178): T-173 (the contract 
 T-151's rule recorded (PR #60), its checks waiting on T-031/T-163; T-158's
 ownership question (before their T-141) is unblocked; the rest of T-152–T-158 waits on upstream's
 T-144 (views), T-145 (ids), T-074 (flags) and, after their T-100, their T-082 and their Work item 4.
-Work item 15, from the sixth reply: T-182 (read the analysis run's year bounds as filing years) and T-183 (the decisions owed on version 11's content) are open.
+Work item 15, from the sixth reply: T-182 (the analysis run's year bounds read as filing years) is done; T-183 (the decisions owed on version 11's content) is open.
 Work item 16 (T-160–T-165): T-160 done (plain checks, quarantine-with-cap), T-161 closed with it (no dependency) and T-162 done (JSON files per view, strict loader);
 T-163 (function done, PR #68) closes with T-031, whose first slice (PR #72) calls it on the real read and re-reads the late keys for `v_score_snapshot`; T-164 done (PR #69).
 Work item 8 (T-070–T-071) is independent but needs a human at a Protégé

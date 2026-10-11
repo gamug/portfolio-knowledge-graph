@@ -530,7 +530,7 @@ feature commits `8c2e62e` and `95ba2f3`).
   columns are NULL). They suggest pinning to `b3c7661` or later, against the version-11 copy, and
   moving the floor to 11 then; the final pilot (T-143) will have the new columns filled. Version 12
   is not described.
-- **Q7 answered (`v_analysis_run`);** the filing deadlines and the rule T-031 should apply are in T-182.
+- **Q7 answered (`v_analysis_run`);** T-031's reading of the year bounds was corrected by T-182 (filing years).
   `since_year`/`until_year` are *filing* years (the year of the filing date), not fiscal years;
   `until_year` is capped at the year of `as_of`, and a filing filed after `as_of` is never read.
   `status` is `running`, `completed` or `failed` (a killed process stays `running`); `completed` means
