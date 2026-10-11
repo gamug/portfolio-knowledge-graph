@@ -5,7 +5,8 @@
     python cli/ingest.py batch.ttl --graph urn:graph:ingest:SEMANTIC:2026-08-06 --check
 
 ``--check`` validates without contacting the store (so it cannot see an existing graph or individual,
-nor the individuals the batch points at without declaring them). Exit status is 0 when the batch was
+the individuals the batch points at without declaring them, or what a closing ``:validTo`` /
+``:clearedOn`` closes). Exit status is 0 when the batch was
 accepted (or would be), 2 when it was rejected, 1 on any other error. See
 ``kg_store.gate`` for what is checked.
 """
@@ -22,6 +23,7 @@ from kg_store.gate import (
     IngestRejected,
     ShaclRejected,
     check_target,
+    closing_values,
     ingest,
     load_gate_schema,
     parse_batch,
@@ -56,6 +58,12 @@ def main(argv: list[str] | None = None) -> int:
             print(
                 f"accepted (check only, store not contacted): {len(batch)} triples for {args.graph}"
             )
+            if closing_values(batch):
+                print(
+                    "note: the batch closes stored records; --check cannot verify they exist, are "
+                    "open and opened earlier",
+                    file=sys.stderr,
+                )
         else:
             n = ingest(GraphDB.from_env(), data, args.graph)
             print(f"written: {n} triples to {args.graph}")

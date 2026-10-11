@@ -52,3 +52,11 @@ def test_check_does_not_blame_references_for_an_unrelated_rejection(tmp_path: Pa
     result = _check(tmp_path, ":a a :ScoreSnapshott .\n")
     assert result.returncode == 2
     assert "does not declare" not in result.stderr
+
+
+def test_check_says_it_cannot_verify_what_a_closing_triple_closes(tmp_path: Path) -> None:
+    closing = ':m :validTo "2026-03-31"^^<http://www.w3.org/2001/XMLSchema#date> .\n'
+    result = _check(tmp_path, closing)
+    assert result.returncode == 0, result.stderr
+    assert "closes stored records" in result.stderr
+    assert "closes stored records" not in _check(tmp_path, ":x a :Asset .\n").stderr

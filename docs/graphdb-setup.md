@@ -100,10 +100,12 @@ nothing written:
    a batch may only introduce new individuals, so re-declaring a stored observation with another
    value is refused. Closing a record is the untyped `:validTo` path (check 4); and
 7. every closing triple closes a stored individual that is still open (T-180): the store must hold
-   it, of a class whose shape carries the property (`:validTo`: a membership, a rule or an
-   attractiveness weight scheme; `:clearedOn`: a Veto), with no value for it yet, and the batch gives
-   it one date. A closure of an unknown subject, of an observation, or of a record already closed is
-   refused.
+   it, of a class the property closes (`gate.CLOSABLE`; `:validTo`: a membership, a position, a rule
+   or a design-history weight scheme, never a per-run one; `:clearedOn`: a Veto), with no value for it
+   yet, and the batch gives it one date, later than the one it opened on (`:validFrom` /
+   `:raisedOn`). A closure of an unknown subject, of an observation, of a record already closed or
+   closed before it opened is refused. The check reads, then writes: two batches closing the same
+   record at once can both pass it.
 
 What is written is the validated triples as N-Triples, not the submitted text. `--check` runs
 checks 1, 3, 4 and 5 without contacting the store, so it cannot see an existing graph (check 2)
