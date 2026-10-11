@@ -303,7 +303,7 @@ open part waits on another repo.
 | D13 | Translated; raised upstream | Mapping checked against `v_weight_scheme`/`v_weight_component` (T-109). Upstream confirmed (2026-10-05, 2026-10-06): `score_weights` holds the configured weights; `v_weight_scheme.scheme_id` is the position-weighting rule (`score_proportional`, `score_tilt`), and a blend is identified by its `cycle_run`; `blended_score` is the weighted mean of normalized components minus `soft_veto_penalty` per active SOFT veto, so it can be negative (0.0 for an asset with no component). **Answered, third reply:** (Q1) a no-component asset is always `vetoed = 1` with `"UNSCORED"` in `veto_rules_json`, no dedicated marker beyond the missing component rows. (Q2) `rank` excludes nobody; their T-144 produces one component row per non-null component of every ranking row regardless of `vetoed`/`selected` (tested); `vetoedAtRanking` is true only for a HARD veto or `UNSCORED`, never SOFT alone. (Q5) `target_weight`/`max_name_weight`/`max_sector_weight` are fractions of the book, [0, 1]; `max_name_weight` is `NULL` by default on a MONITORING run; the recorded value is the effective cap on a SELECTION run, the configured value on a MONITORING run. **Also, `component_value` is not a repeat of a `ScoreSnapshot` value for FUNDAMENTAL (D17)** — read it verbatim as `:componentValue` (T-155, T-171); `configured_weight` stays declined. | Schema work: T-121 (**done**, PR #65: per-run schemes dated by `:cycleDate`, never closed, in `urn:graph:ingest:ORCHESTRATOR:{date}`; configured weights from `v_weight_component`, effective caps from `v_weight_scheme`, both read verbatim), T-155 (ranking, with per-asset effective weights and `componentValue` read from upstream's `v_cycle_ranking_component`, their T-144, never derived here). |
 | D14 | Adopted; raised upstream | `:scoreMethod` discriminator; no write-back code existed to remove (T-111). | **Still unanswered:** upstream's SEMANTIC method value (replaces `ASSET_DAY_AGGREGATE`, T-158); it comes with their Work item 4, after their T-100. **Ownership disagreement:** upstream's second reply places its SEMANTIC-writer doc fix with their T-141 but states that, per their `docs/semantic-score-boundary.md`, the future writer is this repo, from `portfolio-nlp`'s measure. That contradicts §13 item 11 and PLAN Work item 5 (`portfolio-nlp` computes, `financial-analysis` materializes, this repo stops writing `score_snapshot[SEMANTIC]`). Not settled; raised upstream by T-158 before any work relies on either reading. |
 | D15 | Adopted | Read the SQLite `v_*` views via `portfolio_common.db` read-only; the HTTP `api/` is not a data source. A contract-metadata endpoint (view names, columns, contract version) is requested, not a data route (T-173). | Implementation: Work item 4's projector. |
-| D16 | Adopted; raised upstream | `schema_version` floor 9 (T-109); `portfolio-common` re-pinned to `v1.2.1` (T-110). | Each upstream contract change adds a marker migration, so the floor advances with their T-144 and T-145 (T-157). The floor is asserted by T-031's source check (PR #72), read through `FinancialSource` as `MAX(version)` of upstream's `schema_version` table; an empty or missing table reads as 0 and stops the run (fourth reply, PR #73); `portfolio-nlp` is still on `v1.2.0` (theirs to move). Upstream has said production is at `schema_version` 8, below the floor, and that it never migrates it (fifth reply); the maintainer disputes the figure (the pinned commit is 9), so production's version is unconfirmed and the floor stays 9; the pilot is at 9; their T-100 starts a fresh database. Upstream's current engines are `metrics-v5` and `opt-v2` (production still holds `metrics-v2` and `opt-v1`), and a filing's period is now identified by its period end rather than the `fiscal_period` label; the accession number is the filing key (T-151). **Answered, third reply (Q4):** `accession_number` is never NULL or empty (0 of 5,076 production rows, 0 of 449 pilot rows); it is not unique in production (30 numbers shared by 60 legacy rows predating their T-091), but production is already excluded by the schema floor; it is unique in the pilot and will be in their T-100 rebuild, and their T-145 adds a verifier check for it. |
+| D16 | Adopted; raised upstream | `schema_version` floor 9 (T-109); `portfolio-common` re-pinned to `v1.2.1` (T-110). | Each upstream contract change adds a marker migration, so the floor advances with their T-144 and T-145 (T-157). The floor is asserted by T-031's source check (PR #72), read through `FinancialSource` as `MAX(version)` of upstream's `schema_version` table; an empty or missing table reads as 0 and stops the run (fourth reply, PR #73); `portfolio-nlp` is still on `v1.2.0` (theirs to move). Upstream has said production is at `schema_version` 8, below the floor, and that it never migrates it (fifth reply); production is at 8 and the pilot at 9 (sixth reply, read from the databases), so the floor stays 9 and refuses production; their T-100 starts a fresh database. Upstream's current engines are `metrics-v5` and `opt-v2` (production still holds `metrics-v2` and `opt-v1`), and a filing's period is now identified by its period end rather than the `fiscal_period` label; the accession number is the filing key (T-151). **Answered, third reply (Q4):** `accession_number` is never NULL or empty (0 of 5,076 production rows, 0 of 449 pilot rows); it is not unique in production (30 numbers shared by 60 legacy rows predating their T-091), but production is already excluded by the schema floor; it is unique in the pilot and will be in their T-100 rebuild, and their T-145 adds a verifier check for it. |
 | D17 | Adopted; raised upstream | `ScoreSnapshotShape`'s `sh:or` widened so FUNDAMENTAL (`ScoreFinanciero`) no longer requires `normalizedScore`, joining `SectorRelativeMomentum`/`Sentiment` (optional, not forbidden; T-171), paired with a second `sh:or` requiring `rawValue` instead (`minCount 1`; bounded to `[0, 100]` by T-177, Q6 answered in the fifth reply), so it can never conform with neither value. | The per-cycle, cohort-relative value lives instead as `:componentValue` on `AttractivenessSnapshot`'s effective-weight `WeightComponent` (T-155). FUNDAMENTAL's `rawValue` is carried on the snapshot instead, bounded to `[0, 100]` by T-177 (Q6, asked on 2026-10-07, answered 2026-10-09). |
 
 **Upstream replies of 2026-10-05 and 2026-10-06 (T-150).** `portfolio-financial-analysis`'s
@@ -409,7 +409,7 @@ one assumption of the second reply.
 - **Open question (Q6, asked on 2026-10-07, not answered in that reply; answered in the fifth reply: [0, 100]):** the bounds of FUNDAMENTAL's
   `rawValue`, needed before `ScoreSnapshotShape` can bound it the way SECTOR's was bounded once
   confirmed (T-140/T-155).
-- **New open question (Q7, to ask with the next follow-up; raised by T-031, PR #72):** which
+- **Question Q7 (raised by T-031, PR #72; its details went with our follow-up of 2026-10-10, answered in the sixth reply):** which
   `v_analysis_run` fields define a run that read every filing usable in a quarter. T-031 counts a
   run as full when its `status` is `completed` and its `params_json` has `tickers` and `limit`
   null, both forms, `since_year` at most the year before the quarter and `until_year` at least
@@ -459,7 +459,7 @@ theirs, copied from their message and not read from the commit, merged 2026-10-0
 - **Additive within a version.** Columns are only added, at the end of a view; never renamed,
   removed or reordered. Every migration raises the version, even one that changes no view (T-145
   rebuilds tables and changes none), so compare column lists, not only the number.
-- **Production's version: their statement, disputed (maintainer, 2026-10-10).** They say their
+- **Production's version: their statement, disputed (maintainer, 2026-10-10); settled in the sixth reply: production is at 8, the pilot at 9.** They say their
   production database is frozen at `schema_version` 8 until their T-100 (`m009`, the veto stints,
   never applied, never migrated) and advise a floor of 8 or less *for production*, calling our 9
   "theirs and wrong". The maintainer holds that they got the version wrong: the schema version at
@@ -487,7 +487,78 @@ theirs, copied from their message and not read from the commit, merged 2026-10-0
 - **Q6 answered: FUNDAMENTAL's `raw_value` is in [0, 100].** It is the assessment's `score`
   (`Field(ge=0.0, le=100.0)`); the rule-based fallback clamps to the same range. `normalized_score`
   is a separate field (50 + 10z over the cohort, clamped to [0, 100]). The shape bound is T-177.
-- **Q7 still open:** they wait for the details we said would come with our next follow-up.
+- **Q7 was not yet asked here:** they waited for the details we said would come with our next follow-up; answered in the sixth reply.
+
+**Sixth upstream reply (2026-10-10, T-173/T-157), answering our follow-up of 2026-10-10.** The facts are
+theirs, copied from their message; the endpoint's answers were also read from a running instance of
+their service on 2026-10-11 (below). Their T-152 landed with their PR #130 (merge commit `c4bef14`,
+feature commits `8c2e62e` and `95ba2f3`).
+
+- **Production's version, settled: 8; the pilot's: 9.** Read from each database itself, opened
+  read-only, with `SELECT version, applied_at, description FROM schema_version`. Production
+  (`financial.db`, where `cycle select`/`cycle monitor` wrote) is at **8**, last migration `m008`
+  (T-107), 2026-09-26; it lacks `m009` (the veto stints), so its `v_veto` still has `cycle_date` and
+  lacks `raised_on`, `cleared_on`, `last_seen_on`. The pilot (`financial_pilot.db`, SHA-256
+  `01170d97…`) is at **9** (`m001`–`m009`, built with their `8da3868`). So the maintainer was right
+  about the pinned commit and the pilot (9); upstream was right about production (8), and they
+  will not migrate it (frozen until their T-100 builds a fresh database). **The floor stays 9 (D16):**
+  everything they send us (pilot, version-10 copy, final pilot T-143, the T-100 database) is at 9 or
+  above, and a reader enforcing the floor refusing production is correct. If we ever need to read
+  production before T-100 we tell them first: it needs floor 8 and `v_veto`'s version-8 columns.
+  (Their §3 earlier in the same message says to keep the floor at 8 or below for production; their §7.1
+  supersedes it.) Against production, 25 of 31 views match the code; five lack only T-144's appended
+  columns; `v_veto` differs in shape.
+- **The endpoint (T-152), as built.** Under `/api/v1`, pydantic models, read-only:
+  `GET /contract` returns `contract_version` (integer), `code_version` (string) and `views` (array of
+  `{name, frozen, columns: [{name}]}` in `VIEWS` order, no column types: SQLite views are untyped);
+  `GET /contract/database` returns `schema_version` (0 when the table is missing or empty),
+  `views_present` and `views_missing`, which together partition `VIEWS`. Their `docs/api.md`, "The
+  view contract", has samples. Only `v_universe_membership` is `frozen`.
+- **Read from a running instance (2026-10-11, our check, not theirs):** `contract_version` **12**
+  (their message says 11: a migration landed after it), `code_version` `6a80ec3`, 33 views;
+  `schema_version` **8** with `v_fundamental_metric` and `v_cycle_ranking_component` missing, which
+  is the frozen production database. Against our pin (`view_contract.py`): all 30 pinned views and
+  columns are present, in order; the only differences are columns appended at the end of seven views
+  (the T-144 ones, `v_veto.expires_on`, and five `v_price_observation` columns) and the views we do
+  not pin (the two T-144 views and the frozen `v_universe_membership`). Nothing in the column lists
+  shows what version 12 changed.
+- **Databases for the re-pin (T-157).** Sent: `financial_pilot_v10.db`, SHA-256
+  `ee9227847dbb4a5aefab0f4dadf165938252b853140db4c3a10080579b80a780`, the fixture after `migrate`
+  (`schema_version` 10, 33 views, `integrity_check` ok), migrated with `c4bef14`; the new views have
+  rows (`v_fundamental_metric` 13,781, all `metrics-v4` and `is_current`; `v_cycle_ranking_component`
+  180); the values are still pilot 1's. On request: a version-11 copy (their `b3c7661`; the new
+  columns are NULL). They suggest pinning to `b3c7661` or later, against the version-11 copy, and
+  moving the floor to 11 then; the final pilot (T-143) will have the new columns filled. Version 12
+  is not described.
+- **Q7 answered (`v_analysis_run`);** the filing deadlines and the rule T-031 should apply are in T-182.
+  `since_year`/`until_year` are *filing* years (the year of the filing date), not fiscal years;
+  `until_year` is capped at the year of `as_of`, and a filing filed after `as_of` is never read.
+  `status` is `running`, `completed` or `failed` (a killed process stays `running`); `completed` means
+  the batch reached its end, not that every filing succeeded (11 of production's 13 `completed` runs
+  have `failed_units` > 0, and four failed all 200 of 200 tasks). The counters do not share a unit
+  (`planned_units` counts company × form × year tasks, `completed_units` counts filings), so they are
+  not compared. Acquisition and analysis are one step: a filing the gateway lists only after the run
+  is missed until the next run. "Every ticker" means the members on the run's `as_of`, so a company
+  that left the index before it is not read (their T-153 moves to historical membership, but the run
+  still reads the members on its `as_of`). Production has no qualifying run; the pilot's run 2 does
+  on its parameters. Columns are filled at the insert (`started_at`, `params_json`, `status`,
+  `as_of`, `code_version`), after planning (`universe_size`, `planned_units`) and at the end
+  (`finished_at`, the final status); the counters are partial on a `running` row.
+- **Content changes that need a decision here** (detail in their `docs/kg_schema.md`; no column or
+  contract change unless noted): new runs weigh three score types (FUNDAMENTAL, VALORIZATION,
+  TECHNICAL, 1/3 each, no SEMANTIC row; earlier runs keep four); quant variant books sit beside the
+  default book and are never `is_current`; and contract version 11 (their T-070, `m011`) adds
+  `v_veto.expires_on` (only on stints of the new temporary HARD rules), five `v_price_observation`
+  columns (NULL on `priceobs-v1`), three rules in `v_rule_catalog` (`BREAK_TREND_200`,
+  `VOLATILITY_SHOCK`, `CRASH_Z_SCORE`), a redefined `LIQUIDITY_DISTRESS`, and `penalty_points` on
+  every rule, so the SOFT penalty is the sum of the active rules' `penalty_points` and not 15 per
+  rule. The questions they raise for us are listed next.
+- **Not yet decided here:** whether `schema/rules.ttl` takes the three new rules and the redefinition
+  (the catalog is upstream's, T-103); a `Veto` `expiresOn` property and its shape; whether
+  `PriceObservation` takes the five price columns; how T-155 reads the penalty identity; the
+  `is_current` filter in the quant projection; the relaxed weight-component shape. They are listed in
+  `TASKS.md` (T-183) until decided, and Q7's answer is T-182. T-173 reads the routes and takes
+  `contract_version` from the endpoint, not from a figure in its text.
 
 **Read contract and score scale (T-030, 2026-10-05).** `src/projection/view_contract.py`
 pins a full snapshot of the columns of 30 of upstream's 31 `v_*` views (taken from
