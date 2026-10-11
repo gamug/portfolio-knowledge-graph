@@ -954,3 +954,25 @@ def test_the_year_of_available_at_is_the_year_tested_against_the_bounds() -> Non
     run = full_run(as_of="2026-10-04", since_year=2020, until_year=2025)
     assert run.covers(2025)
     assert not run.covers(2026)
+
+
+def test_a_completed_run_without_a_count_is_reported_and_does_not_close_the_quarter(
+    tmp_path: Path,
+) -> None:
+    source = financial_db(tmp_path, [fundamental_row(id=10)])
+    conn = sqlite3.connect(tmp_path / "financial.db")
+    conn.execute("UPDATE v_analysis_run SET completed_units = NULL")
+    conn.commit()
+    conn.close()
+    out = ss.run(source, ASSETS, None, "2026-10-07")
+    assert out.runs_without_count == 1
+    assert out.deferred == {ss.DEFER_QUARTER_UNCOVERED: 1}
+    assert (
+        "completed analysis runs with no completed_units, read as none analyzed: 1" in out.summary()
+    )
+
+
+def test_a_run_with_its_count_is_not_reported(tmp_path: Path) -> None:
+    out = ss.run(financial_db(tmp_path, [fundamental_row(id=10)]), ASSETS, None, "2026-10-07")
+    assert out.runs_without_count == 0
+    assert "no completed_units" not in out.summary()

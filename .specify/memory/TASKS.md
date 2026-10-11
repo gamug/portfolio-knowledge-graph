@@ -617,7 +617,7 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       stop listing FUNDAMENTAL as rescaled. → step 3.
 - [x] **T-182** *(Q7 answered, `SPEC.md` §2.6 sixth reply; T-031's criterion; done 2026-10-11 in PR #89: `AnalysisRun.covers` reads `since_year`/`until_year` as filing years, a run with `completed_units` 0 covers nothing, and `completed_units` is read from `v_analysis_run`; the year of `available_at` is taken as the filing year, asked upstream (`SPEC.md` §2.6); a NULL `completed_units` on a completed row is read as none analyzed; a run with `failed_units` still covers, because the pilot's only full run (run 2) has `failed_units` 2 and the safe rule would defer every quarter; the filing deadlines need no code, since the quarter is the one the filing became usable in and the run's `as_of` must be in a later quarter; the text below is the original task)* Read `since_year` and
       `until_year` as filing years in `AnalysisRun.covers` (`src/projection/score_snapshots.py`), which
-      read them as fiscal years (`since <= year - 1`, `until >= year`). A run covers the filings of a
+      reads them as fiscal years (`since <= year - 1`, `until >= year`). A run covers the filings of a
       period ending in quarter Q of year Y when `since_year <= Y` and `until_year >= Y + 1` (or `= Y`
       while the run's `as_of` is still in Y), and its `as_of` is after the filings were due (10-K up
       to 90 days after the year end, 60 for large accelerated filers; 10-Q 45 days, 40 for
@@ -639,6 +639,14 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       rule); (5) the quant projection filters `is_current = 1` (variant books are never current);
       (6) the weight-component shape reads "the score types the run weighted" (three for a new run).
       -> `PLAN.md` Work item 15.
+- [ ] **T-184** *(the next follow-up letter to `portfolio-financial-analysis`; from the sixth reply and PR #89's review)* Write and send it; tick
+      each ask when answered. (1) Which date their `since_year`/`until_year` filter uses, the filing date
+      or `available_at` (T-182 takes the two years as one; `SPEC.md` §2.6). (2) A database at the
+      contract version their service serves (12 today), or their final pilot (T-143), for T-157. (3) The
+      pilot README updated for the version-10 file it ships with (it still describes version 9). (4)
+      Whatever of T-183's six items needs them (for example the shape of `expires_on`). (5) When their
+      T-145 and T-100 land (T-151, T-154, T-158). Record the answers in `SPEC.md` §2.6 as the seventh
+      reply. -> `PLAN.md` Work item 15.
 
 ## Work item 16 — Validate upstream rows at the read boundary
 
@@ -721,7 +729,7 @@ Work item 15 (T-150–T-159, T-170–T-173, T-177–T-178): T-173 (the contract 
 T-151's rule recorded (PR #60), its checks waiting on T-031/T-163; T-158's
 ownership question (before their T-141) is unblocked; the rest of T-152–T-158 waits on upstream's
 T-144 (views), T-145 (ids), T-074 (flags) and, after their T-100, their T-082 and their Work item 4.
-Work item 15, from the sixth reply: T-182 (the analysis run's year bounds read as filing years) is done; T-183 (the decisions owed on version 11's content) is open.
+Work item 15, from the sixth reply: T-182 (the analysis run's year bounds read as filing years) is done; T-183 (the decisions owed on version 11's content) and T-184 (the next letter to upstream) are open.
 Work item 16 (T-160–T-165): T-160 done (plain checks, quarantine-with-cap), T-161 closed with it (no dependency) and T-162 done (JSON files per view, strict loader);
 T-163 (function done, PR #68) closes with T-031, whose first slice (PR #72) calls it on the real read and re-reads the late keys for `v_score_snapshot`; T-164 done (PR #69).
 Work item 8 (T-070–T-071) is independent but needs a human at a Protégé

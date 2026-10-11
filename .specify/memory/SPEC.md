@@ -553,7 +553,7 @@ feature commits `8c2e62e` and `95ba2f3`).
   `VOLATILITY_SHOCK`, `CRASH_Z_SCORE`), a redefined `LIQUIDITY_DISTRESS`, and `penalty_points` on
   every rule, so the SOFT penalty is the sum of the active rules' `penalty_points` and not 15 per
   rule. The questions they raise for us are listed next.
-- **Asked, not yet answered (to send with the next follow-up):** which date their `since_year`/`until_year` filter uses, the filing date or the day the filing became usable (`available_at`). T-182 takes them as the same year, which holds in all 449 pilot FUNDAMENTAL rows (none was filed in the last days of December) and not in general.
+- **Asked, not yet answered (to send with the next follow-up, T-184):** which date their `since_year`/`until_year` filter uses, the filing date or the day the filing became usable (`available_at`). T-182 takes them as the same year, which holds in all 449 pilot FUNDAMENTAL rows (none was filed in the last days of December) and not in general.
 - **Not yet decided here:** whether `schema/rules.ttl` takes the three new rules and the redefinition
   (the catalog is upstream's, T-103); a `Veto` `expiresOn` property and its shape; whether
   `PriceObservation` takes the five price columns; how T-155 reads the penalty identity; the

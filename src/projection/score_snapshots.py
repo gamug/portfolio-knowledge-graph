@@ -436,6 +436,7 @@ class RunResult:
     lost_before: int = 0  # losses an earlier run already listed (with a late-key file)
     store_consulted: bool = True  # False on a dry run: ``already_in_store`` was not checked
     runs_not_counted: int = 0  # analysis runs that are not ``completed``: never full, not parsed
+    runs_without_count: int = 0  # completed runs with a NULL ``completed_units``: read as 0
     #: The graph being written when the store failed: its answer was lost, so it may be written.
     in_doubt: str | None = None
 
@@ -450,6 +451,11 @@ class RunResult:
             lines += ["  already in the store: not checked (dry run)"]
         if self.runs_not_counted:
             lines += [f"  analysis runs not completed, not counted: {self.runs_not_counted}"]
+        if self.runs_without_count:
+            lines += [
+                "  completed analysis runs with no completed_units, read as none analyzed: "
+                f"{self.runs_without_count}"
+            ]
         lines += [f"  written: {g}: {n} triples" for g, n in sorted(self.written.items())]
         lines += [f"  SHACL-valid, not written (store not consulted): {g}" for g in self.checked]
         lines += [f"  rejected: {g}: {why}" for g, why in sorted(self.rejected.items())]
@@ -541,6 +547,7 @@ def run(
     out = RunResult(result.report, projection.skipped, projection.deferred)
     out.store_consulted = store is not None
     out.runs_not_counted = len(result.rows[ANALYSIS_RUNS]) - len(completed)
+    out.runs_without_count = sum(r.get("completed_units") is None for r in completed)
     # key -> why not written (None: written)
     settled: dict[int, str | None] = dict(projection.left_out)
 
