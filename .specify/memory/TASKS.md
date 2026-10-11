@@ -616,8 +616,9 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       company that left the index before it is not covered. Tests for the boundary years; update the
       `covers` docstring that sends the question to upstream. Code, so its own PR on a `fix/`
       branch. -> `PLAN.md` Work item 15.
-- [ ] **T-183** *(decisions the maintainer owes, from the sixth reply)* Decide, one line each, and file
-      a task for every yes: (1) `schema/rules.ttl` takes `BREAK_TREND_200`, `VOLATILITY_SHOCK`,
+- [ ] **T-183** *(decisions the maintainer owes, from the sixth reply of 2026-10-10; the maintainer answers,
+      and asks upstream through the follow-up letter where a decision needs them, for example (2)'s shape)*
+      Decide, one line each (tick an item here as it is decided), and file a task for every yes: (1) `schema/rules.ttl` takes `BREAK_TREND_200`, `VOLATILITY_SHOCK`,
       `CRASH_Z_SCORE` and the redefined `LIQUIDITY_DISTRESS` (the catalog is upstream's, T-103), with
       `penalty_points` on each; (2) a `Veto` `expiresOn` property and its shape (`v_veto.expires_on`);
       (3) whether `PriceObservation` takes `sma_200`, `ret_5d`, `vol_5d`, `mu_60d_base`,
