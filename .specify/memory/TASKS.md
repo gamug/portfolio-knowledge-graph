@@ -464,6 +464,7 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       is not a precondition of this task. It is unique in the pilot and will be in their T-100 rebuild; no
       constraint enforces it today, but their T-145 adds a uniqueness check to their pilot
       verifier. → step 3.
+      The dates of their T-145 and T-100 are asked in T-184 and recorded by T-191 (5).
 - [ ] **T-152** Model `v_fundamental_metric`: one immutable observation per (filing, metric, engine
       version) with its asset, filing, metric group and name, value, `engineVersion`, and its own
       event-time and available-at properties (not `:eventTime`/`:availableAt`: their
@@ -497,6 +498,7 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       `v_media_cooccurrence_edge` exists (after upstream's T-082); do not read `first_seen`/
       `last_seen` until upstream fills them. `computed_at` is written `+00:00`: parse that form and
       `Z`. The `MEDIA` view and the edge dates come after their T-100. → step 3.
+      The dates of their T-145 and T-100 are asked in T-184 and recorded by T-191 (5).
 - [ ] **T-155** *(schema half done 2026-10-07 in PR #58: the two shape bounds, every comment and doc listed under "Unblocked now"; open: the projection, which waits on T-031, T-121, T-157)* Project `v_cycle_ranking` as `AttractivenessSnapshot`s, keeping only
       `status = 'completed'` and non-REPLAY runs: `attractivenessScore` = `blended_score / 100`
       (second reply: 0-100 points, higher = more attractive, minus the SOFT penalty, so it
@@ -587,6 +589,7 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       Sign-off, item by item: the pin (read and unread columns), the floor, `contract_version`, the drift
       check against the commit, the expectations files, the `SPEC.md` §2.6 row.
       → step 4.
+      The database at the served version, and what version 12 changed, are asked in T-184 and recorded by T-191 (2).
 - [ ] **T-158** Replace the `ASSET_DAY_AGGREGATE` placeholder with upstream's SEMANTIC
       `score_method` value once they give it (D14; with their Work item 4, after their T-100).
       **First, raise the ownership disagreement (unblocked now; ask before their T-141 ships its
@@ -595,6 +598,7 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       11 (`portfolio-nlp` computes, `financial-analysis` materializes, this repo stops writing).
       Ask them to confirm which reading their T-141 doc fix will state, and record the answer in D14
       before the method value is adopted. → step 4.
+      The dates of their T-145 and T-100 are asked in T-184 and recorded by T-191 (5).
 - [ ] **T-159** Verify: FR-001 parse + `pyshacl` pass after T-151–T-156, T-171, with
       `schema/README.md`, `docs/06` and `docs/07` counts in sync (NR-001), `docs/07`'s named-graph
       table listing every new class, and no doc left describing the blend as computed here (T-155);
@@ -655,7 +659,7 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       company that left the index before it is not covered. Tests for the boundary years; update the
       `covers` docstring that sends the question to upstream. Code, so its own PR on a `fix/`
       branch. -> `PLAN.md` Work item 15.
-- [x] **T-183** *(done 2026-10-11: the maintainer took the recommended action on each of the six items, from the sixth reply of 2026-10-10; where an item needs upstream, T-184 item 4 asks)*
+- [x] **T-183** *(done 2026-10-11: the maintainer took the recommended action on each of the six items, from the sixth reply of 2026-10-10; where an item needs upstream, T-184 asks and T-191 records)*
       Decisions on version 11's content, one line each: (1) **yes**: `schema/rules.ttl` takes `BREAK_TREND_200`,
       `VOLATILITY_SHOCK`, `CRASH_Z_SCORE` and the redefined `LIQUIDITY_DISTRESS` (the catalog is upstream's, T-103),
       with `penalty_points` on each -> T-187; (2) **yes**: `Veto` takes an optional `expiresOn` and a shape -> T-188;
@@ -666,7 +670,7 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       books are never current, so they are not projected (stated in T-156, no new task); (6) **yes**: the
       weight-component shape reads "the score types the run weighted" (three for a new run, four for an earlier one)
       -> T-190. -> `PLAN.md` Work item 15.
-- [x] **T-184** *(done 2026-10-11: the letter is written and the maintainer sends it by hand; the answers are T-191)* The next follow-up
+- [ ] **T-184** *(written 2026-10-11; open until the maintainer sends it by hand and says so; the answers are T-191)* The next follow-up
       letter to `portfolio-financial-analysis`, from the sixth reply and PR #89's review. It asks five
       things. (1) Which date their `since_year`/`until_year` filter uses, the filing date or `available_at`
       (T-182 takes the two years as one; `SPEC.md` §2.6). (2) A database at the contract version their
@@ -680,14 +684,17 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       the reply comes, record it in `SPEC.md` §2.6 as the seventh reply and tick each ask below as it is
       answered; a partial reply ticks the asks it answers and leaves the rest. (1) The date of the year
       filter -> if it is `available_at`, T-182's reading is changed. (2) The database and what version 12
-      changed -> T-157. (3) The notes against the database's version. (4) The rule definitions, `penalty_points`
-      and the `expires_on` semantics -> unblocks T-187 and T-188 (and T-189 through T-187). (5) The dates of
+      changed -> T-157. (3) The notes against the database's version. (4) The rule definitions -> unblocks T-187 and T-188 (and T-189 through T-187), part by part: (a) ids, metrics,
+      operators and thresholds of the four rules; (b) `penalty_points` of all nine; (c) the date the redefined
+      `LIQUIDITY_DISTRESS` applies from and what the old definition's stints keep (the stint resolution in T-187);
+      (d) whether an expired stint is cleared by them (`cleared_on`) or only by its date; (e) whether `expires_on`
+      is ever set on a SOFT stint. (5) The dates of
       their T-145 and T-100 -> T-151, T-154, T-158. Answers taken from a message are marked as theirs, not
       read from their code, as the earlier replies were. -> `PLAN.md` Work item 15.
       - [ ] (1) filing date or `available_at`
       - [ ] (2) database at the served version, and what version 12 changed
       - [ ] (3) notes match the file's version
-      - [ ] (4) rule definitions, `penalty_points`, `expires_on` semantics
+      - [ ] (4) rule definitions: (a) thresholds, (b) `penalty_points`, (c) the redefinition's date, (d) who clears an expired stint, (e) `expires_on` on SOFT
       - [ ] (5) T-145 and T-100 dates
 
 - [ ] **T-187** *(from T-183 (1); waits on upstream's definitions, so on T-157 or T-191, the answer to the T-184 letter)* Add the
@@ -810,7 +817,7 @@ Work item 15 (T-150–T-159, T-170–T-173, T-177–T-178, T-182–T-184, T-187�
 T-151's rule recorded (PR #60), its checks waiting on T-031/T-163; T-158's
 ownership question (before their T-141) is unblocked; the rest of T-152–T-158 waits on upstream's
 T-144 (views), T-145 (ids), T-074 (flags) and, after their T-100, their T-082 and their Work item 4.
-Work item 15, from the sixth reply: T-182 (the analysis run's year bounds read as filing years) is done; T-183 (the decisions on version 11's content) is done, with T-187 (the rules and `penaltyPoints`), T-188 (`expiresOn`), T-189 (the penalty identity) and T-190 (the three-component scheme) filed; T-184 (the next letter to upstream) is written, for the maintainer to send, and T-191 records the answers when they come.
+Work item 15, from the sixth reply: T-182 (the analysis run's year bounds read as filing years) is done; T-183 (the decisions on version 11's content) is done, with T-187 (the rules and `penaltyPoints`), T-188 (`expiresOn`), T-189 (the penalty identity) and T-190 (the three-component scheme) filed; T-184 (the next letter to upstream) is written and open until the maintainer sends it, and T-191 records the answers when they come.
 Work item 16 (T-160–T-165): T-160 done (plain checks, quarantine-with-cap), T-161 closed with it (no dependency) and T-162 done (JSON files per view, strict loader);
 T-163 (function done, PR #68) closes with T-031, whose first slice (PR #72) calls it on the real read and re-reads the late keys for `v_score_snapshot`; T-164 done (PR #69).
 Work item 8 (T-070–T-071) is independent but needs a human at a Protégé
