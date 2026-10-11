@@ -406,7 +406,7 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       corrections (D6 SECTOR range, D13 `blended_score` and `scheme_id`, D2 `available_at` on cycle
       lanes, D12 `metric_id`/`unit`, D11/D12 `is_current` as at most one), the forensic-flag
       format, `+00:00` timestamps, id reuse on all four run tables and `sec_filings` (D7),
-      production's `schema_version` (unconfirmed, `SPEC.md` §2.6 fifth reply), cohort-relative `normalized_score`, their weights
+      production's `schema_version` (8, `SPEC.md` §2.6 sixth reply), cohort-relative `normalized_score`, their weights
       change (D13: 1/3 each for new runs, SEMANTIC out of the blend), and the upstream task each ask
       maps to (their T-144, T-145, T-074 and T-141, their Work item 2, and after their T-100).
       → `PLAN.md` Work item 15, step 1.
@@ -444,7 +444,7 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       empty (0 of 5,076 production rows, 0 of 449 pilot rows), so the key is always available.
       It is *not* unique in production: 30 accession numbers are shared by 60 legacy rows from
       before upstream's T-091 (a 10-Q's quarters stored as separate rows under one accession,
-      repaired by their T-120) — harmless here, since production's `schema_version` (unconfirmed, `SPEC.md` §2.6 fifth reply)
+      repaired by their T-120) — harmless here, since production's `schema_version` (8, `SPEC.md` §2.6 sixth reply)
       is not a precondition of this task. It is unique in the pilot and will be in their T-100 rebuild; no
       constraint enforces it today, but their T-145 adds a uniqueness check to their pilot
       verifier. → step 3.
@@ -541,7 +541,7 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       `Portfolio` (already enforced by `PortfolioShape`); stop expecting `equal_weight`/
       `cap_weight`. `is_current` marks at most one book per `(as_of, kind)`, the newest `opt-v*`;
       `engine_version` stays opaque (`opt-v1+9d34ff69`). → step 3.
-- [ ] **T-157** *(their T-144 landed 2026-10-09 at `6bf4d7e`, `schema_version` 10: re-pin against a database migrated with it; the floor stays 9 until then; production's version is unconfirmed, `SPEC.md` §2.6 fifth reply)* When upstream ships: re-pin `src/projection/view_contract.py` (new view, new
+- [ ] **T-157** *(their T-144 landed 2026-10-09 at `6bf4d7e`, `schema_version` 10: re-pin against a database migrated with it; the floor stays 9 until then; production is at 8, the pilot at 9, `SPEC.md` §2.6 sixth reply; the live service is at `contract_version` 12 and upstream offers copies at 10 and 11 only: ask for a version-12 copy, or wait for their final pilot (T-143), so the re-pin is done once)* When upstream ships: re-pin `src/projection/view_contract.py` (new view, new
       columns, the commit in its docstring and in `SPEC.md` §2.6), raise the `schema_version` floor
       (D16; the value is `schema_version_floor` in `src/projection/view_expectations/_source.json`),
       and write the upstream `contract_version` the pin was built against beside it (the key and its
@@ -557,7 +557,7 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       Project only from a database that meets the floor and holds no REPLAY run (no `cycle_run`
       row with `cycle_type = 'REPLAY'`; a backfill's REPLAY scores and vetoes land in the shared
       tables, D8). This task sets the rule; the check is one of T-162's expectations, run by T-163
-      at the start of each projection. Production's version is unconfirmed (`SPEC.md` §2.6): whichever it is, it passes only if it meets the floor; the pilot (at 9) and
+      at the start of each projection. Production is at 8 (`SPEC.md` §2.6 sixth reply), so the floor refuses it, as intended; the pilot (at 9) and
       their T-100 rebuild qualify if the check passes.
       → step 4.
 - [ ] **T-158** Replace the `ASSET_DAY_AGGREGATE` placeholder with upstream's SEMANTIC
@@ -614,6 +614,30 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       keeps FUNDAMENTAL `normalizedScore` optional for legacy data, so the projector is the only
       place it holds); `SPEC.md` §2.6's T-030 rescale paragraph and `schema/README.md` refinement 6
       stop listing FUNDAMENTAL as rescaled. → step 3.
+- [ ] **T-182** *(Q7 answered, `SPEC.md` §2.6 sixth reply; T-031's criterion)* Read `since_year` and
+      `until_year` as filing years in `AnalysisRun.covers` (`src/projection/score_snapshots.py`), which
+      reads them as fiscal years (`since <= year - 1`, `until >= year`). A run covers the filings of a
+      period ending in quarter Q of year Y when `since_year <= Y` and `until_year >= Y + 1` (or `= Y`
+      while the run's `as_of` is still in Y), and its `as_of` is after the filings were due (10-K up
+      to 90 days after the year end, 60 for large accelerated filers; 10-Q 45 days, 40 for
+      accelerated). Also: `status` is `running`, `completed` or `failed` (a killed run stays
+      `running`), `completed` does not mean every filing succeeded, so a run covers only with
+      `failed_units = 0` (upstream's safe rule; `completed_units > 0` is the minimum they accept, and is the
+      documented fallback if no run of the pilot ever qualifies under the safe one), with a test for a
+      run that has failures; and "every ticker" means the members on the run's `as_of`, so a
+      company that left the index before it is not covered. Tests for the boundary years; update the
+      `covers` docstring that sends the question to upstream. Code, so its own PR on a `fix/`
+      branch. -> `PLAN.md` Work item 15.
+- [ ] **T-183** *(decisions the maintainer owes, from the sixth reply of 2026-10-10; the maintainer answers,
+      and asks upstream through the follow-up letter where a decision needs them, for example (2)'s shape)*
+      Decide, one line each (tick an item here as it is decided), and file a task for every yes: (1) `schema/rules.ttl` takes `BREAK_TREND_200`, `VOLATILITY_SHOCK`,
+      `CRASH_Z_SCORE` and the redefined `LIQUIDITY_DISTRESS` (the catalog is upstream's, T-103), with
+      `penalty_points` on each; (2) a `Veto` `expiresOn` property and its shape (`v_veto.expires_on`);
+      (3) whether `PriceObservation` takes `sma_200`, `ret_5d`, `vol_5d`, `mu_60d_base`,
+      `vol_60d_base`; (4) how T-155 reads the SOFT penalty (the sum of `penalty_points`, not 15 per
+      rule); (5) the quant projection filters `is_current = 1` (variant books are never current);
+      (6) the weight-component shape reads "the score types the run weighted" (three for a new run).
+      -> `PLAN.md` Work item 15.
 
 ## Work item 16 — Validate upstream rows at the read boundary
 
@@ -696,6 +720,7 @@ Work item 15 (T-150–T-159, T-170–T-173, T-177–T-178): T-173 (the contract 
 T-151's rule recorded (PR #60), its checks waiting on T-031/T-163; T-158's
 ownership question (before their T-141) is unblocked; the rest of T-152–T-158 waits on upstream's
 T-144 (views), T-145 (ids), T-074 (flags) and, after their T-100, their T-082 and their Work item 4.
+Work item 15, from the sixth reply: T-182 (read the analysis run's year bounds as filing years) and T-183 (the decisions owed on version 11's content) are open.
 Work item 16 (T-160–T-165): T-160 done (plain checks, quarantine-with-cap), T-161 closed with it (no dependency) and T-162 done (JSON files per view, strict loader);
 T-163 (function done, PR #68) closes with T-031, whose first slice (PR #72) calls it on the real read and re-reads the late keys for `v_score_snapshot`; T-164 done (PR #69).
 Work item 8 (T-070–T-071) is independent but needs a human at a Protégé
