@@ -530,50 +530,29 @@ feature commits `8c2e62e` and `95ba2f3`).
   columns are NULL). They suggest pinning to `b3c7661` or later, against the version-11 copy, and
   moving the floor to 11 then; the final pilot (T-143) will have the new columns filled. Version 12
   is not described.
-- **Q7 answered (`v_analysis_run`).** (1) `since_year`/`until_year` are *filing* years (the year of
-  the filing date), not fiscal years; `until_year` is capped at the year of `as_of`; a filing filed
-  after `as_of` is never read. A run covers period-end quarter Q when `since_year` ≤ year(Q) and
-  `until_year` ≥ year(Q) + 1 (or = year(Q) while `as_of` is still in that year), and its `as_of` is
-  after the filings were filed (10-K up to 90 days, 60 for large accelerated filers; 10-Q up to 45
-  days, 40 for accelerated). (2) `status` is `running`, `completed` or `failed`; a killed process
-  stays `running`; `completed` means the batch reached its end, not that every filing succeeded:
-  11 of production's 13 `completed` runs have `failed_units` > 0 and four (runs 5 to 8) failed all
-  200 of 200 tasks; use `completed_units` > 0, or `failed_units` = 0 to be safe; per-filing failures
-  are in `analysis_run_error`, outside the contract (they will consider adding it). (3) At the start
-  one INSERT fills `started_at`, `params_json`, `status`, `as_of`, `code_version`; after planning,
-  `universe_size` and `planned_units`; the counters go up as the run proceeds (partial on a `running`
-  row); `finished_at` and the final status at the end. The counters do not share a unit
-  (`planned_units` counts company × form × year tasks, `completed_units` counts filings, a 10-Q task
-  covers up to three), so do not compare them. (4) Acquisition and analysis are one step: a filing
-  the gateway lists only after the run is missed until the next run, and the run does not check the
-  listing's completeness. "Every ticker" means the S&P 500 members on the run's `as_of`,
-  point-in-time, so a company that left the index between Q and `as_of` is not read; their T-153
-  moves to historical membership but the run still reads the members on its `as_of`. Production has
-  no qualifying run; the pilot's run 2 does on its parameters (`as_of` 2026-10-02, 2021–2026, both
-  forms, `completed`, `failed_units` 2).
-- **Content changes that need a decision here (no column or contract change unless noted):**
-  - *Weights (their T-141, PR #132):* a new run has three `v_weight_component` rows (FUNDAMENTAL,
-    VALORIZATION, TECHNICAL, 1/3 each) and no SEMANTIC row or key; earlier runs keep four rows. Shapes
-    that expect four rows or a SEMANTIC key must read "the score types the run weighted".
-  - *Quant (their T-077, PR #133):* variant books (a non-default estimator or a turnover cap) sit
-    beside the default book at the same `(as_of, kind)`, with `engine_version` such as
-    `opt-v2.mu-carhart.to-0.5+<tag>`; a variant is never `is_current`, so projecting every book must
-    filter on `is_current = 1`. `v_quant_risk_model` is `rm-v2` with a `carhart` object in
-    `manifest_json`; `v_quant_benchmark_performance` rows under `perf-v3` are net of a 10 bps
-    turnover cost, earlier `perf-v2` rows are gross.
-  - *Contract version 11 (their T-070, PR #134, `m011`):* `v_veto` + `expires_on` (set only on a
-    stint of the new temporary HARD rules `VOLATILITY_SHOCK` and `CRASH_Z_SCORE`: it cannot clear
-    before `expires_on`, 10 NYSE sessions after `raised_on`, and moves 10 sessions on while the
-    condition holds); `v_price_observation` + `sma_200`, `ret_5d`, `vol_5d`, `mu_60d_base`,
-    `vol_60d_base` (daily, not annualized; filled from `priceobs-v2`, NULL on `priceobs-v1`);
-    `v_rule_catalog` gains `BREAK_TREND_200` (SOFT, a flag only), `VOLATILITY_SHOCK` and
-    `CRASH_Z_SCORE`, `LIQUIDITY_DISTRESS` is redefined (current ratio < 1.0 and a failed cash-coverage
-    test; Financials and Utilities exempt), and every rule's `params_json` carries `penalty_points`
-    (15 for most SOFT rules, 0 for `BREAK_TREND_200`, `null` for HARD). The SOFT penalty is now the sum
-    of the active SOFT rules' `penalty_points`, not 15 × their count, so `sum(effective_weight ×
-    component_value) − Σ penalty_points = blended_score`. TECHNICAL scores from new runs are version
-    2 (12-1 momentum, 90-day volatility and drawdown, sector-standardized; `technical_version` in the
-    run parameters).
+- **Q7 answered (`v_analysis_run`);** the filing deadlines and the rule T-031 should apply are in T-182.
+  `since_year`/`until_year` are *filing* years (the year of the filing date), not fiscal years;
+  `until_year` is capped at the year of `as_of`, and a filing filed after `as_of` is never read.
+  `status` is `running`, `completed` or `failed` (a killed process stays `running`); `completed` means
+  the batch reached its end, not that every filing succeeded (11 of production's 13 `completed` runs
+  have `failed_units` > 0, and four failed all 200 of 200 tasks). The counters do not share a unit
+  (`planned_units` counts company × form × year tasks, `completed_units` counts filings), so they are
+  not compared. Acquisition and analysis are one step: a filing the gateway lists only after the run
+  is missed until the next run. "Every ticker" means the members on the run's `as_of`, so a company
+  that left the index before it is not read (their T-153 moves to historical membership, but the run
+  still reads the members on its `as_of`). Production has no qualifying run; the pilot's run 2 does
+  on its parameters. Columns are filled at the insert (`started_at`, `params_json`, `status`,
+  `as_of`, `code_version`), after planning (`universe_size`, `planned_units`) and at the end
+  (`finished_at`, the final status); the counters are partial on a `running` row.
+- **Content changes that need a decision here** (detail in their `docs/kg_schema.md`; no column or
+  contract change unless noted): new runs weigh three score types (FUNDAMENTAL, VALORIZATION,
+  TECHNICAL, 1/3 each, no SEMANTIC row; earlier runs keep four); quant variant books sit beside the
+  default book and are never `is_current`; and contract version 11 (their T-070, `m011`) adds
+  `v_veto.expires_on` (only on stints of the new temporary HARD rules), five `v_price_observation`
+  columns (NULL on `priceobs-v1`), three rules in `v_rule_catalog` (`BREAK_TREND_200`,
+  `VOLATILITY_SHOCK`, `CRASH_Z_SCORE`), a redefined `LIQUIDITY_DISTRESS`, and `penalty_points` on
+  every rule, so the SOFT penalty is the sum of the active rules' `penalty_points` and not 15 per
+  rule. The questions they raise for us are listed next.
 - **Not yet decided here:** whether `schema/rules.ttl` takes the three new rules and the redefinition
   (the catalog is upstream's, T-103); a `Veto` `expiresOn` property and its shape; whether
   `PriceObservation` takes the five price columns; how T-155 reads the penalty identity; the

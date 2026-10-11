@@ -352,27 +352,6 @@ independent of each other once T-131 lands.*
       size" check, by design, and so did the `integration` test
       `test_verify_store_passes_on_the_configured_store` (T-175); both pass since the reload (figures in
       `docs/graphdb-setup.md`). → `PLAN.md` Work item 14, step 8.
-- [ ] **T-182** *(Q7 answered, `SPEC.md` §2.6 sixth reply; T-031's criterion)* Read `since_year` and
-      `until_year` as filing years in `AnalysisRun.covers` (`src/projection/score_snapshots.py`), which
-      reads them as fiscal years (`since <= year - 1`, `until >= year`). A run covers the filings of a
-      period ending in quarter Q of year Y when `since_year <= Y` and `until_year >= Y + 1` (or `= Y`
-      while the run's `as_of` is still in Y), and its `as_of` is after the filings were due (10-K up
-      to 90 days after the year end, 60 for large accelerated filers; 10-Q 45 days, 40 for
-      accelerated). Also: `status` is `running`, `completed` or `failed` (a killed run stays
-      `running`), `completed` does not mean every filing succeeded (use `failed_units = 0`, or at
-      least `completed_units > 0`), and "every ticker" means the members on the run's `as_of`, so a
-      company that left the index before it is not covered. Tests for the boundary years; update the
-      `covers` docstring that sends the question to upstream. Code, so its own PR on a `fix/`
-      branch. -> `PLAN.md` Work item 15.
-- [ ] **T-183** *(decisions the maintainer owes, from the sixth reply)* Decide, one line each, and file
-      a task for every yes: (1) `schema/rules.ttl` takes `BREAK_TREND_200`, `VOLATILITY_SHOCK`,
-      `CRASH_Z_SCORE` and the redefined `LIQUIDITY_DISTRESS` (the catalog is upstream's, T-103), with
-      `penalty_points` on each; (2) a `Veto` `expiresOn` property and its shape (`v_veto.expires_on`);
-      (3) whether `PriceObservation` takes `sma_200`, `ret_5d`, `vol_5d`, `mu_60d_base`,
-      `vol_60d_base`; (4) how T-155 reads the SOFT penalty (the sum of `penalty_points`, not 15 per
-      rule); (5) the quant projection filters `is_current = 1` (variant books are never current);
-      (6) the weight-component shape reads "the score types the run weighted" (three for a new run).
-      -> `PLAN.md` Work item 15.
 ## Work item 15 — Adopt upstream's `v_*` contract changes (replies of 2026-10-05, 2026-10-06 x2)
 - [x] **T-177** *(from upstream's answer to Q6, 2026-10-09; done 2026-10-10 in PR #82: the shape, 2549 quads, nine synthetic cases in `tests/test_schema_gate.py` and a check that `kg_target_schema.ttl` carries the same `rawValue` bounds as `shapes.ttl` (FUNDAMENTAL, SECTOR, Sentiment); `schema/protege-view.ttl` is left to Work item 8 (T-070); the store reload is T-179; the text below is the original task, edited where the work differed)* Bound FUNDAMENTAL's `rawValue` in `ScoreSnapshotShape` to
       `[0, 100]` (`minInclusive`/`maxInclusive` on the branch that pairs it with a mandatory `rawValue`,
@@ -623,6 +602,29 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       keeps FUNDAMENTAL `normalizedScore` optional for legacy data, so the projector is the only
       place it holds); `SPEC.md` §2.6's T-030 rescale paragraph and `schema/README.md` refinement 6
       stop listing FUNDAMENTAL as rescaled. → step 3.
+- [ ] **T-182** *(Q7 answered, `SPEC.md` §2.6 sixth reply; T-031's criterion)* Read `since_year` and
+      `until_year` as filing years in `AnalysisRun.covers` (`src/projection/score_snapshots.py`), which
+      reads them as fiscal years (`since <= year - 1`, `until >= year`). A run covers the filings of a
+      period ending in quarter Q of year Y when `since_year <= Y` and `until_year >= Y + 1` (or `= Y`
+      while the run's `as_of` is still in Y), and its `as_of` is after the filings were due (10-K up
+      to 90 days after the year end, 60 for large accelerated filers; 10-Q 45 days, 40 for
+      accelerated). Also: `status` is `running`, `completed` or `failed` (a killed run stays
+      `running`), `completed` does not mean every filing succeeded, so a run covers only with
+      `failed_units = 0` (upstream's safe rule; `completed_units > 0` is the minimum they accept, and is the
+      documented fallback if no run of the pilot ever qualifies under the safe one), with a test for a
+      run that has failures; and "every ticker" means the members on the run's `as_of`, so a
+      company that left the index before it is not covered. Tests for the boundary years; update the
+      `covers` docstring that sends the question to upstream. Code, so its own PR on a `fix/`
+      branch. -> `PLAN.md` Work item 15.
+- [ ] **T-183** *(decisions the maintainer owes, from the sixth reply)* Decide, one line each, and file
+      a task for every yes: (1) `schema/rules.ttl` takes `BREAK_TREND_200`, `VOLATILITY_SHOCK`,
+      `CRASH_Z_SCORE` and the redefined `LIQUIDITY_DISTRESS` (the catalog is upstream's, T-103), with
+      `penalty_points` on each; (2) a `Veto` `expiresOn` property and its shape (`v_veto.expires_on`);
+      (3) whether `PriceObservation` takes `sma_200`, `ret_5d`, `vol_5d`, `mu_60d_base`,
+      `vol_60d_base`; (4) how T-155 reads the SOFT penalty (the sum of `penalty_points`, not 15 per
+      rule); (5) the quant projection filters `is_current = 1` (variant books are never current);
+      (6) the weight-component shape reads "the score types the run weighted" (three for a new run).
+      -> `PLAN.md` Work item 15.
 
 ## Work item 16 — Validate upstream rows at the read boundary
 
@@ -701,10 +703,11 @@ follow in dependency order (Work items 3 and 11 are closed, so Work item 4 is un
 Work item 12 (T-120–T-121): T-120 closed by T-150; T-121 done (PR #65).
 Work item 13 (T-130–T-136): constitution rules in place (1.5.0); T-130–T-136 done (T-135 as an `integration` test, `PFA_CHECKOUT`).
 Work item 14 (T-140–T-142 and T-146): T-140, T-141 and T-142 done; T-174 (store schema, found by T-141) done; T-176 (the two `verify_store` checks) done; T-175 (CLI exit-code tests) done (PR #80); T-146 found by T-136's tests; T-179 (the store reload after T-177) done.
-Work item 15 (T-150–T-159, T-170–T-173, T-177–T-178, T-182–T-183; T-182 and T-183 from the sixth reply): T-173: upstream said yes (their T-152, after their T-144 which landed), waits on their commit; T-177 (the FUNDAMENTAL `rawValue` bound) done in PR #82; T-178 (the pin's `contract_version` key) done; T-150, T-170 and T-171 (PR #56) done; T-155's schema half done (PR #58); T-153's comment half (PR #59);
+Work item 15 (T-150–T-159, T-170–T-173, T-177–T-178): T-173: upstream said yes (their T-152, after their T-144 which landed), waits on their commit; T-177 (the FUNDAMENTAL `rawValue` bound) done in PR #82; T-178 (the pin's `contract_version` key) done; T-150, T-170 and T-171 (PR #56) done; T-155's schema half done (PR #58); T-153's comment half (PR #59);
 T-151's rule recorded (PR #60), its checks waiting on T-031/T-163; T-158's
 ownership question (before their T-141) is unblocked; the rest of T-152–T-158 waits on upstream's
 T-144 (views), T-145 (ids), T-074 (flags) and, after their T-100, their T-082 and their Work item 4.
+Work item 15, from the sixth reply: T-182 (read the analysis run's year bounds as filing years) and T-183 (the decisions owed on version 11's content) are open.
 Work item 16 (T-160–T-165): T-160 done (plain checks, quarantine-with-cap), T-161 closed with it (no dependency) and T-162 done (JSON files per view, strict loader);
 T-163 (function done, PR #68) closes with T-031, whose first slice (PR #72) calls it on the real read and re-reads the late keys for `v_score_snapshot`; T-164 done (PR #69).
 Work item 8 (T-070–T-071) is independent but needs a human at a Protégé
