@@ -614,7 +614,7 @@ def test_a_closure_of_an_individual_the_store_does_not_hold_is_refused(
     batch: bytes, subject: str, rdf_type: str, prop: str, make_db: MakeDB
 ) -> None:
     fake = _holding(make_db, subject, None)
-    with pytest.raises(gate.IngestRejected, match="the store does not hold"):
+    with pytest.raises(gate.IngestRejected, match="the store does not hold it"):
         gate.ingest(fake.db, batch, GRAPH)
     assert fake.added == []
 
@@ -641,7 +641,7 @@ def test_a_closure_of_a_class_the_property_does_not_close_is_refused(
     batch: bytes, subject: str, wrong_type: str, make_db: MakeDB
 ) -> None:
     fake = _holding(make_db, subject, wrong_type)
-    with pytest.raises(gate.IngestRejected, match="not a closable record"):
+    with pytest.raises(gate.IngestRejected, match="not a record that"):
         gate.ingest(fake.db, batch, GRAPH)
     assert fake.added == []
 
@@ -649,7 +649,7 @@ def test_a_closure_of_a_class_the_property_does_not_close_is_refused(
 def test_a_per_run_weight_scheme_is_never_closed(make_db: MakeDB) -> None:
     batch = PREFIXES + f':s :validTo "2026-06-30"{DATE} .'.encode()
     per_run = _holding(make_db, ":s", "AttractivenessWeightScheme", cycleDate="2026-01-05")
-    with pytest.raises(gate.IngestRejected, match="not a closable record"):
+    with pytest.raises(gate.IngestRejected, match="not a record that"):
         gate.ingest(per_run.db, batch, GRAPH)
     design = _holding(make_db, ":s", "AttractivenessWeightScheme", validFrom="2025-01-01")
     assert gate.ingest(design.db, batch, GRAPH) == 1
@@ -667,7 +667,7 @@ def test_a_closure_not_after_the_opening_date_is_refused(
 ) -> None:
     for began in ("2026-03-31", "2026-04-15"):  # the same day, and a later one
         fake = _holding(make_db, subject, rdf_type, **{opened: began})
-        with pytest.raises(gate.IngestRejected, match="it opened on"):
+        with pytest.raises(gate.IngestRejected, match="not after the date it opened on"):
             gate.ingest(fake.db, batch, GRAPH)
         assert fake.added == []
     ok = _holding(make_db, subject, rdf_type, **{opened: "2026-01-01"})
@@ -722,10 +722,12 @@ def test_dates_are_compared_as_dates_not_as_text() -> None:
     }
     batch = rdflib.Graph()
     batch.add((KG.m, KG.validTo, rdflib.Literal("20260101", datatype=rdflib.XSD.date)))
-    assert "cannot compare" in gate.refused_closures(batch, state)[0]  # the gate refuses it earlier
+    assert (
+        "cannot be compared" in gate.refused_closures(batch, state)[0]
+    )  # the gate refuses it earlier
     batch = rdflib.Graph()
     batch.add((KG.m, KG.validTo, rdflib.Literal("2026-01-01", datatype=rdflib.XSD.date)))
-    assert "it opened on 2026-03-31" in gate.refused_closures(batch, state)[0]
+    assert "not after the date it opened on, 2026-03-31" in gate.refused_closures(batch, state)[0]
 
 
 def test_two_stored_opening_dates_are_reported_not_chosen_between(make_db: MakeDB) -> None:
@@ -739,27 +741,46 @@ def test_two_stored_opening_dates_are_reported_not_chosen_between(make_db: MakeD
     assert "2 values for validFrom" in gate.refused_closures(batch, state)[0]
 
 
+def _classes_whose_shape_reads(
+    schema: gate.GateSchema, prop: rdflib.URIRef
+) -> set[rdflib.term.Node]:
+    """Classes with a property shape on ``prop`` of their own, ``sh:or`` branches included.
+
+    Not ``gate._paths_below``: that follows ``sh:node`` links, so the Asset (which reads its
+    memberships' ``validTo``) would count as a class that carries it, and it does not.
+    """
+    sh = rdflib.namespace.SH
+    read: set[rdflib.term.Node] = set()
+    for shape in schema.shapes.subjects(sh.targetClass, None):
+        todo: list[rdflib.term.Node] = [shape]
+        seen: set[rdflib.term.Node] = set()
+        while todo:
+            node = todo.pop()
+            if node in seen:
+                continue
+            seen.add(node)
+            for _, p, o in schema.shapes.triples((node, None, None)):
+                if p == sh.path and o == prop:
+                    read.update(schema.shapes.objects(shape, sh.targetClass))
+                elif p != sh.node and (isinstance(o, rdflib.BNode) or p == sh.property):
+                    todo.append(o)
+    return read
+
+
 def test_every_class_whose_shape_reads_a_closing_property_is_closable(
     schema: gate.GateSchema,
 ) -> None:
     """A valid-time class added to the schema must be added to ``CLOSABLE``, or it can never be closed."""
-    sh = rdflib.namespace.SH
-    for prop, (classes, _) in gate.CLOSABLE.items():
-        read: set[rdflib.term.Node] = set()
-        for shape in schema.shapes.subjects(sh.targetClass, None):
-            todo: list[rdflib.term.Node] = [shape]
-            seen: set[rdflib.term.Node] = set()
-            while todo:
-                node = todo.pop()
-                if node in seen:
-                    continue
-                seen.add(node)
-                for _, p, o in schema.shapes.triples((node, None, None)):
-                    if p == sh.path and o == prop:
-                        read.update(schema.shapes.objects(shape, sh.targetClass))
-                    elif p != sh.node and (isinstance(o, rdflib.BNode) or p == sh.property):
-                        todo.append(o)
-        assert read <= classes, f"{prop}: {sorted(str(c) for c in read - classes)}"
+    for prop, closable in gate.CLOSABLE.items():
+        read = _classes_whose_shape_reads(schema, prop)
+        assert read <= closable.classes, (
+            f"{prop}: {sorted(str(c) for c in read - closable.classes)}"
+        )
+
+
+def test_closable_is_read_only() -> None:
+    with pytest.raises(TypeError):
+        gate.CLOSABLE[KG.other] = gate.Closable(frozenset(), KG.validFrom)  # type: ignore[index]
 
 
 def test_a_batch_with_a_good_and_a_bad_closure_is_refused_and_names_only_the_bad_one(

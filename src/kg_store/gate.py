@@ -50,10 +50,11 @@ from __future__ import annotations
 import datetime
 import functools
 import re
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import cast
+from types import MappingProxyType
+from typing import NamedTuple, cast
 
 import pyshacl
 import rdflib
@@ -238,20 +239,29 @@ def closing_values(batch: rdflib.Graph) -> dict[tuple[rdflib.term.Node, rdflib.U
 #: record opened (the closing date must be later: the shapes' ``sh:lessThan``, which the stored
 #: record is never validated against here). Explicit, not read from the shapes: a class is closable
 #: because its design says so (``07``), and ``PortfolioPositionShape`` does not mention ``validTo``.
-CLOSABLE: dict[rdflib.URIRef, tuple[frozenset[rdflib.URIRef], rdflib.URIRef]] = {
-    _PORTFOLIO.validTo: (
-        frozenset(
-            {
-                _PORTFOLIO.UniverseMembership,
-                _PORTFOLIO.PortfolioPosition,
-                _PORTFOLIO.RuleDefinition,
-                _PORTFOLIO.AttractivenessWeightScheme,
-            }
+class Closable(NamedTuple):
+    """What a closing property closes: the classes, and the property holding the date they opened."""
+
+    classes: frozenset[rdflib.URIRef]
+    opened: rdflib.URIRef
+
+
+CLOSABLE: Mapping[rdflib.URIRef, Closable] = MappingProxyType(
+    {
+        _PORTFOLIO.validTo: Closable(
+            frozenset(
+                {
+                    _PORTFOLIO.UniverseMembership,
+                    _PORTFOLIO.PortfolioPosition,
+                    _PORTFOLIO.RuleDefinition,
+                    _PORTFOLIO.AttractivenessWeightScheme,
+                }
+            ),
+            _PORTFOLIO.validFrom,
         ),
-        _PORTFOLIO.validFrom,
-    ),
-    _PORTFOLIO.clearedOn: (frozenset({_PORTFOLIO.Veto}), _PORTFOLIO.raisedOn),
-}
+        _PORTFOLIO.clearedOn: Closable(frozenset({_PORTFOLIO.Veto}), _PORTFOLIO.raisedOn),
+    }
+)
 #: A per-run weight scheme (it has a ``cycleDate``) is an observation, never closed (``tbox.ttl``).
 _PER_RUN_MARKER = _PORTFOLIO.cycleDate
 
@@ -270,7 +280,7 @@ def fetch_closing_state(db: GraphDB, subjects: set[rdflib.term.Node]) -> Closing
         rdflib.URIRef(RDF.type),
         _PER_RUN_MARKER,
         *CLOSING_PROPERTIES,
-        *(opened for _, opened in CLOSABLE.values()),
+        *(c.opened for c in CLOSABLE.values()),
     }
     state: ClosingState = {}
     for i in range(0, len(iris), 200):
@@ -290,13 +300,13 @@ def _date_order(closes_on: str, began: set[str], opened: rdflib.URIRef) -> str |
     """Why a closing date is refused against the stored opening date(s), or None."""
     if len(began) > 1:
         name = opened.rpartition("#")[2]
-        return f"cannot be closed: the store holds {len(began)} values for {name}, so not when it opened"
+        return f"the store holds {len(began)} values for {name}, so not when it opened"
     if not began:
         return None
     closes, opens = _calendar_date(closes_on), _calendar_date(next(iter(began)))
     if opens is None or closes is None:
-        return f"cannot compare {closes_on} with the stored {next(iter(began))}"
-    return f"closes on {closes_on}; it opened on {opens}" if closes <= opens else None
+        return f"{closes_on} cannot be compared with the stored {next(iter(began))}"
+    return f"{closes_on} is not after the date it opened on, {opens}" if closes <= opens else None
 
 
 def _refusal(p: rdflib.URIRef, dates: list[str], held: dict[rdflib.URIRef, set[str]]) -> str | None:
@@ -306,15 +316,15 @@ def _refusal(p: rdflib.URIRef, dates: list[str], held: dict[rdflib.URIRef, set[s
     if len(dates) > 1:
         return f"is given {len(dates)} dates in the batch"
     if not types:
-        return "closes an individual the store does not hold"
+        return "the store does not hold it"
     if not types & classes or held.get(_PER_RUN_MARKER):
-        return f"closes an individual that is not a closable record ({p.rpartition('#')[2]})"
+        return f"it is not a record that {p.rpartition('#')[2]} closes"
     if held.get(p):
         was = sorted(held[p])[0]
         retry = (
             ": the same date, so perhaps this batch was already written" if was == dates[0] else ""
         )
-        return f"closes an individual already closed ({was}{retry})"
+        return f"it is already closed ({was}{retry})"
     return _date_order(dates[0], held.get(opened, set()), opened)
 
 
@@ -327,7 +337,7 @@ def refused_closures(batch: rdflib.Graph, state: ClosingState) -> list[str]:
         closing_values(batch).items(), key=lambda kv: (str(kv[0][0]), str(kv[0][1]))
     ):
         if why := _refusal(p, dates, state.get(str(s), {})):
-            problems.append(f"{s.n3(nm)} {p.n3(nm)} {why}")
+            problems.append(f"{s.n3(nm)} {p.n3(nm)}: {why}")
     return problems
 
 
