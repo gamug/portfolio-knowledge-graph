@@ -124,7 +124,8 @@ def test_the_checks_are_registered_after_the_original_three() -> None:
         "malformed write rejected by the gate",
         "reasoning profile matches 07",
     ]
-    assert len(names) == 5
+    assert len(names) == 6
+    assert names[-1] == "a stored string reads back as a plain literal"
 
 
 def test_an_unreadable_schema_is_a_fail_line_not_a_traceback(

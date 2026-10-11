@@ -1,4 +1,4 @@
-"""``acceptance.check_gate`` reads pyshacl's results graph, not its text report (T-142)."""
+"""``kg_store.acceptance``: ``check_gate`` reads pyshacl's results graph, not its text report (T-142); ``check_string_terms`` (T-181)."""
 
 from __future__ import annotations
 
@@ -6,6 +6,8 @@ from collections.abc import Callable
 from typing import cast
 
 import pytest
+import rdflib
+from conftest import FakeGraphDB
 
 from kg_store import acceptance
 from kg_store.gate import IngestRejected, ShaclRejected, parse_batch, validate
@@ -86,3 +88,13 @@ def _raiser(exc: Exception) -> Callable[..., int]:
         raise exc
 
     return raise_
+
+
+def test_check_string_terms_wants_a_plain_string_and_a_portfolio() -> None:
+    plain = FakeGraphDB(terms=[{"k": rdflib.Literal("LIVE")}])
+    assert "plain string literals" in acceptance.check_string_terms(plain.db)
+    typed = FakeGraphDB(terms=[{"k": rdflib.Literal("LIVE", datatype=rdflib.XSD.string)}])
+    with pytest.raises(AssertionError, match="not plain"):
+        acceptance.check_string_terms(typed.db)
+    with pytest.raises(AssertionError, match="no :Portfolio"):
+        acceptance.check_string_terms(FakeGraphDB().db)

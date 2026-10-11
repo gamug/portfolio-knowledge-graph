@@ -93,7 +93,10 @@ nothing written:
    individuals the batch points at but does not declare (T-146): a co-occurrence batch names two
    Assets and a quant batch a Portfolio, and the shapes check their class and the Portfolio's kind.
    Only the properties those classes' shapes read are fetched (for an Asset also its memberships'
-   `:validTo`, which its CIK-or-closed rule reads), not the individual's snapshots;
+   `:validTo`, which its CIK-or-closed rule reads), not the individual's snapshots. Each value keeps the
+   datatype the store holds (T-181), so where a shape constrains it (`sh:datatype`, `sh:in`,
+   `sh:hasValue`) a stored value of another datatype is now a SHACL failure; a string is read as a plain
+   literal, as in the batches;
    A referenced individual the store does not hold fails the class check, so load the universe and
    the portfolio before the lanes that point at them;
 6. no typed individual in the batch already exists in the store (explicit statements, any graph):
@@ -128,7 +131,7 @@ uv run python cli/verify_store.py
 ```
 
 Runs the three checks Work item 3 requires of a running store with `schema/` loaded, plus the two
-of T-176 below, and exits non-zero if any fails ([`kg_store.acceptance`](../src/kg_store/acceptance.py)). It writes nothing.
+of T-176 and the one of T-181 below, and exits non-zero if any fails ([`kg_store.acceptance`](../src/kg_store/acceptance.py)). It writes nothing.
 
 | Check | What it proves |
 |---|---|
@@ -136,6 +139,7 @@ of T-176 below, and exits non-zero if any fails ([`kg_store.acceptance`](../src/
 | Malformed write | a `ScoreSnapshot` that is valid except for the missing `:timestamp` is refused by the gate with a SHACL `minCount` violation on `:timestamp`, and that is the only violation reported (a rejection for any other reason fails the check; the probe carries `rawValue` and `availableAt` so `ScoreSnapshotShape` is otherwise satisfied); the store's size is unchanged and the target graph does not exist |
 | Reasoning profile | the repository reports `rdfsplus-optimized` and `disableSameAs` true, and `?x a :Observation` is answered by inference (nothing is asserted with it) and includes a `ScoreSnapshot`, which is two `rdfs:subClassOf` steps below it, so the chain is followed and not just one hop |
 | Schema graphs (T-176) | each graph `schema/` owns (read from `schema/` by `load_schema.expected_sizes`) has the asserted size a fresh load gives; a graph the store holds that `schema/` does not own is reported, not failed, so dated `urn:graph:ingest:…` graphs do not break a healthy store |
+| String terms (T-181) | a stored `:portfolioKind` comes back from `GraphDB.select_terms` as a plain string literal (the form `sh:in` and `sh:hasValue` compare), whether or not GraphDB writes `xsd:string` |
 | `:agentOrigin` (T-176) | no individual has more than one `:agentOrigin`, and none has a value outside the `sh:in` list of `ScoreSnapshotShape`, read from `shapes.ttl` |
 
 ### Live run (T-141, 2026-10-08)

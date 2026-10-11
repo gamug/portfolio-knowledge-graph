@@ -441,8 +441,11 @@ def fetch_context(
     (:func:`context_predicates`, and :func:`nested_paths` one step further when a shape reads
     through a relation, as the Asset shape does through its memberships).
 
-    Each value keeps the term type and datatype the store holds it with (T-181), so a stored
-    literal of the wrong datatype fails its shape instead of passing as the declared one.
+    Each value keeps the term type and datatype the store holds it with (T-181), so where a shape
+    constrains a property's datatype or values (``sh:datatype``, ``sh:in``, ``sh:hasValue``) a
+    stored literal of another datatype fails it, instead of passing as the declared one. A string
+    is a plain literal, as in the batches. A subject or predicate that is not an IRI raises
+    :class:`GraphDBError`.
     """
     iris = sorted(str(r) for r in refs)
     _refuse_illegal_iris(iris)
@@ -465,10 +468,14 @@ def fetch_context(
             f"{{ {restrict}?r ?p ?o . BIND(?r AS ?s) }}{hop_queries} }}"
         )
         for row in rows:
-            if {"s", "p", "o"} <= row.keys() and all(
-                isinstance(row[k], rdflib.URIRef) for k in "sp"
-            ):
-                context.add((row["s"], row["p"], row["o"]))  # type: ignore[arg-type]
+            if not {"s", "p", "o"} <= row.keys():
+                continue
+            s, p = row["s"], row["p"]
+            if not (isinstance(s, rdflib.URIRef) and isinstance(p, rdflib.URIRef)):
+                raise GraphDBError(
+                    f"the store returned a statement about {s.n3()} that is not IRIs"
+                )
+            context.add((s, p, row["o"]))
     return context
 
 

@@ -97,6 +97,7 @@ def test_select_terms_keeps_the_kind_of_each_term(monkeypatch: pytest.MonkeyPatc
                 "c": {"type": "literal", "value": "7", "datatype": xsd + "integer"},
                 "d": {"type": "literal", "value": "hola", "xml:lang": "es"},
                 "e": {"type": "literal", "value": "plain"},
+                "f": {"type": "literal", "value": "typed", "datatype": xsd + "string"},
             }
         ],
     )
@@ -106,15 +107,24 @@ def test_select_terms_keeps_the_kind_of_each_term(monkeypatch: pytest.MonkeyPatc
     assert row["c"] == Literal("7", datatype=XSD.integer)
     assert row["d"] == Literal("hola", lang="es")
     assert row["e"] == Literal("plain")
+    # a string is the plain literal whether or not the store writes xsd:string (the shapes'
+    # sh:in and sh:hasValue compare terms, and Literal("x") != Literal("x", datatype=XSD.string))
+    assert row["f"] == Literal("typed")
+    assert row["f"].datatype is None  # type: ignore[attr-defined]
     assert db.select("SELECT * WHERE { ?a ?b ?c }") == [
-        {"a": "https://x.test/a", "b": "b0", "c": "7", "d": "hola", "e": "plain"}
+        {"a": "https://x.test/a", "b": "b0", "c": "7", "d": "hola", "e": "plain", "f": "typed"}
     ]
 
 
 @pytest.mark.parametrize(
     "binding",
-    [{"type": "mystery", "value": "x"}, {"value": "x"}, {"type": "literal"}],
-    ids=["unknown-type", "no-type", "no-value"],
+    [
+        {"type": "mystery", "value": "x"},
+        {"value": "x"},
+        {"type": "literal"},
+        {"type": "literal", "value": "x", "datatype": 5},
+    ],
+    ids=["unknown-type", "no-type", "no-value", "datatype-not-a-string"],
 )
 def test_select_terms_refuses_a_binding_it_cannot_read(
     monkeypatch: pytest.MonkeyPatch, binding: dict[str, str]

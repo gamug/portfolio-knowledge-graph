@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from collections.abc import Callable
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -10,7 +11,7 @@ import pytest
 import rdflib
 
 from kg_store import gate
-from kg_store.graphdb import AnswerLost, GraphDBError
+from kg_store.graphdb import AnswerLost, GraphDB, GraphDBError
 
 if TYPE_CHECKING:
     from conftest import FakeGraphDB
@@ -215,7 +216,7 @@ def test_fetch_context_keeps_the_terms_the_store_returned(
 ) -> None:
     type_iri = rdflib.RDF.type
     odd = rdflib.URIRef("https://x.test/odd")
-    kind = rdflib.Literal("BENCHMARK", datatype=rdflib.XSD.string)
+    kind = rdflib.Literal("BENCHMARK")
     fake = make_db(
         terms=[
             {"s": KG.P, "p": type_iri, "o": KG.Portfolio},
@@ -232,6 +233,54 @@ def test_fetch_context_keeps_the_terms_the_store_returned(
         (KG.P, odd, rdflib.Literal("free", lang="en")),
     }
     assert "http://www.ontotext.com/explicit" in fake.queries[0]
+
+
+@pytest.mark.parametrize(
+    "row",
+    [
+        {"s": rdflib.BNode("b0"), "p": KG.portfolioKind, "o": rdflib.Literal("LIVE")},
+        {"s": KG.P, "p": rdflib.Literal("p"), "o": rdflib.Literal("LIVE")},
+    ],
+    ids=["blank-node-subject", "literal-predicate"],
+)
+def test_fetch_context_refuses_a_statement_that_is_not_about_iris(
+    make_db: MakeDB, schema: gate.GateSchema, row: dict[str, rdflib.term.Node]
+) -> None:
+    """A row dropped silently would judge the batch against less than the store holds."""
+    batch = gate.parse_batch(PREFIXES + b":o a :BenchmarkObservation ; :quantPortfolio :P .")
+    with pytest.raises(GraphDBError, match="not IRIs"):
+        gate.fetch_context(make_db(terms=[row]).db, {KG.P}, schema, batch)
+
+
+@pytest.mark.parametrize("string", ["plain", "typed"])
+def test_a_quant_batch_passes_whichever_way_the_store_writes_a_string(
+    monkeypatch: pytest.MonkeyPatch, schema: gate.GateSchema, string: str
+) -> None:
+    """The quant shape's ``sh:hasValue "BENCHMARK"`` compares terms, and a plain literal is not
+    equal to one typed ``xsd:string``: GraphDB may write either, so the answer is parsed by the
+    real ``GraphDB.select_terms`` and both forms must pass."""
+    name = "urn:graph:derived:quant:2026-08-05"
+    batch = _instance_graphs()[name]
+
+    def binding(o: rdflib.term.Node) -> dict[str, str]:
+        if isinstance(o, rdflib.URIRef):
+            return {"type": "uri", "value": str(o)}
+        assert isinstance(o, rdflib.Literal)
+        out = {"type": "literal", "value": str(o)}
+        if o.datatype is not None:
+            out["datatype"] = str(o.datatype)
+        elif string == "typed":
+            out["datatype"] = str(rdflib.XSD.string)
+        return out
+
+    bindings = [
+        {"s": binding(s), "p": binding(p), "o": binding(o)} for s, p, o in _context_for(name)
+    ]
+    answer = json.dumps({"results": {"bindings": bindings}}).encode()
+    monkeypatch.setattr(GraphDB, "_request", lambda *_, **__: answer)
+    db = GraphDB("http://h", "replay", "", "")
+    context = gate.fetch_context(db, gate.references(batch, schema), schema, batch)
+    gate.validate(batch, context=context)
 
 
 def test_a_stored_literal_of_the_wrong_datatype_fails_its_shape(

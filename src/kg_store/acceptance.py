@@ -1,4 +1,4 @@
-"""T-025 acceptance run: the three checks PLAN Work item 3 asks of a running store (plus T-176's two).
+"""T-025 acceptance run: the three checks PLAN Work item 3 asks of a running store (plus T-176's two and T-181's one).
 
 1. a basic SPARQL query returns real results;
 2. a deliberately malformed write is rejected by the ingest gate and the store is unchanged;
@@ -6,11 +6,13 @@
    repository configuration and by behaviour (a query on a class two ``rdfs:subClassOf`` steps
    above the asserted types is answered by inference).
 
-T-176 adds two checks that read the store against ``schema/``:
+T-176 adds two checks and T-181 a third that read the store against ``schema/``:
 
 4. each graph ``schema/`` owns has the asserted size a fresh load gives (a graph the store holds
    that ``schema/`` does not own is reported, not failed);
-5. no individual has two ``:agentOrigin`` values or one outside ``ScoreSnapshotShape``'s list.
+5. no individual has two ``:agentOrigin`` values or one outside ``ScoreSnapshotShape``'s list;
+6. a stored ``:portfolioKind`` comes back from ``GraphDB.select_terms`` as a plain string literal,
+   the form the gate's shapes compare (T-181).
 
 Needs the schema loaded (``cli/load_schema.py``). Read-only: the malformed batch is refused
 before any write, and the run compares the store's size before and after to prove it.
@@ -141,10 +143,25 @@ def check_agent_origin(db: GraphDB) -> str:
     return f"every :agentOrigin is single and one of {', '.join(allowed)}"
 
 
+def check_string_terms(db: GraphDB) -> str:
+    """A stored string reaches the gate as a plain literal (T-181), however GraphDB writes it."""
+    query = "SELECT ?k FROM <{graph}> WHERE {{ ?p a :Portfolio ; :portfolioKind ?k }} LIMIT 5"
+    rows = db.select_terms(PREFIX + query.format(graph=EXPLICIT_GRAPH))
+    if not rows:
+        raise AssertionError("no :Portfolio with a :portfolioKind in the store to read back")
+    bad = [r["k"] for r in rows if r["k"] != rdflib.Literal(str(r["k"]))]
+    if bad:
+        raise AssertionError(
+            f"select_terms returned a :portfolioKind that is not plain: {bad[0]!r}"
+        )
+    return f"{len(rows)} :portfolioKind value(s) read back as plain string literals"
+
+
 CHECKS: list[tuple[str, Callable[[GraphDB], str]]] = [
     ("SPARQL query returns real results", check_query),
     ("malformed write rejected by the gate", check_gate),
     ("reasoning profile matches 07", check_reasoning),
     ("schema graphs have their expected size", check_schema_graphs),
     ("every :agentOrigin is single and in the shape's list", check_agent_origin),
+    ("a stored string reads back as a plain literal", check_string_terms),
 ]

@@ -74,5 +74,5 @@ class FakeGraphDB:
 
 @pytest.fixture
 def make_db() -> Callable[..., FakeGraphDB]:
-    """Factory for a :class:`FakeGraphDB`: ``make_db(rows=..., terms=..., sizes=..., fail_on_add=...)``."""
+    """Factory for a :class:`FakeGraphDB`: ``make_db(rows=..., terms=..., ...)``."""
     return FakeGraphDB
