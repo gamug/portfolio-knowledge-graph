@@ -11,6 +11,7 @@ from collections.abc import Callable, Iterator
 from typing import cast
 
 import pytest
+from rdflib.term import Node
 
 from kg_store.graphdb import GraphDB, GraphDBError
 
@@ -18,16 +19,19 @@ from kg_store.graphdb import GraphDB, GraphDBError
 class FakeGraphDB:
     """Records what ``kg_store`` sends; stands in for ``GraphDB`` without a store.
 
-    ``rows`` is returned by every ``select``; ``sizes`` by ``explicit_graph_sizes``.
+    ``rows`` is returned by every ``select``, ``terms`` by every ``select_terms``; ``sizes`` by
+    ``explicit_graph_sizes``.
     """
 
     def __init__(
         self,
         rows: list[dict[str, str]] | None = None,
+        terms: list[dict[str, Node]] | None = None,
         sizes: dict[str, int] | None = None,
         fail_on_add: bool = False,
     ) -> None:
         self.rows = rows or []
+        self.terms = terms or []
         self.sizes = sizes or {}
         self.fail_on_add = fail_on_add
         self.queries: list[str] = []
@@ -38,6 +42,10 @@ class FakeGraphDB:
     def select(self, sparql: str) -> list[dict[str, str]]:
         self.queries.append(sparql)
         return self.rows
+
+    def select_terms(self, sparql: str) -> list[dict[str, Node]]:
+        self.queries.append(sparql)
+        return self.terms
 
     def add(self, data: bytes, content_type: str, graph: str | None = None) -> None:
         if self.fail_on_add:
@@ -66,5 +74,5 @@ class FakeGraphDB:
 
 @pytest.fixture
 def make_db() -> Callable[..., FakeGraphDB]:
-    """Factory for a :class:`FakeGraphDB`: ``make_db(rows=..., sizes=..., fail_on_add=...)``."""
+    """Factory for a :class:`FakeGraphDB`: ``make_db(rows=..., terms=..., sizes=..., fail_on_add=...)``."""
     return FakeGraphDB

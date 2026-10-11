@@ -359,7 +359,7 @@ independent of each other once T-131 lands.*
       or of one already closed, is written. In `ingest`, read the closed subjects' types and existing
       closing value from the store and refuse the batch otherwise. Tests with a fake store. Code, so its
       own PR on a `feat/` branch. → `PLAN.md` Work item 14, step 9.
-- [ ] **T-181** *(found in PR #86's review; the store client)* Keep the term type of a SPARQL result:
+- [x] **T-181** *(found in PR #86's review; done 2026-10-11: `GraphDB.select_terms` returns rdflib terms with the datatype or language the store holds, `select` is unchanged, `gate.fetch_context` uses it and drops the declared-datatype guess, and a test stores a wrong-datatype literal; the text below is the original task)* Keep the term type of a SPARQL result:
       `GraphDB.select` returns the lexical value only, so `gate.fetch_context` rebuilds a stored literal
       with the datatype its property declares and a stored literal of another datatype passes as if it
       had the right one. Return the type and datatype beside the value (a second method, or a richer
@@ -732,7 +732,7 @@ Work items 4 and 6 (T-030–T-035, T-050–T-053)
 follow in dependency order (Work items 3 and 11 are closed, so Work item 4 is unblocked).
 Work item 12 (T-120–T-121): T-120 closed by T-150; T-121 done (PR #65).
 Work item 13 (T-130–T-136): constitution rules in place (1.5.0); T-130–T-136 done (T-135 as an `integration` test, `PFA_CHECKOUT`).
-Work item 14 (T-140–T-142 and T-146): T-140, T-141 and T-142 done; T-174 (store schema, found by T-141) done; T-176 (the two `verify_store` checks) done; T-175 (CLI exit-code tests) done (PR #80); T-146 (the gate vs. the worked example's batches) done; T-179 (the store reload after T-177) done; T-180 (the gate checks what a closing triple closes) done; T-181 (`select` keeps the term type) and T-185 (a Veto's `clearedOn` against its `lastSeenOn`) open.
+Work item 14 (T-140–T-142 and T-146): T-140, T-141 and T-142 done; T-174 (store schema, found by T-141) done; T-176 (the two `verify_store` checks) done; T-175 (CLI exit-code tests) done (PR #80); T-146 (the gate vs. the worked example's batches) done; T-179 (the store reload after T-177) done; T-180 (the gate checks what a closing triple closes) done; T-181 (`select` keeps the term type) done; T-185 (a Veto's `clearedOn` against its `lastSeenOn`) open.
 Work item 15 (T-150–T-159, T-170–T-173, T-177–T-178): T-173 (the contract endpoint check) done; T-177 (the FUNDAMENTAL `rawValue` bound) done in PR #82; T-178 (the pin's `contract_version` key) done; T-150, T-170 and T-171 (PR #56) done; T-155's schema half done (PR #58); T-153's comment half (PR #59);
 T-151's rule recorded (PR #60), its checks waiting on T-031/T-163; T-158's
 ownership question (before their T-141) is unblocked; the rest of T-152–T-158 waits on upstream's

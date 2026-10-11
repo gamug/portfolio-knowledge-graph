@@ -16,12 +16,17 @@ import os
 import urllib.error
 import urllib.parse
 import urllib.request
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field
 from email.message import Message
 from pathlib import Path
+from typing import TypeVar
 
 from dotenv import load_dotenv
+from rdflib import BNode, Literal, URIRef
+from rdflib.term import Node
+
+T = TypeVar("T")
 
 #: Repository root (the directory that contains ``schema/`` and ``.env``).
 REPO_ROOT: Path = Path(__file__).resolve().parent.parent.parent
@@ -55,6 +60,22 @@ class AnswerLost(GraphDBError):
     """The request was sent but its answer never came (the connection closed, was reset or timed
     out while the answer was awaited): unlike an HTTP error, which is the store's answer, or a
     failure to send, the store may have acted on it."""
+
+
+def _term(binding: dict[str, str]) -> Node:
+    """One binding of a SPARQL JSON result as an rdflib term."""
+    kind, value = binding["type"], binding["value"]
+    if kind == "uri":
+        return URIRef(value)
+    if kind == "bnode":
+        return BNode(value)
+    if kind in ("literal", "typed-literal"):
+        if "xml:lang" in binding:
+            return Literal(value, lang=binding["xml:lang"])
+        return Literal(
+            value, datatype=URIRef(binding["datatype"]) if "datatype" in binding else None
+        )
+    raise ValueError(f"unknown term type {kind!r}")
 
 
 @dataclass(frozen=True)
@@ -131,8 +152,7 @@ class GraphDB:
             "POST", f"{self._repo_url}/statements", body, "application/x-www-form-urlencoded"
         )
 
-    def select(self, sparql: str) -> list[dict[str, str]]:
-        """Run a SPARQL SELECT; each row maps variable name to its lexical value."""
+    def _select(self, sparql: str, read: Callable[[dict[str, str]], T]) -> list[dict[str, T]]:
         body = urllib.parse.urlencode({"query": sparql}).encode()
         raw = self._request(
             "POST",
@@ -143,9 +163,21 @@ class GraphDB:
         )
         try:
             rows = json.loads(raw)["results"]["bindings"]
-            return [{k: v["value"] for k, v in row.items()} for row in rows]
+            return [{k: read(v) for k, v in row.items()} for row in rows]
         except (ValueError, KeyError, TypeError) as exc:
             raise GraphDBError(f"unexpected SPARQL result from {self.host}") from exc
+
+    def select(self, sparql: str) -> list[dict[str, str]]:
+        """Run a SPARQL SELECT; each row maps variable name to its lexical value."""
+        return self._select(sparql, lambda binding: binding["value"])
+
+    def select_terms(self, sparql: str) -> list[dict[str, Node]]:
+        """Run a SPARQL SELECT; each row maps variable name to the term the store returned.
+
+        Unlike :meth:`select` this keeps the kind of term: an IRI, a blank node, or a literal with
+        the datatype or language tag it was stored with (a plain literal is ``xsd:string``).
+        """
+        return self._select(sparql, _term)
 
     def add(self, data: bytes, content_type: str, graph: str | None = None) -> None:
         """Append RDF to the store: into ``graph`` if given, else as quads (TriG)."""

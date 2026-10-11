@@ -374,15 +374,6 @@ def references(batch: rdflib.Graph, schema: GateSchema) -> set[rdflib.URIRef]:
     }
 
 
-def _context_term(schema: GateSchema, p: rdflib.term.Node, o: str) -> rdflib.term.Node:
-    """A stored value (lexical form only) back as a term: IRI for a type or relation, else a literal
-    typed by the property's declared range."""
-    if p == RDF.type or p in schema.relations:
-        return rdflib.URIRef(o)
-    datatype = schema.tbox.value(p, RDFS.range)
-    return rdflib.Literal(o, datatype=datatype if isinstance(datatype, rdflib.URIRef) else None)
-
-
 def _paths_below(shapes: rdflib.Graph, starts: list[rdflib.term.Node]) -> set[rdflib.URIRef]:
     """Every ``sh:path`` IRI reachable from ``starts`` through a shape's own blank nodes (property
     shapes, ``sh:or`` lists) and ``sh:node`` links."""
@@ -449,6 +440,9 @@ def fetch_context(
     Only the properties the shapes read for what ``batch`` expects of ``refs`` are fetched
     (:func:`context_predicates`, and :func:`nested_paths` one step further when a shape reads
     through a relation, as the Asset shape does through its memberships).
+
+    Each value keeps the term type and datatype the store holds it with (T-181), so a stored
+    literal of the wrong datatype fails its shape instead of passing as the declared one.
     """
     iris = sorted(str(r) for r in refs)
     _refuse_illegal_iris(iris)
@@ -465,15 +459,16 @@ def fetch_context(
             f" UNION {{ ?r <{relation}> ?s . ?s ?p ?o . VALUES ?p {{ {_iri_list(nested)} }} }}"
             for relation, nested in hops.items()
         )
-        rows = db.select(
+        rows = db.select_terms(
             "SELECT ?s ?p ?o FROM <http://www.ontotext.com/explicit> "  # noqa: S608 - IRIs checked above
             f"WHERE {{ VALUES ?r {{ {values} }} "
             f"{{ {restrict}?r ?p ?o . BIND(?r AS ?s) }}{hop_queries} }}"
         )
         for row in rows:
-            if {"s", "p", "o"} <= row.keys():
-                p = rdflib.URIRef(row["p"])
-                context.add((rdflib.URIRef(row["s"]), p, _context_term(schema, p, row["o"])))
+            if {"s", "p", "o"} <= row.keys() and all(
+                isinstance(row[k], rdflib.URIRef) for k in "sp"
+            ):
+                context.add((row["s"], row["p"], row["o"]))  # type: ignore[arg-type]
     return context
 
 

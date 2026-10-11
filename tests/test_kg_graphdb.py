@@ -8,11 +8,13 @@ from __future__ import annotations
 
 import http.client
 import io
+import json
 import urllib.error
 from email.message import Message
 from typing import Any
 
 import pytest
+from rdflib import XSD, BNode, Literal, URIRef
 
 from kg_store import graphdb
 from kg_store.graphdb import AnswerLost, GraphDB, GraphDBError
@@ -71,3 +73,52 @@ def test_an_answer_or_a_failure_to_send_is_not_an_answer_lost(
 def test_the_password_is_not_in_the_repr() -> None:
     # A failing test prints its fixtures, so a repr with the password would put it in the log.
     assert "s3cret" not in repr(GraphDB("http://h", "r", "u", "s3cret"))
+
+
+def _answering(
+    monkeypatch: pytest.MonkeyPatch, bindings: list[dict[str, dict[str, str]]]
+) -> GraphDB:
+    answer = json.dumps({"results": {"bindings": bindings}}).encode()
+    db = GraphDB("http://h", "replay", "", "")
+    monkeypatch.setattr(GraphDB, "_request", lambda *_, **__: answer)
+    return db
+
+
+def test_select_terms_keeps_the_kind_of_each_term(monkeypatch: pytest.MonkeyPatch) -> None:
+    """T-181: ``select`` returns lexical values only; ``select_terms`` keeps IRI, blank node,
+    datatype and language, which a shape reads."""
+    xsd = "http://www.w3.org/2001/XMLSchema#"
+    db = _answering(
+        monkeypatch,
+        [
+            {
+                "a": {"type": "uri", "value": "https://x.test/a"},
+                "b": {"type": "bnode", "value": "b0"},
+                "c": {"type": "literal", "value": "7", "datatype": xsd + "integer"},
+                "d": {"type": "literal", "value": "hola", "xml:lang": "es"},
+                "e": {"type": "literal", "value": "plain"},
+            }
+        ],
+    )
+    [row] = db.select_terms("SELECT * WHERE { ?a ?b ?c }")
+    assert row["a"] == URIRef("https://x.test/a")
+    assert row["b"] == BNode("b0")
+    assert row["c"] == Literal("7", datatype=XSD.integer)
+    assert row["d"] == Literal("hola", lang="es")
+    assert row["e"] == Literal("plain")
+    assert db.select("SELECT * WHERE { ?a ?b ?c }") == [
+        {"a": "https://x.test/a", "b": "b0", "c": "7", "d": "hola", "e": "plain"}
+    ]
+
+
+@pytest.mark.parametrize(
+    "binding",
+    [{"type": "mystery", "value": "x"}, {"value": "x"}, {"type": "literal"}],
+    ids=["unknown-type", "no-type", "no-value"],
+)
+def test_select_terms_refuses_a_binding_it_cannot_read(
+    monkeypatch: pytest.MonkeyPatch, binding: dict[str, str]
+) -> None:
+    db = _answering(monkeypatch, [{"a": binding}])
+    with pytest.raises(GraphDBError, match="unexpected SPARQL result"):
+        db.select_terms("SELECT * WHERE { ?a ?b ?c }")
