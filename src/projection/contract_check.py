@@ -16,18 +16,38 @@ a renamed column then makes SQLite reject the view as ``kg_schema.ensure`` creat
 ``ensure`` raises ``sqlite3.OperationalError`` and the check fails loudly with that error
 (the CLI exits non-zero) instead of producing a drift report. A view that is created but
 reports no columns is the "did not build" drift below.
+
+The same comparison runs against a running service (T-173): :func:`fetch_contract` reads
+``GET /api/v1/contract`` (the columns, from upstream's code) and, if offered,
+``GET /api/v1/contract/database`` (what the connected database holds), and
+:func:`check_service` adds the two version checks, which compare different numbers:
+
+* ``contract_version`` (the code's highest migration) must equal the one the pin records
+  (``_source.json``, written by T-157's re-pin); a pin without the key skips this check with a
+  note, never silently;
+* the database's ``schema_version`` must not be below the pin's ``schema_version_floor``. Above
+  it passes on its number: whether views drifted is decided by the column lists, because a
+  version only ever adds columns. A database below the declared ``contract_version`` lags its
+  code, which is a note and never fails.
 """
 
 from __future__ import annotations
 
 import importlib.util
+import json
 import sys
+import urllib.error
+import urllib.request
+from collections.abc import Callable
 from dataclasses import dataclass, field
+from http import HTTPStatus
 from pathlib import Path
 from types import ModuleType
+from typing import Any
 
 from portfolio_common.db import Database
 
+from projection.expectations import SourceExpectation
 from projection.view_contract import NOT_READ, VIEW_COLUMNS
 
 _RUN_UNITS = (
@@ -130,7 +150,11 @@ class ContractReport:
 
 def check(upstream_repo: Path) -> ContractReport:
     """Compare the pin with upstream's views (see the module docstring for what is drift)."""
-    actual = upstream_view_columns(upstream_repo)
+    return compare_columns(upstream_view_columns(upstream_repo))
+
+
+def compare_columns(actual: dict[str, list[str]]) -> ContractReport:
+    """Compare the pin with every upstream view -> its column names in order."""
     report = ContractReport()
     for view, pinned in VIEW_COLUMNS.items():
         got = actual.get(view)
@@ -149,4 +173,136 @@ def check(upstream_repo: Path) -> ContractReport:
                 report.notes.append(f"{view}: column order changed")
     for view in sorted(set(actual) - set(VIEW_COLUMNS) - set(NOT_READ)):
         report.drift.append(f"{view}: new upstream view, neither pinned nor listed in NOT_READ")
+    return report
+
+
+class ContractFetchError(RuntimeError):
+    """The service could not be read, or answered something that is not the contract."""
+
+
+@dataclass(frozen=True)
+class DatabaseState:
+    """``GET /api/v1/contract/database``: what the database the service is pointed at holds."""
+
+    schema_version: int
+    views_present: tuple[str, ...]
+    views_missing: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class DeclaredContract:
+    """``GET /api/v1/contract`` and, if the service offers it, ``/contract/database``."""
+
+    contract_version: int
+    code_version: str
+    columns: dict[str, list[str]]
+    database: DatabaseState | None
+
+
+Fetch = Callable[[str], Any]
+_TIMEOUT_SECONDS = 15
+
+
+def _get_json(url: str) -> Any:
+    """GET ``url`` and parse the JSON body; ``urllib.error.HTTPError`` carries the status."""
+    with urllib.request.urlopen(url, timeout=_TIMEOUT_SECONDS) as response:  # noqa: S310 - http(s) checked by the caller
+        return json.loads(response.read())
+
+
+def _is_int(value: object) -> bool:
+    return isinstance(value, int) and not isinstance(value, bool)
+
+
+def _names(value: object, what: str) -> tuple[str, ...]:
+    if not isinstance(value, list) or not all(isinstance(v, str) for v in value):
+        raise ContractFetchError(f"{what} must be a list of names")
+    return tuple(value)
+
+
+def _declared_columns(body: dict[str, Any]) -> dict[str, list[str]]:
+    views = body.get("views")
+    if not isinstance(views, list):
+        raise ContractFetchError("/contract has no 'views' list")
+    columns: dict[str, list[str]] = {}
+    for view in views:
+        name = view.get("name") if isinstance(view, dict) else None
+        cols = view.get("columns") if isinstance(view, dict) else None
+        if not isinstance(name, str) or not isinstance(cols, list):
+            raise ContractFetchError(f"/contract: malformed view entry {view!r}")
+        if not all(isinstance(c, dict) and isinstance(c.get("name"), str) for c in cols):
+            raise ContractFetchError(f"/contract: {name}: columns must be objects with a name")
+        columns[name] = [c["name"] for c in cols]
+    return columns
+
+
+def fetch_contract(base_url: str, fetch: Fetch = _get_json) -> DeclaredContract:
+    """Read the service's contract; ``base_url`` ends at the API prefix (``…/api/v1``).
+
+    ``/contract/database`` is optional: a 404 means the service does not offer it, and any
+    other failure of that route is an error like one of ``/contract``.
+    """
+    if not base_url.startswith(("http://", "https://")):
+        raise ContractFetchError(f"not an http(s) URL: {base_url}")
+    base = base_url.rstrip("/")
+    try:
+        body = fetch(f"{base}/contract")
+    except (urllib.error.URLError, OSError, ValueError) as exc:
+        raise ContractFetchError(f"cannot read {base}/contract: {exc}") from exc
+    if not isinstance(body, dict) or not _is_int(body.get("contract_version")):
+        raise ContractFetchError("/contract has no integer 'contract_version'")
+    code_version = body.get("code_version")
+    columns = _declared_columns(body)
+    database: DatabaseState | None = None
+    try:
+        raw = fetch(f"{base}/contract/database")
+    except urllib.error.HTTPError as exc:
+        if exc.code != HTTPStatus.NOT_FOUND:
+            raise ContractFetchError(f"cannot read {base}/contract/database: {exc}") from exc
+    except (urllib.error.URLError, OSError, ValueError) as exc:
+        raise ContractFetchError(f"cannot read {base}/contract/database: {exc}") from exc
+    else:
+        if not isinstance(raw, dict) or not _is_int(raw.get("schema_version")):
+            raise ContractFetchError("/contract/database has no integer 'schema_version'")
+        database = DatabaseState(
+            raw["schema_version"],
+            _names(raw.get("views_present"), "views_present"),
+            _names(raw.get("views_missing"), "views_missing"),
+        )
+    return DeclaredContract(
+        body["contract_version"],
+        code_version if isinstance(code_version, str) else "",
+        columns,
+        database,
+    )
+
+
+def check_service(declared: DeclaredContract, expected: SourceExpectation) -> ContractReport:
+    """The column comparison plus the two version checks (see the module docstring)."""
+    report = compare_columns(declared.columns)
+    if expected.contract_version is None:
+        report.notes.append(
+            f"service declares contract_version {declared.contract_version}; the pin records none "
+            "(T-157's re-pin writes it), so the contract_version check is skipped"
+        )
+    elif declared.contract_version != expected.contract_version:
+        report.drift.append(
+            f"contract_version: the service declares {declared.contract_version}, the pin "
+            f"records {expected.contract_version} (re-pin, T-157)"
+        )
+    db = declared.database
+    if db is None:
+        report.notes.append("the service does not offer /contract/database; its state is unchecked")
+        return report
+    if db.schema_version < expected.schema_version_floor:
+        report.drift.append(
+            f"database: schema_version {db.schema_version} is below the floor "
+            f"{expected.schema_version_floor} (a store reader would refuse it)"
+        )
+    if db.schema_version < declared.contract_version:
+        report.notes.append(
+            f"database lags its code: schema_version {db.schema_version}, contract_version "
+            f"{declared.contract_version}"
+        )
+    if db.views_missing:
+        report.notes.append(f"database lacks views {list(db.views_missing)}")
     return report

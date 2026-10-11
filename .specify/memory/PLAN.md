@@ -522,12 +522,12 @@ follow it.
 4. Decide, and document, where the real-checkout drift check runs (T-135, decided 2026-10-08): an
    `integration` test against a pinned upstream checkout, not a check by the projector. Ask
    upstream for a contract endpoint in its FastAPI, metadata only (T-173), and consume it when it
-   ships.
+   ships: done 2026-10-11, `cli/check_view_contract.py` reads it (and checks the two versions).
 
 **Acceptance**: `uv run pytest` passes hermetically on a clean checkout; the constitution
 documents the structure; NR-005/§10/§13/§14 no longer claim there is no suite.
 
-**Blocked on**: nothing for T-130–T-134 and T-136; T-135 is done (an `integration` test, `PFA_CHECKOUT`) and T-173 waits on upstream's reply, neither blocking.
+**Blocked on**: nothing for T-130–T-134 and T-136; T-135 is done (an `integration` test, `PFA_CHECKOUT`) and T-173 is done (the endpoint exists, `cli/check_view_contract.py` reads it), neither blocking.
 
 ## Work item 14 — `ScoreSnapshotShape` and store-gate follow-ups (PR #48 post-merge review)
 
@@ -1032,8 +1032,7 @@ Work item 13 (pytest suite) — independent; rules in constitution 1.5.0, T-130�
   T-135 done (its `integration` test)
 Work item 14 (PR #48 follow-ups) — independent; T-140, T-141 and T-142 done, T-174 (store schema) done, T-176 (the two `verify_store` checks) done, T-175 (CLI exit-code tests) done; T-179 (the store reload after T-177) done; T-146 (gate vs. the worked example's batches) open
 Work item 15 (upstream's v_* changes) — T-150, T-170 and T-171 (PR #56) done, with T-155's schema half (PR #58), T-153's comments (PR #59)
-  and T-151's rule (PR #60); T-173 (the contract endpoint): upstream said yes, waits on their T-152 commit, and its version guard
-  can now read T-178's `contract_version` key; T-177 (the `rawValue` bound) done (PR #82); T-178 (the pin's loader key)
+  and T-151's rule (PR #60); T-173 (the contract endpoint check) done 2026-10-11, its version guard reading T-178's `contract_version` key; T-177 (the `rawValue` bound) done (PR #82); T-178 (the pin's loader key)
   done 2026-10-10 (PR #85); the step-3 shape corrections can start now;
   the rest as upstream's T-144/T-145 ship; feeds Work item 4 (T-031) and 12 (T-121)
 Work item 16 (boundary validation of upstream rows) — T-160 done (plain checks), T-161 closed, T-162 done; T-163 open (its function is done, the wiring into the read path started with Work item 4's T-031, PR #72)

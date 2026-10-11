@@ -230,7 +230,7 @@ independent of each other once T-131 lands.*
       checked and any columns upstream added, to note in the re-pin. T-157 says it runs
       before every re-pin, and that without CI nothing forces it (constitution Code & Git #1).
       Revisit a check in the projector only if drift is seen in practice. → Approach 4.
-- [ ] **T-173** *(upstream answered 2026-10-09, recorded in `SPEC.md` §2.6 (fifth reply): yes, their T-152 after their T-144 (landed), routes `GET /api/v1/contract` and `GET /api/v1/contract/database`; open: their commit, then our side of "When it ships")* Track the request to `portfolio-financial-analysis` for a
+- [x] **T-173** *(upstream answered 2026-10-09, recorded in `SPEC.md` §2.6 (fifth reply): yes, their T-152, which landed (their PR #130, `c4bef14`, sixth reply); done 2026-10-11: `cli/check_view_contract.py` takes the service's URL (`…/api/v1`) as well as a checkout, compares the columns with the pin, fails when the declared `contract_version` differs from the pin's or the database's `schema_version` is below the floor, notes a database that lags its code, missing views and a pin without `contract_version` (the check is skipped, loudly); exit 2 when the service cannot be read; `src/projection/contract_check.py`, `tests/test_contract_service.py`; against the service reached from the dev network on 2026-10-11 it reported `contract_version` 12, `schema_version` 8 (below the floor: production, refused as intended) and the two T-144 views as new; `view_contract.py` is not generated from the answer, that stays with T-157; the text below is the original task)* Track the request to `portfolio-financial-analysis` for a
       read-only contract endpoint in its FastAPI, the channel between our services: the `v_*` view
       names and columns generated from `kg_schema.views.VIEWS`, a contract version that rises
       with their marker migrations, and optionally what the connected database holds
@@ -680,7 +680,7 @@ follow in dependency order (Work items 3 and 11 are closed, so Work item 4 is un
 Work item 12 (T-120–T-121): T-120 closed by T-150; T-121 done (PR #65).
 Work item 13 (T-130–T-136): constitution rules in place (1.5.0); T-130–T-136 done (T-135 as an `integration` test, `PFA_CHECKOUT`).
 Work item 14 (T-140–T-142 and T-146): T-140, T-141 and T-142 done; T-174 (store schema, found by T-141) done; T-176 (the two `verify_store` checks) done; T-175 (CLI exit-code tests) done (PR #80); T-146 found by T-136's tests; T-179 (the store reload after T-177) done.
-Work item 15 (T-150–T-159, T-170–T-173, T-177–T-178): T-173: upstream said yes (their T-152, after their T-144 which landed), waits on their commit; T-177 (the FUNDAMENTAL `rawValue` bound) done in PR #82; T-178 (the pin's `contract_version` key) done; T-150, T-170 and T-171 (PR #56) done; T-155's schema half done (PR #58); T-153's comment half (PR #59);
+Work item 15 (T-150–T-159, T-170–T-173, T-177–T-178): T-173 (the contract endpoint check) done; T-177 (the FUNDAMENTAL `rawValue` bound) done in PR #82; T-178 (the pin's `contract_version` key) done; T-150, T-170 and T-171 (PR #56) done; T-155's schema half done (PR #58); T-153's comment half (PR #59);
 T-151's rule recorded (PR #60), its checks waiting on T-031/T-163; T-158's
 ownership question (before their T-141) is unblocked; the rest of T-152–T-158 waits on upstream's
 T-144 (views), T-145 (ids), T-074 (flags) and, after their T-100, their T-082 and their Work item 4.
