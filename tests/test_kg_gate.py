@@ -716,6 +716,36 @@ def test_a_closure_not_after_the_opening_date_is_refused(
     assert gate.ingest(ok.db, batch, GRAPH) == 1
 
 
+def test_a_veto_is_not_cleared_before_the_latest_cycle_that_saw_it(make_db: MakeDB) -> None:
+    """lastSeenOn is one value per cycle; the clearing may not precede the latest (T-185)."""
+
+    def veto(*seen: str) -> FakeGraphDB:
+        fake = _holding(make_db, ":v", "Veto", raisedOn="2026-01-01")
+        original = fake.select
+        rows = [{"s": str(KG) + "v", "p": str(KG) + "lastSeenOn", "o": d} for d in seen]
+
+        def select(sparql: str) -> list[dict[str, str]]:
+            return original(sparql) + (rows if _is_closing_query(sparql) else [])
+
+        fake.select = select  # type: ignore[method-assign,assignment]
+        return fake
+
+    early = veto("2026-02-10", "2026-04-07")  # the clearing is dated 2026-03-31
+    with pytest.raises(
+        gate.IngestRejected, match=r"before the latest date a cycle saw it, 2026-04-07"
+    ):
+        gate.ingest(early.db, CLOSE_VETO, GRAPH)
+    assert early.added == []
+    assert gate.ingest(veto("2026-02-10", "2026-03-31").db, CLOSE_VETO, GRAPH) == 1  # same day
+    assert gate.ingest(veto("2026-02-10").db, CLOSE_VETO, GRAPH) == 1
+    assert gate.ingest(veto().db, CLOSE_VETO, GRAPH) == 1  # never seen again: nothing to compare
+
+
+def test_a_membership_closing_ignores_last_seen_on(make_db: MakeDB) -> None:
+    fake = _holding(make_db, ":m", "UniverseMembership", lastSeenOn="2026-09-01")
+    assert gate.ingest(fake.db, CLOSE_MEMBERSHIP, GRAPH) == 1
+
+
 def test_two_closing_dates_for_one_subject_are_refused(make_db: MakeDB) -> None:
     batch = CLOSE_MEMBERSHIP + f':m :validTo "2026-04-30"{DATE} .'.encode()
     fake = _holding(make_db, ":m", "UniverseMembership")
@@ -727,7 +757,7 @@ def test_two_closing_dates_for_one_subject_are_refused(make_db: MakeDB) -> None:
 def test_every_closable_class_is_a_leaf_class_and_carries_its_opening_property(
     schema: gate.GateSchema,
 ) -> None:
-    for prop, (classes, opened) in gate.CLOSABLE.items():
+    for prop, (classes, opened, _seen) in gate.CLOSABLE.items():
         assert prop in gate.CLOSING_PROPERTIES
         assert classes <= schema.leaf_classes
         assert (opened, rdflib.RDF.type, rdflib.OWL.DatatypeProperty) in schema.tbox

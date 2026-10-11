@@ -366,7 +366,7 @@ independent of each other once T-131 lands.*
       had the right one. Return the type and datatype beside the value (a second method, or a richer
       row, so no existing caller changes), use it in `fetch_context`, and add a test with a stored literal
       of the wrong datatype. Code, so its own PR on a `feat/` branch. → `PLAN.md` Work item 14, step 9.
-- [ ] **T-185** *(found in PR #90's review; the gate)* Check a Veto's `:clearedOn` against its `:lastSeenOn`:
+- [x] **T-185** *(found in PR #90's review; the gate; done 2026-10-11: `gate.CLOSABLE` carries a `last_seen` property, and a `clearedOn` earlier than the latest `lastSeenOn` is refused; the same day passes; the maintainer's question was settled by the strict default below, to be reversed if upstream clears a stint by a run that predates a sighting of another; tests in `tests/test_kg_gate.py`; the text below is the original task)* Check a Veto's `:clearedOn` against its `:lastSeenOn`:
       `lastSeenOn` is multi-valued (one per cycle, current = MAX) and no shape relates it to `clearedOn`, so
       a Veto can be cleared on a date earlier than a cycle that still saw it raised. T-180's closing check
       already reads the Veto's stored state; read `lastSeenOn` there (or add `sh:lessThanOrEquals` to the
@@ -820,7 +820,7 @@ Work items 4 and 6 (T-030–T-035, T-050–T-053)
 follow in dependency order (Work items 3 and 11 are closed, so Work item 4 is unblocked).
 Work item 12 (T-120–T-121): T-120 closed by T-150; T-121 done (PR #65).
 Work item 13 (T-130–T-136): constitution rules in place (1.5.0); T-130–T-136 done (T-135 as an `integration` test, `PFA_CHECKOUT`).
-Work item 14 (T-140–T-142 and T-146): T-140, T-141 and T-142 done; T-174 (store schema, found by T-141) done; T-176 (the two `verify_store` checks) done; T-175 (CLI exit-code tests) done (PR #80); T-146 (the gate vs. the worked example's batches) done; T-179 (the store reload after T-177) done; T-180 (the gate checks what a closing triple closes) done; T-181 (`select` keeps the term type) done; T-185 (a Veto's `clearedOn` against its `lastSeenOn`) open; T-186 (the live `verify_store` run for T-181's sixth check, the maintainer's) open.
+Work item 14 (T-140–T-142 and T-146): T-140, T-141 and T-142 done; T-174 (store schema, found by T-141) done; T-176 (the two `verify_store` checks) done; T-175 (CLI exit-code tests) done (PR #80); T-146 (the gate vs. the worked example's batches) done; T-179 (the store reload after T-177) done; T-180 (the gate checks what a closing triple closes) done; T-181 (`select` keeps the term type) done; T-185 (a Veto's `clearedOn` against its `lastSeenOn`) done; T-186 (the live `verify_store` run for T-181's sixth check, the maintainer's) open.
 Work item 15 (T-150–T-159, T-170–T-173, T-177–T-178, T-182–T-184, T-187–T-191): T-173 (the contract endpoint check) done; T-177 (the FUNDAMENTAL `rawValue` bound) done in PR #82; T-178 (the pin's `contract_version` key) done; T-150, T-170 and T-171 (PR #56) done; T-155's schema half done (PR #58); T-153's comment half (PR #59);
 T-151's rule recorded (PR #60), its checks waiting on T-031/T-163; T-158's
 ownership question (before their T-141) is unblocked; the rest of T-152–T-158 waits on upstream's
