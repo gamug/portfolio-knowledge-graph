@@ -642,8 +642,9 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
 - [ ] **T-184** *(the next follow-up letter to `portfolio-financial-analysis`; from the sixth reply and PR #89's review)* Write and send it; tick
       each ask when answered. (1) Which date their `since_year`/`until_year` filter uses, the filing date
       or `available_at` (T-182 takes the two years as one; `SPEC.md` §2.6). (2) A database at the
-      contract version their service serves (12 today), or their final pilot (T-143), for T-157. (3) The
-      pilot README updated for the version-10 file it ships with (it still describes version 9). (4)
+      contract version their service serves (12 today), or their final pilot (T-143), for T-157. (3) That the
+      notes shipped with the database match its version (they were written for version 9, the file is
+      version 10). (4)
       Whatever of T-183's six items needs them (for example the shape of `expires_on`). (5) When their
       T-145 and T-100 land (T-151, T-154, T-158). Record the answers in `SPEC.md` §2.6 as the seventh
       reply. -> `PLAN.md` Work item 15.
