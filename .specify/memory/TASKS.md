@@ -394,7 +394,7 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       corrections (D6 SECTOR range, D13 `blended_score` and `scheme_id`, D2 `available_at` on cycle
       lanes, D12 `metric_id`/`unit`, D11/D12 `is_current` as at most one), the forensic-flag
       format, `+00:00` timestamps, id reuse on all four run tables and `sec_filings` (D7),
-      production's `schema_version` (unconfirmed, `SPEC.md` §2.6 fifth reply), cohort-relative `normalized_score`, their weights
+      production's `schema_version` (8, `SPEC.md` §2.6 sixth reply), cohort-relative `normalized_score`, their weights
       change (D13: 1/3 each for new runs, SEMANTIC out of the blend), and the upstream task each ask
       maps to (their T-144, T-145, T-074 and T-141, their Work item 2, and after their T-100).
       → `PLAN.md` Work item 15, step 1.
@@ -432,7 +432,7 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       empty (0 of 5,076 production rows, 0 of 449 pilot rows), so the key is always available.
       It is *not* unique in production: 30 accession numbers are shared by 60 legacy rows from
       before upstream's T-091 (a 10-Q's quarters stored as separate rows under one accession,
-      repaired by their T-120) — harmless here, since production's `schema_version` (unconfirmed, `SPEC.md` §2.6 fifth reply)
+      repaired by their T-120) — harmless here, since production's `schema_version` (8, `SPEC.md` §2.6 sixth reply)
       is not a precondition of this task. It is unique in the pilot and will be in their T-100 rebuild; no
       constraint enforces it today, but their T-145 adds a uniqueness check to their pilot
       verifier. → step 3.
@@ -529,7 +529,7 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       `Portfolio` (already enforced by `PortfolioShape`); stop expecting `equal_weight`/
       `cap_weight`. `is_current` marks at most one book per `(as_of, kind)`, the newest `opt-v*`;
       `engine_version` stays opaque (`opt-v1+9d34ff69`). → step 3.
-- [ ] **T-157** *(their T-144 landed 2026-10-09 at `6bf4d7e`, `schema_version` 10: re-pin against a database migrated with it; the floor stays 9 until then; production's version is unconfirmed, `SPEC.md` §2.6 fifth reply)* When upstream ships: re-pin `src/projection/view_contract.py` (new view, new
+- [ ] **T-157** *(their T-144 landed 2026-10-09 at `6bf4d7e`, `schema_version` 10: re-pin against a database migrated with it; the floor stays 9 until then; production is at 8, the pilot at 9, `SPEC.md` §2.6 sixth reply)* When upstream ships: re-pin `src/projection/view_contract.py` (new view, new
       columns, the commit in its docstring and in `SPEC.md` §2.6), raise the `schema_version` floor
       (D16; the value is `schema_version_floor` in `src/projection/view_expectations/_source.json`),
       and write the upstream `contract_version` the pin was built against beside it (the key and its
@@ -545,7 +545,7 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       Project only from a database that meets the floor and holds no REPLAY run (no `cycle_run`
       row with `cycle_type = 'REPLAY'`; a backfill's REPLAY scores and vetoes land in the shared
       tables, D8). This task sets the rule; the check is one of T-162's expectations, run by T-163
-      at the start of each projection. Production's version is unconfirmed (`SPEC.md` §2.6): whichever it is, it passes only if it meets the floor; the pilot (at 9) and
+      at the start of each projection. Production is at 8 (`SPEC.md` §2.6 sixth reply), so the floor refuses it, as intended; the pilot (at 9) and
       their T-100 rebuild qualify if the check passes.
       → step 4.
 - [ ] **T-158** Replace the `ASSET_DAY_AGGREGATE` placeholder with upstream's SEMANTIC
