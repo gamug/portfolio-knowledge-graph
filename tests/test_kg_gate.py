@@ -554,3 +554,119 @@ def test_an_answer_lost_before_sending_is_not_in_doubt(
         gate.ingest(fake.db, GOOD, "urn:graph:ingest:SEMANTIC:2026-08-05")
     assert not isinstance(raised.value, gate.WriteInDoubt)
     assert fake.added == []
+
+
+# --- closing triples are checked against the store (T-180) -------------------------------------
+
+DATE = "^^<http://www.w3.org/2001/XMLSchema#date>"
+CLOSE_MEMBERSHIP = PREFIXES + f':m :validTo "2026-03-31"{DATE} .'.encode()
+CLOSE_VETO = PREFIXES + f':v :clearedOn "2026-03-31"{DATE} .'.encode()
+GRAPH = "urn:graph:universe:2026-Q1"
+CLOSURES = [
+    (CLOSE_MEMBERSHIP, ":m", "UniverseMembership", "validTo"),
+    (CLOSE_VETO, ":v", "Veto", "clearedOn"),
+]
+
+
+def _holding(
+    make_db: MakeDB, subject: str, rdf_type: str | None, closed: tuple[str, str] | None = None
+) -> FakeGraphDB:
+    """A fake store that holds ``subject`` as ``rdf_type`` (and closed by ``closed``) and nothing else."""
+    iri = str(KG) + subject.lstrip(":")
+    rows = []
+    if rdf_type:
+        rows.append({"s": iri, "p": str(rdflib.RDF.type), "o": str(KG) + rdf_type})
+    if closed:
+        rows.append({"s": iri, "p": str(KG) + closed[0], "o": closed[1]})
+    fake = make_db()
+
+    def select(sparql: str) -> list[dict[str, str]]:
+        fake.queries.append(sparql)
+        if "VALUES ?s" in sparql and "?s ?p ?o" in sparql:
+            return rows
+        return []
+
+    fake.select = select  # type: ignore[method-assign]
+    return fake
+
+
+@pytest.mark.parametrize(("batch", "subject", "rdf_type", "prop"), CLOSURES)
+def test_a_closure_of_a_stored_open_record_is_written(
+    batch: bytes, subject: str, rdf_type: str, prop: str, make_db: MakeDB
+) -> None:
+    fake = _holding(make_db, subject, rdf_type)
+    assert gate.ingest(fake.db, batch, GRAPH) == 1
+    assert len(fake.added) == 1
+
+
+@pytest.mark.parametrize(("batch", "subject", "rdf_type", "prop"), CLOSURES)
+def test_a_closure_of_an_individual_the_store_does_not_hold_is_refused(
+    batch: bytes, subject: str, rdf_type: str, prop: str, make_db: MakeDB
+) -> None:
+    fake = _holding(make_db, subject, None)
+    with pytest.raises(gate.IngestRejected, match="the store does not hold"):
+        gate.ingest(fake.db, batch, GRAPH)
+    assert fake.added == []
+
+
+@pytest.mark.parametrize(("batch", "subject", "rdf_type", "prop"), CLOSURES)
+def test_a_closure_of_a_record_already_closed_is_refused(
+    batch: bytes, subject: str, rdf_type: str, prop: str, make_db: MakeDB
+) -> None:
+    fake = _holding(make_db, subject, rdf_type, closed=(prop, "2026-01-31"))
+    with pytest.raises(gate.IngestRejected, match=r"already closed \(2026-01-31\)"):
+        gate.ingest(fake.db, batch, GRAPH)
+    assert fake.added == []
+
+
+@pytest.mark.parametrize(
+    ("batch", "subject", "wrong_type", "prop"),
+    [
+        (CLOSE_MEMBERSHIP, ":m", "ScoreSnapshot", "validTo"),  # an immutable observation
+        (CLOSE_VETO, ":v", "UniverseMembership", "clearedOn"),  # validTo's class, not clearedOn's
+        (CLOSE_MEMBERSHIP, ":m", "Veto", "validTo"),  # a Veto is cleared, not given an end
+    ],
+)
+def test_a_closure_of_a_class_that_does_not_carry_the_property_is_refused(
+    batch: bytes, subject: str, wrong_type: str, prop: str, make_db: MakeDB
+) -> None:
+    fake = _holding(make_db, subject, wrong_type)
+    with pytest.raises(gate.IngestRejected, match=f"carries no {prop}"):
+        gate.ingest(fake.db, batch, GRAPH)
+    assert fake.added == []
+
+
+def test_two_closing_dates_for_one_subject_are_refused(make_db: MakeDB) -> None:
+    batch = CLOSE_MEMBERSHIP + f':m :validTo "2026-04-30"{DATE} .'.encode()
+    fake = _holding(make_db, ":m", "UniverseMembership")
+    with pytest.raises(gate.IngestRejected, match="2 dates"):
+        gate.ingest(fake.db, batch, GRAPH)
+    assert fake.added == []
+
+
+def test_the_classes_that_carry_each_closing_property_are_read_from_the_shapes(
+    schema: gate.GateSchema,
+) -> None:
+    def names(prop: rdflib.URIRef) -> set[str]:
+        return {str(c).rpartition("#")[2] for c in gate.closable_classes(schema, prop)}
+
+    assert names(KG.clearedOn) == {"Veto"}
+    # the Asset reads its memberships' validTo through sh:node; that is not its own
+    assert names(KG.validTo) == {
+        "UniverseMembership",
+        "RuleDefinition",
+        "AttractivenessWeightScheme",
+    }
+
+
+def test_a_batch_with_no_closing_triple_asks_the_store_nothing_about_closures(
+    make_db: MakeDB,
+) -> None:
+    fake = make_db()
+    gate.ingest(fake.db, GOOD, "urn:graph:ingest:SEMANTIC:2026-08-05")
+    assert not any("VALUES ?s" in q and "?s ?p ?o" in q and "validTo" in q for q in fake.queries)
+
+
+def test_fetch_closing_state_refuses_an_iri_that_could_inject_sparql(make_db: MakeDB) -> None:
+    with pytest.raises(gate.IngestRejected, match="illegal in an IRI"):
+        gate.fetch_closing_state(make_db().db, {rdflib.URIRef("https://x.test/a b")})

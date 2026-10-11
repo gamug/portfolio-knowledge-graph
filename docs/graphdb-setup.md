@@ -98,11 +98,16 @@ nothing written:
    the portfolio before the lanes that point at them;
 6. no typed individual in the batch already exists in the store (explicit statements, any graph):
    a batch may only introduce new individuals, so re-declaring a stored observation with another
-   value is refused. Closing a record is the untyped `:validTo` path (check 4).
+   value is refused. Closing a record is the untyped `:validTo` path (check 4); and
+7. every closing triple closes a stored individual that is still open (T-180): the store must hold
+   it, of a class whose shape carries the property (`:validTo`: a membership, a rule or an
+   attractiveness weight scheme; `:clearedOn`: a Veto), with no value for it yet, and the batch gives
+   it one date. A closure of an unknown subject, of an observation, or of a record already closed is
+   refused.
 
 What is written is the validated triples as N-Triples, not the submitted text. `--check` runs
 checks 1, 3, 4 and 5 without contacting the store, so it cannot see an existing graph (check 2)
-or an existing individual (check 6), and a batch that points at individuals it does not declare
+an existing individual (check 6) or what a closing triple closes (check 7), and a batch that points at individuals it does not declare
 fails check 5 under `--check` for want of what the store holds about them (the rejection says so).
 Validation reads `tbox.ttl` and `shapes.ttl` from `schema/` on disk (once per process); reload with
 `cli/load_schema.py` after a schema edit so the store's copy matches. Limits: this is a code path,

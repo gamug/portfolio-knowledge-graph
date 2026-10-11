@@ -25,7 +25,10 @@ A batch is Turtle destined for one named graph. It is written only if
    fails the class check; and
 6. no typed individual in it already exists in the store (any graph, explicit statements):
    a batch only introduces new individuals, so an immutable observation cannot be
-   re-declared with a second value.
+   re-declared with a second value; and
+7. every closing triple (point 4) closes a stored individual of a class whose shape carries that
+   property (``validTo``: a membership, rule or weight scheme; ``clearedOn``: a Veto) which is
+   not closed yet, and closes it once (T-180).
 
 Anything else raises :class:`IngestRejected` with the reason and nothing reaches the
 store. What is written is the validated triples (as N-Triples), not the submitted text.
@@ -199,6 +202,88 @@ def untyped_writes(batch: rdflib.Graph, schema: GateSchema) -> list[str]:
         else:
             problems.append(f"{s.n3(nm)} {p.n3(nm)}")
     return sorted(problems)
+
+
+def closing_values(batch: rdflib.Graph) -> dict[tuple[rdflib.term.Node, rdflib.URIRef], list[str]]:
+    """The closing triples about subjects with no ``rdf:type`` in the batch: (subject, property) ->
+    the dates written."""
+    typed = set(batch.subjects(RDF.type, None))
+    closing: dict[tuple[rdflib.term.Node, rdflib.URIRef], list[str]] = {}
+    for s, p, o in batch:
+        if s not in typed and p in CLOSING_PROPERTIES:
+            closing.setdefault((s, cast(rdflib.URIRef, p)), []).append(str(o))
+    return closing
+
+
+def closable_classes(schema: GateSchema, prop: rdflib.URIRef) -> frozenset[rdflib.term.Node]:
+    """Classes whose shape has a property shape on ``prop`` (``sh:or`` branches included, ``sh:node``
+    links not followed: the Asset's reading of its memberships' ``validTo`` is not the Asset's own)."""
+    sh = rdflib.namespace.SH
+    found: set[rdflib.term.Node] = set()
+    for shape in schema.shapes.subjects(sh.targetClass, None):
+        seen: set[rdflib.term.Node] = set()
+        todo: list[rdflib.term.Node] = [shape]
+        while todo:
+            node = todo.pop()
+            if node in seen:
+                continue
+            seen.add(node)
+            for _, p, o in schema.shapes.triples((node, None, None)):
+                if p == sh.path and o == prop:
+                    found.update(schema.shapes.objects(shape, sh.targetClass))
+                elif p != sh.node and (isinstance(o, rdflib.BNode) or p == sh.property):
+                    todo.append(o)
+    return frozenset(found)
+
+
+def fetch_closing_state(
+    db: GraphDB, subjects: set[rdflib.term.Node]
+) -> dict[str, dict[str, set[str]]]:
+    """What the store holds (explicit statements, any graph) about ``subjects`` that decides whether
+    they can be closed: subject -> {"types": ..., "validTo": ..., "clearedOn": ...}."""
+    iris = sorted(str(s) for s in subjects)
+    _refuse_illegal_iris(iris)
+    keys = {str(RDF.type): "types", **{str(p): p.rpartition("#")[2] for p in CLOSING_PROPERTIES}}
+    state: dict[str, dict[str, set[str]]] = {}
+    for i in range(0, len(iris), 200):
+        values = " ".join(f"<{iri}>" for iri in iris[i : i + 200])
+        rows = db.select(
+            "SELECT ?s ?p ?o FROM <http://www.ontotext.com/explicit> "  # noqa: S608 - IRIs checked above
+            f"WHERE {{ VALUES ?s {{ {values} }} VALUES ?p {{ {_iri_list({rdflib.URIRef(k) for k in keys})} }} "
+            "?s ?p ?o }"
+        )
+        for row in rows:
+            if {"s", "p", "o"} <= row.keys() and row["p"] in keys:
+                state.setdefault(row["s"], {}).setdefault(keys[row["p"]], set()).add(row["o"])
+    return state
+
+
+def refused_closures(
+    batch: rdflib.Graph,
+    schema: GateSchema,
+    state: dict[str, dict[str, set[str]]],
+) -> list[str]:
+    """Closing triples that do not close a stored, still open individual of a class that carries the
+    property, or that give one subject two dates."""
+    nm = batch.namespace_manager
+    problems: list[str] = []
+    for (s, p), dates in sorted(
+        closing_values(batch).items(), key=lambda kv: (str(kv[0][0]), str(kv[0][1]))
+    ):
+        label = f"{s.n3(nm)} {p.n3(nm)}"
+        held = state.get(str(s), {})
+        name = p.rpartition("#")[2]
+        if len(dates) > 1:
+            problems.append(f"{label} is given {len(dates)} dates in the batch")
+        elif not held.get("types"):
+            problems.append(f"{label} closes an individual the store does not hold")
+        elif not {rdflib.URIRef(t) for t in held["types"]} & closable_classes(schema, p):
+            problems.append(f"{label} closes an individual of a class that carries no {name}")
+        elif held.get(name):
+            problems.append(
+                f"{label} closes an individual already closed ({sorted(held[name])[0]})"
+            )
+    return problems
 
 
 def with_superclass_types(batch: rdflib.Graph, schema: GateSchema) -> rdflib.Graph:
@@ -401,7 +486,10 @@ def existing_subjects(db: GraphDB, batch: rdflib.Graph) -> list[str]:
 
 
 def ingest(db: GraphDB, data: bytes, graph: str, directory: Path | None = None) -> int:
-    """Validate a Turtle batch and, only if it passes, append it to ``graph``. Returns triples written."""
+    """Validate a Turtle batch and, only if it passes, append it to ``graph``. Returns triples written.
+
+    The store is read for the individuals the batch points at, the closing triples' subjects and the
+    typed individuals it declares, in that order, each only after the checks before it passed."""
     append_only = check_target(graph)
     batch = parse_batch(data)
     schema = load_gate_schema((directory or schema_dir()).resolve())
@@ -411,6 +499,14 @@ def ingest(db: GraphDB, data: bytes, graph: str, directory: Path | None = None) 
     validate(batch, directory, (lambda: fetch_context(db, refs, schema, batch)) if refs else None)
     if append_only and db.select(f"SELECT * WHERE {{ GRAPH <{graph}> {{ ?s ?p ?o }} }} LIMIT 1"):
         raise IngestRejected(f"{graph} already exists and is append-only; write a new dated graph")
+    closing = {s for s, _ in closing_values(batch)}
+    if closing:
+        stray = refused_closures(batch, schema, fetch_closing_state(db, closing))
+        if stray:
+            raise IngestRejected(
+                "closing triples that do not close a stored, open record (T-180): "
+                + "; ".join(stray)
+            )
     taken = existing_subjects(db, batch)
     if taken:
         raise IngestRejected(
