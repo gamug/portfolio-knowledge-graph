@@ -473,7 +473,8 @@ def fetch_context(
             s, p = row["s"], row["p"]
             if not (isinstance(s, rdflib.URIRef) and isinstance(p, rdflib.URIRef)):
                 raise GraphDBError(
-                    f"the store returned a statement about {s.n3()} that is not IRIs"
+                    f"the store returned a statement ({s.n3()} {p.n3()}) whose subject or predicate "
+                    "is not an IRI"
                 )
             context.add((s, p, row["o"]))
     return context

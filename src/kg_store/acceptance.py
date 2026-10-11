@@ -11,8 +11,8 @@ T-176 adds two checks and T-181 a third that read the store against ``schema/``:
 4. each graph ``schema/`` owns has the asserted size a fresh load gives (a graph the store holds
    that ``schema/`` does not own is reported, not failed);
 5. no individual has two ``:agentOrigin`` values or one outside ``ScoreSnapshotShape``'s list;
-6. a stored ``:portfolioKind`` comes back from ``GraphDB.select_terms`` as a plain string literal,
-   the form the gate's shapes compare (T-181).
+6. the worked example's quant batch passes the gate beside what the store holds about its
+   Portfolios, i.e. a stored string is read in the form the shapes compare (T-181).
 
 Needs the schema loaded (``cli/load_schema.py``). Read-only: the malformed batch is refused
 before any write, and the run compares the store's size before and after to prove it.
@@ -26,7 +26,15 @@ import rdflib
 import rdflib.collection
 from rdflib.namespace import SH
 
-from kg_store.gate import IngestRejected, ShaclRejected, ingest, load_gate_schema
+from kg_store.gate import (
+    IngestRejected,
+    ShaclRejected,
+    fetch_context,
+    ingest,
+    load_gate_schema,
+    references,
+    validate,
+)
 from kg_store.graphdb import EXPLICIT_GRAPH, GraphDB, schema_dir
 from kg_store.load_schema import expected_sizes, verify
 
@@ -38,6 +46,8 @@ EXPECTED_VIOLATION = (
 )
 #: The graph the malformed batch is aimed at; it must still be absent afterwards.
 PROBE_GRAPH = "urn:graph:ingest:SEMANTIC:2099-01-01"
+#: The worked example's quant batch, whose Portfolios and Assets the store holds once ``schema/`` is loaded.
+QUANT_GRAPH = "urn:graph:derived:quant:2026-08-05"
 #: A ScoreSnapshot that is valid except for the required ``:timestamp`` it lacks.
 MALFORMED = b"""@prefix : <https://thesis.local/kg/portfolio#> .
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
@@ -144,17 +154,27 @@ def check_agent_origin(db: GraphDB) -> str:
 
 
 def check_string_terms(db: GraphDB) -> str:
-    """A stored string reaches the gate as a plain literal (T-181), however GraphDB writes it."""
-    query = "SELECT ?k FROM <{graph}> WHERE {{ ?p a :Portfolio ; :portfolioKind ?k }} LIMIT 5"
-    rows = db.select_terms(PREFIX + query.format(graph=EXPLICIT_GRAPH))
-    if not rows:
-        raise AssertionError("no :Portfolio with a :portfolioKind in the store to read back")
-    bad = [r["k"] for r in rows if r["k"] != rdflib.Literal(str(r["k"]))]
-    if bad:
+    """The worked example's quant batch passes the gate beside what the store holds (T-181).
+
+    Its shapes compare a stored ``:portfolioKind`` by term (``sh:in ("LIVE" "BENCHMARK")``,
+    ``sh:hasValue "BENCHMARK"``), and a plain literal is not equal to one typed ``xsd:string``, so this fails if the store writes a
+    string in a form ``GraphDB.select_terms`` does not read as the gate expects. Read-only: the
+    batch is read from ``schema/`` and only validated, never written.
+    """
+    schema = load_gate_schema(schema_dir())
+    dataset = rdflib.Dataset(default_union=False)
+    dataset.parse(schema_dir() / "instances.trig", format="trig")
+    batch = rdflib.Graph()
+    for triple in dataset.graph(rdflib.URIRef(QUANT_GRAPH)):
+        batch.add(triple)
+    refs = references(batch, schema)
+    try:
+        validate(batch, context=lambda: fetch_context(db, refs, schema, batch))
+    except IngestRejected as exc:
         raise AssertionError(
-            f"select_terms returned a :portfolioKind that is not plain: {bad[0]!r}"
-        )
-    return f"{len(rows)} :portfolioKind value(s) read back as plain string literals"
+            f"the quant batch of instances.trig fails beside the store: {exc}"
+        ) from exc
+    return f"the quant batch passes beside the {len(refs)} stored individual(s) it points at"
 
 
 CHECKS: list[tuple[str, Callable[[GraphDB], str]]] = [
@@ -163,5 +183,5 @@ CHECKS: list[tuple[str, Callable[[GraphDB], str]]] = [
     ("reasoning profile matches 07", check_reasoning),
     ("schema graphs have their expected size", check_schema_graphs),
     ("every :agentOrigin is single and in the shape's list", check_agent_origin),
-    ("a stored string reads back as a plain literal", check_string_terms),
+    ("the quant batch passes beside the stored Portfolios", check_string_terms),
 ]

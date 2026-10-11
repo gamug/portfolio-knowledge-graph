@@ -139,13 +139,13 @@ of T-176 and the one of T-181 below, and exits non-zero if any fails ([`kg_store
 | Malformed write | a `ScoreSnapshot` that is valid except for the missing `:timestamp` is refused by the gate with a SHACL `minCount` violation on `:timestamp`, and that is the only violation reported (a rejection for any other reason fails the check; the probe carries `rawValue` and `availableAt` so `ScoreSnapshotShape` is otherwise satisfied); the store's size is unchanged and the target graph does not exist |
 | Reasoning profile | the repository reports `rdfsplus-optimized` and `disableSameAs` true, and `?x a :Observation` is answered by inference (nothing is asserted with it) and includes a `ScoreSnapshot`, which is two `rdfs:subClassOf` steps below it, so the chain is followed and not just one hop |
 | Schema graphs (T-176) | each graph `schema/` owns (read from `schema/` by `load_schema.expected_sizes`) has the asserted size a fresh load gives; a graph the store holds that `schema/` does not own is reported, not failed, so dated `urn:graph:ingest:…` graphs do not break a healthy store |
-| String terms (T-181) | a stored `:portfolioKind` comes back from `GraphDB.select_terms` as a plain string literal (the form `sh:in` and `sh:hasValue` compare), whether or not GraphDB writes `xsd:string` |
 | `:agentOrigin` (T-176) | no individual has more than one `:agentOrigin`, and none has a value outside the `sh:in` list of `ScoreSnapshotShape`, read from `shapes.ttl` |
+| Quant batch (T-181) | the worked example's quant batch (`urn:graph:derived:quant:2026-08-05` in `instances.trig`, read from `schema/`, never written) passes the gate beside what the store holds about its Portfolios, fetched by `gate.fetch_context`: its `:portfolioKind` rules (`sh:in`, `sh:hasValue "BENCHMARK"`) compare terms, so it fails if a stored string is read in a form other than the plain literal the batches use. Needs `instances.trig` and `reference.ttl` loaded (the batch points at its Assets too). Added in T-181 and **not yet run against the live repository** |
 
 ### Live run (T-141, 2026-10-08)
 
 `uv run python cli/verify_store.py` against the live repository `portfolio` (GraphDB 11.5.1) with the
-current acceptance probe (T-142's `sh:ValidationResult` count): exit 0, all three checks pass.
+acceptance probe of that date (T-142's `sh:ValidationResult` count): exit 0, all three checks that existed then pass.
 
 | Check | Result |
 |---|---|

@@ -183,7 +183,8 @@ class GraphDB:
 
         Unlike :meth:`select` this keeps the kind of term: an IRI, a blank node, or a literal with
         the datatype or language tag it was stored with. A string, with or without an explicit
-        ``xsd:string``, comes back as a plain ``Literal`` (the form the batches and ``schema/`` use).
+        ``xsd:string``, comes back as a plain ``Literal`` (the form the batches and ``schema/`` use),
+        so the two are not told apart through this method.
         """
         return self._select(sparql, _term)
 

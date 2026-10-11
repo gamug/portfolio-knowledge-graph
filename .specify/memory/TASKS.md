@@ -359,7 +359,7 @@ independent of each other once T-131 lands.*
       or of one already closed, is written. In `ingest`, read the closed subjects' types and existing
       closing value from the store and refuse the batch otherwise. Tests with a fake store. Code, so its
       own PR on a `feat/` branch. → `PLAN.md` Work item 14, step 9.
-- [x] **T-181** *(found in PR #86's review; done 2026-10-11: `GraphDB.select_terms` returns rdflib terms with the datatype or language the store holds, `select` is unchanged, `gate.fetch_context` uses it and drops the declared-datatype guess, and a test stores a wrong-datatype literal; the text below is the original task)* Keep the term type of a SPARQL result:
+- [x] **T-181** *(found in PR #86's review; done 2026-10-11: `GraphDB.select_terms` returns rdflib terms with the datatype or language the store holds, `select` is unchanged, `gate.fetch_context` uses it and drops the declared-datatype guess, a test stores a wrong-datatype literal, **a string is read as a plain literal** (whether the store writes `xsd:string` or nothing, because `sh:in`/`sh:hasValue` compare terms and the quant shape failed with the typed form), a statement whose subject or predicate is not an IRI raises, and `verify_store` gained a sixth check (the worked example's quant batch passes beside the stored Portfolios; not yet run live); the text below is the original task)* Keep the term type of a SPARQL result:
       `GraphDB.select` returns the lexical value only, so `gate.fetch_context` rebuilds a stored literal
       with the datatype its property declares and a stored literal of another datatype passes as if it
       had the right one. Return the type and datatype beside the value (a second method, or a richer

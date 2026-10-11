@@ -248,7 +248,7 @@ def test_fetch_context_refuses_a_statement_that_is_not_about_iris(
 ) -> None:
     """A row dropped silently would judge the batch against less than the store holds."""
     batch = gate.parse_batch(PREFIXES + b":o a :BenchmarkObservation ; :quantPortfolio :P .")
-    with pytest.raises(GraphDBError, match="not IRIs"):
+    with pytest.raises(GraphDBError, match="not an IRI"):
         gate.fetch_context(make_db(terms=[row]).db, {KG.P}, schema, batch)
 
 

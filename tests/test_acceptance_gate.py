@@ -10,8 +10,17 @@ import rdflib
 from conftest import FakeGraphDB
 
 from kg_store import acceptance
-from kg_store.gate import IngestRejected, ShaclRejected, parse_batch, validate
-from kg_store.graphdb import GraphDB
+from kg_store.gate import (
+    IngestRejected,
+    ShaclRejected,
+    load_gate_schema,
+    parse_batch,
+    references,
+    validate,
+)
+from kg_store.graphdb import GraphDB, schema_dir
+
+KG = rdflib.Namespace("https://thesis.local/kg/portfolio#")
 
 
 def _db() -> GraphDB:
@@ -90,11 +99,35 @@ def _raiser(exc: Exception) -> Callable[..., int]:
     return raise_
 
 
-def test_check_string_terms_wants_a_plain_string_and_a_portfolio() -> None:
-    plain = FakeGraphDB(terms=[{"k": rdflib.Literal("LIVE")}])
-    assert "plain string literals" in acceptance.check_string_terms(plain.db)
-    typed = FakeGraphDB(terms=[{"k": rdflib.Literal("LIVE", datatype=rdflib.XSD.string)}])
-    with pytest.raises(AssertionError, match="not plain"):
-        acceptance.check_string_terms(typed.db)
-    with pytest.raises(AssertionError, match="no :Portfolio"):
+def _stored_portfolios(kind: rdflib.term.Node | None = None) -> list[dict[str, rdflib.term.Node]]:
+    """What the store holds about the Portfolios of the quant batch once ``instances.trig`` and ``reference.ttl`` are loaded."""
+    schema = schema_dir()
+    dataset = rdflib.Dataset(default_union=False)
+    dataset.parse(schema / "instances.trig", format="trig")
+    batch = dataset.graph(rdflib.URIRef(acceptance.QUANT_GRAPH))
+    refs = references(batch, load_gate_schema(schema))
+    rows = []
+    others = [*dataset.graphs(), rdflib.Graph().parse(schema / "reference.ttl", format="turtle")]
+    for graph in others:  # the Assets are typed in reference.ttl
+        for ref in refs:
+            for p, o in graph.predicate_objects(ref):
+                stored = kind if kind is not None and p == KG.portfolioKind else o
+                rows.append({"s": ref, "p": p, "o": stored})
+    return rows
+
+
+def test_check_string_terms_passes_beside_the_stored_portfolios() -> None:
+    fake = FakeGraphDB(terms=_stored_portfolios())
+    assert "passes beside" in acceptance.check_string_terms(fake.db)
+
+
+def test_check_string_terms_fails_for_a_kind_stored_in_another_form() -> None:
+    """A kind read back typed ``xsd:string`` no longer satisfies the shape's ``sh:in``."""
+    typed = rdflib.Literal("LIVE", datatype=rdflib.XSD.string)
+    with pytest.raises(AssertionError, match="fails beside the store"):
+        acceptance.check_string_terms(FakeGraphDB(terms=_stored_portfolios(typed)).db)
+
+
+def test_check_string_terms_fails_when_the_store_holds_no_portfolio() -> None:
+    with pytest.raises(AssertionError, match="fails beside the store"):
         acceptance.check_string_terms(FakeGraphDB().db)
