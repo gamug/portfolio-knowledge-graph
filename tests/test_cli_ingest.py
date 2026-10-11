@@ -69,6 +69,8 @@ def test_check_says_it_cannot_verify_what_a_closing_triple_closes(tmp_path: Path
     assert result.returncode == 0, result.stderr
     assert "closes stored records" in result.stderr
     assert "closes stored records" not in _check(tmp_path, ":x a :Asset .\n").stderr
+    seen = ':v :lastSeenOn "2026-03-31"^^<http://www.w3.org/2001/XMLSchema#date> .\n'
+    assert "adds sightings" in _check(tmp_path, seen).stderr
 
 
 def _ingest_main(fake: FakeGraphDB, monkeypatch: pytest.MonkeyPatch) -> Callable[[list[str]], int]:

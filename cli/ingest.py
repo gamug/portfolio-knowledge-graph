@@ -60,8 +60,8 @@ def main(argv: list[str] | None = None) -> int:
             )
             if closing_values(batch):
                 print(
-                    "note: the batch closes stored records; --check cannot verify they exist, are "
-                    "open and opened earlier",
+                    "note: the batch closes stored records or adds sightings to them; --check cannot "
+                    "verify they exist, are open and opened earlier",
                     file=sys.stderr,
                 )
         else:
