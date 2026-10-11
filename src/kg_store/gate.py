@@ -15,18 +15,22 @@ A batch is Turtle destined for one named graph. It is written only if
    and be accepted unchecked;
 4. a subject with no ``rdf:type`` in the batch, which no shape can see, is only given
    relations to other individuals (object properties, e.g. ``:hasScoreObservation``,
-   ``:supersededBy``; the object must be an IRI) or an ``xsd:date`` ``:validTo`` (closing a
-   record). Anything else would let a batch quietly add values to an existing, immutable
-   observation;
-5. it conforms to ``shapes.ttl`` under ``pyshacl``; and
+   ``:supersededBy``; the object must be an IRI) or an ``xsd:date`` ``:validTo`` or
+   ``:clearedOn`` (closing a record or a Veto stint). Anything else would let a batch quietly
+   add values to an existing, immutable observation;
+5. it conforms to ``shapes.ttl`` under ``pyshacl``, together with what the store holds about
+   the individuals it points at (``references``/``fetch_context``, T-146): a batch of
+   co-occurrences or quant numbers names Assets and Portfolios it does not declare, and the
+   shapes check their class and (for a Portfolio) its kind. A reference the store does not hold
+   fails the class check; and
 6. no typed individual in it already exists in the store (any graph, explicit statements):
    a batch only introduces new individuals, so an immutable observation cannot be
    re-declared with a second value.
 
 Anything else raises :class:`IngestRejected` with the reason and nothing reaches the
 store. What is written is the validated triples (as N-Triples), not the submitted text.
-Shapes target by class and never reference other individuals, so a batch is validated
-on its own, without the data already in the store.
+Shapes target by class; a batch is validated with the stored triples of the individuals it
+references (and nothing else of the store), so it need not repeat them.
 
 Validation uses ``tbox.ttl``/``shapes.ttl`` from ``schema/`` on disk, the versioned
 source, read once per process. ``cli/load_schema.py`` is what brings the store's copy
@@ -41,6 +45,7 @@ from __future__ import annotations
 import datetime
 import functools
 import re
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import cast
@@ -53,8 +58,9 @@ from rdflib.namespace import OWL, RDF, RDFS, XSD
 from kg_store.graphdb import AnswerLost, GraphDB, GraphDBError, schema_dir
 
 _PORTFOLIO = rdflib.Namespace("https://thesis.local/kg/portfolio#")
-#: The one datatype property allowed on a subject untyped in the batch (closing a record).
-CLOSING_PROPERTY = _PORTFOLIO.validTo
+#: The datatype properties allowed on a subject untyped in the batch: closing a valid-time
+#: record (``validTo``) or a Veto stint (``clearedOn``), both an ``xsd:date``.
+CLOSING_PROPERTIES = frozenset({_PORTFOLIO.validTo, _PORTFOLIO.clearedOn})
 
 MUTABLE_GRAPHS = ("urn:graph:portfolio:current",)
 _DATE = r"\d{4}-\d{2}-\d{2}"
@@ -187,7 +193,7 @@ def untyped_writes(batch: rdflib.Graph, schema: GateSchema) -> list[str]:
                 problems.append(
                     f"{s.n3(nm)} {p.n3(nm)} {o.n3(nm)} (a relation needs an individual, not a literal)"
                 )
-        elif p == CLOSING_PROPERTY:
+        elif p in CLOSING_PROPERTIES:
             if not (isinstance(o, rdflib.Literal) and o.datatype == XSD.date and _date_ok(str(o))):
                 problems.append(f"{s.n3(nm)} {p.n3(nm)} {o.n3(nm)} (must be an xsd:date literal)")
         else:
@@ -211,8 +217,143 @@ def with_superclass_types(batch: rdflib.Graph, schema: GateSchema) -> rdflib.Gra
     return expanded
 
 
-def validate(batch: rdflib.Graph, directory: Path | None = None) -> None:
-    """Raise :class:`IngestRejected` unless ``batch`` passes the type, untyped-subject and shape checks.
+def _refuse_illegal_iris(iris: list[str]) -> None:
+    """IRIs go into a SPARQL ``VALUES`` list, so refuse any with a character that could end it."""
+    bad = [iri for iri in iris if re.search(r'[\s<>"{}|^`\\]', iri)]
+    if bad:
+        raise IngestRejected("IRIs with characters that are illegal in an IRI: " + ", ".join(bad))
+
+
+def references(batch: rdflib.Graph, schema: GateSchema) -> set[rdflib.URIRef]:
+    """IRIs the batch points at by an object property but does not type itself."""
+    typed = set(batch.subjects(RDF.type, None))
+    return {
+        o
+        for _, p, o in batch
+        if p in schema.relations and isinstance(o, rdflib.URIRef) and o not in typed
+    }
+
+
+def _context_term(schema: GateSchema, p: rdflib.term.Node, o: str) -> rdflib.term.Node:
+    """A stored value (lexical form only) back as a term: IRI for a type or relation, else a literal
+    typed by the property's declared range."""
+    if p == RDF.type or p in schema.relations:
+        return rdflib.URIRef(o)
+    datatype = schema.tbox.value(p, RDFS.range)
+    return rdflib.Literal(o, datatype=datatype if isinstance(datatype, rdflib.URIRef) else None)
+
+
+def _paths_below(shapes: rdflib.Graph, starts: list[rdflib.term.Node]) -> set[rdflib.URIRef]:
+    """Every ``sh:path`` IRI reachable from ``starts`` through a shape's own blank nodes (property
+    shapes, ``sh:or`` lists) and ``sh:node`` links."""
+    sh = rdflib.namespace.SH
+    paths: set[rdflib.URIRef] = set()
+    seen: set[rdflib.term.Node] = set()
+    todo = list(starts)
+    while todo:
+        node = todo.pop()
+        if node in seen:
+            continue
+        seen.add(node)
+        for _, p, o in shapes.triples((node, None, None)):
+            if p == sh.path and isinstance(o, rdflib.URIRef):
+                paths.add(o)
+            elif isinstance(o, rdflib.BNode) or p == sh.node:
+                todo.append(o)
+    return paths
+
+
+def context_predicates(
+    batch: rdflib.Graph, refs: set[rdflib.URIRef], schema: GateSchema
+) -> set[rdflib.URIRef]:
+    """The properties of ``refs`` that a shape reads: ``rdf:type`` and the ``sh:path``s of the shapes
+    that target the class required where the batch points at a reference (the ``sh:class`` of the
+    relation it uses), or a subclass of it.
+
+    A referenced Asset also has a link per snapshot per day and more; none of them is read, so
+    none is fetched (the context would otherwise grow with the store's history). A relation with no
+    ``sh:class`` requires nothing of its target, so only ``rdf:type`` is fetched for it.
+    """
+    sh = rdflib.namespace.SH
+    used = {p for _, p, o in batch if o in refs}
+    classes: set[rdflib.term.Node] = set()
+    for prop in schema.shapes.subjects(sh.path, None):
+        if schema.shapes.value(prop, sh.path) in used:
+            classes.update(schema.shapes.objects(prop, sh["class"]))
+    wanted = {sub for c in classes for sub in schema.tbox.transitive_subjects(RDFS.subClassOf, c)}
+    targets = [
+        shape
+        for shape in schema.shapes.subjects(sh.targetClass, None)
+        if wanted & set(schema.shapes.objects(shape, sh.targetClass))
+    ]
+    return {rdflib.URIRef(RDF.type)} | _paths_below(schema.shapes, targets)
+
+
+def nested_paths(schema: GateSchema, relation: rdflib.URIRef) -> set[rdflib.URIRef]:
+    """The properties a shape reads on the individuals reached through ``relation`` (its
+    ``sh:node``): for ``hasUniverseMembership``, the ``validTo`` of the Asset's CIK-or-closed rule."""
+    sh = rdflib.namespace.SH
+    starts = [
+        node
+        for prop in schema.shapes.subjects(sh.path, relation)
+        for node in schema.shapes.objects(prop, sh.node)
+    ]
+    return _paths_below(schema.shapes, starts)
+
+
+def fetch_context(
+    db: GraphDB, refs: set[rdflib.URIRef], schema: GateSchema, batch: rdflib.Graph
+) -> rdflib.Graph:
+    """What the store holds (explicit statements, any graph) about ``refs``, as a graph.
+
+    Only the properties the shapes read for what ``batch`` expects of ``refs`` are fetched
+    (:func:`context_predicates`, and :func:`nested_paths` one step further when a shape reads
+    through a relation, as the Asset shape does through its memberships).
+    """
+    iris = sorted(str(r) for r in refs)
+    _refuse_illegal_iris(iris)
+    paths = context_predicates(batch, refs, schema)
+    restrict = f"VALUES ?p {{ {_iri_list(paths)} }} "
+    hops: dict[rdflib.URIRef, set[rdflib.URIRef]] = {}
+    for relation in sorted(paths, key=str):
+        if nested := nested_paths(schema, relation):
+            hops[relation] = nested
+    context = rdflib.Graph()
+    for i in range(0, len(iris), 200):
+        values = " ".join(f"<{iri}>" for iri in iris[i : i + 200])
+        hop_queries = "".join(
+            f" UNION {{ ?r <{relation}> ?s . ?s ?p ?o . VALUES ?p {{ {_iri_list(nested)} }} }}"
+            for relation, nested in hops.items()
+        )
+        rows = db.select(
+            "SELECT ?s ?p ?o FROM <http://www.ontotext.com/explicit> "  # noqa: S608 - IRIs checked above
+            f"WHERE {{ VALUES ?r {{ {values} }} "
+            f"{{ {restrict}?r ?p ?o . BIND(?r AS ?s) }}{hop_queries} }}"
+        )
+        for row in rows:
+            if {"s", "p", "o"} <= row.keys():
+                p = rdflib.URIRef(row["p"])
+                context.add((rdflib.URIRef(row["s"]), p, _context_term(schema, p, row["o"])))
+    return context
+
+
+def _iri_list(iris: set[rdflib.URIRef]) -> str:
+    return " ".join(f"<{p}>" for p in sorted(iris, key=str))
+
+
+def validate(
+    batch: rdflib.Graph,
+    directory: Path | None = None,
+    context: rdflib.Graph | Callable[[], rdflib.Graph] | None = None,
+) -> None:
+    """Raise :class:`IngestRejected` unless ``batch`` passes the checks, run in this order: the types,
+    the untyped subjects, then the shapes beside ``context``.
+
+    ``context`` holds what is already known about the individuals the batch points at
+    (:func:`fetch_context`).
+
+    It may be a callable, called once and only after the first two checks pass, so a batch refused
+    by them costs no query.
 
     A shape failure raises :class:`ShaclRejected`, which carries the results graph.
     """
@@ -226,10 +367,18 @@ def validate(batch: rdflib.Graph, directory: Path | None = None) -> None:
     if stray:
         raise IngestRejected(
             "triples about a subject with no rdf:type in the batch (only relations between "
-            "individuals and an xsd:date :validTo are allowed there): " + ", ".join(stray)
+            "individuals and an xsd:date :validTo or :clearedOn are allowed there): "
+            + ", ".join(stray)
         )
+    if callable(context):
+        context = context()
+    data = batch
+    if context is not None and len(context):
+        data = rdflib.Graph()
+        data += batch
+        data += context
     conforms, results, report = pyshacl.validate(
-        with_superclass_types(batch, schema), shacl_graph=schema.shapes, inference="none"
+        with_superclass_types(data, schema), shacl_graph=schema.shapes, inference="none"
     )
     if not conforms:
         # pyshacl returns the results as a Graph unless asked for another serialization.
@@ -239,9 +388,7 @@ def validate(batch: rdflib.Graph, directory: Path | None = None) -> None:
 def existing_subjects(db: GraphDB, batch: rdflib.Graph) -> list[str]:
     """Typed IRI subjects of ``batch`` that already have statements in the store."""
     iris = sorted({str(s) for s in batch.subjects(RDF.type, None) if isinstance(s, rdflib.URIRef)})
-    bad = [iri for iri in iris if re.search(r'[\s<>"{}|^`\\]', iri)]
-    if bad:
-        raise IngestRejected("IRIs with characters that are illegal in an IRI: " + ", ".join(bad))
+    _refuse_illegal_iris(iris)
     found: list[str] = []
     for i in range(0, len(iris), 200):
         values = " ".join(f"<{iri}>" for iri in iris[i : i + 200])
@@ -257,14 +404,18 @@ def ingest(db: GraphDB, data: bytes, graph: str, directory: Path | None = None) 
     """Validate a Turtle batch and, only if it passes, append it to ``graph``. Returns triples written."""
     append_only = check_target(graph)
     batch = parse_batch(data)
-    validate(batch, directory)
+    schema = load_gate_schema((directory or schema_dir()).resolve())
+    refs = references(batch, schema)
+    # Every store query comes after validate's store-free checks, so a batch they refuse costs none:
+    # the context is fetched lazily, and the two checks below it run on a batch that passed.
+    validate(batch, directory, (lambda: fetch_context(db, refs, schema, batch)) if refs else None)
     if append_only and db.select(f"SELECT * WHERE {{ GRAPH <{graph}> {{ ?s ?p ?o }} }} LIMIT 1"):
         raise IngestRejected(f"{graph} already exists and is append-only; write a new dated graph")
     taken = existing_subjects(db, batch)
     if taken:
         raise IngestRejected(
             "individuals that already exist in the store (observations are immutable; use a "
-            "new IRI, or :validTo to close one): " + ", ".join(taken)
+            "new IRI, or :validTo / :clearedOn to close one): " + ", ".join(taken)
         )
     try:
         db.add(batch.serialize(format="nt").encode(), "application/n-triples", graph)

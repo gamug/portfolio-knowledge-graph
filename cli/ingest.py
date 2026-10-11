@@ -4,7 +4,8 @@
     python cli/ingest.py batch.ttl --graph urn:graph:ingest:SEMANTIC:2026-08-06
     python cli/ingest.py batch.ttl --graph urn:graph:ingest:SEMANTIC:2026-08-06 --check
 
-``--check`` validates without contacting the store (so it cannot see an existing graph or individual). Exit status is 0 when the batch was
+``--check`` validates without contacting the store (so it cannot see an existing graph or individual,
+nor the individuals the batch points at without declaring them). Exit status is 0 when the batch was
 accepted (or would be), 2 when it was rejected, 1 on any other error. See
 ``kg_store.gate`` for what is checked.
 """
@@ -17,8 +18,17 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
-from kg_store.gate import IngestRejected, check_target, ingest, parse_batch, validate
-from kg_store.graphdb import GraphDB, GraphDBError
+from kg_store.gate import (
+    IngestRejected,
+    ShaclRejected,
+    check_target,
+    ingest,
+    load_gate_schema,
+    parse_batch,
+    references,
+    validate,
+)
+from kg_store.graphdb import GraphDB, GraphDBError, schema_dir
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -32,7 +42,17 @@ def main(argv: list[str] | None = None) -> int:
         if args.check:
             check_target(args.graph)
             batch = parse_batch(data)
-            validate(batch)
+            try:
+                validate(batch)
+            except ShaclRejected as exc:
+                undeclared = references(batch, load_gate_schema(schema_dir().resolve()))
+                if undeclared:
+                    raise IngestRejected(
+                        f"{exc}\n(the batch points at {len(undeclared)} individual(s) it does not "
+                        "declare; --check cannot read them from the store, so failures about "
+                        "them may disappear on a real ingest)"
+                    ) from exc
+                raise
             print(
                 f"accepted (check only, store not contacted): {len(batch)} triples for {args.graph}"
             )
