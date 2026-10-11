@@ -681,6 +681,8 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       rules, the existing five included (T-189 sums them); (c) the date the redefinition applies from and what the
       old definition's stints keep (T-187); (d) whether an expired stint (`expires_on`) is cleared by them or only
       by its date (T-188); (e) whether `expires_on` is ever set on a SOFT stint. (5) When their T-145 and T-100 land (T-151, T-154, T-158).
+      **On sending**, write the date sent and the cut-off date for T-191's no-reply exit in this note, and change
+      `SPEC.md` §2.6's "To ask" to "Asked on <date>".
       -> `PLAN.md` Work item 15.
 - [ ] **T-191** *(the answers to T-184's letter; waits on upstream's reply, which no task here controls)* When
       the reply comes, record it in `SPEC.md` §2.6 as the seventh reply and tick each ask below as it is
