@@ -29,7 +29,8 @@ A batch is Turtle destined for one named graph. It is written only if
 7. every closing triple (point 4) closes a stored individual of a class that is closed by that
    property (``CLOSABLE``: ``validTo``: a membership, position, rule or design-history weight
    scheme; ``clearedOn``: a Veto) which is not closed yet, on a date after it opened (and, for a
-   Veto, not before the latest ``lastSeenOn``, T-185), and closes it once (T-180). Read, then written, not atomic: see the limit below.
+   Veto, not before the latest ``lastSeenOn``, T-185), and closes it once (T-180). Read, then
+   written, not atomic: see the limit below.
 
 Anything else raises :class:`IngestRejected` with the reason and nothing reaches the
 store. What is written is the validated triples (as N-Triples), not the submitted text.
@@ -237,7 +238,9 @@ def closing_values(batch: rdflib.Graph) -> dict[tuple[rdflib.term.Node, rdflib.U
 
 #: Per closing property: the classes whose records it closes and the property holding the date the
 #: record opened (the closing date must be later: the shapes' ``sh:lessThan``, which the stored
-#: record is never validated against here). Explicit, not read from the shapes: a class is closable
+#: record is never validated against here), and for a Veto the multi-valued ``lastSeenOn`` the closing
+#: date may not precede (the shapes' ``sh:lessThanOrEquals`` on ``lastSeenOn``, the same rule for a
+#: Veto declared with both dates, T-185). Explicit, not read from the shapes: a class is closable
 #: because its design says so (``07``), and ``PortfolioPositionShape`` does not mention ``validTo``.
 class Closable(NamedTuple):
     """What a closing property closes: the classes, the property holding the date they opened, and

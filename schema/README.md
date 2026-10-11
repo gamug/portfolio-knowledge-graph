@@ -263,7 +263,7 @@ block and the 14 node shapes are unchanged.
 **T-102 (veto stints), same day:** `:Veto` gains `raisedOn` (required), `clearedOn`, `lastSeenOn`
 (`xsd:date` cycle dates) and `vetoSeverity` (HARD | SOFT, per stint; absent = the `primaryRule`'s
 `ruleSeverity`), enforced by a new `VetoShape` (node shapes 14 → 15) that also rejects a
-`clearedOn`/`lastSeenOn` earlier than `raisedOn`. `lastSeenOn` is deliberately multi-valued
+`clearedOn`/`lastSeenOn` earlier than `raisedOn`, and (T-185) a `lastSeenOn` later than `clearedOn`: a cycle that clears a stint did not see it raised, and the same day passes. `lastSeenOn` is deliberately multi-valued
 because the ORCHESTRATOR graphs are append-only: each cycle adds its own value, current = `MAX`.
 A stint is closed by writing `clearedOn` in the clearing cycle's graph, never by deleting the
 `Veto`; the worked example closes `Veto_XOM_20260804` on 2026-08-05 and gives

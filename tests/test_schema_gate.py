@@ -386,3 +386,23 @@ def test_a_veto_cleared_before_a_sighting_is_caught(
     """One sighting after the clearing is enough, whatever the others are."""
     g = _veto(bundle, cleared="2026-03-31", seen=("2026-02-10", "2026-04-07"))
     assert _violations(g, shapes) == {(_VETO, KG.lastSeenOn)}
+
+
+def _less_than_or_equals(path: Path) -> set[tuple[str, str]]:
+    """(property, target) for each ``sh:lessThanOrEquals`` inside the Veto shape of ``path``."""
+    g = rdflib.Graph().parse(path, format="turtle")
+    sh = SH
+    found: set[tuple[str, str]] = set()
+    for prop in g.objects(KG.VetoShape, sh.property):
+        for target in g.objects(prop, sh.lessThanOrEquals):
+            found.add(
+                (str(g.value(prop, sh.path)).rpartition("#")[2], str(target).rpartition("#")[2])
+            )
+    return found
+
+
+def test_the_target_schema_orders_a_veto_like_shapes_ttl() -> None:
+    """``kg_target_schema.ttl`` is the proposal sent upstream; it carries the same Veto date order."""
+    in_shapes = _less_than_or_equals(SCHEMA / "shapes.ttl")
+    assert in_shapes == {("raisedOn", "lastSeenOn"), ("lastSeenOn", "clearedOn")}
+    assert _less_than_or_equals(SCHEMA.parent / "kg_target_schema.ttl") == in_shapes

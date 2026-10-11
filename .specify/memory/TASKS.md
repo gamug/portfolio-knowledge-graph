@@ -366,7 +366,7 @@ independent of each other once T-131 lands.*
       had the right one. Return the type and datatype beside the value (a second method, or a richer
       row, so no existing caller changes), use it in `fetch_context`, and add a test with a stored literal
       of the wrong datatype. Code, so its own PR on a `feat/` branch. → `PLAN.md` Work item 14, step 9.
-- [x] **T-185** *(found in PR #90's review; the gate; done 2026-10-11 in PR #94, after the maintainer chose to check at three places (decision D10): the gate refuses a `clearedOn` earlier than the latest `lastSeenOn` of a stored Veto (`gate.CLOSABLE` carries a `last_seen` property), `VetoShape` refuses the same in a batch that declares a Veto with both dates (`sh:lessThanOrEquals :clearedOn` on `lastSeenOn`, 2550 quads), and T-192 adds the read-boundary check; the same day passes, which is an assumption about upstream's `last_seen_on` on the clearing cycle (unverified), and a stricter reading changes one comparison; the maintainer reloads the store (`cli/load_schema.py`, then `cli/verify_store.py`, as T-179); tests in `tests/test_kg_gate.py` and `tests/test_schema_gate.py`; the text below is the original task)* Check a Veto's `:clearedOn` against its `:lastSeenOn`:
+- [x] **T-185** *(found in PR #90's review; the gate; done 2026-10-11 in PR #94, after the maintainer chose to check at three places (decision D10): the gate refuses a `clearedOn` earlier than the latest `lastSeenOn` of a stored Veto (`gate.CLOSABLE` carries a `last_seen` property), `VetoShape` refuses the same in a batch that declares a Veto with both dates (`sh:lessThanOrEquals :clearedOn` on `lastSeenOn`, 2550 quads), and T-192 adds the read-boundary check; the same day passes, which is an assumption about upstream's `last_seen_on` on the clearing cycle (unverified), and a stricter reading changes one comparison; the store reload is T-193; tests in `tests/test_kg_gate.py` and `tests/test_schema_gate.py`; the text below is the original task)* Check a Veto's `:clearedOn` against its `:lastSeenOn`:
       `lastSeenOn` is multi-valued (one per cycle, current = MAX) and no shape relates it to `clearedOn`, so
       a Veto can be cleared on a date earlier than a cycle that still saw it raised. T-180's closing check
       already reads the Veto's stored state; read `lastSeenOn` there (or add `sh:lessThanOrEquals` to the
@@ -380,11 +380,13 @@ independent of each other once T-131 lands.*
       sandbox cannot reach the store (`Network is unreachable`), so this is the only evidence of what GraphDB
       returns for a string literal (`datatype` absent or `xsd:string`). If it fails, fix `GraphDB._term` or the
       check. → `PLAN.md` Work item 14, step 9.
-- [ ] **T-192** *(from T-185, decision D10; Work item 16)* Add the same rule at the read boundary: an expectation on
-      `v_veto` that `cleared_on` is not earlier than `last_seen_on`, in T-162's per-view files, run by T-163's
-      function. A failing row is quarantined and reported, not a stop of the run, so one odd stint does not block a
-      backtest over a long history. Waits on the vetoes lane of T-031, which reads `v_veto`. Code and a test with
-      synthetic rows, so a `feat/` PR. → `PLAN.md` Work item 16.
+- [ ] **T-193** *(from T-185; the maintainer, not code)* Reload the live store from `schema/` after PR #94 merges:
+      `shapes.ttl` loads into `urn:graph:tbox`, which grows by 1 triple (2549 to 2550 over the 19 graphs), so
+      `verify_store`'s "schema graphs have their expected size" check fails until then. With the maintainer's
+      go-ahead: `uv run python cli/verify_store.py` (that check fails as expected), `uv run python cli/load_schema.py`
+      (exit 0, `2550 asserted triples match the local parse`), `uv run python cli/verify_store.py` (exit 0), and a dated
+      row in `docs/graphdb-setup.md`, as T-179 did. The agent's sandbox cannot reach the store.
+      → `PLAN.md` Work item 14, step 9.
 ## Work item 15 — Adopt upstream's `v_*` contract changes (replies of 2026-10-05, 2026-10-06 x2)
 - [x] **T-177** *(from upstream's answer to Q6, 2026-10-09; done 2026-10-10 in PR #82: the shape, 2549 quads, nine synthetic cases in `tests/test_schema_gate.py` and a check that `kg_target_schema.ttl` carries the same `rawValue` bounds as `shapes.ttl` (FUNDAMENTAL, SECTOR, Sentiment); `schema/protege-view.ttl` is left to Work item 8 (T-070); the store reload is T-179; the text below is the original task, edited where the work differed)* Bound FUNDAMENTAL's `rawValue` in `ScoreSnapshotShape` to
       `[0, 100]` (`minInclusive`/`maxInclusive` on the branch that pairs it with a mandatory `rawValue`,
@@ -733,7 +735,7 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       temporary HARD rules, and NULL maps to no triple. Settle with upstream whether an expired stint is cleared
       by them (`cleared_on`) or only by this predicate, and write the answer in `tbox.ttl`'s comment and in
       `SPEC.md` §2.6. When it lands, the live store is reloaded from `schema/` (the maintainer's go-ahead; the check in T-176 compares each graph's size with `schema/`) and a dated row goes in `docs/graphdb-setup.md`, as T-179 did. The active-at-cutoff SPARQL (D3) gains the `expiresOn` test only if upstream says the date
-      closes a stint by itself. Synthetic cases (before `raisedOn` fails; absent passes). Take the same pattern as the `clearedOn` against `lastSeenOn` check (filed as T-185 in PR #91, which merges first): a shape or the gate, decided once, and the two may share a PR. A `feat/` PR.
+      closes a stint by itself. Synthetic cases (before `raisedOn` fails; absent passes). Follow T-185's decision (D10, PR #94), which put the same check in `VetoShape` (for a Veto declared with the date) and in the gate (for a stored Veto closed later). `expiresOn` is set when the Veto is declared, not by a later triple, so the shape is the one that applies; the gate only if upstream says the date closes a stint by itself. A `feat/` PR.
       -> `PLAN.md` Work item 15.
 - [ ] **T-189** *(from T-183 (4))* Read the SOFT penalty as the sum of the active SOFT stints' rules'
       `penalty_points` (T-155's note already says so, from T-183); the projector derives no pre-penalty score.
@@ -816,6 +818,11 @@ See `PLAN.md` Work item 16.*
 - [ ] **T-165** Verify and document: `SPEC.md` §13 item 10 (today the pin and the drift check) gains
       what is checked at the boundary and what is not, including that polarity is not detectable;
       `uv run pytest` passes; the FR-001 gate is unchanged. → `PLAN.md` acceptance criteria.
+- [ ] **T-192** *(from T-185, decision D10; adds one row check to the expectations T-162 wrote, so it is no acceptance condition of Work item 16, which T-165 verifies for the views read so far)* Add the same rule at the read boundary: an expectation on
+      `v_veto` that `cleared_on` is not earlier than `last_seen_on`, in T-162's per-view files, run by T-163's
+      function. A failing row is quarantined and reported, not a stop of the run, so one odd stint does not block a
+      backtest over a long history. Waits on the vetoes lane of T-031, which reads `v_veto`. Code and a test with
+      synthetic rows, so a `feat/` PR. → `PLAN.md` Work item 16.
 
 ## Status
 
@@ -825,13 +832,13 @@ Work items 4 and 6 (T-030–T-035, T-050–T-053)
 follow in dependency order (Work items 3 and 11 are closed, so Work item 4 is unblocked).
 Work item 12 (T-120–T-121): T-120 closed by T-150; T-121 done (PR #65).
 Work item 13 (T-130–T-136): constitution rules in place (1.5.0); T-130–T-136 done (T-135 as an `integration` test, `PFA_CHECKOUT`).
-Work item 14 (T-140–T-142 and T-146): T-140, T-141 and T-142 done; T-174 (store schema, found by T-141) done; T-176 (the two `verify_store` checks) done; T-175 (CLI exit-code tests) done (PR #80); T-146 (the gate vs. the worked example's batches) done; T-179 (the store reload after T-177) done; T-180 (the gate checks what a closing triple closes) done; T-181 (`select` keeps the term type) done; T-185 (a Veto's `clearedOn` against its `lastSeenOn`) done; T-192 (the same check at the read boundary) open, after T-031's vetoes lane; T-186 (the live `verify_store` run for T-181's sixth check, the maintainer's) open.
+Work item 14 (T-140–T-142 and T-146): T-140, T-141 and T-142 done; T-174 (store schema, found by T-141) done; T-176 (the two `verify_store` checks) done; T-175 (CLI exit-code tests) done (PR #80); T-146 (the gate vs. the worked example's batches) done; T-179 (the store reload after T-177) done; T-180 (the gate checks what a closing triple closes) done; T-181 (`select` keeps the term type) done; T-185 (a Veto's `clearedOn` against its `lastSeenOn`) done; T-192 (the same check at the read boundary) open, after T-031's vetoes lane; T-193 (reload the store after T-185's shape, the maintainer's) open; T-186 (the live `verify_store` run for T-181's sixth check, the maintainer's) open.
 Work item 15 (T-150–T-159, T-170–T-173, T-177–T-178, T-182–T-184, T-187–T-191): T-173 (the contract endpoint check) done; T-177 (the FUNDAMENTAL `rawValue` bound) done in PR #82; T-178 (the pin's `contract_version` key) done; T-150, T-170 and T-171 (PR #56) done; T-155's schema half done (PR #58); T-153's comment half (PR #59);
 T-151's rule recorded (PR #60), its checks waiting on T-031/T-163; T-158's
 ownership question (before their T-141) is unblocked; the rest of T-152–T-158 waits on upstream's
 T-144 (views), T-145 (ids), T-074 (flags) and, after their T-100, their T-082 and their Work item 4.
 Work item 15, from the sixth reply: T-182 (the analysis run's year bounds read as filing years) is done; T-183 (the decisions on version 11's content) is done, with T-187 (the rules and `penaltyPoints`), T-188 (`expiresOn`), T-189 (the penalty identity) and T-190 (the three-component scheme) filed; T-184 (the next letter to upstream) is written and open until the maintainer sends it, and T-191 records the answers when they come.
-Work item 16 (T-160–T-165): T-160 done (plain checks, quarantine-with-cap), T-161 closed with it (no dependency) and T-162 done (JSON files per view, strict loader);
+Work item 16 (T-160–T-165, T-192): T-160 done (plain checks, quarantine-with-cap), T-161 closed with it (no dependency) and T-162 done (JSON files per view, strict loader);
 T-163 (function done, PR #68) closes with T-031, whose first slice (PR #72) calls it on the real read and re-reads the late keys for `v_score_snapshot`; T-164 done (PR #69).
 Work item 8 (T-070–T-071) is independent but needs a human at a Protégé
 session, not a coding session.
