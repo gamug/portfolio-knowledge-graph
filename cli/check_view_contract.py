@@ -5,8 +5,9 @@ uv run python cli/check_view_contract.py http://HOST:PORT/api/v1
 
 A path builds upstream's views from a checkout. A URL reads the running service's
 ``GET /contract`` (and ``/contract/database`` if it offers it) and also checks the versions: the
-declared ``contract_version`` must equal the pin's, and the database's ``schema_version`` must
-not be below the pin's floor. Exit status: 0 no drift, 1 drift, 2 the service could not be read.
+declared ``contract_version`` must equal the pin's, the database's ``schema_version`` must not be
+below the pin's floor, and the database must hold every pinned view. Exit status: 0 no drift,
+1 drift, 2 the service could not be read or the pin could not be loaded.
 """
 
 from __future__ import annotations
@@ -24,7 +25,7 @@ from projection.contract_check import (
     check_service,
     fetch_contract,
 )
-from projection.expectations import load_source
+from projection.expectations import ExpectationError, load_source
 
 
 def _report(target: str) -> ContractReport:
@@ -46,7 +47,7 @@ def main() -> int:
     )
     try:
         report = _report(parser.parse_args().upstream)
-    except ContractFetchError as exc:
+    except (ContractFetchError, ExpectationError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
     for line in report.notes:
