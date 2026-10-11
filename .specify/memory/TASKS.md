@@ -372,10 +372,11 @@ independent of each other once T-131 lands.*
       `last_seen` property); `VetoShape` refuses the same in a batch that declares a Veto with both dates
       (`sh:lessThanOrEquals :clearedOn` on `lastSeenOn`, 2550 quads, the twin in `kg_target_schema.ttl` too); T-192
       adds the read-boundary check. The same day passes, an assumption about upstream's `last_seen_on` on the
-      clearing cycle (unverified). **Limit:** the gate cannot append a `lastSeenOn` to a stored Veto today
+      clearing cycle (unverified; the question is listed in T-191). **Limit:** the gate cannot append a `lastSeenOn` to a stored Veto today
       (T-194), so the closing check compares with the sightings declared with the Veto; it is complete for
       stints loaded whole, which backtests use. **Open follow-ups:** T-192 (the read-boundary check), T-193 (the
-      store reload, the maintainer's) and T-194 (append a `lastSeenOn`). Tests in `tests/test_kg_gate.py` and
+      store reload, the maintainer's), T-194 (append a `lastSeenOn`) and the question about the clearing cycle's
+      `last_seen_on` (listed in T-191). Tests in `tests/test_kg_gate.py` and
       `tests/test_schema_gate.py`. The text below is the original task.
       `lastSeenOn` is multi-valued (one per cycle, current = MAX) and no shape relates it to `clearedOn`, so
       a Veto can be cleared on a date earlier than a cycle that still saw it raised. T-180's closing check
@@ -724,6 +725,9 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       **No reply:** if there is none by a date the maintainer sets, the unanswered asks are listed in `SPEC.md`
       §2.6 as open, T-187 and T-188 stay deferred (Work item 15's Acceptance allows deferral) and this task is
       closed with them listed. -> `PLAN.md` Work item 15.
+      **Not in the letter, for the next message to them (from T-185):** does upstream set `last_seen_on` on the
+      clearing cycle, and can `cleared_on` be earlier than a recorded `last_seen_on`? The answer settles whether the
+      same-day tolerance in the gate and `VetoShape` (`<=`) stays or becomes `<`.
       - [ ] (1) filing date or `available_at`
       - [ ] (2) database at the served version, and what version 12 changed
       - [ ] (3) notes match the file's version

@@ -575,7 +575,7 @@ new acceptance probe; and `acceptance.check_gate` counts violations by matching 
    places: the gate, when a stored Veto is cleared (done, T-185); `VetoShape`, when a batch declares a Veto with both
    dates, which is how backtests load past stints (done, T-185); and the read boundary, quarantining the `v_veto`
    row (T-192, Work item 16, after T-031's vetoes lane). The same day passes, an assumption about upstream's
-   `last_seen_on` on the clearing cycle that stays unverified. The gate cannot yet append a later cycle's `lastSeenOn`
+   `last_seen_on` on the clearing cycle, to be asked of upstream (listed in T-191). The gate cannot yet append a later cycle's `lastSeenOn`
    to a stored Veto (T-194, needed by live cycles). The store reload after the `shapes.ttl` change is the maintainer's
    (T-193), as T-179 was.
 
@@ -585,7 +585,7 @@ yields exactly one violation (`:timestamp`); T-141's run is recorded in `docs/gr
 `tests/test_kg_gate.py` (done); T-174 leaves every graph of the store at its expected size with no leftover;
 T-176's `verify_store` fails on a stale or doubled store (it would have failed on the store before T-174; the fake-store tests show it) and exits 0 on a healthy one (done: the live store passes); T-175's tests pass or skip; T-179 leaves the live store at `schema/`'s 2549 triples with `verify_store` exiting 0 (done). T-146 leaves the gate accepting every worked-example graph beside what the store holds about the individuals it points at, with the three `xfail`s gone and `--check` saying why it cannot resolve them (done); T-180 (done) makes it refuse a closing triple whose subject is not a stored record (or Veto) or is already closed, and T-181 (done) keeps a stored literal's datatype in the context, so a literal of the wrong datatype fails its shape. T-185 (done) refuses a clearing earlier than a sighting at the gate and in `VetoShape`; the store is back at `schema/`'s count only after T-193, so `verify_store` exits 0 again then.
 
-**Blocked on**: nothing; T-186 (the maintainer runs `verify_store` live for T-181's new check) and T-193 (the maintainer reloads the store after T-185's shape, one triple) are open.
+**Blocked on**: nothing; T-186 (the maintainer runs `verify_store` live for T-181's new check) and T-193 (the maintainer reloads the store after T-185's shape, one triple) are open. T-194 (append a `lastSeenOn` to a stored Veto, a `feat/` PR) is open too but outside this item's acceptance: live cycles need it, so it is gated by Work item 4's vetoes lane.
 
 ## Work item 15 — Adopt upstream's `v_*` contract changes (replies of 2026-10-05, 2026-10-06 and 2026-10-09)
 
