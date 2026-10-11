@@ -1,4 +1,4 @@
-"""``kg_store.acceptance``: ``check_gate`` reads pyshacl's results graph, not its text report (T-142); ``check_string_terms`` (T-181)."""
+"""``kg_store.acceptance``: ``check_gate`` reads pyshacl's results graph, not its text report (T-142); ``check_quant_batch`` (T-181)."""
 
 from __future__ import annotations
 
@@ -7,7 +7,8 @@ from typing import cast
 
 import pytest
 import rdflib
-from conftest import FakeGraphDB, context_for
+from conftest import FakeGraphDB
+from support import context_for
 
 from kg_store import acceptance
 from kg_store.gate import (
@@ -107,9 +108,9 @@ def _stored_portfolios(kind: rdflib.term.Node | None = None) -> list[dict[str, r
     return rows
 
 
-def test_check_string_terms_passes_beside_the_stored_portfolios() -> None:
+def test_check_quant_batch_passes_beside_the_stored_portfolios() -> None:
     fake = FakeGraphDB(terms=_stored_portfolios())
-    assert "passes beside" in acceptance.check_string_terms(fake.db)
+    assert "passes beside" in acceptance.check_quant_batch(fake.db)
 
 
 @pytest.mark.parametrize(
@@ -120,24 +121,24 @@ def test_check_string_terms_passes_beside_the_stored_portfolios() -> None:
     ],
     ids=["typed-string", "integer"],
 )
-def test_check_string_terms_fails_for_a_kind_stored_in_another_form(
+def test_check_quant_batch_fails_for_a_kind_stored_in_another_form(
     kind: rdflib.term.Node,
 ) -> None:
     """A kind read back typed ``xsd:string`` (or as a number) no longer satisfies ``sh:in``."""
     with pytest.raises(AssertionError, match="fails beside the store"):
-        acceptance.check_string_terms(FakeGraphDB(terms=_stored_portfolios(kind)).db)
+        acceptance.check_quant_batch(FakeGraphDB(terms=_stored_portfolios(kind)).db)
 
 
-def test_check_string_terms_says_to_load_the_schema_for_an_empty_store() -> None:
+def test_check_quant_batch_says_to_load_the_schema_for_an_empty_store() -> None:
     with pytest.raises(AssertionError, match=r"none of the individuals.*load schema/"):
-        acceptance.check_string_terms(FakeGraphDB().db)
+        acceptance.check_quant_batch(FakeGraphDB().db)
 
 
-def test_check_string_terms_does_not_pass_on_an_empty_batch(
+def test_check_quant_batch_does_not_pass_on_an_empty_batch(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """A renamed or removed example graph must not switch the guard off by validating nothing."""
     fake = FakeGraphDB(terms=_stored_portfolios())
     monkeypatch.setattr(acceptance, "QUANT_GRAPH", "urn:graph:derived:quant:renamed")
     with pytest.raises(AssertionError, match="has no batch"):
-        acceptance.check_string_terms(fake.db)
+        acceptance.check_quant_batch(fake.db)

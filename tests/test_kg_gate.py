@@ -9,8 +9,8 @@ from typing import TYPE_CHECKING
 
 import pytest
 import rdflib
-from conftest import context_for as _context_for
-from conftest import instance_graphs as _instance_graphs
+from support import context_for as _context_for
+from support import instance_graphs as _instance_graphs
 
 from kg_store import gate
 from kg_store.graphdb import AnswerLost, GraphDB, GraphDBError

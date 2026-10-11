@@ -37,7 +37,7 @@ from kg_store.gate import (
     validate,
 )
 from kg_store.graphdb import EXPLICIT_GRAPH, GraphDB, schema_dir
-from kg_store.load_schema import expected_sizes, verify
+from kg_store.load_schema import SchemaError, expected_sizes, verify
 
 PREFIX = "PREFIX : <https://thesis.local/kg/portfolio#>\n"
 #: The one SHACL result the probe must produce: ``(sh:resultPath, sh:sourceConstraintComponent)``.
@@ -154,7 +154,7 @@ def check_agent_origin(db: GraphDB) -> str:
     return f"every :agentOrigin is single and one of {', '.join(allowed)}"
 
 
-def check_string_terms(db: GraphDB) -> str:
+def check_quant_batch(db: GraphDB) -> str:
     """The worked example's quant batch passes the gate beside what the store holds (T-181).
 
     Its shapes compare a stored ``:portfolioKind`` by term (``sh:in ("LIVE" "BENCHMARK")``,
@@ -168,7 +168,12 @@ def check_string_terms(db: GraphDB) -> str:
     """
     schema = load_gate_schema(schema_dir())
     dataset = rdflib.Dataset(default_union=False)
-    dataset.parse(schema_dir() / "instances.trig", format="trig")
+    try:
+        dataset.parse(schema_dir() / "instances.trig", format="trig")
+    except OSError as exc:
+        raise SchemaError(f"cannot read instances.trig: {exc}") from exc
+    except Exception as exc:  # rdflib raises a different parser error per syntax, as in load_schema
+        raise SchemaError(f"cannot parse instances.trig: {exc}") from exc
     batch = rdflib.Graph()
     for triple in dataset.graph(rdflib.URIRef(QUANT_GRAPH)):
         batch.add(triple)
@@ -178,7 +183,7 @@ def check_string_terms(db: GraphDB) -> str:
             f"instances.trig has no batch {QUANT_GRAPH} that points at individuals"
         )
     context = fetch_context(db, refs, schema, batch)
-    held = set(context.subjects())
+    held = set(context.subjects()) & refs  # the memberships the Asset hop adds are not counted
     if not held:
         raise AssertionError(
             "the store holds none of the individuals the quant batch points at: "
@@ -199,5 +204,5 @@ CHECKS: list[tuple[str, Callable[[GraphDB], str]]] = [
     ("reasoning profile matches 07", check_reasoning),
     ("schema graphs have their expected size", check_schema_graphs),
     ("every :agentOrigin is single and in the shape's list", check_agent_origin),
-    ("the quant batch passes beside the stored Portfolios", check_string_terms),
+    ("the quant batch passes beside the stored Portfolios", check_quant_batch),
 ]

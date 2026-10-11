@@ -142,3 +142,23 @@ def test_an_unreadable_schema_is_a_fail_line_not_a_traceback(
     monkeypatch.setenv("KG_SCHEMA_DIR", str(tmp_path / "missing"))
     assert cli.main() == 1
     assert "FAIL  schema graphs" in capsys.readouterr().out
+
+
+def test_an_unparsable_example_is_a_fail_line_for_the_quant_batch_check(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """The quant-batch check reads ``instances.trig`` itself; its parse error is a FAIL line."""
+    for name in ("tbox.ttl", "shapes.ttl"):
+        (tmp_path / name).write_bytes((schema_dir() / name).read_bytes())
+    (tmp_path / "instances.trig").write_text("this is { not trig")
+    spec = importlib.util.spec_from_file_location(
+        "verify_store_cli", Path(__file__).resolve().parent.parent / "cli" / "verify_store.py"
+    )
+    assert spec and spec.loader
+    cli = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(cli)
+    monkeypatch.setattr(cli.GraphDB, "from_env", classmethod(lambda c: FakeStore({})))
+    monkeypatch.setattr(cli, "CHECKS", [("quant batch", acceptance.check_quant_batch)])
+    monkeypatch.setenv("KG_SCHEMA_DIR", str(tmp_path))
+    assert cli.main() == 1
+    assert "FAIL  quant batch: cannot parse instances.trig" in capsys.readouterr().out
