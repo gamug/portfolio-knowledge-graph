@@ -676,21 +676,27 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       (T-182 takes the two years as one; `SPEC.md` §2.6). (2) A database at the contract version their
       service serves (12 today), or their final pilot (T-143), for T-157, and what version 12 changed. (3) That
       the notes shipped with the database match its version (they were written for version 9, the file is
-      version 10). (4) What T-183's decisions need: the thresholds and `penalty_points` of the three new rules
-      and the redefined `LIQUIDITY_DISTRESS` (T-187), and whether an expired stint (`expires_on`) is cleared
-      by them or only by its date (T-188). (5) When their T-145 and T-100 land (T-151, T-154, T-158).
+      version 10). (4) What T-183's decisions need, in five parts: (a) the ids, metrics, operators and
+      thresholds of the three new rules and the redefined `LIQUIDITY_DISTRESS`; (b) `penalty_points` of all nine
+      rules, the existing five included (T-189 sums them); (c) the date the redefinition applies from and what the
+      old definition's stints keep (T-187); (d) whether an expired stint (`expires_on`) is cleared by them or only
+      by its date (T-188); (e) whether `expires_on` is ever set on a SOFT stint. (5) When their T-145 and T-100 land (T-151, T-154, T-158).
       -> `PLAN.md` Work item 15.
 - [ ] **T-191** *(the answers to T-184's letter; waits on upstream's reply, which no task here controls)* When
       the reply comes, record it in `SPEC.md` §2.6 as the seventh reply and tick each ask below as it is
-      answered; a partial reply ticks the asks it answers and leaves the rest. (1) The date of the year
-      filter -> if it is `available_at`, T-182's reading is changed. (2) The database and what version 12
-      changed -> T-157. (3) The notes against the database's version. (4) The rule definitions -> unblocks T-187 and T-188 (and T-189 through T-187), part by part: (a) ids, metrics,
-      operators and thresholds of the four rules; (b) `penalty_points` of all nine; (c) the date the redefined
-      `LIQUIDITY_DISTRESS` applies from and what the old definition's stints keep (the stint resolution in T-187);
-      (d) whether an expired stint is cleared by them (`cleared_on`) or only by its date; (e) whether `expires_on`
-      is ever set on a SOFT stint. (5) The dates of
-      their T-145 and T-100 -> T-151, T-154, T-158. Answers taken from a message are marked as theirs, not
-      read from their code, as the earlier replies were. -> `PLAN.md` Work item 15.
+      answered; a partial reply ticks the asks it answers and leaves the rest. Answers taken from a message are
+      marked as theirs, not read from their code, as the earlier replies were.
+      (1) The date of the year filter: if it is `available_at`, file a new task against `AnalysisRun.covers`
+      (as T-182 was filed from the sixth reply). (2) The database and what version 12 changed -> T-157.
+      (3) The notes against the database's version. (4) The rule definitions -> unblocks T-187 and T-188 (and
+      T-189 through T-187), part by part: (a) ids, metrics, operators and thresholds of the four rules;
+      (b) `penalty_points` of all nine; (c) the date the redefined `LIQUIDITY_DISTRESS` applies from and what the
+      old definition's stints keep (the stint resolution in T-187); (d) whether an expired stint is cleared by
+      them (`cleared_on`) or only by its date; (e) whether `expires_on` is ever set on a SOFT stint. (5) The dates
+      of their T-145 and T-100 -> T-151, T-154, T-158.
+      **No reply:** if there is none by a date the maintainer sets, the unanswered asks are listed in `SPEC.md`
+      §2.6 as open, T-187 and T-188 stay deferred (Work item 15's Acceptance allows deferral) and this task is
+      closed with them listed. -> `PLAN.md` Work item 15.
       - [ ] (1) filing date or `available_at`
       - [ ] (2) database at the served version, and what version 12 changed
       - [ ] (3) notes match the file's version
