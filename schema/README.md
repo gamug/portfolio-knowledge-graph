@@ -177,6 +177,10 @@ what the store *enforces*.
    Reloading the store (`cli/load_schema.py`, then `cli/verify_store.py`; the `urn:graph:tbox` graph grows by 2)
    was T-179, done 2026-10-10: the store holds 2549 triples and `verify_store` passes (`docs/graphdb-setup.md`).
    **2549 quads (2547 before this change, plus the two bounds); conforms: True.**
+   T-185 then added one triple to `shapes.ttl` (`sh:lessThanOrEquals :clearedOn` on `VetoShape`'s `lastSeenOn`: no
+   sighting is later than the clearing; the same day passes), **2550 quads; conforms: True.** The store's
+   `urn:graph:tbox` graph (which holds `shapes.ttl` too) grows by 1 and is reloaded by the maintainer (`cli/load_schema.py`, then
+   `cli/verify_store.py`, as T-179 did).
 3. **Two more named-graph placements (a third added by T-108).** `07-ontology-topology.md` assigned graphs to every
    *agent's* daily output but not to the Orchestrator's own decisions or to entity resolution's
    derived facts. Resolved: `urn:graph:ingest:ORCHESTRATOR:{date}` and

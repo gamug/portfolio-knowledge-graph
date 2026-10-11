@@ -52,7 +52,7 @@ are closed (see `CHANGELOG.md`).*
       against a change of *meaning* the column-name check cannot see (e.g. upstream moving
       `normalized_score` to [0, 1] would pass the [0, 100] check and become ~0.99 risk), for
       instance a per-lane cohort mean near 50, upstream's documented centre (Work item 16's
-      T-162 owns that check and T-163 runs it; T-031 calls it). → step 2.
+      T-162 owns that check and T-163 runs it; T-031 calls it). The vetoes lane also loads whole past stints (raised, sighted and cleared, all dates in one batch), which backtests need; `VetoShape` checks their dates (T-185) and T-192 checks the upstream row. → step 2.
   - **Done (PR #72):** `v_score_snapshot` -> `:ScoreSnapshot`, all four lanes, in
     `src/projection/score_snapshots.py` with `src/projection/source.py` and the CLI's logic in
     `src/projection/project_scores.py`, behind the thin entry point `cli/project_scores.py` (tests:
@@ -366,7 +366,7 @@ independent of each other once T-131 lands.*
       had the right one. Return the type and datatype beside the value (a second method, or a richer
       row, so no existing caller changes), use it in `fetch_context`, and add a test with a stored literal
       of the wrong datatype. Code, so its own PR on a `feat/` branch. → `PLAN.md` Work item 14, step 9.
-- [x] **T-185** *(found in PR #90's review; the gate; done 2026-10-11: `gate.CLOSABLE` carries a `last_seen` property, and a `clearedOn` earlier than the latest `lastSeenOn` is refused; the same day passes; the maintainer's question was settled by the strict default below, to be reversed if upstream clears a stint by a run that predates a sighting of another; tests in `tests/test_kg_gate.py`; the text below is the original task)* Check a Veto's `:clearedOn` against its `:lastSeenOn`:
+- [x] **T-185** *(found in PR #90's review; the gate; done 2026-10-11 in PR #94, after the maintainer chose to check at three places (decision D10): the gate refuses a `clearedOn` earlier than the latest `lastSeenOn` of a stored Veto (`gate.CLOSABLE` carries a `last_seen` property), `VetoShape` refuses the same in a batch that declares a Veto with both dates (`sh:lessThanOrEquals :clearedOn` on `lastSeenOn`, 2550 quads), and T-192 adds the read-boundary check; the same day passes, which is an assumption about upstream's `last_seen_on` on the clearing cycle (unverified), and a stricter reading changes one comparison; the maintainer reloads the store (`cli/load_schema.py`, then `cli/verify_store.py`, as T-179); tests in `tests/test_kg_gate.py` and `tests/test_schema_gate.py`; the text below is the original task)* Check a Veto's `:clearedOn` against its `:lastSeenOn`:
       `lastSeenOn` is multi-valued (one per cycle, current = MAX) and no shape relates it to `clearedOn`, so
       a Veto can be cleared on a date earlier than a cycle that still saw it raised. T-180's closing check
       already reads the Veto's stored state; read `lastSeenOn` there (or add `sh:lessThanOrEquals` to the
@@ -380,6 +380,11 @@ independent of each other once T-131 lands.*
       sandbox cannot reach the store (`Network is unreachable`), so this is the only evidence of what GraphDB
       returns for a string literal (`datatype` absent or `xsd:string`). If it fails, fix `GraphDB._term` or the
       check. → `PLAN.md` Work item 14, step 9.
+- [ ] **T-192** *(from T-185, decision D10; Work item 16)* Add the same rule at the read boundary: an expectation on
+      `v_veto` that `cleared_on` is not earlier than `last_seen_on`, in T-162's per-view files, run by T-163's
+      function. A failing row is quarantined and reported, not a stop of the run, so one odd stint does not block a
+      backtest over a long history. Waits on the vetoes lane of T-031, which reads `v_veto`. Code and a test with
+      synthetic rows, so a `feat/` PR. → `PLAN.md` Work item 16.
 ## Work item 15 — Adopt upstream's `v_*` contract changes (replies of 2026-10-05, 2026-10-06 x2)
 - [x] **T-177** *(from upstream's answer to Q6, 2026-10-09; done 2026-10-10 in PR #82: the shape, 2549 quads, nine synthetic cases in `tests/test_schema_gate.py` and a check that `kg_target_schema.ttl` carries the same `rawValue` bounds as `shapes.ttl` (FUNDAMENTAL, SECTOR, Sentiment); `schema/protege-view.ttl` is left to Work item 8 (T-070); the store reload is T-179; the text below is the original task, edited where the work differed)* Bound FUNDAMENTAL's `rawValue` in `ScoreSnapshotShape` to
       `[0, 100]` (`minInclusive`/`maxInclusive` on the branch that pairs it with a mandatory `rawValue`,
@@ -820,7 +825,7 @@ Work items 4 and 6 (T-030–T-035, T-050–T-053)
 follow in dependency order (Work items 3 and 11 are closed, so Work item 4 is unblocked).
 Work item 12 (T-120–T-121): T-120 closed by T-150; T-121 done (PR #65).
 Work item 13 (T-130–T-136): constitution rules in place (1.5.0); T-130–T-136 done (T-135 as an `integration` test, `PFA_CHECKOUT`).
-Work item 14 (T-140–T-142 and T-146): T-140, T-141 and T-142 done; T-174 (store schema, found by T-141) done; T-176 (the two `verify_store` checks) done; T-175 (CLI exit-code tests) done (PR #80); T-146 (the gate vs. the worked example's batches) done; T-179 (the store reload after T-177) done; T-180 (the gate checks what a closing triple closes) done; T-181 (`select` keeps the term type) done; T-185 (a Veto's `clearedOn` against its `lastSeenOn`) done; T-186 (the live `verify_store` run for T-181's sixth check, the maintainer's) open.
+Work item 14 (T-140–T-142 and T-146): T-140, T-141 and T-142 done; T-174 (store schema, found by T-141) done; T-176 (the two `verify_store` checks) done; T-175 (CLI exit-code tests) done (PR #80); T-146 (the gate vs. the worked example's batches) done; T-179 (the store reload after T-177) done; T-180 (the gate checks what a closing triple closes) done; T-181 (`select` keeps the term type) done; T-185 (a Veto's `clearedOn` against its `lastSeenOn`) done; T-192 (the same check at the read boundary) open, after T-031's vetoes lane; T-186 (the live `verify_store` run for T-181's sixth check, the maintainer's) open.
 Work item 15 (T-150–T-159, T-170–T-173, T-177–T-178, T-182–T-184, T-187–T-191): T-173 (the contract endpoint check) done; T-177 (the FUNDAMENTAL `rawValue` bound) done in PR #82; T-178 (the pin's `contract_version` key) done; T-150, T-170 and T-171 (PR #56) done; T-155's schema half done (PR #58); T-153's comment half (PR #59);
 T-151's rule recorded (PR #60), its checks waiting on T-031/T-163; T-158's
 ownership question (before their T-141) is unblocked; the rest of T-152–T-158 waits on upstream's
