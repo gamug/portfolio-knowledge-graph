@@ -798,3 +798,12 @@ def test_a_retry_of_a_closure_that_was_written_says_so(make_db: MakeDB) -> None:
     with pytest.raises(gate.IngestRejected, match=r"already closed \(2026-02-28\)") as raised:
         gate.ingest(other.db, CLOSE_MEMBERSHIP, GRAPH)
     assert "perhaps" not in str(raised.value)
+
+
+def test_a_blank_node_closing_subject_is_refused_before_any_query(make_db: MakeDB) -> None:
+    batch = PREFIXES + f'[] :validTo "2026-03-31"{DATE} .'.encode()
+    fake = make_db()
+    with pytest.raises(gate.IngestRejected, match="needs the IRI of a stored record"):
+        gate.ingest(fake.db, batch, GRAPH)
+    assert fake.queries == []
+    assert fake.added == []

@@ -210,7 +210,11 @@ def untyped_writes(batch: rdflib.Graph, schema: GateSchema) -> list[str]:
                     f"{s.n3(nm)} {p.n3(nm)} {o.n3(nm)} (a relation needs an individual, not a literal)"
                 )
         elif p in CLOSING_PROPERTIES:
-            if not (
+            if not isinstance(s, rdflib.URIRef):
+                problems.append(
+                    f"{s.n3(nm)} {p.n3(nm)} (a closure needs the IRI of a stored record)"
+                )
+            elif not (
                 isinstance(o, rdflib.Literal) and o.datatype == XSD.date and _calendar_date(str(o))
             ):
                 problems.append(f"{s.n3(nm)} {p.n3(nm)} {o.n3(nm)} (must be an xsd:date literal)")
@@ -225,7 +229,7 @@ def closing_values(batch: rdflib.Graph) -> dict[tuple[rdflib.term.Node, rdflib.U
     typed = set(batch.subjects(RDF.type, None))
     closing: dict[tuple[rdflib.term.Node, rdflib.URIRef], list[str]] = {}
     for s, p, o in batch:
-        if s not in typed and p in CLOSING_PROPERTIES:
+        if s not in typed and isinstance(s, rdflib.URIRef) and p in CLOSING_PROPERTIES:
             closing.setdefault((s, cast(rdflib.URIRef, p)), []).append(str(o))
     return closing
 
@@ -285,7 +289,8 @@ def fetch_closing_state(db: GraphDB, subjects: set[rdflib.term.Node]) -> Closing
 def _date_order(closes_on: str, began: set[str], opened: rdflib.URIRef) -> str | None:
     """Why a closing date is refused against the stored opening date(s), or None."""
     if len(began) > 1:
-        return f"closes an individual the store gives {len(began)} values for {opened.rpartition('#')[2]}"
+        name = opened.rpartition("#")[2]
+        return f"cannot be closed: the store holds {len(began)} values for {name}, so not when it opened"
     if not began:
         return None
     closes, opens = _calendar_date(closes_on), _calendar_date(next(iter(began)))
@@ -528,8 +533,9 @@ def existing_subjects(db: GraphDB, batch: rdflib.Graph) -> list[str]:
 def ingest(db: GraphDB, data: bytes, graph: str, directory: Path | None = None) -> int:
     """Validate a Turtle batch and, only if it passes, append it to ``graph``. Returns triples written.
 
-    The store is read for the individuals the batch points at, the closing triples' subjects and the
-    typed individuals it declares, in that order, each only after the checks before it passed."""
+    The store is read for the individuals the batch points at, whether the graph exists (append-only
+    ones), the closing triples' subjects and the typed individuals it declares, in that order, each
+    only after the checks before it passed."""
     append_only = check_target(graph)
     batch = parse_batch(data)
     schema = load_gate_schema((directory or schema_dir()).resolve())
