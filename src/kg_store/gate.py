@@ -252,9 +252,11 @@ CLOSABLE: dict[rdflib.URIRef, tuple[frozenset[rdflib.URIRef], rdflib.URIRef]] = 
 _PER_RUN_MARKER = _PORTFOLIO.cycleDate
 
 
-def fetch_closing_state(
-    db: GraphDB, subjects: set[rdflib.term.Node]
-) -> dict[str, dict[rdflib.URIRef, set[str]]]:
+#: subject IRI -> {property: lexical values the store holds}, as :func:`fetch_closing_state` reads it.
+ClosingState = dict[str, dict[rdflib.URIRef, set[str]]]
+
+
+def fetch_closing_state(db: GraphDB, subjects: set[rdflib.term.Node]) -> ClosingState:
     """What the store holds (explicit statements, any graph) about ``subjects`` that decides whether
     they can be closed: subject -> {property: lexical values} for ``rdf:type``, the closing
     properties, the opening dates and ``cycleDate``."""
@@ -266,7 +268,7 @@ def fetch_closing_state(
         *CLOSING_PROPERTIES,
         *(opened for _, opened in CLOSABLE.values()),
     }
-    state: dict[str, dict[rdflib.URIRef, set[str]]] = {}
+    state: ClosingState = {}
     for i in range(0, len(iris), 200):
         values = " ".join(f"<{iri}>" for iri in iris[i : i + 200])
         rows = db.select(
@@ -303,13 +305,15 @@ def _refusal(p: rdflib.URIRef, dates: list[str], held: dict[rdflib.URIRef, set[s
     if not types & classes or held.get(_PER_RUN_MARKER):
         return f"closes an individual that is not a closable record ({p.rpartition('#')[2]})"
     if held.get(p):
-        return f"closes an individual already closed ({sorted(held[p])[0]})"
+        was = sorted(held[p])[0]
+        retry = (
+            ": the same date, so perhaps this batch was already written" if was == dates[0] else ""
+        )
+        return f"closes an individual already closed ({was}{retry})"
     return _date_order(dates[0], held.get(opened, set()), opened)
 
 
-def refused_closures(
-    batch: rdflib.Graph, state: dict[str, dict[rdflib.URIRef, set[str]]]
-) -> list[str]:
+def refused_closures(batch: rdflib.Graph, state: ClosingState) -> list[str]:
     """Closing triples that do not close a stored, still open record, on a date after it opened, or
     that give one subject two dates."""
     nm = batch.namespace_manager

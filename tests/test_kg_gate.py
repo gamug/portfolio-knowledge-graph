@@ -760,3 +760,41 @@ def test_every_class_whose_shape_reads_a_closing_property_is_closable(
                     elif p != sh.node and (isinstance(o, rdflib.BNode) or p == sh.property):
                         todo.append(o)
         assert read <= classes, f"{prop}: {sorted(str(c) for c in read - classes)}"
+
+
+def test_a_batch_with_a_good_and_a_bad_closure_is_refused_and_names_only_the_bad_one(
+    make_db: MakeDB,
+) -> None:
+    batch = (
+        PREFIXES
+        + (f':good :validTo "2026-03-31"{DATE} .\n:missing :validTo "2026-03-31"{DATE} .').encode()
+    )
+    rows = [
+        {"s": str(KG.good), "p": str(rdflib.RDF.type), "o": str(KG.UniverseMembership)},
+        {"s": str(KG.good), "p": str(KG.validFrom), "o": "2026-01-01"},
+    ]
+    fake = make_db(rows=rows)
+    state = gate.fetch_closing_state(fake.db, {KG.good, KG.missing})
+    problems = gate.refused_closures(gate.parse_batch(batch), state)
+    assert len(problems) == 1
+    assert ":missing" in problems[0]
+    assert ":good" not in problems[0]
+    assert gate.refused_closures(gate.parse_batch(batch), state) == problems  # deterministic
+
+
+def test_fetch_closing_state_queries_in_chunks_of_200(make_db: MakeDB) -> None:
+    fake = make_db()
+    subjects: set[rdflib.term.Node] = {rdflib.URIRef(f"{KG}s{i}") for i in range(450)}
+    gate.fetch_closing_state(fake.db, subjects)
+    assert len(fake.queries) == 3
+    assert all("VALUES ?p {" in q for q in fake.queries)
+
+
+def test_a_retry_of_a_closure_that_was_written_says_so(make_db: MakeDB) -> None:
+    same = _holding(make_db, ":m", "UniverseMembership", validTo="2026-03-31")
+    with pytest.raises(gate.IngestRejected, match="perhaps this batch was already written"):
+        gate.ingest(same.db, CLOSE_MEMBERSHIP, GRAPH)
+    other = _holding(make_db, ":m", "UniverseMembership", validTo="2026-02-28")
+    with pytest.raises(gate.IngestRejected, match=r"already closed \(2026-02-28\)") as raised:
+        gate.ingest(other.db, CLOSE_MEMBERSHIP, GRAPH)
+    assert "perhaps" not in str(raised.value)

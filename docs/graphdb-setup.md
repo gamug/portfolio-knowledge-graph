@@ -104,17 +104,22 @@ nothing written:
    or a design-history weight scheme, never a per-run one; `:clearedOn`: a Veto), with no value for it
    yet, and the batch gives it one date, later than the one it opened on (`:validFrom` /
    `:raisedOn`). A closure of an unknown subject, of an observation, of a record already closed or
-   closed before it opened is refused. The check reads, then writes: two batches closing the same
-   record at once can both pass it.
+   closed before it opened is refused. The store is read in any graph, so a new quarter's graph can
+   close the previous quarter's memberships. The check reads, then writes: two batches closing the
+   same record at once can both pass it.
 
 What is written is the validated triples as N-Triples, not the submitted text. `--check` runs
-checks 1, 3, 4 and 5 without contacting the store, so it cannot see an existing graph (check 2)
-an existing individual (check 6) or what a closing triple closes (check 7), and a batch that points at individuals it does not declare
-fails check 5 under `--check` for want of what the store holds about them (the rejection says so).
+checks 1, 3, 4 and 5 without contacting the store, so it cannot see an existing graph (check 2),
+an existing individual (check 6) or what a closing triple closes (check 7), and a batch that points
+at individuals it does not declare fails check 5 under `--check` for want of what the store holds about them (the rejection says so).
 Validation reads `tbox.ttl` and `shapes.ttl` from `schema/` on disk (once per process); reload with
 `cli/load_schema.py` after a schema edit so the store's copy matches. Limits: this is a code path,
 not a server-side lock, so anyone holding the write credentials can still write around it; and the
 existence check and the write are two requests, so two simultaneous writers could both pass it.
+
+When `ingest` raises `WriteInDoubt` (the batch was sent and the store's answer was lost), look in
+the store before sending it again: if it landed, checks 6 and 7 refuse the second attempt (a closure
+says "already closed", with a note when the stored date is the batch's own).
 
 ## Acceptance check (T-025)
 
