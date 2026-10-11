@@ -566,6 +566,11 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       without CI nothing forces either. Repeat for
       `v_media_cooccurrence_edge`. Pin their T-144's `v_cycle_ranking_component` too. Every contract
       change carries a marker migration, so each raises the floor; repeat for their T-145.
+      Version 11's content (T-183): the re-pin reads `v_veto.expires_on`, `penalty_points` on
+      `v_rule_catalog` and the new rule rows; it does not read the five `v_price_observation` columns
+      (`sma_200`, `ret_5d`, `vol_5d`, `mu_60d_base`, `vol_60d_base`), so they are pinned in the view's
+      snapshot but left out of the view's expectations file and reported as unread new columns in the
+      re-pin note (`NOT_READ` lists whole views only, so no column-level entry is added).
       Raise the floor and re-pin the views in the same change: upstream rebuilds its views on every
       run but moves the floor only when `migrate` runs (fourth reply, `SPEC.md` §2.6), so a database
       that has the new views but has not run `migrate` is refused until it does.
@@ -680,14 +685,14 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       `shapes.ttl`, set on every rule in the catalog. Thresholds, ids and points are read from upstream's
       `v_rule_catalog` and `docs/kg_schema.md`, not written from memory; record the commit. Update the counts in
       `schema/README.md` and `docs/06`, add synthetic cases (a negative `penaltyPoints` fails), and add the
-      rules to `instances.trig` only where the worked example needs them. `SPEC.md` §2.6's D4 row and `CLAUDE.md` both say "six rules" and are brought up to the new catalog size. A `feat/` PR. -> `PLAN.md` Work item 15.
+      rules to `instances.trig` only where the worked example needs them. When it lands, the live store is reloaded from `schema/` (the maintainer's go-ahead; `verify_store` compares each graph's size with `schema/`, T-176) and a dated row goes in `docs/graphdb-setup.md`, as T-179 did. `SPEC.md` §2.6's D4 row and `CLAUDE.md` both say "six rules" and are brought up to the new catalog size. A `feat/` PR. -> `PLAN.md` Work item 15.
 - [ ] **T-188** *(from T-183 (2); the shape of `expires_on` is T-184 item 4)* Add an optional, functional
       `:expiresOn` (`xsd:date`) on `Veto`, with the shape: at most one value, not before `:raisedOn`. A stint
       without it never expires by date, as today; `v_veto.expires_on` is filled only on stints of the new
       temporary HARD rules, and NULL maps to no triple. Settle with upstream whether an expired stint is cleared
       by them (`cleared_on`) or only by this predicate, and write the answer in `tbox.ttl`'s comment and in
-      `SPEC.md` §2.6. The active-at-cutoff SPARQL (D3) gains the `expiresOn` test only if upstream says the date
-      closes a stint by itself. Synthetic cases (before `raisedOn` fails; absent passes). Take the same pattern as T-185's `clearedOn` against `lastSeenOn` (a shape or the gate, decided once, and the two may share a PR). A `feat/` PR.
+      `SPEC.md` §2.6. When it lands, the live store is reloaded from `schema/` (the maintainer's go-ahead; the check in T-176 compares each graph's size with `schema/`) and a dated row goes in `docs/graphdb-setup.md`, as T-179 did. The active-at-cutoff SPARQL (D3) gains the `expiresOn` test only if upstream says the date
+      closes a stint by itself. Synthetic cases (before `raisedOn` fails; absent passes). Take the same pattern as the `clearedOn` against `lastSeenOn` check (filed as T-185 in PR #91, which merges first): a shape or the gate, decided once, and the two may share a PR. A `feat/` PR.
       -> `PLAN.md` Work item 15.
 - [ ] **T-189** *(from T-183 (4))* Read the SOFT penalty as the sum of the active SOFT stints' rules'
       `penalty_points` (T-155's note already says so, from T-183); the projector derives no pre-penalty score.
@@ -697,7 +702,7 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       comment; the check itself is T-155's test. -> `PLAN.md` Work item 15.
 - [ ] **T-190** *(from T-183 (6))* `WeightComponentShape` already counts no components (a scheme needs at least
       one), so the relaxed reading is a statement and a test, not a shape change: add synthetic cases (three
-      components with no `Sentiment` conform; four conform; a name outside the five listed fails), and write in
+      components with no `Sentiment` conform; four conform; a name outside the five listed fails; and one or two components conform, since an asset can lack a component in a three-type run, T-155), and write in
       `docs/06` and `schema/README.md` that a new run weighs three score types (upstream's FUNDAMENTAL, VALORIZATION and TECHNICAL, which are our
       `ScoreFinanciero`, `ScoreCuantitativo` and `ScoreTecnico`) and an earlier one four (the SEMANTIC `Sentiment`
       as well). T-121's
