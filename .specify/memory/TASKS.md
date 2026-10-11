@@ -32,7 +32,8 @@ are closed (see `CHANGELOG.md`).*
       step 1.
 - [ ] **T-031** *(first slice done in PR #72; its status is the sub-list after this entry)* Design and implement the SHACL-validated-on-write path into
       fresh `urn:graph:ingest:{agent}:{date}` graphs. Also: trim `view_contract.py` to the
-      columns read; decide the `:rawValue` range for FUNDAMENTAL (T-171 drops its
+      columns read, keeping the five version 11 price columns (T-157) as unread columns the pin still lists, so a
+      drop of one is drift; decide the `:rawValue` range for FUNDAMENTAL (T-171 drops its
       `normalizedScore` instead; the range is [0, 100], Q6 answered 2026-10-09; the bound is T-177) and for
       VALORIZATION/TECHNICAL, and map
       upstream SEMANTIC into the `[-1, 1]` `rawValue` `ScoreSnapshotShape` requires of it (T-081;
@@ -568,9 +569,13 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       change carries a marker migration, so each raises the floor; repeat for their T-145.
       Version 11's content (T-183): the re-pin reads `v_veto.expires_on`, `penalty_points` on
       `v_rule_catalog` and the new rule rows; it does not read the five `v_price_observation` columns
-      (`sma_200`, `ret_5d`, `vol_5d`, `mu_60d_base`, `vol_60d_base`), so they are pinned in the view's
-      snapshot but left out of the view's expectations file and reported as unread new columns in the
-      re-pin note (`NOT_READ` lists whole views only, so no column-level entry is added).
+      (`sma_200`, `ret_5d`, `vol_5d`, `mu_60d_base`, `vol_60d_base`). The pin keeps listing them (a drop is
+      drift, a decision for T-031's trim, which keeps them), the view's expectations file says nothing
+      about them, and the re-pin note names them as unread (`NOT_READ` lists whole views only, so no
+      column-level entry is added). Expectations for the read columns (T-162's files): `penalty_points`
+      is non-null on every rule from version 11 (`null_rate` max 0); `expires_on` is NULL by design except
+      on the new temporary HARD rules, so it has no null check and a NULL there is not a skip in
+      T-163's boundary report (not a row skipped by design).
       Raise the floor and re-pin the views in the same change: upstream rebuilds its views on every
       run but moves the floor only when `migrate` runs (fourth reply, `SPEC.md` §2.6), so a database
       that has the new views but has not run `migrate` is refused until it does.
@@ -579,6 +584,8 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       tables, D8). This task sets the rule; the check is one of T-162's expectations, run by T-163
       at the start of each projection. Production is at 8 (`SPEC.md` §2.6 sixth reply), so the floor refuses it, as intended; the pilot (at 9) and
       their T-100 rebuild qualify if the check passes.
+      Sign-off, item by item: the pin (read and unread columns), the floor, `contract_version`, the drift
+      check against the commit, the expectations files, the `SPEC.md` §2.6 row.
       → step 4.
 - [ ] **T-158** Replace the `ASSET_DAY_AGGREGATE` placeholder with upstream's SEMANTIC
       `score_method` value once they give it (D14; with their Work item 4, after their T-100).
