@@ -1,4 +1,4 @@
-"""T-025 acceptance run: the three checks PLAN Work item 3 asks of a running store (plus T-176's two).
+"""T-025 acceptance run: the three checks PLAN Work item 3 asks of a running store (plus T-176's two and T-181's one).
 
 1. a basic SPARQL query returns real results;
 2. a deliberately malformed write is rejected by the ingest gate and the store is unchanged;
@@ -6,13 +6,16 @@
    repository configuration and by behaviour (a query on a class two ``rdfs:subClassOf`` steps
    above the asserted types is answered by inference).
 
-T-176 adds two checks that read the store against ``schema/``:
+T-176 adds two checks and T-181 a third that read the store against ``schema/``:
 
 4. each graph ``schema/`` owns has the asserted size a fresh load gives (a graph the store holds
    that ``schema/`` does not own is reported, not failed);
-5. no individual has two ``:agentOrigin`` values or one outside ``ScoreSnapshotShape``'s list.
+5. no individual has two ``:agentOrigin`` values or one outside ``ScoreSnapshotShape``'s list;
+6. the worked example's quant batch passes the gate beside what the store holds about its
+   Portfolios, i.e. a stored string is read in the form the shapes compare (T-181).
 
-Needs the schema loaded (``cli/load_schema.py``). Read-only: the malformed batch is refused
+Needs the schema loaded (``cli/load_schema.py``), the worked example's Portfolios and Assets
+(``instances.trig``, ``reference.ttl``) included. Read-only: the malformed batch is refused
 before any write, and the run compares the store's size before and after to prove it.
 """
 
@@ -24,9 +27,17 @@ import rdflib
 import rdflib.collection
 from rdflib.namespace import SH
 
-from kg_store.gate import IngestRejected, ShaclRejected, ingest, load_gate_schema
+from kg_store.gate import (
+    IngestRejected,
+    ShaclRejected,
+    fetch_context,
+    ingest,
+    load_gate_schema,
+    references,
+    validate,
+)
 from kg_store.graphdb import EXPLICIT_GRAPH, GraphDB, schema_dir
-from kg_store.load_schema import expected_sizes, verify
+from kg_store.load_schema import SchemaError, expected_sizes, verify
 
 PREFIX = "PREFIX : <https://thesis.local/kg/portfolio#>\n"
 #: The one SHACL result the probe must produce: ``(sh:resultPath, sh:sourceConstraintComponent)``.
@@ -36,6 +47,8 @@ EXPECTED_VIOLATION = (
 )
 #: The graph the malformed batch is aimed at; it must still be absent afterwards.
 PROBE_GRAPH = "urn:graph:ingest:SEMANTIC:2099-01-01"
+#: The worked example's quant batch, whose Portfolios and Assets the store holds once ``schema/`` is loaded.
+QUANT_GRAPH = "urn:graph:derived:quant:2026-08-05"
 #: A ScoreSnapshot that is valid except for the required ``:timestamp`` it lacks.
 MALFORMED = b"""@prefix : <https://thesis.local/kg/portfolio#> .
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
@@ -141,10 +154,58 @@ def check_agent_origin(db: GraphDB) -> str:
     return f"every :agentOrigin is single and one of {', '.join(allowed)}"
 
 
+def check_quant_batch(db: GraphDB) -> str:
+    """The worked example's quant batch passes the gate beside what the store holds (T-181).
+
+    Its shapes compare a stored ``:portfolioKind`` by term (``sh:in ("LIVE" "BENCHMARK")``,
+    ``sh:hasValue "BENCHMARK"``), and a plain literal is not equal to one typed ``xsd:string``,
+    so this fails if the store writes a string in a form ``GraphDB.select_terms`` does not read
+    as the gate expects. Read-only: the batch is read from ``schema/`` and only validated.
+
+    ``schema/`` is parsed again here (as ``expected_sizes`` does for the schema-graphs check): a
+    sixth check that reads it should share the parse rather than add another.
+
+    Like the schema-graphs check, it takes the store to be a fresh ``schema/`` load, the worked
+    example included: a store that holds none of the individuals the batch points at fails with
+    that message (load ``schema/``), not with a gate rejection.
+    """
+    dataset = rdflib.Dataset(default_union=False)
+    try:
+        schema = load_gate_schema(schema_dir())
+        dataset.parse(schema_dir() / "instances.trig", format="trig")
+    except OSError as exc:
+        raise SchemaError(f"cannot read the schema files: {exc}") from exc
+    except Exception as exc:  # rdflib raises a different parser error per syntax, as in load_schema
+        raise SchemaError(f"cannot parse the schema files: {exc}") from exc
+    batch = rdflib.Graph()
+    for triple in dataset.graph(rdflib.URIRef(QUANT_GRAPH)):
+        batch.add(triple)
+    refs = references(batch, schema)
+    if not refs:  # an empty batch would pass vacuously
+        raise AssertionError(
+            f"instances.trig has no batch {QUANT_GRAPH} that points at individuals"
+        )
+    context = fetch_context(db, refs, schema, batch)
+    held = set(context.subjects()) & refs  # the memberships the Asset hop adds are not counted
+    if not held:
+        raise AssertionError(
+            "the store holds none of the individuals the quant batch points at: "
+            "load schema/ first (cli/load_schema.py)"
+        )
+    try:
+        validate(batch, context=context)
+    except IngestRejected as exc:
+        raise AssertionError(
+            f"the quant batch of instances.trig fails beside the store: {exc}"
+        ) from exc
+    return f"the quant batch passes beside the {len(held)} stored individual(s) it points at"
+
+
 CHECKS: list[tuple[str, Callable[[GraphDB], str]]] = [
     ("SPARQL query returns real results", check_query),
     ("malformed write rejected by the gate", check_gate),
     ("reasoning profile matches 07", check_reasoning),
     ("schema graphs have their expected size", check_schema_graphs),
     ("every :agentOrigin is single and in the shape's list", check_agent_origin),
+    ("the quant batch passes beside the stored Portfolios", check_quant_batch),
 ]

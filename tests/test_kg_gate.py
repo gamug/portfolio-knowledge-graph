@@ -2,15 +2,18 @@
 
 from __future__ import annotations
 
+import json
 from collections.abc import Callable
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 import pytest
 import rdflib
+from support import context_for as _context_for
+from support import instance_graphs as _instance_graphs
 
 from kg_store import gate
-from kg_store.graphdb import AnswerLost, GraphDBError
+from kg_store.graphdb import AnswerLost, GraphDB, GraphDBError
 
 if TYPE_CHECKING:
     from conftest import FakeGraphDB
@@ -20,12 +23,6 @@ if TYPE_CHECKING:
 SCHEMA = Path(__file__).resolve().parent.parent / "schema"
 KG = rdflib.Namespace("https://thesis.local/kg/portfolio#")
 PREFIXES = b"@prefix : <https://thesis.local/kg/portfolio#> .\n"
-
-
-def _instance_graphs() -> dict[str, rdflib.Graph]:
-    ds = rdflib.Dataset(default_union=False)
-    ds.parse(SCHEMA / "instances.trig", format="trig")
-    return {str(g.identifier): g for g in ds.graphs() if len(g)}
 
 
 def _reject(batch: rdflib.Graph) -> str:
@@ -149,23 +146,6 @@ def test_a_typed_subject_is_not_an_untyped_write(schema: gate.GateSchema) -> Non
 # --- validate ---------------------------------------------------------------------------------
 
 
-def _context_for(name: str) -> rdflib.Graph:
-    """What the rest of the worked example says about the individuals graph ``name`` points at,
-    as the store would hold it once the other graphs are loaded (T-146)."""
-    graphs = _instance_graphs()
-    schema = gate.load_gate_schema(SCHEMA.resolve())
-    refs = gate.references(graphs[name], schema)
-    # The Assets are typed in reference.ttl; the other graphs hold the Portfolios.
-    others = {k: g for k, g in graphs.items() if k != name}
-    others["urn:graph:reference"] = rdflib.Graph().parse(SCHEMA / "reference.ttl", format="turtle")
-    context = rdflib.Graph()
-    for graph in others.values():
-        for ref in refs:
-            for p, o in graph.predicate_objects(ref):
-                context.add((ref, p, o))
-    return context
-
-
 @pytest.mark.parametrize(
     "name", [n for n in sorted(_instance_graphs()) if "portfolio:current" not in n]
 )
@@ -210,26 +190,92 @@ def test_references_are_the_untyped_objects_of_relations(schema: gate.GateSchema
     assert gate.references(batch, schema) == {KG.B}
 
 
-def test_fetch_context_types_the_stored_values(make_db: MakeDB, schema: gate.GateSchema) -> None:
-    type_iri = str(rdflib.RDF.type)
+def test_fetch_context_keeps_the_terms_the_store_returned(
+    make_db: MakeDB, schema: gate.GateSchema
+) -> None:
+    type_iri = rdflib.RDF.type
+    odd = rdflib.URIRef("https://x.test/odd")
+    kind = rdflib.Literal("BENCHMARK")
     fake = make_db(
-        rows=[
-            {"s": str(KG.P), "p": type_iri, "o": str(KG.Portfolio)},
-            {"s": str(KG.P), "p": str(KG.portfolioKind), "o": "BENCHMARK"},
-            {"s": str(KG.P), "p": "https://x.test/odd", "o": "free"},
-            {"s": str(KG.P)},  # a row without a statement is skipped
+        terms=[
+            {"s": KG.P, "p": type_iri, "o": KG.Portfolio},
+            {"s": KG.P, "p": KG.portfolioKind, "o": kind},
+            {"s": KG.P, "p": odd, "o": rdflib.Literal("free", lang="en")},
+            {"s": KG.P},  # a row without a statement is skipped
         ]
     )
     batch = gate.parse_batch(PREFIXES + b":o a :BenchmarkObservation ; :quantPortfolio :P .")
     context = gate.fetch_context(fake.db, {KG.P}, schema, batch)
-    assert (KG.P, rdflib.RDF.type, KG.Portfolio) in context
-    assert (
-        KG.P,
-        KG.portfolioKind,
-        rdflib.Literal("BENCHMARK", datatype=rdflib.XSD.string),
-    ) in context
-    assert (KG.P, rdflib.URIRef("https://x.test/odd"), rdflib.Literal("free")) in context
+    assert set(context) == {
+        (KG.P, type_iri, KG.Portfolio),
+        (KG.P, KG.portfolioKind, kind),
+        (KG.P, odd, rdflib.Literal("free", lang="en")),
+    }
     assert "http://www.ontotext.com/explicit" in fake.queries[0]
+
+
+@pytest.mark.parametrize(
+    "row",
+    [
+        {"s": rdflib.BNode("b0"), "p": KG.portfolioKind, "o": rdflib.Literal("LIVE")},
+        {"s": KG.P, "p": rdflib.Literal("p"), "o": rdflib.Literal("LIVE")},
+    ],
+    ids=["blank-node-subject", "literal-predicate"],
+)
+def test_fetch_context_refuses_a_statement_that_is_not_about_iris(
+    make_db: MakeDB, schema: gate.GateSchema, row: dict[str, rdflib.term.Node]
+) -> None:
+    """A row dropped silently would judge the batch against less than the store holds."""
+    batch = gate.parse_batch(PREFIXES + b":o a :BenchmarkObservation ; :quantPortfolio :P .")
+    with pytest.raises(GraphDBError, match="not an IRI"):
+        gate.fetch_context(make_db(terms=[row]).db, {KG.P}, schema, batch)
+
+
+@pytest.mark.parametrize("string", ["plain", "typed"])
+def test_a_quant_batch_passes_whichever_way_the_store_writes_a_string(
+    monkeypatch: pytest.MonkeyPatch, schema: gate.GateSchema, string: str
+) -> None:
+    """The quant shape's ``sh:hasValue "BENCHMARK"`` compares terms, and a plain literal is not
+    equal to one typed ``xsd:string``: GraphDB may write either, so the answer is parsed by the
+    real ``GraphDB.select_terms`` and both forms must pass."""
+    name = "urn:graph:derived:quant:2026-08-05"
+    batch = _instance_graphs()[name]
+
+    def binding(o: rdflib.term.Node) -> dict[str, str]:
+        if isinstance(o, rdflib.URIRef):
+            return {"type": "uri", "value": str(o)}
+        assert isinstance(o, rdflib.Literal)
+        out = {"type": "literal", "value": str(o)}
+        if o.datatype is not None:
+            out["datatype"] = str(o.datatype)
+        elif string == "typed":
+            out["datatype"] = str(rdflib.XSD.string)
+        return out
+
+    bindings = [
+        {"s": binding(s), "p": binding(p), "o": binding(o)} for s, p, o in _context_for(name)
+    ]
+    answer = json.dumps({"results": {"bindings": bindings}}).encode()
+    monkeypatch.setattr(GraphDB, "_request", lambda *_, **__: answer)
+    db = GraphDB("http://h", "replay", "", "")
+    context = gate.fetch_context(db, gate.references(batch, schema), schema, batch)
+    gate.validate(batch, context=context)
+
+
+def test_a_stored_literal_of_the_wrong_datatype_fails_its_shape(
+    make_db: MakeDB, schema: gate.GateSchema
+) -> None:
+    """T-181: the context used to give every stored literal the datatype its property declares,
+    so a ``portfolioKind`` stored as an integer passed as the string it should have been."""
+    batch = gate.parse_batch(PREFIXES + b":o a :BenchmarkObservation ; :quantPortfolio :P .")
+    stored = [
+        {"s": KG.P, "p": rdflib.RDF.type, "o": KG.Portfolio},
+        {"s": KG.P, "p": KG.portfolioKind, "o": rdflib.Literal("7", datatype=rdflib.XSD.integer)},
+    ]
+    context = gate.fetch_context(make_db(terms=stored).db, {KG.P}, schema, batch)
+    assert (KG.P, KG.portfolioKind, rdflib.Literal("7", datatype=rdflib.XSD.integer)) in context
+    with pytest.raises(gate.IngestRejected):
+        gate.validate(batch, context=context)
 
 
 def test_fetch_context_also_reads_the_memberships_of_a_referenced_asset(
@@ -417,20 +463,16 @@ def test_ingest_checks_a_batch_against_what_the_store_holds_about_its_references
     """T-146: the co-occurrence batch names Assets typed elsewhere; the store's answer lets it in."""
     name = "urn:graph:derived:entity-resolution:2026-08-05"
     batch = _instance_graphs()[name].serialize(format="turtle").encode()
-    rows = [
-        {"s": str(s), "p": str(p), "o": str(o)} for s, p, o in _context_for(name)
-    ]  # what GraphDB returns: lexical values only
+    rows = [{"s": s, "p": p, "o": o} for s, p, o in _context_for(name)]  # terms, as stored
     fake = make_db()
 
-    def select(sparql: str) -> list[dict[str, str]]:
+    def select_terms(sparql: str) -> list[dict[str, rdflib.term.Node]]:
         fake.queries.append(sparql)
-        if "SELECT ?s ?p ?o" not in sparql:
-            return []
         assert "VALUES ?r {" in sparql  # bounded to the referenced IRIs, never the whole store
         assert "VALUES ?p {" in sparql  # and to the properties the shapes read
-        return rows
+        return rows  # type: ignore[return-value]
 
-    fake.select = select  # type: ignore[method-assign]
+    fake.select_terms = select_terms  # type: ignore[method-assign]
     assert gate.ingest(fake.db, batch, name) > 0
     assert fake.added[0][2] == name
 

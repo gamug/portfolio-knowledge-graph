@@ -3,7 +3,7 @@
 
     python cli/verify_store.py
 
-Exit status is 0 when all five pass, 1 otherwise; a graph in the store that ``schema/`` does
+Exit status is 0 when all six pass, 1 otherwise; a graph in the store that ``schema/`` does
 not own is reported, not failed. See ``kg_store.acceptance``.
 """
 

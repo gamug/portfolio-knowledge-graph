@@ -6,7 +6,6 @@ batches and share nothing with ``test_kg_gate.py``, whose helpers read the worke
 
 from __future__ import annotations
 
-import importlib.util
 import subprocess
 import sys
 import types
@@ -15,6 +14,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
 import pytest
+from support import load_cli
 
 if TYPE_CHECKING:
     from conftest import FakeGraphDB
@@ -74,11 +74,7 @@ def test_check_says_it_cannot_verify_what_a_closing_triple_closes(tmp_path: Path
 def _ingest_main(fake: FakeGraphDB, monkeypatch: pytest.MonkeyPatch) -> Callable[[list[str]], int]:
     """``cli/ingest.py``'s ``main``, loaded in process with ``GraphDB.from_env`` returning ``fake``
     (a refusal by the store-reading checks needs a store, and the subprocess tests have none)."""
-    spec = importlib.util.spec_from_file_location("cli_ingest_in_process", CLI)
-    assert spec is not None
-    assert spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
+    module = load_cli("ingest")
     monkeypatch.setattr(module, "GraphDB", types.SimpleNamespace(from_env=lambda: fake.db))
     return cast("Callable[[list[str]], int]", module.main)
 

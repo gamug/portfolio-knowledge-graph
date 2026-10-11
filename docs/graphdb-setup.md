@@ -93,7 +93,10 @@ nothing written:
    individuals the batch points at but does not declare (T-146): a co-occurrence batch names two
    Assets and a quant batch a Portfolio, and the shapes check their class and the Portfolio's kind.
    Only the properties those classes' shapes read are fetched (for an Asset also its memberships'
-   `:validTo`, which its CIK-or-closed rule reads), not the individual's snapshots;
+   `:validTo`, which its CIK-or-closed rule reads), not the individual's snapshots. Each value keeps the
+   datatype the store holds (T-181), so where a shape constrains it (`sh:datatype`, `sh:in`,
+   `sh:hasValue`) a stored value of another datatype is now a SHACL failure; a string is read as a plain
+   literal, as in the batches;
    A referenced individual the store does not hold fails the class check, so load the universe and
    the portfolio before the lanes that point at them;
 6. no typed individual in the batch already exists in the store (explicit statements, any graph):
@@ -128,7 +131,7 @@ uv run python cli/verify_store.py
 ```
 
 Runs the three checks Work item 3 requires of a running store with `schema/` loaded, plus the two
-of T-176 below, and exits non-zero if any fails ([`kg_store.acceptance`](../src/kg_store/acceptance.py)). It writes nothing.
+of T-176 and the one of T-181 below, and exits non-zero if any fails ([`kg_store.acceptance`](../src/kg_store/acceptance.py)). It writes nothing.
 
 | Check | What it proves |
 |---|---|
@@ -137,11 +140,12 @@ of T-176 below, and exits non-zero if any fails ([`kg_store.acceptance`](../src/
 | Reasoning profile | the repository reports `rdfsplus-optimized` and `disableSameAs` true, and `?x a :Observation` is answered by inference (nothing is asserted with it) and includes a `ScoreSnapshot`, which is two `rdfs:subClassOf` steps below it, so the chain is followed and not just one hop |
 | Schema graphs (T-176) | each graph `schema/` owns (read from `schema/` by `load_schema.expected_sizes`) has the asserted size a fresh load gives; a graph the store holds that `schema/` does not own is reported, not failed, so dated `urn:graph:ingest:…` graphs do not break a healthy store |
 | `:agentOrigin` (T-176) | no individual has more than one `:agentOrigin`, and none has a value outside the `sh:in` list of `ScoreSnapshotShape`, read from `shapes.ttl` |
+| Quant batch (T-181) | the worked example's quant batch (`urn:graph:derived:quant:2026-08-05` in `instances.trig`, read from `schema/`, never written) passes the gate beside what the store holds about its Portfolios, fetched by `gate.fetch_context`: its `:portfolioKind` rules (`sh:in`, `sh:hasValue "BENCHMARK"`) compare terms, so it fails if a stored string is read in a form other than the plain literal the batches use. Like the schema-graphs check it takes the store to be a fresh `schema/` load, the worked example included (`instances.trig`, `reference.ttl`): on a store that holds none of the batch's individuals it fails with "load schema/ first", and an example batch missing from `instances.trig` fails instead of validating nothing. Added in T-181 and **not yet run against the live repository** |
 
 ### Live run (T-141, 2026-10-08)
 
 `uv run python cli/verify_store.py` against the live repository `portfolio` (GraphDB 11.5.1) with the
-current acceptance probe (T-142's `sh:ValidationResult` count): exit 0, all three checks pass.
+acceptance probe of that date (T-142's `sh:ValidationResult` count): exit 0, all three checks that existed then pass.
 
 | Check | Result |
 |---|---|

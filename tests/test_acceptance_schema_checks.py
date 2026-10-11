@@ -6,12 +6,12 @@ The fake runs the check's own SPARQL on an in-memory dataset, so a doubled or ou
 
 from __future__ import annotations
 
-import importlib.util
 from pathlib import Path
 from typing import cast
 
 import pytest
 import rdflib
+from support import load_cli
 
 from kg_store import acceptance
 from kg_store.graphdb import EXPLICIT_GRAPH, GraphDB, schema_dir
@@ -124,20 +124,32 @@ def test_the_checks_are_registered_after_the_original_three() -> None:
         "malformed write rejected by the gate",
         "reasoning profile matches 07",
     ]
-    assert len(names) == 5
+    assert len(names) == 6
+    assert names[-1] == "the quant batch passes beside the stored Portfolios"
 
 
 def test_an_unreadable_schema_is_a_fail_line_not_a_traceback(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    spec = importlib.util.spec_from_file_location(
-        "verify_store_cli", Path(__file__).resolve().parent.parent / "cli" / "verify_store.py"
-    )
-    assert spec and spec.loader
-    cli = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(cli)
+    cli = load_cli("verify_store")
     monkeypatch.setattr(cli.GraphDB, "from_env", classmethod(lambda c: FakeStore({})))
     monkeypatch.setattr(cli, "CHECKS", [("schema graphs", acceptance.check_schema_graphs)])
     monkeypatch.setenv("KG_SCHEMA_DIR", str(tmp_path / "missing"))
     assert cli.main() == 1
     assert "FAIL  schema graphs" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize("broken", ["instances.trig", "shapes.ttl"])
+def test_an_unparsable_schema_file_is_a_fail_line_for_the_quant_batch_check(
+    broken: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """The quant-batch check reads the schema itself; a parse error is a FAIL line."""
+    for name in ("tbox.ttl", "shapes.ttl", "instances.trig"):
+        (tmp_path / name).write_bytes((schema_dir() / name).read_bytes())
+    (tmp_path / broken).write_text("this is { not rdf")
+    cli = load_cli("verify_store")
+    monkeypatch.setattr(cli.GraphDB, "from_env", classmethod(lambda c: FakeStore({})))
+    monkeypatch.setattr(cli, "CHECKS", [("quant batch", acceptance.check_quant_batch)])
+    monkeypatch.setenv("KG_SCHEMA_DIR", str(tmp_path))
+    assert cli.main() == 1
+    assert "FAIL  quant batch: cannot parse the schema files" in capsys.readouterr().out

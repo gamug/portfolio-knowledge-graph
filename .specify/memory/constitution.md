@@ -143,8 +143,9 @@ assumes the stack actually pinned in `pyproject.toml`.
    excluded is *that agent's own working directories and config*, never the
    resulting project content once it's written into a real doc.
 10. **Tests live flat under `tests/`** (`test_<module_or_feature>.py`, not mirrored
-    into a per-package subdirectory), driven by `tests/conftest.py` and
-    `tests/fixtures/`. `pythonpath = ["src"]` / `testpaths = ["tests"]` live in
+    into a per-package subdirectory), driven by `tests/conftest.py` (fixtures only),
+    `tests/support.py` (plain helpers shared by test modules: the worked example as a stored
+    context, `load_cli`) and `tests/fixtures/`. `pythonpath = ["src"]` / `testpaths = ["tests"]` live in
     `pyproject.toml`'s `[tool.pytest.ini_options]`; don't add `sys.path` hacks
     inside a test file to route around it. The suite is **hermetic**: no network,
     no running GraphDB and no real `universe.db`/`urls.db`/`nlp.db`. Fixtures are
