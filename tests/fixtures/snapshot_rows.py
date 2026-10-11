@@ -105,9 +105,15 @@ def financial_db(
     conn.execute("UPDATE schema_version SET version = ?", (version,))
     for run in RUNS if runs is None else runs:
         conn.execute(
-            "INSERT INTO v_analysis_run (run_id, as_of, status, failed_units, params_json) "
-            "VALUES (?, ?, ?, 0, ?)",
-            (run.run_id, run.as_of, run.status, json.dumps(run.params)),
+            "INSERT INTO v_analysis_run (run_id, as_of, status, completed_units, failed_units, "
+            "params_json) VALUES (?, ?, ?, ?, 0, ?)",
+            (
+                run.run_id,
+                run.as_of,
+                run.status,
+                1 if run.completed_units is None else run.completed_units,
+                json.dumps(run.params),
+            ),
         )
     for r in rows:
         conn.execute(

@@ -35,7 +35,8 @@ row's ``computed_at`` is not either: a run scoped to one ticker, one form or a f
 run whose ``as_of`` is earlier than its ``computed_at``, says nothing about the rest of the
 quarter. The assumption is that upstream's first full run after a quarter covers every filing
 usable in it. A filing it failed on (``failed_units``) or computes later still is lost, and
-listed; a run that analyzed no filing at all (``completed_units`` 0) closes nothing. For a cycle lane the row waits for the next run day's graph.
+listed; a run that analyzed no filing at all (``completed_units`` 0) closes nothing. For a
+cycle lane the row waits for the next run day's graph.
 
 The run day is also the as-of day of a replay: a row is projected only once its ``available_at``
 is on or before it, so a replay over past days (into a store that is not production; the CLI
@@ -262,8 +263,8 @@ class AnalysisRun:
     as_of: str
     status: str
     params: dict[str, object]
-    #: Filings the run analyzed; None when the row does not say. A run that completed with none
-    #: (every task failed) read nothing, whatever its scope.
+    #: Filings the run analyzed. A run that completed with none (every task failed) read nothing,
+    #: whatever its scope. None only for a run built by hand: a row's NULL is read as 0.
     completed_units: int | None = None
 
     @classmethod
@@ -275,22 +276,29 @@ class AnalysisRun:
             raise ProjectionError(f"{where}: params_json is not JSON") from None
         if not isinstance(params, dict):
             raise ProjectionError(f"{where}: params_json is not an object")
+        # Upstream fills the counters during a run, so a completed row carries a number; a NULL
+        # is read as nothing analyzed (the quarter waits, and is reported as uncovered).
         completed = row.get("completed_units")
         return cls(
             int(row["run_id"]),
             _day(row["as_of"], "as_of", where),
             row["status"],
             params,
-            None if completed is None else int(completed),
+            0 if completed is None else int(completed),
         )
 
     def covers(self, year: int) -> bool:
         """Whether this run read every filing, of every asset, that became usable in ``year``.
 
         ``year`` is the year a filing became usable (its ``available_at``), and ``since_year`` and
-        ``until_year`` are filing years too, the year of the filing date (upstream, Q7, sixth
-        reply): a run reads the filings filed from ``since_year`` to ``until_year`` (the latter
-        capped at its ``as_of`` year; a NULL bound is open), never one filed after its ``as_of``.
+        ``until_year`` are filing years, the year of the filing date (upstream, Q7, sixth reply;
+        a NULL bound is open). The two are taken to be the same year: on the pilot database
+        ``available_at`` differs from ``filing_date`` by a few days in all 449 FUNDAMENTAL rows
+        and the years agree in all 449, but a filing filed in the last days of December and usable
+        in January would be tested against January's year (asked upstream, ``SPEC.md`` §2.6).
+        That a run never reads a filing filed after its ``as_of``, and that ``until_year`` is
+        capped at the ``as_of`` year, are upstream's; the ordering is enforced one level up, by
+        :func:`quarter_covered`, which asks for a run as of a later quarter than the filing's.
         Full scope: completed, every ticker (``tickers`` and ``limit`` null), both forms, and a
         year range that includes ``year``. A missing scope key means the run is not known to be
         full. A run that completed with no filing analyzed (``completed_units`` 0) read nothing.
