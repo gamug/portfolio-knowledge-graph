@@ -28,7 +28,8 @@ The same comparison runs against a running service (T-173): :func:`fetch_contrac
 * the database's ``schema_version`` must not be below the pin's ``schema_version_floor``. Above
   it passes on its number: whether views drifted is decided by the column lists, because a
   version only ever adds columns. A database below the declared ``contract_version`` lags its
-  code, which is a note and never fails.
+  code, which is a note and never fails. A pinned view the database lacks is drift (a
+  projector reading it would fail); a view we do not pin is a note.
 """
 
 from __future__ import annotations
@@ -47,7 +48,7 @@ from typing import Any
 
 from portfolio_common.db import Database
 
-from projection.expectations import SourceExpectation
+from projection.expectations import SourceExpectation, is_int
 from projection.view_contract import NOT_READ, VIEW_COLUMNS
 
 _RUN_UNITS = (
@@ -209,10 +210,6 @@ def _get_json(url: str) -> Any:
         return json.loads(response.read())
 
 
-def _is_int(value: object) -> bool:
-    return isinstance(value, int) and not isinstance(value, bool)
-
-
 def _names(value: object, what: str) -> tuple[str, ...]:
     if not isinstance(value, list) or not all(isinstance(v, str) for v in value):
         raise ContractFetchError(f"{what} must be a list of names")
@@ -246,9 +243,16 @@ def fetch_contract(base_url: str, fetch: Fetch = _get_json) -> DeclaredContract:
     base = base_url.rstrip("/")
     try:
         body = fetch(f"{base}/contract")
+    except urllib.error.HTTPError as exc:
+        hint = (
+            " (the URL should end at the API prefix, for example http://HOST:PORT/api/v1)"
+            if exc.code == HTTPStatus.NOT_FOUND
+            else ""
+        )
+        raise ContractFetchError(f"cannot read {base}/contract: {exc}{hint}") from exc
     except (urllib.error.URLError, OSError, ValueError) as exc:
         raise ContractFetchError(f"cannot read {base}/contract: {exc}") from exc
-    if not isinstance(body, dict) or not _is_int(body.get("contract_version")):
+    if not isinstance(body, dict) or not is_int(body.get("contract_version")):
         raise ContractFetchError("/contract has no integer 'contract_version'")
     code_version = body.get("code_version")
     columns = _declared_columns(body)
@@ -261,7 +265,7 @@ def fetch_contract(base_url: str, fetch: Fetch = _get_json) -> DeclaredContract:
     except (urllib.error.URLError, OSError, ValueError) as exc:
         raise ContractFetchError(f"cannot read {base}/contract/database: {exc}") from exc
     else:
-        if not isinstance(raw, dict) or not _is_int(raw.get("schema_version")):
+        if not isinstance(raw, dict) or not is_int(raw.get("schema_version")):
             raise ContractFetchError("/contract/database has no integer 'schema_version'")
         database = DatabaseState(
             raw["schema_version"],
@@ -303,6 +307,11 @@ def check_service(declared: DeclaredContract, expected: SourceExpectation) -> Co
             f"database lags its code: schema_version {db.schema_version}, contract_version "
             f"{declared.contract_version}"
         )
-    if db.views_missing:
-        report.notes.append(f"database lacks views {list(db.views_missing)}")
+    pinned_missing = [v for v in db.views_missing if v in VIEW_COLUMNS]
+    if pinned_missing:
+        report.drift.append(
+            f"database lacks pinned views {pinned_missing} (a projector reading them would fail)"
+        )
+    if other := [v for v in db.views_missing if v not in VIEW_COLUMNS]:
+        report.notes.append(f"database lacks views we do not pin {other}")
     return report

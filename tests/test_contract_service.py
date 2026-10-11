@@ -7,6 +7,7 @@ CLI, which runs as a subprocess (constitution #10). Nothing here needs upstream 
 from __future__ import annotations
 
 import json
+import socket
 import subprocess
 import sys
 import threading
@@ -117,12 +118,23 @@ def test_a_service_without_the_database_route_is_noted_not_failed() -> None:
     assert any("does not offer /contract/database" in n for n in report.notes)
 
 
-def test_missing_views_are_a_note() -> None:
+def test_a_pinned_view_the_database_lacks_is_drift() -> None:
     routes = {"/contract": _contract(10), "/contract/database": _database(10, ("v_veto",))}
     declared = contract_check.fetch_contract(BASE, _fetcher(routes))
     report = contract_check.check_service(declared, _pin(contract=10))
+    assert report.drift == [
+        "database lacks pinned views ['v_veto'] (a projector reading them would fail)"
+    ]
+
+
+def test_a_view_we_do_not_pin_that_the_database_lacks_is_a_note() -> None:
+    database = _database(10)
+    database["views_missing"] = ["v_fundamental_metric"]
+    routes = {"/contract": _contract(10), "/contract/database": database}
+    declared = contract_check.fetch_contract(BASE, _fetcher(routes))
+    report = contract_check.check_service(declared, _pin(contract=10))
     assert report.drift == []
-    assert any("database lacks views ['v_veto']" in n for n in report.notes)
+    assert any("lacks views we do not pin ['v_fundamental_metric']" in n for n in report.notes)
 
 
 # --- the column comparison over the wire -----------------------------------------------------
@@ -177,6 +189,12 @@ def test_a_server_error_on_the_database_route_is_an_error() -> None:
     routes = {"/contract": _contract(), "/contract/database": boom}
     with pytest.raises(ContractFetchError, match="cannot read"):
         contract_check.fetch_contract(BASE, _fetcher(routes))
+
+
+def test_a_404_on_the_contract_route_says_the_url_should_end_at_the_prefix() -> None:
+    gone = urllib.error.HTTPError(BASE, 404, "not found", None, None)  # type: ignore[arg-type]
+    with pytest.raises(ContractFetchError, match="should end at the API prefix"):
+        contract_check.fetch_contract(BASE, _fetcher({"/contract": gone}))
 
 
 def test_only_http_urls_are_read() -> None:
@@ -259,6 +277,9 @@ def test_cli_exits_2_when_the_service_answers_something_else() -> None:
 
 
 def test_cli_exits_2_when_nothing_listens() -> None:
-    result = _run("http://127.0.0.1:9/api/v1")
+    with socket.socket() as probe:  # a port that was free a moment ago, now closed
+        probe.bind(("127.0.0.1", 0))
+        port = probe.getsockname()[1]
+    result = _run(f"http://127.0.0.1:{port}/api/v1")
     assert result.returncode == 2
     assert "cannot read" in result.stderr
