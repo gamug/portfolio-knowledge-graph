@@ -118,6 +118,28 @@ def test_a_service_without_the_database_route_is_noted_not_failed() -> None:
     assert any("does not offer /contract/database" in n for n in report.notes)
 
 
+def test_a_database_newer_than_its_code_is_a_note() -> None:
+    report = contract_check.check_service(_declared(10, 11), _pin(contract=10))
+    assert report.drift == []
+    assert any(
+        "newer than its code: schema_version 11, contract_version 10" in n for n in report.notes
+    )
+
+
+@pytest.mark.parametrize("break_it", ["drop_one", "add_one", "duplicate"])
+def test_views_that_do_not_partition_the_contract_are_refused(break_it: str) -> None:
+    database = _database(10)
+    if break_it == "drop_one":
+        database["views_present"].pop()
+    elif break_it == "add_one":
+        database["views_missing"].append("v_not_in_the_contract")
+    else:
+        database["views_missing"].append(database["views_present"][0])
+    routes = {"/contract": _contract(10), "/contract/database": database}
+    with pytest.raises(ContractFetchError, match="must together be exactly"):
+        contract_check.fetch_contract(BASE, _fetcher(routes))
+
+
 def test_a_pinned_view_the_database_lacks_is_drift() -> None:
     routes = {"/contract": _contract(10), "/contract/database": _database(10, ("v_veto",))}
     declared = contract_check.fetch_contract(BASE, _fetcher(routes))
@@ -128,13 +150,17 @@ def test_a_pinned_view_the_database_lacks_is_drift() -> None:
 
 
 def test_a_view_we_do_not_pin_that_the_database_lacks_is_a_note() -> None:
+    body = _contract(10)
+    body["views"].append(  # a view upstream has and we deliberately do not read (NOT_READ)
+        {"name": "v_universe_membership", "frozen": True, "columns": [{"name": "id"}]}
+    )
     database = _database(10)
-    database["views_missing"] = ["v_fundamental_metric"]
-    routes = {"/contract": _contract(10), "/contract/database": database}
+    database["views_missing"] = ["v_universe_membership"]
+    routes = {"/contract": body, "/contract/database": database}
     declared = contract_check.fetch_contract(BASE, _fetcher(routes))
     report = contract_check.check_service(declared, _pin(contract=10))
     assert report.drift == []
-    assert any("lacks views we do not pin ['v_fundamental_metric']" in n for n in report.notes)
+    assert any("lacks views we do not pin ['v_universe_membership']" in n for n in report.notes)
 
 
 # --- the column comparison over the wire -----------------------------------------------------

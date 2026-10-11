@@ -232,6 +232,24 @@ def _declared_columns(body: dict[str, Any]) -> dict[str, list[str]]:
     return columns
 
 
+def _database_state(raw: Any, columns: dict[str, list[str]]) -> DatabaseState:
+    """``/contract/database``'s body as a :class:`DatabaseState`, refusing one that breaks the
+    documented shape: the two view lists together are exactly the views of ``/contract``."""
+    if not isinstance(raw, dict) or not is_int(raw.get("schema_version")):
+        raise ContractFetchError("/contract/database has no integer 'schema_version'")
+    state = DatabaseState(
+        raw["schema_version"],
+        _names(raw.get("views_present"), "views_present"),
+        _names(raw.get("views_missing"), "views_missing"),
+    )
+    if sorted((*state.views_present, *state.views_missing)) != sorted(columns):
+        raise ContractFetchError(
+            "/contract/database: views_present and views_missing must together be exactly "
+            "the views of /contract"
+        )
+    return state
+
+
 def fetch_contract(base_url: str, fetch: Fetch = _get_json) -> DeclaredContract:
     """Read the service's contract; ``base_url`` ends at the API prefix (``…/api/v1``).
 
@@ -265,13 +283,7 @@ def fetch_contract(base_url: str, fetch: Fetch = _get_json) -> DeclaredContract:
     except (urllib.error.URLError, OSError, ValueError) as exc:
         raise ContractFetchError(f"cannot read {base}/contract/database: {exc}") from exc
     else:
-        if not isinstance(raw, dict) or not is_int(raw.get("schema_version")):
-            raise ContractFetchError("/contract/database has no integer 'schema_version'")
-        database = DatabaseState(
-            raw["schema_version"],
-            _names(raw.get("views_present"), "views_present"),
-            _names(raw.get("views_missing"), "views_missing"),
-        )
+        database = _database_state(raw, columns)
     return DeclaredContract(
         body["contract_version"],
         code_version if isinstance(code_version, str) else "",
@@ -306,6 +318,11 @@ def check_service(declared: DeclaredContract, expected: SourceExpectation) -> Co
         report.notes.append(
             f"database lags its code: schema_version {db.schema_version}, contract_version "
             f"{declared.contract_version}"
+        )
+    elif db.schema_version > declared.contract_version:
+        report.notes.append(
+            f"database is newer than its code: schema_version {db.schema_version}, "
+            f"contract_version {declared.contract_version} (the service should be upgraded)"
         )
     pinned_missing = [v for v in db.views_missing if v in VIEW_COLUMNS]
     if pinned_missing:

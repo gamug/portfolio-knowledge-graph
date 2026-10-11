@@ -496,7 +496,7 @@ being frozen); T-031 trims each view to the columns the write path reads.
 `cli/check_view_contract.py <upstream checkout or API URL>` fails when a pinned column or view is gone or
 no longer builds, or a new view is neither pinned nor listed as not read (§13 item 10); a
 column upstream adds, or a changed column order, is reported as a note, since the projector
-reads by name. Given the service's URL (T-173) it reads `GET /contract` instead of building the views, and also fails when the declared `contract_version` differs from the pin's (skipped with a note while the pin has none) or the database's `schema_version` is below the floor. Upstream's `normalized_score` is a 0–100 *strength* score (50 = cohort
+reads by name. Given the service's URL (T-173) it reads `GET /contract` instead of building the views, and also fails when the declared `contract_version` differs from the pin's (skipped with a note while the pin has none) the database's `schema_version` is below the floor, or the database lacks a pinned view (a view we do not pin is a note). Upstream's `normalized_score` is a 0–100 *strength* score (50 = cohort
 average, higher = better), while `:normalizedScore` is a [0, 1] *risk* reading
 (`docs/06-ontology-definition.md` §1.8; flagged as `schema/README.md` refinement 6). For
 VALORIZATION and TECHNICAL (`ScoreCuantitativo`/`ScoreTecnico`)
