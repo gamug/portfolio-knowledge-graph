@@ -3,13 +3,27 @@ of ``schema/instances.trig`` as the stored context its batches are checked besid
 
 from __future__ import annotations
 
+import importlib.util
 from pathlib import Path
+from types import ModuleType
 
 import rdflib
 
 from kg_store.gate import load_gate_schema, references
 
-SCHEMA = Path(__file__).resolve().parent.parent / "schema"
+ROOT = Path(__file__).resolve().parent.parent
+SCHEMA = ROOT / "schema"
+
+
+def load_cli(name: str) -> ModuleType:
+    """``cli/<name>.py`` imported in process, so a test can patch what it reaches (a subprocess
+    cannot be given a fake store) and call its ``main``."""
+    spec = importlib.util.spec_from_file_location(f"cli_{name}", ROOT / "cli" / f"{name}.py")
+    assert spec is not None
+    assert spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 
 def instance_graphs() -> dict[str, rdflib.Graph]:

@@ -162,18 +162,21 @@ def check_quant_batch(db: GraphDB) -> str:
     so this fails if the store writes a string in a form ``GraphDB.select_terms`` does not read
     as the gate expects. Read-only: the batch is read from ``schema/`` and only validated.
 
+    ``schema/`` is parsed again here (as ``expected_sizes`` does for the schema-graphs check): a
+    sixth check that reads it should share the parse rather than add another.
+
     Like the schema-graphs check, it takes the store to be a fresh ``schema/`` load, the worked
     example included: a store that holds none of the individuals the batch points at fails with
     that message (load ``schema/``), not with a gate rejection.
     """
-    schema = load_gate_schema(schema_dir())
     dataset = rdflib.Dataset(default_union=False)
     try:
+        schema = load_gate_schema(schema_dir())
         dataset.parse(schema_dir() / "instances.trig", format="trig")
     except OSError as exc:
-        raise SchemaError(f"cannot read instances.trig: {exc}") from exc
+        raise SchemaError(f"cannot read the schema files: {exc}") from exc
     except Exception as exc:  # rdflib raises a different parser error per syntax, as in load_schema
-        raise SchemaError(f"cannot parse instances.trig: {exc}") from exc
+        raise SchemaError(f"cannot parse the schema files: {exc}") from exc
     batch = rdflib.Graph()
     for triple in dataset.graph(rdflib.URIRef(QUANT_GRAPH)):
         batch.add(triple)

@@ -18,18 +18,17 @@ A run killed in the middle leaves its ``kgtest-...`` repository behind: delete i
 
 from __future__ import annotations
 
-import importlib.util
 import os
 import re
 import secrets
 import uuid
 from collections.abc import Callable, Iterator
 from pathlib import Path
-from types import ModuleType
 from typing import cast
 from urllib.parse import quote
 
 import pytest
+from support import load_cli
 
 from kg_store import load_schema
 from kg_store.graphdb import PRODUCTION_REPOSITORY, GraphDB, GraphDBError, schema_dir
@@ -45,12 +44,7 @@ GRAPH = "urn:graph:ingest:ORCHESTRATOR:2026-10-08"
 
 
 def _cli(name: str) -> Callable[..., int]:
-    spec = importlib.util.spec_from_file_location(f"cli_{name}", ROOT / "cli" / f"{name}.py")
-    assert spec is not None
-    assert spec.loader is not None
-    module: ModuleType = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return cast("Callable[..., int]", module.main)
+    return cast("Callable[..., int]", load_cli(name).main)
 
 
 @pytest.fixture(scope="module")

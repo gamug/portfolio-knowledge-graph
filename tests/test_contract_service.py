@@ -6,7 +6,6 @@ CLI, which runs as a subprocess (constitution #10). Nothing here needs upstream 
 
 from __future__ import annotations
 
-import importlib.util
 import json
 import socket
 import subprocess
@@ -20,6 +19,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from support import load_cli
 
 from projection import contract_check
 from projection.contract_check import ContractFetchError, DatabaseState, DeclaredContract
@@ -342,11 +342,7 @@ def test_cli_exits_2_when_the_pin_cannot_be_loaded(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     """A malformed ``_source.json`` is an error, not drift (exit 1 stays the drift code)."""
-    spec = importlib.util.spec_from_file_location("check_view_contract_cli", CLI)
-    assert spec is not None
-    assert spec.loader is not None
-    cli = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(cli)
+    cli = load_cli("check_view_contract")
 
     def broken_pin() -> SourceExpectation:
         raise ExpectationError("_source.json: schema_version_floor: must be a positive integer")
