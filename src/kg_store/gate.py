@@ -129,6 +129,17 @@ def check_target(graph: str) -> bool:
     )
 
 
+def _calendar_date(text: str) -> datetime.date | None:
+    """The date of a strict ``YYYY-MM-DD`` text, else None (``fromisoformat`` alone also takes
+    ``20260101`` and ``2026-W01-1``, which are no ``xsd:date``)."""
+    if not re.fullmatch(_DATE, text):
+        return None
+    try:
+        return datetime.date.fromisoformat(text)
+    except ValueError:
+        return None
+
+
 def _date_ok(text: str) -> bool:
     """True for a quarter label or a real calendar date."""
     if "Q" in text:
@@ -199,7 +210,9 @@ def untyped_writes(batch: rdflib.Graph, schema: GateSchema) -> list[str]:
                     f"{s.n3(nm)} {p.n3(nm)} {o.n3(nm)} (a relation needs an individual, not a literal)"
                 )
         elif p in CLOSING_PROPERTIES:
-            if not (isinstance(o, rdflib.Literal) and o.datatype == XSD.date and _date_ok(str(o))):
+            if not (
+                isinstance(o, rdflib.Literal) and o.datatype == XSD.date and _calendar_date(str(o))
+            ):
                 problems.append(f"{s.n3(nm)} {p.n3(nm)} {o.n3(nm)} (must be an xsd:date literal)")
         else:
             problems.append(f"{s.n3(nm)} {p.n3(nm)}")
@@ -236,7 +249,7 @@ CLOSABLE: dict[rdflib.URIRef, tuple[frozenset[rdflib.URIRef], rdflib.URIRef]] = 
     _PORTFOLIO.clearedOn: (frozenset({_PORTFOLIO.Veto}), _PORTFOLIO.raisedOn),
 }
 #: A per-run weight scheme (it has a ``cycleDate``) is an observation, never closed (``tbox.ttl``).
-_NEVER_CLOSED_IF_HAS = _PORTFOLIO.cycleDate
+_PER_RUN_MARKER = _PORTFOLIO.cycleDate
 
 
 def fetch_closing_state(
@@ -249,7 +262,7 @@ def fetch_closing_state(
     _refuse_illegal_iris(iris)
     read = {
         rdflib.URIRef(RDF.type),
-        _NEVER_CLOSED_IF_HAS,
+        _PER_RUN_MARKER,
         *CLOSING_PROPERTIES,
         *(opened for _, opened in CLOSABLE.values()),
     }
@@ -267,6 +280,18 @@ def fetch_closing_state(
     return state
 
 
+def _date_order(closes_on: str, began: set[str], opened: rdflib.URIRef) -> str | None:
+    """Why a closing date is refused against the stored opening date(s), or None."""
+    if len(began) > 1:
+        return f"closes an individual the store gives {len(began)} values for {opened.rpartition('#')[2]}"
+    if not began:
+        return None
+    closes, opens = _calendar_date(closes_on), _calendar_date(next(iter(began)))
+    if opens is None or closes is None:
+        return f"cannot compare {closes_on} with the stored {next(iter(began))}"
+    return f"closes on {closes_on}; it opened on {opens}" if closes <= opens else None
+
+
 def _refusal(p: rdflib.URIRef, dates: list[str], held: dict[rdflib.URIRef, set[str]]) -> str | None:
     """Why the closing of one stored subject by ``p`` is refused, or None."""
     classes, opened = CLOSABLE[p]
@@ -275,14 +300,11 @@ def _refusal(p: rdflib.URIRef, dates: list[str], held: dict[rdflib.URIRef, set[s
         return f"is given {len(dates)} dates in the batch"
     if not types:
         return "closes an individual the store does not hold"
-    if not types & classes or held.get(_NEVER_CLOSED_IF_HAS):
+    if not types & classes or held.get(_PER_RUN_MARKER):
         return f"closes an individual that is not a closable record ({p.rpartition('#')[2]})"
     if held.get(p):
         return f"closes an individual already closed ({sorted(held[p])[0]})"
-    began = held.get(opened)
-    if began and dates[0] <= max(began):  # ISO dates compare as text
-        return f"closes on {dates[0]}, not after it opened ({max(began)})"
-    return None
+    return _date_order(dates[0], held.get(opened, set()), opened)
 
 
 def refused_closures(

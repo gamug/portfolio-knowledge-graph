@@ -667,7 +667,7 @@ def test_a_closure_not_after_the_opening_date_is_refused(
 ) -> None:
     for began in ("2026-03-31", "2026-04-15"):  # the same day, and a later one
         fake = _holding(make_db, subject, rdf_type, **{opened: began})
-        with pytest.raises(gate.IngestRejected, match="not after it opened"):
+        with pytest.raises(gate.IngestRejected, match="it opened on"):
             gate.ingest(fake.db, batch, GRAPH)
         assert fake.added == []
     ok = _holding(make_db, subject, rdf_type, **{opened: "2026-01-01"})
@@ -703,3 +703,60 @@ def test_a_batch_with_no_closing_triple_asks_the_store_nothing_about_closures(
 def test_fetch_closing_state_refuses_an_iri_that_could_inject_sparql(make_db: MakeDB) -> None:
     with pytest.raises(gate.IngestRejected, match="illegal in an IRI"):
         gate.fetch_closing_state(make_db().db, {rdflib.URIRef("https://x.test/a b")})
+
+
+@pytest.mark.parametrize("text", ["20260101", "2026-Q1", "2026-1-5", "2026-02-30"])
+def test_a_closing_literal_that_is_not_a_calendar_date_is_flagged(
+    text: str, schema: gate.GateSchema
+) -> None:
+    batch = gate.parse_batch(PREFIXES + f':x :validTo "{text}"{DATE} .'.encode())
+    assert "must be an xsd:date literal" in gate.untyped_writes(batch, schema)[0]
+
+
+def test_dates_are_compared_as_dates_not_as_text() -> None:
+    state = {
+        str(KG.m): {
+            rdflib.URIRef(rdflib.RDF.type): {str(KG.UniverseMembership)},
+            KG.validFrom: {"2026-03-31"},
+        }
+    }
+    batch = rdflib.Graph()
+    batch.add((KG.m, KG.validTo, rdflib.Literal("20260101", datatype=rdflib.XSD.date)))
+    assert "cannot compare" in gate.refused_closures(batch, state)[0]  # the gate refuses it earlier
+    batch = rdflib.Graph()
+    batch.add((KG.m, KG.validTo, rdflib.Literal("2026-01-01", datatype=rdflib.XSD.date)))
+    assert "it opened on 2026-03-31" in gate.refused_closures(batch, state)[0]
+
+
+def test_two_stored_opening_dates_are_reported_not_chosen_between(make_db: MakeDB) -> None:
+    rows = [
+        {"s": str(KG.m), "p": str(rdflib.RDF.type), "o": str(KG.UniverseMembership)},
+        {"s": str(KG.m), "p": str(KG.validFrom), "o": "2026-01-01"},
+        {"s": str(KG.m), "p": str(KG.validFrom), "o": "2026-02-01"},
+    ]
+    state = gate.fetch_closing_state(make_db(rows=rows).db, {KG.m})
+    batch = gate.parse_batch(CLOSE_MEMBERSHIP)
+    assert "2 values for validFrom" in gate.refused_closures(batch, state)[0]
+
+
+def test_every_class_whose_shape_reads_a_closing_property_is_closable(
+    schema: gate.GateSchema,
+) -> None:
+    """A valid-time class added to the schema must be added to ``CLOSABLE``, or it can never be closed."""
+    sh = rdflib.namespace.SH
+    for prop, (classes, _) in gate.CLOSABLE.items():
+        read: set[rdflib.term.Node] = set()
+        for shape in schema.shapes.subjects(sh.targetClass, None):
+            todo: list[rdflib.term.Node] = [shape]
+            seen: set[rdflib.term.Node] = set()
+            while todo:
+                node = todo.pop()
+                if node in seen:
+                    continue
+                seen.add(node)
+                for _, p, o in schema.shapes.triples((node, None, None)):
+                    if p == sh.path and o == prop:
+                        read.update(schema.shapes.objects(shape, sh.targetClass))
+                    elif p != sh.node and (isinstance(o, rdflib.BNode) or p == sh.property):
+                        todo.append(o)
+        assert read <= classes, f"{prop}: {sorted(str(c) for c in read - classes)}"
