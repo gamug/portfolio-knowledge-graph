@@ -247,11 +247,20 @@ one behind `schema/`. Written after the maintainer's go-ahead, by a Claude Code 
 they had brought the database back up (the first attempt could not reach the server: `Network is unreachable`).
 Run from `master` at `fad9196`.
 
-1. `uv run python cli/verify_store.py` before: four checks passed; "schema graphs have their expected size"
+1. `uv run python cli/verify_store.py` before: five of the six checks passed; "schema graphs have their expected size"
    failed with `urn:graph:tbox: expected 1570, store has 1569`, as expected.
 2. `uv run python cli/load_schema.py`: exit 0, `verified: 19 graphs, 2550 asserted triples match the local parse`.
-3. `uv run python cli/verify_store.py` after: exit 0, all five checks pass, the probe's "store size unchanged"
-   reads 2550.
+3. `uv run python cli/verify_store.py` after: exit 0, all six checks pass, the probe's "store size unchanged"
+   reads 2550:
+   - PASS SPARQL query returns real results (5 assets, first `:AAPL`)
+   - PASS malformed write rejected by the gate (`:timestamp minCount`; store size unchanged at 2550)
+   - PASS reasoning profile matches 07 (`rdfsplus-optimized`, `disableSameAs` true; 41 inferred `:Observation`, 0 asserted)
+   - PASS schema graphs have their expected size (19 graphs)
+   - PASS every `:agentOrigin` is single and in the shape's list
+   - PASS the quant batch passes beside the stored Portfolios (3 stored individuals)
+
+T-186 asked for these six lines from the live store (T-181's sixth check reads stored string literals through
+`GraphDB._term`); they are the record, and T-186 is done.
 
 ## Connecting
 

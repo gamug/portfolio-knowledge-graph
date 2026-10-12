@@ -270,8 +270,8 @@ A stint is closed by writing `clearedOn` in the clearing cycle's graph, never by
 **T-185 (a Veto's sightings against its clearing, 2026-10-11).** `VetoShape`'s `lastSeenOn` gains
 `sh:lessThanOrEquals :clearedOn`: a cycle that clears a stint did not see it raised, so no sighting is later
 than the clearing (the same day passes). One triple in `shapes.ttl`; no class or property; **2550 quads;
-conforms: True.** The `urn:graph:tbox` graph (which holds `shapes.ttl`) grows by 1 in the store; the reload is
-the maintainer's, T-193, as T-179 was.
+conforms: True.** The `urn:graph:tbox` graph (which holds `shapes.ttl`) grows by 1 in the store; the reload
+(T-193, as T-179 was) was done 2026-10-12: the store holds 2550 triples.
 
 **T-104 (D5, decided 2026-10-03: model it).** `:DataQualityIssue` is an `EvidenceSource` leaf — one row of upstream's `data_quality_issue` (`dqGateCode`, `dqSeverity`, `quarantined`, `gatedValue`, `dqIssueOfAsset`) — so a HARD gate that raises the `DATA_QUALITY` veto has an evidence target: a `RiskEvent` is `backedBy` it. Written to the FUNDAMENTAL ingest graph (the Ring-1 gates run in the fundamental agent). `DataQualityIssueShape` is the 16th shape; `dqSeverity` is not enumerated because only HARD is documented upstream. The 25th class joins `AllDisjointClasses`. Review follow-up: the issue also carries `dqRaisedOn` (required, the as-of key), optional `dqIssueOfFiling`/`dqMetricName`/`provenanceId`, and the worked example is a HARD issue on JNJ (graph `FUNDAMENTAL:2026-Q4`) backing `Veto_JNJ_DQ_20261005` through a `RiskEvent` in `ORCHESTRATOR:2026-10-05` — dated after `Rule_DATA_QUALITY`'s `validFrom` (2026-10-02) so `:appliesRule` resolves to a rule valid on the veto's date; the gate code and values are illustrative. `instances.trig` now has 14 `GRAPH` blocks. The cutoff checks above (08-03…08-05) are unchanged; at 2026-10-05 the query also returns `Veto_JNJ_DQ_20261005` (plus the earlier stints, whose `lastSeenOn` the worked data does not advance). `protege-view.ttl` has no generator in this repo and is stale (it predates T-102–T-104); regenerate it before relying on it in Protégé. **1881 quads; conforms: True.**
 
