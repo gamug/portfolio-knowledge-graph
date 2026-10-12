@@ -6,6 +6,12 @@ projector reads them yet, so this is wider than what the projection will depend 
 each view to the columns the write path actually reads when it lands (T-031). Checked by
 ``cli/check_view_contract.py`` (T-030): a pinned column that disappears is drift, a column
 upstream adds is only a note. Update the pin when upstream changes a view on purpose.
+
+Re-pinned (T-157) against ``financial_pilot_v12.db`` (SHA-256 ``d4c6fa80…``, ``schema_version``
+12, code_version ``8da3868``; the commit that migrated it is not stated): 32 views. Columns
+upstream appended are pinned after the originals; ``v_fundamental_metric`` and
+``v_cycle_ranking_component`` (their T-144) are new. The five ``v_price_observation`` columns
+from version 11 are pinned and not read (T-183).
 """
 
 from __future__ import annotations
@@ -31,6 +37,8 @@ VIEW_COLUMNS: dict[str, tuple[str, ...]] = {
         "run_id",
         "run_kind",
         "available_at",
+        "forensic_flags_json",
+        "prompt_hash",
     ),
     "v_analysis_run": (
         "run_id",
@@ -132,6 +140,11 @@ VIEW_COLUMNS: dict[str, tuple[str, ...]] = {
         "event_time",
         "computed_at",
         "engine_version",
+        "sma_200",
+        "ret_5d",
+        "vol_5d",
+        "mu_60d_base",
+        "vol_60d_base",
     ),
     "v_sec_filing": (
         "id",
@@ -180,6 +193,7 @@ VIEW_COLUMNS: dict[str, tuple[str, ...]] = {
         "cleared_at",
         "evidence_json",
         "run_id",
+        "expires_on",
     ),
     "v_data_quality_issue": (
         "id",
@@ -233,6 +247,8 @@ VIEW_COLUMNS: dict[str, tuple[str, ...]] = {
         "first_seen",
         "last_seen",
         "method",
+        "computed_at",
+        "run_id",
     ),
     "v_cycle_ranking": (
         "cycle_run_id",
@@ -247,6 +263,7 @@ VIEW_COLUMNS: dict[str, tuple[str, ...]] = {
         "veto_rules_json",
         "selected",
         "target_weight",
+        "status",
     ),
     "v_weight_scheme": (
         "cycle_run_id",
@@ -367,6 +384,7 @@ VIEW_COLUMNS: dict[str, tuple[str, ...]] = {
         "engine_version",
         "computed_at",
         "manifest_json",
+        "is_current",
     ),
     "v_quant_position": (
         "id",
@@ -414,6 +432,31 @@ VIEW_COLUMNS: dict[str, tuple[str, ...]] = {
         "benchmark_weight",
         "live_weight",
         "active_weight",
+        "engine_version",
+        "is_current",
+    ),
+    "v_fundamental_metric": (
+        "ticker",
+        "asset_id",
+        "filing_id",
+        "metric_group",
+        "metric_name",
+        "metric_id",
+        "unit",
+        "value",
+        "engine_version",
+        "is_current",
+        "event_time",
+        "available_at",
+        "run_id",
+    ),
+    "v_cycle_ranking_component": (
+        "cycle_run_id",
+        "asset_id",
+        "score_type",
+        "component_value",
+        "configured_weight",
+        "effective_weight",
     ),
 }
 

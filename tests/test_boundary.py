@@ -75,8 +75,21 @@ def snapshot(i: int, score_type: str = "TECHNICAL", **over: Any) -> dict[str, An
         "normalized_score": 50.0,
         "run_kind": "cycle_run",
         "run_id": 1,
+        "forensic_flags_json": None,
     }
     return row | over
+
+
+def _not_shipped() -> ViewExpectation:
+    """A view upstream has not shipped: ``pending`` is only allowed on one the pin lacks."""
+    return parse_view_expectation(
+        "v_not_shipped_yet",
+        {
+            "view": "v_not_shipped_yet",
+            "pending": "not pinned yet: a view upstream has not shipped",
+            "cap": 0,
+        },
+    )
 
 
 def view(**fields: Any) -> ViewExpectation:
@@ -96,7 +109,8 @@ def scheme(run: int, **over: Any) -> dict[str, Any]:
 
 
 def test_source_check_passes_a_current_database_without_replay() -> None:
-    assert check_source(_Db(9, ("SELECTION", "MONITORING")), load_source()) == []
+    floor = load_source().schema_version_floor
+    assert check_source(_Db(floor, ("SELECTION", "MONITORING")), load_source()) == []
 
 
 def test_source_check_names_a_stale_schema_and_a_replay_run() -> None:
@@ -117,13 +131,13 @@ def test_a_source_failure_stops_before_any_row_is_read(
     with pytest.raises(BoundaryError) as stop:
         validate({}, shipped, source_failures=failures)
     assert stop.value.report.stop_reasons == ["the source database fails its check"]
-    assert "below the floor 9" in str(stop.value)
+    assert f"below the floor {load_source().schema_version_floor}" in str(stop.value)
 
 
 # --- the shipped expectations over clean rows --------------------------------------------------
 
 
-def test_clean_score_rows_pass_and_pending_guards_are_listed(
+def test_clean_score_rows_pass_and_every_shipped_guard_is_active(
     shipped: dict[str, ViewExpectation],
 ) -> None:
     rows = {"v_score_snapshot": [snapshot(1), snapshot(2, "VALORIZATION")]}
@@ -131,17 +145,18 @@ def test_clean_score_rows_pass_and_pending_guards_are_listed(
     result = validate(rows, only)
     assert result.rows["v_score_snapshot"] == rows["v_score_snapshot"]
     assert not result.report.stopped
-    assert any(i.startswith("v_score_snapshot.forensic_flags_json") for i in result.report.inactive)
+    assert not any(
+        i.startswith("v_score_snapshot.forensic_flags_json") for i in result.report.inactive
+    )
 
 
 def test_a_pending_view_is_listed_and_not_read(
     shipped: dict[str, ViewExpectation],
 ) -> None:
-    result = validate({}, {"v_cycle_ranking_component": shipped["v_cycle_ranking_component"]})
+    result = validate({}, {"v_not_shipped_yet": _not_shipped()})
     assert result.rows == {}
     assert result.report.inactive == [
-        "v_cycle_ranking_component: view not pinned yet "
-        + "(not pinned yet: upstream T-144 adds it, projected by T-155)"
+        "v_not_shipped_yet: view not pinned yet (not pinned yet: a view upstream has not shipped)"
     ]
 
 
@@ -454,11 +469,8 @@ def test_each_cascaded_row_counts_against_its_own_views_cap() -> None:
 
 
 def _read_components(shipped: dict[str, ViewExpectation], **over: Any) -> ViewExpectation:
-    """``v_cycle_ranking_component`` as if upstream's T-144 had shipped it: ``pending`` lifted by
-    ``dataclasses.replace`` (the loader would refuse it), the rest of the shipped file kept."""
-    return dataclasses.replace(
-        shipped["v_cycle_ranking_component"], pending=None, pending_columns={}, **over
-    )
+    """``v_cycle_ranking_component`` as shipped (pinned by T-157), with ``over`` replaced."""
+    return dataclasses.replace(shipped["v_cycle_ranking_component"], **over)
 
 
 def ranking(run: int, asset: int, **over: Any) -> dict[str, Any]:
@@ -780,9 +792,9 @@ def test_rows_for_a_view_with_no_expectations_are_refused() -> None:
 def test_rows_for_a_pending_view_are_refused_not_dropped(
     shipped: dict[str, ViewExpectation],
 ) -> None:
-    only = {"v_cycle_ranking_component": shipped["v_cycle_ranking_component"]}
-    with pytest.raises(ValueError, match=r"pending view.*v_cycle_ranking_component"):
-        validate({"v_cycle_ranking_component": [{"cycle_run_id": 1}]}, only)
+    only = {"v_not_shipped_yet": _not_shipped()}
+    with pytest.raises(ValueError, match=r"pending view.*v_not_shipped_yet"):
+        validate({"v_not_shipped_yet": [{"cycle_run_id": 1}]}, only)
 
 
 def test_the_caller_counts_its_own_skips_in_the_same_report() -> None:
@@ -797,7 +809,7 @@ def test_the_caller_counts_its_own_skips_in_the_same_report() -> None:
     assert "skipped by design: v_weight_scheme / run fails the T-151 checks: 2" in report.summary()
 
 
-def test_a_pending_component_value_is_typed_so_range_and_mean_cannot_skip_it(
+def test_the_component_value_is_typed_so_range_and_mean_cannot_skip_it(
     shipped: dict[str, ViewExpectation],
 ) -> None:
     assert shipped["v_cycle_ranking_component"].types == {"component_value": "number"}

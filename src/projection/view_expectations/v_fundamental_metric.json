@@ -1,0 +1,14 @@
+{
+  "view": "v_fundamental_metric",
+  "keys": [["metric_id"]],
+  "cap": 0,
+  "null_rate": [
+    {"column": "metric_id", "max": 0},
+    {"column": "filing_id", "max": 0},
+    {"column": "metric_name", "max": 0},
+    {"column": "engine_version", "max": 0},
+    {"column": "available_at", "max": 0},
+    {"column": "event_time", "max": 0}
+  ],
+  "types": {"value": "number", "is_current": "integer"}
+}

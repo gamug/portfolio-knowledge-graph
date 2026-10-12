@@ -1,7 +1,5 @@
 {
   "view": "v_cycle_ranking_component",
-  "pending": "not pinned yet: upstream T-144 adds it, projected by T-155",
-  "pending_columns": {"cycle_run_id": "T-144", "score_type": "T-144", "component_value": "T-144"},
   "cap": 0,
   "null_rate": [{"column": "component_value", "max": 0}],
   "types": {"component_value": "number"},

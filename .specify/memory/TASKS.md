@@ -585,7 +585,7 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       `Portfolio` (already enforced by `PortfolioShape`); stop expecting `equal_weight`/
       `cap_weight`. `is_current` marks at most one book per `(as_of, kind)`, the newest `opt-v*`; variant books are never current and are not projected (T-183 (5));
       `engine_version` stays opaque (`opt-v1+9d34ff69`). → step 3.
-- [ ] **T-157** *(their T-144 landed 2026-10-09 at `6bf4d7e`, `schema_version` 10: re-pin against a database migrated with it; the floor stays 9 until then; production is at 8, the pilot at 9, `SPEC.md` §2.6 sixth reply; the live service is at `contract_version` 12 and upstream offers copies at 10 and 11 only: ask for a version-12 copy, or wait for their final pilot (T-143), so the re-pin is done once)* When upstream ships: re-pin `src/projection/view_contract.py` (new view, new
+- [x] **T-157** *(done 2026-10-12 in PR #97 against `financial_pilot_v12.db`, SHA-256 `d4c6fa80…`, `schema_version` 12: 32 pinned views, the two T-144 views pinned, appended columns pinned, the floor 9 to 11, `contract_version` 12 recorded in `_source.json`; the pending markers of `v_cycle_ranking_component` and `v_score_snapshot.forensic_flags_json` dropped; not done: the drift check against upstream's commit, because the commit that migrated the file is not stated and no checkout is here, and the T-183 rule content (`penalty_points`, the new rules), which this file does not hold (`v_rule_catalog` has the nine original columns and six rules); the text below is the original task)* When upstream ships: re-pin `src/projection/view_contract.py` (new view, new
       columns, the commit in its docstring and in `SPEC.md` §2.6), raise the `schema_version` floor
       (D16; the value is `schema_version_floor` in `src/projection/view_expectations/_source.json`),
       and write the upstream `contract_version` the pin was built against beside it (the key and its
@@ -616,6 +616,11 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       check against the commit, the expectations files, the `SPEC.md` §2.6 row.
       → step 4.
       The database at the served version, and what version 12 changed, are asked in T-184 and recorded by T-191 (2).
+      **Sign-off, 2026-10-12 (for the maintainer):** the floor is 11, not 12: the pin lists columns from version 11
+      (`v_veto.expires_on`, the five price columns) and version 12 (`m012`, filing-identity triggers) adds none, so a
+      version-11 database reads the same; raise it to 12 if you want the triggers' guarantee. Open: run
+      `cli/check_view_contract.py` against upstream's checkout at the commit that built the file, and pin
+      `penalty_points` and the new rule rows when upstream sends them (T-187, T-184 ask 4).
 - [ ] **T-158** Replace the `ASSET_DAY_AGGREGATE` placeholder with upstream's SEMANTIC
       `score_method` value once they give it (D14; with their Work item 4, after their T-100).
       **First, raise the ownership disagreement (unblocked now; ask before their T-141 ships its
@@ -729,7 +734,7 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       clearing cycle, and can `cleared_on` be earlier than a recorded `last_seen_on`? The answer settles whether the
       same-day tolerance in the gate and `VetoShape` (`<=`) stays or becomes `<`.
       - [ ] (1) filing date or `available_at`
-      - [ ] (2) database at the served version, and what version 12 changed
+      - [~] (2) database at the served version, and what version 12 changed: file received 2026-10-12 (version 12, T-157 re-pinned); `m012` is described in its `schema_version` row (filing-identity triggers, no columns); not yet answered by upstream in words, and the file lacks T-183's rule content
       - [ ] (3) notes match the file's version
       - [ ] (4) rule definitions: (a) thresholds, (b) `penalty_points`, (c) the redefinition's date, (d) who clears an expired stint, (e) `expires_on` on SOFT
       - [ ] (5) T-145 and T-100 dates

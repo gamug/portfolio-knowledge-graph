@@ -99,7 +99,7 @@ from projection.source import FinancialSource
 VIEW = "v_score_snapshot"
 
 #: The columns this projection reads: what a snapshot is built from, plus what the view's
-#: expectations name (the run group of the cohort mean, the look-ahead pair).
+#: expectations name (the run group of the cohort mean, the look-ahead pair, the flags' format).
 COLUMNS = (
     "id",
     "ticker",
@@ -112,6 +112,7 @@ COLUMNS = (
     "run_id",
     "run_kind",
     "available_at",
+    "forensic_flags_json",
 )
 
 #: score_type -> (``:metricType``, stem of the snapshot's local name).

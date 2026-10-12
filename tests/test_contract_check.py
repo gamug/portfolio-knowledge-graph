@@ -119,6 +119,30 @@ def test_real_pin_is_well_formed() -> None:
     assert not set(view_contract.NOT_READ) & set(view_contract.VIEW_COLUMNS)
 
 
+def test_real_pin_holds_the_version_12_views_and_appended_columns() -> None:
+    """T-157: re-pinned against a version-12 database; columns upstream appended come last."""
+    pin = view_contract.VIEW_COLUMNS
+    assert len(pin) == 32
+    assert pin["v_fundamental_metric"][-1] == "run_id"
+    assert pin["v_cycle_ranking_component"] == (
+        "cycle_run_id",
+        "asset_id",
+        "score_type",
+        "component_value",
+        "configured_weight",
+        "effective_weight",
+    )
+    assert pin["v_veto"][-1] == "expires_on"
+    assert pin["v_price_observation"][-5:] == (
+        "sma_200",
+        "ret_5d",
+        "vol_5d",
+        "mu_60d_base",
+        "vol_60d_base",
+    )
+    assert pin["v_score_snapshot"][-2:] == ("forensic_flags_json", "prompt_hash")
+
+
 def test_upstream_kg_schema_is_loaded_privately_and_unloaded(
     make_upstream: MakeUpstream, monkeypatch: pytest.MonkeyPatch
 ) -> None:

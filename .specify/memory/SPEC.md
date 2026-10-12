@@ -522,6 +522,18 @@ feature commits `8c2e62e` and `95ba2f3`).
   (the T-144 ones, `v_veto.expires_on`, and five `v_price_observation` columns) and the views we do
   not pin (the two T-144 views and the frozen `v_universe_membership`). Nothing in the column lists
   shows what version 12 changed.
+- **Read from the version-12 database (2026-10-12, our check; T-157):** `financial_pilot_v12.db`,
+  SHA-256 `d4c6fa80b3e77939d76b7b0e8f2ab6b7d7bdd724312cd0517075114a1bf192d4` (it matches the
+  `SHA256SUMS` sent with it), `integrity_check` ok, `schema_version` **12**, `code_version` `8da3868`
+  in its run log (the commit that migrated it is not stated). `schema_version` rows 10–12 carry
+  their own descriptions: m010 the T-144 marker, m011 the five price columns and `veto.expires_on`
+  (their T-070), **m012 filing identity: every asset with filings has a CIK and an accession spans
+  only assets of one CIK, enforced by triggers, no columns**. 33 views; against the old pin only
+  columns appended at the end of seven views and the two T-144 views are new. The data is still
+  pilot 1's (`v_fundamental_metric` 13,781, `v_cycle_ranking_component` 180, 449 filings, 10 vetoes, none
+  with `expires_on`). `v_rule_catalog` still has the nine original columns and six rules: no
+  `penalty_points`, no new rules (T-183's content is not in this file). The pin is now 32 views
+  (`v_universe_membership` stays unpinned), the floor 11 and `contract_version` 12.
 - **Databases for the re-pin (T-157).** Sent: `financial_pilot_v10.db`, SHA-256
   `ee9227847dbb4a5aefab0f4dadf165938252b853140db4c3a10080579b80a780`, the fixture after `migrate`
   (`schema_version` 10, 33 views, `integrity_check` ok), migrated with `c4bef14`; the new views have

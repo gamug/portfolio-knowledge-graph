@@ -838,7 +838,9 @@ the read rule and did not answer Q6:
      Schemes and ranking snapshots are keyed by a `cycle_run` id, so they rely on their T-145
      and T-100 (T-145 stops new reuse; the rebuild drops ids already reused). Until both have
      landed, only runs passing T-151's checks are projected (T-121, T-155), as T-151 itself says.
-4. When upstream ships, re-pin `view_contract.py` and the `schema_version` floor (T-157) and replace
+4. When upstream ships, re-pin `view_contract.py` and the `schema_version` floor (T-157; done
+   2026-10-12 against the version-12 pilot: 32 views, floor 11, `contract_version` 12; the T-183 rule content and
+   the drift check against upstream's commit remain) and replace
    the SEMANTIC placeholder (T-158). Project only from a database that meets the floor and holds
    no REPLAY run: a backfill writes REPLAY scores, vetoes and rankings into the shared tables,
    where they cannot be told apart from live rows (D8), and the `cycle_type <> 'REPLAY'` filter
