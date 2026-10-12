@@ -8,7 +8,7 @@ each view to the columns the write path actually reads when it lands (T-031). Ch
 upstream adds is only a note. Update the pin when upstream changes a view on purpose.
 
 Re-pinned (T-157) against ``financial_pilot_v12.db`` (SHA-256 ``d4c6fa80…``, ``schema_version``
-12, code_version ``8da3868``; the commit that migrated it is not stated): 32 views. Columns
+12, code_version ``8da3868``; migrated with upstream's master ``6a80ec3``): 32 views. Columns
 upstream appended are pinned after the originals; ``v_fundamental_metric`` and
 ``v_cycle_ranking_component`` (their T-144) are new. The five ``v_price_observation`` columns
 from version 11 are pinned and not read (T-183).

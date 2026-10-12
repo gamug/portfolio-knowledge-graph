@@ -525,7 +525,7 @@ feature commits `8c2e62e` and `95ba2f3`).
 - **Read from the version-12 database (2026-10-12, our check; T-157):** `financial_pilot_v12.db`,
   SHA-256 `d4c6fa80b3e77939d76b7b0e8f2ab6b7d7bdd724312cd0517075114a1bf192d4` (it matches the
   `SHA256SUMS` sent with it), `integrity_check` ok, `schema_version` **12**, `code_version` `8da3868`
-  in its run log (the commit that migrated it is not stated). `schema_version` rows 10–12 carry
+  in its run log (upstream states it was migrated with master `6a80ec3`). `schema_version` rows 10–12 carry
   their own descriptions: m010 the T-144 marker, m011 the five price columns and `veto.expires_on`
   (their T-070), **m012 filing identity: every asset with filings has a CIK and an accession spans
   only assets of one CIK, enforced by triggers, no columns**. 33 views; against the old pin only
