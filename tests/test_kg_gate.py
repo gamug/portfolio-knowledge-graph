@@ -1179,7 +1179,7 @@ def test_the_worked_examples_restatement_is_a_restatement_the_gate_takes(make_db
         itemLabel="ITEM_1A_RISK_FACTORS",
     )
     state = gate.fetch_closing_state(fake.db, gate.superseded_sections(graph))
-    assert gate.supersession_problems(graph) == []
+    assert gate.restatement_problems(graph) == []
     assert gate.refused_supersessions(graph, state) == []
 
 

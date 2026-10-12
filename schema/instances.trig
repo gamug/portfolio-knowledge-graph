@@ -285,11 +285,11 @@ GRAPH <urn:graph:ingest:EDGAR:2026-08-10> {
         :itemLabel "ITEM_1A_RISK_FACTORS" ; :provenanceId "edgar:0000200406-26-000012:item1a:v2-restated" .
     :Section_JNJ_Item1A_v1 :supersededBy :Section_JNJ_Item1A_v2 .
     # ^ Asserted HERE, in the graph where the correction becomes known (2026-08-10) -- not by
-    # editing the original 2026-Q3 graph (the EDGAR batch written at the start of the quarter, before
-    # 2026-08-10), which stays append-only and still queryable as "what we believed before the
-    # correction" (closes critique #8; see 07-ontology-topology.md, "Restatements and re-runs").
-    # A quarter graph's name does not say when in the quarter it was written, so the order of the two
-    # is stated here, not read from the names.
+    # editing the original 2026-Q3 graph, which stays append-only and still queryable as "what we
+    # believed before the correction" (closes critique #8; see 07-ontology-topology.md,
+    # "Restatements and re-runs"). In this example the Q3 graph was written before 2026-08-10; that
+    # is an assumption of the example, not a rule: EDGAR quarter graphs have no completeness rule
+    # (unlike FUNDAMENTAL's), and a quarter graph's name does not say when in the quarter it was written.
 }
 
 GRAPH <urn:graph:derived:entity-resolution:2026-Q3> {

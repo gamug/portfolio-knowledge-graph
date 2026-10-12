@@ -62,9 +62,14 @@ differently:
   keep the latest `timestamp` among rows with `availableAt <= D` (the query in "Re-projection" below).
   Both versions stay in the store and in the reasoner's view; "current" is a filter on the query, not a
   place the old value is moved to. An as-of query for a day before the correction still sees the old
-  value. **Not FUNDAMENTAL:** its graphs are per quarter and written once the quarter is complete, and a
-  snapshot that arrives after its quarter's graph is written is lost for that quarter and listed as lost
-  (the FUNDAMENTAL row of the table above; SPEC §13 item 10). This rule does not change that.
+  value. **Scope.** The correction can go into a new graph only where a graph's date can be the day the
+  correction became known: the graphs dated by ingestion (SEMANTIC, VALORIZATION, TECHNICAL, SECTOR), and
+  EDGAR, whose restatement is dated by its own filing. In every other graph dated by the data
+  (`ORCHESTRATOR` by `cycleDate`, `FUNDAMENTAL` by quarter, `derived:quant`, `derived:entity-resolution`,
+  `universe`) the graph for that date already exists when a late correction arrives, the gate refuses to
+  append to it, and the row is lost for that date and listed as lost (the FUNDAMENTAL row of the table
+  above; SPEC §13 item 10). This rule does not change that; a recomputed ranking snapshot or quant book
+  for a past cycle date is in the second group.
 - **A second run for the same agent and day** is not new information: nothing was believed in
   between. It replaces that day's graph instead of adding a second set of rows. This is decided but
   not built (T-195), and only for the graphs dated by ingestion (SEMANTIC, VALORIZATION, TECHNICAL,

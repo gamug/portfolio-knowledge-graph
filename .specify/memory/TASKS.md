@@ -125,15 +125,18 @@ are closed (see `CHANGELOG.md`).*
     graphs whose subjects are all stored). The first `--write` after upstream's T-144 loads every
     cycle-lane row accumulated until then into that one day's graph, an honest transaction-time
     record that `docs/07` now states.
-- [x] **T-032** *(done 2026-10-12, maintainer's decision: the rule is in `docs/07` ("Restatements and re-runs"), the gate check is `gate.refused_supersessions` and `gate.supersession_problems` (check 8, the store and the batch halves; tests in `tests/test_kg_gate.py` and `tests/test_cli_ingest.py`); the EDGAR lane that emits the link is T-031's; the text below is the original task)* Decide and implement `:supersededBy` semantics for a
+- [x] **T-032** *(done 2026-10-12, maintainer's decision: the rule is in `docs/07` ("Restatements and re-runs"), the gate check is `gate.refused_supersessions` and `gate.restatement_problems` (check 8, the store and the batch halves; tests in `tests/test_kg_gate.py` and `tests/test_cli_ingest.py`); the EDGAR lane that emits the link is T-031's; the text below is the original task)* Decide and implement `:supersededBy` semantics for a
       restatement. → step 3.
       - **Decided** (the maintainer, 2026-10-12). A correction that becomes known on a later day is a new
         individual in a new dated graph, and the old one points at it with `:supersededBy`; the old one
         and its graph are never edited, so an as-of query still sees what was believed before.
         `:supersededBy` stays `SECFilingSection`-only: a cycle-lane score that is recomputed is a second
         `ScoreSnapshot` and readers take the latest `timestamp` with `availableAt <= D` (`docs/07`,
-        "Re-projection"), so it needs no link. FUNDAMENTAL is unchanged: a snapshot arriving after its
-        quarter's graph is written is lost for that quarter (`docs/07`, SPEC §13 item 10). A re-run for
+        "Re-projection"), so it needs no link. This holds only where a graph's date can be the day the
+        correction became known (the graphs dated by ingestion, and EDGAR, whose restatement is
+        dated by its own filing); in the graphs dated by the data (`ORCHESTRATOR`, `FUNDAMENTAL`,
+        quant, entity resolution, `universe`) a late correction is still lost for that date
+        (`docs/07`, SPEC §13 item 10). A re-run for
         the same agent and day is not a correction: it replaces that day's graph (T-195, not built;
         until then the gate refuses it).
       - **Built.** The gate refuses a `:supersededBy` unless the old side is a stored or declared
@@ -433,10 +436,10 @@ independent of each other once T-131 lands.*
       individuals; every other check runs as for a new graph. Settle first: (a) the constitution's invariant 1 and
       `docs/07` ("Append-only") say an ingest graph is never edited, so both get the exception,
       stated narrowly: only the graph of the same agent and the day it was written, never one of a
-      past day; (b) what points into the graph from elsewhere: a `Veto` in an `ORCHESTRATOR` graph is
-      later cleared or sighted by triples in other graphs, which would be left pointing at nothing,
-      so the replacement is refused when another graph holds a triple about any subject the old graph
-      declares (or those lanes are left out); (c) the replacement keeps the IRIs of the rows that
+      past day; (b) what points into the graph from elsewhere, settled by the scope above: the
+      Vetoes and weight schemes that later graphs clear, sight or point at live in `ORCHESTRATOR`
+      graphs, which are out. Keep one guard anyway: refuse the replacement when another graph holds a
+      triple about a subject the old graph declares; (c) the replacement keeps the IRIs of the rows that
       did not change. Tests with a fake store. → `PLAN.md` Work item 14.
 ## Work item 15 — Adopt upstream's `v_*` contract changes (replies of 2026-10-05, 2026-10-06 x2)
 - [x] **T-177** *(from upstream's answer to Q6, 2026-10-09; done 2026-10-10 in PR #82: the shape, 2549 quads, nine synthetic cases in `tests/test_schema_gate.py` and a check that `kg_target_schema.ttl` carries the same `rawValue` bounds as `shapes.ttl` (FUNDAMENTAL, SECTOR, Sentiment); `schema/protege-view.ttl` is left to Work item 8 (T-070); the store reload is T-179; the text below is the original task, edited where the work differed)* Bound FUNDAMENTAL's `rawValue` in `ScoreSnapshotShape` to

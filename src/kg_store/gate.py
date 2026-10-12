@@ -537,7 +537,7 @@ def _replacement_refusal(
     return _other_label({str(label)} if label is not None else set(), batch.value(new, _ITEM_LABEL))
 
 
-def supersession_problems(batch: rdflib.Graph) -> list[str]:
+def restatement_problems(batch: rdflib.Graph) -> list[str]:
     """The half of check 8 the batch alone decides (T-032), run by :func:`validate`, so also by
     ``--check``: each ``:supersededBy`` gets one replacement, a ``SECFilingSection`` the batch declares,
     other than itself and with the same ``:itemLabel``; an old section the batch declares is a
@@ -766,7 +766,7 @@ def validate(
             "individuals and an xsd:date :validTo, :clearedOn or :lastSeenOn are allowed there): "
             + ", ".join(stray)
         )
-    restating = supersession_problems(batch)
+    restating = restatement_problems(batch)
     if restating:
         raise IngestRejected("restatements that cannot be written (T-032): " + "; ".join(restating))
     if callable(context):
