@@ -260,7 +260,9 @@ Run from `master` at `fad9196`.
    - PASS the quant batch passes beside the stored Portfolios (3 stored individuals)
 
 T-186 asked for these six lines from the live store (T-181's sixth check reads stored string literals through
-`GraphDB._term`); they are the record, and T-186 is done.
+`GraphDB._term`). The sixth line is the proof: that check fails when the store writes a string in a form
+`select_terms` does not read as equal to `"BENCHMARK"` (`acceptance.check_quant_batch`), and it passed. They are
+the record, and T-186 is done.
 
 ## Connecting
 

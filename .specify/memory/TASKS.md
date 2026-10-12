@@ -386,7 +386,7 @@ independent of each other once T-131 lands.*
       against the live repository, which T-181 made six checks (the sixth runs the worked example's quant batch
       beside the stored Portfolios and Assets, so it needs `instances.trig` and `reference.ttl` loaded), and record
       the six PASS/FAIL lines and the date as a row of `docs/graphdb-setup.md`'s live-run section. The agent's
-      sandbox cannot reach the store (`Network is unreachable`), so this is the only evidence of what GraphDB
+      sandbox cannot reach the store while it is down (`Network is unreachable`; it reached it on 2026-10-12), so this is the only evidence of what GraphDB
       returns for a string literal (`datatype` absent or `xsd:string`). If it fails, fix `GraphDB._term` or the
       check. → `PLAN.md` Work item 14, step 9.
 - [x] **T-193** *(from T-185; the maintainer, not code; done 2026-10-12: the store holds 2550 triples and `verify_store` exits 0, recorded in `docs/graphdb-setup.md`; the text below is the original task)* Reload the live store from `schema/` after PR #94 merges:
@@ -395,7 +395,7 @@ independent of each other once T-131 lands.*
       `urn:graph:tbox: expected 1570, store has 1569` (the expected failure; any other line is a different problem). With the maintainer's
       go-ahead: `uv run python cli/verify_store.py` (that check fails as expected), `uv run python cli/load_schema.py`
       (exit 0, `2550 asserted triples match the local parse`), `uv run python cli/verify_store.py` (exit 0), and a dated
-      row in `docs/graphdb-setup.md`, as T-179 did. The agent's sandbox cannot reach the store.
+      row in `docs/graphdb-setup.md`, as T-179 did. The agent's sandbox reaches the store only when the maintainer's server is up (down on the first attempt, up on 2026-10-12).
       → `PLAN.md` Work item 14, step 10.
 - [x] **T-194** *(from PR #94's third review; the gate; done 2026-10-11 in PR #96: `gate.APPENDABLE` / `APPENDING_PROPERTIES`, a `lastSeenOn` is allowed on an untyped subject and checked against the store: a stored Veto, not cleared, the date not before `raisedOn` nor after the `clearedOn` the same batch gives it, later than the latest stored sighting (an equal date is a replay), one date per batch; tests in `tests/test_kg_gate.py`; the text below is the original task)* Let a later cycle append a `lastSeenOn` to a stored Veto.
       `docs/07` says a stint is appended to by later cycles (`lastSeenOn`, `clearedOn`) and `lastSeenOn` is
