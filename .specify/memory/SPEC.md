@@ -533,7 +533,7 @@ feature commits `8c2e62e` and `95ba2f3`).
   pilot 1's (`v_fundamental_metric` 13,781, `v_cycle_ranking_component` 180, 449 filings, 10 vetoes, none
   with `expires_on`). `v_rule_catalog` still has the nine original columns and six rules: no
   `penalty_points`, no new rules (T-183's content is not in this file). The pin is now 32 views
-  (`v_universe_membership` stays unpinned), the floor 11 and `contract_version` 12.
+  (`v_universe_membership` stays unpinned), the floor 12 and `contract_version` 12.
 - **Databases for the re-pin (T-157).** Sent: `financial_pilot_v10.db`, SHA-256
   `ee9227847dbb4a5aefab0f4dadf165938252b853140db4c3a10080579b80a780`, the fixture after `migrate`
   (`schema_version` 10, 33 views, `integrity_check` ok), migrated with `c4bef14`; the new views have

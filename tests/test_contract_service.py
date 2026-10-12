@@ -309,7 +309,7 @@ def test_cli_exits_1_when_the_database_is_below_the_floor() -> None:
     with _serve(routes) as url:
         result = _run(url)
     assert result.returncode == 1
-    assert "DRIFT database: schema_version 8 is below the floor 11" in result.stdout
+    assert "DRIFT database: schema_version 8 is below the floor 12" in result.stdout
 
 
 def test_cli_exits_2_when_the_service_answers_something_else() -> None:

@@ -47,7 +47,7 @@ def test_no_view_may_lose_rows_yet(shipped: dict[str, ViewExpectation]) -> None:
 
 def test_the_source_check_is_the_documented_one() -> None:
     source = load_source()
-    assert source.schema_version_floor == 11  # the columns the pin lists from version 11 on
+    assert source.schema_version_floor == 12  # upstream's version (T-157)
     assert source.contract_version == 12  # what the pin was built against (T-157)
     assert source.forbidden_cycle_types == ("REPLAY",)
 
