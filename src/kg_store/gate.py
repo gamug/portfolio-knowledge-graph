@@ -400,7 +400,8 @@ def _repeats_or_precedes(seen_on: str, seen: set[str]) -> str | None:
     cycle, at least 15 days apart), so an equal date is a replay, not a second cycle."""
     if why := _before_last_seen(seen_on, seen, "sighting"):
         return why
-    if any(_calendar_date(t) == _calendar_date(seen_on) for t in seen):
+    day = _calendar_date(seen_on)
+    if any(_calendar_date(t) == day for t in seen):
         return f"{seen_on} is already a stored sighting: perhaps this batch was already written"
     return None
 

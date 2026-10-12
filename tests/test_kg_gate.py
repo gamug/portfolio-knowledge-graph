@@ -900,15 +900,32 @@ def test_a_closing_in_a_batch_with_a_sighting_is_checked_against_the_stored_ones
 
 
 def test_a_good_sighting_beside_a_bad_clearing_reports_only_the_clearing(make_db: MakeDB) -> None:
+    """Both dates are the day the stint was raised: the sighting passes (the raising cycle saw it), the
+    clearing does not (no stint ends the day it starts)."""
+    day = b"2026-01-01"
+    batch = SEEN_VETO.replace(b"2026-03-31", day) + f':v :clearedOn "2026-01-01"{DATE} .'.encode()
+    fake = _holding(make_db, ":v", "Veto", raisedOn="2026-01-01")
+    with pytest.raises(gate.IngestRejected) as err:
+        gate.ingest(fake.db, batch, GRAPH_ORCH)
+    message = str(err.value)
+    assert ":clearedOn: 2026-01-01 is not after the date it opened on, 2026-01-01" in message
+    assert ":lastSeenOn" not in message
+    assert fake.added == []
+
+
+def test_both_triples_of_one_veto_are_reported_when_both_fail(make_db: MakeDB) -> None:
+    """A sighting after the batch's own clearing, and that clearing before a stored sighting."""
     batch = SEEN_VETO.replace(b"2026-03-31", b"2026-05-31") + (
         f':v :clearedOn "2026-04-01"{DATE} .'.encode()
     )
     fake = _holding(make_db, ":v", "Veto", raisedOn="2026-01-01", lastSeenOn=["2026-04-10"])
     with pytest.raises(gate.IngestRejected) as err:
         gate.ingest(fake.db, batch, GRAPH_ORCH)
+    message = str(err.value)
     assert (
-        str(err.value).count(":v ") == 2
-    )  # the sighting after the clearing, and the clearing before a sighting
+        ":lastSeenOn: 2026-05-31 is after the clearedOn the batch gives it, 2026-04-01" in message
+    )
+    assert ":clearedOn: 2026-04-01 is before the latest date a cycle saw it, 2026-04-10" in message
     assert fake.added == []
 
 
