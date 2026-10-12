@@ -816,7 +816,7 @@ def test_a_sighting_is_appended_to_a_stored_open_veto(make_db: MakeDB) -> None:
     [
         ({"raisedOn": "2026-03-31"}, None, None),  # the day it was raised: that cycle saw it
         ({"raisedOn": "2026-04-15"}, None, "before the date it opened on, 2026-04-15"),
-        ({"raisedOn": "2026-01-01"}, ["2026-03-31"], None),  # the same day again: idempotent
+        ({"raisedOn": "2026-01-01"}, ["2026-03-31"], "already a stored sighting"),  # a replay
         ({"raisedOn": "2026-01-01"}, ["2026-04-10", "2026-02-01"], "before the latest sighting"),
         ({"raisedOn": "2026-01-01", "clearedOn": "2026-03-15"}, None, "already closed"),
         ({"raisedOn": ["2026-01-01", "2026-02-01"]}, None, "2 values for raisedOn"),
@@ -826,7 +826,7 @@ def test_a_sighting_is_appended_to_a_stored_open_veto(make_db: MakeDB) -> None:
     ids=[
         "raised the same day",
         "before it was raised",
-        "same day as the last sighting",
+        "a replayed sighting",
         "before the latest sighting",
         "already cleared",
         "two raisedOn",
@@ -897,6 +897,19 @@ def test_a_closing_in_a_batch_with_a_sighting_is_checked_against_the_stored_ones
     fake = _holding(make_db, ":v", "Veto", raisedOn="2026-01-01", lastSeenOn=["2026-04-10"])
     with pytest.raises(gate.IngestRejected, match="before the latest date a cycle saw it"):
         gate.ingest(fake.db, CLOSE_VETO, GRAPH_ORCH)
+
+
+def test_a_good_sighting_beside_a_bad_clearing_reports_only_the_clearing(make_db: MakeDB) -> None:
+    batch = SEEN_VETO.replace(b"2026-03-31", b"2026-05-31") + (
+        f':v :clearedOn "2026-04-01"{DATE} .'.encode()
+    )
+    fake = _holding(make_db, ":v", "Veto", raisedOn="2026-01-01", lastSeenOn=["2026-04-10"])
+    with pytest.raises(gate.IngestRejected) as err:
+        gate.ingest(fake.db, batch, GRAPH_ORCH)
+    assert (
+        str(err.value).count(":v ") == 2
+    )  # the sighting after the clearing, and the clearing before a sighting
+    assert fake.added == []
 
 
 def test_every_appendable_class_is_a_leaf_class_with_its_dates(schema: gate.GateSchema) -> None:
@@ -1060,8 +1073,11 @@ def test_a_retry_of_a_closure_that_was_written_says_so(make_db: MakeDB) -> None:
     assert "perhaps" not in str(raised.value)
 
 
-def test_a_blank_node_closing_subject_is_refused_before_any_query(make_db: MakeDB) -> None:
-    batch = PREFIXES + f'[] :validTo "2026-03-31"{DATE} .'.encode()
+@pytest.mark.parametrize("prop", ["validTo", "lastSeenOn"])
+def test_a_blank_node_closing_subject_is_refused_before_any_query(
+    prop: str, make_db: MakeDB
+) -> None:
+    batch = PREFIXES + f'[] :{prop} "2026-03-31"{DATE} .'.encode()
     fake = make_db()
     with pytest.raises(gate.IngestRejected, match="needs the IRI of a stored record"):
         gate.ingest(fake.db, batch, GRAPH)

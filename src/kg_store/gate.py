@@ -32,8 +32,8 @@ A batch is Turtle destined for one named graph. It is written only if
    scheme; ``clearedOn``: a Veto) which is not closed yet, on a date after it opened (and, for a
    Veto, not before the latest ``lastSeenOn``, T-185), and closes it once (T-180). A
    ``lastSeenOn`` appended to a stored Veto (``APPENDABLE``, T-194) must be a Veto that is not cleared,
-   on a date not before it was raised nor before its latest ``lastSeenOn`` (nor after the
-   ``clearedOn`` the same batch gives it). Read, then written, not atomic: see the limit below.
+   on a date not before it was raised, after its latest ``lastSeenOn`` (an equal date is a replay) and
+   not after the ``clearedOn`` the same batch gives it. Read, then written, not atomic: see the limit below.
 
 Anything else raises :class:`IngestRejected` with the reason and nothing reaches the
 store. What is written is the validated triples (as N-Triples), not the submitted text.
@@ -45,7 +45,9 @@ source, read once per process. ``cli/load_schema.py`` is what brings the store's
 in line; reload after a schema edit.
 
 Limit: this is a code path, not a server-side lock: two batches closing the same record, or
-declaring the same individual, can both pass checks 6 and 7 before either is written. A client
+declaring the same individual, can both pass checks 6 and 7 before either is written; so can a sighting
+and the clearing of the same Veto, leaving a ``lastSeenOn`` after its ``clearedOn`` (T-192's check at the read
+boundary is what catches it). A client
 holding the GraphDB write credentials can still write around it; run ingestion through this module.
 """
 
@@ -388,9 +390,19 @@ def _append_refusal(
         return f"it is already closed ({sorted(held[ended])[0]}), so no cycle saw it after"
     return (
         _not_before_opening(dates[0], held.get(opened, set()), opened)
-        or _before_last_seen(dates[0], held.get(p, set()), "sighting")
+        or _repeats_or_precedes(dates[0], held.get(p, set()))
         or _after_ending(dates[0], ends_on, ended)
     )
+
+
+def _repeats_or_precedes(seen_on: str, seen: set[str]) -> str | None:
+    """Why a sighting is refused against the stored ones, or None: a cycle's date is new (one value per
+    cycle, at least 15 days apart), so an equal date is a replay, not a second cycle."""
+    if why := _before_last_seen(seen_on, seen, "sighting"):
+        return why
+    if any(_calendar_date(t) == _calendar_date(seen_on) for t in seen):
+        return f"{seen_on} is already a stored sighting: perhaps this batch was already written"
+    return None
 
 
 def _not_before_opening(seen_on: str, began: set[str], opened: rdflib.URIRef) -> str | None:
