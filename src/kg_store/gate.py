@@ -16,8 +16,9 @@ A batch is Turtle destined for one named graph. It is written only if
 4. a subject with no ``rdf:type`` in the batch, which no shape can see, is only given
    relations to other individuals (object properties, e.g. ``:hasScoreObservation``,
    ``:supersededBy``; the object must be an IRI) or an ``xsd:date`` ``:validTo`` or
-   ``:clearedOn`` (closing a record or a Veto stint). Anything else would let a batch quietly
-   add values to an existing, immutable observation;
+   ``:clearedOn`` (closing a record or a Veto stint) or ``:lastSeenOn`` (a later cycle saw the
+   stint, T-194). Anything else would let a batch quietly add values to an existing, immutable
+   observation;
 5. it conforms to ``shapes.ttl`` under ``pyshacl``, together with what the store holds about
    the individuals it points at (``references``/``fetch_context``, T-146): a batch of
    co-occurrences or quant numbers names Assets and Portfolios it does not declare, and the
@@ -29,8 +30,10 @@ A batch is Turtle destined for one named graph. It is written only if
 7. every closing triple (point 4) closes a stored individual of a class that is closed by that
    property (``CLOSABLE``: ``validTo``: a membership, position, rule or design-history weight
    scheme; ``clearedOn``: a Veto) which is not closed yet, on a date after it opened (and, for a
-   Veto, not before the latest ``lastSeenOn``, T-185), and closes it once (T-180). Read, then
-   written, not atomic: see the limit below.
+   Veto, not before the latest ``lastSeenOn``, T-185), and closes it once (T-180). A
+   ``lastSeenOn`` appended to a stored Veto (``APPENDABLE``, T-194) must be a Veto that is not cleared,
+   on a date not before it was raised, after its latest ``lastSeenOn`` (an equal date is a replay) and
+   not after the ``clearedOn`` the same batch gives it. Read, then written, not atomic: see the limit below.
 
 Anything else raises :class:`IngestRejected` with the reason and nothing reaches the
 store. What is written is the validated triples (as N-Triples), not the submitted text.
@@ -42,7 +45,9 @@ source, read once per process. ``cli/load_schema.py`` is what brings the store's
 in line; reload after a schema edit.
 
 Limit: this is a code path, not a server-side lock: two batches closing the same record, or
-declaring the same individual, can both pass checks 6 and 7 before either is written. A client
+declaring the same individual, can both pass checks 6 and 7 before either is written; so can a sighting
+and the clearing of the same Veto, leaving a ``lastSeenOn`` after its ``clearedOn`` (T-192's check at the read
+boundary is what catches it). A client
 holding the GraphDB write credentials can still write around it; run ingestion through this module.
 """
 
@@ -68,6 +73,11 @@ _PORTFOLIO = rdflib.Namespace("https://thesis.local/kg/portfolio#")
 #: The datatype properties allowed on a subject untyped in the batch: closing a valid-time
 #: record (``validTo``) or a Veto stint (``clearedOn``), both an ``xsd:date``.
 CLOSING_PROPERTIES = frozenset({_PORTFOLIO.validTo, _PORTFOLIO.clearedOn})
+#: The one property a later cycle appends to a stored record without re-declaring it: the date it saw a
+#: Veto stint still raised (``lastSeenOn``, an ``xsd:date``, one value per cycle; T-194).
+APPENDING_PROPERTIES = frozenset({_PORTFOLIO.lastSeenOn})
+#: Every property allowed on a subject untyped in the batch whose date is checked against the store.
+STORED_DATE_PROPERTIES = CLOSING_PROPERTIES | APPENDING_PROPERTIES
 
 MUTABLE_GRAPHS = ("urn:graph:portfolio:current",)
 _DATE = r"\d{4}-\d{2}-\d{2}"
@@ -211,10 +221,10 @@ def untyped_writes(batch: rdflib.Graph, schema: GateSchema) -> list[str]:
                 problems.append(
                     f"{s.n3(nm)} {p.n3(nm)} {o.n3(nm)} (a relation needs an individual, not a literal)"
                 )
-        elif p in CLOSING_PROPERTIES:
+        elif p in STORED_DATE_PROPERTIES:
             if not isinstance(s, rdflib.URIRef):
                 problems.append(
-                    f"{s.n3(nm)} {p.n3(nm)} (a closure needs the IRI of a stored record)"
+                    f"{s.n3(nm)} {p.n3(nm)} (a closure or a sighting needs the IRI of a stored record)"
                 )
             elif not (
                 isinstance(o, rdflib.Literal) and o.datatype == XSD.date and _calendar_date(str(o))
@@ -226,12 +236,12 @@ def untyped_writes(batch: rdflib.Graph, schema: GateSchema) -> list[str]:
 
 
 def closing_values(batch: rdflib.Graph) -> dict[tuple[rdflib.term.Node, rdflib.URIRef], list[str]]:
-    """The closing triples about subjects with no ``rdf:type`` in the batch: (subject, property) ->
-    the dates written."""
+    """The closing and appended-sighting triples about subjects with no ``rdf:type`` in the batch:
+    (subject, property) -> the dates written."""
     typed = set(batch.subjects(RDF.type, None))
     closing: dict[tuple[rdflib.term.Node, rdflib.URIRef], list[str]] = {}
     for s, p, o in batch:
-        if s not in typed and isinstance(s, rdflib.URIRef) and p in CLOSING_PROPERTIES:
+        if s not in typed and isinstance(s, rdflib.URIRef) and p in STORED_DATE_PROPERTIES:
             closing.setdefault((s, cast(rdflib.URIRef, p)), []).append(str(o))
     return closing
 
@@ -270,6 +280,24 @@ CLOSABLE: Mapping[rdflib.URIRef, Closable] = MappingProxyType(
         ),
     }
 )
+
+
+class Appendable(NamedTuple):
+    """What a property appended by a later cycle is added to: the classes, the date they opened, the
+    property that ends them (no more is appended once it is set; the appended date may not follow it)."""
+
+    classes: frozenset[rdflib.URIRef]
+    opened: rdflib.URIRef
+    ended: rdflib.URIRef
+
+
+APPENDABLE: Mapping[rdflib.URIRef, Appendable] = MappingProxyType(
+    {
+        _PORTFOLIO.lastSeenOn: Appendable(
+            frozenset({_PORTFOLIO.Veto}), _PORTFOLIO.raisedOn, _PORTFOLIO.clearedOn
+        )
+    }
+)
 #: A per-run weight scheme (it has a ``cycleDate``) is an observation, never closed (``tbox.ttl``).
 _PER_RUN_MARKER = _PORTFOLIO.cycleDate
 
@@ -281,7 +309,7 @@ ClosingState = dict[str, dict[rdflib.URIRef, set[str]]]
 def fetch_closing_state(db: GraphDB, subjects: set[rdflib.term.Node]) -> ClosingState:
     """What the store holds (explicit statements, any graph) about ``subjects`` that decides whether
     they can be closed: subject -> {property: lexical values} for ``rdf:type``, the closing
-    properties, the opening dates and ``cycleDate``."""
+    properties, the opening dates, the sightings and ``cycleDate``."""
     iris = sorted(str(s) for s in subjects)
     _refuse_illegal_iris(iris)
     read = {
@@ -290,6 +318,9 @@ def fetch_closing_state(db: GraphDB, subjects: set[rdflib.term.Node]) -> Closing
         *CLOSING_PROPERTIES,
         *(c.opened for c in CLOSABLE.values()),
         *(c.last_seen for c in CLOSABLE.values() if c.last_seen),
+        *APPENDABLE,
+        *(a.opened for a in APPENDABLE.values()),
+        *(a.ended for a in APPENDABLE.values()),
     }
     state: ClosingState = {}
     for i in range(0, len(iris), 200):
@@ -339,8 +370,67 @@ def _refusal(p: rdflib.URIRef, dates: list[str], held: dict[rdflib.URIRef, set[s
     )
 
 
-def _before_last_seen(closes_on: str, seen: set[str]) -> str | None:
-    """Why a closing date is refused against the latest date a cycle saw the record, or None."""
+def _append_refusal(
+    p: rdflib.URIRef,
+    dates: list[str],
+    held: dict[rdflib.URIRef, set[str]],
+    ends_on: list[str],
+) -> str | None:
+    """Why appending ``dates`` of ``p`` to one stored subject is refused, or None. ``ends_on`` is
+    what the same batch gives it as ``Appendable.ended`` (a sighting is not after that)."""
+    classes, opened, ended = APPENDABLE[p]
+    types = {rdflib.URIRef(t) for t in held.get(rdflib.URIRef(RDF.type), set())}
+    if len(dates) > 1:
+        return f"is given {len(dates)} dates in the batch"
+    if not types:
+        return "the store does not hold it"
+    if not types & classes:
+        return f"it is not a record that {p.rpartition('#')[2]} is added to"
+    if held.get(ended):
+        return f"it is already closed ({sorted(held[ended])[0]}), so no cycle saw it after"
+    return (
+        _not_before_opening(dates[0], held.get(opened, set()), opened)
+        or _repeats_or_precedes(dates[0], held.get(p, set()))
+        or _after_ending(dates[0], ends_on, ended)
+    )
+
+
+def _repeats_or_precedes(seen_on: str, seen: set[str]) -> str | None:
+    """Why a sighting is refused against the stored ones, or None: a cycle's date is new (one value per
+    cycle, at least 15 days apart), so an equal date is a replay, not a second cycle."""
+    if why := _before_last_seen(seen_on, seen, "sighting"):
+        return why
+    day = _calendar_date(seen_on)
+    if any(_calendar_date(t) == day for t in seen):
+        return f"{seen_on} is already a stored sighting: perhaps this batch was already written"
+    return None
+
+
+def _not_before_opening(seen_on: str, began: set[str], opened: rdflib.URIRef) -> str | None:
+    """Why a sighting date is refused against the stored opening date (the same day passes), or None."""
+    if len(began) > 1:
+        return f"the store holds {len(began)} values for {opened.rpartition('#')[2]}, so not when it opened"
+    if not began:
+        return None
+    seen, opens = _calendar_date(seen_on), _calendar_date(next(iter(began)))
+    if seen is None or opens is None:
+        return f"{seen_on} cannot be compared with the stored {next(iter(began))}"
+    return f"{seen_on} is before the date it opened on, {opens}" if seen < opens else None
+
+
+def _after_ending(seen_on: str, ends_on: list[str], ended: rdflib.URIRef) -> str | None:
+    """Why a sighting is refused for following the end date the same batch gives the record, or None."""
+    end, seen = _calendar_date(ends_on[0]) if ends_on else None, _calendar_date(seen_on)
+    if end and seen and seen > end:
+        return f"{seen_on} is after the {ended.rpartition('#')[2]} the batch gives it, {end}"
+    return None
+
+
+def _before_last_seen(
+    closes_on: str, seen: set[str], what: str = "date a cycle saw it"
+) -> str | None:
+    """Why a closing (or, with ``what``, a sighting) date is refused against the latest date a cycle
+    saw the record, or None."""
     if not seen:
         return None
     dates = [_calendar_date(text) for text in seen]
@@ -349,22 +439,22 @@ def _before_last_seen(closes_on: str, seen: set[str]) -> str | None:
         bad = sorted(seen)
         return f"{closes_on} cannot be compared with the stored last seen dates {bad}"
     latest = max(cast(list[datetime.date], dates))
-    return (
-        f"{closes_on} is before the latest date a cycle saw it, {latest}"
-        if closes < latest
-        else None
-    )
+    return f"{closes_on} is before the latest {what}, {latest}" if closes < latest else None
 
 
 def refused_closures(batch: rdflib.Graph, state: ClosingState) -> list[str]:
-    """Closing triples that do not close a stored, still open record, on a date after it opened, or
-    that give one subject two dates."""
+    """Closing and sighting triples that do not close a stored, still open record, on a date after it
+    opened, add a sighting the record may not take, or give one subject two dates."""
     nm = batch.namespace_manager
     problems: list[str] = []
-    for (s, p), dates in sorted(
-        closing_values(batch).items(), key=lambda kv: (str(kv[0][0]), str(kv[0][1]))
-    ):
-        if why := _refusal(p, dates, state.get(str(s), {})):
+    values = closing_values(batch)
+    for (s, p), dates in sorted(values.items(), key=lambda kv: (str(kv[0][0]), str(kv[0][1]))):
+        held = state.get(str(s), {})
+        if p in APPENDABLE:
+            why = _append_refusal(p, dates, held, values.get((s, APPENDABLE[p].ended), []))
+        else:
+            why = _refusal(p, dates, held)
+        if why:
             problems.append(f"{s.n3(nm)} {p.n3(nm)}: {why}")
     return problems
 
@@ -538,7 +628,7 @@ def validate(
     if stray:
         raise IngestRejected(
             "triples about a subject with no rdf:type in the batch (only relations between "
-            "individuals and an xsd:date :validTo or :clearedOn are allowed there): "
+            "individuals and an xsd:date :validTo, :clearedOn or :lastSeenOn are allowed there): "
             + ", ".join(stray)
         )
     if callable(context):
@@ -591,7 +681,7 @@ def ingest(db: GraphDB, data: bytes, graph: str, directory: Path | None = None) 
         stray = refused_closures(batch, fetch_closing_state(db, closing))
         if stray:
             raise IngestRejected(
-                "closing triples that do not close a stored, open record (T-180): "
+                "closing or sighting triples the stored record cannot take (T-180, T-194): "
                 + "; ".join(stray)
             )
     taken = existing_subjects(db, batch)

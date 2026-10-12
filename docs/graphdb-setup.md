@@ -88,7 +88,7 @@ nothing written:
 4. a subject with no `rdf:type` in the batch, which no shape can see, only gets relations to other
    individuals (object properties such as `:hasScoreObservation`, `:supersededBy`; the object must
    be an IRI, not a literal) or an `xsd:date` `:validTo` / `:clearedOn` (closing a record or a Veto
-   stint); adding a value to an existing observation is refused;
+   stint) or `:lastSeenOn` (a cycle saw the stint); adding a value to an existing observation is refused;
 5. the batch conforms to `shapes.ttl` under `pyshacl`, together with what the store holds about the
    individuals the batch points at but does not declare (T-146): a co-occurrence batch names two
    Assets and a quant batch a Portfolio, and the shapes check their class and the Portfolio's kind.
@@ -111,8 +111,12 @@ nothing written:
    close the previous quarter's memberships. The check reads, then writes: two batches closing the
    same record at once can both pass it. A Veto cleared before the latest `:lastSeenOn` is refused too
    (T-185; the same day passes), and `VetoShape` makes the same check for a Veto declared with both
-   dates (one `sh:lessThanOrEquals`). The gate cannot yet append a later cycle's `:lastSeenOn` to a
-   stored Veto (T-194), so the closing check compares with the sightings declared with it.
+   dates (one `sh:lessThanOrEquals`). A later cycle appends its `:lastSeenOn` to a
+   stored Veto (T-194): the Veto must be stored and not cleared, the date not before it was raised, later
+   than its latest sighting (an equal date is a replay and is refused) and not after the `:clearedOn` the
+   same batch gives it, one date per batch. The gate does not enforce the spacing between cycles (at least
+   15 days): a sighting one day after the last passes. The gate does not restrict the graph a sighting goes to (the closing is
+   the same); Vetoes live in the ORCHESTRATOR graphs.
 
 What is written is the validated triples as N-Triples, not the submitted text. `--check` runs
 checks 1, 3, 4 and 5 without contacting the store, so it cannot see an existing graph (check 2),
