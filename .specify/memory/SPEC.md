@@ -1071,7 +1071,8 @@ treating a related FR/NR as done:
     dated by its own filing. There a correction is a new individual in a new graph; a
     `SECFilingSection` is linked to the one it replaces by `:supersededBy`, which the gate
     checks, and every other observation is read as the latest `timestamp` with
-    `availableAt <= D`. In the other graphs dated by the data (ORCHESTRATOR, FUNDAMENTAL,
+    `availableAt <= D`. No source emits a restatement today (upstream stores no amendments,
+    §2.6, seventh reply), so the rule and the gate check wait for one. In the other graphs dated by the data (ORCHESTRATOR, FUNDAMENTAL,
     universe, quant, entity resolution) a late row stays lost for that date, as above.
     A second run on the day a graph dated by ingestion was written replaces that graph: decided
     but not built (T-195), so until it lands the gate's refusal above stands for every graph.

@@ -69,7 +69,11 @@ differently:
   `universe`) the graph for that date already exists when a late correction arrives, the gate refuses to
   append to it, and the row is lost for that date and listed as lost (the FUNDAMENTAL row of the table
   above; SPEC §13 item 10). This rule does not change that; a recomputed ranking snapshot or quant book
-  for a past cycle date is in the second group.
+  for a past cycle date is in the second group. **No source emits a restatement today:** upstream stores
+  no amendments (10-K/A and 10-Q/A are not stored; each period's values come from its original filing,
+  SPEC §2.6, seventh reply) and `v_sec_filing_section` has no column naming a replacement. The rule and
+  the gate's check 8 wait for one; if upstream starts storing amendments, a projector rule derives the
+  link, as a new task then.
 - **A second run for the same agent and day** is not new information: nothing was believed in
   between. It replaces that day's graph instead of adding a second set of rows. This is decided but
   not built (T-195), and only for the graphs dated by ingestion (SEMANTIC, VALORIZATION, TECHNICAL,

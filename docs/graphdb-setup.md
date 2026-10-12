@@ -124,10 +124,10 @@ nothing written:
    the batch loops; the batch alone decides these, so `--check` runs them too. A stored section already
    superseded is not superseded again (the next correction replaces the latest section); the store is
    read for the old section's class, label and any `:supersededBy` it holds, in any graph. So each
-   item's restatements form one chain with one current section. Limit: the label is the only tie
-   between the two; nothing checks that they belong to the same asset.
-   The gate does not restrict the graph a restatement goes to (`docs/07` scopes the rule to the graphs
-   dated by ingestion and EDGAR); it checks the restatement, not the lane.
+   item's restatements form one chain with one current section. Limits: the label is the only tie
+   between the two, and nothing checks that they belong to the same asset; and the gate does not
+   restrict the graph a restatement goes to (`docs/07` scopes the rule to the graphs dated by ingestion
+   and EDGAR), because it checks the restatement, not the lane.
 
 What is written is the validated triples as N-Triples, not the submitted text. `--check` runs
 checks 1, 3, 4 and 5 and the batch-only half of check 8 without contacting the store, so it cannot see an

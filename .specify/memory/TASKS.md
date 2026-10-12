@@ -125,7 +125,7 @@ are closed (see `CHANGELOG.md`).*
     graphs whose subjects are all stored). The first `--write` after upstream's T-144 loads every
     cycle-lane row accumulated until then into that one day's graph, an honest transaction-time
     record that `docs/07` now states.
-- [x] **T-032** *(done 2026-10-12, maintainer's decision: the rule is in `docs/07` ("Restatements and re-runs"), the gate check is `gate.refused_supersessions` and `gate.restatement_problems` (check 8, the store and the batch halves; tests in `tests/test_kg_gate.py` and `tests/test_cli_ingest.py`); the EDGAR lane that emits the link is T-031's; the text below is the original task)* Decide and implement `:supersededBy` semantics for a
+- [x] **T-032** *(done 2026-10-12, maintainer's decision: the rule is in `docs/07` ("Restatements and re-runs"), the gate check is `gate.refused_supersessions` and `gate.restatement_problems` (check 8, the store and the batch halves; tests in `tests/test_kg_gate.py` and `tests/test_cli_ingest.py`); no source emits a restatement today: upstream stores no amendments (`SPEC.md` §2.6, seventh reply) and `v_sec_filing_section` names no replacement, so T-031 carries no lane for it, and a projector rule is a new task if upstream starts storing amendments; the text below is the original task)* Decide and implement `:supersededBy` semantics for a
       restatement. → step 3.
       - **Decided** (the maintainer, 2026-10-12). A correction that becomes known on a later day is a new
         individual in a new dated graph, and the old one points at it with `:supersededBy`; the old one
