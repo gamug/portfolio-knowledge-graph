@@ -240,6 +240,30 @@ user list was not inspected, so no cause is claimed; nothing in the repository c
    them the scratch-repository tests skip instead of passing. Afterwards the server listed only `portfolio`, so no
    `kgtest-…` repository was left behind.
 
+### Reloading after T-185 (T-193 and T-186, 2026-10-12)
+
+T-185 (PR #94) put one triple in `urn:graph:tbox` (1569 to 1570; 2549 to 2550 over the 19 graphs), so the store was
+one behind `schema/`. Written after the maintainer's go-ahead, by a Claude Code session they asked to run it, once
+they had brought the database back up (the first attempt could not reach the server: `Network is unreachable`).
+Run from `master` at `fad9196`.
+
+1. `uv run python cli/verify_store.py` before: five of the six checks passed; "schema graphs have their expected size"
+   failed with `urn:graph:tbox: expected 1570, store has 1569`, as expected.
+2. `uv run python cli/load_schema.py`: exit 0, `verified: 19 graphs, 2550 asserted triples match the local parse`.
+3. `uv run python cli/verify_store.py` after: exit 0, all six checks pass, the probe's "store size unchanged"
+   reads 2550:
+   - PASS SPARQL query returns real results (5 assets, first `:AAPL`)
+   - PASS malformed write rejected by the gate (`:timestamp minCount`; store size unchanged at 2550)
+   - PASS reasoning profile matches 07 (`rdfsplus-optimized`, `disableSameAs` true; 41 inferred `:Observation`, 0 asserted)
+   - PASS schema graphs have their expected size (19 graphs)
+   - PASS every `:agentOrigin` is single and in the shape's list
+   - PASS the quant batch passes beside the stored Portfolios (3 stored individuals)
+
+T-186 asked for these six lines from the live store (T-181's sixth check reads stored string literals through
+`GraphDB._term`). The sixth line is the proof: that check fails when the store writes a string in a form
+`select_terms` does not read as equal to `"BENCHMARK"` (`acceptance.check_quant_batch`), and it passed. They are
+the record, and T-186 is done.
+
 ## Connecting
 
 Variables are documented in [`.env.example`](../.env.example); real values live in the gitignored
