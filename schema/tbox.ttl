@@ -362,7 +362,7 @@
 :filingOfAsset a owl:ObjectProperty, owl:FunctionalProperty ; rdfs:domain :SECFiling ; rdfs:range :Asset .
 
 :supersededBy a owl:ObjectProperty, owl:FunctionalProperty ; rdfs:domain :SECFilingSection ; rdfs:range :SECFilingSection ;
-    rdfs:comment "Points from an original section to its corrected/restated replacement. The named-graph the replacement lands in carries the new transaction-time; both stay queryable (closes critique #8, worked example in instances.trig)." .
+    rdfs:comment "Points from an original section to its corrected/restated replacement. The named-graph the replacement lands in carries the new transaction-time; both stay queryable (closes critique #8, worked example in instances.trig). A section is superseded once, by a new section of the same itemLabel declared in the same batch (T-032; the ingest gate's check 8); the sections not superseded are the current ones. See 07-ontology-topology.md, Restatements and re-runs." .
 
 :holdsPosition a owl:ObjectProperty ; rdfs:domain :Portfolio ; rdfs:range :PortfolioPosition .
 :positionAsset a owl:ObjectProperty, owl:FunctionalProperty ; rdfs:domain :PortfolioPosition ; rdfs:range :Asset .

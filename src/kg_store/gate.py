@@ -52,7 +52,9 @@ source, read once per process. ``cli/load_schema.py`` is what brings the store's
 in line; reload after a schema edit.
 
 Limit: this is a code path, not a server-side lock: two batches closing the same record, or
-declaring the same individual, can both pass checks 6 and 7 before either is written; so can a sighting
+declaring the same individual, can both pass checks 6 and 7 before either is written; so can two batches
+restating the same stored section (check 8), leaving it with two ``:supersededBy`` values, which the
+functional property forbids and nothing at the read boundary catches; so can a sighting
 and the clearing of the same Veto, leaving a ``lastSeenOn`` after its ``clearedOn`` (T-192's check at the read
 boundary is what catches it). A client
 holding the GraphDB write credentials can still write around it; run ingestion through this module.

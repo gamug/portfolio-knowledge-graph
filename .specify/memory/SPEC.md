@@ -1065,17 +1065,17 @@ treating a related FR/NR as done:
     their projections, reported as lost until then). In every other graph (dated by
     the data: ORCHESTRATOR by `cycleDate`, FUNDAMENTAL by quarter, universe,
     EDGAR, quant, entity resolution) it is lost for that date, since the ingest
-    gate never appends to an existing append-only graph. (T-032, the maintainer's
-    decision of 2026-10-12: where a graph's date can be the day the correction
-    became known (the graphs dated by ingestion, and EDGAR, whose restatement is
-    dated by its own filing) a correction is a new individual in a new graph, a
-    `SECFilingSection` linked to the one it replaces by `:supersededBy`, which the
-    gate checks, and every other observation read as the latest `timestamp` with
-    `availableAt <= D`; in the graphs dated by the data it stays lost for that
-    date, as above; a second run on the day a graph
-    dated by ingestion was written replaces that graph, decided but not built,
-    T-195, so until it lands the gate's refusal above stands for every graph.) The run stops when a
-    view's quarantined share exceeds its cap (per view, default 0, T-162). Rows
+    gate never appends to an existing append-only graph. Restatements (T-032, the
+    maintainer's decision of 2026-10-12) work only where a graph's date can be the day a
+    correction became known: the graphs dated by ingestion, and EDGAR, whose restatement is
+    dated by its own filing. There a correction is a new individual in a new graph; a
+    `SECFilingSection` is linked to the one it replaces by `:supersededBy`, which the gate
+    checks, and every other observation is read as the latest `timestamp` with
+    `availableAt <= D`. In the other graphs dated by the data (ORCHESTRATOR, FUNDAMENTAL,
+    universe, quant, entity resolution) a late row stays lost for that date, as above.
+    A second run on the day a graph dated by ingestion was written replaces that graph: decided
+    but not built (T-195), so until it lands the gate's refusal above stands for every graph.
+    The run stops when a view's quarantined share exceeds its cap (per view, default 0, T-162). Rows
     skipped by design are counted, not failed. `src/projection/boundary.py`
     runs them over the rows read (T-163: `check_source`, then `validate`, which
     returns the surviving rows and a report, or raises `BoundaryError`; it
