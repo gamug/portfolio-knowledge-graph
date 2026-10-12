@@ -490,7 +490,7 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       is not a precondition of this task. It is unique in the pilot and will be in their T-100 rebuild; no
       constraint enforces it today, but their T-145 adds a uniqueness check to their pilot
       verifier. → step 3.
-      The dates of their T-145 and T-100 are asked in T-184 and recorded by T-191 (5).
+      Their T-145 and T-100 dates (T-191 (5), `SPEC.md` §2.6 seventh reply): weeks, not days; the final pilot T-143 and T-100 come last.
 - [ ] **T-152** Model `v_fundamental_metric`: one immutable observation per (filing, metric, engine
       version) with its asset, filing, metric group and name, value, `engineVersion`, and its own
       event-time and available-at properties (not `:eventTime`/`:availableAt`: their
@@ -524,7 +524,7 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       `v_media_cooccurrence_edge` exists (after upstream's T-082); do not read `first_seen`/
       `last_seen` until upstream fills them. `computed_at` is written `+00:00`: parse that form and
       `Z`. The `MEDIA` view and the edge dates come after their T-100. → step 3.
-      The dates of their T-145 and T-100 are asked in T-184 and recorded by T-191 (5).
+      Their T-145 and T-100 dates (T-191 (5), `SPEC.md` §2.6 seventh reply): weeks, not days; the final pilot T-143 and T-100 come last.
 - [ ] **T-155** *(schema half done 2026-10-07 in PR #58: the two shape bounds, every comment and doc listed under "Unblocked now"; open: the projection, which waits on T-031, T-121, T-157)* Project `v_cycle_ranking` as `AttractivenessSnapshot`s, keeping only
       `status = 'completed'` and non-REPLAY runs: `attractivenessScore` = `blended_score / 100`
       (second reply: 0-100 points, higher = more attractive, minus the SOFT penalty, so it
@@ -617,7 +617,7 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       Sign-off, item by item: the pin (read and unread columns), the floor, `contract_version`, the drift
       check against the commit, the expectations files, the `SPEC.md` §2.6 row.
       → step 4.
-      The database at the served version, and what version 12 changed, are asked in T-184 and recorded by T-191 (2).
+      The database at the served version, and what version 12 changed, are recorded by T-191 (2) (`SPEC.md` §2.6, seventh reply).
       **Run over the real file, 2026-10-12:** `PILOT_DB=<financial_pilot_v12.db> uv run pytest -m integration
       tests/test_expectations_real_file.py` runs each pinned view's rows through the shipped expectations:
       all 32 hold (it found `v_fundamental_metric`'s natural key was wrong; run it before every re-pin).
@@ -639,7 +639,7 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       11 (`portfolio-nlp` computes, `financial-analysis` materializes, this repo stops writing).
       Ask them to confirm which reading their T-141 doc fix will state, and record the answer in D14
       before the method value is adopted. → step 4.
-      The dates of their T-145 and T-100 are asked in T-184 and recorded by T-191 (5).
+      Their T-145 and T-100 dates (T-191 (5), `SPEC.md` §2.6 seventh reply): weeks, not days; the final pilot T-143 and T-100 come last.
 - [ ] **T-159** Verify: FR-001 parse + `pyshacl` pass after T-151–T-156, T-171, with
       `schema/README.md`, `docs/06` and `docs/07` counts in sync (NR-001), `docs/07`'s named-graph
       table listing every new class, and no doc left describing the blend as computed here (T-155);
@@ -722,8 +722,8 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       rules, the existing five included (T-189 sums them); (c) the date the redefinition applies from and what the
       old definition's stints keep (T-187); (d) whether an expired stint (`expires_on`) is cleared by them or only
       by its date (T-188); (e) whether `expires_on` is ever set on a SOFT stint. (5) When their T-145 and T-100 land (T-151, T-154, T-158).
-      **On sending**, write the date sent and the cut-off date for T-191's no-reply exit in this note, and change
-      `SPEC.md` §2.6's "To ask" to "Asked on <date>".
+      **On sending** *(done: sent 2026-10-11; no cut-off date needed, since the reply came the same day; `SPEC.md`
+      §2.6 now says "Asked on 2026-10-11")*.
       -> `PLAN.md` Work item 15.
 - [ ] **T-191** *(the answers to T-184's letter; asks (1) to (5) answered and recorded in `SPEC.md` §2.6 (seventh reply, 2026-10-11); open only for ask (6), which was not in the letter)* When
       the reply comes, record it in `SPEC.md` §2.6 as the seventh reply and tick each ask below as it is
@@ -775,7 +775,7 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       `SPEC.md` §2.6. When it lands, the live store is reloaded from `schema/` (the maintainer's go-ahead; the check in T-176 compares each graph's size with `schema/`) and a dated row goes in `docs/graphdb-setup.md`, as T-179 did. The active-at-cutoff SPARQL (D3) gains the `expiresOn` test only if upstream says the date
       closes a stint by itself. Synthetic cases (before `raisedOn` fails; absent passes). Follow T-185's decision (the maintainer's, 2026-10-11, PR #94), which put the same check in `VetoShape` (for a Veto declared with the date) and in the gate (for a stored Veto closed later). `expiresOn` is set when the Veto is declared, not by a later triple, so the shape is the one that applies; the gate only if upstream says the date closes a stint by itself. A `feat/` PR.
       -> `PLAN.md` Work item 15.
-- [ ] **T-189** *(from T-183 (4))* Read the SOFT penalty as the sum of the active SOFT stints' rules'
+- [ ] **T-189** *(from T-183 (4); after T-187, which adds the `penaltyPoints` property it sums)* Read the SOFT penalty as the sum of the active SOFT stints' rules'
       `penalty_points` (T-155's note already says so, from T-183); the projector derives no pre-penalty score.
       `:softVetoPenalty`'s `tbox.ttl` comment says the flat 15 applies to runs before version 11, and the three
       other places that say "15 points each" follow: `docs/06`, `shapes.ttl` (the `AttractivenessSnapshotShape`
@@ -875,7 +875,7 @@ Work item 15 (T-150–T-159, T-170–T-173, T-177–T-178, T-182–T-184, T-187�
 T-151's rule recorded (PR #60), its checks waiting on T-031/T-163; T-158's
 ownership question (before their T-141) is unblocked; the rest of T-152–T-158 waits on upstream's
 T-144 (views), T-145 (ids), T-074 (flags) and, after their T-100, their T-082 and their Work item 4.
-Work item 15, from the sixth reply: T-182 (the analysis run's year bounds read as filing years) is done; T-183 (the decisions on version 11's content) is done, with T-187 (the rules and `penaltyPoints`), T-188 (`expiresOn`), T-189 (the penalty identity) and T-190 (the three-component scheme) filed; T-184 (the next letter to upstream) is written and open until the maintainer sends it, and T-191 records the answers when they come.
+Work item 15, from the sixth reply: T-182 (the analysis run's year bounds read as filing years) is done; T-183 (the decisions on version 11's content) is done, with T-187 (the rules and `penaltyPoints`), T-188 (`expiresOn`), T-189 (the penalty identity) and T-190 (the three-component scheme) filed; T-184 (the next letter to upstream) was sent on 2026-10-11 and answered the same day (the seventh reply, recorded by T-191 asks (1) to (5), T-187 and T-188 unblocked; ask (6) is still to ask).
 Work item 16 (T-160–T-165, T-192): T-160 done (plain checks, quarantine-with-cap), T-161 closed with it (no dependency) and T-162 done (JSON files per view, strict loader);
 T-163 (function done, PR #68) closes with T-031, whose first slice (PR #72) calls it on the real read and re-reads the late keys for `v_score_snapshot`; T-164 done (PR #69).
 Work item 8 (T-070–T-071) is independent but needs a human at a Protégé
