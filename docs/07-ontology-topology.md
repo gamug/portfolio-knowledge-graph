@@ -47,6 +47,7 @@ precise than this section's earlier framing of a graph-level `supersededBy` meta
 is tracked at the individual level, and no separate metadata graph is needed at all. Both versions
 stay queryable; only the "current best understanding" view filters to the latest non-superseded
 section. Worked example (JNJ's Item 1A, original + restated) in `schema/instances.trig`.
+Scope, the gate's check 8 and why no source emits a restatement today: see "Restatements and re-runs" below (T-032).
 
 **Restatements and re-runs (T-032, decided 2026-10-12).** Two cases look alike and are handled
 differently:
