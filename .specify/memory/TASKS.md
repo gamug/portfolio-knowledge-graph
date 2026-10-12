@@ -591,8 +591,10 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       and write the upstream `contract_version` the pin was built against beside it (the key and its
       checks are T-178, done; T-173's guard compares against it),
       and run `cli/check_view_contract.py` against that commit, or the T-135 test
-      (`PFA_CHECKOUT=<checkout> uv run pytest -s -m integration tests/test_contract_check_checkout.py`);
-      without CI nothing forces either. Repeat for
+      (`PFA_CHECKOUT=<checkout> uv run pytest -s -m integration tests/test_contract_check_checkout.py`),
+      which checks the pin against upstream's code; and run the expectations over the database's rows
+      (`PILOT_DB=<db> uv run pytest -s -m integration tests/test_expectations_real_file.py`, added in
+      PR #97), which checks them against upstream's data; without CI nothing forces any of them. Repeat for
       `v_media_cooccurrence_edge`. Pin their T-144's `v_cycle_ranking_component` too. Every contract
       change carries a marker migration, so each raises the floor; repeat for their T-145.
       Version 11's content (T-183): the re-pin reads `v_veto.expires_on`, `penalty_points` on
@@ -619,6 +621,9 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       **Run over the real file, 2026-10-12:** `PILOT_DB=<financial_pilot_v12.db> uv run pytest -m integration
       tests/test_expectations_real_file.py` runs each pinned view's rows through the shipped expectations:
       all 32 hold (it found `v_fundamental_metric`'s natural key was wrong; run it before every re-pin).
+      **Owed again:** when upstream's final pilot (T-143) arrives it has the version-11 columns filled and
+      the new rules in `v_rule_catalog`; a second re-pin and a second real-file run are due then, and the
+      `expires_on` and `penalty_points` expectations become testable. Not a task yet.
       **Sign-off, 2026-10-12:** the floor is 12, upstream's version, as in every re-pin (`m012` adds triggers, no
       columns). Open: run
       `cli/check_view_contract.py` against upstream's checkout at `6a80ec3`. Also open (not

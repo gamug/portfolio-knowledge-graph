@@ -1036,7 +1036,9 @@ treating a related FR/NR as done:
     pin (`src/projection/view_contract.py`) and `cli/check_view_contract.py`,
     which fails on a removed column or view against an upstream checkout
     (§2.6). It runs manually today. T-135 (decided 2026-10-08) added an `integration` test (`PFA_CHECKOUT`; manual, no CI)
-    of it against an upstream checkout, not a check by the projector; T-173 asks upstream for a
+    of it against an upstream checkout, not a check by the projector, and T-157 (PR #97) added a second
+    (`PILOT_DB`; manual) that runs the shipped expectations over a real database's rows: the first
+    covers the pin against upstream's code, the second the expectations against upstream's data; T-173 asks upstream for a
     contract endpoint in its FastAPI (metadata only), which would let the check run against a URL.
     No cross-repo schema generation is planned.
     **Row-level validation (T-160, decided 2026-10-07):** plain checks, no
