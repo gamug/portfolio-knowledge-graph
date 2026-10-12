@@ -114,7 +114,8 @@ nothing written:
    dates (one `sh:lessThanOrEquals`). A later cycle appends its `:lastSeenOn` to a
    stored Veto (T-194): the Veto must be stored and not cleared, the date not before it was raised, later
    than its latest sighting (an equal date is a replay and is refused) and not after the `:clearedOn` the
-   same batch gives it, one date per batch. The gate does not restrict the graph a sighting goes to (the closing is
+   same batch gives it, one date per batch. The gate does not enforce the spacing between cycles (at least
+   15 days): a sighting one day after the last passes. The gate does not restrict the graph a sighting goes to (the closing is
    the same); Vetoes live in the ORCHESTRATOR graphs.
 
 What is written is the validated triples as N-Triples, not the submitted text. `--check` runs
