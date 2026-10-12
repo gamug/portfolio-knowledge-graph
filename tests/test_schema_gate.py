@@ -241,11 +241,8 @@ def test_a_weight_component_may_omit_inverted(bundle: rdflib.Dataset, shapes: rd
 
 # --- how many components a scheme weighs (T-190) -----------------------------------------------
 
-_NEW_RUN = (
-    "ScoreFinanciero",
-    "ScoreCuantitativo",
-    "ScoreTecnico",
-)  # FUNDAMENTAL, VALORIZATION, TECHNICAL
+# FUNDAMENTAL, VALORIZATION, TECHNICAL
+_NEW_RUN = ("ScoreFinanciero", "ScoreCuantitativo", "ScoreTecnico")
 
 
 def _weighing(bundle: rdflib.Dataset, names: tuple[str, ...]) -> rdflib.Graph:
@@ -276,6 +273,13 @@ def test_a_scheme_weighing_one_to_four_score_types_conforms(
     bundle: rdflib.Dataset, shapes: rdflib.Graph, names: tuple[str, ...]
 ) -> None:
     assert _violations(_weighing(bundle, names), shapes) == set()
+
+
+def test_the_shape_neither_sums_the_weights_nor_rejects_a_repeated_name(
+    bundle: rdflib.Dataset, shapes: rdflib.Graph
+) -> None:
+    """Neither is checked at the gate: two ``ScoreFinanciero`` components of 0.25 sum to 0.5 and conform."""
+    assert _violations(_weighing(bundle, ("ScoreFinanciero", "ScoreFinanciero")), shapes) == set()
 
 
 def test_a_scheme_weighing_nothing_is_caught(bundle: rdflib.Dataset, shapes: rdflib.Graph) -> None:

@@ -163,12 +163,13 @@ what the store *enforces*.
 
    **T-190 (2026-10-12: how many components a scheme weighs).** No shape change. A new run weighs three score
    types (upstream's FUNDAMENTAL, VALORIZATION and TECHNICAL, our `ScoreFinanciero`, `ScoreCuantitativo` and
-   `ScoreTecnico`); an earlier run weighed four, the SEMANTIC `Sentiment` as well.
+   `ScoreTecnico`); an earlier run weighed four, the SEMANTIC `Sentiment` as well (upstream's sixth reply, `SPEC.md` §2.6; T-183 (6)).
    `AttractivenessWeightSchemeShape` asks for at least one `:hasWeightComponent` and `WeightComponentShape` only that the
    name is one of the five listed, so both readings conform, and so does an asset that lacks a component in a
-   three-type run (T-155). Six cases in `tests/test_schema_gate.py`: three, four, two and one components conform;
-   none fails on the scheme; a name outside the five fails on the component. The projection (T-121's data half)
-   writes whatever components the run has. **2550 quads, unchanged.**
+   three-type run (T-155). Seven cases in `tests/test_schema_gate.py`: three, four, two and one components conform;
+   none fails on the scheme; a name outside the five fails on the component. The shape does not sum the weights
+   or reject a repeated name (a seventh case pins it, so "three or four components" is not read as "one per score type, adding to 1").
+   The projection (T-121's data half) writes whatever components the run has. **2550 quads, unchanged.**
 
    **T-151, the rule half (Work item 15, 2026-10-07).** Upstream can reuse a run id after a deletion, so
    `:runId` (`<run table>:<id>`) is not unique on its own. Its comment in `tbox.ttl` now says it is

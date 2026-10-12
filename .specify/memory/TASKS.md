@@ -807,7 +807,7 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       other places that say "15 points each" follow: `docs/06`, `shapes.ttl` (the `AttractivenessSnapshotShape`
       comment) and `schema/README.md`. Needs T-187's `:penaltyPoints`. Docs and a
       comment; the check itself is T-155's test. -> `PLAN.md` Work item 15.
-- [x] **T-190** *(from T-183 (6); done 2026-10-12: six cases in `tests/test_schema_gate.py` (three, four, two and one components conform; none fails on the scheme; a name outside the five fails on the component), the statement in `docs/06` and `schema/README.md`, no shape change; the text below is the original task)* `WeightComponentShape` already counts no components (a scheme needs at least
+- [x] **T-190** *(from T-183 (6); done 2026-10-12: seven cases in `tests/test_schema_gate.py` (three, four, two and one components conform; a repeated name and weights that do not sum to 1 conform too; none fails on the scheme; a name outside the five fails on the component), the statement in `docs/06` and `schema/README.md`, no shape change; the text below is the original task)* `WeightComponentShape` already counts no components (a scheme needs at least
       one), so the relaxed reading is a statement and a test, not a shape change: add synthetic cases (three
       components with no `Sentiment` conform; four conform; a name outside the five listed fails; and one or two components conform, since an asset can lack a component in a three-type run, T-155), and write in
       `docs/06` and `schema/README.md` that a new run weighs three score types (upstream's FUNDAMENTAL, VALORIZATION and TECHNICAL, which are our
