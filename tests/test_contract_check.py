@@ -122,7 +122,8 @@ def test_real_pin_is_well_formed() -> None:
 def test_real_pin_holds_the_version_12_views_and_appended_columns() -> None:
     """T-157: re-pinned against a version-12 database; columns upstream appended come last."""
     pin = view_contract.VIEW_COLUMNS
-    assert len(pin) == 32
+    assert "v_universe_membership" not in pin  # frozen upstream, never read (NOT_READ)
+    assert {"v_fundamental_metric", "v_cycle_ranking_component"} <= set(pin)
     assert pin["v_fundamental_metric"][-1] == "run_id"
     assert pin["v_cycle_ranking_component"] == (
         "cycle_run_id",

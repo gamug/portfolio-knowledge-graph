@@ -618,8 +618,8 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       The database at the served version, and what version 12 changed, are asked in T-184 and recorded by T-191 (2).
       **Sign-off, 2026-10-12:** the floor is 12, upstream's version, as in every re-pin (`m012` adds triggers, no
       columns). Open: run
-      `cli/check_view_contract.py` against upstream's checkout at `6a80ec3`, and pin
-      `penalty_points` and the new rule rows when upstream sends them (T-187, T-184 ask 4).
+      `cli/check_view_contract.py` against upstream's checkout at `6a80ec3`. The
+      rule content (`penalty_points`, the new rules) is not in this file; it is T-187's work.
 - [ ] **T-158** Replace the `ASSET_DAY_AGGREGATE` placeholder with upstream's SEMANTIC
       `score_method` value once they give it (D14; with their Work item 4, after their T-100).
       **First, raise the ownership disagreement (unblocked now; ask before their T-141 ships its
