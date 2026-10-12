@@ -5,9 +5,10 @@ other test builds its rows in memory, so none of them can tell that an expectati
 what upstream really writes (T-157: a natural key of ``metric_id`` alone, which repeats on every
 filing, passed 670 tests and stopped the real file). Run it before every re-pin and note the
 result in the PR; nothing runs it for you (no CI, constitution Code & Git #1). The file is opened
-read-only.
+read-only. Add ``-s`` to see the file's ``schema_version`` and SHA-256.
 """
 
+import hashlib
 import os
 import sqlite3
 from pathlib import Path
@@ -15,11 +16,26 @@ from typing import Any
 
 import pytest
 
-from projection.boundary import validate
-from projection.expectations import load_expectations
+from projection.boundary import check_source, validate
+from projection.expectations import load_expectations, load_source
+from projection.source import FinancialSource
 from projection.view_contract import VIEW_COLUMNS
 
 ENV_VAR = "PILOT_DB"
+
+
+def _pilot() -> Path:
+    value = os.environ.get(ENV_VAR)
+    if not value:
+        pytest.skip(f"{ENV_VAR} is not set")
+    path = Path(value)
+    if not path.is_file():  # a typo must not read as "1 skipped"
+        pytest.fail(f"{ENV_VAR}={value} is not a file")
+    return path
+
+
+def _connect(path: Path) -> sqlite3.Connection:
+    return sqlite3.connect(f"{path.resolve().as_uri()}?mode=ro", uri=True)
 
 
 def _rows(conn: sqlite3.Connection, view: str) -> list[dict[str, Any]]:
@@ -29,16 +45,33 @@ def _rows(conn: sqlite3.Connection, view: str) -> list[dict[str, Any]]:
 
 
 @pytest.mark.integration
+def test_the_file_is_at_or_above_the_floor_and_has_no_forbidden_run() -> None:
+    path = _pilot()
+    source = FinancialSource.open(path)
+    try:
+        digest = hashlib.sha256(path.read_bytes()).hexdigest()
+        print(f"\n{path.name}: schema_version {source.schema_version}, sha256 {digest}")
+        assert check_source(source, load_source()) == []
+    finally:
+        source.close()
+
+
+@pytest.mark.integration
 @pytest.mark.parametrize("view", sorted(VIEW_COLUMNS))
 def test_the_shipped_expectations_hold_over_the_real_rows(view: str) -> None:
-    value = os.environ.get(ENV_VAR)
-    if not value:
-        pytest.skip(f"{ENV_VAR} is not set")
-    path = Path(value)
-    if not path.is_file():  # a typo must not read as "1 skipped"
-        pytest.fail(f"{ENV_VAR}={value} is not a file")
-    expectations = load_expectations()
-    with sqlite3.connect(f"{path.resolve().as_uri()}?mode=ro", uri=True) as conn:
+    path = _pilot()
+    with _connect(path) as conn:
         rows = _rows(conn, view)
-    result = validate({view: rows}, {view: expectations[view]})  # raises BoundaryError on a stop
+    result = validate({view: rows}, {view: load_expectations()[view]})  # raises on a stop
     print(f"\n{view}: {len(rows)} rows, {len(result.rows[view])} kept")
+
+
+@pytest.mark.integration
+def test_all_pinned_views_validate_together_so_the_cascades_run() -> None:
+    path = _pilot()
+    expectations = load_expectations()
+    with _connect(path) as conn:
+        rows = {view: _rows(conn, view) for view in sorted(VIEW_COLUMNS)}
+    result = validate(rows, expectations)
+    assert not result.report.quarantined
+    assert not result.report.inactive
