@@ -173,6 +173,13 @@ what the store *enforces*.
    `(cycle_run_id, score_type)`, so the row is quarantined before any triple is built), and nothing sums the weights
    (it checks each in 0 to 1).
    The projection (T-121's data half) writes whatever components the run has. **2550 quads, unchanged.**
+   **T-032 (Work item 4, 2026-10-12: how a restatement is written).** Comment only: `:supersededBy`'s comment in
+   `tbox.ttl` now says a section is superseded once, by a new section of the same `itemLabel` declared in the same
+   batch (the ingest gate's check 8), and that the sections not superseded are the current ones. No shape or
+   property change. `kg_target_schema.ttl` does not carry `:supersededBy`, so it has no twin to update, and
+   `protege-view.ttl` (generated) keeps the old comment until T-070 regenerates it. The rule is in `07`
+   ("Restatements and re-runs"); the live store's copy of that one literal differs until the next reload, and
+   `verify_store`'s size check still passes. **2550 quads, unchanged.**
 
    **T-151, the rule half (Work item 15, 2026-10-07).** Upstream can reuse a run id after a deletion, so
    `:runId` (`<run table>:<id>`) is not unique on its own. Its comment in `tbox.ttl` now says it is

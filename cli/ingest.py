@@ -5,8 +5,8 @@
     python cli/ingest.py batch.ttl --graph urn:graph:ingest:SEMANTIC:2026-08-06 --check
 
 ``--check`` validates without contacting the store (so it cannot see an existing graph or individual,
-the individuals the batch points at without declaring them, or what a closing ``:validTo`` /
-``:clearedOn`` closes). Exit status is 0 when the batch was
+the individuals the batch points at without declaring them, what a closing ``:validTo`` /
+``:clearedOn`` closes, or whether a stored section a ``:supersededBy`` restates is still current). Exit status is 0 when the batch was
 accepted (or would be), 2 when it was rejected, 1 on any other error. See
 ``kg_store.gate`` for what is checked.
 """
@@ -28,6 +28,7 @@ from kg_store.gate import (
     load_gate_schema,
     parse_batch,
     references,
+    superseded_sections,
     validate,
 )
 from kg_store.graphdb import GraphDB, GraphDBError, schema_dir
@@ -62,6 +63,12 @@ def main(argv: list[str] | None = None) -> int:
                 print(
                     "note: the batch closes stored records or adds sightings to them; --check cannot "
                     "verify they exist, are open and opened earlier",
+                    file=sys.stderr,
+                )
+            if superseded_sections(batch):
+                print(
+                    "note: the batch restates stored sections; --check cannot verify they are stored, "
+                    "not yet superseded and carry the same item label",
                     file=sys.stderr,
                 )
         else:

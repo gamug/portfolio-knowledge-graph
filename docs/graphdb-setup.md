@@ -117,19 +117,35 @@ nothing written:
    same batch gives it, one date per batch. The gate does not enforce the spacing between cycles (at least
    15 days): a sighting one day after the last passes. The gate does not restrict the graph a sighting goes to (the closing is
    the same); Vetoes live in the ORCHESTRATOR graphs.
+8. a restatement (`:supersededBy`, T-032) points from a `SECFilingSection`, stored or declared in the
+   batch, to a `SECFilingSection` the same batch declares, with the same `:itemLabel` when both have
+   one (no shape requires it, so an unlabelled section is not compared). A batch gives a section one
+   replacement, a new section replaces one section, a section does not replace itself and no chain in
+   the batch loops; the batch alone decides these, so `--check` runs them too. A stored section already
+   superseded is not superseded again (the next correction replaces the latest section); the store is
+   read for the old section's class, label and any `:supersededBy` it holds, in any graph. So each
+   item's restatements form one chain with one current section. Limits: the label is the only tie
+   between the two, and nothing checks that they belong to the same asset; and the gate does not
+   restrict the graph a restatement goes to (`docs/07` scopes the rule to the graphs dated by ingestion
+   and EDGAR), because it checks the restatement, not the lane.
 
 What is written is the validated triples as N-Triples, not the submitted text. `--check` runs
-checks 1, 3, 4 and 5 without contacting the store, so it cannot see an existing graph (check 2),
-an existing individual (check 6) or what a closing triple closes (check 7), and a batch that points
+checks 1, 3, 4 and 5 and the batch-only half of check 8 without contacting the store, so it cannot see an
+existing graph (check 2), an existing individual (check 6), what a closing triple closes (check 7) or
+whether a stored section a restatement replaces is current (check 8's other half), and a batch that points
 at individuals it does not declare fails check 5 under `--check` for want of what the store holds about them (the rejection says so).
 Validation reads `tbox.ttl` and `shapes.ttl` from `schema/` on disk (once per process); reload with
 `cli/load_schema.py` after a schema edit so the store's copy matches. Limits: this is a code path,
 not a server-side lock, so anyone holding the write credentials can still write around it; and the
-existence check and the write are two requests, so two simultaneous writers could both pass it.
+existence check and the write are two requests, so two simultaneous writers could both pass it; the same
+holds for check 8: two batches restating the same stored section can both pass "not yet superseded" and
+leave it with two `:supersededBy` values, which the functional property forbids and nothing at the read
+boundary catches.
 
 When `ingest` raises `WriteInDoubt` (the batch was sent and the store's answer was lost), look in
-the store before sending it again: if it landed, checks 6 and 7 refuse the second attempt (a closure
-says "already closed", with a note when the stored date is the batch's own).
+the store before sending it again: if it landed, checks 6, 7 and 8 refuse the second attempt (a closure
+says "already closed", with a note when the stored date is the batch's own; a restatement is refused
+by check 6, since its new section already exists, and by check 8, "already superseded by …").
 
 ## Acceptance check (T-025)
 

@@ -117,3 +117,20 @@ def test_a_refused_closure_exits_2_and_writes_nothing(
     main = _ingest_main(fake, monkeypatch)
     assert main([str(batch), "--graph", "urn:graph:universe:2026-Q1"]) == code
     assert len(fake.added) == (1 if holds else 0)
+
+
+def test_check_refuses_a_restatement_the_batch_alone_rules_out(tmp_path: Path) -> None:
+    """Check 8's store-free half runs under ``--check`` (T-032): a section replacing itself."""
+    result = _check(tmp_path, ":v1 :supersededBy :v1 .\n")
+    assert result.returncode == 2
+    assert "does not replace itself" in result.stderr
+
+
+def test_check_says_it_cannot_verify_the_stored_section_a_restatement_replaces(
+    tmp_path: Path,
+) -> None:
+    restated = ':v2 a :SECFilingSection ; :itemLabel "X" .\n:v1 :supersededBy :v2 .\n'
+    result = _check(tmp_path, restated)
+    assert result.returncode == 0, result.stderr
+    assert "restates stored sections" in result.stderr
+    assert "restates stored sections" not in _check(tmp_path, ":x a :Asset .\n").stderr

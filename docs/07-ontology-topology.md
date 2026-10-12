@@ -47,6 +47,39 @@ precise than this section's earlier framing of a graph-level `supersededBy` meta
 is tracked at the individual level, and no separate metadata graph is needed at all. Both versions
 stay queryable; only the "current best understanding" view filters to the latest non-superseded
 section. Worked example (JNJ's Item 1A, original + restated) in `schema/instances.trig`.
+Scope, the gate's check 8 and why no source emits a restatement today: see "Restatements and re-runs" below (T-032).
+
+**Restatements and re-runs (T-032, decided 2026-10-12).** Two cases look alike and are handled
+differently:
+
+- **A correction known on a later day** (a restated section; a cycle-lane score recomputed after its
+  graph was written) is new information and is kept: a new individual in a new dated graph, never an
+  edit. What links it to the old one depends on the class. A `SECFilingSection` uses `:supersededBy`,
+  which the gate checks (`graphdb-setup.md`, check 8): the old side is a stored or declared section not
+  yet superseded, the new side is a section of the same item that the same batch declares, a new
+  section replaces one section, no chain loops, and a second correction replaces the latest section,
+  not the first; so each item's restatements form one chain with one current section. Every other
+  observation (a `ScoreSnapshot` recomputed under a newer engine version, say) takes no link: readers
+  keep the latest `timestamp` among rows with `availableAt <= D` (the query in "Re-projection" below).
+  Both versions stay in the store and in the reasoner's view; "current" is a filter on the query, not a
+  place the old value is moved to. An as-of query for a day before the correction still sees the old
+  value. **Scope.** The correction can go into a new graph only where a graph's date can be the day the
+  correction became known: the graphs dated by ingestion (SEMANTIC, VALORIZATION, TECHNICAL, SECTOR), and
+  EDGAR, whose restatement is dated by its own filing. In every other graph dated by the data
+  (`ORCHESTRATOR` by `cycleDate`, `FUNDAMENTAL` by quarter, `derived:quant`, `derived:entity-resolution`,
+  `universe`) the graph for that date already exists when a late correction arrives, the gate refuses to
+  append to it, and the row is lost for that date and listed as lost (the FUNDAMENTAL row of the table
+  above; SPEC §13 item 10). This rule does not change that; a recomputed ranking snapshot or quant book
+  for a past cycle date is in the second group. **No source emits a restatement today:** upstream stores
+  no amendments (10-K/A and 10-Q/A are not stored; each period's values come from its original filing,
+  SPEC §2.6, seventh reply) and `v_sec_filing_section` has no column naming a replacement. The rule and
+  the gate's check 8 wait for one; if upstream starts storing amendments, a projector rule derives the
+  link, as a new task then.
+- **A second run for the same agent and day** is not new information: nothing was believed in
+  between. It replaces that day's graph instead of adding a second set of rows. This is decided but
+  not built (T-195), and only for the graphs dated by ingestion (SEMANTIC, VALORIZATION, TECHNICAL,
+  SECTOR; `ORCHESTRATOR` is dated by `cycleDate`): until it lands, the gate refuses
+  the second write ("already exists and is append-only") and the first stays.
 
 > **As-of reads (T-101).** The graph date is the ingest batch, not the usable date. `ScoreSnapshot.availableAt` is the look-ahead guard: as-of-D queries over `ScoreSnapshot`s filter `availableAt <= D`, never `eventTime` or `timestamp`. `SectorAggregateSnapshot` and `AttractivenessSnapshot` are same-cycle derived outputs with no separate clock: they are usable from the date of their `timestamp`/`computedAt`.
 >

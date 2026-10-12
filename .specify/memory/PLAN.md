@@ -257,8 +257,14 @@ architecture, and not partitioned for the bitemporal audit trail
    validated per row/batch against `shapes.ttl` on the way in — not a
    post-hoc sample check like today's `_shacl_check`/`_validate_sample`.
 3. Decide `:supersededBy` semantics for a restatement (a corrected upstream
-   value arriving after the original graph was written) — `07`'s bitemporal
-   design implies this but no code exists yet.
+   value arriving after the original graph was written) — done 2026-10-12 (T-032):
+   a correction known on a later day is a new individual in a new dated graph, linked by
+   `:supersededBy` for a `SECFilingSection` (the gate's check 8) and by the latest-`timestamp`
+   read for every other observation; only for the graphs whose date can be the day the correction
+   became known (dated by ingestion, and EDGAR); in a graph dated by the data (ORCHESTRATOR,
+   FUNDAMENTAL, quant, entity resolution, universe) a late correction is still lost for that date
+   (SPEC §13 item 10); a second run for the same agent and day replaces that day's dated graph
+   (decided, T-195, not built). The rule is in `07` ("Restatements and re-runs").
 4. Retire or fold in today's `src/etl/` shortcut once the real projection
    covers at least the SEMANTIC lane it currently handles (see Work item 5)
    — don't run both indefinitely as parallel, divergent code paths.
@@ -578,14 +584,19 @@ new acceptance probe; and `acceptance.check_gate` counts violations by matching 
    `last_seen_on` on the clearing cycle, to be asked of upstream (listed in T-191). The gate appends a later cycle's `lastSeenOn`
    to a stored Veto that is not cleared, on a date not before it was raised and later than its latest sighting (done, T-194, PR #96). The store reload after the `shapes.ttl` change (T-193) was the maintainer's, as T-179 was: done 2026-10-12, the store holds 2550 triples and
    `verify_store` passes (`docs/graphdb-setup.md`).
+11. A same-day re-run replaces its graph (T-195, from T-032, the maintainer's decision of 2026-10-12, PR #102). The gate
+   refuses a graph that exists (check 2), which is right for a correction known on a later day (T-032: a new individual
+   in a new graph) but wrong for a second run on the day the graph was written. Only the graphs dated by ingestion
+   (`ingest:{SEMANTIC|VALORIZATION|TECHNICAL|SECTOR}:{date}`); check 6 then reads the store minus the graph being
+   replaced. Waits on the maintainer's constitution exception (invariant 1 and `docs/07`'s "Append-only").
 
 **Acceptance**: FR-001 parse + `pyshacl` pass with the new count; the store acceptance probe still
 yields exactly one violation (`:timestamp`); T-141's run is recorded in `docs/graphdb-setup.md` (done); T-142's
 `check_gate` does not depend on pyshacl's report wording; T-146 dropped the three strict `xfail`s in
 `tests/test_kg_gate.py` (done); T-174 leaves every graph of the store at its expected size with no leftover;
-T-176's `verify_store` fails on a stale or doubled store (it would have failed on the store before T-174; the fake-store tests show it) and exits 0 on a healthy one (done: the live store passes); T-175's tests pass or skip; T-179 leaves the live store at `schema/`'s 2549 triples with `verify_store` exiting 0 (done). T-146 leaves the gate accepting every worked-example graph beside what the store holds about the individuals it points at, with the three `xfail`s gone and `--check` saying why it cannot resolve them (done); T-180 (done) makes it refuse a closing triple whose subject is not a stored record (or Veto) or is already closed, and T-181 (done) keeps a stored literal's datatype in the context, so a literal of the wrong datatype fails its shape. T-185 (done) refuses a clearing earlier than a sighting at the gate and in `VetoShape`; the store is back at `schema/`'s count after T-193 (done: 2550 triples), so `verify_store` exits 0 again.
+T-176's `verify_store` fails on a stale or doubled store (it would have failed on the store before T-174; the fake-store tests show it) and exits 0 on a healthy one (done: the live store passes); T-175's tests pass or skip; T-179 leaves the live store at `schema/`'s 2549 triples with `verify_store` exiting 0 (done). T-146 leaves the gate accepting every worked-example graph beside what the store holds about the individuals it points at, with the three `xfail`s gone and `--check` saying why it cannot resolve them (done); T-180 (done) makes it refuse a closing triple whose subject is not a stored record (or Veto) or is already closed, and T-181 (done) keeps a stored literal's datatype in the context, so a literal of the wrong datatype fails its shape. T-185 (done) refuses a clearing earlier than a sighting at the gate and in `VetoShape`; the store is back at `schema/`'s count after T-193 (done: 2550 triples), so `verify_store` exits 0 again. T-194 (done, PR #96) appends a later cycle's `lastSeenOn` to a stored open Veto. T-195 (open, after the maintainer's constitution exception) lets a re-run for the same agent and day replace that day's graph; it refuses a past day's graph and one another graph points into, and check 6 reads the store minus the replaced graph.
 
-**Blocked on**: nothing; T-186 (the live `verify_store` run for T-181's new check) and T-193 (the store reload after T-185's shape) are done, 2026-10-12. T-194 (append a `lastSeenOn` to a stored Veto, PR #96) is done.
+**Blocked on**: T-195 only, which waits on the maintainer's constitution exception (step 11); T-186 (the live `verify_store` run for T-181's new check) and T-193 (the store reload after T-185's shape) are done, 2026-10-12. T-194 (append a `lastSeenOn` to a stored Veto, PR #96) is done.
 
 ## Work item 15 — Adopt upstream's `v_*` contract changes (replies of 2026-10-05, 2026-10-06 and 2026-10-09)
 
@@ -1049,7 +1060,7 @@ Work item 7 (orchestrator)         — decided: delegate to financial-analysis `
 Work item 8 (protege-view.ttl) — independent, manual, land whenever convenient
 Work item 13 (pytest suite) — independent; rules in constitution 1.5.0, T-130–T-134 and T-136 done (PR #64);
   T-135 done (its `integration` test)
-Work item 14 (PR #48 follow-ups) — independent; T-140, T-141 and T-142 done, T-174 (store schema) done, T-176 (the two `verify_store` checks) done, T-175 (CLI exit-code tests) done; T-179 (the store reload after T-177) done; T-146 (gate vs. the worked example's batches) done; T-180 (closing triples checked against the store) done; T-181 (`select_terms` keeps the term type) done; T-185 (a Veto's `clearedOn` against its `lastSeenOn`) done; T-192 (the same check at the read boundary, Work item 16) open; T-193 (reload the store after T-185's shape, the maintainer's) done; T-194 (append a `lastSeenOn` to a stored Veto, PR #96) done; T-186 (live `verify_store` run, the maintainer's) done
+Work item 14 (PR #48 follow-ups) — independent; T-140, T-141 and T-142 done, T-174 (store schema) done, T-176 (the two `verify_store` checks) done, T-175 (CLI exit-code tests) done; T-179 (the store reload after T-177) done; T-146 (gate vs. the worked example's batches) done; T-180 (closing triples checked against the store) done; T-181 (`select_terms` keeps the term type) done; T-185 (a Veto's `clearedOn` against its `lastSeenOn`) done; T-192 (the same check at the read boundary, Work item 16) open; T-193 (reload the store after T-185's shape, the maintainer's) done; T-194 (append a `lastSeenOn` to a stored Veto, PR #96) done; T-186 (live `verify_store` run, the maintainer's) done; T-195 (a same-day re-run replaces its graph, from T-032) open, on the maintainer's constitution exception
 Work item 15 (upstream's v_* changes) — T-150, T-170 and T-171 (PR #56) done, with T-155's schema half (PR #58), T-153's comments (PR #59)
   and T-151's rule (PR #60); T-173 (the contract endpoint check) done 2026-10-11, its version guard reading T-178's `contract_version` key; T-177 (the `rawValue` bound) done (PR #82); T-178 (the pin's loader key)
   done 2026-10-10 (PR #85); the step-3 shape corrections can start now;

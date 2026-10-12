@@ -125,8 +125,25 @@ are closed (see `CHANGELOG.md`).*
     graphs whose subjects are all stored). The first `--write` after upstream's T-144 loads every
     cycle-lane row accumulated until then into that one day's graph, an honest transaction-time
     record that `docs/07` now states.
-- [ ] **T-032** Decide and implement `:supersededBy` semantics for a
+- [x] **T-032** *(done 2026-10-12, maintainer's decision: the rule is in `docs/07` ("Restatements and re-runs"), the gate check is `gate.refused_supersessions` and `gate.restatement_problems` (check 8, the store and the batch halves; tests in `tests/test_kg_gate.py` and `tests/test_cli_ingest.py`); no source emits a restatement today: upstream stores no amendments (`SPEC.md` §2.6, seventh reply) and `v_sec_filing_section` names no replacement, so T-031 carries no lane for it, and a projector rule is a new task if upstream starts storing amendments; the text below is the original task)* Decide and implement `:supersededBy` semantics for a
       restatement. → step 3.
+      - **Decided** (the maintainer, 2026-10-12). A correction that becomes known on a later day is a new
+        individual in a new dated graph, and the old one points at it with `:supersededBy`; the old one
+        and its graph are never edited, so an as-of query still sees what was believed before.
+        `:supersededBy` stays `SECFilingSection`-only: a cycle-lane score that is recomputed is a second
+        `ScoreSnapshot` and readers take the latest `timestamp` with `availableAt <= D` (`docs/07`,
+        "Re-projection"), so it needs no link. This holds only where a graph's date can be the day the
+        correction became known (the graphs dated by ingestion, and EDGAR, whose restatement is
+        dated by its own filing); in the graphs dated by the data (`ORCHESTRATOR`, `FUNDAMENTAL`,
+        quant, entity resolution, `universe`) a late correction is still lost for that date
+        (`docs/07`, SPEC §13 item 10). A re-run for
+        the same agent and day is not a correction: it replaces that day's graph (T-195, not built;
+        until then the gate refuses it).
+      - **Built.** The gate refuses a `:supersededBy` unless the old side is a stored or declared
+        `SECFilingSection` not yet superseded, the new side a `SECFilingSection` the same batch declares
+        with the same `:itemLabel` (when both have one), each section has one replacement, each new
+        section replaces one, and no chain in the batch loops; so each item's restatements form one
+        chain with one current section. The batch-only half runs in `validate`, so `--check` runs it too.
 - [ ] **T-033** Retire or explicitly fold in today's `src/etl/` shortcut
       once the real projection covers the SEMANTIC lane, i.e. once the
       upstream `score_snapshot[SEMANTIC]` row exists to project (Work item
@@ -405,6 +422,25 @@ independent of each other once T-131 lands.*
       `raisedOn` and not before its latest stored `lastSeenOn`. Tests with a fake store (the closing tests'
       pattern). T-031's vetoes lane needs it for live cycles; stints loaded whole for backtests do not.
       Code, so its own PR on a `feat/` branch. → `PLAN.md` Work item 14, step 10.
+- [ ] **T-195** *(from T-032, the maintainer's decision of 2026-10-12; the gate; a `feat/` PR; needs a constitution edit first)* Let a re-run for the same
+      agent and day replace that day's graph. The gate refuses today a graph that exists
+      (`gate.ingest`, check 2), which is right for a correction known on a later day (T-032) but
+      wrong for a second run on the day the graph was written: nothing was believed in between, and
+      keeping both says nothing a reader can use. Add one way in (a flag on `ingest`, or its own
+      function) that validates the new batch with every check, then in one transaction clears the
+      graph and writes the batch. Only the graphs dated by ingestion (`ingest:{SEMANTIC|VALORIZATION|TECHNICAL|SECTOR}:{date}`,
+      `SPEC.md` §13 item 10): the per-quarter ones (`FUNDAMENTAL`, `EDGAR` by quarter, `universe`) are
+      written once their quarter is complete, and `ORCHESTRATOR` is dated by the data's `cycleDate`, so
+      none has a "day it was written" to match. Check 6 (no typed individual already stored) then
+      reads the store minus the graph being replaced, since the new batch re-declares the old graph's
+      individuals; every other check runs as for a new graph. Settle first: (a) the constitution's invariant 1 and
+      `docs/07` ("Append-only") say an ingest graph is never edited, so both get the exception,
+      stated narrowly: only the graph of the same agent and the day it was written, never one of a
+      past day; (b) what points into the graph from elsewhere, settled by the scope above: the
+      Vetoes and weight schemes that later graphs clear, sight or point at live in `ORCHESTRATOR`
+      graphs, which are out. Keep one guard anyway: refuse the replacement when another graph holds a
+      triple about a subject the old graph declares; (c) the replacement keeps the IRIs of the rows that
+      did not change. Tests with a fake store. → `PLAN.md` Work item 14.
 ## Work item 15 — Adopt upstream's `v_*` contract changes (replies of 2026-10-05, 2026-10-06 x2)
 - [x] **T-177** *(from upstream's answer to Q6, 2026-10-09; done 2026-10-10 in PR #82: the shape, 2549 quads, nine synthetic cases in `tests/test_schema_gate.py` and a check that `kg_target_schema.ttl` carries the same `rawValue` bounds as `shapes.ttl` (FUNDAMENTAL, SECTOR, Sentiment); `schema/protege-view.ttl` is left to Work item 8 (T-070); the store reload is T-179; the text below is the original task, edited where the work differed)* Bound FUNDAMENTAL's `rawValue` in `ScoreSnapshotShape` to
       `[0, 100]` (`minInclusive`/`maxInclusive` on the branch that pairs it with a mandatory `rawValue`,
@@ -896,7 +932,7 @@ Work items 4 and 6 (T-030–T-035, T-050–T-053)
 follow in dependency order (Work items 3 and 11 are closed, so Work item 4 is unblocked).
 Work item 12 (T-120–T-121): T-120 closed by T-150; T-121 done (PR #65).
 Work item 13 (T-130–T-136): constitution rules in place (1.5.0); T-130–T-136 done (T-135 as an `integration` test, `PFA_CHECKOUT`).
-Work item 14 (T-140–T-142 and T-146): T-140, T-141 and T-142 done; T-174 (store schema, found by T-141) done; T-176 (the two `verify_store` checks) done; T-175 (CLI exit-code tests) done (PR #80); T-146 (the gate vs. the worked example's batches) done; T-179 (the store reload after T-177) done; T-180 (the gate checks what a closing triple closes) done; T-181 (`select` keeps the term type) done; T-185 (a Veto's `clearedOn` against its `lastSeenOn`) done; T-192 (the same check at the read boundary) open, after T-031's vetoes lane; T-193 (reload the store after T-185's shape, the maintainer's) done; T-194 (append a `lastSeenOn` to a stored Veto, PR #96) done; T-186 (the live `verify_store` run for T-181's sixth check, the maintainer's) done.
+Work item 14 (T-140–T-142 and T-146): T-140, T-141 and T-142 done; T-174 (store schema, found by T-141) done; T-176 (the two `verify_store` checks) done; T-175 (CLI exit-code tests) done (PR #80); T-146 (the gate vs. the worked example's batches) done; T-179 (the store reload after T-177) done; T-180 (the gate checks what a closing triple closes) done; T-181 (`select` keeps the term type) done; T-185 (a Veto's `clearedOn` against its `lastSeenOn`) done; T-192 (the same check at the read boundary) open, after T-031's vetoes lane; T-193 (reload the store after T-185's shape, the maintainer's) done; T-194 (append a `lastSeenOn` to a stored Veto, PR #96) done; T-186 (the live `verify_store` run for T-181's sixth check, the maintainer's) done; T-195 (replace a day's graph on a same-day re-run, from T-032) open.
 Work item 15 (T-150–T-159, T-170–T-173, T-177–T-178, T-182–T-184, T-187–T-191): T-173 (the contract endpoint check) done; T-177 (the FUNDAMENTAL `rawValue` bound) done in PR #82; T-178 (the pin's `contract_version` key) done; T-150, T-170 and T-171 (PR #56) done; T-155's schema half done (PR #58); T-153's comment half (PR #59);
 T-151's rule recorded (PR #60), its checks waiting on T-031/T-163; T-158's
 ownership question (before their T-141) is unblocked; the rest of T-152–T-158 waits on upstream's
