@@ -616,6 +616,9 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       check against the commit, the expectations files, the `SPEC.md` §2.6 row.
       → step 4.
       The database at the served version, and what version 12 changed, are asked in T-184 and recorded by T-191 (2).
+      **Run over the real file, 2026-10-12:** `PILOT_DB=<financial_pilot_v12.db> uv run pytest -m integration
+      tests/test_expectations_real_file.py` runs each pinned view's rows through the shipped expectations:
+      all 32 hold (it found `v_fundamental_metric`'s natural key was wrong; run it before every re-pin).
       **Sign-off, 2026-10-12:** the floor is 12, upstream's version, as in every re-pin (`m012` adds triggers, no
       columns). Open: run
       `cli/check_view_contract.py` against upstream's checkout at `6a80ec3`. Also open (not
