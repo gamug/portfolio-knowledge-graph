@@ -1133,3 +1133,29 @@ def test_the_shipped_expectations_keep_the_look_ahead_pair_on_fundamental_metric
         assert "ordered_pair" in str(stop.value)
     with pytest.raises(BoundaryError):  # an empty view passes nothing
         validate({"v_fundamental_metric": []}, only)
+
+
+def test_a_metric_id_repeats_across_filings_and_engines_so_the_key_is_all_three(
+    shipped: dict[str, ViewExpectation],
+) -> None:
+    """The v12 file has 34 distinct ``metric_id`` over 13,781 rows: one per metric, on every filing."""
+    only = {"v_fundamental_metric": shipped["v_fundamental_metric"]}
+    assert shipped["v_fundamental_metric"].keys == (("filing_id", "metric_id", "engine_version"),)
+
+    def metric(filing: int, engine: str) -> dict[str, Any]:
+        return {
+            "metric_id": "profitability.gross_margin",
+            "filing_id": filing,
+            "metric_name": "gross_margin",
+            "engine_version": engine,
+            "event_time": "2024-12-31",
+            "available_at": "2025-03-03",
+            "value": 0.4,
+            "is_current": 1,
+        }
+
+    rows = [metric(1, "metrics-v4"), metric(2, "metrics-v4"), metric(1, "metrics-v3")]
+    assert len(validate({"v_fundamental_metric": rows}, only).rows["v_fundamental_metric"]) == 3
+    with pytest.raises(BoundaryError) as stop:
+        validate({"v_fundamental_metric": [metric(1, "metrics-v4")] * 2}, only)
+    assert {f.check for f in stop.value.report.quarantined} == {"unique"}
