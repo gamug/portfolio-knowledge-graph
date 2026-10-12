@@ -425,9 +425,10 @@ independent of each other once T-131 lands.*
       wrong for a second run on the day the graph was written: nothing was believed in between, and
       keeping both says nothing a reader can use. Add one way in (a flag on `ingest`, or its own
       function) that validates the new batch with every check, then in one transaction clears the
-      graph and writes the batch. Only the dated `{agent}:{date}` graphs: the per-quarter ones
-      (`FUNDAMENTAL`, `EDGAR` by quarter, `universe`) are written once their quarter is complete, so
-      they have no "day it was written" to match. Check 6 (no typed individual already stored) then
+      graph and writes the batch. Only the graphs dated by ingestion (`ingest:{SEMANTIC|VALORIZATION|TECHNICAL|SECTOR}:{date}`,
+      `SPEC.md` §13 item 10): the per-quarter ones (`FUNDAMENTAL`, `EDGAR` by quarter, `universe`) are
+      written once their quarter is complete, and `ORCHESTRATOR` is dated by the data's `cycleDate`, so
+      none has a "day it was written" to match. Check 6 (no typed individual already stored) then
       reads the store minus the graph being replaced, since the new batch re-declares the old graph's
       individuals; every other check runs as for a new graph. Settle first: (a) the constitution's invariant 1 and
       `docs/07` ("Append-only") say an ingest graph is never edited, so both get the exception,

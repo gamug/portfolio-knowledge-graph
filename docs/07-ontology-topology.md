@@ -67,7 +67,8 @@ differently:
   (the FUNDAMENTAL row of the table above; SPEC §13 item 10). This rule does not change that.
 - **A second run for the same agent and day** is not new information: nothing was believed in
   between. It replaces that day's graph instead of adding a second set of rows. This is decided but
-  not built (T-195), and only for the dated `{agent}:{date}` graphs: until it lands, the gate refuses
+  not built (T-195), and only for the graphs dated by ingestion (SEMANTIC, VALORIZATION, TECHNICAL,
+  SECTOR; `ORCHESTRATOR` is dated by `cycleDate`): until it lands, the gate refuses
   the second write ("already exists and is append-only") and the first stays.
 
 > **As-of reads (T-101).** The graph date is the ingest batch, not the usable date. `ScoreSnapshot.availableAt` is the look-ahead guard: as-of-D queries over `ScoreSnapshot`s filter `availableAt <= D`, never `eventTime` or `timestamp`. `SectorAggregateSnapshot` and `AttractivenessSnapshot` are same-cycle derived outputs with no separate clock: they are usable from the date of their `timestamp`/`computedAt`.

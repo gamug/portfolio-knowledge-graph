@@ -487,10 +487,13 @@ def superseded_sections(batch: rdflib.Graph) -> set[rdflib.term.Node]:
 
 def _other_label(old: set[str], new: rdflib.term.Node | None) -> str | None:
     """Why a replacement's ``:itemLabel`` is refused against the old section's, or None. Compared only
-    when both have one (no shape requires it)."""
+    when both have one (no shape requires it); two stored labels are refused, as two opening dates are
+    (``:itemLabel`` is functional, but nothing enforces it)."""
+    if len(old) > 1:
+        return f"the store holds {len(old)} values for itemLabel, so not which item it is"
     if not old or new is None or str(new) in old:
         return None
-    return f"its replacement is labelled {new} and it is {sorted(old)[0]}: a restatement replaces the same item"
+    return f"its replacement is labelled {new}, it is labelled {next(iter(old))}: a restatement replaces the same item"
 
 
 def _loops(batch: rdflib.Graph) -> list[list[rdflib.term.Node]]:

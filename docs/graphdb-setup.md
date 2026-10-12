@@ -121,7 +121,7 @@ nothing written:
    batch, to a `SECFilingSection` the same batch declares, with the same `:itemLabel` when both have
    one (no shape requires it, so an unlabelled section is not compared). A batch gives a section one
    replacement, a new section replaces one section, a section does not replace itself and no chain in
-   the batch loops; these the batch alone decides, so `--check` runs them too. A stored section already
+   the batch loops; the batch alone decides these, so `--check` runs them too. A stored section already
    superseded is not superseded again (the next correction replaces the latest section); the store is
    read for the old section's class, label and any `:supersededBy` it holds, in any graph. So each
    item's restatements form one chain with one current section. Limit: the label is the only tie
