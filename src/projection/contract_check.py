@@ -23,7 +23,7 @@ The same comparison runs against a running service (T-173): :func:`fetch_contrac
 :func:`check_service` adds the two version checks, which compare different numbers:
 
 * ``contract_version`` (the code's highest migration) must equal the one the pin records
-  (``_source.json``, written by T-157's re-pin); a pin without the key skips this check with a
+  (``_source.json``, written by T-157's re-pin; an older pin may lack it); a pin without the key skips this check with a
   note, never silently;
 * the database's ``schema_version`` must not be below the pin's ``schema_version_floor``. Above
   it passes on its number: whether views drifted is decided by the column lists, because a
@@ -304,8 +304,8 @@ def check_service(declared: DeclaredContract, expected: SourceExpectation) -> Co
     report = compare_columns(declared.columns)
     if expected.contract_version is None:
         report.notes.append(
-            f"service declares contract_version {declared.contract_version}; the pin records none "
-            "(T-157's re-pin writes it), so the contract_version check is skipped"
+            f"service declares contract_version {declared.contract_version}; the pin records none, "
+            "so the contract_version check is skipped"
         )
     elif declared.contract_version != expected.contract_version:
         report.drift.append(

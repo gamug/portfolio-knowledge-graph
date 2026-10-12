@@ -489,6 +489,8 @@ def component(run: int, asset: int, score_type: str, value: float) -> dict[str, 
         "asset_id": asset,
         "score_type": score_type,
         "component_value": value,
+        "configured_weight": 0.25,
+        "effective_weight": 0.25,
     }
 
 
@@ -519,10 +521,14 @@ def test_a_failing_ranking_component_takes_its_ranking_row(
     assert [r["asset_id"] for r in result.rows["v_cycle_ranking"]] == [2]
     assert [r["asset_id"] for r in result.rows["v_cycle_ranking_component"]] == [2, 2]
     taken = [f for f in result.report.quarantined if f.check == CASCADE]
-    root = "v_cycle_ranking_component (1,)"  # the failing component, keyless: named by its index
+    root = "v_cycle_ranking_component (1, 1, 'SEMANTIC')"  # the failing component, named by its key
     assert {(f.view, f.key, f.cascaded_from) for f in taken} == {
         ("v_cycle_ranking", (1, 1), root),
-        ("v_cycle_ranking_component", (0,), root),  # the sibling, taken through the ranking row
+        (
+            "v_cycle_ranking_component",
+            (1, 1, "TECHNICAL"),
+            root,
+        ),  # the sibling, taken through the ranking row
     }
     [sibling] = [f for f in taken if f.view == "v_cycle_ranking_component"]
     assert sibling.detail == "shares cycle_run_id, asset_id (1, 1) with v_cycle_ranking (1, 1)"
@@ -812,7 +818,11 @@ def test_the_caller_counts_its_own_skips_in_the_same_report() -> None:
 def test_the_component_value_is_typed_so_range_and_mean_cannot_skip_it(
     shipped: dict[str, ViewExpectation],
 ) -> None:
-    assert shipped["v_cycle_ranking_component"].types == {"component_value": "number"}
+    assert shipped["v_cycle_ranking_component"].types == {
+        "component_value": "number",
+        "configured_weight": "number",
+        "effective_weight": "number",
+    }
 
 
 def test_a_re_read_row_appended_beside_its_copy_stops_the_run(
@@ -1096,3 +1106,30 @@ def test_a_cycle_lane_row_needs_available_at_equal_to_its_event(
         ("ordered_pair", (2,)),
         ("ordered_pair", (3,)),
     ]
+
+
+def test_the_shipped_expectations_keep_the_look_ahead_pair_on_fundamental_metrics(
+    shipped: dict[str, ViewExpectation],
+) -> None:
+    """A metric is usable only after it was available: ``available_at`` after ``event_time``."""
+    only = {"v_fundamental_metric": shipped["v_fundamental_metric"]}
+
+    def metric(metric_id: int, event: str, available: str | None) -> dict[str, Any]:
+        return {
+            "metric_id": metric_id,
+            "filing_id": 1,
+            "metric_name": "m",
+            "engine_version": "metrics-v4",
+            "event_time": event,
+            "available_at": available,
+            "value": 1.0,
+            "is_current": 1,
+        }
+
+    validate({"v_fundamental_metric": [metric(1, "2024-12-31", "2025-03-03")]}, only)
+    for bad in (metric(1, "2024-12-31", "2024-12-31"), metric(1, "2024-12-31", "2024-12-30")):
+        with pytest.raises(BoundaryError) as stop:
+            validate({"v_fundamental_metric": [bad]}, only)
+        assert "ordered_pair" in str(stop.value)
+    with pytest.raises(BoundaryError):  # an empty view passes nothing
+        validate({"v_fundamental_metric": []}, only)

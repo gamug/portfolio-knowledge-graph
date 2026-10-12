@@ -58,7 +58,7 @@ INGESTION_DATED: dict[str, Where] = {
 }
 
 # Row-level cascades: a failing row of ``view`` takes the rows of ``target`` that share ``on``.
-# ``v_cycle_ranking_component`` is pending, so its links apply once it is read.
+# ``v_cycle_ranking_component`` is keyed by (cycle_run_id, asset_id, score_type) since T-157.
 CASCADES: dict[str, tuple[tuple[str, tuple[str, ...]], ...]] = {
     "v_cycle_ranking": (("v_cycle_ranking_component", ("cycle_run_id", "asset_id")),),
     "v_cycle_ranking_component": (("v_cycle_ranking", ("cycle_run_id", "asset_id")),),

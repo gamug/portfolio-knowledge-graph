@@ -1,9 +1,26 @@
 {
   "view": "v_cycle_ranking_component",
+  "keys": [["cycle_run_id", "asset_id", "score_type"]],
   "cap": 0,
-  "null_rate": [{"column": "component_value", "max": 0}],
-  "types": {"component_value": "number"},
-  "ranges": [{"column": "component_value", "min": 0, "max": 100}],
+  "null_rate": [
+    {"column": "cycle_run_id", "max": 0},
+    {"column": "asset_id", "max": 0},
+    {"column": "score_type", "max": 0},
+    {"column": "component_value", "max": 0},
+    {"column": "configured_weight", "max": 0},
+    {"column": "effective_weight", "max": 0}
+  ],
+  "row_count": {"min": 1},
+  "types": {
+    "component_value": "number",
+    "configured_weight": "number",
+    "effective_weight": "number"
+  },
+  "ranges": [
+    {"column": "component_value", "min": 0, "max": 100},
+    {"column": "configured_weight", "min": 0, "max": 1},
+    {"column": "effective_weight", "min": 0, "max": 1}
+  ],
   "group_means": [
     {
       "column": "component_value",

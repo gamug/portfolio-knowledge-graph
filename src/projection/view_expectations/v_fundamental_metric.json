@@ -10,5 +10,10 @@
     {"column": "available_at", "max": 0},
     {"column": "event_time", "max": 0}
   ],
-  "types": {"value": "number", "is_current": "integer"}
+  "row_count": {"min": 1},
+  "types": {"value": "number", "is_current": "integer"},
+  "ranges": [{"column": "is_current", "min": 0, "max": 1}],
+  "ordered_pairs": [
+    {"left": "available_at", "op": ">", "right": "event_time", "null": "fail"}
+  ]
 }

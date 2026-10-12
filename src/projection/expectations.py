@@ -111,7 +111,7 @@ class ViewExpectation:
 class SourceExpectation:
     schema_version_floor: int
     forbidden_cycle_types: tuple[str, ...]
-    contract_version: int | None = None  # absent until T-157's re-pin writes it
+    contract_version: int | None = None  # optional: a pin without it skips the check
 
 
 def _is_number(value: object) -> TypeGuard[int | float]:
