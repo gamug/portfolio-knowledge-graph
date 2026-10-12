@@ -373,8 +373,7 @@ independent of each other once T-131 lands.*
       (`sh:lessThanOrEquals :clearedOn` on `lastSeenOn`, 2550 quads, the twin in `kg_target_schema.ttl` too); T-192
       adds the read-boundary check. The same day passes, an assumption about upstream's `last_seen_on` on the
       clearing cycle (unverified; the question is listed in T-191). **Limit (until T-194):** the gate could not append a `lastSeenOn` to a stored Veto,
-      so the closing check compared with the sightings declared with the Veto. **Open follow-ups** (T-194, the `lastSeenOn` append, is done): T-192 (the read-boundary check), T-193 (the
-      store reload, the maintainer's) and the question about the clearing cycle's
+      so the closing check compared with the sightings declared with the Veto. **Open follow-ups** (T-194, the `lastSeenOn` append, and T-193, the store reload, are done): T-192 (the read-boundary check) and the question about the clearing cycle's
       `last_seen_on` (listed in T-191). Tests in `tests/test_kg_gate.py` and
       `tests/test_schema_gate.py`. The text below is the original task.
       `lastSeenOn` is multi-valued (one per cycle, current = MAX) and no shape relates it to `clearedOn`, so
@@ -390,7 +389,7 @@ independent of each other once T-131 lands.*
       sandbox cannot reach the store (`Network is unreachable`), so this is the only evidence of what GraphDB
       returns for a string literal (`datatype` absent or `xsd:string`). If it fails, fix `GraphDB._term` or the
       check. → `PLAN.md` Work item 14, step 9.
-- [ ] **T-193** *(from T-185; the maintainer, not code)* Reload the live store from `schema/` after PR #94 merges:
+- [x] **T-193** *(from T-185; the maintainer, not code; done 2026-10-12: the store holds 2550 triples and `verify_store` exits 0, recorded in `docs/graphdb-setup.md`; the text below is the original task)* Reload the live store from `schema/` after PR #94 merges:
       `shapes.ttl` loads into `urn:graph:tbox`, which grows by 1 triple (2549 to 2550 over the 19 graphs), so
       `verify_store`'s "schema graphs have their expected size" check fails until then, with
       `urn:graph:tbox: expected 1570, store has 1569` (the expected failure; any other line is a different problem). With the maintainer's
@@ -897,7 +896,7 @@ Work items 4 and 6 (T-030–T-035, T-050–T-053)
 follow in dependency order (Work items 3 and 11 are closed, so Work item 4 is unblocked).
 Work item 12 (T-120–T-121): T-120 closed by T-150; T-121 done (PR #65).
 Work item 13 (T-130–T-136): constitution rules in place (1.5.0); T-130–T-136 done (T-135 as an `integration` test, `PFA_CHECKOUT`).
-Work item 14 (T-140–T-142 and T-146): T-140, T-141 and T-142 done; T-174 (store schema, found by T-141) done; T-176 (the two `verify_store` checks) done; T-175 (CLI exit-code tests) done (PR #80); T-146 (the gate vs. the worked example's batches) done; T-179 (the store reload after T-177) done; T-180 (the gate checks what a closing triple closes) done; T-181 (`select` keeps the term type) done; T-185 (a Veto's `clearedOn` against its `lastSeenOn`) done; T-192 (the same check at the read boundary) open, after T-031's vetoes lane; T-193 (reload the store after T-185's shape, the maintainer's) open; T-194 (append a `lastSeenOn` to a stored Veto, PR #96) done; T-186 (the live `verify_store` run for T-181's sixth check, the maintainer's) open.
+Work item 14 (T-140–T-142 and T-146): T-140, T-141 and T-142 done; T-174 (store schema, found by T-141) done; T-176 (the two `verify_store` checks) done; T-175 (CLI exit-code tests) done (PR #80); T-146 (the gate vs. the worked example's batches) done; T-179 (the store reload after T-177) done; T-180 (the gate checks what a closing triple closes) done; T-181 (`select` keeps the term type) done; T-185 (a Veto's `clearedOn` against its `lastSeenOn`) done; T-192 (the same check at the read boundary) open, after T-031's vetoes lane; T-193 (reload the store after T-185's shape, the maintainer's) done; T-194 (append a `lastSeenOn` to a stored Veto, PR #96) done; T-186 (the live `verify_store` run for T-181's sixth check, the maintainer's) open.
 Work item 15 (T-150–T-159, T-170–T-173, T-177–T-178, T-182–T-184, T-187–T-191): T-173 (the contract endpoint check) done; T-177 (the FUNDAMENTAL `rawValue` bound) done in PR #82; T-178 (the pin's `contract_version` key) done; T-150, T-170 and T-171 (PR #56) done; T-155's schema half done (PR #58); T-153's comment half (PR #59);
 T-151's rule recorded (PR #60), its checks waiting on T-031/T-163; T-158's
 ownership question (before their T-141) is unblocked; the rest of T-152–T-158 waits on upstream's
