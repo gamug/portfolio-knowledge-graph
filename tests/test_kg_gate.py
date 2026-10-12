@@ -1100,3 +1100,99 @@ def test_a_blank_node_closing_subject_is_refused_before_any_query(
         gate.ingest(fake.db, batch, GRAPH)
     assert fake.queries == []
     assert fake.added == []
+
+
+# --- a restatement is a new section the old one points at, once (T-032) -------------------------
+
+GRAPH_EDGAR = "urn:graph:ingest:EDGAR:2026-08-10"
+SECTION = "https://thesis.local/kg/portfolio#SECFilingSection"
+NEW_SECTION = PREFIXES + b':v2 a :SECFilingSection ; :itemLabel "ITEM_1A_RISK_FACTORS" .\n'
+RESTATE = NEW_SECTION + b":v1 :supersededBy :v2 .\n"
+
+
+def test_a_stored_section_is_restated_by_a_new_one(make_db: MakeDB) -> None:
+    fake = _holding(make_db, ":v1", "SECFilingSection")
+    assert gate.ingest(fake.db, RESTATE, GRAPH_EDGAR) == 3
+    assert b"supersededBy" in fake.added[0][0]
+    assert any(_is_closing_query(q) and "supersededBy" in q for q in fake.queries)
+
+
+def test_a_section_declared_in_the_same_batch_is_restated_too(make_db: MakeDB) -> None:
+    """A replay of history writes the original and its restatement in one graph."""
+    batch = (
+        PREFIXES
+        + b':v1 a :SECFilingSection ; :itemLabel "X" .\n:v2 a :SECFilingSection ; :itemLabel "X" .\n'
+        + b":v1 :supersededBy :v2 .\n"
+    )
+    assert gate.ingest(make_db().db, batch, GRAPH_EDGAR) == 5
+
+
+@pytest.mark.parametrize(
+    ("held", "batch", "outcome"),
+    [
+        ({"rdf_type": None}, RESTATE, "the store does not hold it"),
+        ({"rdf_type": "Veto"}, RESTATE, "it is not a SECFilingSection"),
+        (
+            {
+                "rdf_type": "SECFilingSection",
+                "supersededBy": "https://thesis.local/kg/portfolio#v9",
+            },
+            RESTATE,
+            "already superseded by https://thesis.local/kg/portfolio#v9",
+        ),
+        (
+            {"rdf_type": "SECFilingSection"},
+            RESTATE + b':v1 :supersededBy :v3 .\n:v3 a :SECFilingSection ; :itemLabel "X" .\n',
+            "2 replacements",
+        ),
+        (
+            {"rdf_type": "SECFilingSection"},
+            PREFIXES + b":v1 :supersededBy :v1 .\n",
+            "does not replace itself",
+        ),
+        (
+            {"rdf_type": "SECFilingSection"},
+            PREFIXES + b":v1 :supersededBy :elsewhere .\n",
+            "not a SECFilingSection this batch declares",
+        ),
+        (
+            {"rdf_type": "SECFilingSection"},
+            PREFIXES + b":v1 :supersededBy :v2 .\n:v2 a :NewsArticle .\n",
+            "not a SECFilingSection this batch declares",
+        ),
+    ],
+    ids=[
+        "an unknown section",
+        "not a section",
+        "already restated",
+        "two replacements",
+        "itself",
+        "a stored replacement",
+        "a replacement of another class",
+    ],
+)
+def test_a_restatement_the_store_cannot_take_is_refused(
+    held: dict[str, str | None], batch: bytes, outcome: str, make_db: MakeDB
+) -> None:
+    rdf_type = held.pop("rdf_type")
+    fake = _holding(make_db, ":v1", rdf_type, **{k: v for k, v in held.items() if v})
+    with pytest.raises(gate.IngestRejected, match=outcome):
+        gate.ingest(fake.db, batch, GRAPH_EDGAR)
+    assert fake.added == []
+
+
+def test_a_declared_old_section_must_be_a_section(make_db: MakeDB) -> None:
+    batch = (
+        PREFIXES
+        + b':v1 a :NewsArticle .\n:v2 a :SECFilingSection ; :itemLabel "X" .\n:v1 :supersededBy :v2 .\n'
+    )
+    with pytest.raises(gate.IngestRejected, match="it is not a SECFilingSection"):
+        gate.ingest(make_db().db, batch, GRAPH_EDGAR)
+
+
+def test_the_worked_examples_restatement_is_a_restatement_the_gate_takes(make_db: MakeDB) -> None:
+    graph = _instance_graphs()["urn:graph:ingest:EDGAR:2026-08-10"]
+    restated = [str(s) for s in graph.subjects(gate.SUPERSEDED_BY, None)]
+    fake = _holding(make_db, restated[0].rpartition("#")[2], "SECFilingSection")
+    state = gate.fetch_closing_state(fake.db, gate.superseded_sections(graph))
+    assert gate.refused_supersessions(graph, state) == []

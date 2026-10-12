@@ -48,6 +48,24 @@ is tracked at the individual level, and no separate metadata graph is needed at 
 stay queryable; only the "current best understanding" view filters to the latest non-superseded
 section. Worked example (JNJ's Item 1A, original + restated) in `schema/instances.trig`.
 
+**Restatements and re-runs (T-032, decided 2026-10-12).** Two cases look alike and are handled
+differently:
+
+- **A correction known on a later day** (a restated section; a score recomputed after its graph was
+  written) is new information and is kept: a new individual in a new dated graph, never an edit.
+  What links it to the old one depends on the class. A `SECFilingSection` uses `:supersededBy`, which
+  the gate checks (`graphdb-setup.md`, check 8): the old side is a stored or declared section not yet
+  superseded, the new side is a section the same batch declares, and a second correction replaces the
+  latest section, not the first. Every other observation (a `ScoreSnapshot` recomputed under a newer
+  engine version, say) takes no link: readers keep the latest `timestamp` among rows with
+  `availableAt <= D` (the query in "Re-projection" below). Both versions stay in the store and in the
+  reasoner's view; "current" is a filter on the query, not a place the old value is moved to.
+  An as-of query for a day before the correction still sees the old value.
+- **A second run for the same agent and day** is not new information: nothing was believed in
+  between. It replaces that day's graph instead of adding a second set of rows. This is decided but
+  not built (T-195): until it is, the gate refuses the second write ("already exists and is
+  append-only") and the first stays.
+
 > **As-of reads (T-101).** The graph date is the ingest batch, not the usable date. `ScoreSnapshot.availableAt` is the look-ahead guard: as-of-D queries over `ScoreSnapshot`s filter `availableAt <= D`, never `eventTime` or `timestamp`. `SectorAggregateSnapshot` and `AttractivenessSnapshot` are same-cycle derived outputs with no separate clock: they are usable from the date of their `timestamp`/`computedAt`.
 >
 > **Run provenance (T-106, D7).** Upstream rows (`ScoreSnapshot`, `SectorAggregateSnapshot`, `Veto`, `PortfolioPosition`, `DataQualityIssue`, and since T-107/T-108 `AssetCoOccurrence`, `BenchmarkObservation`) may carry the run that wrote them as plain optional properties: `runId`, `runAsOf`, `codeVersion`, `engineVersion` (no `rdfs:domain`, like `provenanceId`; SHACL scopes them per class). There is no `Run` class and the run log (params, dirty-tree reason, `schema_version`) stays upstream, reachable through `runId` and the `v_*_run` views. Per-score-type extras `forensic_flags_json`, `prompt_hash` and `correction_rule` are deliberately not projected (see `schema/README.md`).

@@ -117,10 +117,16 @@ nothing written:
    same batch gives it, one date per batch. The gate does not enforce the spacing between cycles (at least
    15 days): a sighting one day after the last passes. The gate does not restrict the graph a sighting goes to (the closing is
    the same); Vetoes live in the ORCHESTRATOR graphs.
+8. a restatement (`:supersededBy`, T-032) points from a `SECFilingSection`, stored or declared in the
+   batch, to a `SECFilingSection` the same batch declares. A section already superseded is not
+   superseded again (the next correction replaces the latest section), a section does not replace
+   itself, and a batch gives a section one replacement; so the sections that are not superseded are
+   never an empty set. The store is read for the old section's class and any `:supersededBy` it holds,
+   in any graph.
 
 What is written is the validated triples as N-Triples, not the submitted text. `--check` runs
 checks 1, 3, 4 and 5 without contacting the store, so it cannot see an existing graph (check 2),
-an existing individual (check 6) or what a closing triple closes (check 7), and a batch that points
+an existing individual (check 6), what a closing triple closes (check 7) or what a restatement replaces (check 8), and a batch that points
 at individuals it does not declare fails check 5 under `--check` for want of what the store holds about them (the rejection says so).
 Validation reads `tbox.ttl` and `shapes.ttl` from `schema/` on disk (once per process); reload with
 `cli/load_schema.py` after a schema edit so the store's copy matches. Limits: this is a code path,

@@ -33,7 +33,11 @@ A batch is Turtle destined for one named graph. It is written only if
    Veto, not before the latest ``lastSeenOn``, T-185), and closes it once (T-180). A
    ``lastSeenOn`` appended to a stored Veto (``APPENDABLE``, T-194) must be a Veto that is not cleared,
    on a date not before it was raised, after its latest ``lastSeenOn`` (an equal date is a replay) and
-   not after the ``clearedOn`` the same batch gives it. Read, then written, not atomic: see the limit below.
+   not after the ``clearedOn`` the same batch gives it. Read, then written, not atomic: see the limit below; and
+8. a restatement (``:supersededBy``, T-032) points from a ``SECFilingSection`` to a new
+   ``SECFilingSection`` the same batch declares, once: a section already superseded is not
+   superseded again (the next correction replaces the latest section), and a section does not
+   replace itself, so the sections that are not superseded are never an empty set.
 
 Anything else raises :class:`IngestRejected` with the reason and nothing reaches the
 store. What is written is the validated triples (as N-Triples), not the submitted text.
@@ -298,6 +302,9 @@ APPENDABLE: Mapping[rdflib.URIRef, Appendable] = MappingProxyType(
         )
     }
 )
+#: A restatement (T-032): the old section points at the new one, which the same batch declares.
+SUPERSEDED_BY = _PORTFOLIO.supersededBy
+_SECTION = _PORTFOLIO.SECFilingSection
 #: A per-run weight scheme (it has a ``cycleDate``) is an observation, never closed (``tbox.ttl``).
 _PER_RUN_MARKER = _PORTFOLIO.cycleDate
 
@@ -308,8 +315,8 @@ ClosingState = dict[str, dict[rdflib.URIRef, set[str]]]
 
 def fetch_closing_state(db: GraphDB, subjects: set[rdflib.term.Node]) -> ClosingState:
     """What the store holds (explicit statements, any graph) about ``subjects`` that decides whether
-    they can be closed: subject -> {property: lexical values} for ``rdf:type``, the closing
-    properties, the opening dates, the sightings and ``cycleDate``."""
+    they can be closed or superseded: subject -> {property: lexical values} for ``rdf:type``, the
+    closing properties, the opening dates, the sightings, ``cycleDate`` and ``supersededBy``."""
     iris = sorted(str(s) for s in subjects)
     _refuse_illegal_iris(iris)
     read = {
@@ -318,6 +325,7 @@ def fetch_closing_state(db: GraphDB, subjects: set[rdflib.term.Node]) -> Closing
         *CLOSING_PROPERTIES,
         *(c.opened for c in CLOSABLE.values()),
         *(c.last_seen for c in CLOSABLE.values() if c.last_seen),
+        SUPERSEDED_BY,
         *APPENDABLE,
         *(a.opened for a in APPENDABLE.values()),
         *(a.ended for a in APPENDABLE.values()),
@@ -456,6 +464,51 @@ def refused_closures(batch: rdflib.Graph, state: ClosingState) -> list[str]:
             why = _refusal(p, dates, held)
         if why:
             problems.append(f"{s.n3(nm)} {p.n3(nm)}: {why}")
+    return problems
+
+
+def superseded_sections(batch: rdflib.Graph) -> set[rdflib.term.Node]:
+    """Subjects of ``:supersededBy`` triples that the batch does not declare: the stored sections it
+    restates."""
+    typed = set(batch.subjects(RDF.type, None))
+    return {
+        s
+        for s in batch.subjects(SUPERSEDED_BY, None)
+        if s not in typed and isinstance(s, rdflib.URIRef)
+    }
+
+
+def refused_supersessions(batch: rdflib.Graph, state: ClosingState) -> list[str]:
+    """``:supersededBy`` triples that are not a section replaced once by a new section the batch
+    declares (T-032): the old one is a stored or declared ``SECFilingSection`` not yet superseded,
+    the new one is declared here as a ``SECFilingSection`` (so it has no restatement of its own and
+    no chain can loop), and neither is the other."""
+    nm = batch.namespace_manager
+    sections = {s for s in batch.subjects(RDF.type, _SECTION)}
+    problems: list[str] = []
+    for s in sorted(set(batch.subjects(SUPERSEDED_BY, None)), key=str):
+        targets = sorted(set(batch.objects(s, SUPERSEDED_BY)), key=str)
+        held = state.get(str(s), {})
+        why = None
+        if len(targets) > 1:
+            why = f"is given {len(targets)} replacements in the batch"
+        elif targets[0] == s:
+            why = "a section does not replace itself"
+        elif targets[0] not in sections:
+            why = "its replacement is not a SECFilingSection this batch declares (a restatement is a new section)"
+        elif s in set(batch.subjects(RDF.type, None)):
+            why = None if s in sections else "it is not a SECFilingSection"
+        elif not held.get(rdflib.URIRef(RDF.type)):
+            why = "the store does not hold it"
+        elif str(_SECTION) not in held[rdflib.URIRef(RDF.type)]:
+            why = "it is not a SECFilingSection"
+        elif held.get(SUPERSEDED_BY):
+            why = (
+                f"it is already superseded by {sorted(held[SUPERSEDED_BY])[0]}: "
+                "the next correction replaces the latest section"
+            )
+        if why:
+            problems.append(f"{s.n3(nm)} {SUPERSEDED_BY.n3(nm)}: {why}")
     return problems
 
 
@@ -677,13 +730,18 @@ def ingest(db: GraphDB, data: bytes, graph: str, directory: Path | None = None) 
     if append_only and db.select(f"SELECT * WHERE {{ GRAPH <{graph}> {{ ?s ?p ?o }} }} LIMIT 1"):
         raise IngestRejected(f"{graph} already exists and is append-only; write a new dated graph")
     closing = {s for s, _ in closing_values(batch)}
-    if closing:
-        stray = refused_closures(batch, fetch_closing_state(db, closing))
+    restated = superseded_sections(batch)
+    if closing or (None, SUPERSEDED_BY, None) in batch:
+        state = fetch_closing_state(db, closing | restated)
+        stray = refused_closures(batch, state)
         if stray:
             raise IngestRejected(
                 "closing or sighting triples the stored record cannot take (T-180, T-194): "
                 + "; ".join(stray)
             )
+        bad = refused_supersessions(batch, state)
+        if bad:
+            raise IngestRejected("restatements the store cannot take (T-032): " + "; ".join(bad))
     taken = existing_subjects(db, batch)
     if taken:
         raise IngestRejected(
