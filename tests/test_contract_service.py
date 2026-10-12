@@ -72,6 +72,7 @@ def _declared(version: int = 10, schema_version: int | None = 10) -> DeclaredCon
 
 
 def _pin(floor: int = 9, contract: int | None = 10) -> SourceExpectation:
+    # A synthetic pin with its own numbers, not the shipped one (that is asserted in test_expectations).
     return SourceExpectation(floor, ("REPLAY",), contract)
 
 
@@ -277,30 +278,39 @@ def _run(url: str) -> subprocess.CompletedProcess[str]:
     )
 
 
-def test_cli_exits_0_for_a_service_that_matches_the_pin_and_notes_the_skipped_version_check() -> (
-    None
-):
+def test_cli_exits_0_for_a_service_that_matches_the_pin_and_checks_its_contract_version() -> None:
     routes = {
-        "/api/v1/contract": (200, _contract(10)),
-        "/api/v1/contract/database": (200, _database(10)),
+        "/api/v1/contract": (200, _contract(12)),
+        "/api/v1/contract/database": (200, _database(12)),
     }
     with _serve(routes) as url:
         result = _run(url)
     assert result.returncode == 0, result.stdout + result.stderr
     assert "view contract: OK" in result.stdout
-    # the shipped pin has no contract_version yet (T-157), so the check is skipped, loudly
-    assert "the pin records none" in result.stdout
+    # the shipped pin records contract_version 12 (T-157), so the check runs and nothing is skipped
+    assert "the pin records none" not in result.stdout
+
+
+def test_cli_exits_1_when_the_service_serves_another_contract_version() -> None:
+    routes = {
+        "/api/v1/contract": (200, _contract(13)),
+        "/api/v1/contract/database": (200, _database(13)),
+    }
+    with _serve(routes) as url:
+        result = _run(url)
+    assert result.returncode == 1
+    assert "DRIFT contract_version: the service declares 13, the pin records 12" in result.stdout
 
 
 def test_cli_exits_1_when_the_database_is_below_the_floor() -> None:
     routes = {
-        "/api/v1/contract": (200, _contract(10)),
+        "/api/v1/contract": (200, _contract(12)),
         "/api/v1/contract/database": (200, _database(8)),
     }
     with _serve(routes) as url:
         result = _run(url)
     assert result.returncode == 1
-    assert "DRIFT database: schema_version 8 is below the floor 9" in result.stdout
+    assert "DRIFT database: schema_version 8 is below the floor 12" in result.stdout
 
 
 def test_cli_exits_2_when_the_service_answers_something_else() -> None:

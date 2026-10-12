@@ -36,8 +36,8 @@ def shipped() -> dict[str, ViewExpectation]:
 
 def test_every_pinned_view_has_a_file(shipped: dict[str, ViewExpectation]) -> None:
     assert set(VIEW_COLUMNS) <= set(shipped)
-    assert {v for v in shipped if v not in VIEW_COLUMNS} == {"v_cycle_ranking_component"}
-    assert shipped["v_cycle_ranking_component"].pending
+    assert set(shipped) == set(VIEW_COLUMNS)  # none is pending any more (T-157)
+    assert not any(e.pending or e.pending_columns for e in shipped.values())
 
 
 def test_no_view_may_lose_rows_yet(shipped: dict[str, ViewExpectation]) -> None:
@@ -47,7 +47,8 @@ def test_no_view_may_lose_rows_yet(shipped: dict[str, ViewExpectation]) -> None:
 
 def test_the_source_check_is_the_documented_one() -> None:
     source = load_source()
-    assert source.schema_version_floor == 9
+    assert source.schema_version_floor == 12  # upstream's version (T-157)
+    assert source.contract_version == 12  # what the pin was built against (T-157)
     assert source.forbidden_cycle_types == ("REPLAY",)
 
 
@@ -311,6 +312,7 @@ def test_invalid_json_and_non_objects_are_rejected(tmp_path: Path) -> None:
         load_expectations(directory)
 
 
+# The floors below are synthetic inputs to the loader's validation, not the shipped pin.
 @pytest.mark.parametrize(
     ("source", "why"),
     [
@@ -374,7 +376,7 @@ def test_the_contract_version_is_read_when_present(tmp_path: Path, contract: int
 
 
 def test_a_source_file_without_the_contract_version_loads(tmp_path: Path) -> None:
-    """The shipped pin has no key until T-157's re-pin writes it."""
+    """The key is optional in the file; the shipped one records it since T-157's re-pin."""
     (tmp_path / "_source.json").write_text(
         json.dumps({"schema_version_floor": 9, "forbidden_cycle_types": ["REPLAY"]})
     )

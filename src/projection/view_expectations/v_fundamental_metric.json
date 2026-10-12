@@ -1,0 +1,19 @@
+{
+  "view": "v_fundamental_metric",
+  "keys": [["filing_id", "metric_id", "engine_version"]],
+  "cap": 0,
+  "null_rate": [
+    {"column": "metric_id", "max": 0},
+    {"column": "filing_id", "max": 0},
+    {"column": "metric_name", "max": 0},
+    {"column": "engine_version", "max": 0},
+    {"column": "available_at", "max": 0},
+    {"column": "event_time", "max": 0}
+  ],
+  "row_count": {"min": 1},
+  "types": {"value": "number", "is_current": "integer"},
+  "ranges": [{"column": "is_current", "min": 0, "max": 1}],
+  "ordered_pairs": [
+    {"left": "available_at", "op": ">", "right": "event_time", "null": "fail"}
+  ]
+}

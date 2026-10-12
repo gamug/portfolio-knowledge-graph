@@ -662,8 +662,8 @@ Also from that reply:
   rebuilds the database, which drops the orphaned edge `run_id`s; the accession number is a stable
   filing key.
 - `schema_version` advances only through migrations, so each contract change adds a marker
-  migration. Production is at 8, below our floor of 9 (D16); the pilot is at 9;
-  their T-100 starts a fresh database.
+  migration. Production is at 8, below our floor (9 until T-157, 12 since 2026-10-12; D16); the pilot copy we read
+  is at 12; their T-100 starts a fresh database.
 - `normalized_score` is cohort-relative (50 + 10·z, clamped to [0, 100]), so `1 - x/100` is a
   relative risk reading, not an absolute level.
 - Our `:inverted` comment calls `ScoreFinanciero` inverted, while the example we sent them set it
@@ -761,7 +761,7 @@ the read rule and did not answer Q6:
   right behaviour on our side.
 - **Q6 (the range of `raw_value`) was still open here; answered in the fifth reply (2026-10-09): [0, 100], bounded by T-177.** Q7 was not asked yet.
 - **Fifth reply (2026-10-09, `SPEC.md` §2.6):** upstream accepted the contract endpoint (their T-152, T-173 here), landed their T-144 (`schema_version` 10, T-157 here) and answered Q6 (T-177); their statement about production's version was disputed (settled in the sixth reply: production is at 8). Two new tasks follow from the review of the record, besides T-173 and T-157: T-177 (the shape bound) and T-178 (the pin's loader learns `contract_version`, before T-157's re-pin writes it).
-- **Sixth reply (2026-10-10, `SPEC.md` §2.6):** upstream's T-152 landed (the two routes); production's `schema_version` is 8 and the pilot's 9, so the floor stays 9 and refuses production; Q7 answered; a version-10 database sent, a version-11 copy on request (the live service reports `contract_version` 12); content changes (weights, quant variant books, rule catalog, `expires_on`, price columns) were decided on 2026-10-11 (T-183): the rules and `penalty_points` (T-187), `expiresOn` (T-188), the penalty identity (T-189) and the three-component scheme (T-190) are taken, variant books are not projected, the price columns wait for a consumer; Q7's answer corrected T-031's reading of the year bounds (T-182, done 2026-10-11); T-157 waits for a database to re-pin against, at version 12 or their final pilot, to be asked.
+- **Sixth reply (2026-10-10, `SPEC.md` §2.6):** upstream's T-152 landed (the two routes); production's `schema_version` is 8 and the pilot's 9, so the floor stayed 9 and refused production (until T-157, 2026-10-12: now 12); Q7 answered; a version-10 database sent, a version-11 copy on request (the live service reports `contract_version` 12); content changes (weights, quant variant books, rule catalog, `expires_on`, price columns) were decided on 2026-10-11 (T-183): the rules and `penalty_points` (T-187), `expiresOn` (T-188), the penalty identity (T-189) and the three-component scheme (T-190) are taken, variant books are not projected, the price columns wait for a consumer; Q7's answer corrected T-031's reading of the year bounds (T-182, done 2026-10-11); T-157 waits for a database to re-pin against, at version 12 or their final pilot, to be asked.
 
 **Approach**:
 
@@ -838,7 +838,9 @@ the read rule and did not answer Q6:
      Schemes and ranking snapshots are keyed by a `cycle_run` id, so they rely on their T-145
      and T-100 (T-145 stops new reuse; the rebuild drops ids already reused). Until both have
      landed, only runs passing T-151's checks are projected (T-121, T-155), as T-151 itself says.
-4. When upstream ships, re-pin `view_contract.py` and the `schema_version` floor (T-157) and replace
+4. When upstream ships, re-pin `view_contract.py` and the `schema_version` floor (T-157; done
+   2026-10-12 against the version-12 pilot: 32 views, floor 12, `contract_version` 12; the T-183 rule content and
+   the drift check against upstream's commit remain) and replace
    the SEMANTIC placeholder (T-158). Project only from a database that meets the floor and holds
    no REPLAY run: a backfill writes REPLAY scores, vetoes and rankings into the shared tables,
    where they cannot be told apart from live rows (D8), and the `cycle_type <> 'REPLAY'` filter
@@ -866,15 +868,15 @@ no shape rejects a value upstream documents as valid (the SECTOR `raw_value` ran
 `blended_score`), checked with synthetic rows at those bounds, and a filing with no current metric
 row fails no shape; T-187 to T-190 (version 11's content, decided in T-183) are built or explicitly
 deferred: the new rules with `penaltyPoints`, `Veto` `expiresOn`, the penalty identity in the docs, and
-the three-component scheme test (the five price columns wait for a consumer, T-183 (3)); T-191 has recorded upstream's answers to the T-184 letter, or lists the asks still open, with T-187 and T-188 blocked on (4) until then.
+the three-component scheme test (the five price columns wait for a consumer, T-183 (3)); T-191 has recorded upstream's answers to the T-184 letter (the seventh reply, 2026-10-11: asks (1) to (5) answered; only ask (6), not in the letter, is open), so T-187 and T-188 are unblocked.
 
 **Blocked on**: nothing for T-150, T-170, T-151's rule, T-155's formula removal, T-171's
 `normalizedScore` drop, the shape corrections of step 3 (SECTOR range, `attractivenessScore`
 bound, and the `tbox.ttl` comments) and T-158's ownership question (to be asked before their
 T-141 ships its doc fix); upstream's T-144
-for T-152–T-156's projection and T-157's first re-pin; their T-145 and T-100 for relaxing T-151's
+(landed; T-157's re-pin is done in PR #97) for T-152–T-156's projection; their T-145 and T-100 for relaxing T-151's
 checks; their T-074 for T-153's flag values; their T-082, after their T-100, for T-154's `MEDIA`
-kind and edge dates; their Work item 4, after their T-100, for T-158's method value; upstream's answer to the letter T-184, recorded by T-191, for T-187's rule definitions and T-188's expiry semantics (T-190 needs nothing). Closing this
+kind and edge dates; their Work item 4, after their T-100, for T-158's method value; T-187 and T-188 are no longer blocked (upstream's answer to the letter T-184 is the seventh reply, recorded by T-191, 2026-10-11), and T-190 needs nothing. Closing this
 work item waits on what the acceptance names: T-158 (the ownership answer and the method value) and
 the upstream changes this work item reads having shipped (their T-144, T-074 and T-082). Their T-145
 and T-100 only relax T-151's checks and do not hold it open.

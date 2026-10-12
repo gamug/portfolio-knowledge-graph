@@ -10,7 +10,6 @@
     {"column": "event_time", "max": 0},
     {"column": "computed_at", "max": 0}
   ],
-  "pending_columns": {"forensic_flags_json": "not pinned yet: upstream T-074, projected by T-153"},
   "row_count": {"min": 1},
   "types": {
     "id": "integer",

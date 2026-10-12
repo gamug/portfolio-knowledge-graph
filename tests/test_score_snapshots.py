@@ -377,13 +377,13 @@ def test_the_source_check_runs_first_and_stops_a_database_below_the_floor(
     source = financial_db(tmp_path, _cohort("TECHNICAL", 1), version=8)
     if drop:
         _drop_schema_version(tmp_path / "financial.db")
-    with pytest.raises(BoundaryError, match=f"schema_version.*{version} is below the floor 9"):
+    with pytest.raises(BoundaryError, match=f"schema_version.*{version} is below the floor 12"):
         ss.run(source, ASSETS, None, "2026-10-07")
 
 
 def test_the_schema_version_is_read_from_upstreams_table_not_the_pragma(tmp_path: Path) -> None:
     source = financial_db(tmp_path, [])
-    assert source.schema_version == 9  # PRAGMA user_version is 0 in this database
+    assert source.schema_version == 12  # PRAGMA user_version is 0 in this database
 
 
 def test_a_missing_or_empty_schema_version_table_reads_as_zero(tmp_path: Path) -> None:
@@ -976,3 +976,8 @@ def test_a_run_with_its_count_is_not_reported(tmp_path: Path) -> None:
     out = ss.run(financial_db(tmp_path, [fundamental_row(id=10)]), ASSETS, None, "2026-10-07")
     assert out.runs_without_count == 0
     assert "no completed_units" not in out.summary()
+
+
+def test_the_reader_selects_the_flags_column_the_shipped_expectations_name() -> None:
+    """T-157 pinned ``forensic_flags_json``; a reader that omits it stops every run (missing_column)."""
+    assert "forensic_flags_json" in ss.COLUMNS

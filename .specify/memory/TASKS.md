@@ -490,7 +490,7 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       is not a precondition of this task. It is unique in the pilot and will be in their T-100 rebuild; no
       constraint enforces it today, but their T-145 adds a uniqueness check to their pilot
       verifier. → step 3.
-      The dates of their T-145 and T-100 are asked in T-184 and recorded by T-191 (5).
+      Their T-145 and T-100 dates (T-191 (5), `SPEC.md` §2.6 seventh reply): weeks, not days; the final pilot T-143 and T-100 come last.
 - [ ] **T-152** Model `v_fundamental_metric`: one immutable observation per (filing, metric, engine
       version) with its asset, filing, metric group and name, value, `engineVersion`, and its own
       event-time and available-at properties (not `:eventTime`/`:availableAt`: their
@@ -524,7 +524,7 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       `v_media_cooccurrence_edge` exists (after upstream's T-082); do not read `first_seen`/
       `last_seen` until upstream fills them. `computed_at` is written `+00:00`: parse that form and
       `Z`. The `MEDIA` view and the edge dates come after their T-100. → step 3.
-      The dates of their T-145 and T-100 are asked in T-184 and recorded by T-191 (5).
+      Their T-145 and T-100 dates (T-191 (5), `SPEC.md` §2.6 seventh reply): weeks, not days; the final pilot T-143 and T-100 come last.
 - [ ] **T-155** *(schema half done 2026-10-07 in PR #58: the two shape bounds, every comment and doc listed under "Unblocked now"; open: the projection, which waits on T-031, T-121, T-157)* Project `v_cycle_ranking` as `AttractivenessSnapshot`s, keeping only
       `status = 'completed'` and non-REPLAY runs: `attractivenessScore` = `blended_score / 100`
       (second reply: 0-100 points, higher = more attractive, minus the SOFT penalty, so it
@@ -585,14 +585,16 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       `Portfolio` (already enforced by `PortfolioShape`); stop expecting `equal_weight`/
       `cap_weight`. `is_current` marks at most one book per `(as_of, kind)`, the newest `opt-v*`; variant books are never current and are not projected (T-183 (5));
       `engine_version` stays opaque (`opt-v1+9d34ff69`). → step 3.
-- [ ] **T-157** *(their T-144 landed 2026-10-09 at `6bf4d7e`, `schema_version` 10: re-pin against a database migrated with it; the floor stays 9 until then; production is at 8, the pilot at 9, `SPEC.md` §2.6 sixth reply; the live service is at `contract_version` 12 and upstream offers copies at 10 and 11 only: ask for a version-12 copy, or wait for their final pilot (T-143), so the re-pin is done once)* When upstream ships: re-pin `src/projection/view_contract.py` (new view, new
+- [x] **T-157** *(done 2026-10-12 in PR #97 against `financial_pilot_v12.db`, SHA-256 `d4c6fa80…`, `schema_version` 12: 32 pinned views, the two T-144 views pinned, appended columns pinned, the floor 9 to 12, `contract_version` 12 recorded in `_source.json`; the pending markers of `v_cycle_ranking_component` and `v_score_snapshot.forensic_flags_json` dropped; not done: the drift check against upstream's checkout at `6a80ec3` (the commit that migrated the file), because no checkout is here, and the T-183 rule content (`penalty_points`, the new rules), which this file does not hold (`v_rule_catalog` has the nine original columns and six rules); the text below is the original task)* When upstream ships: re-pin `src/projection/view_contract.py` (new view, new
       columns, the commit in its docstring and in `SPEC.md` §2.6), raise the `schema_version` floor
       (D16; the value is `schema_version_floor` in `src/projection/view_expectations/_source.json`),
       and write the upstream `contract_version` the pin was built against beside it (the key and its
       checks are T-178, done; T-173's guard compares against it),
       and run `cli/check_view_contract.py` against that commit, or the T-135 test
-      (`PFA_CHECKOUT=<checkout> uv run pytest -s -m integration tests/test_contract_check_checkout.py`);
-      without CI nothing forces either. Repeat for
+      (`PFA_CHECKOUT=<checkout> uv run pytest -s -m integration tests/test_contract_check_checkout.py`),
+      which checks the pin against upstream's code; and run the expectations over the database's rows
+      (`PILOT_DB=<db> uv run pytest -s -m integration tests/test_expectations_real_file.py`, added in
+      PR #97), which checks them against upstream's data; without CI nothing forces any of them. Repeat for
       `v_media_cooccurrence_edge`. Pin their T-144's `v_cycle_ranking_component` too. Every contract
       change carries a marker migration, so each raises the floor; repeat for their T-145.
       Version 11's content (T-183): the re-pin reads `v_veto.expires_on`, `penalty_points` on
@@ -615,7 +617,20 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       Sign-off, item by item: the pin (read and unread columns), the floor, `contract_version`, the drift
       check against the commit, the expectations files, the `SPEC.md` §2.6 row.
       → step 4.
-      The database at the served version, and what version 12 changed, are asked in T-184 and recorded by T-191 (2).
+      The database at the served version, and what version 12 changed, are recorded by T-191 (2) (`SPEC.md` §2.6, seventh reply).
+      **Run over the real file, 2026-10-12:** `PILOT_DB=<financial_pilot_v12.db> uv run pytest -m integration
+      tests/test_expectations_real_file.py` runs each pinned view's rows through the shipped expectations:
+      all 32 hold (it found `v_fundamental_metric`'s natural key was wrong; run it before every re-pin).
+      **Owed again:** when upstream's final pilot (T-143) arrives it has the version-11 columns filled and
+      the new rules in `v_rule_catalog`; a second re-pin and a second real-file run are due then, and the
+      `expires_on` and `penalty_points` expectations become testable. Not a task yet.
+      **Sign-off, 2026-10-12:** the floor is 12, upstream's version, as in every re-pin (`m012` adds triggers, no
+      columns). Open: run
+      `cli/check_view_contract.py` against upstream's checkout at `6a80ec3`. Also open (not
+      done in this task): `v_score_snapshot`'s cycle-lane pair still has `null: skip` with `until:
+      "upstream T-144"`, and the reader counts those rows as left out by design
+      (`LEFT_NULL_AVAILABLE_AT`, late keys). T-144 has landed and the v12 file has no NULL there, so a
+      follow-up can make it `fail` and drop that path; proposed, not yet a task. The rule content (`penalty_points`, the new rules) is not in this file; it is T-187's work.
 - [ ] **T-158** Replace the `ASSET_DAY_AGGREGATE` placeholder with upstream's SEMANTIC
       `score_method` value once they give it (D14; with their Work item 4, after their T-100).
       **First, raise the ownership disagreement (unblocked now; ask before their T-141 ships its
@@ -624,7 +639,7 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       11 (`portfolio-nlp` computes, `financial-analysis` materializes, this repo stops writing).
       Ask them to confirm which reading their T-141 doc fix will state, and record the answer in D14
       before the method value is adopted. → step 4.
-      The dates of their T-145 and T-100 are asked in T-184 and recorded by T-191 (5).
+      Their T-145 and T-100 dates (T-191 (5), `SPEC.md` §2.6 seventh reply): weeks, not days; the final pilot T-143 and T-100 come last.
 - [ ] **T-159** Verify: FR-001 parse + `pyshacl` pass after T-151–T-156, T-171, with
       `schema/README.md`, `docs/06` and `docs/07` counts in sync (NR-001), `docs/07`'s named-graph
       table listing every new class, and no doc left describing the blend as computed here (T-155);
@@ -696,7 +711,7 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       books are never current, so they are not projected (stated in T-156, no new task); (6) **yes**: the
       weight-component shape reads "the score types the run weighted" (three for a new run, four for an earlier one)
       -> T-190. -> `PLAN.md` Work item 15.
-- [ ] **T-184** *(written 2026-10-11; open until the maintainer sends it by hand and says so; the answers are T-191)* The next follow-up
+- [x] **T-184** *(written 2026-10-11, sent by the maintainer on 2026-10-11 and recorded by upstream; its reply, which came the same day, is recorded in `SPEC.md` §2.6 (seventh reply) by T-191; no cut-off date is needed since there was a reply; the text below is the original task)* The next follow-up
       letter to `portfolio-financial-analysis`, from the sixth reply and PR #89's review. It asks five
       things. (1) Which date their `since_year`/`until_year` filter uses, the filing date or `available_at`
       (T-182 takes the two years as one; `SPEC.md` §2.6). (2) A database at the contract version their
@@ -707,10 +722,10 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       rules, the existing five included (T-189 sums them); (c) the date the redefinition applies from and what the
       old definition's stints keep (T-187); (d) whether an expired stint (`expires_on`) is cleared by them or only
       by its date (T-188); (e) whether `expires_on` is ever set on a SOFT stint. (5) When their T-145 and T-100 land (T-151, T-154, T-158).
-      **On sending**, write the date sent and the cut-off date for T-191's no-reply exit in this note, and change
-      `SPEC.md` §2.6's "To ask" to "Asked on <date>".
+      **On sending** *(done: sent 2026-10-11; no cut-off date needed, since the reply came the same day; `SPEC.md`
+      §2.6 now says "Asked on 2026-10-11")*.
       -> `PLAN.md` Work item 15.
-- [ ] **T-191** *(the answers to T-184's letter; waits on upstream's reply, which no task here controls)* When
+- [ ] **T-191** *(the answers to T-184's letter; asks (1) to (5) answered and recorded in `SPEC.md` §2.6 (seventh reply, 2026-10-11); open only for ask (6), which was not in the letter)* When
       the reply comes, record it in `SPEC.md` §2.6 as the seventh reply and tick each ask below as it is
       answered; a partial reply ticks the asks it answers and leaves the rest. Answers taken from a message are
       marked as theirs, not read from their code, as the earlier replies were.
@@ -728,40 +743,67 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       **Ask (6), not in the letter, for the next message to them (from T-185):** does upstream set `last_seen_on` on the
       clearing cycle, and can `cleared_on` be earlier than a recorded `last_seen_on`? The answer settles whether the
       same-day tolerance in the gate and `VetoShape` (`<=`) stays or becomes `<`.
-      - [ ] (1) filing date or `available_at`
-      - [ ] (2) database at the served version, and what version 12 changed
-      - [ ] (3) notes match the file's version
-      - [ ] (4) rule definitions: (a) thresholds, (b) `penalty_points`, (c) the redefinition's date, (d) who clears an expired stint, (e) `expires_on` on SOFT
-      - [ ] (5) T-145 and T-100 dates
+      - [x] (1) filing date or `available_at`
+      - [x] (2) database at the served version, and what version 12 changed: `financial_pilot_v12.db`, migrated with their `6a80ec3`; `m012` installs filing-identity triggers, no columns (T-157, PR #97)
+      - [x] (3) notes match the file's version
+      - [x] (4) rule definitions: (a) thresholds, (b) `penalty_points`, (c) the redefinition's date, (d) who clears an expired stint, (e) `expires_on` on SOFT
+      - [x] (5) T-145 and T-100 dates
       - [ ] (6) not in the letter: `last_seen_on` on the clearing cycle, and `cleared_on` against `last_seen_on` (T-185)
 
-- [ ] **T-187** *(from T-183 (1); waits on upstream's definitions, so on T-157 or T-191, the answer to the T-184 letter)* Add the
+- [ ] **T-187** *(from T-183 (1); unblocked 2026-10-12: upstream's definitions, `penalty_points` and the old-stint rule are in `SPEC.md` §2.6 (seventh reply); `NEGATIVE_FCF` and the sector exemption change later in their T-071)* Add the
       three rules and the redefinition to `schema/rules.ttl`. `BREAK_TREND_200`, `VOLATILITY_SHOCK` and
       `CRASH_Z_SCORE` are `RuleDefinition`s, each a tree like the six; the leaf kind is chosen from upstream's
-      definition, `ThresholdComparison` on the raw value when the rule compares one metric with a constant, and
-      a rule that compares two quantities (`BREAK_TREND_200` against `sma_200`, probably) needs another leaf kind
-      and is flagged in `schema/README.md` as the earlier gaps were, not forced into a threshold. Each rule's
+      definition (the nine-rule table in `SPEC.md` §2.6, seventh reply): `ThresholdComparison` on the raw value
+      when the rule compares one metric with a constant. `BREAK_TREND_200` is `close < 0.95 × sma_200`, two
+      quantities. `VOLATILITY_SHOCK` and `CRASH_Z_SCORE` each have two conditions, and the second is relative to
+      the company's sector median that day (with a fallback to the whole cross-section under 5 names). None of
+      the three is a single threshold on a raw value: each needs a leaf kind for a comparison between two
+      quantities, or a sector-relative one, and is flagged in `schema/README.md` as the earlier gaps were, not
+      forced into a threshold. Each rule's
       `rdfs:comment` says its metric is computed upstream and is not a `:PriceObservation` property (as
       `PRICE_CRASH`'s does; T-183 (3) leaves the price columns unprojected). The redefined `LIQUIDITY_DISTRESS`
-      is a new `RuleDefinition` (a new IRI, such as `:Rule_LIQUIDITY_DISTRESS_v11`, valid from version 11's
-      date with the same `:ruleId`) and the present one is closed with `validTo` (it stays, as the seven tree
+      is a new `RuleDefinition` (a new IRI, such as `:Rule_LIQUIDITY_DISTRESS_v11`, valid from 2026-10-10, the date
+      of their merge `b3c7661`, with the same `:ruleId`; there is no date cut-off in their data) and the present one is closed with `validTo` (it stays, as the seven tree
       rules did). A Veto stint resolves to the definition valid on its `raisedOn`: the projector picks it that
-      way, with a test for a stint raised before version 11 and one after. Add an optional
+      way. Upstream re-evaluates an old stint on the first run with the new code (it keeps its `raised_on`,
+      `rule_id` and evidence; it closes, stays open with new evidence and `last_seen_on`, or stays open as "could
+      not tell"), so a stint raised before 2026-10-10 can be re-confirmed under the new definition. Proposed: it
+      still resolves by `raisedOn`, and the re-evaluation shows only in the later `lastSeenOn` and evidence; the
+      developer confirms or changes this in the PR. Tests: a stint raised before 2026-10-10, one after, and an
+      old one re-confirmed. **The redefined `LIQUIDITY_DISTRESS` is a tree:** `current_ratio < 1.0` AND
+      (`interest_coverage < 1.5` OR `operating_cash_flow_margin < 0.0`), three threshold leaves under
+      `AND`/`OR`. Its exemption (not applied to GICS Financials or Utilities) is a test on the asset's sector,
+      not on a metric: express it as a `CategoricalComparison` on the sector (the leaf is defined for
+      `RiskEvent` fields, so that is a new use, flagged in `schema/README.md`), or describe it in the
+      `rdfs:comment` if the tree cannot say "not in"; the developer chooses and states it in the PR. Upstream's
+      T-071 moves the exemption to their company profile, so it may change again. "Could not tell" (no current
+      ratio, or below 1.0 with neither coverage metric) is an upstream evaluation state: the `rdfs:comment`
+      says it is evaluated upstream, as `DATA_QUALITY`'s does. **Severity, category and rank of the three new
+      rules:** severity from the reply's table (`VOLATILITY_SHOCK` and `CRASH_Z_SCORE` HARD and temporary,
+      `BREAK_TREND_200` SOFT and flag only); `:category` is ours, proposed `MARKET` for all three, like
+      `PRICE_CRASH`; `:priorityRank` continues after 6 in the order of the reply's table, stated as ours because
+      the reply gives no order. "Temporary" and "flag only" are recorded in each rule's `rdfs:comment`, not as
+      a new property. Add an optional
       `:penaltyPoints` (`xsd:decimal`, at least 0, at most one) on `RuleDefinition` in `tbox.ttl` and
-      `shapes.ttl`, set on every rule in the catalog. Thresholds, ids and points are read from upstream's
-      `v_rule_catalog` and `docs/kg_schema.md`, not written from memory; record the commit. Update the counts in
+      `shapes.ttl`, set on every rule in the catalog. Thresholds, ids and points are read from the nine-rule table in `SPEC.md` §2.6
+      (seventh reply, read from their code at `6a80ec3`), not from memory and not from the version-12 file's
+      `v_rule_catalog` (it still holds the six pre-version-11 rows and no `penalty_points`); record the commit,
+      and re-check the values against `v_rule_catalog` when the final pilot (T-143) arrives. Update the counts in
       `schema/README.md` and `docs/06`, add synthetic cases (a negative `penaltyPoints` fails), and add the
-      rules to `instances.trig` only where the worked example needs them. When it lands, the live store is reloaded from `schema/` (the maintainer's go-ahead; `verify_store` compares each graph's size with `schema/`, T-176) and a dated row goes in `docs/graphdb-setup.md`, as T-179 did. `SPEC.md` §2.6's D4 row and `CLAUDE.md` both say "six rules" and are brought up to the new catalog size. A `feat/` PR. -> `PLAN.md` Work item 15.
-- [ ] **T-188** *(from T-183 (2); the shape of `expires_on` is T-191 item 4, asked in T-184)* Add an optional, functional
+      rules to `instances.trig` only where the worked example needs them. When it lands, the live store is reloaded from `schema/` (the maintainer's go-ahead; `verify_store` compares each graph's size with `schema/`, T-176) and a dated row goes in `docs/graphdb-setup.md`, as T-179 did. `SPEC.md` §2.6's D4 adoption row carries a note (PR #98: six at T-103, nine in their code); when `rules.ttl` holds the nine, replace that note with the final count. `CLAUDE.md` is local and untracked and also says "six rules": the maintainer updates it. A `feat/` PR. -> `PLAN.md` Work item 15.
+- [ ] **T-188** *(from T-183 (2); unblocked 2026-10-12: only `VOLATILITY_SHOCK` and `CRASH_Z_SCORE` set it, never a SOFT stint, and the cycle clears the stint, not the date: `SPEC.md` §2.6, seventh reply)* Add an optional, functional
       `:expiresOn` (`xsd:date`) on `Veto`, with the shape: at most one value, not before `:raisedOn`. A stint
       without it never expires by date, as today; `v_veto.expires_on` is filled only on stints of the new
-      temporary HARD rules, and NULL maps to no triple. Settle with upstream whether an expired stint is cleared
-      by them (`cleared_on`) or only by this predicate, and write the answer in `tbox.ttl`'s comment and in
-      `SPEC.md` §2.6. When it lands, the live store is reloaded from `schema/` (the maintainer's go-ahead; the check in T-176 compares each graph's size with `schema/`) and a dated row goes in `docs/graphdb-setup.md`, as T-179 did. The active-at-cutoff SPARQL (D3) gains the `expiresOn` test only if upstream says the date
-      closes a stint by itself. Synthetic cases (before `raisedOn` fails; absent passes). Follow T-185's decision (the maintainer's, 2026-10-11, PR #94), which put the same check in `VetoShape` (for a Veto declared with the date) and in the gate (for a stored Veto closed later). `expiresOn` is set when the Veto is declared, not by a later triple, so the shape is the one that applies; the gate only if upstream says the date closes a stint by itself. A `feat/` PR.
+      temporary HARD rules, and NULL maps to no triple. Upstream's answer (seventh reply, `SPEC.md` §2.6): the cycle writes `cleared_on`
+      at the first cycle on or after `expires_on` when the condition is gone, and otherwise moves `expires_on` 10
+      NYSE sessions on; the date alone never ends a stint. So `:expiresOn` does not close a Veto, and a reader
+      tests `cleared_on` only; say so in `tbox.ttl`'s comment. When it lands, the live store is reloaded from `schema/` (the maintainer's go-ahead; the check in T-176 compares each graph's size with `schema/`) and a dated row goes in `docs/graphdb-setup.md`, as T-179 did. The active-at-cutoff SPARQL (D3) does not gain an `expiresOn` test, since upstream says the date
+      never closes a stint by itself. Synthetic cases (before `raisedOn` fails; absent passes). Follow T-185's decision (the maintainer's, 2026-10-11, PR #94), which put the same check in `VetoShape` (for a Veto declared with the date) and in the gate (for a stored Veto closed later). `expiresOn` is set when the Veto is declared, not by a later triple, so the shape is the one that applies; the gate does not apply, since the date never closes a stint by itself. A `feat/` PR.
       -> `PLAN.md` Work item 15.
-- [ ] **T-189** *(from T-183 (4))* Read the SOFT penalty as the sum of the active SOFT stints' rules'
-      `penalty_points` (T-155's note already says so, from T-183); the projector derives no pre-penalty score.
+- [ ] **T-189** *(from T-183 (4); after T-187, which adds the `penaltyPoints` property it sums)* Read the SOFT penalty as the sum of the active SOFT stints' rules'
+      `penalty_points` (T-155's note already says so, from T-183); the projector derives no pre-penalty score. A SOFT rule with no `:penaltyPoints` counts the run's
+      `soft_veto_penalty` (15), as upstream does ("every SOFT rule costs 15 unless it declares its own"; only
+      `BREAK_TREND_200` does, with 0), never 0, so a rule added later without the property is not silently free.
       `:softVetoPenalty`'s `tbox.ttl` comment says the flat 15 applies to runs before version 11, and the three
       other places that say "15 points each" follow: `docs/06`, `shapes.ttl` (the `AttractivenessSnapshotShape`
       comment) and `schema/README.md`. Needs T-187's `:penaltyPoints`. Docs and a
@@ -860,7 +902,7 @@ Work item 15 (T-150–T-159, T-170–T-173, T-177–T-178, T-182–T-184, T-187�
 T-151's rule recorded (PR #60), its checks waiting on T-031/T-163; T-158's
 ownership question (before their T-141) is unblocked; the rest of T-152–T-158 waits on upstream's
 T-144 (views), T-145 (ids), T-074 (flags) and, after their T-100, their T-082 and their Work item 4.
-Work item 15, from the sixth reply: T-182 (the analysis run's year bounds read as filing years) is done; T-183 (the decisions on version 11's content) is done, with T-187 (the rules and `penaltyPoints`), T-188 (`expiresOn`), T-189 (the penalty identity) and T-190 (the three-component scheme) filed; T-184 (the next letter to upstream) is written and open until the maintainer sends it, and T-191 records the answers when they come.
+Work item 15, from the sixth reply: T-182 (the analysis run's year bounds read as filing years) is done; T-183 (the decisions on version 11's content) is done, with T-187 (the rules and `penaltyPoints`), T-188 (`expiresOn`), T-189 (the penalty identity) and T-190 (the three-component scheme) filed; T-184 (the next letter to upstream) was sent on 2026-10-11 and answered the same day (the seventh reply, recorded by T-191 asks (1) to (5), T-187 and T-188 unblocked; ask (6) is still to ask).
 Work item 16 (T-160–T-165, T-192): T-160 done (plain checks, quarantine-with-cap), T-161 closed with it (no dependency) and T-162 done (JSON files per view, strict loader);
 T-163 (function done, PR #68) closes with T-031, whose first slice (PR #72) calls it on the real read and re-reads the late keys for `v_score_snapshot`; T-164 done (PR #69).
 Work item 8 (T-070–T-071) is independent but needs a human at a Protégé
