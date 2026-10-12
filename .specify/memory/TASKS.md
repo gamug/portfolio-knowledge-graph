@@ -386,7 +386,7 @@ independent of each other once T-131 lands.*
       against the live repository, which T-181 made six checks (the sixth runs the worked example's quant batch
       beside the stored Portfolios and Assets, so it needs `instances.trig` and `reference.ttl` loaded), and record
       the six PASS/FAIL lines and the date as a row of `docs/graphdb-setup.md`'s live-run section. The agent's
-      sandbox cannot reach the store while it is down (`Network is unreachable`; it reached it on 2026-10-12), so this is the only evidence of what GraphDB
+      sandbox reaches the store only when the server is up on the sandbox's network (the first attempt, 2026-10-12, got `Network is unreachable`; the next succeeded), so this is the only evidence of what GraphDB
       returns for a string literal (`datatype` absent or `xsd:string`). If it fails, fix `GraphDB._term` or the
       check. → `PLAN.md` Work item 14, step 9.
 - [x] **T-193** *(from T-185; the maintainer, not code; done 2026-10-12: the store holds 2550 triples and `verify_store` exits 0, recorded in `docs/graphdb-setup.md`; the text below is the original task)* Reload the live store from `schema/` after PR #94 merges:

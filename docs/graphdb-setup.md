@@ -240,7 +240,7 @@ user list was not inspected, so no cause is claimed; nothing in the repository c
    them the scratch-repository tests skip instead of passing. Afterwards the server listed only `portfolio`, so no
    `kgtest-…` repository was left behind.
 
-### Reloading after T-185 (T-193, 2026-10-12)
+### Reloading after T-185 (T-193 and T-186, 2026-10-12)
 
 T-185 (PR #94) put one triple in `urn:graph:tbox` (1569 to 1570; 2549 to 2550 over the 19 graphs), so the store was
 one behind `schema/`. Written after the maintainer's go-ahead, by a Claude Code session they asked to run it, once

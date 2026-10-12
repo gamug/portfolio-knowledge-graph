@@ -566,7 +566,7 @@ new acceptance probe; and `acceptance.check_gate` counts violations by matching 
    the two that write use a repository of their own, never `portfolio`. Done 2026-10-08; `portfolio.app` cannot create a
    repository (HTTP 403), so those tests need `KG_ADMIN_USER`/`KG_ADMIN_PASSWORD`.
 8. Reload the live store after T-177 changed `shapes.ttl` (T-179): done 2026-10-10 after the maintainer's go-ahead;
-   the store holds 2549 triples and `verify_store` passes (`docs/graphdb-setup.md`).
+   the store then held 2549 triples (2550 since T-193) and `verify_store` passed (`docs/graphdb-setup.md`).
 9. Two limits of the gate found in PR #86's review: a closing triple is not checked against the store (T-180), and
    `select` dropped a literal's datatype, so the context took the declared one (T-181, done: `GraphDB.select_terms` keeps it).
 10. A Veto's `clearedOn` against its `lastSeenOn` (T-185, found in PR #90's review; the maintainer's decision of
