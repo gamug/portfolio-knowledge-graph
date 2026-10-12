@@ -662,8 +662,8 @@ Also from that reply:
   rebuilds the database, which drops the orphaned edge `run_id`s; the accession number is a stable
   filing key.
 - `schema_version` advances only through migrations, so each contract change adds a marker
-  migration. Production is at 8, below our floor of 9 (D16); the pilot is at 9;
-  their T-100 starts a fresh database.
+  migration. Production is at 8, below our floor (9 until T-157, 12 since 2026-10-12; D16); the pilot copy we read
+  is at 12; their T-100 starts a fresh database.
 - `normalized_score` is cohort-relative (50 + 10·z, clamped to [0, 100]), so `1 - x/100` is a
   relative risk reading, not an absolute level.
 - Our `:inverted` comment calls `ScoreFinanciero` inverted, while the example we sent them set it
@@ -761,7 +761,7 @@ the read rule and did not answer Q6:
   right behaviour on our side.
 - **Q6 (the range of `raw_value`) was still open here; answered in the fifth reply (2026-10-09): [0, 100], bounded by T-177.** Q7 was not asked yet.
 - **Fifth reply (2026-10-09, `SPEC.md` §2.6):** upstream accepted the contract endpoint (their T-152, T-173 here), landed their T-144 (`schema_version` 10, T-157 here) and answered Q6 (T-177); their statement about production's version was disputed (settled in the sixth reply: production is at 8). Two new tasks follow from the review of the record, besides T-173 and T-157: T-177 (the shape bound) and T-178 (the pin's loader learns `contract_version`, before T-157's re-pin writes it).
-- **Sixth reply (2026-10-10, `SPEC.md` §2.6):** upstream's T-152 landed (the two routes); production's `schema_version` is 8 and the pilot's 9, so the floor stays 9 and refuses production; Q7 answered; a version-10 database sent, a version-11 copy on request (the live service reports `contract_version` 12); content changes (weights, quant variant books, rule catalog, `expires_on`, price columns) were decided on 2026-10-11 (T-183): the rules and `penalty_points` (T-187), `expiresOn` (T-188), the penalty identity (T-189) and the three-component scheme (T-190) are taken, variant books are not projected, the price columns wait for a consumer; Q7's answer corrected T-031's reading of the year bounds (T-182, done 2026-10-11); T-157 waits for a database to re-pin against, at version 12 or their final pilot, to be asked.
+- **Sixth reply (2026-10-10, `SPEC.md` §2.6):** upstream's T-152 landed (the two routes); production's `schema_version` is 8 and the pilot's 9, so the floor stayed 9 and refused production (until T-157, 2026-10-12: now 12); Q7 answered; a version-10 database sent, a version-11 copy on request (the live service reports `contract_version` 12); content changes (weights, quant variant books, rule catalog, `expires_on`, price columns) were decided on 2026-10-11 (T-183): the rules and `penalty_points` (T-187), `expiresOn` (T-188), the penalty identity (T-189) and the three-component scheme (T-190) are taken, variant books are not projected, the price columns wait for a consumer; Q7's answer corrected T-031's reading of the year bounds (T-182, done 2026-10-11); T-157 waits for a database to re-pin against, at version 12 or their final pilot, to be asked.
 
 **Approach**:
 

@@ -72,6 +72,7 @@ def _declared(version: int = 10, schema_version: int | None = 10) -> DeclaredCon
 
 
 def _pin(floor: int = 9, contract: int | None = 10) -> SourceExpectation:
+    # A synthetic pin with its own numbers, not the shipped one (that is asserted in test_expectations).
     return SourceExpectation(floor, ("REPLAY",), contract)
 
 
