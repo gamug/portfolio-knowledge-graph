@@ -312,6 +312,7 @@ def test_invalid_json_and_non_objects_are_rejected(tmp_path: Path) -> None:
         load_expectations(directory)
 
 
+# The floors below are synthetic inputs to the loader's validation, not the shipped pin.
 @pytest.mark.parametrize(
     ("source", "why"),
     [
