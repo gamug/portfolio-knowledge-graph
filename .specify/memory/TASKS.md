@@ -618,8 +618,11 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       The database at the served version, and what version 12 changed, are asked in T-184 and recorded by T-191 (2).
       **Sign-off, 2026-10-12:** the floor is 12, upstream's version, as in every re-pin (`m012` adds triggers, no
       columns). Open: run
-      `cli/check_view_contract.py` against upstream's checkout at `6a80ec3`. The
-      rule content (`penalty_points`, the new rules) is not in this file; it is T-187's work.
+      `cli/check_view_contract.py` against upstream's checkout at `6a80ec3`. Also open (not
+      done in this task): `v_score_snapshot`'s cycle-lane pair still has `null: skip` with `until:
+      "upstream T-144"`, and the reader counts those rows as left out by design
+      (`LEFT_NULL_AVAILABLE_AT`, late keys). T-144 has landed and the v12 file has no NULL there, so a
+      follow-up can make it `fail` and drop that path; proposed, not yet a task. The rule content (`penalty_points`, the new rules) is not in this file; it is T-187's work.
 - [ ] **T-158** Replace the `ASSET_DAY_AGGREGATE` placeholder with upstream's SEMANTIC
       `score_method` value once they give it (D14; with their Work item 4, after their T-100).
       **First, raise the ownership disagreement (unblocked now; ask before their T-141 ships its
@@ -733,7 +736,7 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       clearing cycle, and can `cleared_on` be earlier than a recorded `last_seen_on`? The answer settles whether the
       same-day tolerance in the gate and `VetoShape` (`<=`) stays or becomes `<`.
       - [ ] (1) filing date or `available_at`
-      - [~] (2) database at the served version, and what version 12 changed: file received 2026-10-12 (version 12, T-157 re-pinned); `m012` is described in its `schema_version` row (filing-identity triggers, no columns); not yet answered by upstream in words, and the file lacks T-183's rule content
+      - [~] (2) database at the served version, and what version 12 changed: file received 2026-10-12 (version 12, T-157 re-pinned); `m012` is described in its `schema_version` row (filing-identity triggers, no columns); the file lacks T-183's rule content (upstream's written answer is its seventh reply of 2026-10-11)
       - [ ] (3) notes match the file's version
       - [ ] (4) rule definitions: (a) thresholds, (b) `penalty_points`, (c) the redefinition's date, (d) who clears an expired stint, (e) `expires_on` on SOFT
       - [ ] (5) T-145 and T-100 dates
