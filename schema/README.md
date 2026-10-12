@@ -166,9 +166,12 @@ what the store *enforces*.
    `ScoreTecnico`); an earlier run weighed four, the SEMANTIC `Sentiment` as well (upstream's sixth reply, `SPEC.md` §2.6; T-183 (6)).
    `AttractivenessWeightSchemeShape` asks for at least one `:hasWeightComponent` and `WeightComponentShape` only that the
    name is one of the five listed, so both readings conform, and so does an asset that lacks a component in a
-   three-type run (T-155). Seven cases in `tests/test_schema_gate.py`: three, four, two and one components conform;
-   none fails on the scheme; a name outside the five fails on the component. The shape does not sum the weights
-   or reject a repeated name (a seventh case pins it, so "three or four components" is not read as "one per score type, adding to 1").
+   three-type run (T-155). Seven cases in `tests/test_schema_gate.py`: three, four, two and one components conform; none fails on the
+   scheme; a name outside the five fails on the component; and a repeated name with weights that do not add to 1
+   conforms. That last case pins what the gate's shape leaves open, so "three or four components" is not read as "one per
+   score type, adding to 1": the read boundary rejects a repeated `score_type` (`v_weight_component.json` keys the view on
+   `(cycle_run_id, score_type)`, so the row is quarantined before any triple is built), and nothing sums the weights
+   (it checks each in 0 to 1).
    The projection (T-121's data half) writes whatever components the run has. **2550 quads, unchanged.**
 
    **T-151, the rule half (Work item 15, 2026-10-07).** Upstream can reuse a run id after a deletion, so

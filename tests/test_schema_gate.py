@@ -278,7 +278,7 @@ def test_a_scheme_weighing_one_to_four_score_types_conforms(
 def test_the_shape_neither_sums_the_weights_nor_rejects_a_repeated_name(
     bundle: rdflib.Dataset, shapes: rdflib.Graph
 ) -> None:
-    """Neither is checked at the gate: two ``ScoreFinanciero`` components of 0.25 sum to 0.5 and conform."""
+    """The shape checks neither (two ``ScoreFinanciero`` of 0.25 conform); the read boundary rejects the repeat."""
     assert _violations(_weighing(bundle, ("ScoreFinanciero", "ScoreFinanciero")), shapes) == set()
 
 
