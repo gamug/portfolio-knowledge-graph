@@ -807,7 +807,7 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       other places that say "15 points each" follow: `docs/06`, `shapes.ttl` (the `AttractivenessSnapshotShape`
       comment) and `schema/README.md`. Needs T-187's `:penaltyPoints`. Docs and a
       comment; the check itself is T-155's test. -> `PLAN.md` Work item 15.
-- [ ] **T-190** *(from T-183 (6))* `WeightComponentShape` already counts no components (a scheme needs at least
+- [x] **T-190** *(from T-183 (6); done 2026-10-12: six cases in `tests/test_schema_gate.py` (three, four, two and one components conform; none fails on the scheme; a name outside the five fails on the component), the statement in `docs/06` and `schema/README.md`, no shape change; the text below is the original task)* `WeightComponentShape` already counts no components (a scheme needs at least
       one), so the relaxed reading is a statement and a test, not a shape change: add synthetic cases (three
       components with no `Sentiment` conform; four conform; a name outside the five listed fails; and one or two components conform, since an asset can lack a component in a three-type run, T-155), and write in
       `docs/06` and `schema/README.md` that a new run weighs three score types (upstream's FUNDAMENTAL, VALORIZATION and TECHNICAL, which are our
@@ -901,7 +901,7 @@ Work item 15 (T-150–T-159, T-170–T-173, T-177–T-178, T-182–T-184, T-187�
 T-151's rule recorded (PR #60), its checks waiting on T-031/T-163; T-158's
 ownership question (before their T-141) is unblocked; the rest of T-152–T-158 waits on upstream's
 T-144 (views), T-145 (ids), T-074 (flags) and, after their T-100, their T-082 and their Work item 4.
-Work item 15, from the sixth reply: T-182 (the analysis run's year bounds read as filing years) is done; T-183 (the decisions on version 11's content) is done, with T-187 (the rules and `penaltyPoints`), T-188 (`expiresOn`), T-189 (the penalty identity) and T-190 (the three-component scheme) filed; T-184 (the next letter to upstream) was sent on 2026-10-11 and answered the same day (the seventh reply, recorded by T-191 asks (1) to (5), T-187 and T-188 unblocked; ask (6) is still to ask).
+Work item 15, from the sixth reply: T-182 (the analysis run's year bounds read as filing years) is done; T-183 (the decisions on version 11's content) is done, with T-187 (the rules and `penaltyPoints`), T-188 (`expiresOn`), T-189 (the penalty identity) and T-190 (the three-component scheme) filed, T-190 done 2026-10-12; T-184 (the next letter to upstream) was sent on 2026-10-11 and answered the same day (the seventh reply, recorded by T-191 asks (1) to (5), T-187 and T-188 unblocked; ask (6) is still to ask).
 Work item 16 (T-160–T-165, T-192): T-160 done (plain checks, quarantine-with-cap), T-161 closed with it (no dependency) and T-162 done (JSON files per view, strict loader);
 T-163 (function done, PR #68) closes with T-031, whose first slice (PR #72) calls it on the real read and re-reads the late keys for `v_score_snapshot`; T-164 done (PR #69).
 Work item 8 (T-070–T-071) is independent but needs a human at a Protégé

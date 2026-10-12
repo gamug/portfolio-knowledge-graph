@@ -239,6 +239,56 @@ def test_a_weight_component_may_omit_inverted(bundle: rdflib.Dataset, shapes: rd
     assert _violations(g, shapes) == {(KG.WC_Run, KG.inverted)}
 
 
+# --- how many components a scheme weighs (T-190) -----------------------------------------------
+
+_NEW_RUN = (
+    "ScoreFinanciero",
+    "ScoreCuantitativo",
+    "ScoreTecnico",
+)  # FUNDAMENTAL, VALORIZATION, TECHNICAL
+
+
+def _weighing(bundle: rdflib.Dataset, names: tuple[str, ...]) -> rdflib.Graph:
+    """A per-run scheme with one component per ``names`` (none at all when ``names`` is empty)."""
+    g = _scheme(bundle, [_RUN])
+    g.remove((_SCHEME, KG.hasWeightComponent, KG.WC_Run))
+    g.remove((KG.WC_Run, None, None))
+    for i, name in enumerate(names):
+        node = KG[f"WC_Run_{i}"]
+        g.add((node, rdflib.RDF.type, KG.WeightComponent))
+        g.add((node, KG.weightMetricName, rdflib.Literal(name)))
+        g.add((node, KG.weightValue, rdflib.Literal("0.25", datatype=_DEC)))
+        g.add((_SCHEME, KG.hasWeightComponent, node))
+    return g
+
+
+@pytest.mark.parametrize(
+    "names",
+    [
+        _NEW_RUN,  # a new run weighs three score types, no Sentiment
+        (*_NEW_RUN, "Sentiment"),  # an earlier run weighed four
+        _NEW_RUN[:2],  # an asset can lack a component in a three-type run (T-155)
+        _NEW_RUN[:1],
+    ],
+    ids=["three, no Sentiment", "four, with Sentiment", "two", "one"],
+)
+def test_a_scheme_weighing_one_to_four_score_types_conforms(
+    bundle: rdflib.Dataset, shapes: rdflib.Graph, names: tuple[str, ...]
+) -> None:
+    assert _violations(_weighing(bundle, names), shapes) == set()
+
+
+def test_a_scheme_weighing_nothing_is_caught(bundle: rdflib.Dataset, shapes: rdflib.Graph) -> None:
+    assert _violations(_weighing(bundle, ()), shapes) == {(_SCHEME, KG.hasWeightComponent)}
+
+
+def test_a_component_named_outside_the_five_is_caught(
+    bundle: rdflib.Dataset, shapes: rdflib.Graph
+) -> None:
+    g = _weighing(bundle, (*_NEW_RUN, "ScoreMacro"))
+    assert _violations(g, shapes) == {(KG.WC_Run_3, KG.weightMetricName)}
+
+
 # --- FUNDAMENTAL's rawValue range (T-177) -------------------------------------------------------
 
 
