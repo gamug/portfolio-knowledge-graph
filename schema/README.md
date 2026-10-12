@@ -160,6 +160,20 @@ what the store *enforces*.
    single-valued, `inverted` omitted or not a boolean) and one in `tests/test_kg_gate.py` (a per-run
    scheme batch is accepted into an ORCHESTRATOR graph). No new class; `AllDisjointClasses` is
    unchanged. **2547 quads; conforms: True.**
+
+   **T-190 (2026-10-12: how many components a scheme weighs).** No shape change. A new run weighs three score
+   types (upstream's FUNDAMENTAL, VALORIZATION and TECHNICAL, our `ScoreFinanciero`, `ScoreCuantitativo` and
+   `ScoreTecnico`); an earlier run weighed four, the SEMANTIC `Sentiment` as well (upstream's sixth reply, `SPEC.md` §2.6; T-183 (6)).
+   `AttractivenessWeightSchemeShape` asks for at least one `:hasWeightComponent` and `WeightComponentShape` only that the
+   name is one of the five listed, so both readings conform, and so does an asset that lacks a component in a
+   three-type run (T-155). Seven cases in `tests/test_schema_gate.py`: three, four, two and one components conform; none fails on the
+   scheme; a name outside the five fails on the component; and a repeated name with weights that do not add to 1
+   conforms. That last case pins what the gate's shape leaves open, so "three or four components" is not read as "one per
+   score type, adding to 1": the read boundary rejects a repeated `score_type` (`v_weight_component.json` keys the view on
+   `(cycle_run_id, score_type)`, so the row is quarantined before any triple is built), and nothing sums the weights
+   (it checks each in 0 to 1).
+   The projection (T-121's data half) writes whatever components the run has. **2550 quads, unchanged.**
+
    **T-151, the rule half (Work item 15, 2026-10-07).** Upstream can reuse a run id after a deletion, so
    `:runId` (`<run table>:<id>`) is not unique on its own. Its comment in `tbox.ttl` now says it is
    emitted only when read checks pass (run row exists, `cycle_type` matches for `cycle_run`, row time

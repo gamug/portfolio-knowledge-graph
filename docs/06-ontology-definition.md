@@ -410,7 +410,10 @@ disjoint leaf types) and `shapes.ttl` to 14 shapes (§1.6):
   `RuleDefinition`'s "rules live in the graph, not code" pattern (critique #6).
 - **`WeightComponent`** — one `(metric, weight)` pair within an `AttractivenessWeightScheme`: for an
   upstream scheme, one per `score_type` (FUNDAMENTAL, VALORIZATION, TECHNICAL, plus SEMANTIC in older
-  runs), the *configured* weight; effective weights are per asset and read from upstream (T-155).
+  runs), the *configured* weight; effective weights are per asset and read from upstream (T-155). A new run
+  weighs three score types (FUNDAMENTAL, VALORIZATION and TECHNICAL, our `ScoreFinanciero`, `ScoreCuantitativo` and
+  `ScoreTecnico`) and an earlier one four (the SEMANTIC `Sentiment` as well; upstream's sixth reply, T-183 (6)); the shape asks for at least one
+  component and one of the five names, not for a count (T-190), and the projection writes whatever the run has.
   `SectorRelativeMomentum` has no upstream weight and gets no component. `inverted` is optional design
   history (not computed here since T-155): emitted for no upstream scheme, kept on `WeightScheme_v1`.
 
