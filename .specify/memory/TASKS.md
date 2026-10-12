@@ -700,7 +700,7 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       books are never current, so they are not projected (stated in T-156, no new task); (6) **yes**: the
       weight-component shape reads "the score types the run weighted" (three for a new run, four for an earlier one)
       -> T-190. -> `PLAN.md` Work item 15.
-- [ ] **T-184** *(written 2026-10-11; open until the maintainer sends it by hand and says so; the answers are T-191)* The next follow-up
+- [x] **T-184** *(written 2026-10-11, sent by the maintainer on 2026-10-11 and recorded by upstream; its reply, which came the same day, is recorded in `SPEC.md` §2.6 (seventh reply) by T-191; no cut-off date is needed since there was a reply; the text below is the original task)* The next follow-up
       letter to `portfolio-financial-analysis`, from the sixth reply and PR #89's review. It asks five
       things. (1) Which date their `since_year`/`until_year` filter uses, the filing date or `available_at`
       (T-182 takes the two years as one; `SPEC.md` §2.6). (2) A database at the contract version their
@@ -714,7 +714,7 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       **On sending**, write the date sent and the cut-off date for T-191's no-reply exit in this note, and change
       `SPEC.md` §2.6's "To ask" to "Asked on <date>".
       -> `PLAN.md` Work item 15.
-- [ ] **T-191** *(the answers to T-184's letter; waits on upstream's reply, which no task here controls)* When
+- [ ] **T-191** *(the answers to T-184's letter; asks (1) to (5) answered and recorded in `SPEC.md` §2.6 (seventh reply, 2026-10-11); open only for ask (6), which was not in the letter)* When
       the reply comes, record it in `SPEC.md` §2.6 as the seventh reply and tick each ask below as it is
       answered; a partial reply ticks the asks it answers and leaves the rest. Answers taken from a message are
       marked as theirs, not read from their code, as the earlier replies were.
@@ -732,14 +732,14 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       **Ask (6), not in the letter, for the next message to them (from T-185):** does upstream set `last_seen_on` on the
       clearing cycle, and can `cleared_on` be earlier than a recorded `last_seen_on`? The answer settles whether the
       same-day tolerance in the gate and `VetoShape` (`<=`) stays or becomes `<`.
-      - [ ] (1) filing date or `available_at`
-      - [~] (2) database at the served version, and what version 12 changed: file received 2026-10-12 (version 12, T-157 re-pinned); `m012` is described in its `schema_version` row (filing-identity triggers, no columns); not yet answered by upstream in words, and the file lacks T-183's rule content
-      - [ ] (3) notes match the file's version
-      - [ ] (4) rule definitions: (a) thresholds, (b) `penalty_points`, (c) the redefinition's date, (d) who clears an expired stint, (e) `expires_on` on SOFT
-      - [ ] (5) T-145 and T-100 dates
+      - [x] (1) filing date or `available_at`
+      - [x] (2) database at the served version, and what version 12 changed: `financial_pilot_v12.db`, migrated with their `6a80ec3`; `m012` installs filing-identity triggers, no columns (T-157, PR #97)
+      - [x] (3) notes match the file's version
+      - [x] (4) rule definitions: (a) thresholds, (b) `penalty_points`, (c) the redefinition's date, (d) who clears an expired stint, (e) `expires_on` on SOFT
+      - [x] (5) T-145 and T-100 dates
       - [ ] (6) not in the letter: `last_seen_on` on the clearing cycle, and `cleared_on` against `last_seen_on` (T-185)
 
-- [ ] **T-187** *(from T-183 (1); waits on upstream's definitions, so on T-157 or T-191, the answer to the T-184 letter)* Add the
+- [ ] **T-187** *(from T-183 (1); unblocked 2026-10-12: upstream's definitions, `penalty_points` and the old-stint rule are in `SPEC.md` §2.6 (seventh reply); `NEGATIVE_FCF` and the sector exemption change later in their T-071)* Add the
       three rules and the redefinition to `schema/rules.ttl`. `BREAK_TREND_200`, `VOLATILITY_SHOCK` and
       `CRASH_Z_SCORE` are `RuleDefinition`s, each a tree like the six; the leaf kind is chosen from upstream's
       definition, `ThresholdComparison` on the raw value when the rule compares one metric with a constant, and
@@ -756,7 +756,7 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       `v_rule_catalog` and `docs/kg_schema.md`, not written from memory; record the commit. Update the counts in
       `schema/README.md` and `docs/06`, add synthetic cases (a negative `penaltyPoints` fails), and add the
       rules to `instances.trig` only where the worked example needs them. When it lands, the live store is reloaded from `schema/` (the maintainer's go-ahead; `verify_store` compares each graph's size with `schema/`, T-176) and a dated row goes in `docs/graphdb-setup.md`, as T-179 did. `SPEC.md` §2.6's D4 row and `CLAUDE.md` both say "six rules" and are brought up to the new catalog size. A `feat/` PR. -> `PLAN.md` Work item 15.
-- [ ] **T-188** *(from T-183 (2); the shape of `expires_on` is T-191 item 4, asked in T-184)* Add an optional, functional
+- [ ] **T-188** *(from T-183 (2); unblocked 2026-10-12: only `VOLATILITY_SHOCK` and `CRASH_Z_SCORE` set it, never a SOFT stint, and the cycle clears the stint, not the date: `SPEC.md` §2.6, seventh reply)* Add an optional, functional
       `:expiresOn` (`xsd:date`) on `Veto`, with the shape: at most one value, not before `:raisedOn`. A stint
       without it never expires by date, as today; `v_veto.expires_on` is filled only on stints of the new
       temporary HARD rules, and NULL maps to no triple. Settle with upstream whether an expired stint is cleared

@@ -565,7 +565,7 @@ feature commits `8c2e62e` and `95ba2f3`).
   `VOLATILITY_SHOCK`, `CRASH_Z_SCORE`), a redefined `LIQUIDITY_DISTRESS`, and `penalty_points` on
   every rule, so the SOFT penalty is the sum of the active rules' `penalty_points` and not 15 per
   rule. The questions they raise for us are listed next.
-- **To ask, not yet answered (in the follow-up letter T-184, written and not yet sent; the answers are recorded by T-191):** which date their `since_year`/`until_year` filter uses, the filing date or the day the filing became usable (`available_at`). T-182 takes them as the same year, which holds in all 449 pilot FUNDAMENTAL rows (none was filed in the last days of December) and not in general. The letter asks four more: a database at the served contract version (12) or their final pilot, and what version 12 changed (T-157); whether the notes shipped with the database match its version; the rule definitions, `penalty_points` and `expires_on` semantics (below); and when their T-145 and T-100 land. A sixth question is **not in the letter** and is for the next message to them (T-191 ask (6), from T-185): whether they set `last_seen_on` on the clearing cycle, and whether `cleared_on` can be earlier than a recorded `last_seen_on`; the answer settles the same-day tolerance in the gate and `VetoShape`.
+- **Asked on 2026-10-11 (follow-up letter T-184); answered in the seventh reply below (recorded by T-191):** which date their `since_year`/`until_year` filter uses; a database at the served contract version (12) or their final pilot, and what version 12 changed (T-157); whether the notes shipped with the database match its version; the rule definitions, `penalty_points` and `expires_on` semantics; and when their T-145 and T-100 land. **Still to ask:** a sixth question that was **not in the letter** and is for the next message to them (T-191 ask (6), from T-185): whether they set `last_seen_on` on the clearing cycle, and whether `cleared_on` can be earlier than a recorded `last_seen_on`; the answer settles the same-day tolerance in the gate and `VetoShape`.
 - **Decided here (maintainer, 2026-10-11, T-183):** `schema/rules.ttl` takes the three new rules and the
   redefined `LIQUIDITY_DISTRESS`, each with `penalty_points` (T-187; the catalog is upstream's, T-103); a
   `Veto` gets an optional `expiresOn` (T-188); the SOFT penalty is read as the sum of the active rules'
@@ -573,8 +573,65 @@ feature commits `8c2e62e` and `95ba2f3`).
   books are not projected (T-156); the weight-component shape reads the score types the run weighted,
   three for a new run and four for an earlier one (T-190). **Not taken:** the five `v_price_observation`
   columns stay unread until a consumer needs one, and that consumer files the task. What each rule's
-  thresholds are, and whether an expired stint is cleared upstream or by its date, is to be asked in T-184 and recorded by T-191.
+  thresholds are, and whether an expired stint is cleared upstream or by its date, was asked in T-184 and is answered in the seventh reply (below).
   T-173 reads the routes and takes `contract_version` from the endpoint, not from a figure in its text.
+
+**Seventh upstream reply (2026-10-11, T-191), answering our letter of 2026-10-11 (T-184).** Answers read from their
+code at master `6a80ec3` (the `code_version` their `/contract` returned) or from the database named; they are theirs,
+not re-read here.
+- **(1) The year filter uses the filing date, not `available_at`.** The run asks per calendar year for the
+  filings whose filing date falls in it, and its no-lookahead check also uses the filing date. Our reading (T-182,
+  filing years) is right, including near year ends: a filing filed on 30 December belongs to that year's range
+  though its `available_at` is in January. `available_at` is what the cycle and every as-of reader filter on.
+  No change to `AnalysisRun.covers`.
+- **(2) The version-12 database and what version 12 changed.** `financial_pilot_v12.db`, SHA-256
+  `d4c6fa80…`, the same fixture migrated with `6a80ec3`; read and pinned in T-157 (above). Version 12 is
+  their T-149: migration `m012` installs triggers that refuse a filing whose CIK is not its asset's (an accession
+  may belong to more than one asset only when they share one CIK, e.g. GOOG/GOOGL; an asset with filings always has
+  a CIK, which never changes; a database already breaking this refuses to migrate). No columns. Also in databases
+  built with their code: no amendments (10-K/A, 10-Q/A are not stored), XOM's filings carry its predecessor's
+  accessions (CIK `0002115436` since 2026-07-01, earlier filings under `0000034088`, linked with the 8-K12B as
+  evidence, the only such link), and filings are fetched by CIK. The final pilot (T-143) comes later.
+- **(3) The notes shipped with the database** were updated (a new section 0); against the version-10 and 12
+  copies: `schema_version` is 10 or 12, not 9; the T-144 items exist; `forensic_flags_json` is NULL on every row
+  until their T-074; `v_veto.expires_on` and the five price columns exist and are NULL; **the rule catalog in both
+  copies is the pre-version-11 one** (six rules, no `penalty_points`), because a cycle run writes it, not a
+  migration.
+- **(4) The rule catalog, from their code.** `penalty_points` applies only to SOFT rules (HARD rules exclude the
+  asset, so theirs is null); every SOFT rule costs the run's `soft_veto_penalty` (15) unless it declares its own,
+  and only `BREAK_TREND_200` does (0).
+
+  | `rule_id` | Severity | Compares | `penalty_points` |
+  |---|---|---|---|
+  | `LEVERAGE_EXTREME` | HARD | `leverage.debt_to_equity > 3.0`; for negative equity, `net_debt_to_ebitda > 5.0` or `interest_coverage < 1.5` | null |
+  | `NEGATIVE_FCF` | HARD | `cashflow.free_cash_flow_margin < 0.0` | null |
+  | `DATA_QUALITY` | HARD | a HARD `DQ_*` gate fired on the latest filing | null |
+  | `VOLATILITY_SHOCK` | HARD, temporary | `vol_5d / vol_60d_base > 2.5` and that ratio above 2.5 times its sector's median that day (fewer than 5 names: the whole cross-section's median) | null |
+  | `CRASH_Z_SCORE` | HARD, temporary | `(ret_5d − 5·mu_60d_base) / (vol_60d_base·√5) < −2.5` and the same against the sector's median `ret_5d` (same fallback) | null |
+  | `LIQUIDITY_DISTRESS` (redefined) | SOFT | `liquidity.current_ratio < 1.0` and (`leverage.interest_coverage < 1.5` or `cashflow.operating_cash_flow_margin < 0.0`); not applied to GICS Financials or Utilities | 15 |
+  | `PRICE_CRASH` | SOFT | `max_drawdown_90d < −0.35` | 15 |
+  | `EARNINGS_MISSING` | SOFT | the latest FUNDAMENTAL score is older than 400 days | 15 |
+  | `BREAK_TREND_200` | SOFT, flag only | `close < 0.95 × sma_200` | 0 |
+
+  `vol_5d`, `vol_60d_base`, `ret_5d` and `mu_60d_base` are daily log-return figures, not annualized; the
+  60-day baseline ends 5 sessions before the date. **Expected, not in their code yet:** `NEGATIVE_FCF` changes in
+  their T-071 (regulated utilities exempt, a replacement HARD rule on operating cash flow / debt, a decision for
+  REITs pending), and the Financials/Utilities exemption of `LIQUIDITY_DISTRESS` will read their company profile.
+  (c) The redefined `LIQUIDITY_DISTRESS` applies from every cycle run by code at or after their merge `b3c7661`
+  (2026-10-10); there is no date cut-off in the data, each run rewrites the catalog row in place. An old stint
+  keeps its `raised_on`, `rule_id` and evidence; the first run with the new code re-evaluates the asset: not hit,
+  the stint closes (`cleared_on` = that cycle date); hit, it stays open and `last_seen_on` and evidence are
+  updated; not evaluable, it stays open as "could not tell"; in an exempt sector, it closes. Production (frozen)
+  holds only old-definition stints; the final pilot and the T-100 database hold only the new one.
+  (d) **The cycle writes `cleared_on`; the date alone never ends a stint.** At the first cycle on or after
+  `expires_on` the rule is re-evaluated: the condition is gone, `cleared_on` is set to that cycle date; it
+  still holds, the stint stays open and `expires_on` moves 10 NYSE sessions on. Their own HARD filter tests only
+  `raised_on` and `cleared_on`; a reader does the same. (e) **`expires_on` is never set on a SOFT stint;** only
+  `VOLATILITY_SHOCK` and `CRASH_Z_SCORE` set it.
+- **(5) Timing: weeks, not days.** Their order: Work item 8's remaining tasks (T-148 in progress, then T-150,
+  T-151, T-076, T-073, T-074, T-071), T-153, Work item 19 (T-083, T-142, then **T-145**), Work item 2 (the
+  orchestrator), the final pilot **T-143**, then **T-100**. They ask us to keep our interim rule and will tell us
+  when T-145 lands and when the final pilot is sent.
 
 **Read contract and score scale (T-030, 2026-10-05).** `src/projection/view_contract.py`
 pins a full snapshot of the columns of 30 of upstream's 31 `v_*` views (taken from
