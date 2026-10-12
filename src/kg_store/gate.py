@@ -34,10 +34,13 @@ A batch is Turtle destined for one named graph. It is written only if
    ``lastSeenOn`` appended to a stored Veto (``APPENDABLE``, T-194) must be a Veto that is not cleared,
    on a date not before it was raised, after its latest ``lastSeenOn`` (an equal date is a replay) and
    not after the ``clearedOn`` the same batch gives it. Read, then written, not atomic: see the limit below; and
-8. a restatement (``:supersededBy``, T-032) points from a ``SECFilingSection`` to a new
-   ``SECFilingSection`` the same batch declares, once: a section already superseded is not
-   superseded again (the next correction replaces the latest section), and a section does not
-   replace itself, so the sections that are not superseded are never an empty set.
+8. a restatement (``:supersededBy``, T-032) points from a ``SECFilingSection``, stored or declared,
+   to a new ``SECFilingSection`` the same batch declares, with the same ``:itemLabel`` when both have
+   one: a section gets one replacement, a new section replaces one section, a section does not
+   replace itself, no chain in the batch loops, and a stored section already superseded is not
+   superseded again (the next correction replaces the latest section). So the restatements of an
+   item form one chain and its current section is its one section not superseded. The batch alone
+   decides all but the stored side (``validate``, so ``--check`` too); ``ingest`` reads the rest.
 
 Anything else raises :class:`IngestRejected` with the reason and nothing reaches the
 store. What is written is the validated triples (as N-Triples), not the submitted text.
@@ -305,18 +308,21 @@ APPENDABLE: Mapping[rdflib.URIRef, Appendable] = MappingProxyType(
 #: A restatement (T-032): the old section points at the new one, which the same batch declares.
 SUPERSEDED_BY = _PORTFOLIO.supersededBy
 _SECTION = _PORTFOLIO.SECFilingSection
+_ITEM_LABEL = _PORTFOLIO.itemLabel
 #: A per-run weight scheme (it has a ``cycleDate``) is an observation, never closed (``tbox.ttl``).
 _PER_RUN_MARKER = _PORTFOLIO.cycleDate
 
 
 #: subject IRI -> {property: lexical values the store holds}, as :func:`fetch_closing_state` reads it.
+#: Named for closings (check 7); the restated sections of check 8 are read into it too.
 ClosingState = dict[str, dict[rdflib.URIRef, set[str]]]
 
 
 def fetch_closing_state(db: GraphDB, subjects: set[rdflib.term.Node]) -> ClosingState:
     """What the store holds (explicit statements, any graph) about ``subjects`` that decides whether
     they can be closed or superseded: subject -> {property: lexical values} for ``rdf:type``, the
-    closing properties, the opening dates, the sightings, ``cycleDate`` and ``supersededBy``."""
+    closing properties, the opening dates, the sightings, ``cycleDate``, and ``supersededBy`` and
+    ``itemLabel`` (check 8)."""
     iris = sorted(str(s) for s in subjects)
     _refuse_illegal_iris(iris)
     read = {
@@ -326,6 +332,7 @@ def fetch_closing_state(db: GraphDB, subjects: set[rdflib.term.Node]) -> Closing
         *(c.opened for c in CLOSABLE.values()),
         *(c.last_seen for c in CLOSABLE.values() if c.last_seen),
         SUPERSEDED_BY,
+        _ITEM_LABEL,
         *APPENDABLE,
         *(a.opened for a in APPENDABLE.values()),
         *(a.ended for a in APPENDABLE.values()),
@@ -478,35 +485,106 @@ def superseded_sections(batch: rdflib.Graph) -> set[rdflib.term.Node]:
     }
 
 
-def refused_supersessions(batch: rdflib.Graph, state: ClosingState) -> list[str]:
-    """``:supersededBy`` triples that are not a section replaced once by a new section the batch
-    declares (T-032): the old one is a stored or declared ``SECFilingSection`` not yet superseded,
-    the new one is declared here as a ``SECFilingSection`` (so it has no restatement of its own and
-    no chain can loop), and neither is the other."""
+def _other_label(old: set[str], new: rdflib.term.Node | None) -> str | None:
+    """Why a replacement's ``:itemLabel`` is refused against the old section's, or None. Compared only
+    when both have one (no shape requires it)."""
+    if not old or new is None or str(new) in old:
+        return None
+    return f"its replacement is labelled {new} and it is {sorted(old)[0]}: a restatement replaces the same item"
+
+
+def _loops(batch: rdflib.Graph) -> list[list[rdflib.term.Node]]:
+    """The ``:supersededBy`` cycles inside the batch, each once, from its smallest member."""
+    nxt = {s: o for s, o in batch.subject_objects(SUPERSEDED_BY) if s != o}
+    loops: list[list[rdflib.term.Node]] = []
+    for start in sorted(nxt, key=str):
+        path, cur = [start], nxt[start]
+        while cur in nxt and cur not in path:
+            path.append(cur)
+            cur = nxt[cur]
+        if cur == start and min(path, key=str) == start:
+            loops.append(path)
+    return loops
+
+
+def _replacement_refusal(
+    batch: rdflib.Graph,
+    s: rdflib.term.Node,
+    targets: list[rdflib.term.Node],
+    typed: set[rdflib.term.Node],
+    sections: set[rdflib.term.Node],
+) -> str | None:
+    """Why one subject's ``:supersededBy`` is refused on the batch alone, or None."""
+    new = targets[0]
+    if len(targets) > 1:
+        return f"is given {len(targets)} replacements in the batch"
+    if new == s:
+        return "a section does not replace itself"
+    if new not in sections:
+        return "its replacement is not a SECFilingSection this batch declares (a restatement is a new section)"
+    if s not in typed:  # a stored section: refused_supersessions reads it
+        return (
+            None
+            if isinstance(s, rdflib.URIRef)
+            else "a restated section needs the IRI of a stored one"
+        )
+    if s not in sections:
+        return "it is not a SECFilingSection"
+    label = batch.value(s, _ITEM_LABEL)
+    return _other_label({str(label)} if label is not None else set(), batch.value(new, _ITEM_LABEL))
+
+
+def supersession_problems(batch: rdflib.Graph) -> list[str]:
+    """The half of check 8 the batch alone decides (T-032), run by :func:`validate`, so also by
+    ``--check``: each ``:supersededBy`` gets one replacement, a ``SECFilingSection`` the batch declares,
+    other than itself and with the same ``:itemLabel``; an old section the batch declares is a
+    ``SECFilingSection``; a new section replaces one section; and no chain loops."""
     nm = batch.namespace_manager
-    sections = {s for s in batch.subjects(RDF.type, _SECTION)}
+    typed = set(batch.subjects(RDF.type, None))
+    sections = set(batch.subjects(RDF.type, _SECTION))
     problems: list[str] = []
+    replaces: dict[rdflib.term.Node, list[rdflib.term.Node]] = {}
     for s in sorted(set(batch.subjects(SUPERSEDED_BY, None)), key=str):
         targets = sorted(set(batch.objects(s, SUPERSEDED_BY)), key=str)
+        why = _replacement_refusal(batch, s, targets, typed, sections)
+        if why:
+            problems.append(f"{s.n3(nm)} {SUPERSEDED_BY.n3(nm)}: {why}")
+        else:
+            replaces.setdefault(targets[0], []).append(s)
+    for new, olds in sorted(replaces.items(), key=lambda kv: str(kv[0])):
+        if len(olds) > 1:
+            names = ", ".join(o.n3(nm) for o in olds)
+            problems.append(
+                f"{new.n3(nm)} replaces {len(olds)} sections ({names}): a new section replaces one"
+            )
+    for loop in _loops(batch):
+        chain = " -> ".join(n.n3(nm) for n in [*loop, loop[0]])
+        problems.append(f"{SUPERSEDED_BY.n3(nm)} loops ({chain}): no section would be current")
+    return problems
+
+
+def refused_supersessions(batch: rdflib.Graph, state: ClosingState) -> list[str]:
+    """The half of check 8 the store decides (T-032), for the old sections the batch does not declare
+    (:func:`superseded_sections`): each is a stored ``SECFilingSection``, not yet superseded (the next
+    correction replaces the latest section), with the replacement's ``:itemLabel`` when both have one."""
+    nm = batch.namespace_manager
+    problems: list[str] = []
+    for s in sorted(superseded_sections(batch), key=str):
         held = state.get(str(s), {})
+        types = held.get(rdflib.URIRef(RDF.type), set())
         why = None
-        if len(targets) > 1:
-            why = f"is given {len(targets)} replacements in the batch"
-        elif targets[0] == s:
-            why = "a section does not replace itself"
-        elif targets[0] not in sections:
-            why = "its replacement is not a SECFilingSection this batch declares (a restatement is a new section)"
-        elif s in set(batch.subjects(RDF.type, None)):
-            why = None if s in sections else "it is not a SECFilingSection"
-        elif not held.get(rdflib.URIRef(RDF.type)):
+        if not types:
             why = "the store does not hold it"
-        elif str(_SECTION) not in held[rdflib.URIRef(RDF.type)]:
+        elif str(_SECTION) not in types:
             why = "it is not a SECFilingSection"
         elif held.get(SUPERSEDED_BY):
             why = (
                 f"it is already superseded by {sorted(held[SUPERSEDED_BY])[0]}: "
                 "the next correction replaces the latest section"
             )
+        else:
+            new = batch.value(s, SUPERSEDED_BY)  # one: validate refused more
+            why = _other_label(held.get(_ITEM_LABEL, set()), batch.value(new, _ITEM_LABEL))
         if why:
             problems.append(f"{s.n3(nm)} {SUPERSEDED_BY.n3(nm)}: {why}")
     return problems
@@ -661,7 +739,8 @@ def validate(
     context: rdflib.Graph | Callable[[], rdflib.Graph] | None = None,
 ) -> None:
     """Raise :class:`IngestRejected` unless ``batch`` passes the checks, run in this order: the types,
-    the untyped subjects, then the shapes beside ``context``.
+    the untyped subjects, the restatements the batch alone decides (check 8's first half), then the
+    shapes beside ``context``.
 
     ``context`` holds what is already known about the individuals the batch points at
     (:func:`fetch_context`).
@@ -684,6 +763,9 @@ def validate(
             "individuals and an xsd:date :validTo, :clearedOn or :lastSeenOn are allowed there): "
             + ", ".join(stray)
         )
+    restating = supersession_problems(batch)
+    if restating:
+        raise IngestRejected("restatements that cannot be written (T-032): " + "; ".join(restating))
     if callable(context):
         context = context()
     data = batch
@@ -718,8 +800,8 @@ def ingest(db: GraphDB, data: bytes, graph: str, directory: Path | None = None) 
     """Validate a Turtle batch and, only if it passes, append it to ``graph``. Returns triples written.
 
     The store is read for the individuals the batch points at, whether the graph exists (append-only
-    ones), the closing triples' subjects and the typed individuals it declares, in that order, each
-    only after the checks before it passed."""
+    ones), the closing triples' subjects and the stored sections it restates, and the typed individuals
+    it declares, in that order, each only after the checks before it passed."""
     append_only = check_target(graph)
     batch = parse_batch(data)
     schema = load_gate_schema((directory or schema_dir()).resolve())
@@ -731,7 +813,7 @@ def ingest(db: GraphDB, data: bytes, graph: str, directory: Path | None = None) 
         raise IngestRejected(f"{graph} already exists and is append-only; write a new dated graph")
     closing = {s for s, _ in closing_values(batch)}
     restated = superseded_sections(batch)
-    if closing or (None, SUPERSEDED_BY, None) in batch:
+    if closing or restated:
         state = fetch_closing_state(db, closing | restated)
         stray = refused_closures(batch, state)
         if stray:
@@ -741,7 +823,9 @@ def ingest(db: GraphDB, data: bytes, graph: str, directory: Path | None = None) 
             )
         bad = refused_supersessions(batch, state)
         if bad:
-            raise IngestRejected("restatements the store cannot take (T-032): " + "; ".join(bad))
+            raise IngestRejected(
+                "restatements the stored section cannot take (T-032): " + "; ".join(bad)
+            )
     taken = existing_subjects(db, batch)
     if taken:
         raise IngestRejected(

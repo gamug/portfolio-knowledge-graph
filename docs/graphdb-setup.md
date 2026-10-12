@@ -118,15 +118,19 @@ nothing written:
    15 days): a sighting one day after the last passes. The gate does not restrict the graph a sighting goes to (the closing is
    the same); Vetoes live in the ORCHESTRATOR graphs.
 8. a restatement (`:supersededBy`, T-032) points from a `SECFilingSection`, stored or declared in the
-   batch, to a `SECFilingSection` the same batch declares. A section already superseded is not
-   superseded again (the next correction replaces the latest section), a section does not replace
-   itself, and a batch gives a section one replacement; so the sections that are not superseded are
-   never an empty set. The store is read for the old section's class and any `:supersededBy` it holds,
-   in any graph.
+   batch, to a `SECFilingSection` the same batch declares, with the same `:itemLabel` when both have
+   one (no shape requires it, so an unlabelled section is not compared). A batch gives a section one
+   replacement, a new section replaces one section, a section does not replace itself and no chain in
+   the batch loops; these the batch alone decides, so `--check` runs them too. A stored section already
+   superseded is not superseded again (the next correction replaces the latest section); the store is
+   read for the old section's class, label and any `:supersededBy` it holds, in any graph. So each
+   item's restatements form one chain with one current section. Limit: the label is the only tie
+   between the two; nothing checks that they belong to the same asset.
 
 What is written is the validated triples as N-Triples, not the submitted text. `--check` runs
-checks 1, 3, 4 and 5 without contacting the store, so it cannot see an existing graph (check 2),
-an existing individual (check 6), what a closing triple closes (check 7) or what a restatement replaces (check 8), and a batch that points
+checks 1, 3, 4 and 5 and the batch-only half of check 8 without contacting the store, so it cannot see an
+existing graph (check 2), an existing individual (check 6), what a closing triple closes (check 7) or
+whether a stored section a restatement replaces is current (check 8's other half), and a batch that points
 at individuals it does not declare fails check 5 under `--check` for want of what the store holds about them (the rejection says so).
 Validation reads `tbox.ttl` and `shapes.ttl` from `schema/` on disk (once per process); reload with
 `cli/load_schema.py` after a schema edit so the store's copy matches. Limits: this is a code path,

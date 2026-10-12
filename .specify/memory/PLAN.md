@@ -260,8 +260,9 @@ architecture, and not partitioned for the bitemporal audit trail
    value arriving after the original graph was written) — done 2026-10-12 (T-032):
    a correction known on a later day is a new individual in a new dated graph, linked by
    `:supersededBy` for a `SECFilingSection` (the gate's check 8) and by the latest-`timestamp`
-   read for every other observation; a second run for the same agent and day replaces that day's
-   graph (decided, T-195, not built). The rule is in `07` ("Restatements and re-runs").
+   read for every other observation; FUNDAMENTAL's per-quarter rule is unchanged (a late snapshot
+   is lost for its quarter, SPEC §13 item 10); a second run for the same agent and day replaces
+   that day's dated graph (decided, T-195, not built). The rule is in `07` ("Restatements and re-runs").
 4. Retire or fold in today's `src/etl/` shortcut once the real projection
    covers at least the SEMANTIC lane it currently handles (see Work item 5)
    — don't run both indefinitely as parallel, divergent code paths.

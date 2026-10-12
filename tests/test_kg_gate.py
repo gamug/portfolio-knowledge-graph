@@ -1193,6 +1193,80 @@ def test_a_declared_old_section_must_be_a_section(make_db: MakeDB) -> None:
 def test_the_worked_examples_restatement_is_a_restatement_the_gate_takes(make_db: MakeDB) -> None:
     graph = _instance_graphs()["urn:graph:ingest:EDGAR:2026-08-10"]
     restated = [str(s) for s in graph.subjects(gate.SUPERSEDED_BY, None)]
-    fake = _holding(make_db, restated[0].rpartition("#")[2], "SECFilingSection")
+    fake = _holding(
+        make_db,
+        ":" + restated[0].rpartition("#")[2],
+        "SECFilingSection",
+        itemLabel="ITEM_1A_RISK_FACTORS",
+    )
     state = gate.fetch_closing_state(fake.db, gate.superseded_sections(graph))
+    assert gate.supersession_problems(graph) == []
     assert gate.refused_supersessions(graph, state) == []
+
+
+def _sections(*names: str, label: str = "X") -> bytes:
+    return b"".join(f':{n} a :SECFilingSection ; :itemLabel "{label}" .\n'.encode() for n in names)
+
+
+@pytest.mark.parametrize(
+    ("batch", "outcome"),
+    [
+        (
+            _sections("v1", "v2") + b":v1 :supersededBy :v2 .\n:v2 :supersededBy :v1 .\n",
+            r"loops \(:v1 -> :v2 -> :v1\): no section would be current",
+        ),
+        (
+            _sections("v1", "v2", "v3")
+            + b":v1 :supersededBy :v2 .\n:v2 :supersededBy :v3 .\n:v3 :supersededBy :v1 .\n",
+            r"loops \(:v1 -> :v2 -> :v3 -> :v1\)",
+        ),
+        (
+            _sections("a", "v1", "v2") + b":v1 :supersededBy :a .\n:v2 :supersededBy :a .\n",
+            r":a replaces 2 sections \(:v1, :v2\): a new section replaces one",
+        ),
+        (
+            _sections("v1") + _sections("v2", label="Y") + b":v1 :supersededBy :v2 .\n",
+            "labelled Y and it is X: a restatement replaces the same item",
+        ),
+        (_sections("v2") + b"[] :supersededBy :v2 .\n", "needs the IRI of a stored one"),
+    ],
+    ids=[
+        "a loop of two",
+        "a loop of three",
+        "two sections into one",
+        "another item",
+        "a blank node",
+    ],
+)
+def test_the_batch_alone_refuses_a_restatement(batch: bytes, outcome: str) -> None:
+    """Check 8's store-free half, in ``validate`` (so ``--check`` runs it too)."""
+    with pytest.raises(gate.IngestRejected, match=outcome):
+        gate.validate(gate.parse_batch(PREFIXES + batch))
+
+
+def test_a_chain_declared_in_one_batch_is_written(make_db: MakeDB) -> None:
+    """A replay of history: v1 to v2 to v3, all in one batch, has one current section."""
+    batch = (
+        PREFIXES
+        + _sections("v1", "v2", "v3")
+        + b":v1 :supersededBy :v2 .\n:v2 :supersededBy :v3 .\n"
+    )
+    assert gate.ingest(make_db().db, batch, GRAPH_EDGAR) == 8
+
+
+def test_a_stored_section_of_another_item_is_not_restated(make_db: MakeDB) -> None:
+    fake = _holding(make_db, ":v1", "SECFilingSection", itemLabel="ITEM_7_MDA")
+    with pytest.raises(
+        gate.IngestRejected, match="labelled ITEM_1A_RISK_FACTORS and it is ITEM_7_MDA"
+    ):
+        gate.ingest(fake.db, RESTATE, GRAPH_EDGAR)
+
+
+def test_a_label_is_compared_only_when_both_sections_have_one(make_db: MakeDB) -> None:
+    fake = _holding(make_db, ":v1", "SECFilingSection")  # stored without a label
+    assert gate.ingest(fake.db, RESTATE, GRAPH_EDGAR) == 3
+    unlabelled = (
+        PREFIXES
+        + b":v1 a :SECFilingSection .\n:v2 a :SECFilingSection .\n:v1 :supersededBy :v2 .\n"
+    )
+    gate.validate(gate.parse_batch(unlabelled))

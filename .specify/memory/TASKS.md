@@ -125,19 +125,22 @@ are closed (see `CHANGELOG.md`).*
     graphs whose subjects are all stored). The first `--write` after upstream's T-144 loads every
     cycle-lane row accumulated until then into that one day's graph, an honest transaction-time
     record that `docs/07` now states.
-- [x] **T-032** *(done 2026-10-12, maintainer's decision: the rule is in `docs/07` ("Restatements and re-runs"), the gate check is `gate.refused_supersessions` (check 8, tests in `tests/test_kg_gate.py`); the EDGAR lane that emits the link is T-031's; the text below is the original task)* Decide and implement `:supersededBy` semantics for a
+- [x] **T-032** *(done 2026-10-12, maintainer's decision: the rule is in `docs/07` ("Restatements and re-runs"), the gate check is `gate.refused_supersessions` and `gate.supersession_problems` (check 8, the store and the batch halves; tests in `tests/test_kg_gate.py` and `tests/test_cli_ingest.py`); the EDGAR lane that emits the link is T-031's; the text below is the original task)* Decide and implement `:supersededBy` semantics for a
       restatement. → step 3.
-      - **Decided.** A correction that becomes known on a later day is a new individual in a new dated
-        graph, and the old one points at it with `:supersededBy`; the old one and its graph are never
-        edited, so an as-of query still sees what was believed before (D5 in the tracker, not
-        `SPEC.md`'s D5). `:supersededBy` stays `SECFilingSection`-only: a score row that is recomputed
-        is a second `ScoreSnapshot` and readers take the latest `timestamp` with `availableAt <= D`
-        (`docs/07`, "Re-projection"), so it needs no link. A re-run for the same agent and day is not
-        a correction: it replaces that day's graph (T-195, not built; until then the gate refuses it).
+      - **Decided** (the maintainer, 2026-10-12). A correction that becomes known on a later day is a new
+        individual in a new dated graph, and the old one points at it with `:supersededBy`; the old one
+        and its graph are never edited, so an as-of query still sees what was believed before.
+        `:supersededBy` stays `SECFilingSection`-only: a cycle-lane score that is recomputed is a second
+        `ScoreSnapshot` and readers take the latest `timestamp` with `availableAt <= D` (`docs/07`,
+        "Re-projection"), so it needs no link. FUNDAMENTAL is unchanged: a snapshot arriving after its
+        quarter's graph is written is lost for that quarter (`docs/07`, SPEC §13 item 10). A re-run for
+        the same agent and day is not a correction: it replaces that day's graph (T-195, not built;
+        until then the gate refuses it).
       - **Built.** The gate refuses a `:supersededBy` unless the old side is a stored or declared
-        `SECFilingSection` not yet superseded and the new side is a `SECFilingSection` the same batch
-        declares (so a second correction replaces the latest section, a section never replaces itself,
-        and no chain can loop, leaving "the sections not superseded" never empty).
+        `SECFilingSection` not yet superseded, the new side a `SECFilingSection` the same batch declares
+        with the same `:itemLabel` (when both have one), each section has one replacement, each new
+        section replaces one, and no chain in the batch loops; so each item's restatements form one
+        chain with one current section. The batch-only half runs in `validate`, so `--check` runs it too.
 - [ ] **T-033** Retire or explicitly fold in today's `src/etl/` shortcut
       once the real projection covers the SEMANTIC lane, i.e. once the
       upstream `score_snapshot[SEMANTIC]` row exists to project (Work item
@@ -422,7 +425,11 @@ independent of each other once T-131 lands.*
       wrong for a second run on the day the graph was written: nothing was believed in between, and
       keeping both says nothing a reader can use. Add one way in (a flag on `ingest`, or its own
       function) that validates the new batch with every check, then in one transaction clears the
-      graph and writes the batch. Settle first: (a) the constitution's invariant 1 and
+      graph and writes the batch. Only the dated `{agent}:{date}` graphs: the per-quarter ones
+      (`FUNDAMENTAL`, `EDGAR` by quarter, `universe`) are written once their quarter is complete, so
+      they have no "day it was written" to match. Check 6 (no typed individual already stored) then
+      reads the store minus the graph being replaced, since the new batch re-declares the old graph's
+      individuals; every other check runs as for a new graph. Settle first: (a) the constitution's invariant 1 and
       `docs/07` ("Append-only") say an ingest graph is never edited, so both get the exception,
       stated narrowly: only the graph of the same agent and the day it was written, never one of a
       past day; (b) what points into the graph from elsewhere: a `Veto` in an `ORCHESTRATOR` graph is
