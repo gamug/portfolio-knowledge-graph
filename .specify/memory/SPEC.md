@@ -596,7 +596,7 @@ not re-read here.
   a CIK, which never changes; a database already breaking this refuses to migrate). No columns. Also in databases
   built with their code: no amendments (10-K/A, 10-Q/A are not stored), XOM's filings carry its predecessor's
   accessions (CIK `0002115436` since 2026-07-01, earlier filings under `0000034088`, linked with the 8-K12B as
-  evidence, the only such link), and filings are fetched by CIK. The final pilot (T-143) comes later.
+  evidence, the only such link), and filings are fetched by CIK. The final pilot (T-143) comes later; it carries the rule catalog with `penalty_points` and the filled version-11 columns, so a second re-pin and real-file run are owed then (T-157, PR #97).
 - **(3) The notes shipped with the database** were updated (a new section 0); against the version-10 and 12
   copies: `schema_version` is 10 or 12, not 9; the T-144 items exist; `forensic_flags_json` is NULL on every row
   until their T-074; `v_veto.expires_on` and the five price columns exist and are NULL; **the rule catalog in both

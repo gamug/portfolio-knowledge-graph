@@ -753,27 +753,39 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
 - [ ] **T-187** *(from T-183 (1); unblocked 2026-10-12: upstream's definitions, `penalty_points` and the old-stint rule are in `SPEC.md` §2.6 (seventh reply); `NEGATIVE_FCF` and the sector exemption change later in their T-071)* Add the
       three rules and the redefinition to `schema/rules.ttl`. `BREAK_TREND_200`, `VOLATILITY_SHOCK` and
       `CRASH_Z_SCORE` are `RuleDefinition`s, each a tree like the six; the leaf kind is chosen from upstream's
-      definition, `ThresholdComparison` on the raw value when the rule compares one metric with a constant, and
-      a rule that compares two quantities (`BREAK_TREND_200` against `sma_200`, probably) needs another leaf kind
-      and is flagged in `schema/README.md` as the earlier gaps were, not forced into a threshold. Each rule's
+      definition (the nine-rule table in `SPEC.md` §2.6, seventh reply): `ThresholdComparison` on the raw value
+      when the rule compares one metric with a constant. `BREAK_TREND_200` is `close < 0.95 × sma_200`, two
+      quantities. `VOLATILITY_SHOCK` and `CRASH_Z_SCORE` each have two conditions, and the second is relative to
+      the company's sector median that day (with a fallback to the whole cross-section under 5 names). None of
+      the three is a single threshold on a raw value: each needs a leaf kind for a comparison between two
+      quantities, or a sector-relative one, and is flagged in `schema/README.md` as the earlier gaps were, not
+      forced into a threshold. Each rule's
       `rdfs:comment` says its metric is computed upstream and is not a `:PriceObservation` property (as
       `PRICE_CRASH`'s does; T-183 (3) leaves the price columns unprojected). The redefined `LIQUIDITY_DISTRESS`
-      is a new `RuleDefinition` (a new IRI, such as `:Rule_LIQUIDITY_DISTRESS_v11`, valid from version 11's
-      date with the same `:ruleId`) and the present one is closed with `validTo` (it stays, as the seven tree
+      is a new `RuleDefinition` (a new IRI, such as `:Rule_LIQUIDITY_DISTRESS_v11`, valid from 2026-10-10, the date
+      of their merge `b3c7661`, with the same `:ruleId`; there is no date cut-off in their data) and the present one is closed with `validTo` (it stays, as the seven tree
       rules did). A Veto stint resolves to the definition valid on its `raisedOn`: the projector picks it that
-      way, with a test for a stint raised before version 11 and one after. Add an optional
+      way. Upstream re-evaluates an old stint on the first run with the new code (it keeps its `raised_on`,
+      `rule_id` and evidence; it closes, stays open with new evidence and `last_seen_on`, or stays open as "could
+      not tell"), so a stint raised before 2026-10-10 can be re-confirmed under the new definition. Proposed: it
+      still resolves by `raisedOn`, and the re-evaluation shows only in the later `lastSeenOn` and evidence; the
+      developer confirms or changes this in the PR. Tests: a stint raised before 2026-10-10, one after, and an
+      old one re-confirmed. Add an optional
       `:penaltyPoints` (`xsd:decimal`, at least 0, at most one) on `RuleDefinition` in `tbox.ttl` and
-      `shapes.ttl`, set on every rule in the catalog. Thresholds, ids and points are read from upstream's
-      `v_rule_catalog` and `docs/kg_schema.md`, not written from memory; record the commit. Update the counts in
+      `shapes.ttl`, set on every rule in the catalog. Thresholds, ids and points are read from the nine-rule table in `SPEC.md` §2.6
+      (seventh reply, read from their code at `6a80ec3`), not from memory and not from the version-12 file's
+      `v_rule_catalog` (it still holds the six pre-version-11 rows and no `penalty_points`); record the commit,
+      and re-check the values against `v_rule_catalog` when the final pilot (T-143) arrives. Update the counts in
       `schema/README.md` and `docs/06`, add synthetic cases (a negative `penaltyPoints` fails), and add the
       rules to `instances.trig` only where the worked example needs them. When it lands, the live store is reloaded from `schema/` (the maintainer's go-ahead; `verify_store` compares each graph's size with `schema/`, T-176) and a dated row goes in `docs/graphdb-setup.md`, as T-179 did. `SPEC.md` §2.6's D4 row and `CLAUDE.md` both say "six rules" and are brought up to the new catalog size. A `feat/` PR. -> `PLAN.md` Work item 15.
 - [ ] **T-188** *(from T-183 (2); unblocked 2026-10-12: only `VOLATILITY_SHOCK` and `CRASH_Z_SCORE` set it, never a SOFT stint, and the cycle clears the stint, not the date: `SPEC.md` §2.6, seventh reply)* Add an optional, functional
       `:expiresOn` (`xsd:date`) on `Veto`, with the shape: at most one value, not before `:raisedOn`. A stint
       without it never expires by date, as today; `v_veto.expires_on` is filled only on stints of the new
-      temporary HARD rules, and NULL maps to no triple. Settle with upstream whether an expired stint is cleared
-      by them (`cleared_on`) or only by this predicate, and write the answer in `tbox.ttl`'s comment and in
-      `SPEC.md` §2.6. When it lands, the live store is reloaded from `schema/` (the maintainer's go-ahead; the check in T-176 compares each graph's size with `schema/`) and a dated row goes in `docs/graphdb-setup.md`, as T-179 did. The active-at-cutoff SPARQL (D3) gains the `expiresOn` test only if upstream says the date
-      closes a stint by itself. Synthetic cases (before `raisedOn` fails; absent passes). Follow T-185's decision (the maintainer's, 2026-10-11, PR #94), which put the same check in `VetoShape` (for a Veto declared with the date) and in the gate (for a stored Veto closed later). `expiresOn` is set when the Veto is declared, not by a later triple, so the shape is the one that applies; the gate only if upstream says the date closes a stint by itself. A `feat/` PR.
+      temporary HARD rules, and NULL maps to no triple. Upstream's answer (seventh reply, `SPEC.md` §2.6): the cycle writes `cleared_on`
+      at the first cycle on or after `expires_on` when the condition is gone, and otherwise moves `expires_on` 10
+      NYSE sessions on; the date alone never ends a stint. So `:expiresOn` does not close a Veto, and a reader
+      tests `cleared_on` only; say so in `tbox.ttl`'s comment. When it lands, the live store is reloaded from `schema/` (the maintainer's go-ahead; the check in T-176 compares each graph's size with `schema/`) and a dated row goes in `docs/graphdb-setup.md`, as T-179 did. The active-at-cutoff SPARQL (D3) does not gain an `expiresOn` test, since upstream says the date
+      never closes a stint by itself. Synthetic cases (before `raisedOn` fails; absent passes). Follow T-185's decision (the maintainer's, 2026-10-11, PR #94), which put the same check in `VetoShape` (for a Veto declared with the date) and in the gate (for a stored Veto closed later). `expiresOn` is set when the Veto is declared, not by a later triple, so the shape is the one that applies; the gate does not apply, since the date never closes a stint by itself. A `feat/` PR.
       -> `PLAN.md` Work item 15.
 - [ ] **T-189** *(from T-183 (4); after T-187, which adds the `penaltyPoints` property it sums)* Read the SOFT penalty as the sum of the active SOFT stints' rules'
       `penalty_points` (T-155's note already says so, from T-183); the projector derives no pre-penalty score.
