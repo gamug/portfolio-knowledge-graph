@@ -770,7 +770,20 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       not tell"), so a stint raised before 2026-10-10 can be re-confirmed under the new definition. Proposed: it
       still resolves by `raisedOn`, and the re-evaluation shows only in the later `lastSeenOn` and evidence; the
       developer confirms or changes this in the PR. Tests: a stint raised before 2026-10-10, one after, and an
-      old one re-confirmed. Add an optional
+      old one re-confirmed. **The redefined `LIQUIDITY_DISTRESS` is a tree:** `current_ratio < 1.0` AND
+      (`interest_coverage < 1.5` OR `operating_cash_flow_margin < 0.0`), three threshold leaves under
+      `AND`/`OR`. Its exemption (not applied to GICS Financials or Utilities) is a test on the asset's sector,
+      not on a metric: express it as a `CategoricalComparison` on the sector (the leaf is defined for
+      `RiskEvent` fields, so that is a new use, flagged in `schema/README.md`), or describe it in the
+      `rdfs:comment` if the tree cannot say "not in"; the developer chooses and states it in the PR. Upstream's
+      T-071 moves the exemption to their company profile, so it may change again. "Could not tell" (no current
+      ratio, or below 1.0 with neither coverage metric) is an upstream evaluation state: the `rdfs:comment`
+      says it is evaluated upstream, as `DATA_QUALITY`'s does. **Severity, category and rank of the three new
+      rules:** severity from the reply's table (`VOLATILITY_SHOCK` and `CRASH_Z_SCORE` HARD and temporary,
+      `BREAK_TREND_200` SOFT and flag only); `:category` is ours, proposed `MARKET` for all three, like
+      `PRICE_CRASH`; `:priorityRank` continues after 6 in the order of the reply's table, stated as ours because
+      the reply gives no order. "Temporary" and "flag only" are recorded in each rule's `rdfs:comment`, not as
+      a new property. Add an optional
       `:penaltyPoints` (`xsd:decimal`, at least 0, at most one) on `RuleDefinition` in `tbox.ttl` and
       `shapes.ttl`, set on every rule in the catalog. Thresholds, ids and points are read from the nine-rule table in `SPEC.md` §2.6
       (seventh reply, read from their code at `6a80ec3`), not from memory and not from the version-12 file's
@@ -788,7 +801,9 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       never closes a stint by itself. Synthetic cases (before `raisedOn` fails; absent passes). Follow T-185's decision (the maintainer's, 2026-10-11, PR #94), which put the same check in `VetoShape` (for a Veto declared with the date) and in the gate (for a stored Veto closed later). `expiresOn` is set when the Veto is declared, not by a later triple, so the shape is the one that applies; the gate does not apply, since the date never closes a stint by itself. A `feat/` PR.
       -> `PLAN.md` Work item 15.
 - [ ] **T-189** *(from T-183 (4); after T-187, which adds the `penaltyPoints` property it sums)* Read the SOFT penalty as the sum of the active SOFT stints' rules'
-      `penalty_points` (T-155's note already says so, from T-183); the projector derives no pre-penalty score.
+      `penalty_points` (T-155's note already says so, from T-183); the projector derives no pre-penalty score. A SOFT rule with no `:penaltyPoints` counts the run's
+      `soft_veto_penalty` (15), as upstream does ("every SOFT rule costs 15 unless it declares its own"; only
+      `BREAK_TREND_200` does, with 0), never 0, so a rule added later without the property is not silently free.
       `:softVetoPenalty`'s `tbox.ttl` comment says the flat 15 applies to runs before version 11, and the three
       other places that say "15 points each" follow: `docs/06`, `shapes.ttl` (the `AttractivenessSnapshotShape`
       comment) and `schema/README.md`. Needs T-187's `:penaltyPoints`. Docs and a
