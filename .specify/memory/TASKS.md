@@ -793,7 +793,9 @@ See `PLAN.md` Work item 16.*
 - [ ] **T-200** Delete an automation's repository. The gate does not cover a drop, so: export the
       repository first (outside the repo), refuse `portfolio`, and run it only after the maintainer's
       go-ahead for that repository; SPEC FR-007. → step 4.
-- [ ] **T-199** If this repo is to expose a service for it, amend the constitution first. → step 5.
+- [ ] **T-199** Decide whether this repo exposes a service for automations (the constitution says it is
+      not a service); if yes, amend the constitution first. **Done when** the maintainer has decided and,
+      if yes, the amendment has landed; a "no" closes it. → step 5.
 
 ## Status
 

@@ -1065,7 +1065,7 @@ data); `verify_store` passes for each new repository; `uv run pytest` passes.
 
 **Blocked on**: step 1 (T-196) is the maintainer's decision and records the open questions: which
 settings vary between automations, whether source data is copied or shared, one upstream file per
-automation or an `automation_id` column, and what clone copies. Steps 2–4 wait on it; step 5 is optional.
+automation or an `automation_id` column, and what clone copies. Steps 2–4 wait on it; step 5 is a decision that may end in "no".
 
 ## Sequencing
 
