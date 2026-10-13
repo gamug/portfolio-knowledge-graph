@@ -481,7 +481,8 @@ rebalancing cadence / correlation / concentration caps. These remain open per
 validated only that the field was present, not that its value came from a known set. GICS sectors
 were in the identical situation before `reference.ttl` gave them a `skos:ConceptScheme`; this
 closes the same gap for `metricType` (and the same-shaped `ThresholdComparison.metricName` /
-`WeightComponent.weightMetricName`), using the same mechanism.
+`WeightComponent.weightMetricName`), using the same mechanism. (T-187 added `leverage.interest_coverage` and
+`cashflow.operating_cash_flow_margin` to `metricName`'s list, for the redefined `LIQUIDITY_DISTRESS`.)
 
 **Exactly 5 values, verified against the real data, not assumed:** `grep`-ing `metricType`/
 `metricName`/`weightMetricName` literals across `rules.ttl` and `instances.trig` turns up exactly

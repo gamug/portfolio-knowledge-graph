@@ -632,6 +632,7 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       - [x] (3) notes match the file's version
       - [x] (4) rule definitions: (a) thresholds, (b) `penalty_points`, (c) the redefinition's date, (d) who clears an expired stint, (e) `expires_on` on SOFT
       - [x] (5) T-145 and T-100 dates
+      - [ ] (7) not in the letter (from PR #104): did the three new rules (`VOLATILITY_SHOCK`, `CRASH_Z_SCORE`, `BREAK_TREND_200`) take effect on the same day as the redefined `LIQUIDITY_DISTRESS` (2026-10-10, `b3c7661`)? `rules.ttl` assumes so
       - [ ] (6) not in the letter: `last_seen_on` on the clearing cycle, and `cleared_on` against `last_seen_on` (T-185)
 
 - [ ] **T-187** *(from T-183 (1); code and docs landed in PR #104 (2026-10-13: `rules.ttl` holds the nine; the choices were `GraphPredicate` leaves for the three new rules, `penaltyPoints` on SOFT rules only, the sector exemption in the comment); **open: the live-store reload and the dated row in `docs/graphdb-setup.md` (the maintainer's go-ahead; `verify_store` fails until then), and `CLAUDE.md`, which still says six**; unblocked 2026-10-12: upstream's definitions, `penalty_points` and the old-stint rule are in `SPEC.md` §2.6 (seventh reply); `NEGATIVE_FCF` and the sector exemption change later in their T-071)* Add the
@@ -684,7 +685,7 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       tests `cleared_on` only; say so in `tbox.ttl`'s comment. When it lands, the live store is reloaded from `schema/` (the maintainer's go-ahead; the check in T-176 compares each graph's size with `schema/`) and a dated row goes in `docs/graphdb-setup.md`, as T-179 did. The active-at-cutoff SPARQL (D3) does not gain an `expiresOn` test, since upstream says the date
       never closes a stint by itself. Synthetic cases (before `raisedOn` fails; absent passes). Follow T-185's decision (the maintainer's, 2026-10-11, PR #94), which put the same check in `VetoShape` (for a Veto declared with the date) and in the gate (for a stored Veto closed later). `expiresOn` is set when the Veto is declared, not by a later triple, so the shape is the one that applies; the gate does not apply, since the date never closes a stint by itself. A `feat/` PR.
       -> `PLAN.md` Work item 15.
-- [ ] **T-189** *(from T-183 (4); after T-187, which adds the `penaltyPoints` property it sums)* Read the SOFT penalty as the sum of the active SOFT stints' rules'
+- [ ] **T-189** *(from T-183 (4); T-187's `penaltyPoints` landed in PR #104, so this is unblocked; T-187's store reload does not block it)* Read the SOFT penalty as the sum of the active SOFT stints' rules'
       `penalty_points` (T-155's note already says so, from T-183); the projector derives no pre-penalty score. A SOFT rule with no `:penaltyPoints` counts the run's
       `soft_veto_penalty` (15), as upstream does ("every SOFT rule costs 15 unless it declares its own"; only
       `BREAK_TREND_200` does, with 0), never 0, so a rule added later without the property is not silently free.

@@ -475,7 +475,8 @@
     rdfs:comment "HARD | SOFT -- this stint's severity, which can differ from its rule's :ruleSeverity (LEVERAGE_EXTREME emits SOFT for a negative-equity firm). A SOFT stint charges soft_veto_penalty once. Optional: absent means the severity of the stint's :primaryRule (:ruleSeverity; the superseded design-history rules carry none). Added 2026-10-03 (T-102)." .
 
 # --- RuleDefinition / RuleClause / leaf comparisons ---
-:ruleId       a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :RuleDefinition ; rdfs:range xsd:string .
+:ruleId       a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :RuleDefinition ; rdfs:range xsd:string ;
+    rdfs:comment "Upstream's rule_id. Two definitions may share it over time (T-187: LIQUIDITY_DISTRESS), but at most one with no :validTo; that is checked by a test (tests/test_schema_gate.py), not by a shape." .
 :ruleSeverity a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :RuleDefinition ; rdfs:range xsd:string ;
     rdfs:comment "HARD | SOFT — the severity upstream's rule_catalog assigns the rule (T-103). An individual veto stint's severity can differ (LEVERAGE_EXTREME emits SOFT for a negative-equity firm with no corroborating metric); :Veto carries the per-stint value as :vetoSeverity (T-102). Distinct from :severity, which is a RiskEvent field." .
 :priorityRank a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :RuleDefinition ; rdfs:range xsd:integer ;

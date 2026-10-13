@@ -8,6 +8,7 @@ them must update the numbers in the same change.
 
 from __future__ import annotations
 
+import functools
 import re
 from pathlib import Path
 
@@ -543,9 +544,16 @@ _ACTIVE_IDS = {
 }
 
 
+@functools.cache
+def _rules_file() -> rdflib.Graph:
+    """``rules.ttl`` alone: the file the store loads wholesale into ``urn:graph:rules:catalog``
+    (``schema/README.md``), so a rule defined in another file is not found. Read-only."""
+    return rdflib.Graph().parse(SCHEMA / "rules.ttl", format="turtle")
+
+
 def _active_rules(bundle: rdflib.Dataset) -> dict[str, rdflib.term.Node]:
-    """``ruleId`` to the one rule with no ``validTo`` (an active definition)."""
-    g = _flat(bundle)
+    """``ruleId`` to the one rule with no ``validTo`` (an active definition) in the catalog graph."""
+    g = _rules_file()
     found: dict[str, rdflib.term.Node] = {}
     for rule in g.subjects(rdflib.RDF.type, KG.RuleDefinition):
         if (rule, KG.validTo, None) in g:
@@ -561,7 +569,7 @@ def test_the_active_catalog_is_upstreams_nine_rules(bundle: rdflib.Dataset) -> N
 
 
 def test_penalty_points_sit_on_the_soft_rules_only(bundle: rdflib.Dataset) -> None:
-    g = _flat(bundle)
+    g = _rules_file()
     for rule_id, rule in _active_rules(bundle).items():
         expected = _ACTIVE_IDS[rule_id]
         points = g.value(rule, KG.penaltyPoints)
@@ -571,7 +579,7 @@ def test_penalty_points_sit_on_the_soft_rules_only(bundle: rdflib.Dataset) -> No
 
 
 def test_the_active_ranks_are_one_to_nine_without_repeats(bundle: rdflib.Dataset) -> None:
-    g = _flat(bundle)
+    g = _rules_file()
     ranks = sorted(
         int(str(g.value(rule, KG.priorityRank))) for rule in _active_rules(bundle).values()
     )
@@ -599,7 +607,7 @@ SELECT ?rule WHERE {
 def test_a_stint_resolves_to_the_definition_valid_on_its_raised_on(
     bundle: rdflib.Dataset, raised_on: str, expected: rdflib.URIRef
 ) -> None:
-    rows = _flat(bundle).query(
+    rows = _rules_file().query(
         _DEFINITION_ON, initNs={"": KG}, initBindings={"day": _date(raised_on)}
     )
     assert [row[0] for row in rows if isinstance(row, tuple)] == [expected]
@@ -616,7 +624,7 @@ def test_penalty_points_on_a_hard_rule_are_caught(
 
 def test_the_new_rules_are_valid_from_the_day_of_upstreams_merge(bundle: rdflib.Dataset) -> None:
     """A stint raised from 2026-10-10 on must find a definition (upstream's merge ``b3c7661``)."""
-    g = _flat(bundle)
+    g = _rules_file()
     rules = _active_rules(bundle)
     for rule_id in ("VOLATILITY_SHOCK", "CRASH_Z_SCORE", "BREAK_TREND_200", "LIQUIDITY_DISTRESS"):
         assert g.value(rules[rule_id], KG.validFrom) == _date("2026-10-10"), rule_id
@@ -627,10 +635,13 @@ def test_a_stint_re_confirmed_after_the_redefinition_still_resolves_by_its_raise
 ) -> None:
     """Raised 2026-10-02 and seen again on 2026-10-12 (under the new code): the later sighting does
     not move it to the new definition, the re-evaluation shows only in ``lastSeenOn``."""
-    g = _flat(bundle)
+    g = rdflib.Graph()
+    g += _rules_file()  # a copy: the bundle is shared by the module
     g.add((KG.Veto_T187, KG.raisedOn, _date("2026-10-02")))
     g.add((KG.Veto_T187, KG.lastSeenOn, _date("2026-10-12")))
-    rows = g.query(_DEFINITION_ON, initNs={"": KG}, initBindings={"day": _date("2026-10-02")})
+    raised = g.value(KG.Veto_T187, KG.raisedOn)  # the day the resolution reads, not lastSeenOn
+    assert isinstance(raised, rdflib.Literal)
+    rows = g.query(_DEFINITION_ON, initNs={"": KG}, initBindings={"day": raised})
     assert [row[0] for row in rows if isinstance(row, tuple)] == [KG.Rule_LIQUIDITY_DISTRESS]
 
 

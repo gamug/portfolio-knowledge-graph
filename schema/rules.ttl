@@ -56,7 +56,10 @@
 # :ruleSeverity is upstream's rule_catalog.severity (HARD | SOFT).
 # metricName values for upstream metrics are upstream's own identifiers
 # and compare against that metric's raw value (see tbox.ttl).
-# validFrom is the adoption date, not upstream's created_at.
+# validFrom is the adoption date, not upstream's created_at, for the first six rules and the seven superseded
+# ones. T-187's rows are the exception: they start on 2026-10-10, the day the redefined LIQUIDITY_DISTRESS
+# took effect (upstream's merge b3c7661, SPEC.md §2.6 (4c)), so a stint raised from then on resolves. That the
+# three NEW rules took effect the same day is assumed (they came with the same contract version 11); T-191 ask (7).
 #
 # T-187: :penaltyPoints is upstream's penalty_points, set on the SOFT
 # rules only (a HARD rule excludes the asset, so upstream's is null and
@@ -147,7 +150,7 @@
     :ruleId "VOLATILITY_SHOCK" ; :category "MARKET" ; :priorityRank 7 ;
     :ruleSeverity "HARD" ; :validFrom "2026-10-10"^^xsd:date ;
     :hasClause :Pred_VOLATILITY_SHOCK ;
-    rdfs:comment "Temporary HARD: vol_5d / vol_60d_base above 2.5 AND that ratio above 2.5 times its sector's median that day (fewer than 5 names in the sector: the whole cross-section's median). The figures are daily log-return volatilities, not annualized; the 60-day baseline ends 5 sessions before the date, and they are computed upstream, not :PriceObservation properties. Two quantities and a sector-relative test, so no ThresholdComparison fits; evaluated upstream. 'Temporary': a stint sets :expiresOn (T-188), which never closes it (the cycle writes cleared_on)." .
+    rdfs:comment "Temporary HARD: vol_5d / vol_60d_base above 2.5 AND that ratio above 2.5 times its sector's median that day (fewer than 5 names in the sector: the whole cross-section's median). The figures are daily log-return volatilities, not annualized; the 60-day baseline ends 5 sessions before the date, and they are computed upstream, not :PriceObservation properties. Two quantities and a sector-relative test, so no ThresholdComparison fits; evaluated upstream. 'Temporary': once T-188 lands a stint may carry :expiresOn, which never closes it (the cycle writes cleared_on)." .
 :Pred_VOLATILITY_SHOCK a :GraphPredicate ; :predicateName "VolatilityShock" ;
     rdfs:comment "A label chosen here, not an upstream identifier. Evaluated upstream: vol_5d / vol_60d_base > 2.5 and above 2.5x the sector-median ratio (T-187)." .
 
@@ -155,7 +158,7 @@
     :ruleId "CRASH_Z_SCORE" ; :category "MARKET" ; :priorityRank 8 ;
     :ruleSeverity "HARD" ; :validFrom "2026-10-10"^^xsd:date ;
     :hasClause :Pred_CRASH_Z_SCORE ;
-    rdfs:comment "Temporary HARD: (ret_5d - 5*mu_60d_base) / (vol_60d_base*sqrt(5)) below -2.5 AND the same test against the sector's median ret_5d (same fallback to the cross-section under 5 names). Daily log-return figures computed upstream, not :PriceObservation properties. Two quantities and a sector-relative test; evaluated upstream. 'Temporary': a stint sets :expiresOn (T-188), which never closes it." .
+    rdfs:comment "Temporary HARD: (ret_5d - 5*mu_60d_base) / (vol_60d_base*sqrt(5)) below -2.5 AND the same test against the sector's median ret_5d (same fallback to the cross-section under 5 names). Daily log-return figures computed upstream, not :PriceObservation properties. Two quantities and a sector-relative test; evaluated upstream. 'Temporary': once T-188 lands a stint may carry :expiresOn, which never closes it." .
 :Pred_CRASH_Z_SCORE a :GraphPredicate ; :predicateName "CrashZScore" ;
     rdfs:comment "A label chosen here, not an upstream identifier. Evaluated upstream: the 5-day return's z-score against its 60-day baseline below -2.5, and the same against the sector median (T-187)." .
 
