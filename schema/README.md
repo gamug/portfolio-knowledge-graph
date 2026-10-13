@@ -176,21 +176,22 @@ what the store *enforces*.
    The projection (T-121's data half) writes whatever components the run has. **2550 quads, unchanged.**
 
    **T-187 (2026-10-13: the catalog goes from six rules to nine).** Read from upstream's code at `6a80ec3` (`SPEC.md` §2.6,
-   seventh reply). `VOLATILITY_SHOCK`, `CRASH_Z_SCORE` and `BREAK_TREND_200` are new (ranks 7 to 9, ours); `LIQUIDITY_DISTRESS`
-   is redefined (a new `RuleDefinition` valid from 2026-10-10, the same `:ruleId`; the old one is closed with `validTo`, and
-   a Veto stint resolves to the definition valid on its `:raisedOn`). A new optional `:penaltyPoints` (`xsd:decimal`, at
-   least 0, at most one) sits on `RuleDefinition`, set on the SOFT rules only (a HARD rule's is null upstream, so no
-   triple); a SOFT rule without it costs the run's `soft_veto_penalty` (T-189). **Two gaps found while encoding, flagged
-   like the earlier ones:** (a) the three new rules compare two quantities or test against the sector median, which no
-   `ThresholdComparison` states, so each is a `GraphPredicate` "evaluated upstream" (a new use of that leaf, as
-   `DATA_QUALITY`'s was); (b) the redefined `LIQUIDITY_DISTRESS` is not applied to GICS Financials or Utilities, which
-   `CategoricalComparison` (equality only) cannot state, so the exemption is in the rule's comment, not the tree. The
-   shape's `metricName` list gains `leverage.interest_coverage` and `cashflow.operating_cash_flow_margin`, and
-   `priorityRank` allows 1 to 9. The three new rules are valid from 2026-10-10 (upstream's merge) so a stint raised from then on resolves; `validTo` is
-   exclusive on a `RuleDefinition` (a rule is valid on `d` when `validFrom <= d < validTo`), and picking the definition for a
-   stint's `raisedOn` is not built (T-201). `predicateName` of those leaves is a label chosen here, not an upstream id. A
-   HARD rule may not carry `:penaltyPoints` (a shape); a SOFT rule without it is allowed and costs 15 (T-189). No new
-   class; `AllDisjointClasses` is unchanged. **2640 quads; conforms: True.**
+   seventh reply).
+   - **Rules.** `VOLATILITY_SHOCK`, `CRASH_Z_SCORE` and `BREAK_TREND_200` are new (ranks 7 to 9, ours); `LIQUIDITY_DISTRESS`
+     is redefined as a new `RuleDefinition` with the same `:ruleId`, and the old one is closed with `validTo`.
+   - **Validity.** The four start on 2026-10-10 (upstream's merge; that the three new rules took the same day is assumed,
+     T-191 ask (7)), so a stint raised from then on resolves. `validTo` is exclusive on a `RuleDefinition` (valid on `d` when
+     `validFrom <= d < validTo`). Picking the definition for a stint's `:raisedOn` is not built (T-201).
+   - **`:penaltyPoints`.** New, optional (`xsd:decimal`, at least 0, at most one), on SOFT rules only. A shape refuses it on a
+     HARD rule (upstream's is null, so no triple); a SOFT rule without it is allowed and costs the run's `soft_veto_penalty`
+     (15, T-189).
+   - **Two gaps found while encoding, flagged like the earlier ones.** (a) The three new rules compare two quantities or test
+     against the sector median, which no `ThresholdComparison` states, so each is a `GraphPredicate` "evaluated upstream" (a
+     new use of that leaf, as `DATA_QUALITY`'s was); its `predicateName` is a label chosen here, not an upstream id. (b) The
+     redefined `LIQUIDITY_DISTRESS` is not applied to GICS Financials or Utilities, which `CategoricalComparison` (equality
+     only) cannot state, so the exemption is in the rule's comment, not the tree (T-202).
+   - **Shapes.** `metricName` gains `leverage.interest_coverage` and `cashflow.operating_cash_flow_margin`; `priorityRank`
+     allows 1 to 9. No new class; `AllDisjointClasses` is unchanged. **2640 quads; conforms: True.**
    **T-032 (Work item 4, 2026-10-12: how a restatement is written).** Comment only: `:supersededBy`'s comment in
    `tbox.ttl` now says a section is superseded once, by a new section of the same `itemLabel` declared in the same
    batch (the ingest gate's check 8), and that the sections not superseded are the current ones. No shape or

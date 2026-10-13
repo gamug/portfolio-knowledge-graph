@@ -8,7 +8,6 @@ them must update the numbers in the same change.
 
 from __future__ import annotations
 
-import functools
 import re
 from pathlib import Path
 
@@ -544,14 +543,14 @@ _ACTIVE_IDS = {
 }
 
 
-@functools.cache
 def _rules_file() -> rdflib.Graph:
     """``rules.ttl`` alone: the file the store loads wholesale into ``urn:graph:rules:catalog``
-    (``schema/README.md``), so a rule defined in another file is not found. Read-only."""
+    (``schema/README.md``), so a rule defined in another file is not found. Parsed on each call: a test may add to it
+    without leaking into another."""
     return rdflib.Graph().parse(SCHEMA / "rules.ttl", format="turtle")
 
 
-def _active_rules(bundle: rdflib.Dataset) -> dict[str, rdflib.term.Node]:
+def _active_rules() -> dict[str, rdflib.term.Node]:
     """``ruleId`` to the one rule with no ``validTo`` (an active definition) in the catalog graph."""
     g = _rules_file()
     found: dict[str, rdflib.term.Node] = {}
@@ -564,13 +563,15 @@ def _active_rules(bundle: rdflib.Dataset) -> dict[str, rdflib.term.Node]:
     return found
 
 
-def test_the_active_catalog_is_upstreams_nine_rules(bundle: rdflib.Dataset) -> None:
-    assert set(_active_rules(bundle)) == set(_ACTIVE_IDS)
+def test_the_active_catalog_is_upstreams_nine_rules() -> None:
+    """The ids with no ``validTo`` in ``rules.ttl`` are exactly the nine (and none is defined twice)."""
+    assert set(_active_rules()) == set(_ACTIVE_IDS)
 
 
-def test_penalty_points_sit_on_the_soft_rules_only(bundle: rdflib.Dataset) -> None:
+def test_penalty_points_sit_on_the_soft_rules_only() -> None:
+    """15 on the SOFT rules, 0 on ``BREAK_TREND_200``, none on a HARD rule."""
     g = _rules_file()
-    for rule_id, rule in _active_rules(bundle).items():
+    for rule_id, rule in _active_rules().items():
         expected = _ACTIVE_IDS[rule_id]
         points = g.value(rule, KG.penaltyPoints)
         assert (None if points is None else str(points)) == expected, rule_id
@@ -578,11 +579,10 @@ def test_penalty_points_sit_on_the_soft_rules_only(bundle: rdflib.Dataset) -> No
         assert (severity == "SOFT") == (expected is not None), rule_id
 
 
-def test_the_active_ranks_are_one_to_nine_without_repeats(bundle: rdflib.Dataset) -> None:
+def test_the_active_ranks_are_one_to_nine_without_repeats() -> None:
+    """``primaryRule`` picks the lowest rank, so the active ranks must be distinct."""
     g = _rules_file()
-    ranks = sorted(
-        int(str(g.value(rule, KG.priorityRank))) for rule in _active_rules(bundle).values()
-    )
+    ranks = sorted(int(str(g.value(rule, KG.priorityRank))) for rule in _active_rules().values())
     assert ranks == list(range(1, 10))
 
 
@@ -605,7 +605,7 @@ SELECT ?rule WHERE {
     ],
 )
 def test_a_stint_resolves_to_the_definition_valid_on_its_raised_on(
-    bundle: rdflib.Dataset, raised_on: str, expected: rdflib.URIRef
+    raised_on: str, expected: rdflib.URIRef
 ) -> None:
     rows = _rules_file().query(
         _DEFINITION_ON, initNs={"": KG}, initBindings={"day": _date(raised_on)}
@@ -622,21 +622,18 @@ def test_penalty_points_on_a_hard_rule_are_caught(
     assert _violations(g, shapes) == {(_RULE, None)}
 
 
-def test_the_new_rules_are_valid_from_the_day_of_upstreams_merge(bundle: rdflib.Dataset) -> None:
+def test_the_new_rules_are_valid_from_the_day_of_upstreams_merge() -> None:
     """A stint raised from 2026-10-10 on must find a definition (upstream's merge ``b3c7661``)."""
     g = _rules_file()
-    rules = _active_rules(bundle)
+    rules = _active_rules()
     for rule_id in ("VOLATILITY_SHOCK", "CRASH_Z_SCORE", "BREAK_TREND_200", "LIQUIDITY_DISTRESS"):
         assert g.value(rules[rule_id], KG.validFrom) == _date("2026-10-10"), rule_id
 
 
-def test_a_stint_re_confirmed_after_the_redefinition_still_resolves_by_its_raised_on(
-    bundle: rdflib.Dataset,
-) -> None:
+def test_a_stint_re_confirmed_after_the_redefinition_still_resolves_by_its_raised_on() -> None:
     """Raised 2026-10-02 and seen again on 2026-10-12 (under the new code): the later sighting does
     not move it to the new definition, the re-evaluation shows only in ``lastSeenOn``."""
-    g = rdflib.Graph()
-    g += _rules_file()  # a copy: the bundle is shared by the module
+    g = _rules_file()
     g.add((KG.Veto_T187, KG.raisedOn, _date("2026-10-02")))
     g.add((KG.Veto_T187, KG.lastSeenOn, _date("2026-10-12")))
     raised = g.value(KG.Veto_T187, KG.raisedOn)  # the day the resolution reads, not lastSeenOn
