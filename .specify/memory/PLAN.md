@@ -876,9 +876,9 @@ reads the new columns from a re-pinned `view_contract.py` and computes none of t
 step 2; no doc or schema comment describes the attractiveness blend as computed here; T-120 is closed;
 no shape rejects a value upstream documents as valid (the SECTOR `raw_value` range, a negative
 `blended_score`), checked with synthetic rows at those bounds, and a filing with no current metric
-row fails no shape; T-187 to T-190 (version 11's content, decided in T-183; T-187's code is PR #104, its store reload is pending; T-201 picks the rule by `raisedOn`, T-202 waits on upstream's T-071) are built or explicitly
+row fails no shape; T-187 to T-190 (version 11's content, decided in T-183; T-187's code is PR #104 and T-188's is PR #105, their store reload is pending, once for both; T-201 picks the rule by `raisedOn`, T-203 lets the gate take a moved `expiresOn`, T-202 waits on upstream's T-071) are built or explicitly
 deferred: the new rules with `penaltyPoints`, `Veto` `expiresOn`, the penalty identity in the docs, and
-the three-component scheme test (T-190, done 2026-10-12; the five price columns wait for a consumer, T-183 (3)); T-191 has recorded upstream's answers to the T-184 letter (the seventh reply, 2026-10-11: asks (1) to (5) answered; only ask (6), not in the letter, is open), so T-187 and T-188 are unblocked.
+the three-component scheme test (T-190, done 2026-10-12; the five price columns wait for a consumer, T-183 (3)); T-191 has recorded upstream's answers to the T-184 letter (the seventh reply, 2026-10-11: asks (1) to (5) answered; asks (6) and (7), not in the letter, are open), so T-187 and T-188 are unblocked.
 
 **Blocked on**: nothing for T-150, T-170, T-151's rule, T-155's formula removal, T-171's
 `normalizedScore` drop, the shape corrections of step 3 (SECTOR range, `attractivenessScore`

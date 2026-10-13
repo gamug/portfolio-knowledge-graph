@@ -87,9 +87,11 @@
     sh:property [ sh:path :raisedOn ; sh:datatype xsd:date ; sh:minCount 1 ; sh:maxCount 1 ;
                   sh:lessThan :clearedOn ; sh:lessThanOrEquals :lastSeenOn, :expiresOn ] ;
     sh:property [ sh:path :clearedOn ; sh:datatype xsd:date ; sh:maxCount 1 ] ;
-    # T-188: optional, at most one; not before raisedOn (the same day passes). Set when the Veto is declared, on the
-    # temporary HARD rules' stints only (VOLATILITY_SHOCK, CRASH_Z_SCORE). It never closes a stint: only clearedOn does.
-    sh:property [ sh:path :expiresOn ; sh:datatype xsd:date ; sh:maxCount 1 ] ;
+    # T-188: optional and multi-valued like lastSeenOn (upstream moves it while the condition holds, and the graphs are
+    # append-only: current = MAX); every value not before raisedOn (the same day passes). Upstream sets it on the
+    # temporary HARD rules' stints only (VOLATILITY_SHOCK, CRASH_Z_SCORE); not enforced here, the shape cannot see the
+    # rule's severity. It never closes a stint: only clearedOn does.
+    sh:property [ sh:path :expiresOn ; sh:datatype xsd:date ] ;
     # lastSeenOn is multi-valued (append-only graphs): one value per cycle, current = MAX. A cycle that
     # clears a stint did not see it raised, so no sighting is later than the clearing (T-185; the same
     # day passes). The gate makes the same check when a stored Veto is cleared later.
