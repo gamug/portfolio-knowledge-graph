@@ -1074,8 +1074,8 @@ treating a related FR/NR as done:
     `availableAt <= D`. No source emits a restatement today (upstream stores no amendments,
     §2.6, seventh reply), so the rule and the gate check wait for one. In the other graphs dated by the data (ORCHESTRATOR, FUNDAMENTAL,
     universe, quant, entity resolution) a late row stays lost for that date, as above.
-    A second run on the day a graph was written is refused like any other; replacing the graph
-    (T-195) was cancelled on 2026-10-13: a re-run is to be a new automation in its own repository.
+    A second run on the day a graph was written is refused like any other; a re-run is a new
+    automation in its own repository (`PLAN.md` Work item 17).
     The run stops when a view's quarantined share exceeds its cap (per view, default 0, T-162). Rows
     skipped by design are counted, not failed. `src/projection/boundary.py`
     runs them over the rows read (T-163: `check_source`, then `validate`, which

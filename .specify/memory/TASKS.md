@@ -773,6 +773,20 @@ See `PLAN.md` Work item 16.*
       backtest over a long history. Waits on the vetoes lane of T-031, which reads `v_veto`. Code and a test with
       synthetic rows, so a `feat/` PR. → `PLAN.md` Work item 16.
 
+## Work item 17 — One GraphDB repository per automation
+
+*Replaces T-195 (cancelled): a re-run is a new automation in its own repository. See `PLAN.md` Work item 17.*
+
+- [ ] **T-196** Decide the automation identity and the repository name derived from it (generated id per
+      lower-case human name, both stored, duplicate names refused); record it in `docs/graphdb-setup.md`
+      and `SPEC.md`. Docs only. → `PLAN.md` Work item 17, step 1.
+- [ ] **T-197** Parameterise `cli/load_schema.py`, `cli/ingest.py`, `cli/verify_store.py` and
+      `src/kg_store/` by repository, and re-read the `PRODUCTION_REPOSITORY` guards. Code, so its own
+      PR on a `feat/` branch with tests (constitution Code & Git #9). → step 2.
+- [ ] **T-198** Create a repository per automation (schema loaded, gate on), with clone and delete.
+      Writes to GraphDB, so after the maintainer's go-ahead. → step 3.
+- [ ] **T-199** If this repo is to expose a service for it, amend the constitution first. → step 4.
+
 ## Status
 
 Closed Work items 1, 2, 3, 5, 7 (superseded/decided by T-007), 9, 10, 11 and 14 are in
@@ -787,6 +801,7 @@ T-151's rule recorded (PR #60), its checks waiting on T-031/T-163; T-158's
 ownership question (before their T-141) is unblocked; the rest of T-152–T-158 waits on upstream's
 T-144 (views), T-145 (ids), T-074 (flags) and, after their T-100, their T-082 and their Work item 4.
 Work item 15, from the sixth reply: T-182 (the analysis run's year bounds read as filing years) is done; T-183 (the decisions on version 11's content) is done, with T-187 (the rules and `penaltyPoints`), T-188 (`expiresOn`), T-189 (the penalty identity) and T-190 (the three-component scheme) filed, T-190 done 2026-10-12; T-184 (the next letter to upstream) was sent on 2026-10-11 and answered the same day (the seventh reply, recorded by T-191 asks (1) to (5), T-187 and T-188 unblocked; ask (6) is still to ask).
+Work item 17 (T-196–T-199): open; replaces the cancelled T-195.
 Work item 16 (T-160–T-165, T-192): T-160 done (plain checks, quarantine-with-cap), T-161 closed with it (no dependency) and T-162 done (JSON files per view, strict loader);
 T-163 (function done, PR #68) closes with T-031, whose first slice (PR #72) calls it on the real read and re-reads the late keys for `v_score_snapshot`; T-164 done (PR #69).
 Work item 8 (T-070–T-071) is independent but needs a human at a Protégé

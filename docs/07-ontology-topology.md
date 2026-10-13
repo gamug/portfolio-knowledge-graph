@@ -76,10 +76,9 @@ differently:
   the gate's check 8 wait for one; if upstream starts storing amendments, a projector rule derives the
   link, as a new task then.
 - **A second run for the same agent and day** is refused by the gate ("already exists and is
-  append-only"), and the first stays. Replacing that day's graph was decided on 2026-10-12 (T-195) and
-  cancelled 2026-10-13 by the maintainer: a re-run with other settings, or after a fix, is to be a
-  new automation (one realization of the algorithm) built in its own GraphDB repository, so no graph
-  is ever replaced; that work item is to be filed.
+  append-only"), and the first stays. A re-run with other settings, or after a fix, is a new
+  automation (one realization of the algorithm) built in its own GraphDB repository, so no graph is
+  ever replaced (`PLAN.md` Work item 17).
 
 > **As-of reads (T-101).** The graph date is the ingest batch, not the usable date. `ScoreSnapshot.availableAt` is the look-ahead guard: as-of-D queries over `ScoreSnapshot`s filter `availableAt <= D`, never `eventTime` or `timestamp`. `SectorAggregateSnapshot` and `AttractivenessSnapshot` are same-cycle derived outputs with no separate clock: they are usable from the date of their `timestamp`/`computedAt`.
 >

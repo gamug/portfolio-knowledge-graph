@@ -460,8 +460,9 @@ reused.*
       `raisedOn` and not before its latest stored `lastSeenOn`. Tests with a fake store (the closing tests'
       pattern). T-031's vetoes lane needs it for live cycles; stints loaded whole for backtests do not.
       Code, so its own PR on a `feat/` branch. → `PLAN.md` Work item 14, step 10.
-- [~] **T-195** *(from T-032, the maintainer's decision of 2026-10-12; cancelled 2026-10-13 (the maintainer): a re-run with other settings, or after a fix, is to be a new automation (one realization of the algorithm) built in its own GraphDB repository, so no graph is ever replaced; that work item is to be filed; the text below is the original task)* ~~Let a re-run for the same
-      agent and day replace that day's graph.~~ The gate refuses today a graph that exists
+- [~] **T-195** *(from T-032, the maintainer's decision of 2026-10-12; the gate; a `feat/` PR; needed a constitution edit first; cancelled 2026-10-13 (the maintainer): a re-run with other settings, or after a fix, is to be a new automation (one realization of the algorithm) built in its own GraphDB repository, so no graph is ever replaced (`PLAN.md` Work item 17, T-196–T-199); the text below is the original task)* ~~Let a re-run for the same
+      agent and day replace that day's graph.~~ Cancelled — superseded by Work item 17 (the design below, including
+      the constitution exception, was never adopted). The gate refuses today a graph that exists
       (`gate.ingest`, check 2), which is right for a correction known on a later day (T-032) but
       wrong for a second run on the day the graph was written: nothing was believed in between, and
       keeping both says nothing a reader can use. Add one way in (a flag on `ingest`, or its own
