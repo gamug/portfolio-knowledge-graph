@@ -634,7 +634,7 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       - [x] (5) T-145 and T-100 dates
       - [ ] (6) not in the letter: `last_seen_on` on the clearing cycle, and `cleared_on` against `last_seen_on` (T-185)
 
-- [ ] **T-187** *(from T-183 (1); unblocked 2026-10-12: upstream's definitions, `penalty_points` and the old-stint rule are in `SPEC.md` §2.6 (seventh reply); `NEGATIVE_FCF` and the sector exemption change later in their T-071)* Add the
+- [ ] **T-187** *(code and docs landed in the T-187 PR (2026-10-13): `rules.ttl` holds the nine, `:penaltyPoints` is in `tbox.ttl`/`shapes.ttl`/`kg_target_schema.ttl`; the choices were: `GraphPredicate` leaves for the three new rules, `penaltyPoints` on SOFT rules only, the sector exemption in the comment. **Open: the live-store reload and the dated row in `docs/graphdb-setup.md`, the maintainer's go-ahead; `CLAUDE.md` still says six, the maintainer's** — close the task when they are done)* *(from T-183 (1); unblocked 2026-10-12: upstream's definitions, `penalty_points` and the old-stint rule are in `SPEC.md` §2.6 (seventh reply); `NEGATIVE_FCF` and the sector exemption change later in their T-071)* Add the
       three rules and the redefinition to `schema/rules.ttl`. `BREAK_TREND_200`, `VOLATILITY_SHOCK` and
       `CRASH_Z_SCORE` are `RuleDefinition`s, each a tree like the six; the leaf kind is chosen from upstream's
       definition (the nine-rule table in `SPEC.md` §2.6, seventh reply): `ThresholdComparison` on the raw value

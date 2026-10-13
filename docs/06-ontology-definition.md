@@ -313,6 +313,12 @@ the tree representation is unchanged, it just degenerates. The seven originals s
 `RuleDefinition`; upstream's metric ids are `ThresholdComparison.metricName` values compared on the
 raw value.
 
+**Addendum (T-187, 2026-10-13) — nine rules.** Upstream's catalog now has nine (`VOLATILITY_SHOCK`, `CRASH_Z_SCORE` and
+`BREAK_TREND_200` are new; `LIQUIDITY_DISTRESS` is redefined as a tree, the old definition kept closed with
+`validTo 2026-10-10`; `SPEC.md` §2.6, seventh reply). `RuleDefinition` takes an optional `:penaltyPoints` (SOFT rules
+only), the three new rules are `GraphPredicate` leaves evaluated upstream, and `LIQUIDITY_DISTRESS`'s sector exemption is
+in its comment. Detail: `schema/README.md`.
+
 **Addendum — implementation surfaced a gap in this section.** Encoding all 6 rules from v1's
 catalog (`schema/rules.ttl`), not just `VETO_COMP_01`, revealed that `ThresholdComparison` alone
 doesn't cover the catalog: `VETO_LEG_01`/`VETO_COMP_02` gate on `RiskEvent.category`/`severity`

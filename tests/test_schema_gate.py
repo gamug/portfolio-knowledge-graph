@@ -461,3 +461,145 @@ def test_the_target_schema_orders_a_veto_like_shapes_ttl() -> None:
     in_shapes = _less_than_or_equals(SCHEMA / "shapes.ttl")
     assert in_shapes == {("raisedOn", "lastSeenOn"), ("lastSeenOn", "clearedOn")}
     assert _less_than_or_equals(SCHEMA.parent / "kg_target_schema.ttl") == in_shapes
+
+
+# --- T-187: the nine-rule catalog and ``:penaltyPoints`` -----------------------------------------
+
+_RULE = KG.Rule_T187
+
+
+def _rule(bundle: rdflib.Dataset, **extra: rdflib.term.Node) -> rdflib.Graph:
+    """The worked example plus one SOFT rule, a single threshold leaf, with extra properties."""
+    g = _flat(bundle)
+    leaf = KG.Cmp_T187
+    g.add((leaf, rdflib.RDF.type, KG.ThresholdComparison))
+    g.add((leaf, KG.metricName, rdflib.Literal("liquidity.current_ratio")))
+    g.add((leaf, KG.operator, rdflib.Literal("<")))
+    g.add((leaf, KG.thresholdValue, rdflib.Literal("1.0", datatype=rdflib.XSD.decimal)))
+    g.add((_RULE, rdflib.RDF.type, KG.RuleDefinition))
+    g.add((_RULE, KG.ruleId, rdflib.Literal("T187")))
+    g.add((_RULE, KG.ruleSeverity, rdflib.Literal("SOFT")))
+    g.add((_RULE, KG.validFrom, _date("2026-10-13")))
+    g.add((_RULE, KG.hasClause, leaf))
+    for name, value in extra.items():
+        g.add((_RULE, KG[name], value))
+    return g
+
+
+def _decimal(text: str) -> rdflib.Literal:
+    return rdflib.Literal(text, datatype=rdflib.XSD.decimal)
+
+
+@pytest.mark.parametrize("points", ["0", "15", "2.5"])
+def test_penalty_points_of_at_least_zero_conform(
+    bundle: rdflib.Dataset, shapes: rdflib.Graph, points: str
+) -> None:
+    assert _violations(_rule(bundle, penaltyPoints=_decimal(points)), shapes) == set()
+
+
+def test_a_rule_without_penalty_points_conforms(
+    bundle: rdflib.Dataset, shapes: rdflib.Graph
+) -> None:
+    assert _violations(_rule(bundle), shapes) == set()
+
+
+def test_negative_penalty_points_are_caught(bundle: rdflib.Dataset, shapes: rdflib.Graph) -> None:
+    g = _rule(bundle, penaltyPoints=_decimal("-1"))
+    assert _violations(g, shapes) == {(_RULE, KG.penaltyPoints)}
+
+
+def test_penalty_points_that_are_not_a_decimal_are_caught(
+    bundle: rdflib.Dataset, shapes: rdflib.Graph
+) -> None:
+    g = _rule(bundle, penaltyPoints=rdflib.Literal("15"))
+    assert _violations(g, shapes) == {(_RULE, KG.penaltyPoints)}
+
+
+def test_two_penalty_points_values_are_caught(bundle: rdflib.Dataset, shapes: rdflib.Graph) -> None:
+    g = _rule(bundle, penaltyPoints=_decimal("15"))
+    g.add((_RULE, KG.penaltyPoints, _decimal("0")))
+    assert _violations(g, shapes) == {(_RULE, KG.penaltyPoints)}
+
+
+def test_a_priority_rank_of_nine_conforms_and_ten_is_caught(
+    bundle: rdflib.Dataset, shapes: rdflib.Graph
+) -> None:
+    nine = _rule(bundle, priorityRank=rdflib.Literal(9))
+    assert _violations(nine, shapes) == set()
+    ten = _rule(bundle, priorityRank=rdflib.Literal(10))
+    assert _violations(ten, shapes) == {(_RULE, KG.priorityRank)}
+
+
+_ACTIVE_IDS = {
+    "LEVERAGE_EXTREME": None,
+    "NEGATIVE_FCF": None,
+    "DATA_QUALITY": None,
+    "VOLATILITY_SHOCK": None,
+    "CRASH_Z_SCORE": None,
+    "LIQUIDITY_DISTRESS": "15",
+    "PRICE_CRASH": "15",
+    "EARNINGS_MISSING": "15",
+    "BREAK_TREND_200": "0",
+}
+
+
+def _active_rules(bundle: rdflib.Dataset) -> dict[str, rdflib.term.Node]:
+    """``ruleId`` to the one rule with no ``validTo`` (an active definition)."""
+    g = _flat(bundle)
+    found: dict[str, rdflib.term.Node] = {}
+    for rule in g.subjects(rdflib.RDF.type, KG.RuleDefinition):
+        if (rule, KG.validTo, None) in g:
+            continue
+        rule_id = str(g.value(rule, KG.ruleId))
+        assert rule_id not in found, f"two active definitions of {rule_id}"
+        found[rule_id] = rule
+    return found
+
+
+def test_the_active_catalog_is_upstreams_nine_rules(bundle: rdflib.Dataset) -> None:
+    assert set(_active_rules(bundle)) == set(_ACTIVE_IDS)
+
+
+def test_penalty_points_sit_on_the_soft_rules_only(bundle: rdflib.Dataset) -> None:
+    g = _flat(bundle)
+    for rule_id, rule in _active_rules(bundle).items():
+        expected = _ACTIVE_IDS[rule_id]
+        points = g.value(rule, KG.penaltyPoints)
+        assert (None if points is None else str(points)) == expected, rule_id
+        severity = str(g.value(rule, KG.ruleSeverity))
+        assert (severity == "SOFT") == (expected is not None), rule_id
+
+
+def test_the_active_ranks_are_one_to_nine_without_repeats(bundle: rdflib.Dataset) -> None:
+    g = _flat(bundle)
+    ranks = sorted(
+        int(str(g.value(rule, KG.priorityRank))) for rule in _active_rules(bundle).values()
+    )
+    assert ranks == list(range(1, 10))
+
+
+_DEFINITION_ON = """
+SELECT ?rule WHERE {
+  ?rule a :RuleDefinition ; :ruleId "LIQUIDITY_DISTRESS" ; :validFrom ?from .
+  OPTIONAL { ?rule :validTo ?to }
+  FILTER (?from <= ?day && (!BOUND(?to) || ?day < ?to))
+}
+"""
+
+
+@pytest.mark.parametrize(
+    ("raised_on", "expected"),
+    [
+        ("2026-10-02", KG.Rule_LIQUIDITY_DISTRESS),  # before the redefinition
+        ("2026-10-09", KG.Rule_LIQUIDITY_DISTRESS),  # the day before it
+        ("2026-10-10", KG.Rule_LIQUIDITY_DISTRESS_v11),  # the day of upstream's merge
+        ("2026-11-01", KG.Rule_LIQUIDITY_DISTRESS_v11),  # after it
+    ],
+)
+def test_a_stint_resolves_to_the_definition_valid_on_its_raised_on(
+    bundle: rdflib.Dataset, raised_on: str, expected: rdflib.URIRef
+) -> None:
+    rows = _flat(bundle).query(
+        _DEFINITION_ON, initNs={"": KG}, initBindings={"day": _date(raised_on)}
+    )
+    assert [row[0] for row in rows if isinstance(row, tuple)] == [expected]

@@ -12,7 +12,7 @@ actually building it (each flagged inline in the file that surfaced it, and summ
 | `tbox.ttl` | Turtle | `urn:graph:tbox` | Classes, properties, OWL cardinality restrictions. |
 | `shapes.ttl` | Turtle | `urn:graph:tbox` | SHACL data-quality shapes (kept as a separate file/concern from `tbox.ttl` — OWL semantics vs. SHACL validation, see below). |
 | `reference.ttl` | Turtle | `urn:graph:reference` | GICS sector/industry taxonomy + asset master data (5 worked-example tickers). |
-| `rules.ttl` | Turtle | `urn:graph:rules:catalog` | The active veto catalog: upstream's 6 rules (T-103) as single-leaf `RuleDefinition`s; v1's original 6 plus `VETO_MKT_02` (7 unambiguous `RuleClause`-tree rules) are kept closed with `validTo 2026-10-02` as design history; and the `AttractivenessWeightScheme`. |
+| `rules.ttl` | Turtle | `urn:graph:rules:catalog` | The active veto catalog: upstream's 9 rules (6 at T-103, 3 more and a redefined `LIQUIDITY_DISTRESS` at T-187) as `RuleDefinition`s (single-leaf except the redefined `LIQUIDITY_DISTRESS`, a tree; the superseded `LIQUIDITY_DISTRESS` stays, closed); v1's original 6 plus `VETO_MKT_02` (7 unambiguous `RuleClause`-tree rules) are kept closed with `validTo 2026-10-02` as design history; and the `AttractivenessWeightScheme`. |
 | `instances.trig` | **TriG** | *(self-describing — see below)* | Dated ABox: universe membership, agent snapshots, evidence, vetoes, filings, portfolio; sector-aggregate and attractiveness-ranking output (added 2026-08-13). |
 
 `instances.trig` is TriG, not Turtle — it contains explicit `GRAPH <urn:graph:...> { ... }` blocks,
@@ -173,6 +173,19 @@ what the store *enforces*.
    `(cycle_run_id, score_type)`, so the row is quarantined before any triple is built), and nothing sums the weights
    (it checks each in 0 to 1).
    The projection (T-121's data half) writes whatever components the run has. **2550 quads, unchanged.**
+
+   **T-187 (2026-10-13: the catalog goes from six rules to nine).** Read from upstream's code at `6a80ec3` (`SPEC.md` §2.6,
+   seventh reply). `VOLATILITY_SHOCK`, `CRASH_Z_SCORE` and `BREAK_TREND_200` are new (ranks 7 to 9, ours); `LIQUIDITY_DISTRESS`
+   is redefined (a new `RuleDefinition` valid from 2026-10-10, the same `:ruleId`; the old one is closed with `validTo`, and
+   a Veto stint resolves to the definition valid on its `:raisedOn`). A new optional `:penaltyPoints` (`xsd:decimal`, at
+   least 0, at most one) sits on `RuleDefinition`, set on the SOFT rules only (a HARD rule's is null upstream, so no
+   triple); a SOFT rule without it costs the run's `soft_veto_penalty` (T-189). **Two gaps found while encoding, flagged
+   like the earlier ones:** (a) the three new rules compare two quantities or test against the sector median, which no
+   `ThresholdComparison` states, so each is a `GraphPredicate` "evaluated upstream" (a new use of that leaf, as
+   `DATA_QUALITY`'s was); (b) the redefined `LIQUIDITY_DISTRESS` is not applied to GICS Financials or Utilities, which
+   `CategoricalComparison` (equality only) cannot state, so the exemption is in the rule's comment, not the tree. The
+   shape's `metricName` list gains `leverage.interest_coverage` and `cashflow.operating_cash_flow_margin`, and
+   `priorityRank` allows 1 to 9. No new class; `AllDisjointClasses` is unchanged. **2631 quads; conforms: True.**
    **T-032 (Work item 4, 2026-10-12: how a restatement is written).** Comment only: `:supersededBy`'s comment in
    `tbox.ttl` now says a section is superseded once, by a new section of the same `itemLabel` declared in the same
    batch (the ingest gate's check 8), and that the sections not superseded are the current ones. No shape or
