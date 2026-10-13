@@ -780,17 +780,18 @@ See `PLAN.md` Work item 16.*
 - [ ] **T-196** Decide the automation identity and the repository name derived from it (generated id per
       lower-case human name, both stored, duplicate names refused); and who creates the repositories (until
       `portfolio-report` exists, this repo does; an upstream service afterwards); record it in
-      `docs/graphdb-setup.md` and `SPEC.md` §2.5 (the ownership map and drift D9 change with it). Docs only. → `PLAN.md` Work item 17, step 1.
+      `docs/graphdb-setup.md` and `SPEC.md` §2.5 (the ownership map and drift D9 change with it). Docs only. Closes SPEC FR-007's definition. The maintainer's decision; it also records the open
+      questions listed in `PLAN.md` Work item 17's "Blocked on". → `PLAN.md` Work item 17, step 1.
 - [ ] **T-197** Parameterise `cli/load_schema.py`, `cli/ingest.py`, `cli/verify_store.py` and
       `src/kg_store/` by repository, and replace the `PRODUCTION_REPOSITORY` guards
       (`src/kg_store/graphdb.py`, `src/projection/project_scores.py`'s `--replay` refusal). Code, so its own
-      PR on a `feat/` branch with tests (constitution Code & Git #9). → step 2.
+      PR on a `feat/` branch with tests (constitution Code & Git #9); SPEC FR-007. → step 2.
 - [ ] **T-198** Create a repository per automation (schema loaded, gate on), with clone. Writes to
-      GraphDB, so after the maintainer's go-ahead. → step 3.
+      GraphDB, so after the maintainer's go-ahead; SPEC FR-007. → step 3.
 - [ ] **T-200** Delete an automation's repository. The gate does not cover a drop, so: export the
       repository first (outside the repo), refuse `portfolio`, and run it only after the maintainer's
-      go-ahead for that repository. → step 3b.
-- [ ] **T-199** If this repo is to expose a service for it, amend the constitution first. → step 4.
+      go-ahead for that repository; SPEC FR-007. → step 4.
+- [ ] **T-199** If this repo is to expose a service for it, amend the constitution first. → step 5.
 
 ## Status
 

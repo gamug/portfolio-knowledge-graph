@@ -1051,16 +1051,21 @@ guards lose their meaning; `docs/graphdb-setup.md` still describes `portfolio` a
    `src/kg_store/`) by repository, and replace the `PRODUCTION_REPOSITORY` guards with what is still
    worth protecting once `portfolio` is development-only.
 3. Create a repository per automation (schema loaded, gate on), and clone one.
-3b. Delete one (a hard delete). The gate does not cover a drop: export first, refuse `portfolio`, and
+4. Delete one (a hard delete). The gate does not cover a drop: export first, refuse `portfolio`, and
    run it only after the maintainer's go-ahead.
-4. Any HTTP service this repo exposes for it needs a constitution amendment first (the constitution
+5. Any HTTP service this repo exposes for it needs a constitution amendment first (the constitution
    says this repo is not a service).
 
-**Acceptance**: a second run for the same agent and day, under another automation, writes to its own
-repository with the gate unchanged; the first automation's graphs are untouched; `uv run pytest` passes.
+**Acceptance** (SPEC FR-007): a second run for the same agent and day is still refused under the same
+automation (the reason T-195 was cancelled) and, under another automation, writes to its own repository
+with the gate unchanged; the first automation's graphs are untouched; the replacement for the
+`PRODUCTION_REPOSITORY` guards refuses `portfolio` for delete and replay; delete exports first and runs
+only after the maintainer's go-ahead; clone copies as the chosen mode says (settings only, or with
+data); `verify_store` passes for each new repository; `uv run pytest` passes.
 
-**Blocked on**: the maintainer's design of the automation (settings that vary, copied or shared source
-data, one upstream file per automation); steps 2 and 3 wait on step 1.
+**Blocked on**: step 1 (T-196) is the maintainer's decision and records the open questions: which
+settings vary between automations, whether source data is copied or shared, one upstream file per
+automation or an `automation_id` column, and what clone copies. Steps 2–4 wait on it; step 5 is optional.
 
 ## Sequencing
 
