@@ -137,8 +137,8 @@ are closed (see `CHANGELOG.md`).*
         dated by its own filing); in the graphs dated by the data (`ORCHESTRATOR`, `FUNDAMENTAL`,
         quant, entity resolution, `universe`) a late correction is still lost for that date
         (`docs/07`, SPEC §13 item 10). A re-run for
-        the same agent and day is not a correction: it replaces that day's graph (T-195, not built;
-        until then the gate refuses it).
+        the same agent and day is not a correction, and the gate refuses it (replacing its graph,
+        T-195, was cancelled 2026-10-13).
       - **Built.** The gate refuses a `:supersededBy` unless the old side is a stored or declared
         `SECFilingSection` not yet superseded, the new side a `SECFilingSection` the same batch declares
         with the same `:itemLabel` (when both have one), each section has one replacement, each new
@@ -290,157 +290,6 @@ independent of each other once T-131 lands.*
       exit codes are `integration` tests (T-175; T-141 itself was only the run and the
       record). `cli/build_data_ttl.py` is transitional (T-033). → Approach 3.
 
-## Work item 14 — `ScoreSnapshotShape` and store-gate follow-ups (PR #48 post-merge review)
-
-- [x] **T-140** *(done 2026-10-06; T-155 widens its [-1, 1] bound)* Tighten `ScoreSnapshotShape`:
-      `SectorRelativeMomentum` requires `rawValue` in `[-1, 1]` (`docs/06` §1.8; mapping upstream
-      SECTOR into it is T-031's); `rawValue` at most once (`owl:FunctionalProperty` in `tbox.ttl`);
-      `agentOrigin` ↔ `metricType` one-to-one via `sh:xone`. 2458 quads, conforms; 18 synthetic
-      cases, the acceptance probe (one violation), `docs/09`'s example and the ETL smoke run agree.
-      → `PLAN.md` Work item 14, step 1.
-- [x] **T-141** *(done 2026-10-08: `cli/verify_store.py` against the live `portfolio` repository, exit 0, all three checks pass; recorded in `docs/graphdb-setup.md`. It found that the store's schema graph is out of date and that the store holds a conflicting leftover graph: see T-174)* Run `cli/verify_store.py` against the live GraphDB repository with the current
-      acceptance probe and record the result in `docs/graphdb-setup.md`. → step 2.
-- [x] **T-142** *(done 2026-10-07 in PR #63: `gate.validate` raises `ShaclRejected`, an `IngestRejected` carrying pyshacl's results graph; `check_gate` requires exactly one `sh:ValidationResult`, a `:timestamp` `MinCountConstraintComponent`, with `tests/test_acceptance_gate.py` covering wording-independence, a second violation, a single violation of another kind, a non-SHACL rejection and an accepted batch)* Have `kg_store.gate.validate` expose pyshacl's results graph and make
-      `acceptance.check_gate` count `sh:ValidationResult` nodes instead of matching
-      `"Constraint Violation in"` in the text report. → step 3.
-- [x] **T-146** *(done 2026-10-10: `ingest` reads what the store holds about the individuals a batch points at (`gate.references`, `gate.fetch_context`) and `validate` checks the batch beside it (only the properties the referenced classes' shapes read, plus an Asset's memberships' `validTo`), so a reference is typed by the store, not by the batch; `:clearedOn` joins `:validTo` as a closing property; the three `xfail`s are gone and every worked-example graph passes with its context; `--check` cannot see references and says so when it rejects; T-180 and T-181 split off; the text below is the original task)* Let the gate take the worked example's own batches (found writing T-136's tests):
-      `gate.validate` checked a batch alone, so three `instances.trig` graphs fail it:
-      `derived:entity-resolution:2026-08-05` (`sh:class :Asset` on `:coOccurrenceAsset` values typed
-      in another graph), `derived:quant:2026-08-05` (`sh:class` on `:quantAsset`/`:quantPortfolio`
-      values typed elsewhere) and `ingest:ORCHESTRATOR:2026-08-05` (closing a Veto with `:clearedOn`,
-      which the untyped-subject rule allows only for `:validTo`). Decide per case: type the
-      references in the batch's data graph for validation (without writing them), or relax the shape;
-      allow `:clearedOn` as a closing property. Then drop the three `xfail`s in
-      `tests/test_kg_gate.py` (strict, so they fail once it is fixed). Constitution Code & Git #9.
-      → `PLAN.md` Work item 14, step 4.
-- [x] **T-174** *(done 2026-10-08, after the maintainer's go-ahead: `cli/load_schema.py` reloaded the 19 graphs of `schema/` (2547 triples match the local parse); the leftover `QUANTITATIVE` graph was exported (35 triples, outside the repository) and dropped, `/size` 2582 → 2547; every `VALORIZATION` snapshot has one `:agentOrigin`, none has two anywhere; `verify_store` exit 0; recorded in `docs/graphdb-setup.md`. The leftover's absence is shown by the size (2547 is the total of the 19 graphs), not by a direct graph-list query: that query was blocked by the permission classifier and not retried; the text below is the original task, kept for the record)* Bring the live store's schema in line with `schema/` (found by T-141). Per graph,
-      `urn:graph:tbox` holds 1420 triples against 1567 (it lacks the changes since the last load:
-      T-121's per-run scheme terms and edits from T-151, T-153, T-155 and T-171, among others), and the
-      store holds `urn:graph:ingest:QUANTITATIVE:2026-08-05` (35 triples), which `schema/` no longer
-      has. That graph asserts the same five snapshot IRIs as `urn:graph:ingest:VALORIZATION:2026-08-05`
-      with the old `:agentOrigin "QUANTITATIVE"`, so each of them has two `:agentOrigin` values in the
-      store now (a defect, not just a tidy-up: `"QUANTITATIVE"` is outside `sh:in` and breaks
-      `sh:maxCount 1`; dropping it loses no data). Two writes to the
-      production repository, each run by the maintainer, or by a session they name, after their
-      go-ahead (the gate does not cover a drop):
-      (1) `uv run python cli/load_schema.py` (it drops and reloads every graph in `schema/`: `tbox`,
-      `reference`, `rules:catalog` **and the worked-example data graphs of `instances.trig`**, so it
-      leaves the leftover and prints it as "not in schema/"; reloading the example graphs is safe
-      only because nothing else has been written into them, which the store's graph list confirms:
-      it holds the example graphs and the leftover, no projected graph);
-      (2) drop the leftover: first download that one graph as N-Triples
-      (`GET {KG_HOST}/repositories/portfolio/rdf-graphs/service?graph=urn:graph:ingest:QUANTITATIVE:2026-08-05`
-      with `Accept: application/n-triples`) to a file outside the repository, then run the update
-      `DROP GRAPH <urn:graph:ingest:QUANTITATIVE:2026-08-05>` on `/statements`.
-      Note `/size` immediately before (2) (step (1) changes `tbox` by +147, so a size taken earlier
-      is no baseline). After (2), check read-only: the graph is absent from the graph list, `/size`
-      is that number minus 35, and each of the five snapshots in the `VALORIZATION` graph has exactly
-      one `:agentOrigin`.
-      Then re-run `cli/verify_store.py` and add the per-graph sizes to the `docs/graphdb-setup.md`
-      record. Done when every graph in `schema/` has its expected size, the leftover is gone, and
-      the checks above pass. → `PLAN.md` Work item 14, step 5.
-- [x] **T-175** *(done 2026-10-08: `tests/test_store_cli_exit_codes.py`, six tests, all pass with `-m integration`; the three on a scratch repository need `KG_ADMIN_USER`/`KG_ADMIN_PASSWORD` because `portfolio.app` gets HTTP 403 on creating one; the scratch repositories are deleted, `portfolio` untouched at 2547 triples)* `integration` tests for the exit codes of `cli/verify_store.py`, `cli/load_schema.py` and
-      `cli/ingest.py` (constitution Code & Git #9 lists them; the T-141 text covered only the run).
-      `verify_store.py` writes nothing, so its test can run against the live repository (0 on a
-      healthy store; with T-176 in, that is a store that matches `schema/`, as the live one now does). `load_schema.py` and `ingest.py` write, so they need a repository of their own
-      (as `project_scores --replay` does), never `portfolio`. Opt in with `-m integration`, skipped
-      when the store is unreachable. → `PLAN.md` Work item 14, step 7.
-
-- [x] **T-176** *(done 2026-10-08: two checks in `kg_store.acceptance`, twelve fake-store tests in `tests/test_acceptance_schema_checks.py`; the live store passes, exit 0, five checks; the text below is the original)* Make `cli/verify_store.py` check the schema graphs and the defect T-174 found (read-only;
-      found by T-141, split from T-174 so it does not wait for the production writes). Two new
-      checks, reusing `load_schema.expected_sizes` and `verify`: (a) a graph that `schema/` owns and
-      whose asserted size differs fails (owned = the graphs of `tbox`, `shapes`, `reference` and
-      `rules` always; the worked-example graphs of `instances.trig` too, while that file is what
-      `schema/` ships: when Work item 4 or T-035 replaces the example with real data, that task
-      edits `instances.trig` and this check follows it, since `expected_sizes` reads the file); (b) no individual has more than one `:agentOrigin` (one
-      `SELECT` over all graphs), and none has a value outside `ScoreSnapshotShape`'s `sh:in` list (read from `shapes.ttl`, parsed once as the gate does, not copied into the check).
-      A graph the store holds that `schema/` does not own is **reported, not failed**, as
-      `load_schema.verify` already does: Work item 4 writes dated `urn:graph:ingest:…` graphs there,
-      and a healthy store must still exit 0. A total-size or one-term check would hide both
-      differences. Tests with a fake store: equal sizes pass; a short graph fails; an extra graph is
-      reported and passes; a doubled `:agentOrigin` fails; an `:agentOrigin` outside the list fails;
-      the existing three checks are unchanged (constitution Code & Git #9). Before T-174 it would have
-      failed (a) on `tbox` and (b) on the five snapshots; the live store no longer shows that (T-174 is done),
-      so the fake-store tests carry the proof, and the live store must pass.
-      → `PLAN.md` Work item 14, step 6.
-- [x] **T-179** *(found by T-177; done 2026-10-10 after the maintainer's go-ahead; record in `docs/graphdb-setup.md`; the text below is the original task)* Reload the live store with
-      `cli/load_schema.py` (T-174's procedure: the `urn:graph:tbox` graph grows by 2, to the size T-176's
-      check expects from `schema/`: 1567 to 1569 triples there, 2547 to 2549 over the 19 graphs, the figures
-      T-174 left in `docs/graphdb-setup.md`), then run `cli/verify_store.py` and record the result in
-      `docs/graphdb-setup.md`. Until the reload `verify_store` failed its "schema graphs have their expected
-      size" check, by design, and so did the `integration` test
-      `test_verify_store_passes_on_the_configured_store` (T-175); both pass since the reload (figures in
-      `docs/graphdb-setup.md`). → `PLAN.md` Work item 14, step 8.
-- [x] **T-180** *(found in PR #86's review; the gate; done 2026-10-11: `gate.refused_closures` reads the closed subjects' types and closing values from the store (`fetch_closing_state`) and `ingest` refuses a closure of an unknown subject, of a class the property does not close (the explicit `gate.CLOSABLE`; a per-run weight scheme is never closed), of a record already closed, on a date not after it opened (strict `YYYY-MM-DD`, compared as dates), or with two dates; `--check` cannot see it, as for references, and says so on stderr; the text below is the original task)* Make the gate check what a closing triple closes:
-      `untyped_writes` lets `:validTo` and `:clearedOn` through on any untyped subject without looking at
-      the store, so a closure of a subject that is no stored record (or no stored Veto, for `:clearedOn`),
-      or of one already closed, is written. In `ingest`, read the closed subjects' types and existing
-      closing value from the store and refuse the batch otherwise. Tests with a fake store. Code, so its
-      own PR on a `feat/` branch. → `PLAN.md` Work item 14, step 9.
-- [x] **T-181** *(found in PR #86's review; done 2026-10-11: `GraphDB.select_terms` returns rdflib terms with the datatype or language the store holds, `select` is unchanged, `gate.fetch_context` uses it and drops the declared-datatype guess, a test stores a wrong-datatype literal, **a string is read as a plain literal** (whether the store writes `xsd:string` or nothing, because `sh:in`/`sh:hasValue` compare terms and the quant shape failed with the typed form), a statement whose subject or predicate is not an IRI raises, and `verify_store` gained a sixth check (the worked example's quant batch passes beside the stored Portfolios; not yet run live); the text below is the original task)* Keep the term type of a SPARQL result:
-      `GraphDB.select` returns the lexical value only, so `gate.fetch_context` rebuilds a stored literal
-      with the datatype its property declares and a stored literal of another datatype passes as if it
-      had the right one. Return the type and datatype beside the value (a second method, or a richer
-      row, so no existing caller changes), use it in `fetch_context`, and add a test with a stored literal
-      of the wrong datatype. Code, so its own PR on a `feat/` branch. → `PLAN.md` Work item 14, step 9.
-- [x] **T-185** *(found in PR #90's review; the gate)* Check a Veto's `:clearedOn` against its `:lastSeenOn`:
-      **Done 2026-10-11 in PR #94**, after the maintainer chose to check at three places (`PLAN.md` Work item 14, step 10): the gate
-      refuses a `clearedOn` earlier than the latest `lastSeenOn` of a stored Veto (`gate.CLOSABLE` carries a
-      `last_seen` property); `VetoShape` refuses the same in a batch that declares a Veto with both dates
-      (`sh:lessThanOrEquals :clearedOn` on `lastSeenOn`, 2550 quads, the twin in `kg_target_schema.ttl` too); T-192
-      adds the read-boundary check. The same day passes, an assumption about upstream's `last_seen_on` on the
-      clearing cycle (unverified; the question is listed in T-191). **Limit (until T-194):** the gate could not append a `lastSeenOn` to a stored Veto,
-      so the closing check compared with the sightings declared with the Veto. **Open follow-ups** (T-194, the `lastSeenOn` append, and T-193, the store reload, are done): T-192 (the read-boundary check) and the question about the clearing cycle's
-      `last_seen_on` (listed in T-191). Tests in `tests/test_kg_gate.py` and
-      `tests/test_schema_gate.py`. The text below is the original task.
-      `lastSeenOn` is multi-valued (one per cycle, current = MAX) and no shape relates it to `clearedOn`, so
-      a Veto can be cleared on a date earlier than a cycle that still saw it raised. T-180's closing check
-      already reads the Veto's stored state; read `lastSeenOn` there (or add `sh:lessThanOrEquals` to the
-      shape, which changes the quad count SPEC states) and refuse a `clearedOn` earlier than its maximum.
-      Decide with the maintainer whether a clearing run may predate a later sighting from another run.
-      Code, so its own PR on a `feat/` branch. → `PLAN.md` Work item 14, step 10.
-- [x] **T-186** *(found in PR #91's review; the maintainer, not code; done 2026-10-12: the six PASS lines are in `docs/graphdb-setup.md`'s T-193 section; the text below is the original task)* Run `uv run python cli/verify_store.py`
-      against the live repository, which T-181 made six checks (the sixth runs the worked example's quant batch
-      beside the stored Portfolios and Assets, so it needs `instances.trig` and `reference.ttl` loaded), and record
-      the six PASS/FAIL lines and the date as a row of `docs/graphdb-setup.md`'s live-run section. The agent's
-      sandbox reaches the store only when the server is up on the sandbox's network (the first attempt, 2026-10-12, got `Network is unreachable`; the next succeeded), so this is the only evidence of what GraphDB
-      returns for a string literal (`datatype` absent or `xsd:string`). If it fails, fix `GraphDB._term` or the
-      check. → `PLAN.md` Work item 14, step 9.
-- [x] **T-193** *(from T-185; the maintainer, not code; done 2026-10-12: the store holds 2550 triples and `verify_store` exits 0, recorded in `docs/graphdb-setup.md`; the text below is the original task)* Reload the live store from `schema/` after PR #94 merges:
-      `shapes.ttl` loads into `urn:graph:tbox`, which grows by 1 triple (2549 to 2550 over the 19 graphs), so
-      `verify_store`'s "schema graphs have their expected size" check fails until then, with
-      `urn:graph:tbox: expected 1570, store has 1569` (the expected failure; any other line is a different problem). With the maintainer's
-      go-ahead: `uv run python cli/verify_store.py` (that check fails as expected), `uv run python cli/load_schema.py`
-      (exit 0, `2550 asserted triples match the local parse`), `uv run python cli/verify_store.py` (exit 0), and a dated
-      row in `docs/graphdb-setup.md`, as T-179 did. The agent's sandbox reaches the store only when the maintainer's server is up (down on the first attempt, up on 2026-10-12).
-      → `PLAN.md` Work item 14, step 10.
-- [x] **T-194** *(from PR #94's third review; the gate; done 2026-10-11 in PR #96: `gate.APPENDABLE` / `APPENDING_PROPERTIES`, a `lastSeenOn` is allowed on an untyped subject and checked against the store: a stored Veto, not cleared, the date not before `raisedOn` nor after the `clearedOn` the same batch gives it, later than the latest stored sighting (an equal date is a replay), one date per batch; tests in `tests/test_kg_gate.py`; the text below is the original task)* Let a later cycle append a `lastSeenOn` to a stored Veto.
-      `docs/07` says a stint is appended to by later cycles (`lastSeenOn`, `clearedOn`) and `lastSeenOn` is
-      multi-valued for that, but `gate.untyped_writes` allows only relations and `validTo`/`clearedOn` on a
-      subject untyped in the batch, so the append is rejected. Allow an `xsd:date` `lastSeenOn` there and check it
-      like a closing (`gate.CLOSABLE`-style): the subject is a stored Veto, not cleared, the date not before
-      `raisedOn` and not before its latest stored `lastSeenOn`. Tests with a fake store (the closing tests'
-      pattern). T-031's vetoes lane needs it for live cycles; stints loaded whole for backtests do not.
-      Code, so its own PR on a `feat/` branch. → `PLAN.md` Work item 14, step 10.
-- [ ] **T-195** *(from T-032, the maintainer's decision of 2026-10-12; the gate; a `feat/` PR; needs a constitution edit first)* Let a re-run for the same
-      agent and day replace that day's graph. The gate refuses today a graph that exists
-      (`gate.ingest`, check 2), which is right for a correction known on a later day (T-032) but
-      wrong for a second run on the day the graph was written: nothing was believed in between, and
-      keeping both says nothing a reader can use. Add one way in (a flag on `ingest`, or its own
-      function) that validates the new batch with every check, then in one transaction clears the
-      graph and writes the batch. Only the graphs dated by ingestion (`ingest:{SEMANTIC|VALORIZATION|TECHNICAL|SECTOR}:{date}`,
-      `SPEC.md` §13 item 10): the per-quarter ones (`FUNDAMENTAL`, `EDGAR` by quarter, `universe`) are
-      written once their quarter is complete, and `ORCHESTRATOR` is dated by the data's `cycleDate`, so
-      none has a "day it was written" to match. Check 6 (no typed individual already stored) then
-      reads the store minus the graph being replaced, since the new batch re-declares the old graph's
-      individuals; every other check runs as for a new graph. Settle first: (a) the constitution's invariant 1 and
-      `docs/07` ("Append-only") say an ingest graph is never edited, so both get the exception,
-      stated narrowly: only the graph of the same agent and the day it was written, never one of a
-      past day; (b) what points into the graph from elsewhere, settled by the scope above: the
-      Vetoes and weight schemes that later graphs clear, sight or point at live in `ORCHESTRATOR`
-      graphs, which are out. Keep one guard anyway: refuse the replacement when another graph holds a
-      triple about a subject the old graph declares; (c) the replacement keeps the IRIs of the rows that
-      did not change. Tests with a fake store. → `PLAN.md` Work item 14.
 ## Work item 15 — Adopt upstream's `v_*` contract changes (replies of 2026-10-05, 2026-10-06 x2)
 - [x] **T-177** *(from upstream's answer to Q6, 2026-10-09; done 2026-10-10 in PR #82: the shape, 2549 quads, nine synthetic cases in `tests/test_schema_gate.py` and a check that `kg_target_schema.ttl` carries the same `rawValue` bounds as `shapes.ttl` (FUNDAMENTAL, SECTOR, Sentiment); `schema/protege-view.ttl` is left to Work item 8 (T-070); the store reload is T-179; the text below is the original task, edited where the work differed)* Bound FUNDAMENTAL's `rawValue` in `ScoreSnapshotShape` to
       `[0, 100]` (`minInclusive`/`maxInclusive` on the branch that pairs it with a mandatory `rawValue`,
@@ -924,21 +773,46 @@ See `PLAN.md` Work item 16.*
       backtest over a long history. Waits on the vetoes lane of T-031, which reads `v_veto`. Code and a test with
       synthetic rows, so a `feat/` PR. → `PLAN.md` Work item 16.
 
+## Work item 17 — One GraphDB repository per automation
+
+*Replaces T-195 (cancelled): a re-run is a new automation in its own repository. See `PLAN.md` Work item 17.*
+
+- [ ] **T-196** Decide the automation identity and the repository name derived from it (generated id per
+      lower-case human name, both stored, duplicate names refused); and who creates the repositories (until
+      `portfolio-report` exists, this repo does; an upstream service afterwards); record it in
+      `docs/graphdb-setup.md` and `SPEC.md` §2.5 (the ownership map and drift D9 change with it). Docs only.
+      The maintainer's decision; it also answers the open questions in `PLAN.md` Work item 17's "Blocked on".
+      Closes SPEC FR-007's definition. **Done when** those questions are answered in `PLAN.md` Work item 17
+      and the maintainer has signed off. → `PLAN.md` Work item 17, step 1.
+- [ ] **T-197** Parameterise `cli/load_schema.py`, `cli/ingest.py`, `cli/verify_store.py` and
+      `src/kg_store/` by repository, and replace the `PRODUCTION_REPOSITORY` guards
+      (`src/kg_store/graphdb.py`, `src/projection/project_scores.py`'s `--replay` refusal). Code, so its own
+      PR on a `feat/` branch with tests (constitution Code & Git #9); SPEC FR-007. → step 2.
+- [ ] **T-198** Create a repository per automation (schema loaded, gate on), with clone. Writes to
+      GraphDB, so after the maintainer's go-ahead; SPEC FR-007. → step 3.
+- [ ] **T-200** Delete an automation's repository. The gate does not cover a drop, so: export the
+      repository first (outside the repo), refuse `portfolio`, and run it only after the maintainer's
+      go-ahead for that repository; SPEC FR-007. → step 4.
+- [ ] **T-199** Decide whether this repo exposes a service for automations (the constitution says it is
+      not a service); if yes, amend the constitution first. **Done when** the maintainer has decided and,
+      if yes, the amendment has landed; a "no" closes it. → step 5.
+
 ## Status
 
-Closed Work items 1, 2, 3, 5, 7 (superseded/decided by T-007), 9, 10 and 11 are in
-`CHANGELOG.md` (Work item 1 closed with T-006 deprecated in favor of T-009).
+Closed Work items 1, 2, 3, 5, 7 (superseded/decided by T-007), 9, 10, 11 and 14 are in
+`CHANGELOG.md` (Work item 1 closed with T-006 deprecated in favor of T-009; Work item 14 closed
+2026-10-13 with T-195 cancelled).
 Work items 4 and 6 (T-030–T-035, T-050–T-053)
 follow in dependency order (Work items 3 and 11 are closed, so Work item 4 is unblocked).
 Work item 12 (T-120–T-121): T-120 closed by T-150; T-121 done (PR #65).
 Work item 13 (T-130–T-136): constitution rules in place (1.5.0); T-130–T-136 done (T-135 as an `integration` test, `PFA_CHECKOUT`).
-Work item 14 (T-140–T-142 and T-146): T-140, T-141 and T-142 done; T-174 (store schema, found by T-141) done; T-176 (the two `verify_store` checks) done; T-175 (CLI exit-code tests) done (PR #80); T-146 (the gate vs. the worked example's batches) done; T-179 (the store reload after T-177) done; T-180 (the gate checks what a closing triple closes) done; T-181 (`select` keeps the term type) done; T-185 (a Veto's `clearedOn` against its `lastSeenOn`) done; T-192 (the same check at the read boundary) open, after T-031's vetoes lane; T-193 (reload the store after T-185's shape, the maintainer's) done; T-194 (append a `lastSeenOn` to a stored Veto, PR #96) done; T-186 (the live `verify_store` run for T-181's sixth check, the maintainer's) done; T-195 (replace a day's graph on a same-day re-run, from T-032) open.
 Work item 15 (T-150–T-159, T-170–T-173, T-177–T-178, T-182–T-184, T-187–T-191): T-173 (the contract endpoint check) done; T-177 (the FUNDAMENTAL `rawValue` bound) done in PR #82; T-178 (the pin's `contract_version` key) done; T-150, T-170 and T-171 (PR #56) done; T-155's schema half done (PR #58); T-153's comment half (PR #59);
 T-151's rule recorded (PR #60), its checks waiting on T-031/T-163; T-158's
 ownership question (before their T-141) is unblocked; the rest of T-152–T-158 waits on upstream's
 T-144 (views), T-145 (ids), T-074 (flags) and, after their T-100, their T-082 and their Work item 4.
 Work item 15, from the sixth reply: T-182 (the analysis run's year bounds read as filing years) is done; T-183 (the decisions on version 11's content) is done, with T-187 (the rules and `penaltyPoints`), T-188 (`expiresOn`), T-189 (the penalty identity) and T-190 (the three-component scheme) filed, T-190 done 2026-10-12; T-184 (the next letter to upstream) was sent on 2026-10-11 and answered the same day (the seventh reply, recorded by T-191 asks (1) to (5), T-187 and T-188 unblocked; ask (6) is still to ask).
 Work item 16 (T-160–T-165, T-192): T-160 done (plain checks, quarantine-with-cap), T-161 closed with it (no dependency) and T-162 done (JSON files per view, strict loader);
+Work item 17 (T-196–T-200): open; replaces the cancelled T-195.
 T-163 (function done, PR #68) closes with T-031, whose first slice (PR #72) calls it on the real read and re-reads the late keys for `v_score_snapshot`; T-164 done (PR #69).
 Work item 8 (T-070–T-071) is independent but needs a human at a Protégé
 session, not a coding session.
