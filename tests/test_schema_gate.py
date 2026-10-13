@@ -763,11 +763,14 @@ def test_each_of_several_expiries_must_be_on_or_after_raised_on(
     assert _violations(g, shapes) == {(_VETO, KG.raisedOn)}
 
 
-def test_expires_on_is_not_functional_in_the_tbox() -> None:
-    for path in (SCHEMA / "tbox.ttl", SCHEMA.parent / "kg_target_schema.ttl"):
-        g = rdflib.Graph().parse(path, format="turtle")
-        assert (KG.expiresOn, rdflib.RDF.type, rdflib.OWL.DatatypeProperty) in g
-        assert (KG.expiresOn, rdflib.RDF.type, rdflib.OWL.FunctionalProperty) not in g
+@pytest.mark.parametrize(
+    "path", [SCHEMA / "tbox.ttl", SCHEMA.parent / "kg_target_schema.ttl"], ids=["tbox", "target"]
+)
+def test_expires_on_is_declared_and_not_functional(path: Path) -> None:
+    """A datatype property in both files, never functional: upstream moves it and the graphs are append-only."""
+    g = rdflib.Graph().parse(path, format="turtle")
+    assert (KG.expiresOn, rdflib.RDF.type, rdflib.OWL.DatatypeProperty) in g
+    assert (KG.expiresOn, rdflib.RDF.type, rdflib.OWL.FunctionalProperty) not in g
 
 
 def test_an_expires_on_that_is_not_a_date_is_caught(

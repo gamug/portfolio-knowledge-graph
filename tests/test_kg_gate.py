@@ -863,7 +863,7 @@ def test_a_sighting_of_something_that_is_not_a_stored_veto_is_refused(
 
 
 def test_a_moved_expiry_is_refused_until_t203(make_db: MakeDB) -> None:
-    """Pins today's gate: only ``lastSeenOn`` is appended to a stored Veto. T-203 turns this round."""
+    """Pins today's gate: only ``lastSeenOn`` is appended to a stored Veto. Delete or invert this test in T-203."""
     batch = PREFIXES + f':v :expiresOn "2026-04-10"{DATE} .'.encode()
     fake = _holding(make_db, ":v", "Veto", raisedOn="2026-01-01")
     with pytest.raises(gate.IngestRejected, match="no rdf:type in the batch"):

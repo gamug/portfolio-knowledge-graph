@@ -195,7 +195,7 @@ what the store *enforces*.
 
    **T-188 (2026-10-13: `Veto` `:expiresOn`).** A new optional `:expiresOn` (`xsd:date`) on `Veto`, upstream's
    `expires_on`, filled only on the stints of the temporary HARD rules (`VOLATILITY_SHOCK`, `CRASH_Z_SCORE`); a NULL
-   is no triple.
+   is no triple (the bundle was 2640 quads after T-187; the property, its comment and its shape add 8).
    - **Multi-valued, like `:lastSeenOn`.** While the condition holds upstream moves `expires_on` 10 NYSE sessions on,
      and ORCHESTRATOR graphs are append-only, so each move adds a value in its own graph and the current one is
      `MAX(?expiresOn)`. A functional property would make the gate refuse the re-confirmation.
