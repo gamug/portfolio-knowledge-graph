@@ -195,15 +195,27 @@ what the store *enforces*.
 
    **T-188 (2026-10-13: `Veto` `:expiresOn`).** A new optional `:expiresOn` (`xsd:date`) on `Veto`, upstream's
    `expires_on`, filled only on the stints of the temporary HARD rules (`VOLATILITY_SHOCK`, `CRASH_Z_SCORE`); a NULL
-   is no triple. **Multi-valued, like `:lastSeenOn`:** while the condition holds upstream moves `expires_on` 10 NYSE
-   sessions on, and ORCHESTRATOR graphs are append-only, so each move adds a value in its own graph and the current
-   one is `MAX(?expiresOn)`. A functional property would make the gate refuse the re-confirmation. `VetoShape`
-   requires each value to be an `xsd:date` not before `:raisedOn` (`sh:lessThanOrEquals`, so the same day passes). The
-   shape does not require HARD (it cannot see the rule's severity, and the date is harmless on a SOFT stint); the gate
-   adds no check yet: it accepts a later `lastSeenOn` on a stored Veto but not yet a moved `expiresOn` (T-203; nothing writes one today). **It does not close a Veto:** at the first cycle on or after the current value upstream re-evaluates
-   the rule and writes `clearedOn` if the condition is gone (seventh reply, `SPEC.md` §2.6). So a reader tests
-   `clearedOn` only and the active-at-cutoff SPARQL has no `expiresOn` term. No new class; `AllDisjointClasses` is
-   unchanged. **2648 quads; conforms: True.**
+   is no triple.
+   - **Multi-valued, like `:lastSeenOn`.** While the condition holds upstream moves `expires_on` 10 NYSE sessions on,
+     and ORCHESTRATOR graphs are append-only, so each move adds a value in its own graph and the current one is
+     `MAX(?expiresOn)`. A functional property would make the gate refuse the re-confirmation.
+   - **Who writes it.** `v_veto.expires_on` is one column changed in place, so the projection writes a value only
+     when it differs from the stored `MAX` (unlike `lastSeenOn`, which gets one per cycle); an unchanged column
+     adds nothing. Upstream only moves it forward, so a value earlier than the stored `MAX` is a fault the gate
+     refuses (T-203).
+   - **Shape.** `VetoShape` requires each value to be an `xsd:date` not before `:raisedOn` (`sh:lessThanOrEquals`,
+     so the same day passes). It does not order the values among themselves or against `:clearedOn`, and it does
+     not require HARD (it cannot see the rule's severity, and the date is harmless on a SOFT stint): the order
+     among values is the gate's (T-203).
+   - **Gate.** It adds no check yet: it accepts a later `lastSeenOn` on a stored Veto but not a moved `expiresOn`
+     (T-203; nothing writes one today).
+   - **No cutoff query.** `MAX(?expiresOn)` over all graphs also sees moves made after a cutoff. No reader needs the
+     expiry as of a cutoff, since the date never closes a stint, so none is given; the first consumer that does
+     files the task (it would read the value's graph date).
+   - **It does not close a Veto:** at the first cycle on or after the current value upstream re-evaluates the rule
+     and writes `clearedOn` if the condition is gone (seventh reply, `SPEC.md` §2.6). So a reader tests `clearedOn`
+     only and the active-at-cutoff SPARQL has no `expiresOn` term.
+   - No new class; `AllDisjointClasses` is unchanged. **2648 quads; conforms: True.**
 
    **T-032 (Work item 4, 2026-10-12: how a restatement is written).** Comment only: `:supersededBy`'s comment in
    `tbox.ttl` now says a section is superseded once, by a new section of the same `itemLabel` declared in the same
@@ -314,7 +326,8 @@ block and the 14 node shapes are unchanged.
 `ruleSeverity`), enforced by a new `VetoShape` (node shapes 14 → 15) that also rejects a
 `clearedOn`/`lastSeenOn` earlier than `raisedOn` (T-185, in the next paragraph, adds a `lastSeenOn` later than
 `clearedOn`). `lastSeenOn` is deliberately multi-valued because the ORCHESTRATOR graphs are append-only: each
-cycle adds its own value, current = `MAX`.
+cycle adds its own value, current = `MAX`. `:expiresOn` (T-188, below) is the other multi-valued
+Veto property: written only when upstream moves it.
 A stint is closed by writing `clearedOn` in the clearing cycle's graph, never by deleting the
 `Veto`; the worked example closes `Veto_XOM_20260804` on 2026-08-05 and gives
 `Veto_XOM_MKT_20260805` a SOFT `vetoSeverity`. Upstream's wall-clock `cleared_at` is dropped.

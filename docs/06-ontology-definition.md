@@ -214,7 +214,7 @@ calling out here are the ones that encode a design decision, not just a field:
   (`LIQUIDITY_DISTRESS`: stints raised before 2026-10-10 point at the old one, later ones at `_v11`), so a query by
   rule matches on `:ruleId` (`appliesRule/ruleId`), never on the rule's IRI.
 - **`Veto` is a stint** (T-102, 2026-10-03): `raisedOn` (required), `clearedOn`, `lastSeenOn` are cycle
-  dates mirroring upstream's `veto` rows; `vetoSeverity` (HARD | SOFT) is the per-stint severity. Four severity-like properties now coexist, deliberately: `severity` (`RiskEvent`, CRITICAL…LOW), `ruleSeverity` (`RuleDefinition`, the catalog default), `vetoSeverity` (`Veto`, per stint) and `dqSeverity` (`DataQualityIssue`, upstream's gate severity, unenumerated).
+  dates mirroring upstream's `veto` rows; `vetoSeverity` (HARD | SOFT) is the per-stint severity. `lastSeenOn` and `expiresOn` (T-188) are both multi-valued, one value per cycle that saw the stint or per move upstream made, current = `MAX`. Four severity-like properties now coexist, deliberately: `severity` (`RiskEvent`, CRITICAL…LOW), `ruleSeverity` (`RuleDefinition`, the catalog default), `vetoSeverity` (`Veto`, per stint) and `dqSeverity` (`DataQualityIssue`, upstream's gate severity, unenumerated).
   Active at cutoff C iff `raisedOn <= C` and (no `clearedOn` or `clearedOn > C`); the T-1 lag is that
   predicate at read time (SPARQL in `schema/README.md`). Stints are closed by writing `clearedOn`.
 - **`sharedExecutiveWith`** is declared `owl:SymmetricProperty` but is explicitly commented as
