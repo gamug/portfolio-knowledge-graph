@@ -20,7 +20,7 @@ below rather than re-argued here.
 Requirement IDs (`FR-0xx` functional, `NR-0xx` non-functional) are stable —
 don't renumber an existing one, even if it's later superseded; mark it
 superseded in place instead. Reference them in commits/PRs/tests
-(`test_two_tier.py::test_source_readonly  # FR-007`) so a reviewer can trace
+(`test_two_tier.py::test_source_readonly  # FR-005`) so a reviewer can trace
 implementation back to requirement and requirement back to test.
 
 ---
@@ -130,6 +130,9 @@ built upstream); it makes no portfolio or trading decision and renders no report
   class/shape/graph/quad counts asserted in `06`/`07` and `schema/README.md`
   must stay in sync with `tbox.ttl`/`shapes.ttl`/`instances.trig` after any
   edit — validated by the parse-and-conform check below.
+- *Planned, not built (FR-007, Work item 17):* one GraphDB repository per
+  automation (one realization of the algorithm), so a re-run is a new
+  automation and no ingest graph is replaced.
 
 ### 2.2 Out of scope
 
@@ -181,7 +184,7 @@ built upstream); it makes no portfolio or trading decision and renders no report
 | **FR-004** | `cli/build_data_ttl.py` projects `portfolio-data-mining`'s point-in-time `universe.db` (`SQL_UNIVERSE_DB`, read-only through `portfolio_common.db`) into one `:UniverseMembership` per `universe_membership` stint (`validFrom` = `valid_from`; `validTo` = `valid_to`, exclusive, absent while the stint is open) in the single `:SP500Index` `:Universe`, and one `:Asset` per symbol with `:classifiedAs` when upstream has a sub-industry. A symbol whose stints are all closed has only `tickerSymbol` and `companyName`: upstream has no CIK or sector for it, and none is invented (`AssetShape` allows a missing `cikNumber` only then). Tickers `reference.ttl` already declares as `:Asset` get memberships but are not re-emitted (so `cikNumber` never collides under the functional-property `sh:maxCount 1` contract). Each run prints `universe.db`'s latest recorded change and its file modification date, because upstream refreshes it by hand. | A full run's `:Asset` count plus `reference.ttl`'s tickers equals `universe.db`'s distinct symbols; its `:UniverseMembership` count equals `universe_membership`'s rows; none of `reference.ttl`'s tickers appears as a second `:Asset` declaration in `data.ttl`; the run summary prints the freshness line. |
 | **FR-005** | `cli/build_data_ttl.py` projects the shared join of SOURCE `articles` with `portfolio-nlp`'s RESULTS `article_sentiment`/`article_category` (`fetch_status = 'ok'`) into `:NewsArticle` + `:ScoreSnapshot` (`agentOrigin = SEMANTIC`, `metricType = Sentiment`) + a gated `:RiskEvent`, via `portfolio_common.news_export`'s read-only connect — never a raw `sqlite3` connection. Reading SOURCE (`urls.db`, `body_text` included) is allowed. What is forbidden is reading a source or raw database for something the processed stores already publish (`portfolio-nlp`'s RESULTS, `portfolio-financial-analysis`'s `financial.db` / `v_*` views), or re-deriving it there: sentiment, category, entities, fundamentals, prices, scores. Those are read from the processed store. A SOURCE-derived signal with no processed equivalent is allowed if it is flagged provisional (constitution §7); today that is only G3's hard-trigger keyword bump (§13 item 12) | `grep -rn "import sqlite3" src/etl` returns nothing; every value `src/etl/` derives from a SOURCE column other than identity and metadata (`id`, `ticker`, `pub_date`, `fetched_at`, `fetch_status`) is a row in `src/etl/README.md`'s provisional-formulas table, which says why no processed store publishes it; every `:NewsArticle` emitted in a sample run traces to a source row with `fetch_status = 'ok'`. |
 | **FR-006** | The post-build validation step SHACL-checks either the full output (`--limit` given) or a fresh `KG_SAMPLE_NEWS_ROWS`-row sample against the real `tbox.ttl` + `shapes.ttl` + `reference.ttl` — never a full `pyshacl` pass over the unsampled, multi-million-triple `data.ttl`. | `uv run cli/build_data_ttl.py --limit 500` prints `SHACL conforms: <bool>`; an unsampled default run builds and discards a `KG_SAMPLE_NEWS_ROWS`-row sample file rather than validating `data.ttl` directly. |
-| **FR-007** *(planned, Work item 17; not built)* | An **automation** is one realization of the algorithm: a generated id plus a unique lower-case human name, with its own GraphDB repository. A re-run with other settings, or after a fix, is a new automation; no ingest graph is ever replaced, and the gate's refusal of an existing graph (check 2) is unchanged. | A second run for the same agent and day is refused under the same automation and written to its own repository under another; the first automation's graphs are untouched; no code path writes to or drops a repository other than the one named, and `portfolio` is refused for delete and replay; `verify_store` passes per repository. |
+| **FR-007** *(planned, Work item 17; not built)* | An **automation** is one realization of the algorithm: a generated id plus a unique lower-case human name, with its own GraphDB repository. A re-run with other settings, or after a fix, is a new automation; no ingest graph is ever replaced, and the gate's refusal of an existing graph (check 2) is unchanged. | A second run for the same agent and day is refused under the same automation and written to its own repository under another; the first automation's graphs are untouched; a test with a fake store that records every request shows a delete of one automation issues no request naming another repository, and that `portfolio` is refused for delete and replay. (A `verify_store` run per repository is an integration check, Work item 17 steps 2-3, not part of this criterion.) |
 
 ### 2.4 Non-functional requirements
 
@@ -1208,7 +1211,10 @@ This SPEC.md is the technical contract implementers, reviewers, and (per
 against. A change that adds/removes a functional capability, alters an
 acceptance criterion, or introduces a new external dependency should update
 the relevant `FR-0xx`/`NR-0xx` entry (or add a new one) **in the same PR**
-that implements it — not as a follow-up. A PR that contradicts this document
+that implements it — not as a follow-up. The one exception is a requirement
+tagged *planned, not built* (FR-007), added when the maintainer decides it so
+that its tasks have something to close; its tag is dropped in the PR that
+builds it. A PR that contradicts this document
 without amending it here first is out of spec; raise the conflict rather
 than silently diverging (constitution: Governance).
 

@@ -780,8 +780,10 @@ See `PLAN.md` Work item 16.*
 - [ ] **T-196** Decide the automation identity and the repository name derived from it (generated id per
       lower-case human name, both stored, duplicate names refused); and who creates the repositories (until
       `portfolio-report` exists, this repo does; an upstream service afterwards); record it in
-      `docs/graphdb-setup.md` and `SPEC.md` §2.5 (the ownership map and drift D9 change with it). Docs only. Closes SPEC FR-007's definition. The maintainer's decision; it also records the open
-      questions listed in `PLAN.md` Work item 17's "Blocked on". → `PLAN.md` Work item 17, step 1.
+      `docs/graphdb-setup.md` and `SPEC.md` §2.5 (the ownership map and drift D9 change with it). Docs only.
+      The maintainer's decision; it also answers the open questions in `PLAN.md` Work item 17's "Blocked on".
+      Closes SPEC FR-007's definition. **Done when** those questions are answered in `PLAN.md` Work item 17
+      and the maintainer has signed off. → `PLAN.md` Work item 17, step 1.
 - [ ] **T-197** Parameterise `cli/load_schema.py`, `cli/ingest.py`, `cli/verify_store.py` and
       `src/kg_store/` by repository, and replace the `PRODUCTION_REPOSITORY` guards
       (`src/kg_store/graphdb.py`, `src/projection/project_scores.py`'s `--replay` refusal). Code, so its own
