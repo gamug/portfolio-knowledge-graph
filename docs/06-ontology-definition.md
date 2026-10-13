@@ -4,8 +4,8 @@
 everything described below, split into `tbox.ttl` (classes/properties, **40 classes total** as of
 this revision — 27 mutually-disjoint leaf/domain classes plus a 13-class `rdfs:subClassOf`
 taxonomic backbone, see §1.2), `shapes.ttl` (SHACL, 20 shapes), `reference.ttl` (GICS taxonomy +
-asset master data + the new `MetricType` controlled vocabulary, §1.9), `rules.ttl` (all 7 veto
-rules as trees), and `instances.trig` (a worked, multi-graph, multi-asset dataset). Parsed clean
+asset master data + the new `MetricType` controlled vocabulary, §1.9), `rules.ttl` (the nine active veto
+rules and the seven original ones as trees), and `instances.trig` (a worked, multi-graph, multi-asset dataset). Parsed clean
 with `rdflib` and SHACL-validated with `pyshacl` (**conforms: True**); the veto rule trees were
 independently re-executed in Python against the instance data and reproduced the expected firings
 exactly (see `schema/README.md`). This document is the prose walkthrough; `schema/` is the
@@ -305,7 +305,7 @@ decision can always be reproduced against the exact rule tree that was active wh
 which is the auditability guarantee v1 §3B was already aiming for elsewhere in the design.
 
 **Addendum (T-103, 2026-10-03) — the active catalog is upstream's.** The seven tree rules this
-section designs are superseded as the target by `portfolio-financial-analysis`'s six flat rules
+section designs are superseded as the target by `portfolio-financial-analysis`'s six flat rules (nine since T-187, below)
 (`LEVERAGE_EXTREME`, `NEGATIVE_FCF`, `LIQUIDITY_DISTRESS`, `PRICE_CRASH`, `EARNINGS_MISSING`,
 `DATA_QUALITY`; `SPEC.md` §2.6 D4). They are `RuleDefinition`s whose `hasClause` is a single leaf —
 the tree representation is unchanged, it just degenerates. The seven originals stay in
@@ -344,7 +344,7 @@ attractiveness-ranking feature, see §1.8, plus `VetoShape` added 2026-10-03 for
 |---|---|---|
 | `ScoreSnapshotShape` | `normalizedScore` ∈ `[0.0, 1.0]`, required unless `metricType` is `SectorRelativeMomentum`, `Sentiment`, or `ScoreFinanciero` (T-171: upstream rewrites a FUNDAMENTAL row's `normalized_score` in place every cycle, which a `ScoreSnapshot` individual can't carry without breaking the audit-trail principle); every `Sentiment` snapshot requires a `rawValue` ∈ `[-1.0, 1.0]` (T-081), every `SectorRelativeMomentum` snapshot a `rawValue` required (T-140) and ∈ `[-100.0, 100.0]` (T-155: TECHNICAL points, read verbatim), and every `ScoreFinanciero` snapshot a `rawValue` ∈ `[0.0, 100.0]` (T-171 requires it, T-177 bounds it; the reason is in §1.8); `rawValue` at most once (T-140; it is `owl:FunctionalProperty`); `agentOrigin` and `metricType` paired one-to-one: FUNDAMENTAL/`ScoreFinanciero`, VALORIZATION/`ScoreCuantitativo`, TECHNICAL/`ScoreTecnico`, SECTOR/`SectorRelativeMomentum`, SEMANTIC/`Sentiment` (T-140); `agentOrigin` ∈ the 5 known agents (`FUNDAMENTAL`, `SEMANTIC`, `VALORIZATION`, `TECHNICAL`, `SECTOR`); `metricType`/`timestamp`/`availableAt` required (T-101); `eventTime` optional and ≤ `availableAt`; optional `runId`/`runAsOf`/`codeVersion`/`engineVersion` (T-106; the same four are optional on `SectorAggregateSnapshotShape`, `VetoShape`, `PortfolioPositionShape` and `DataQualityIssueShape`); optional `scoreMethod`, at most one, open vocabulary (T-111; set on every SEMANTIC snapshot) | Prevents a malformed snapshot from silently entering veto evaluation. |
 | `RiskEventShape` | `backedBy` `sh:minCount 1`; `severity`/`category` from closed vocabularies | Critique #5 (no null-handling policy) — evidence-free risk events are now a validation failure, not a silent gap. |
-| `RuleDefinitionShape` | `validFrom` required; exactly one `hasClause`; `priorityRank` ∈ `[1,7]`; `ruleSeverity` ∈ `{HARD, SOFT}`, required unless the rule is closed with `validTo` (T-103) | Critique #6 — a rule can't be persisted without being properly temporal and ranked. |
+| `RuleDefinitionShape` | `validFrom` required; exactly one `hasClause`; `priorityRank` ∈ `[1,9]`; `penaltyPoints` at least 0, and none on a HARD rule; `ruleSeverity` ∈ `{HARD, SOFT}`, required unless the rule is closed with `validTo` (T-103) | Critique #6 — a rule can't be persisted without being properly temporal and ranked. |
 | `RuleClauseShape` | `clauseType` ∈ `{AND, OR}`; both operands required | Structural half of the critique #1 fix — a clause literally cannot be built with a missing operand or an unrecognized operator. |
 | `ThresholdComparisonShape` / `CategoricalComparisonShape` / `GraphPredicateShape` | Each leaf kind's required fields (`metricName`/`operator`/`thresholdValue`; `attributeName`/`expectedValue`; `predicateName`) | Completes the structural half of the critique #1 fix across all rule leaf kinds, not just numeric ones (the 7 original rules; upstream's six single-leaf rules reuse the same shapes, T-103). |
 | `UniverseMembershipShape` | both endpoints + `validFrom` required; `validTo` optional, at most one, strictly after `validFrom` (exclusive end, T-100) | Keeps §1.4's n-ary relation pattern from degrading into a dangling record. |

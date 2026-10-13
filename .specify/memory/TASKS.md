@@ -634,7 +634,7 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       - [x] (5) T-145 and T-100 dates
       - [ ] (6) not in the letter: `last_seen_on` on the clearing cycle, and `cleared_on` against `last_seen_on` (T-185)
 
-- [ ] **T-187** *(code and docs landed in the T-187 PR (2026-10-13): `rules.ttl` holds the nine, `:penaltyPoints` is in `tbox.ttl`/`shapes.ttl`/`kg_target_schema.ttl`; the choices were: `GraphPredicate` leaves for the three new rules, `penaltyPoints` on SOFT rules only, the sector exemption in the comment. **Open: the live-store reload and the dated row in `docs/graphdb-setup.md`, the maintainer's go-ahead; `CLAUDE.md` still says six, the maintainer's** — close the task when they are done)* *(from T-183 (1); unblocked 2026-10-12: upstream's definitions, `penalty_points` and the old-stint rule are in `SPEC.md` §2.6 (seventh reply); `NEGATIVE_FCF` and the sector exemption change later in their T-071)* Add the
+- [ ] **T-187** *(from T-183 (1); code and docs landed in PR #104 (2026-10-13: `rules.ttl` holds the nine; the choices were `GraphPredicate` leaves for the three new rules, `penaltyPoints` on SOFT rules only, the sector exemption in the comment); **open: the live-store reload and the dated row in `docs/graphdb-setup.md` (the maintainer's go-ahead; `verify_store` fails until then), and `CLAUDE.md`, which still says six**; unblocked 2026-10-12: upstream's definitions, `penalty_points` and the old-stint rule are in `SPEC.md` §2.6 (seventh reply); `NEGATIVE_FCF` and the sector exemption change later in their T-071)* Add the
       three rules and the redefinition to `schema/rules.ttl`. `BREAK_TREND_200`, `VOLATILITY_SHOCK` and
       `CRASH_Z_SCORE` are `RuleDefinition`s, each a tree like the six; the leaf kind is chosen from upstream's
       definition (the nine-rule table in `SPEC.md` §2.6, seventh reply): `ThresholdComparison` on the raw value
@@ -692,6 +692,8 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       other places that say "15 points each" follow: `docs/06`, `shapes.ttl` (the `AttractivenessSnapshotShape`
       comment) and `schema/README.md`. Needs T-187's `:penaltyPoints`. Docs and a
       comment; the check itself is T-155's test. -> `PLAN.md` Work item 15.
+- [ ] **T-201** *(from T-187, PR #104)* Resolve a Veto stint's rule by its `raisedOn`: where the projection or a reader turns `rule_id` into a `RuleDefinition`, pick the one with that `:ruleId` valid on the day (`validFrom <= raisedOn < validTo`; `LIQUIDITY_DISTRESS` has two definitions since 2026-10-10). Today `tests/test_schema_gate.py` shows the data allows it and nothing in `src/` does it. Proposed: an old stint re-confirmed after 2026-10-10 still resolves by `raisedOn`, and the re-evaluation shows only in its later `lastSeenOn`; the developer confirms in the PR. A `feat/` PR. -> `PLAN.md` Work item 15.
+- [ ] **T-202** *(from T-187, PR #104)* When upstream's T-071 lands, revisit `NEGATIVE_FCF` (utilities exempt, a replacement HARD rule) and `LIQUIDITY_DISTRESS`'s Financials/Utilities exemption, which is only in the rule's comment today. Waits on them; nothing to do now. -> `PLAN.md` Work item 15.
 - [x] **T-190** *(from T-183 (6); done 2026-10-12: seven cases in `tests/test_schema_gate.py` (three, four, two and one components conform; a repeated name and weights that do not sum to 1 conform too; none fails on the scheme; a name outside the five fails on the component), the statement in `docs/06` and `schema/README.md`, no shape change; the text below is the original task)* `WeightComponentShape` already counts no components (a scheme needs at least
       one), so the relaxed reading is a statement and a test, not a shape change: add synthetic cases (three
       components with no `Sentiment` conform; four conform; a name outside the five listed fails; and one or two components conform, since an asset can lack a component in a three-type run, T-155), and write in
@@ -806,7 +808,7 @@ Work items 4 and 6 (T-030–T-035, T-050–T-053)
 follow in dependency order (Work items 3 and 11 are closed, so Work item 4 is unblocked).
 Work item 12 (T-120–T-121): T-120 closed by T-150; T-121 done (PR #65).
 Work item 13 (T-130–T-136): constitution rules in place (1.5.0); T-130–T-136 done (T-135 as an `integration` test, `PFA_CHECKOUT`).
-Work item 15 (T-150–T-159, T-170–T-173, T-177–T-178, T-182–T-184, T-187–T-191): T-173 (the contract endpoint check) done; T-177 (the FUNDAMENTAL `rawValue` bound) done in PR #82; T-178 (the pin's `contract_version` key) done; T-150, T-170 and T-171 (PR #56) done; T-155's schema half done (PR #58); T-153's comment half (PR #59);
+Work item 15 (T-150–T-159, T-170–T-173, T-177–T-178, T-182–T-184, T-187–T-191, T-201–T-202): T-173 (the contract endpoint check) done; T-177 (the FUNDAMENTAL `rawValue` bound) done in PR #82; T-178 (the pin's `contract_version` key) done; T-150, T-170 and T-171 (PR #56) done; T-155's schema half done (PR #58); T-153's comment half (PR #59);
 T-151's rule recorded (PR #60), its checks waiting on T-031/T-163; T-158's
 ownership question (before their T-141) is unblocked; the rest of T-152–T-158 waits on upstream's
 T-144 (views), T-145 (ids), T-074 (flags) and, after their T-100, their T-082 and their Work item 4.

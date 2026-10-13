@@ -259,6 +259,12 @@
     sh:or ( [ sh:minCount 1 ;
                 sh:path :validTo ] [ sh:minCount 1 ;
                 sh:path :ruleSeverity ] ) ;
+    # CHANGED (T-187): a HARD rule excludes the asset, so it carries no penaltyPoints.
+    sh:not [ a sh:NodeShape ;
+            sh:property [ sh:hasValue "HARD" ;
+                    sh:path :ruleSeverity ],
+                [ sh:minCount 1 ;
+                    sh:path :penaltyPoints ] ] ;
     sh:property [ sh:datatype xsd:date ;
             sh:maxCount 1 ;
             sh:minCount 1 ;
@@ -700,7 +706,7 @@
 
 :priorityRank a owl:DatatypeProperty,
         owl:FunctionalProperty ;
-    rdfs:comment "1 (highest) .. 9 (lowest), used to pick primaryRule (v1 §4); upstream's nine-rule catalog uses 1 to 9 since T-187. (Comment corrected 2026-08-23: stale '6' predates VETO_MKT_02, added 2026-08-13 as the 7th rule -- shapes.ttl's RuleDefinitionShape already had priorityRank's range as [1,7] correctly.)" ;
+    rdfs:comment "1 (highest) .. 9 (lowest), used to pick primaryRule (v1 §4); upstream's nine-rule catalog uses 1 to 9 since T-187. (Comment corrected 2026-08-23: stale '6' predates VETO_MKT_02, added 2026-08-13 as the 7th rule -- shapes.ttl's RuleDefinitionShape already had priorityRank's range right; widened to [1,9] by T-187.)" ;
     rdfs:domain :RuleDefinition ;
     rdfs:range xsd:integer .
 

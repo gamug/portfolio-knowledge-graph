@@ -185,7 +185,11 @@ what the store *enforces*.
    `DATA_QUALITY`'s was); (b) the redefined `LIQUIDITY_DISTRESS` is not applied to GICS Financials or Utilities, which
    `CategoricalComparison` (equality only) cannot state, so the exemption is in the rule's comment, not the tree. The
    shape's `metricName` list gains `leverage.interest_coverage` and `cashflow.operating_cash_flow_margin`, and
-   `priorityRank` allows 1 to 9. No new class; `AllDisjointClasses` is unchanged. **2631 quads; conforms: True.**
+   `priorityRank` allows 1 to 9. The three new rules are valid from 2026-10-10 (upstream's merge) so a stint raised from then on resolves; `validTo` is
+   exclusive on a `RuleDefinition` (a rule is valid on `d` when `validFrom <= d < validTo`), and picking the definition for a
+   stint's `raisedOn` is not built (T-201). `predicateName` of those leaves is a label chosen here, not an upstream id. A
+   HARD rule may not carry `:penaltyPoints` (a shape); a SOFT rule without it is allowed and costs 15 (T-189). No new
+   class; `AllDisjointClasses` is unchanged. **2639 quads; conforms: True.**
    **T-032 (Work item 4, 2026-10-12: how a restatement is written).** Comment only: `:supersededBy`'s comment in
    `tbox.ttl` now says a section is superseded once, by a new section of the same `itemLabel` declared in the same
    batch (the ingest gate's check 8), and that the sections not superseded are the current ones. No shape or

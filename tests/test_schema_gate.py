@@ -603,3 +603,56 @@ def test_a_stint_resolves_to_the_definition_valid_on_its_raised_on(
         _DEFINITION_ON, initNs={"": KG}, initBindings={"day": _date(raised_on)}
     )
     assert [row[0] for row in rows if isinstance(row, tuple)] == [expected]
+
+
+def test_penalty_points_on_a_hard_rule_are_caught(
+    bundle: rdflib.Dataset, shapes: rdflib.Graph
+) -> None:
+    """A HARD rule excludes the asset, so upstream's ``penalty_points`` is null and there is no triple."""
+    g = _rule(bundle, penaltyPoints=_decimal("15"))
+    g.set((_RULE, KG.ruleSeverity, rdflib.Literal("HARD")))
+    assert _violations(g, shapes) == {(_RULE, None)}
+
+
+def test_the_new_rules_are_valid_from_the_day_of_upstreams_merge(bundle: rdflib.Dataset) -> None:
+    """A stint raised from 2026-10-10 on must find a definition (upstream's merge ``b3c7661``)."""
+    g = _flat(bundle)
+    rules = _active_rules(bundle)
+    for rule_id in ("VOLATILITY_SHOCK", "CRASH_Z_SCORE", "BREAK_TREND_200", "LIQUIDITY_DISTRESS"):
+        assert g.value(rules[rule_id], KG.validFrom) == _date("2026-10-10"), rule_id
+
+
+def test_a_stint_re_confirmed_after_the_redefinition_still_resolves_by_its_raised_on(
+    bundle: rdflib.Dataset,
+) -> None:
+    """Raised 2026-10-02 and seen again on 2026-10-12 (under the new code): the later sighting does
+    not move it to the new definition, the re-evaluation shows only in ``lastSeenOn``."""
+    g = _flat(bundle)
+    g.add((KG.Veto_T187, KG.raisedOn, _date("2026-10-02")))
+    g.add((KG.Veto_T187, KG.lastSeenOn, _date("2026-10-12")))
+    rows = g.query(_DEFINITION_ON, initNs={"": KG}, initBindings={"day": _date("2026-10-02")})
+    assert [row[0] for row in rows if isinstance(row, tuple)] == [KG.Rule_LIQUIDITY_DISTRESS]
+
+
+def _rule_shape_facts(path: Path) -> tuple[set[str], set[str], set[str]]:
+    """``priorityRank``'s upper bound, ``penaltyPoints``' lower bound, and the HARD exclusion's paths."""
+    g = rdflib.Graph().parse(path, format="turtle")
+    ranks: set[str] = set()
+    points: set[str] = set()
+    exclusion: set[str] = set()
+    for prop in g.objects(KG.RuleDefinitionShape, SH.property):
+        if (prop, SH.path, KG.priorityRank) in g:
+            ranks.add(str(g.value(prop, SH.maxInclusive)))
+        if (prop, SH.path, KG.penaltyPoints) in g:
+            points.add(str(g.value(prop, SH.minInclusive)))
+    for negated in g.objects(KG.RuleDefinitionShape, SH["not"]):
+        for prop in g.objects(negated, SH.property):
+            exclusion.add(str(g.value(prop, SH.path)).rpartition("#")[2])
+    return ranks, points, exclusion
+
+
+def test_the_target_schema_shapes_a_rule_like_shapes_ttl() -> None:
+    """``kg_target_schema.ttl`` carries the same ``priorityRank`` bound and ``penaltyPoints`` rules."""
+    in_shapes = _rule_shape_facts(SCHEMA / "shapes.ttl")
+    assert in_shapes == ({"9"}, {"0.0"}, {"ruleSeverity", "penaltyPoints"})
+    assert _rule_shape_facts(SCHEMA.parent / "kg_target_schema.ttl") == in_shapes
