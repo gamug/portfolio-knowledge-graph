@@ -438,10 +438,16 @@
             sh:path :engineVersion ],
         [ sh:datatype xsd:date ;
             sh:lessThan :clearedOn ;
-            sh:lessThanOrEquals :lastSeenOn ;
+            sh:lessThanOrEquals :expiresOn,
+                :lastSeenOn ;
             sh:maxCount 1 ;
             sh:minCount 1 ;
             sh:path :raisedOn ],
+        # CHANGED (T-188): upstream's expires_on, optional, multi-valued like lastSeenOn (they move it while the condition
+        # holds; current = MAX), every value not before raisedOn. It never closes a stint (only clearedOn does). Needs no
+        # action from upstream: it is their own column, filled only on the temporary HARD rules' stints.
+        [ sh:datatype xsd:date ;
+            sh:path :expiresOn ],
         [ sh:datatype xsd:date ;
             sh:maxCount 1 ;
             sh:path :clearedOn ],
@@ -840,6 +846,11 @@
 :clearedOn a owl:DatatypeProperty,
         owl:FunctionalProperty ;
     rdfs:comment "Cycle date on which the stint closed (upstream cleared_on): a HARD veto clears when its rule re-evaluates clean. Absent = still active. Closed by writing this triple (in the clearing cycle's ORCHESTRATOR graph), never by deleting the Veto. Added 2026-10-03 (T-102)." ;
+    rdfs:domain :Veto ;
+    rdfs:range xsd:date .
+
+:expiresOn a owl:DatatypeProperty ;
+    rdfs:comment "T-188: upstream's expires_on, the date a temporary HARD stint (VOLATILITY_SHOCK, CRASH_Z_SCORE) is next re-checked; never set on a SOFT stint. Optional and not functional, like lastSeenOn: the cycle moves expires_on 10 NYSE sessions on while the condition holds, so each move is a new value and the current one is the MAX. Each value is not before raisedOn. It does NOT close the stint: only clearedOn does (the cycle writes it at the first cycle on or after expires_on when the condition is gone)." ;
     rdfs:domain :Veto ;
     rdfs:range xsd:date .
 

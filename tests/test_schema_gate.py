@@ -456,11 +456,34 @@ def _less_than_or_equals(path: Path) -> set[tuple[str, str]]:
     return found
 
 
+def _expires_on_shape(path: Path) -> tuple[set[str], set[str]]:
+    """The datatype and the ``sh:maxCount`` values of the ``expiresOn`` property shape in ``VetoShape``."""
+    g = rdflib.Graph().parse(path, format="turtle")
+    types: set[str] = set()
+    counts: set[str] = set()
+    for prop in g.objects(KG.VetoShape, SH.property):
+        if (prop, SH.path, KG.expiresOn) in g:
+            types |= {str(t) for t in g.objects(prop, SH.datatype)}
+            counts |= {str(c) for c in g.objects(prop, SH.maxCount)}
+    return types, counts
+
+
+def test_the_target_schema_shapes_expires_on_like_shapes_ttl() -> None:
+    """Present in both, an ``xsd:date``, and with no ``maxCount`` (multi-valued like ``lastSeenOn``)."""
+    in_shapes = _expires_on_shape(SCHEMA / "shapes.ttl")
+    assert in_shapes == ({"http://www.w3.org/2001/XMLSchema#date"}, set())
+    assert _expires_on_shape(SCHEMA.parent / "kg_target_schema.ttl") == in_shapes
+
+
 def test_the_target_schema_orders_a_veto_like_shapes_ttl() -> None:
     """``kg_target_schema.ttl`` carries the same Veto date order. The dates come from upstream's own
     ``veto`` rows, so the proposal is kept equal to ``shapes.ttl`` and needs no action from them."""
     in_shapes = _less_than_or_equals(SCHEMA / "shapes.ttl")
-    assert in_shapes == {("raisedOn", "lastSeenOn"), ("lastSeenOn", "clearedOn")}
+    assert in_shapes == {
+        ("raisedOn", "lastSeenOn"),
+        ("raisedOn", "expiresOn"),
+        ("lastSeenOn", "clearedOn"),
+    }
     assert _less_than_or_equals(SCHEMA.parent / "kg_target_schema.ttl") == in_shapes
 
 
@@ -695,3 +718,74 @@ def test_the_target_schema_shapes_a_rule_like_shapes_ttl() -> None:
     in_shapes = _rule_shape_facts(SCHEMA / "shapes.ttl")
     assert in_shapes == ({"9"}, {"0.0"}, {"ruleSeverity", "penaltyPoints"})
     assert _rule_shape_facts(SCHEMA.parent / "kg_target_schema.ttl") == in_shapes
+
+
+# --- T-188: ``Veto`` ``:expiresOn`` -------------------------------------------------------------
+
+
+def _expiring(bundle: rdflib.Dataset, *expires: str) -> rdflib.Graph:
+    """The worked example plus one Veto raised 2026-01-01 with the given ``expiresOn`` values."""
+    g = _veto(bundle, cleared=None, seen=())
+    for day in expires:
+        g.add((_VETO, KG.expiresOn, _date(day)))
+    return g
+
+
+@pytest.mark.parametrize(
+    "expires",
+    [(), ("2026-01-02",), ("2026-01-01",), ("2026-06-30",)],
+    ids=["absent", "after raisedOn", "same day", "much later"],
+)
+def test_a_veto_expiring_on_or_after_it_was_raised_conforms(
+    bundle: rdflib.Dataset, shapes: rdflib.Graph, expires: tuple[str, ...]
+) -> None:
+    assert _violations(_expiring(bundle, *expires), shapes) == set()
+
+
+def test_a_veto_expiring_before_it_was_raised_is_caught(
+    bundle: rdflib.Dataset, shapes: rdflib.Graph
+) -> None:
+    assert _violations(_expiring(bundle, "2025-12-31"), shapes) == {(_VETO, KG.raisedOn)}
+
+
+def test_a_moved_expiry_is_a_second_value_and_conforms(
+    bundle: rdflib.Dataset, shapes: rdflib.Graph
+) -> None:
+    """Upstream moves ``expires_on`` 10 sessions on while the condition holds; the next cycle's graph adds
+    a value (append-only), as ``lastSeenOn`` does. A functional property would refuse the re-confirmation."""
+    assert _violations(_expiring(bundle, "2026-01-10", "2026-01-24"), shapes) == set()
+
+
+def test_each_of_several_expiries_must_be_on_or_after_raised_on(
+    bundle: rdflib.Dataset, shapes: rdflib.Graph
+) -> None:
+    g = _expiring(bundle, "2026-01-10", "2025-12-31")
+    assert _violations(g, shapes) == {(_VETO, KG.raisedOn)}
+
+
+@pytest.mark.parametrize(
+    "path", [SCHEMA / "tbox.ttl", SCHEMA.parent / "kg_target_schema.ttl"], ids=["tbox", "target"]
+)
+def test_expires_on_is_declared_and_not_functional(path: Path) -> None:
+    """A datatype property in both files, never functional: upstream moves it and the graphs are append-only."""
+    g = rdflib.Graph().parse(path, format="turtle")
+    assert (KG.expiresOn, rdflib.RDF.type, rdflib.OWL.DatatypeProperty) in g
+    assert (KG.expiresOn, rdflib.RDF.type, rdflib.OWL.FunctionalProperty) not in g
+
+
+def test_an_expires_on_that_is_not_a_date_is_caught(
+    bundle: rdflib.Dataset, shapes: rdflib.Graph
+) -> None:
+    g = _veto(bundle, cleared=None, seen=())
+    g.add((_VETO, KG.expiresOn, rdflib.Literal("soon")))
+    # the datatype fails, and "soon" cannot be ordered against raisedOn either
+    assert _violations(g, shapes) == {(_VETO, KG.expiresOn), (_VETO, KG.raisedOn)}
+
+
+def test_an_expiry_does_not_close_a_veto(bundle: rdflib.Dataset, shapes: rdflib.Graph) -> None:
+    """A stint past its ``expiresOn`` and never cleared is still a valid, active Veto: only
+    ``clearedOn`` closes it (upstream's seventh reply)."""
+    g = _expiring(bundle, "2026-01-02")
+    g.add((_VETO, KG.lastSeenOn, _date("2026-03-01")))
+    assert _violations(g, shapes) == set()
+    assert (_VETO, KG.clearedOn, None) not in g

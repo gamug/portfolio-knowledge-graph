@@ -214,7 +214,7 @@ calling out here are the ones that encode a design decision, not just a field:
   (`LIQUIDITY_DISTRESS`: stints raised before 2026-10-10 point at the old one, later ones at `_v11`), so a query by
   rule matches on `:ruleId` (`appliesRule/ruleId`), never on the rule's IRI.
 - **`Veto` is a stint** (T-102, 2026-10-03): `raisedOn` (required), `clearedOn`, `lastSeenOn` are cycle
-  dates mirroring upstream's `veto` rows; `vetoSeverity` (HARD | SOFT) is the per-stint severity. Four severity-like properties now coexist, deliberately: `severity` (`RiskEvent`, CRITICAL…LOW), `ruleSeverity` (`RuleDefinition`, the catalog default), `vetoSeverity` (`Veto`, per stint) and `dqSeverity` (`DataQualityIssue`, upstream's gate severity, unenumerated).
+  dates mirroring upstream's `veto` rows; `vetoSeverity` (HARD | SOFT) is the per-stint severity. `lastSeenOn` and `expiresOn` (T-188) are both multi-valued, one value per cycle that saw the stint or per move upstream made, current = `MAX`. Four severity-like properties now coexist, deliberately: `severity` (`RiskEvent`, CRITICAL…LOW), `ruleSeverity` (`RuleDefinition`, the catalog default), `vetoSeverity` (`Veto`, per stint) and `dqSeverity` (`DataQualityIssue`, upstream's gate severity, unenumerated).
   Active at cutoff C iff `raisedOn <= C` and (no `clearedOn` or `clearedOn > C`); the T-1 lag is that
   predicate at read time (SPARQL in `schema/README.md`). Stints are closed by writing `clearedOn`.
 - **`sharedExecutiveWith`** is declared `owl:SymmetricProperty` but is explicitly commented as
@@ -355,7 +355,7 @@ attractiveness-ranking feature, see §1.8, plus `VetoShape` added 2026-10-03 for
 | `AssetCoOccurrenceShape` | exactly two assets; kind (`SHARED_EXECUTIVE_CANDIDATE`), method and weight required; `coOccurrenceComputedOn` and T-106 run provenance optional | Keeps news candidates carrying their method/weight (T-107) |
 | `PortfolioShape` | name and `portfolioKind` ∈ {LIVE, BENCHMARK} required; `benchmarkObjective` and `benchmarkKind` optional (`benchmarkKind` may never be `live_book`, enforced by SHACL, T-109) | Lets benchmark books share `Portfolio` with the live book (T-108). |
 | `BenchmarkObservationShape` (+ `QuantSubjectShape`) | portfolio, metric (free text) and value required; `quantPortfolio` must be a BENCHMARK or the LIVE book; `quantAsset`, `quantUnit`, `quantAsOf`, `quantBenchmark` and T-106 run provenance optional; a LIVE subject may only carry the four performance metrics | Carries upstream's finished quant numbers without interpreting them (T-108); upstream's columns, units and the `live_book` handling were pinned in T-109. |
-| `VetoShape` | `raisedOn` required; `clearedOn`/`lastSeenOn` optional, never before `raisedOn`; no `lastSeenOn` after `clearedOn` (T-185, same day passes); `vetoSeverity` ∈ {HARD, SOFT} | Veto stints (T-102): a stint is closed by `clearedOn`, never deleted. |
+| `VetoShape` | `raisedOn` required; `clearedOn`/`lastSeenOn` optional, never before `raisedOn`; no `lastSeenOn` after `clearedOn` (T-185, same day passes); `vetoSeverity` ∈ {HARD, SOFT}; optional, multi-valued `expiresOn` (T-188, like `lastSeenOn`: upstream moves it, current = MAX), each value not before `raisedOn` (the same day passes); it never closes a stint, only `clearedOn` does | Veto stints (T-102): a stint is closed by `clearedOn`, never deleted. |
 
 Validated end-to-end with `pyshacl` against the full worked dataset below: **conforms = True**.
 
