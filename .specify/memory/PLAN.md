@@ -1098,7 +1098,7 @@ Work item 15 (upstream's v_* changes) — T-150, T-170 and T-171 (PR #56) done, 
   done 2026-10-10 (PR #85); the step-3 shape corrections can start now;
   the rest as upstream's T-144/T-145 ship; feeds Work item 4 (T-031) and 12 (T-121)
 Work item 16 (boundary validation of upstream rows; T-192 adds the veto stint check after T-031's vetoes lane) — T-160 done (plain checks), T-161 closed, T-162 done; T-163 open (its function is done, the wiring into the read path started with Work item 4's T-031, PR #72)
-Work item 17 (one GraphDB repository per automation) — T-196–T-200 open; replaces T-195; waits on the maintainer's automation design
+Work item 17 (one GraphDB repository per automation) — T-196–T-200 open; replaces T-195; starts with T-196 (the maintainer's decision)
 ```
 
 Work items 1, 2, and 9 have no dependencies and no blockers — they can land
