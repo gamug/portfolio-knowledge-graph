@@ -707,7 +707,7 @@
 
 :priorityRank a owl:DatatypeProperty,
         owl:FunctionalProperty ;
-    rdfs:comment "1 (highest) .. 9 (lowest), used to pick primaryRule (v1 §4); upstream's nine-rule catalog uses 1 to 9 since T-187. (Comment corrected 2026-08-23: stale '6' predates VETO_MKT_02, added 2026-08-13 as the 7th rule -- shapes.ttl's RuleDefinitionShape already had priorityRank's range right; widened to [1,9] by T-187.)" ;
+    rdfs:comment "1 (highest) .. 9 (lowest), used to pick primaryRule (v1 §4); upstream's nine-rule catalog uses 1 to 9 since T-187 (unique among active definitions only). (Comment corrected 2026-08-23: stale '6' predates VETO_MKT_02, added 2026-08-13 as the 7th rule -- shapes.ttl's RuleDefinitionShape already had priorityRank's range right; widened to [1,9] by T-187.)" ;
     rdfs:domain :RuleDefinition ;
     rdfs:range xsd:integer .
 

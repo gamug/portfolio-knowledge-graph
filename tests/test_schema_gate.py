@@ -8,6 +8,7 @@ them must update the numbers in the same change.
 
 from __future__ import annotations
 
+import datetime
 import re
 from pathlib import Path
 
@@ -595,22 +596,52 @@ SELECT ?rule WHERE {
 """
 
 
+def _liquidity_dates() -> tuple[datetime.date, datetime.date]:
+    """The old definition's ``validFrom`` and its ``validTo`` (the day the redefinition starts)."""
+    g = _rules_file()
+    old = g.value(KG.Rule_LIQUIDITY_DISTRESS, KG.validTo)
+    first = g.value(KG.Rule_LIQUIDITY_DISTRESS, KG.validFrom)
+    assert isinstance(old, rdflib.Literal) and isinstance(first, rdflib.Literal)
+    return first.toPython(), old.toPython()
+
+
 @pytest.mark.parametrize(
-    ("raised_on", "expected"),
+    ("offset", "expected"),
     [
-        ("2026-10-02", KG.Rule_LIQUIDITY_DISTRESS),  # before the redefinition
-        ("2026-10-09", KG.Rule_LIQUIDITY_DISTRESS),  # the day before it
-        ("2026-10-10", KG.Rule_LIQUIDITY_DISTRESS_v11),  # the day of upstream's merge
-        ("2026-11-01", KG.Rule_LIQUIDITY_DISTRESS_v11),  # after it
+        (-1, KG.Rule_LIQUIDITY_DISTRESS),  # the day before the redefinition
+        (0, KG.Rule_LIQUIDITY_DISTRESS_v11),  # the day it starts (validTo is exclusive)
+        (1, KG.Rule_LIQUIDITY_DISTRESS_v11),  # after it
     ],
 )
 def test_a_stint_resolves_to_the_definition_valid_on_its_raised_on(
-    raised_on: str, expected: rdflib.URIRef
+    offset: int, expected: rdflib.URIRef
 ) -> None:
-    rows = _rules_file().query(
-        _DEFINITION_ON, initNs={"": KG}, initBindings={"day": _date(raised_on)}
-    )
+    """The boundary is read from the old rule's ``validTo``, so moving it moves the test with it."""
+    _, boundary = _liquidity_dates()
+    day = rdflib.Literal(boundary + datetime.timedelta(days=offset))
+    rows = _rules_file().query(_DEFINITION_ON, initNs={"": KG}, initBindings={"day": day})
     assert [row[0] for row in rows if isinstance(row, tuple)] == [expected]
+
+
+def test_the_old_definition_resolves_from_its_own_valid_from() -> None:
+    first, _ = _liquidity_dates()
+    rows = _rules_file().query(
+        _DEFINITION_ON, initNs={"": KG}, initBindings={"day": rdflib.Literal(first)}
+    )
+    assert [row[0] for row in rows if isinstance(row, tuple)] == [KG.Rule_LIQUIDITY_DISTRESS]
+
+
+def test_a_query_by_rule_id_finds_a_stint_of_each_era() -> None:
+    """A consumer matches ``appliesRule/ruleId``: matching the rule's IRI would drop one era."""
+    g = _rules_file()
+    g.add((KG.Veto_before, KG.appliesRule, KG.Rule_LIQUIDITY_DISTRESS))
+    g.add((KG.Veto_after, KG.appliesRule, KG.Rule_LIQUIDITY_DISTRESS_v11))
+    g.add((KG.Veto_other, KG.appliesRule, KG.Rule_PRICE_CRASH))
+    rows = g.query(
+        'SELECT ?veto WHERE { ?veto :appliesRule/:ruleId "LIQUIDITY_DISTRESS" }',
+        initNs={"": KG},
+    )
+    assert {row[0] for row in rows if isinstance(row, tuple)} == {KG.Veto_before, KG.Veto_after}
 
 
 def test_penalty_points_on_a_hard_rule_are_caught(

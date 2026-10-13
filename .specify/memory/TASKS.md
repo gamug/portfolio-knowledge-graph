@@ -609,7 +609,7 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       **On sending** *(done: sent 2026-10-11; no cut-off date needed, since the reply came the same day; `SPEC.md`
       §2.6 now says "Asked on 2026-10-11")*.
       -> `PLAN.md` Work item 15.
-- [ ] **T-191** *(the answers to T-184's letter; asks (1) to (5) answered and recorded in `SPEC.md` §2.6 (seventh reply, 2026-10-11); open only for ask (6), which was not in the letter)* When
+- [ ] **T-191** *(the answers to T-184's letter; asks (1) to (5) answered and recorded in `SPEC.md` §2.6 (seventh reply, 2026-10-11); open only for asks (6) and (7), which were not in the letter)* When
       the reply comes, record it in `SPEC.md` §2.6 as the seventh reply and tick each ask below as it is
       answered; a partial reply ticks the asks it answers and leaves the rest. Answers taken from a message are
       marked as theirs, not read from their code, as the earlier replies were.
@@ -623,7 +623,7 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       of their T-145 and T-100 -> T-151, T-154, T-158.
       **No reply:** if there is none by a date the maintainer sets, the unanswered asks are listed in `SPEC.md`
       §2.6 as open, T-187 and T-188 stay deferred (Work item 15's Acceptance allows deferral) and this task is
-      closed with them listed; ask (6) below is listed open like the others. -> `PLAN.md` Work item 15.
+      closed with them listed; asks (6) and (7) below are listed open like the others. -> `PLAN.md` Work item 15.
       **Ask (6), not in the letter, for the next message to them (from T-185):** does upstream set `last_seen_on` on the
       clearing cycle, and can `cleared_on` be earlier than a recorded `last_seen_on`? The answer settles whether the
       same-day tolerance in the gate and `VetoShape` (`<=`) stays or becomes `<`.

@@ -210,7 +210,9 @@ calling out here are the ones that encode a design decision, not just a field:
   gap #5 ("no null/missing-data policy") from a prose recommendation into an enforced constraint.
 - **`appliesRule`** vs **`primaryRule`** — both present on `Veto`, matching v1's own distinction
   ("Mapeo de Activaciones Multiples", §4): the full trigger list plus a computed lowest-`priorityRank`
-  primary reason for audit queries.
+  primary reason for audit queries. Since T-187 one `ruleId` can have two `RuleDefinition` IRIs over time
+  (`LIQUIDITY_DISTRESS`: stints raised before 2026-10-10 point at the old one, later ones at `_v11`), so a query by
+  rule matches on `:ruleId` (`appliesRule/ruleId`), never on the rule's IRI.
 - **`Veto` is a stint** (T-102, 2026-10-03): `raisedOn` (required), `clearedOn`, `lastSeenOn` are cycle
   dates mirroring upstream's `veto` rows; `vetoSeverity` (HARD | SOFT) is the per-stint severity. Four severity-like properties now coexist, deliberately: `severity` (`RiskEvent`, CRITICAL…LOW), `ruleSeverity` (`RuleDefinition`, the catalog default), `vetoSeverity` (`Veto`, per stint) and `dqSeverity` (`DataQualityIssue`, upstream's gate severity, unenumerated).
   Active at cutoff C iff `raisedOn <= C` and (no `clearedOn` or `clearedOn > C`); the T-1 lag is that
