@@ -587,7 +587,7 @@ new acceptance probe; and `acceptance.check_gate` counts violations by matching 
    to a stored Veto that is not cleared, on a date not before it was raised and later than its latest sighting (done, T-194, PR #96). The store reload after the `shapes.ttl` change (T-193) was the maintainer's, as T-179 was: done 2026-10-12, the store holds 2550 triples and
    `verify_store` passes (`docs/graphdb-setup.md`).
 11. ~~A same-day re-run replaces its graph (T-195, from T-032, the maintainer's decision of 2026-10-12, PR #102).~~
-   Cancelled 2026-10-13 by the maintainer: a re-run with other settings, or after a fix, is to be a new automation (one realization of the algorithm) built in its own GraphDB repository, so no graph is ever replaced (Work item 17, T-196–T-199). The design this replaced (check 6 reading the store minus the replaced graph, a constitution exception for invariant 1) is in `CHANGELOG.md`, T-195.
+   Cancelled 2026-10-13 by the maintainer: a re-run with other settings, or after a fix, is to be a new automation (one realization of the algorithm) built in its own GraphDB repository, so no graph is ever replaced (Work item 17, T-196–T-200). The design this replaced (check 6 reading the store minus the replaced graph, a constitution exception for invariant 1) is in `CHANGELOG.md`, T-195.
 
 **Acceptance**: FR-001 parse + `pyshacl` pass with the new count; the store acceptance probe still
 yields exactly one violation (`:timestamp`); T-141's run is recorded in `docs/graphdb-setup.md` (done); T-142's
@@ -1039,15 +1039,20 @@ at the boundary and what is not.
 **Why**: the maintainer cancelled T-195 on 2026-10-13: a re-run with other settings, or after a fix,
 is a new *automation* (one realization of the algorithm) built in its own GraphDB repository, so no
 ingest graph is ever replaced and the gate's refusal of a graph that exists (check 2) stays right.
-Nothing in this repo is parameterised by repository yet: `portfolio` is the one repository, and the
-`PRODUCTION_REPOSITORY` guards assume it is production.
+Nothing in this repo is parameterised by repository yet: `portfolio` is the one repository, and
+`PRODUCTION_REPOSITORY` (`src/kg_store/graphdb.py`, used by `project_scores --replay` in
+`src/projection/project_scores.py` to refuse the repository) treats it as production. The maintainer
+decided on 2026-10-13 that `portfolio` is development-only and production never sees it, so those
+guards lose their meaning; `docs/graphdb-setup.md` still describes `portfolio` as the store until T-196.
 
 1. Decide the automation identity (a generated id per lower-case human name, both stored; duplicate
    names refused) and what the repository name derives from it.
 2. Parameterise the store tools (`cli/load_schema.py`, `cli/ingest.py`, `cli/verify_store.py`,
-   `src/kg_store/`) by repository, and re-read what the `PRODUCTION_REPOSITORY` guards protect once
-   `portfolio` is development-only.
-3. Create a repository per automation (schema loaded, gate on), and clone and delete one.
+   `src/kg_store/`) by repository, and replace the `PRODUCTION_REPOSITORY` guards with what is still
+   worth protecting once `portfolio` is development-only.
+3. Create a repository per automation (schema loaded, gate on), and clone one.
+3b. Delete one (a hard delete). The gate does not cover a drop: export first, refuse `portfolio`, and
+   run it only after the maintainer's go-ahead.
 4. Any HTTP service this repo exposes for it needs a constitution amendment first (the constitution
    says this repo is not a service).
 
@@ -1087,8 +1092,8 @@ Work item 15 (upstream's v_* changes) — T-150, T-170 and T-171 (PR #56) done, 
   and T-151's rule (PR #60); T-173 (the contract endpoint check) done 2026-10-11, its version guard reading T-178's `contract_version` key; T-177 (the `rawValue` bound) done (PR #82); T-178 (the pin's loader key)
   done 2026-10-10 (PR #85); the step-3 shape corrections can start now;
   the rest as upstream's T-144/T-145 ship; feeds Work item 4 (T-031) and 12 (T-121)
-Work item 17 (one GraphDB repository per automation) — T-196–T-199 open; replaces T-195; waits on the maintainer's automation design
 Work item 16 (boundary validation of upstream rows; T-192 adds the veto stint check after T-031's vetoes lane) — T-160 done (plain checks), T-161 closed, T-162 done; T-163 open (its function is done, the wiring into the read path started with Work item 4's T-031, PR #72)
+Work item 17 (one GraphDB repository per automation) — T-196–T-200 open; replaces T-195; waits on the maintainer's automation design
 ```
 
 Work items 1, 2, and 9 have no dependencies and no blockers — they can land

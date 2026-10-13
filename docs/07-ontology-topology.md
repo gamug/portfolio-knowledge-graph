@@ -78,7 +78,7 @@ differently:
 - **A second run for the same agent and day** is refused by the gate ("already exists and is
   append-only"), and the first stays. A re-run with other settings, or after a fix, is a new
   automation (one realization of the algorithm) built in its own GraphDB repository, so no graph is
-  ever replaced (`PLAN.md` Work item 17).
+  ever replaced.
 
 > **As-of reads (T-101).** The graph date is the ingest batch, not the usable date. `ScoreSnapshot.availableAt` is the look-ahead guard: as-of-D queries over `ScoreSnapshot`s filter `availableAt <= D`, never `eventTime` or `timestamp`. `SectorAggregateSnapshot` and `AttractivenessSnapshot` are same-cycle derived outputs with no separate clock: they are usable from the date of their `timestamp`/`computedAt`.
 >
