@@ -173,8 +173,13 @@
     sh:targetClass :RuleDefinition ;
     sh:property [ sh:path :validFrom ; sh:datatype xsd:date ; sh:minCount 1 ; sh:maxCount 1 ] ;
     sh:property [ sh:path :hasClause ; sh:minCount 1 ; sh:maxCount 1 ] ;
-    sh:property [ sh:path :priorityRank ; sh:datatype xsd:integer ; sh:minInclusive 1 ; sh:maxInclusive 7 ] ;
+    sh:property [ sh:path :priorityRank ; sh:datatype xsd:integer ; sh:minInclusive 1 ; sh:maxInclusive 9 ] ;
     sh:property [ sh:path :ruleId ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    # T-187: upstream's penalty_points, SOFT rules only; at least 0. A HARD rule excludes the asset, so it has none.
+    sh:property [ sh:path :penaltyPoints ; sh:datatype xsd:decimal ; sh:minInclusive 0.0 ; sh:maxCount 1 ] ;
+    sh:not [ a sh:NodeShape ;
+             sh:property [ sh:path :ruleSeverity ; sh:hasValue "HARD" ] ;
+             sh:property [ sh:path :penaltyPoints ; sh:minCount 1 ] ] ;
     sh:property [ sh:path :ruleSeverity ; sh:in ("HARD" "SOFT") ; sh:maxCount 1 ] ;
     # T-103: an active rule (no validTo) must declare its severity; the closed design-history rules need not.
     sh:or ( [ sh:path :validTo ; sh:minCount 1 ] [ sh:path :ruleSeverity ; sh:minCount 1 ] ) .
@@ -192,7 +197,8 @@
     sh:property [ sh:path :metricName ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ;
                   sh:in ("ScoreFinanciero" "ScoreCuantitativo" "ScoreTecnico" "Sentiment" "SectorRelativeMomentum"
                          "leverage.debt_to_equity" "cashflow.free_cash_flow_margin" "liquidity.current_ratio"
-                         "max_drawdown_90d" "fundamental_score_age_days") ] ;
+                         "max_drawdown_90d" "fundamental_score_age_days"
+                         "leverage.interest_coverage" "cashflow.operating_cash_flow_margin") ] ;
     sh:property [ sh:path :operator ; sh:in (">" "<" ">=" "<=") ; sh:minCount 1 ; sh:maxCount 1 ] ;
     sh:property [ sh:path :thresholdValue ; sh:datatype xsd:decimal ; sh:minCount 1 ; sh:maxCount 1 ] .
 

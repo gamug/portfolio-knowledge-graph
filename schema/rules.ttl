@@ -3,7 +3,7 @@
 @prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
 
 #################################################################
-# Portfolio Knowledge Graph — Veto Rule Catalog (6 active upstream rules + 7 superseded)
+# Portfolio Knowledge Graph — Veto Rule Catalog (9 active upstream rules; 8 superseded definitions: the 7 original tree rules and the pre-2026-10-10 LIQUIDITY_DISTRESS)
 #
 # Loads into named graph urn:graph:rules:catalog.
 #
@@ -33,7 +33,9 @@
 #################################################################
 
 #################################################################
-# ACTIVE RULE CATALOG (T-103, implemented 2026-10-03) — upstream's six rules
+# ACTIVE RULE CATALOG (T-103, implemented 2026-10-03) — upstream's six rules;
+# T-187 (2026-10-13) brings it to nine (read from their code at 6a80ec3, the
+# nine-rule table in SPEC.md §2.6, seventh reply)
 #
 # Maintainer decision (SPEC.md §2.6 D4): portfolio-financial-analysis's
 # cycle/rules/builtin.py is the final catalog. Each rule is a flat
@@ -54,7 +56,20 @@
 # :ruleSeverity is upstream's rule_catalog.severity (HARD | SOFT).
 # metricName values for upstream metrics are upstream's own identifiers
 # and compare against that metric's raw value (see tbox.ttl).
-# validFrom is the adoption date, not upstream's created_at.
+# validFrom is the adoption date, not upstream's created_at, for the first six rules and the seven superseded
+# ones. T-187's rows are the exception: they start on 2026-10-10, the day the redefined LIQUIDITY_DISTRESS
+# took effect (upstream's merge b3c7661, SPEC.md §2.6 (4c)), so a stint raised from then on resolves. That the
+# three NEW rules took effect the same day is assumed (they came with the same contract version 11); T-191 ask (7).
+#
+# T-187: :penaltyPoints is upstream's penalty_points, set on the SOFT
+# rules only (a HARD rule excludes the asset, so upstream's is null and
+# there is no triple). Every SOFT rule costs the run's soft_veto_penalty
+# (15) unless it declares its own; only BREAK_TREND_200 does, with 0.
+# Evaluation stays upstream. LEAF KINDS (flagged in schema/README.md as
+# the earlier gaps were): the three new rules and the "could not tell" and
+# sector-median branches do not fit a threshold on a raw value, so each is
+# a :GraphPredicate named for the condition and "evaluated upstream", as
+# DATA_QUALITY already is; the graph does not claim logic it cannot run.
 #################################################################
 
 :Rule_LEVERAGE_EXTREME a :RuleDefinition ;
@@ -75,15 +90,35 @@
 
 :Rule_LIQUIDITY_DISTRESS a :RuleDefinition ;
     :ruleId "LIQUIDITY_DISTRESS" ; :category "FINANCIAL" ; :priorityRank 3 ;
-    :ruleSeverity "SOFT" ; :validFrom "2026-10-02"^^xsd:date ;
+    :ruleSeverity "SOFT" ; :penaltyPoints "15"^^xsd:decimal ; :validFrom "2026-10-02"^^xsd:date ;
+    :validTo "2026-10-10"^^xsd:date ;
     :hasClause :Cmp_LIQUIDITY_DISTRESS_CurrentRatio ;
-    rdfs:comment "Current ratio below 1.0." .
+    rdfs:comment "SUPERSEDED on 2026-10-10 by :Rule_LIQUIDITY_DISTRESS_v11 (same :ruleId): current ratio below 1.0 alone. Kept, closed with :validTo, so a stint raised before 2026-10-10 resolves to the definition valid on its :raisedOn (T-187)." .
 :Cmp_LIQUIDITY_DISTRESS_CurrentRatio a :ThresholdComparison ;
     :metricName "liquidity.current_ratio" ; :operator "<" ; :thresholdValue "1.0"^^xsd:decimal .
 
+# Redefined in upstream's merge b3c7661 (2026-10-10; no date cut-off in their data, each run rewrites the
+# catalog row in place): current ratio below 1.0 AND (interest coverage below 1.5 OR operating cash-flow
+# margin below 0). Same :ruleId, a new IRI; a Veto stint resolves to the definition valid on its :raisedOn.
+:Rule_LIQUIDITY_DISTRESS_v11 a :RuleDefinition ;
+    :ruleId "LIQUIDITY_DISTRESS" ; :category "FINANCIAL" ; :priorityRank 3 ;
+    :ruleSeverity "SOFT" ; :penaltyPoints "15"^^xsd:decimal ; :validFrom "2026-10-10"^^xsd:date ;
+    :hasClause :Clause_LIQUIDITY_DISTRESS_v11_Root ;
+    rdfs:comment "Current ratio below 1.0 and (interest coverage below 1.5 or operating cash-flow margin below 0). NOT applied to GICS Financials or Utilities: the exemption is a test on the asset's sector, and CategoricalComparison only tests equality, so it is described here, not encoded (upstream's T-071 moves it to their company profile, so it may change again: revisit when it lands, T-202). Evaluated upstream: 'could not tell' (no current ratio, or below 1.0 with neither coverage metric) is an upstream evaluation state, the stint stays open. An older stint is re-evaluated by the first run with the new code (it keeps its :raisedOn and :primaryRule; it closes, stays open with a later :lastSeenOn, or stays open as 'could not tell')." .
+:Clause_LIQUIDITY_DISTRESS_v11_Root a :RuleClause ; :clauseType "AND" ;
+    :operand1 :Cmp_LIQUIDITY_DISTRESS_v11_CurrentRatio ; :operand2 :Clause_LIQUIDITY_DISTRESS_v11_Coverage .
+:Clause_LIQUIDITY_DISTRESS_v11_Coverage a :RuleClause ; :clauseType "OR" ;
+    :operand1 :Cmp_LIQUIDITY_DISTRESS_v11_InterestCoverage ; :operand2 :Cmp_LIQUIDITY_DISTRESS_v11_OcfMargin .
+:Cmp_LIQUIDITY_DISTRESS_v11_CurrentRatio a :ThresholdComparison ;
+    :metricName "liquidity.current_ratio" ; :operator "<" ; :thresholdValue "1.0"^^xsd:decimal .
+:Cmp_LIQUIDITY_DISTRESS_v11_InterestCoverage a :ThresholdComparison ;
+    :metricName "leverage.interest_coverage" ; :operator "<" ; :thresholdValue "1.5"^^xsd:decimal .
+:Cmp_LIQUIDITY_DISTRESS_v11_OcfMargin a :ThresholdComparison ;
+    :metricName "cashflow.operating_cash_flow_margin" ; :operator "<" ; :thresholdValue "0.0"^^xsd:decimal .
+
 :Rule_PRICE_CRASH a :RuleDefinition ;
     :ruleId "PRICE_CRASH" ; :category "MARKET" ; :priorityRank 4 ;
-    :ruleSeverity "SOFT" ; :validFrom "2026-10-02"^^xsd:date ;
+    :ruleSeverity "SOFT" ; :penaltyPoints "15"^^xsd:decimal ; :validFrom "2026-10-02"^^xsd:date ;
     :hasClause :Cmp_PRICE_CRASH_Drawdown90d ;
     rdfs:comment "90-day maximum drawdown worse than -35%. max_drawdown_90d is a price-derived metric computed upstream (not a ScoreSnapshot, and not a :PriceObservation property)." .
 :Cmp_PRICE_CRASH_Drawdown90d a :ThresholdComparison ;
@@ -91,7 +126,7 @@
 
 :Rule_EARNINGS_MISSING a :RuleDefinition ;
     :ruleId "EARNINGS_MISSING" ; :category "FINANCIAL" ; :priorityRank 5 ;
-    :ruleSeverity "SOFT" ; :validFrom "2026-10-02"^^xsd:date ;
+    :ruleSeverity "SOFT" ; :penaltyPoints "15"^^xsd:decimal ; :validFrom "2026-10-02"^^xsd:date ;
     :hasClause :Cmp_EARNINGS_MISSING_Age ;
     rdfs:comment "A FUNDAMENTAL score exists but is older than 400 days at the cycle date. Upstream's param is max_age_days; the leaf expresses it as a derived age metric. An asset that never had a FUNDAMENTAL score is ineligible upstream, not vetoed by this rule." .
 :Cmp_EARNINGS_MISSING_Age a :ThresholdComparison ;
@@ -104,6 +139,36 @@
     rdfs:comment "A HARD Ring-1 DQ_* gate fired on the asset's latest filing (:dqIssueOfFiling). Evidence is upstream's data_quality_issue rows; they are projected as :DataQualityIssue individuals (T-104)." .
 :Pred_DATA_QUALITY_HardGate a :GraphPredicate ; :predicateName "HasHardDataQualityIssue" ;
     rdfs:comment "Upstream params: source=data_quality_issue, severity=HARD. Evaluated upstream." .
+
+# --- T-187: the three rules upstream added with contract version 11, valid from 2026-10-10, the date of their
+# merge b3c7661, so a stint raised from then on resolves (ranks 7 to 9 follow the order of
+# the seventh reply's table; upstream gives no order, so the ranks are ours) ---
+# metric ids (vol_5d, vol_60d_base, ret_5d, mu_60d_base, sma_200) are upstream's daily log-return and price
+# figures, computed upstream; none is a :PriceObservation property (T-183 (3) leaves the price columns unread).
+
+:Rule_VOLATILITY_SHOCK a :RuleDefinition ;
+    :ruleId "VOLATILITY_SHOCK" ; :category "MARKET" ; :priorityRank 7 ;
+    :ruleSeverity "HARD" ; :validFrom "2026-10-10"^^xsd:date ;
+    :hasClause :Pred_VOLATILITY_SHOCK ;
+    rdfs:comment "Temporary HARD: vol_5d / vol_60d_base above 2.5 AND that ratio above 2.5 times its sector's median that day (fewer than 5 names in the sector: the whole cross-section's median). The figures are daily log-return volatilities, not annualized; the 60-day baseline ends 5 sessions before the date, and they are computed upstream, not :PriceObservation properties. Two quantities and a sector-relative test, so no ThresholdComparison fits; evaluated upstream. 'Temporary': once T-188 lands a stint may carry :expiresOn, which never closes it (the cycle writes cleared_on)." .
+:Pred_VOLATILITY_SHOCK a :GraphPredicate ; :predicateName "VolatilityShock" ;
+    rdfs:comment "A label chosen here, not an upstream identifier. Evaluated upstream: vol_5d / vol_60d_base > 2.5 and above 2.5x the sector-median ratio (T-187)." .
+
+:Rule_CRASH_Z_SCORE a :RuleDefinition ;
+    :ruleId "CRASH_Z_SCORE" ; :category "MARKET" ; :priorityRank 8 ;
+    :ruleSeverity "HARD" ; :validFrom "2026-10-10"^^xsd:date ;
+    :hasClause :Pred_CRASH_Z_SCORE ;
+    rdfs:comment "Temporary HARD: (ret_5d - 5*mu_60d_base) / (vol_60d_base*sqrt(5)) below -2.5 AND the same test against the sector's median ret_5d (same fallback to the cross-section under 5 names). Daily log-return figures computed upstream, not :PriceObservation properties. Two quantities and a sector-relative test; evaluated upstream. 'Temporary': once T-188 lands a stint may carry :expiresOn, which never closes it." .
+:Pred_CRASH_Z_SCORE a :GraphPredicate ; :predicateName "CrashZScore" ;
+    rdfs:comment "A label chosen here, not an upstream identifier. Evaluated upstream: the 5-day return's z-score against its 60-day baseline below -2.5, and the same against the sector median (T-187)." .
+
+:Rule_BREAK_TREND_200 a :RuleDefinition ;
+    :ruleId "BREAK_TREND_200" ; :category "MARKET" ; :priorityRank 9 ;
+    :ruleSeverity "SOFT" ; :penaltyPoints "0"^^xsd:decimal ; :validFrom "2026-10-10"^^xsd:date ;
+    :hasClause :Pred_BREAK_TREND_200 ;
+    rdfs:comment "Flag only: close below 0.95 x sma_200, a comparison of two quantities computed upstream (not :PriceObservation properties). SOFT with :penaltyPoints 0, so a stint is recorded but costs nothing; the only rule that declares its own points." .
+:Pred_BREAK_TREND_200 a :GraphPredicate ; :predicateName "BelowSma200Band" ;
+    rdfs:comment "A label chosen here, not an upstream identifier. Evaluated upstream: close < 0.95 * sma_200 (T-187)." .
 
 #################################################################
 # SUPERSEDED — the original seven tree rules (design history)

@@ -12,7 +12,7 @@ actually building it (each flagged inline in the file that surfaced it, and summ
 | `tbox.ttl` | Turtle | `urn:graph:tbox` | Classes, properties, OWL cardinality restrictions. |
 | `shapes.ttl` | Turtle | `urn:graph:tbox` | SHACL data-quality shapes (kept as a separate file/concern from `tbox.ttl` — OWL semantics vs. SHACL validation, see below). |
 | `reference.ttl` | Turtle | `urn:graph:reference` | GICS sector/industry taxonomy + asset master data (5 worked-example tickers). |
-| `rules.ttl` | Turtle | `urn:graph:rules:catalog` | The active veto catalog: upstream's 6 rules (T-103) as single-leaf `RuleDefinition`s; v1's original 6 plus `VETO_MKT_02` (7 unambiguous `RuleClause`-tree rules) are kept closed with `validTo 2026-10-02` as design history; and the `AttractivenessWeightScheme`. |
+| `rules.ttl` | Turtle | `urn:graph:rules:catalog` | The active veto catalog: upstream's 9 rules (6 at T-103, 3 more and a redefined `LIQUIDITY_DISTRESS` at T-187) as `RuleDefinition`s (single-leaf except the redefined `LIQUIDITY_DISTRESS`, a tree; the superseded `LIQUIDITY_DISTRESS` stays, closed); v1's original 6 plus `VETO_MKT_02` (7 unambiguous `RuleClause`-tree rules) are kept closed with `validTo 2026-10-02` as design history; and the `AttractivenessWeightScheme`. |
 | `instances.trig` | **TriG** | *(self-describing — see below)* | Dated ABox: universe membership, agent snapshots, evidence, vetoes, filings, portfolio; sector-aggregate and attractiveness-ranking output (added 2026-08-13). |
 
 `instances.trig` is TriG, not Turtle — it contains explicit `GRAPH <urn:graph:...> { ... }` blocks,
@@ -68,7 +68,8 @@ what the store *enforces*.
    thresholds (`-0.50`, `-0.60`) are only meaningful on the raw scale. Documented on
    `ThresholdComparison` in `tbox.ttl`. T-103 (2026-10-03) extended the convention to upstream's own
    metrics (`leverage.debt_to_equity`, `cashflow.free_cash_flow_margin`, `liquidity.current_ratio`,
-   `max_drawdown_90d`, `fundamental_score_age_days`): they are not `ScoreSnapshot` types, carry
+   `max_drawdown_90d`, `fundamental_score_age_days`; T-187 adds `leverage.interest_coverage` and
+   `cashflow.operating_cash_flow_margin`): they are not `ScoreSnapshot` types, carry
    upstream's identifiers, and compare on the raw value (they have no `normalizedScore`).
    **T-081 (Work item 9, 2026-10-05: the shape now enforces it for `Sentiment`).** `ScoreSnapshotShape`
    no longer demands `normalizedScore` of a `Sentiment` snapshot (as for `SectorRelativeMomentum`), and
@@ -173,6 +174,24 @@ what the store *enforces*.
    `(cycle_run_id, score_type)`, so the row is quarantined before any triple is built), and nothing sums the weights
    (it checks each in 0 to 1).
    The projection (T-121's data half) writes whatever components the run has. **2550 quads, unchanged.**
+
+   **T-187 (2026-10-13: the catalog goes from six rules to nine).** Read from upstream's code at `6a80ec3` (`SPEC.md` §2.6,
+   seventh reply).
+   - **Rules.** `VOLATILITY_SHOCK`, `CRASH_Z_SCORE` and `BREAK_TREND_200` are new (ranks 7 to 9, ours); `LIQUIDITY_DISTRESS`
+     is redefined as a new `RuleDefinition` with the same `:ruleId`, and the old one is closed with `validTo`.
+   - **Validity.** The four start on 2026-10-10 (upstream's merge; that the three new rules took the same day is assumed,
+     T-191 ask (7)), so a stint raised from then on resolves. `validTo` is exclusive on a `RuleDefinition` (valid on `d` when
+     `validFrom <= d < validTo`). Picking the definition for a stint's `:raisedOn` is not built (T-201).
+   - **`:penaltyPoints`.** New, optional (`xsd:decimal`, at least 0, at most one), on SOFT rules only. A shape refuses it on a
+     HARD rule (upstream's is null, so no triple); a SOFT rule without it is allowed and costs the run's `soft_veto_penalty`
+     (15, T-189).
+   - **Two gaps found while encoding, flagged like the earlier ones.** (a) The three new rules compare two quantities or test
+     against the sector median, which no `ThresholdComparison` states, so each is a `GraphPredicate` "evaluated upstream" (a
+     new use of that leaf, as `DATA_QUALITY`'s was); its `predicateName` is a label chosen here, not an upstream id. (b) The
+     redefined `LIQUIDITY_DISTRESS` is not applied to GICS Financials or Utilities, which `CategoricalComparison` (equality
+     only) cannot state, so the exemption is in the rule's comment, not the tree (T-202).
+   - **Shapes.** `metricName` gains `leverage.interest_coverage` and `cashflow.operating_cash_flow_margin`; `priorityRank`
+     allows 1 to 9. No new class; `AllDisjointClasses` is unchanged. **2640 quads; conforms: True.**
    **T-032 (Work item 4, 2026-10-12: how a restatement is written).** Comment only: `:supersededBy`'s comment in
    `tbox.ttl` now says a section is superseded once, by a new section of the same `itemLabel` declared in the same
    batch (the ingest gate's check 8), and that the sections not superseded are the current ones. No shape or

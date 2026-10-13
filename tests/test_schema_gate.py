@@ -8,6 +8,7 @@ them must update the numbers in the same change.
 
 from __future__ import annotations
 
+import datetime
 import re
 from pathlib import Path
 
@@ -461,3 +462,236 @@ def test_the_target_schema_orders_a_veto_like_shapes_ttl() -> None:
     in_shapes = _less_than_or_equals(SCHEMA / "shapes.ttl")
     assert in_shapes == {("raisedOn", "lastSeenOn"), ("lastSeenOn", "clearedOn")}
     assert _less_than_or_equals(SCHEMA.parent / "kg_target_schema.ttl") == in_shapes
+
+
+# --- T-187: the nine-rule catalog and ``:penaltyPoints`` -----------------------------------------
+
+_RULE = KG.Rule_T187
+
+
+def _rule(bundle: rdflib.Dataset, **extra: rdflib.term.Node) -> rdflib.Graph:
+    """The worked example plus one SOFT rule, a single threshold leaf, with extra properties."""
+    g = _flat(bundle)
+    leaf = KG.Cmp_T187
+    g.add((leaf, rdflib.RDF.type, KG.ThresholdComparison))
+    g.add((leaf, KG.metricName, rdflib.Literal("liquidity.current_ratio")))
+    g.add((leaf, KG.operator, rdflib.Literal("<")))
+    g.add((leaf, KG.thresholdValue, rdflib.Literal("1.0", datatype=rdflib.XSD.decimal)))
+    g.add((_RULE, rdflib.RDF.type, KG.RuleDefinition))
+    g.add((_RULE, KG.ruleId, rdflib.Literal("T187")))
+    g.add((_RULE, KG.ruleSeverity, rdflib.Literal("SOFT")))
+    g.add((_RULE, KG.validFrom, _date("2026-10-13")))
+    g.add((_RULE, KG.hasClause, leaf))
+    for name, value in extra.items():
+        g.add((_RULE, KG[name], value))
+    return g
+
+
+def _decimal(text: str) -> rdflib.Literal:
+    return rdflib.Literal(text, datatype=rdflib.XSD.decimal)
+
+
+@pytest.mark.parametrize("points", ["0", "15", "2.5"])
+def test_penalty_points_of_at_least_zero_conform(
+    bundle: rdflib.Dataset, shapes: rdflib.Graph, points: str
+) -> None:
+    assert _violations(_rule(bundle, penaltyPoints=_decimal(points)), shapes) == set()
+
+
+def test_a_rule_without_penalty_points_conforms(
+    bundle: rdflib.Dataset, shapes: rdflib.Graph
+) -> None:
+    assert _violations(_rule(bundle), shapes) == set()
+
+
+def test_negative_penalty_points_are_caught(bundle: rdflib.Dataset, shapes: rdflib.Graph) -> None:
+    g = _rule(bundle, penaltyPoints=_decimal("-1"))
+    assert _violations(g, shapes) == {(_RULE, KG.penaltyPoints)}
+
+
+def test_penalty_points_that_are_not_a_decimal_are_caught(
+    bundle: rdflib.Dataset, shapes: rdflib.Graph
+) -> None:
+    g = _rule(bundle, penaltyPoints=rdflib.Literal("15"))
+    assert _violations(g, shapes) == {(_RULE, KG.penaltyPoints)}
+
+
+def test_two_penalty_points_values_are_caught(bundle: rdflib.Dataset, shapes: rdflib.Graph) -> None:
+    g = _rule(bundle, penaltyPoints=_decimal("15"))
+    g.add((_RULE, KG.penaltyPoints, _decimal("0")))
+    assert _violations(g, shapes) == {(_RULE, KG.penaltyPoints)}
+
+
+def test_a_priority_rank_of_nine_conforms_and_ten_is_caught(
+    bundle: rdflib.Dataset, shapes: rdflib.Graph
+) -> None:
+    nine = _rule(bundle, priorityRank=rdflib.Literal(9))
+    assert _violations(nine, shapes) == set()
+    ten = _rule(bundle, priorityRank=rdflib.Literal(10))
+    assert _violations(ten, shapes) == {(_RULE, KG.priorityRank)}
+
+
+_ACTIVE_IDS = {
+    "LEVERAGE_EXTREME": None,
+    "NEGATIVE_FCF": None,
+    "DATA_QUALITY": None,
+    "VOLATILITY_SHOCK": None,
+    "CRASH_Z_SCORE": None,
+    "LIQUIDITY_DISTRESS": "15",
+    "PRICE_CRASH": "15",
+    "EARNINGS_MISSING": "15",
+    "BREAK_TREND_200": "0",
+}
+
+
+def _rules_file() -> rdflib.Graph:
+    """``rules.ttl`` alone: the file the store loads wholesale into ``urn:graph:rules:catalog``
+    (``schema/README.md``), so a rule defined in another file is not found. Parsed on each call: a test may add to it
+    without leaking into another."""
+    return rdflib.Graph().parse(SCHEMA / "rules.ttl", format="turtle")
+
+
+def _active_rules() -> dict[str, rdflib.term.Node]:
+    """``ruleId`` to the one rule with no ``validTo`` (an active definition) in the catalog graph."""
+    g = _rules_file()
+    found: dict[str, rdflib.term.Node] = {}
+    for rule in g.subjects(rdflib.RDF.type, KG.RuleDefinition):
+        if (rule, KG.validTo, None) in g:
+            continue
+        rule_id = str(g.value(rule, KG.ruleId))
+        assert rule_id not in found, f"two active definitions of {rule_id}"
+        found[rule_id] = rule
+    return found
+
+
+def test_the_active_catalog_is_upstreams_nine_rules() -> None:
+    """The ids with no ``validTo`` in ``rules.ttl`` are exactly the nine (and none is defined twice)."""
+    assert set(_active_rules()) == set(_ACTIVE_IDS)
+
+
+def test_penalty_points_sit_on_the_soft_rules_only() -> None:
+    """15 on the SOFT rules, 0 on ``BREAK_TREND_200``, none on a HARD rule."""
+    g = _rules_file()
+    for rule_id, rule in _active_rules().items():
+        expected = _ACTIVE_IDS[rule_id]
+        points = g.value(rule, KG.penaltyPoints)
+        assert (None if points is None else str(points)) == expected, rule_id
+        severity = str(g.value(rule, KG.ruleSeverity))
+        assert (severity == "SOFT") == (expected is not None), rule_id
+
+
+def test_the_active_ranks_are_one_to_nine_without_repeats() -> None:
+    """``primaryRule`` picks the lowest rank, so the active ranks must be distinct."""
+    g = _rules_file()
+    ranks = sorted(int(str(g.value(rule, KG.priorityRank))) for rule in _active_rules().values())
+    assert ranks == list(range(1, 10))
+
+
+_DEFINITION_ON = """
+SELECT ?rule WHERE {
+  ?rule a :RuleDefinition ; :ruleId "LIQUIDITY_DISTRESS" ; :validFrom ?from .
+  OPTIONAL { ?rule :validTo ?to }
+  FILTER (?from <= ?day && (!BOUND(?to) || ?day < ?to))
+}
+"""
+
+
+def _liquidity_dates() -> tuple[datetime.date, datetime.date]:
+    """The old definition's ``validFrom`` and its ``validTo`` (the day the redefinition starts)."""
+    g = _rules_file()
+    old = g.value(KG.Rule_LIQUIDITY_DISTRESS, KG.validTo)
+    first = g.value(KG.Rule_LIQUIDITY_DISTRESS, KG.validFrom)
+    assert isinstance(old, rdflib.Literal) and isinstance(first, rdflib.Literal)
+    return first.toPython(), old.toPython()
+
+
+@pytest.mark.parametrize(
+    ("offset", "expected"),
+    [
+        (-1, KG.Rule_LIQUIDITY_DISTRESS),  # the day before the redefinition
+        (0, KG.Rule_LIQUIDITY_DISTRESS_v11),  # the day it starts (validTo is exclusive)
+        (1, KG.Rule_LIQUIDITY_DISTRESS_v11),  # after it
+    ],
+)
+def test_a_stint_resolves_to_the_definition_valid_on_its_raised_on(
+    offset: int, expected: rdflib.URIRef
+) -> None:
+    """The boundary is read from the old rule's ``validTo``, so moving it moves the test with it."""
+    _, boundary = _liquidity_dates()
+    day = rdflib.Literal(boundary + datetime.timedelta(days=offset))
+    rows = _rules_file().query(_DEFINITION_ON, initNs={"": KG}, initBindings={"day": day})
+    assert [row[0] for row in rows if isinstance(row, tuple)] == [expected]
+
+
+def test_the_old_definition_resolves_from_its_own_valid_from() -> None:
+    first, _ = _liquidity_dates()
+    rows = _rules_file().query(
+        _DEFINITION_ON, initNs={"": KG}, initBindings={"day": rdflib.Literal(first)}
+    )
+    assert [row[0] for row in rows if isinstance(row, tuple)] == [KG.Rule_LIQUIDITY_DISTRESS]
+
+
+def test_a_query_by_rule_id_finds_a_stint_of_each_era() -> None:
+    """A consumer matches ``appliesRule/ruleId``: matching the rule's IRI would drop one era."""
+    g = _rules_file()
+    g.add((KG.Veto_before, KG.appliesRule, KG.Rule_LIQUIDITY_DISTRESS))
+    g.add((KG.Veto_after, KG.appliesRule, KG.Rule_LIQUIDITY_DISTRESS_v11))
+    g.add((KG.Veto_other, KG.appliesRule, KG.Rule_PRICE_CRASH))
+    rows = g.query(
+        'SELECT ?veto WHERE { ?veto :appliesRule/:ruleId "LIQUIDITY_DISTRESS" }',
+        initNs={"": KG},
+    )
+    assert {row[0] for row in rows if isinstance(row, tuple)} == {KG.Veto_before, KG.Veto_after}
+
+
+def test_penalty_points_on_a_hard_rule_are_caught(
+    bundle: rdflib.Dataset, shapes: rdflib.Graph
+) -> None:
+    """A HARD rule excludes the asset, so upstream's ``penalty_points`` is null and there is no triple."""
+    g = _rule(bundle, penaltyPoints=_decimal("15"))
+    g.set((_RULE, KG.ruleSeverity, rdflib.Literal("HARD")))
+    assert _violations(g, shapes) == {(_RULE, None)}
+
+
+def test_the_new_rules_are_valid_from_the_day_of_upstreams_merge() -> None:
+    """A stint raised from 2026-10-10 on must find a definition (upstream's merge ``b3c7661``)."""
+    g = _rules_file()
+    rules = _active_rules()
+    for rule_id in ("VOLATILITY_SHOCK", "CRASH_Z_SCORE", "BREAK_TREND_200", "LIQUIDITY_DISTRESS"):
+        assert g.value(rules[rule_id], KG.validFrom) == _date("2026-10-10"), rule_id
+
+
+def test_a_stint_re_confirmed_after_the_redefinition_still_resolves_by_its_raised_on() -> None:
+    """Raised 2026-10-02 and seen again on 2026-10-12 (under the new code): the later sighting does
+    not move it to the new definition, the re-evaluation shows only in ``lastSeenOn``."""
+    g = _rules_file()
+    g.add((KG.Veto_T187, KG.raisedOn, _date("2026-10-02")))
+    g.add((KG.Veto_T187, KG.lastSeenOn, _date("2026-10-12")))
+    raised = g.value(KG.Veto_T187, KG.raisedOn)  # the day the resolution reads, not lastSeenOn
+    assert isinstance(raised, rdflib.Literal)
+    rows = g.query(_DEFINITION_ON, initNs={"": KG}, initBindings={"day": raised})
+    assert [row[0] for row in rows if isinstance(row, tuple)] == [KG.Rule_LIQUIDITY_DISTRESS]
+
+
+def _rule_shape_facts(path: Path) -> tuple[set[str], set[str], set[str]]:
+    """``priorityRank``'s upper bound, ``penaltyPoints``' lower bound, and the HARD exclusion's paths."""
+    g = rdflib.Graph().parse(path, format="turtle")
+    ranks: set[str] = set()
+    points: set[str] = set()
+    exclusion: set[str] = set()
+    for prop in g.objects(KG.RuleDefinitionShape, SH.property):
+        if (prop, SH.path, KG.priorityRank) in g:
+            ranks.add(str(g.value(prop, SH.maxInclusive)))
+        if (prop, SH.path, KG.penaltyPoints) in g:
+            points.add(str(g.value(prop, SH.minInclusive)))
+    for negated in g.objects(KG.RuleDefinitionShape, SH["not"]):
+        for prop in g.objects(negated, SH.property):
+            exclusion.add(str(g.value(prop, SH.path)).rpartition("#")[2])
+    return ranks, points, exclusion
+
+
+def test_the_target_schema_shapes_a_rule_like_shapes_ttl() -> None:
+    """``kg_target_schema.ttl`` carries the same ``priorityRank`` bound and ``penaltyPoints`` rules."""
+    in_shapes = _rule_shape_facts(SCHEMA / "shapes.ttl")
+    assert in_shapes == ({"9"}, {"0.0"}, {"ruleSeverity", "penaltyPoints"})
+    assert _rule_shape_facts(SCHEMA.parent / "kg_target_schema.ttl") == in_shapes

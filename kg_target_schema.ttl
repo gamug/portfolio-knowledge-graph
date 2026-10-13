@@ -259,6 +259,13 @@
     sh:or ( [ sh:minCount 1 ;
                 sh:path :validTo ] [ sh:minCount 1 ;
                 sh:path :ruleSeverity ] ) ;
+    # CHANGED (T-187): a HARD rule excludes the asset, so it carries no penaltyPoints. Needs no action from upstream:
+    # their penalty_points is already null on HARD rules and the rank is ours.
+    sh:not [ a sh:NodeShape ;
+            sh:property [ sh:hasValue "HARD" ;
+                    sh:path :ruleSeverity ],
+                [ sh:minCount 1 ;
+                    sh:path :penaltyPoints ] ] ;
     sh:property [ sh:datatype xsd:date ;
             sh:maxCount 1 ;
             sh:minCount 1 ;
@@ -267,9 +274,14 @@
             sh:minCount 1 ;
             sh:path :hasClause ],
         [ sh:datatype xsd:integer ;
-            sh:maxInclusive 7 ;
+            sh:maxInclusive 9 ;
             sh:minInclusive 1 ;
             sh:path :priorityRank ],
+        # CHANGED (T-187): upstream's penalty_points, on SOFT rules only (null on HARD ones: no triple); at least 0.
+        [ sh:datatype xsd:decimal ;
+            sh:maxCount 1 ;
+            sh:minInclusive 0.0 ;
+            sh:path :penaltyPoints ],
         [ sh:datatype xsd:string ;
             sh:maxCount 1 ;
             sh:minCount 1 ;
@@ -690,9 +702,12 @@
     rdfs:domain :PortfolioPosition ;
     rdfs:range :Asset .
 
+:penaltyPoints a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :RuleDefinition ; rdfs:range xsd:decimal ;
+    rdfs:comment "T-187: upstream's penalty_points, in points of its 0-100 blend, charged once per active SOFT stint of the rule. SOFT rules only (null on HARD ones: no triple). A SOFT rule without it costs the run's soft_veto_penalty (T-189). At least 0." .
+
 :priorityRank a owl:DatatypeProperty,
         owl:FunctionalProperty ;
-    rdfs:comment "1 (highest) .. 7 (lowest), used to pick primaryRule (v1 §4). (Comment corrected 2026-08-23: stale '6' predates VETO_MKT_02, added 2026-08-13 as the 7th rule -- shapes.ttl's RuleDefinitionShape already had priorityRank's range as [1,7] correctly.)" ;
+    rdfs:comment "1 (highest) .. 9 (lowest), used to pick primaryRule (v1 §4); upstream's nine-rule catalog uses 1 to 9 since T-187 (unique among active definitions only). (Comment corrected 2026-08-23: stale '6' predates VETO_MKT_02, added 2026-08-13 as the 7th rule -- shapes.ttl's RuleDefinitionShape already had priorityRank's range right; widened to [1,9] by T-187.)" ;
     rdfs:domain :RuleDefinition ;
     rdfs:range xsd:integer .
 
