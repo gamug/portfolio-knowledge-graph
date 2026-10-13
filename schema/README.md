@@ -192,6 +192,14 @@ what the store *enforces*.
      only) cannot state, so the exemption is in the rule's comment, not the tree (T-202).
    - **Shapes.** `metricName` gains `leverage.interest_coverage` and `cashflow.operating_cash_flow_margin`; `priorityRank`
      allows 1 to 9. No new class; `AllDisjointClasses` is unchanged. **2640 quads; conforms: True.**
+
+   **T-188 (2026-10-13: `Veto` `:expiresOn`).** A new optional, functional `:expiresOn` (`xsd:date`) on `Veto`, upstream's
+   `expires_on`, filled only on the stints of the temporary HARD rules (`VOLATILITY_SHOCK`, `CRASH_Z_SCORE`); a NULL
+   is no triple. `VetoShape` allows at most one and not before `:raisedOn` (`sh:lessThanOrEquals`, so the same day passes), at
+   declaration; the gate adds no check, since the date never closes a stint. **It does not close a Veto:** at the first cycle
+   on or after it upstream re-evaluates the rule and writes `clearedOn` if the condition is gone, otherwise moves
+   `expires_on` 10 NYSE sessions on (seventh reply, `SPEC.md` §2.6). So a reader tests `clearedOn` only and the active-at-cutoff
+   SPARQL has no `expiresOn` term. No new class; `AllDisjointClasses` is unchanged. **2650 quads; conforms: True.**
    **T-032 (Work item 4, 2026-10-12: how a restatement is written).** Comment only: `:supersededBy`'s comment in
    `tbox.ttl` now says a section is superseded once, by a new section of the same `itemLabel` declared in the same
    batch (the ingest gate's check 8), and that the sections not superseded are the current ones. No shape or

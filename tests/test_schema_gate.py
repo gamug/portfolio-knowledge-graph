@@ -460,7 +460,11 @@ def test_the_target_schema_orders_a_veto_like_shapes_ttl() -> None:
     """``kg_target_schema.ttl`` carries the same Veto date order. The dates come from upstream's own
     ``veto`` rows, so the proposal is kept equal to ``shapes.ttl`` and needs no action from them."""
     in_shapes = _less_than_or_equals(SCHEMA / "shapes.ttl")
-    assert in_shapes == {("raisedOn", "lastSeenOn"), ("lastSeenOn", "clearedOn")}
+    assert in_shapes == {
+        ("raisedOn", "lastSeenOn"),
+        ("raisedOn", "expiresOn"),
+        ("lastSeenOn", "clearedOn"),
+    }
     assert _less_than_or_equals(SCHEMA.parent / "kg_target_schema.ttl") == in_shapes
 
 
@@ -695,3 +699,53 @@ def test_the_target_schema_shapes_a_rule_like_shapes_ttl() -> None:
     in_shapes = _rule_shape_facts(SCHEMA / "shapes.ttl")
     assert in_shapes == ({"9"}, {"0.0"}, {"ruleSeverity", "penaltyPoints"})
     assert _rule_shape_facts(SCHEMA.parent / "kg_target_schema.ttl") == in_shapes
+
+
+# --- T-188: ``Veto`` ``:expiresOn`` -------------------------------------------------------------
+
+
+def _expiring(bundle: rdflib.Dataset, *expires: str) -> rdflib.Graph:
+    """The worked example plus one Veto raised 2026-01-01 with the given ``expiresOn`` values."""
+    g = _veto(bundle, cleared=None, seen=())
+    for day in expires:
+        g.add((_VETO, KG.expiresOn, _date(day)))
+    return g
+
+
+@pytest.mark.parametrize(
+    "expires",
+    [(), ("2026-01-02",), ("2026-01-01",), ("2026-06-30",)],
+    ids=["absent", "after raisedOn", "same day", "much later"],
+)
+def test_a_veto_expiring_on_or_after_it_was_raised_conforms(
+    bundle: rdflib.Dataset, shapes: rdflib.Graph, expires: tuple[str, ...]
+) -> None:
+    assert _violations(_expiring(bundle, *expires), shapes) == set()
+
+
+def test_a_veto_expiring_before_it_was_raised_is_caught(
+    bundle: rdflib.Dataset, shapes: rdflib.Graph
+) -> None:
+    assert _violations(_expiring(bundle, "2025-12-31"), shapes) == {(_VETO, KG.raisedOn)}
+
+
+def test_two_expires_on_values_are_caught(bundle: rdflib.Dataset, shapes: rdflib.Graph) -> None:
+    g = _expiring(bundle, "2026-01-10", "2026-01-24")
+    assert _violations(g, shapes) == {(_VETO, KG.expiresOn)}
+
+
+def test_an_expires_on_that_is_not_a_date_is_caught(
+    bundle: rdflib.Dataset, shapes: rdflib.Graph
+) -> None:
+    g = _veto(bundle, cleared=None, seen=())
+    g.add((_VETO, KG.expiresOn, rdflib.Literal("soon")))
+    assert (_VETO, KG.expiresOn) in _violations(g, shapes)
+
+
+def test_an_expiry_does_not_close_a_veto(bundle: rdflib.Dataset, shapes: rdflib.Graph) -> None:
+    """A stint past its ``expiresOn`` and never cleared is still a valid, active Veto: only
+    ``clearedOn`` closes it (upstream's seventh reply)."""
+    g = _expiring(bundle, "2026-01-02")
+    g.add((_VETO, KG.lastSeenOn, _date("2026-03-01")))
+    assert _violations(g, shapes) == set()
+    assert (_VETO, KG.clearedOn, None) not in g
