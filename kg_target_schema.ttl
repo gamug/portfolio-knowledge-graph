@@ -709,7 +709,7 @@
     rdfs:range :Asset .
 
 :penaltyPoints a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :RuleDefinition ; rdfs:range xsd:decimal ;
-    rdfs:comment "T-187: upstream's penalty_points, in points of its 0-100 blend, charged once per active SOFT stint of the rule. SOFT rules only (null on HARD ones: no triple). A SOFT rule without it costs the run's soft_veto_penalty (T-189). At least 0." .
+    rdfs:comment "T-187: upstream's penalty_points, in points of its 0-100 blend, charged once per active SOFT stint of the rule. SOFT rules only (null on HARD ones: no triple). A SOFT stint whose rule has none costs the run's soft_veto_penalty (T-189); that includes a SOFT stint of a HARD rule (our assumption, not yet confirmed). At least 0." .
 
 :priorityRank a owl:DatatypeProperty,
         owl:FunctionalProperty ;
