@@ -643,7 +643,7 @@ to fit:
   34 of 40 production rows fall outside the [-1, 1] that `ScoreSnapshotShape` requires of
   `SectorRelativeMomentum` (T-140). SECTOR rows also carry a 0-100 `normalized_score`.
 - **`blended_score` can be negative:** the weighted mean of the normalized components (0-100, higher
-  = more attractive) minus, per active SOFT stint, its rule's `penalty_points` (or `soft_veto_penalty`, 15 by default, if the rule declares none; T-189). An asset with
+  = more attractive) minus, per active SOFT stint, its rule's `penalty_points` (or `soft_veto_penalty`, 15 by default, if the rule declares none, a HARD rule's SOFT stint included: assumed, T-189). An asset with
   no component gets 0.0, not NULL. A ÷100 breaks `attractivenessScore`'s [0, 1].
 - **Only FUNDAMENTAL rows have `available_at`;** it is NULL on every TECHNICAL, VALORIZATION and
   SECTOR row, which `ScoreSnapshotShape` rejects. Their T-144 fills it *in the view* with the cycle date

@@ -800,7 +800,7 @@
 
 :vetoSeverity a owl:DatatypeProperty,
         owl:FunctionalProperty ;
-    rdfs:comment "HARD | SOFT -- this stint's severity, which can differ from its rule's :ruleSeverity (LEVERAGE_EXTREME emits SOFT for a negative-equity firm). A SOFT stint charges its rule's :penaltyPoints once, or the run's soft_veto_penalty if the rule declares none (T-189). Optional: absent means the severity of the stint's :primaryRule (:ruleSeverity; the superseded design-history rules carry none). Added 2026-10-03 (T-102)." ;
+    rdfs:comment "HARD | SOFT -- this stint's severity, which can differ from its rule's :ruleSeverity (LEVERAGE_EXTREME emits SOFT for a negative-equity firm). A SOFT stint charges its rule's :penaltyPoints once, or the run's soft_veto_penalty if the rule declares none, a HARD rule's SOFT stint included (our assumption, not yet confirmed by upstream: T-189). Optional: absent means the severity of the stint's :primaryRule (:ruleSeverity; the superseded design-history rules carry none). Added 2026-10-03 (T-102)." ;
     rdfs:domain :Veto ;
     rdfs:range xsd:string .
 
@@ -1194,7 +1194,7 @@
 :maxSectorWeight a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :AttractivenessWeightScheme ; rdfs:range xsd:decimal ;
     rdfs:comment "PROPOSED (T-121). Upstream max_sector_weight verbatim. Assumed a fraction of the book (hence [0, 1]) until upstream states its unit." .
 :softVetoPenalty a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :AttractivenessWeightScheme ; rdfs:range xsd:decimal ;
-    rdfs:comment "PROPOSED (T-121). Upstream soft_veto_penalty, in blended_score points (15 by default), verbatim; charged once per active SOFT stint of a rule that declares no :penaltyPoints (T-189)." .
+    rdfs:comment "PROPOSED (T-121). Upstream soft_veto_penalty, in blended_score points (15 by default), verbatim; charged once per active SOFT stint whose rule declares no :penaltyPoints, a HARD rule's SOFT stint included (our assumption, not yet confirmed: T-189)." .
 :AttractivenessWeightSchemeProposedShape a sh:NodeShape ;
     sh:targetClass :AttractivenessWeightScheme ;
     sh:property [ sh:path :bookWeightingRule ; sh:datatype xsd:string ; sh:maxCount 1 ] ;

@@ -609,7 +609,7 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       **On sending** *(done: sent 2026-10-11; no cut-off date needed, since the reply came the same day; `SPEC.md`
       §2.6 now says "Asked on 2026-10-11")*.
       -> `PLAN.md` Work item 15.
-- [ ] **T-191** *(the answers to T-184's letter; asks (1) to (5) answered and recorded in `SPEC.md` §2.6 (seventh reply, 2026-10-11); open only for asks (6) and (7), which were not in the letter)* When
+- [ ] **T-191** *(the answers to T-184's letter; asks (1) to (5) answered and recorded in `SPEC.md` §2.6 (seventh reply, 2026-10-11); open only for asks (6), (7) and (8), which were not in the letter)* When
       the reply comes, record it in `SPEC.md` §2.6 as the seventh reply and tick each ask below as it is
       answered; a partial reply ticks the asks it answers and leaves the rest. Answers taken from a message are
       marked as theirs, not read from their code, as the earlier replies were.
@@ -623,7 +623,7 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       of their T-145 and T-100 -> T-151, T-154, T-158.
       **No reply:** if there is none by a date the maintainer sets, the unanswered asks are listed in `SPEC.md`
       §2.6 as open, T-187 and T-188 stay deferred (Work item 15's Acceptance allows deferral) and this task is
-      closed with them listed; asks (6) and (7) below are listed open like the others. -> `PLAN.md` Work item 15.
+      closed with them listed; asks (6), (7) and (8) below are listed open like the others. -> `PLAN.md` Work item 15.
       **Ask (6), not in the letter, for the next message to them (from T-185):** does upstream set `last_seen_on` on the
       clearing cycle, and can `cleared_on` be earlier than a recorded `last_seen_on`? The answer settles whether the
       same-day tolerance in the gate and `VetoShape` (`<=`) stays or becomes `<`.
@@ -634,6 +634,7 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       - [x] (5) T-145 and T-100 dates
       - [ ] (6) not in the letter: `last_seen_on` on the clearing cycle, and `cleared_on` against `last_seen_on` (T-185)
       - [ ] (7) not in the letter (from PR #104): did the three new rules (`VOLATILITY_SHOCK`, `CRASH_Z_SCORE`, `BREAK_TREND_200`) take effect on the same day as the redefined `LIQUIDITY_DISTRESS` (2026-10-10, `b3c7661`)? `rules.ttl` assumes so
+      - [ ] (8) not in the letter (from PR #106): what does a SOFT stint of a HARD rule cost (`LEVERAGE_EXTREME` emits SOFT for a negative-equity firm with neither escape metric, and a HARD rule has no `penalty_points`)? We assume the run's `soft_veto_penalty` (15); the seventh reply only says "every SOFT rule costs 15 unless it declares its own"
 
 - [ ] **T-187** *(from T-183 (1); code and docs landed in PR #104 (2026-10-13: `rules.ttl` holds the nine; the choices were `GraphPredicate` leaves for the three new rules, `penaltyPoints` on SOFT rules only, the sector exemption in the comment); **open: the live-store reload and the dated row in `docs/graphdb-setup.md` (the maintainer's go-ahead; `verify_store` fails until then), and `CLAUDE.md`, which still says six**; unblocked 2026-10-12: upstream's definitions, `penalty_points` and the old-stint rule are in `SPEC.md` §2.6 (seventh reply); `NEGATIVE_FCF` and the sector exemption change later in their T-071)* Add the
       three rules and the redefinition to `schema/rules.ttl`. `BREAK_TREND_200`, `VOLATILITY_SHOCK` and
