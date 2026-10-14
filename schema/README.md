@@ -127,7 +127,7 @@ what the store *enforces*.
    (observed -54 to +46), read verbatim; its 0–100 `normalized_score` stays an optional
    `normalizedScore` (T-031 rescales it). `AttractivenessSnapshotShape` drops `attractivenessScore`'s
    lower bound and keeps `maxInclusive 1.0`: upstream's `blended_score / 100` goes negative when
-   SOFT-veto penalties (15 points each) exceed the blend. The `attractivenessScore`,
+   the SOFT-veto penalties exceed the blend (the sum of the active SOFT stints' rules' `:penaltyPoints`, 15 each unless the stint's rule declares its own: T-189). The `attractivenessScore`,
    `AttractivenessWeightScheme`, `WeightComponent` and `:inverted` comments in `tbox.ttl`, the
    `SectorRelativeMomentum` comment in `reference.ttl`, `rules.ttl`'s `WeightScheme_v1` header, `docs/06`
    §1.8 (the formula is kept as design history) and the 2026-08-13 design spec no longer describe the
@@ -184,7 +184,7 @@ what the store *enforces*.
      `validFrom <= d < validTo`). Picking the definition for a stint's `:raisedOn` is not built (T-201).
    - **`:penaltyPoints`.** New, optional (`xsd:decimal`, at least 0, at most one), on SOFT rules only. A shape refuses it on a
      HARD rule (upstream's is null, so no triple); a SOFT rule without it is allowed and costs the run's `soft_veto_penalty`
-     (15, T-189).
+     (15, T-189). **Assumed, not confirmed (T-191 ask (8)):** a SOFT stint of a HARD rule, which has none, costs the same.
    - **Two gaps found while encoding, flagged like the earlier ones.** (a) The three new rules compare two quantities or test
      against the sector median, which no `ThresholdComparison` states, so each is a `GraphPredicate` "evaluated upstream" (a
      new use of that leaf, as `DATA_QUALITY`'s was); its `predicateName` is a label chosen here, not an upstream id. (b) The
@@ -216,6 +216,12 @@ what the store *enforces*.
      and writes `clearedOn` if the condition is gone (seventh reply, `SPEC.md` §2.6). So a reader tests `clearedOn`
      only and the active-at-cutoff SPARQL has no `expiresOn` term.
    - No new class; `AllDisjointClasses` is unchanged. **2648 quads; conforms: True.**
+
+   **T-189 (2026-10-14: the SOFT penalty's identity).** Comments and docs only. The penalty is the sum of the active SOFT
+   stints' rules' `:penaltyPoints`; a SOFT stint whose rule has none costs the run's `soft_veto_penalty` (15), never 0. That includes a
+   SOFT stint of a HARD rule (`LEVERAGE_EXTREME` emits one for a negative-equity firm): our assumption, not confirmed by
+   upstream (T-191 ask (8)); nothing reads the penalty yet, so a wrong guess costs a comment. Reworded in the
+   `:softVetoPenalty` and `:vetoSeverity` comments (and in `kg_target_schema.ttl`), `AttractivenessSnapshotShape`'s comment and `docs/06`. **2648 quads, unchanged.**
 
    **T-032 (Work item 4, 2026-10-12: how a restatement is written).** Comment only: `:supersededBy`'s comment in
    `tbox.ttl` now says a section is superseded once, by a new section of the same `itemLabel` declared in the same

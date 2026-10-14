@@ -609,7 +609,7 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       **On sending** *(done: sent 2026-10-11; no cut-off date needed, since the reply came the same day; `SPEC.md`
       §2.6 now says "Asked on 2026-10-11")*.
       -> `PLAN.md` Work item 15.
-- [ ] **T-191** *(the answers to T-184's letter; asks (1) to (5) answered and recorded in `SPEC.md` §2.6 (seventh reply, 2026-10-11); open only for asks (6) and (7), which were not in the letter)* When
+- [ ] **T-191** *(the answers to T-184's letter; asks (1) to (5) answered and recorded in `SPEC.md` §2.6 (seventh reply, 2026-10-11); open only for asks (6), (7) and (8), which were not in the letter)* When
       the reply comes, record it in `SPEC.md` §2.6 as the seventh reply and tick each ask below as it is
       answered; a partial reply ticks the asks it answers and leaves the rest. Answers taken from a message are
       marked as theirs, not read from their code, as the earlier replies were.
@@ -623,7 +623,7 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       of their T-145 and T-100 -> T-151, T-154, T-158.
       **No reply:** if there is none by a date the maintainer sets, the unanswered asks are listed in `SPEC.md`
       §2.6 as open, T-187 and T-188 stay deferred (Work item 15's Acceptance allows deferral) and this task is
-      closed with them listed; asks (6) and (7) below are listed open like the others. -> `PLAN.md` Work item 15.
+      closed with them listed; asks (6), (7) and (8) below are listed open like the others. -> `PLAN.md` Work item 15.
       **Ask (6), not in the letter, for the next message to them (from T-185):** does upstream set `last_seen_on` on the
       clearing cycle, and can `cleared_on` be earlier than a recorded `last_seen_on`? The answer settles whether the
       same-day tolerance in the gate and `VetoShape` (`<=`) stays or becomes `<`.
@@ -634,6 +634,7 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       - [x] (5) T-145 and T-100 dates
       - [ ] (6) not in the letter: `last_seen_on` on the clearing cycle, and `cleared_on` against `last_seen_on` (T-185)
       - [ ] (7) not in the letter (from PR #104): did the three new rules (`VOLATILITY_SHOCK`, `CRASH_Z_SCORE`, `BREAK_TREND_200`) take effect on the same day as the redefined `LIQUIDITY_DISTRESS` (2026-10-10, `b3c7661`)? `rules.ttl` assumes so
+      - [ ] (8) not in the letter (from T-189, PR #106): what does a SOFT stint of a HARD rule cost (upstream's seventh reply says "`penalty_points` applies only to SOFT rules (HARD rules exclude the asset, so theirs is null)", and a HARD rule can still emit a SOFT stint (`LEVERAGE_EXTREME` emits SOFT for a negative-equity firm when neither `net_debt_to_ebitda` nor `interest_coverage` is available: `rules.ttl`, `Rule_LEVERAGE_EXTREME`'s comment, "routes a negative-equity firm with neither metric to SOFT review"; and a HARD rule has no `penalty_points`)? We assume the run's `soft_veto_penalty` (15); the seventh reply only says "every SOFT rule costs 15 unless it declares its own"
 
 - [ ] **T-187** *(from T-183 (1); code and docs landed in PR #104 (2026-10-13: `rules.ttl` holds the nine; the choices were `GraphPredicate` leaves for the three new rules, `penaltyPoints` on SOFT rules only, the sector exemption in the comment); **open: the live-store reload and the dated row in `docs/graphdb-setup.md` (the maintainer's go-ahead; `verify_store` fails until then), and `CLAUDE.md`, which still says six**; unblocked 2026-10-12: upstream's definitions, `penalty_points` and the old-stint rule are in `SPEC.md` §2.6 (seventh reply); `NEGATIVE_FCF` and the sector exemption change later in their T-071)* Add the
       three rules and the redefinition to `schema/rules.ttl`. `BREAK_TREND_200`, `VOLATILITY_SHOCK` and
@@ -685,7 +686,7 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       tests `cleared_on` only; say so in `tbox.ttl`'s comment. When it lands, the live store is reloaded from `schema/` (the maintainer's go-ahead; the check in T-176 compares each graph's size with `schema/`) and a dated row goes in `docs/graphdb-setup.md`, as T-179 did. The active-at-cutoff SPARQL (D3) does not gain an `expiresOn` test, since upstream says the date
       never closes a stint by itself. Synthetic cases (before `raisedOn` fails; absent passes). Follow T-185's decision (the maintainer's, 2026-10-11, PR #94), which put the same check in `VetoShape` (for a Veto declared with the date) and in the gate (for a stored Veto closed later). `expiresOn` is set when the Veto is declared, not by a later triple, so the shape is the one that applies; the gate does not apply, since the date never closes a stint by itself. A `feat/` PR.
       -> `PLAN.md` Work item 15.
-- [ ] **T-189** *(from T-183 (4); T-187's `penaltyPoints` landed in PR #104, so this is unblocked; T-187's store reload does not block it)* Read the SOFT penalty as the sum of the active SOFT stints' rules'
+- [x] **T-189** *(from T-183 (4); done 2026-10-14, docs and comments only, no quad change (2648): the reading is stated in `tbox.ttl` (`:softVetoPenalty`, `:vetoSeverity`), `shapes.ttl` (`AttractivenessSnapshotShape` comment), `schema/README.md`, `docs/06`, `kg_target_schema.ttl`, SPEC D3/D13 and PLAN; it files T-191 ask (8), the HARD rule's SOFT stint, which is our assumption; the text below is the original task)* Read the SOFT penalty as the sum of the active SOFT stints' rules'
       `penalty_points` (T-155's note already says so, from T-183); the projector derives no pre-penalty score. A SOFT rule with no `:penaltyPoints` counts the run's
       `soft_veto_penalty` (15), as upstream does ("every SOFT rule costs 15 unless it declares its own"; only
       `BREAK_TREND_200` does, with 0), never 0, so a rule added later without the property is not silently free.
@@ -814,7 +815,7 @@ Work item 15 (T-150–T-159, T-170–T-173, T-177–T-178, T-182–T-184, T-187�
 T-151's rule recorded (PR #60), its checks waiting on T-031/T-163; T-158's
 ownership question (before their T-141) is unblocked; the rest of T-152–T-158 waits on upstream's
 T-144 (views), T-145 (ids), T-074 (flags) and, after their T-100, their T-082 and their Work item 4.
-Work item 15, from the sixth reply: T-182 (the analysis run's year bounds read as filing years) is done; T-183 (the decisions on version 11's content) is done, with T-187 (the rules and `penaltyPoints`), T-188 (`expiresOn`), T-189 (the penalty identity) and T-190 (the three-component scheme) filed, T-190 done 2026-10-12; T-184 (the next letter to upstream) was sent on 2026-10-11 and answered the same day (the seventh reply, recorded by T-191 asks (1) to (5), T-187 and T-188 unblocked; ask (6) is still to ask).
+Work item 15, from the sixth reply: T-182 (the analysis run's year bounds read as filing years) is done; T-183 (the decisions on version 11's content) is done, with T-187 (the rules and `penaltyPoints`), T-188 (`expiresOn`), T-189 (the penalty identity) and T-190 (the three-component scheme) filed, T-190 done 2026-10-12 and T-189 done 2026-10-14 (PR #106); T-184 (the next letter to upstream) was sent on 2026-10-11 and answered the same day (the seventh reply, recorded by T-191 asks (1) to (5), T-187 and T-188 unblocked; ask (6) is still to ask).
 Work item 16 (T-160–T-165, T-192): T-160 done (plain checks, quarantine-with-cap), T-161 closed with it (no dependency) and T-162 done (JSON files per view, strict loader);
 Work item 17 (T-196–T-200): open; replaces the cancelled T-195.
 T-163 (function done, PR #68) closes with T-031, whose first slice (PR #72) calls it on the real read and re-reads the late keys for `v_score_snapshot`; T-164 done (PR #69).

@@ -180,7 +180,7 @@
     sh:property [ sh:path :hasClause ; sh:minCount 1 ; sh:maxCount 1 ] ;
     sh:property [ sh:path :priorityRank ; sh:datatype xsd:integer ; sh:minInclusive 1 ; sh:maxInclusive 9 ] ;
     sh:property [ sh:path :ruleId ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ] ;
-    # T-187: upstream's penalty_points, SOFT rules only; at least 0. A HARD rule excludes the asset, so it has none.
+    # T-187: upstream's penalty_points, SOFT rules only; at least 0. A HARD rule excludes the asset, so it has none; a HARD rule's SOFT stint is charged the run's soft_veto_penalty (assumed, T-191 ask 8).
     sh:property [ sh:path :penaltyPoints ; sh:datatype xsd:decimal ; sh:minInclusive 0.0 ; sh:maxCount 1 ] ;
     sh:not [ a sh:NodeShape ;
              sh:property [ sh:path :ruleSeverity ; sh:hasValue "HARD" ] ;
@@ -272,7 +272,7 @@
     a sh:NodeShape ;
     sh:targetClass :AttractivenessSnapshot ;
     sh:property [ sh:path :attractivenessOfAsset ; sh:minCount 1 ; sh:maxCount 1 ] ;
-    # T-155: no lower bound: upstream's blended_score / 100 goes negative when SOFT-veto penalties (15 points each) exceed the blend.
+    # T-155: no lower bound: upstream's blended_score / 100 goes negative when the SOFT-veto penalties exceed the blend (T-189: the sum of the active SOFT stints' rules' :penaltyPoints, 15 each unless the stint's rule declares its own).
     sh:property [ sh:path :attractivenessScore ; sh:datatype xsd:decimal ; sh:maxInclusive 1.0 ; sh:minCount 1 ; sh:maxCount 1 ] ;
     sh:property [ sh:path :computedAt ; sh:datatype xsd:dateTime ; sh:minCount 1 ; sh:maxCount 1 ] ;
     sh:property [ sh:path :computedWithScheme ; sh:minCount 1 ; sh:maxCount 1 ] .

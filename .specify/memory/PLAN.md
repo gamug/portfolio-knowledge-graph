@@ -643,7 +643,7 @@ to fit:
   34 of 40 production rows fall outside the [-1, 1] that `ScoreSnapshotShape` requires of
   `SectorRelativeMomentum` (T-140). SECTOR rows also carry a 0-100 `normalized_score`.
 - **`blended_score` can be negative:** the weighted mean of the normalized components (0-100, higher
-  = more attractive) minus `soft_veto_penalty` (15 by default) per active SOFT veto. An asset with
+  = more attractive) minus, per active SOFT stint, its rule's `penalty_points` (or `soft_veto_penalty`, 15 by default, if the rule declares none, a HARD rule's SOFT stint included: assumed, T-189). An asset with
   no component gets 0.0, not NULL. A ÷100 breaks `attractivenessScore`'s [0, 1].
 - **Only FUNDAMENTAL rows have `available_at`;** it is NULL on every TECHNICAL, VALORIZATION and
   SECTOR row, which `ScoreSnapshotShape` rejects. Their T-144 fills it *in the view* with the cycle date
@@ -877,8 +877,7 @@ step 2; no doc or schema comment describes the attractiveness blend as computed 
 no shape rejects a value upstream documents as valid (the SECTOR `raw_value` range, a negative
 `blended_score`), checked with synthetic rows at those bounds, and a filing with no current metric
 row fails no shape; T-187 to T-190 (version 11's content, decided in T-183; T-187's code is PR #104 and T-188's is PR #105, their store reload is pending, once for both; T-201 picks the rule by `raisedOn`, T-203 lets the gate take a moved `expiresOn`, T-202 waits on upstream's T-071) are built or explicitly
-deferred: the new rules with `penaltyPoints`, `Veto` `expiresOn`, the penalty identity in the docs, and
-the three-component scheme test (T-190, done 2026-10-12; the five price columns wait for a consumer, T-183 (3)); T-191 has recorded upstream's answers to the T-184 letter (the seventh reply, 2026-10-11: asks (1) to (5) answered; asks (6) and (7), not in the letter, are open), so T-187 and T-188 are unblocked.
+deferred: the three-component scheme test (T-190, done 2026-10-12; the new rules with `penaltyPoints` are PR #104, `Veto` `expiresOn` is PR #105 and the penalty identity in the docs is T-189, PR #106, done 2026-10-14; the five price columns wait for a consumer, T-183 (3)); T-191 has recorded upstream's answers to the T-184 letter (the seventh reply, 2026-10-11: asks (1) to (5) answered; asks (6), (7) and (8), not in the letter, are open), so T-187 and T-188 are unblocked.
 
 **Blocked on**: nothing for T-150, T-170, T-151's rule, T-155's formula removal, T-171's
 `normalizedScore` drop, the shape corrections of step 3 (SECTOR range, `attractivenessScore`

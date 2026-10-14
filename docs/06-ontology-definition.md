@@ -318,7 +318,7 @@ raw value.
 **Addendum (T-187, 2026-10-13) — nine rules.** Upstream's catalog now has nine (`VOLATILITY_SHOCK`, `CRASH_Z_SCORE` and
 `BREAK_TREND_200` are new; `LIQUIDITY_DISTRESS` is redefined as a tree, the old definition kept closed with
 `validTo 2026-10-10`; `SPEC.md` §2.6, seventh reply). `RuleDefinition` takes an optional `:penaltyPoints` (SOFT rules
-only), the three new rules are `GraphPredicate` leaves evaluated upstream, and `LIQUIDITY_DISTRESS`'s sector exemption is
+only; a SOFT stint whose rule has none, a HARD rule's included, costs the run's `soft_veto_penalty`, the HARD-rule case assumed: T-191 ask (8)), the three new rules are `GraphPredicate` leaves evaluated upstream, and `LIQUIDITY_DISTRESS`'s sector exemption is
 in its comment. Detail: `schema/README.md`.
 
 **Addendum — implementation surfaced a gap in this section.** Encoding all 6 rules from v1's
@@ -402,7 +402,7 @@ disjoint leaf types) and `shapes.ttl` to 14 shapes (§1.6):
 - **`AttractivenessSnapshot`** — the Orchestrator's computed ranking output for one `Asset` in one
   cycle: the positive counterpart to `Veto` (v1 modeled exclusion only). Closes part of critique
   #2/evolution layer B3's ranking half, not the position-sizing half. Carries `attractivenessScore`
-  (functional, at most `1.0`, 1 = most attractive; no lower bound since T-155, because upstream's `blended_score / 100` goes negative when SOFT-veto penalties exceed the blend), `computedAt`, and an audit-trail pointer
+  (functional, at most `1.0`, 1 = most attractive; no lower bound since T-155, because upstream's `blended_score / 100` goes negative when the SOFT-veto penalties exceed the blend; from upstream's version 11 the penalty is the sum of the active SOFT stints' rules' `penaltyPoints`, 15 each unless the stint's rule declares its own, a HARD rule's SOFT stint included: assumed, T-189), `computedAt`, and an audit-trail pointer
   `computedWithScheme` back to the `AttractivenessWeightScheme` that produced it — the same role
   `appliesRule`/`primaryRule` play for `Veto`. No stored rank field: rank is relative to whatever
   comparison set a query defines, so it is always a query-time `ORDER BY attractivenessScore`,
