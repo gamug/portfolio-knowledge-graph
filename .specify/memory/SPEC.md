@@ -725,7 +725,7 @@ flowchart TB
     FIN["fin-analysis v_* views<br/>(contract pinned, not yet read)"]
     NLPRES["portfolio-nlp RESULTS store<br/>article_sentiment / article_category<br/>(READ TODAY, via news_export)"]
     ETL["src/etl/ -- step 2 shortcut, PARTIAL<br/>cli/build_data_ttl.py<br/>flat data.ttl, not partitioned"]
-    REASON["OWL RL reasoner<br/>rdfsplus-optimized ruleset configured<br/>profile check pending (Work item 6)"]
+    REASON["OWL RL reasoner<br/>rdfsplus-optimized ruleset configured<br/>profile confirmed (T-050)"]
     SPARQL["SPARQL surface<br/>NOT BUILT"]
     AGENTS["cycle orchestration -- NOT THIS REPO<br/>fin-analysis `cycle select` / `cycle monitor`<br/>(doc 08 LangGraph design: reference only)"]
 
@@ -742,7 +742,7 @@ flowchart TB
 SHACL gate → reasoner → SPARQL → agents) is the *target* architecture from
 `07`/`08`. `schema/`, the store, its named graphs and the SHACL gate are built
 (Work item 3; only the worked example is loaded), the reasoner's ruleset is
-configured but its profile is unchecked and the SPARQL surface is unbuilt
+configured and its profile confirmed against `07` (T-050), and the SPARQL surface is unbuilt
 (Work item 6). The real projection (`src/projection/`) has its read contract
 pinned and drift-checked (T-030) but writes nothing yet (T-031). The `src/etl/`
 shortcut at the bottom is what actually populates data today: it reads `portfolio-nlp`'s RESULTS store directly
