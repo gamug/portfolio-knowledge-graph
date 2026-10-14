@@ -272,7 +272,7 @@
     a sh:NodeShape ;
     sh:targetClass :AttractivenessSnapshot ;
     sh:property [ sh:path :attractivenessOfAsset ; sh:minCount 1 ; sh:maxCount 1 ] ;
-    # T-155: no lower bound: upstream's blended_score / 100 goes negative when SOFT-veto penalties (15 points each) exceed the blend.
+    # T-155: no lower bound: upstream's blended_score / 100 goes negative when the SOFT-veto penalties exceed the blend (T-189: the sum of the active SOFT stints' rules' :penaltyPoints, 15 each unless a rule declares its own).
     sh:property [ sh:path :attractivenessScore ; sh:datatype xsd:decimal ; sh:maxInclusive 1.0 ; sh:minCount 1 ; sh:maxCount 1 ] ;
     sh:property [ sh:path :computedAt ; sh:datatype xsd:dateTime ; sh:minCount 1 ; sh:maxCount 1 ] ;
     sh:property [ sh:path :computedWithScheme ; sh:minCount 1 ; sh:maxCount 1 ] .

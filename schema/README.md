@@ -127,7 +127,7 @@ what the store *enforces*.
    (observed -54 to +46), read verbatim; its 0–100 `normalized_score` stays an optional
    `normalizedScore` (T-031 rescales it). `AttractivenessSnapshotShape` drops `attractivenessScore`'s
    lower bound and keeps `maxInclusive 1.0`: upstream's `blended_score / 100` goes negative when
-   SOFT-veto penalties (15 points each) exceed the blend. The `attractivenessScore`,
+   the SOFT-veto penalties exceed the blend (the sum of the active SOFT stints' rules' `:penaltyPoints`, 15 each unless a rule declares its own: T-189). The `attractivenessScore`,
    `AttractivenessWeightScheme`, `WeightComponent` and `:inverted` comments in `tbox.ttl`, the
    `SectorRelativeMomentum` comment in `reference.ttl`, `rules.ttl`'s `WeightScheme_v1` header, `docs/06`
    §1.8 (the formula is kept as design history) and the 2026-08-13 design spec no longer describe the
