@@ -318,7 +318,7 @@ raw value.
 **Addendum (T-187, 2026-10-13) — nine rules.** Upstream's catalog now has nine (`VOLATILITY_SHOCK`, `CRASH_Z_SCORE` and
 `BREAK_TREND_200` are new; `LIQUIDITY_DISTRESS` is redefined as a tree, the old definition kept closed with
 `validTo 2026-10-10`; `SPEC.md` §2.6, seventh reply). `RuleDefinition` takes an optional `:penaltyPoints` (SOFT rules
-only), the three new rules are `GraphPredicate` leaves evaluated upstream, and `LIQUIDITY_DISTRESS`'s sector exemption is
+only; a SOFT stint whose rule has none, a HARD rule's included, costs the run's `soft_veto_penalty`, the HARD-rule case assumed: T-191 ask (8)), the three new rules are `GraphPredicate` leaves evaluated upstream, and `LIQUIDITY_DISTRESS`'s sector exemption is
 in its comment. Detail: `schema/README.md`.
 
 **Addendum — implementation surfaced a gap in this section.** Encoding all 6 rules from v1's

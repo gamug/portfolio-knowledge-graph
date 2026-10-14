@@ -184,7 +184,7 @@ what the store *enforces*.
      `validFrom <= d < validTo`). Picking the definition for a stint's `:raisedOn` is not built (T-201).
    - **`:penaltyPoints`.** New, optional (`xsd:decimal`, at least 0, at most one), on SOFT rules only. A shape refuses it on a
      HARD rule (upstream's is null, so no triple); a SOFT rule without it is allowed and costs the run's `soft_veto_penalty`
-     (15, T-189); so does a SOFT stint of a HARD rule, which has none (assumed, T-191 ask (8)).
+     (15, T-189). **Assumed, not confirmed (T-191 ask (8)):** a SOFT stint of a HARD rule, which has none, costs the same.
    - **Two gaps found while encoding, flagged like the earlier ones.** (a) The three new rules compare two quantities or test
      against the sector median, which no `ThresholdComparison` states, so each is a `GraphPredicate` "evaluated upstream" (a
      new use of that leaf, as `DATA_QUALITY`'s was); its `predicateName` is a label chosen here, not an upstream id. (b) The
