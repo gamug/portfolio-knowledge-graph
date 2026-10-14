@@ -260,7 +260,8 @@
                 sh:path :validTo ] [ sh:minCount 1 ;
                 sh:path :ruleSeverity ] ) ;
     # CHANGED (T-187): a HARD rule excludes the asset, so it carries no penaltyPoints. Needs no action from upstream:
-    # their penalty_points is already null on HARD rules and the rank is ours.
+    # their penalty_points is already null on HARD rules and the rank is ours. A HARD rule's SOFT stint is charged the
+    # run's soft_veto_penalty (our assumption, not yet confirmed: T-189).
     sh:not [ a sh:NodeShape ;
             sh:property [ sh:hasValue "HARD" ;
                     sh:path :ruleSeverity ],
