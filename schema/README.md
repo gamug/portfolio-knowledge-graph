@@ -217,6 +217,10 @@ what the store *enforces*.
      only and the active-at-cutoff SPARQL has no `expiresOn` term.
    - No new class; `AllDisjointClasses` is unchanged. **2648 quads; conforms: True.**
 
+   **T-189 (2026-10-14: the SOFT penalty's identity).** Comments and docs only. The penalty is the sum of the active SOFT
+   stints' rules' `:penaltyPoints`; a SOFT rule without it costs the run's `soft_veto_penalty` (15), never 0. Reworded in
+   the `:softVetoPenalty` and `:vetoSeverity` comments, `AttractivenessSnapshotShape`'s comment and `docs/06`. **2648 quads, unchanged.**
+
    **T-032 (Work item 4, 2026-10-12: how a restatement is written).** Comment only: `:supersededBy`'s comment in
    `tbox.ttl` now says a section is superseded once, by a new section of the same `itemLabel` declared in the same
    batch (the ingest gate's check 8), and that the sections not superseded are the current ones. No shape or
