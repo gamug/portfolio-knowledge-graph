@@ -686,8 +686,14 @@ stock. Summary for traceability:
 - **Storage (ETL only)**: SQLite, two-tier SOURCE (`urls.db`)/RESULTS
   (`nlp.db`), accessed exclusively through
   `portfolio_common.news_export.connect_readonly`/`fetch_processed_articles`
-  (git-tag-pinned `portfolio-common @ v1.2.1`) — no raw `sqlite3` anywhere in
-  `src`/`cli` (NR-002).
+  (git-tag-pinned `portfolio-common @ v1.2.2`) — no raw `sqlite3` anywhere in
+  `src`/`cli` (NR-002). (`v1.2.2`, 2026-10-16: fixes `Database.attach(read_only=True)`'s
+  stale-WAL preflight to reject only an orphaned WAL, not a live writer's —
+  this repo's `connect_readonly` genuinely goes through `attach()` to read
+  `urls.db`, so it hit the production bug this fixes, unlike
+  `portfolio-financial-analysis`'s bare `connect(read_only=True)` read path.
+  Confirmed by `tests/test_news_to_rdf.py::test_stream_news_reads_through_a_live_writers_wal`,
+  which fails on `v1.2.1` and passes on `v1.2.2`.)
 
 Architecture decisions this repo has already made and should not be
 re-litigated without a constitution amendment:
@@ -933,7 +939,7 @@ There is no CD pipeline and no CI workflow for this repo
   that shared join's shape; a `portfolio-nlp` schema change could silently
   break the ETL (§13).
 - **Upstream (library)**: `portfolio-common`, git-tag-pinned in
-  `pyproject.toml` (`[tool.uv.sources]`, currently `v1.2.1`) — a DB-engine or
+  `pyproject.toml` (`[tool.uv.sources]`, currently `v1.2.2`) — a DB-engine or
   `news_export` contract change here is an explicit, reviewed re-pin, never
   a floating version.
 - **Upstream (data, read-only, designed — not yet read)**:
