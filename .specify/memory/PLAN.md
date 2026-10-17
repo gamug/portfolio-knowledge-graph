@@ -339,7 +339,7 @@ neither the reasoner nor a query surface exists today.
 - Subclass-transitivity inference (e.g. a sector roll-up) is confirmed
   working without a property-chain inference the design explicitly excludes.
 
-**Blocked on**: Work items 3 and 4.
+**Blocked on**: Work item 4 for T-051–T-053 (Work item 3 is closed). T-050 is done (2026-10-14): the store's native `rdfsplus-optimized` ruleset is the `07` profile, so no external reasoner is wired.
 
 ## Work item 7 — ~~Decide and build the orchestrator~~ (DECIDED: delegate, nothing to build here)
 
