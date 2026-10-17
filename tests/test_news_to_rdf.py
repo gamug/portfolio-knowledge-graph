@@ -75,8 +75,11 @@ def _seed_source_article(
 
 
 def _seed_results_row(conn: sqlite3.Connection, id: int) -> None:
-    # Low negative/score on purpose: keeps `creation_gate` closed so this test's
-    # counts stay simple (no RiskEvent branch to also account for).
+    # label='other' on purpose: it isn't a key in CATEGORY_BUCKET, so
+    # winning_category_and_score() returns bucket=None and _process_row's
+    # `bucket is not None and creation_gate(...)` short-circuits before
+    # creation_gate ever runs -- keeps this test's counts simple (no
+    # RiskEvent branch to also account for).
     conn.execute(
         "INSERT INTO article_sentiment (article_id, label, score, positive, negative, "
         "neutral, model_name, processed_at) VALUES (?, 'neutral', 0.5, 0.3, 0.1, 0.6, "

@@ -1105,7 +1105,9 @@ seeing the writer's just-committed row rather than a stale snapshot.
   consistency bump; the Portfolio Thesis system-wide overview's hero pill, build-state table
   (`portfolio-common` row and this repo's row) and footer changelog updated the same way — this was
   every consumer repo's last unchecked pin, so the Thesis table no longer says any repo's pin is
-  unverified.
+  unverified. (Round 2 of this PR's review: the Knowledge Graph artifact's hero pill and two body
+  mentions of "734 hermetic tests" were stale after this PR's own new test — fixed to 735 in the
+  hero pill, the "What exists today" bullet and the "Validation has two layers" bullet.)
 
 ## Sequencing
 
