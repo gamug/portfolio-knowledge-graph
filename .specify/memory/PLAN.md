@@ -1066,6 +1066,46 @@ data); `verify_store` passes for each new repository; `uv run pytest` passes.
 settings vary between automations, whether source data is copied or shared, one upstream file per
 automation or an `automation_id` column, and what clone copies. Steps 2–4 wait on it; step 5 is a decision that may end in "no".
 
+## Work item 18 — Upstream: `portfolio-common` re-pin `v1.2.1` → `v1.2.2` fixes a real read-blocking bug here (T-204)
+
+**Why**: unlike `portfolio-financial-analysis` (whose own `urls.db` read path is a bare
+`Database.connect(read_only=True)`, never exposed to the bug), this repo's `src/etl/news_to_rdf.py`
+reads `urls.db` through `portfolio_common.news_export.connect_readonly`, which ATTACHes it read-only
+via `TwoTierDatabase.attach_readonly` → `Database.attach(read_only=True)` — the exact function whose
+stale-WAL preflight was too broad before `portfolio-common` v1.2.2 (it rejected *any* non-empty `-wal`
+sidecar, not only a genuinely orphaned one). Run this repo's ETL step while `portfolio-data-mining`'s
+collector holds `urls.db` open in WAL mode (its ordinary running state) and the old preflight raised
+for as long as the collector kept running — the same production bug that blocked `portfolio-nlp`'s
+`attach_source()`, tracked in `portfolio-common`'s CHANGELOG `v1.2.2` entry
+([PR #16](https://github.com/gamug/portfolio-common/pull/16)).
+
+**Demonstrated empirically, not just reasoned about**: `tests/test_news_to_rdf.py::test_stream_news_reads_through_a_live_writers_wal`
+holds a real writer open on a WAL-mode SOURCE db and calls `stream_news` through it — confirmed to
+fail with the preflight's `RuntimeError` against the old `v1.2.1` pin, and to pass against `v1.2.2`,
+seeing the writer's just-committed row rather than a stale snapshot.
+
+**Acceptance criteria** (all verified met, T-204):
+
+- ✅ `pyproject.toml`'s `portfolio-common` source pins `tag = "v1.2.2"`; `uv.lock` diff scoped to
+  exactly the `portfolio-common` version/source lines.
+- ✅ `tests/test_news_to_rdf.py` (new) proves the fix: fails pre-bump, passes post-bump.
+- ✅ `uv run pytest -m "not integration"`: 723 passed (722 baseline + the new test). The 13 failures
+  in `test_score_snapshots.py` (`PermissionError: WinError 32`, a Windows tmp-file-cleanup race) are
+  confirmed identical against the old `v1.2.1` pin via `git stash`/`git stash pop` — pre-existing,
+  unrelated to this bump.
+- ✅ `uv run ruff check .`: 26 pre-existing errors, confirmed identical via `git stash`; `tests/test_news_to_rdf.py`
+  and `pyproject.toml` are themselves clean.
+- ✅ `uv run mypy --config-file=.code_quality/mypy.ini`: no issues in 56 source files.
+- ✅ `SPEC.md`'s storage bullet and upstream-library bullet, and `constitution.md`'s storage clause,
+  updated from "currently `v1.2.1`"/`tag v1.2.1` to `v1.2.2` — "Claude Code / coding-agent
+  conduct" item 6 reconciliation for this item.
+- ✅ Both architecture artifacts updated: the Portfolio Knowledge Graph artifact's "Other useful
+  details" bullet and footer changelog now say `v1.2.2` and explain this is a real fix, not a
+  consistency bump; the Portfolio Thesis system-wide overview's hero pill, build-state table
+  (`portfolio-common` row and this repo's row) and footer changelog updated the same way — this was
+  every consumer repo's last unchecked pin, so the Thesis table no longer says any repo's pin is
+  unverified.
+
 ## Sequencing
 
 ```

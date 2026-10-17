@@ -50,7 +50,14 @@ package = false
 # local work against a checkout next to this repo, override with an editable
 # path source:
 #   portfolio-common = { path = "../portfolio-common", editable = true }
-portfolio-common = { git = "https://github.com/gamug/portfolio-common", tag = "v1.2.1" }
+# v1.2.2 fixes Database.attach(read_only=True) raising for as long as a
+# writer has a WAL database open -- this repo's own src/etl/news_to_rdf.py
+# attaches urls.db read-only via portfolio_common.news_export.connect_readonly
+# (TwoTierDatabase.attach_readonly), so it genuinely hit this bug, unlike
+# portfolio-financial-analysis's bare Database.connect(read_only=True) read
+# path. Confirmed by tests/test_news_to_rdf.py, which fails on v1.2.1 and
+# passes on v1.2.2.
+portfolio-common = { git = "https://github.com/gamug/portfolio-common", tag = "v1.2.2" }
 
 [tool.pytest.ini_options]
 # Constitution Project structure #10: flat tests/, src/ on the path here (never via
