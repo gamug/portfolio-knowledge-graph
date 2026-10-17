@@ -22,6 +22,10 @@ dependencies = [
     # v1.2.0 makes the engine swappable in one place (v1.2.1 is additive over
     # it and changes nothing this repo calls): news_to_rdf.py annotates
     # rows with portfolio_common.db.Row (not sqlite3.Row) and names no engine.
+    # v1.2.2 is not additive-and-irrelevant like v1.2.1 was: it fixes a
+    # stale-WAL preflight bug in Database.attach(read_only=True) that
+    # connect_readonly (above) genuinely hits -- see the pin comment in
+    # [tool.uv.sources] below for the full story (T-204).
     # Pinned by tag in [tool.uv.sources] -- bump the tag there to adopt a new
     # engine/news_export contract.
     "portfolio-common",
