@@ -1089,10 +1089,11 @@ seeing the writer's just-committed row rather than a stale snapshot.
 - ✅ `pyproject.toml`'s `portfolio-common` source pins `tag = "v1.2.2"`; `uv.lock` diff scoped to
   exactly the `portfolio-common` version/source lines.
 - ✅ `tests/test_news_to_rdf.py` (new) proves the fix: fails pre-bump, passes post-bump.
-- ✅ `uv run pytest -m "not integration"`: 723 passed (722 baseline + the new test). The 13 failures
-  in `test_score_snapshots.py` (`PermissionError: WinError 32`, a Windows tmp-file-cleanup race) are
-  confirmed identical against the old `v1.2.1` pin via `git stash`/`git stash pop` — pre-existing,
-  unrelated to this bump.
+- ✅ `uv run pytest -m "not integration"`: 735 ran (734 baseline-collected + the new test), **722
+  passed, 13 failed**. The 13 failures, all in `test_score_snapshots.py`
+  (`PermissionError: WinError 32`, a Windows tmp-file-cleanup race), are confirmed identical against
+  the old `v1.2.1` pin via `git stash`/`git stash pop` — pre-existing, unrelated to this bump; the
+  new test is the only change to the pass count (baseline passing 721 + the new test's 1 = 722).
 - ✅ `uv run ruff check .`: 26 pre-existing errors, confirmed identical via `git stash`; `tests/test_news_to_rdf.py`
   and `pyproject.toml` are themselves clean.
 - ✅ `uv run mypy --config-file=.code_quality/mypy.ini`: no issues in 56 source files.
