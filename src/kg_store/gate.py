@@ -278,6 +278,8 @@ CLOSABLE: Mapping[rdflib.URIRef, Closable] = MappingProxyType(
                     _PORTFOLIO.PortfolioPosition,
                     _PORTFOLIO.RuleDefinition,
                     _PORTFOLIO.AttractivenessWeightScheme,
+                    # T-206: a TickerHistory row is a valid-time interval [validFrom, validTo).
+                    _PORTFOLIO.TickerHistory,
                 }
             ),
             _PORTFOLIO.validFrom,

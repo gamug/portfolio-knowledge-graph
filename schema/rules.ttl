@@ -3,7 +3,7 @@
 @prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
 
 #################################################################
-# Portfolio Knowledge Graph — Veto Rule Catalog (9 active upstream rules; 8 superseded definitions: the 7 original tree rules and the pre-2026-10-10 LIQUIDITY_DISTRESS)
+# Portfolio Knowledge Graph — Veto Rule Catalog (10 active selection rules + 5 GUARD rules; 8 superseded definitions: the 7 original tree rules and the pre-2026-10-10 LIQUIDITY_DISTRESS)
 #
 # Loads into named graph urn:graph:rules:catalog.
 #
@@ -76,7 +76,7 @@
     :ruleId "LEVERAGE_EXTREME" ; :category "FINANCIAL" ; :priorityRank 1 ;
     :ruleSeverity "HARD" ; :validFrom "2026-10-02"^^xsd:date ;
     :hasClause :Cmp_LEVERAGE_EXTREME_DebtToEquity ;
-    rdfs:comment "Debt/equity above the threshold. Upstream also gates negative-book-equity firms (a negative ratio) on net_debt_to_ebitda > 5.0 or interest_coverage < 1.5 (HARD), and routes a negative-equity firm with neither metric to SOFT review — evaluated upstream, not re-encoded here." .
+    rdfs:comment "Debt/equity above the threshold. Upstream also gates negative-book-equity firms (a negative ratio) on net_debt_to_ebitda > 5.0 or interest_coverage < 1.5 (HARD), and routes a negative-equity firm with neither metric to SOFT review — evaluated upstream, not re-encoded here. Exempt: financial firms (profile.financial_firm, APP-00/APP-02; handoff §5, T-071). The exemption is described here, not encoded: CategoricalComparison only tests equality and the profile is not a graph node." .
 :Cmp_LEVERAGE_EXTREME_DebtToEquity a :ThresholdComparison ;
     :metricName "leverage.debt_to_equity" ; :operator ">" ; :thresholdValue "3.0"^^xsd:decimal .
 
@@ -84,7 +84,7 @@
     :ruleId "NEGATIVE_FCF" ; :category "FINANCIAL" ; :priorityRank 2 ;
     :ruleSeverity "HARD" ; :validFrom "2026-10-02"^^xsd:date ;
     :hasClause :Cmp_NEGATIVE_FCF_Margin ;
-    rdfs:comment "Negative trailing-twelve-month free-cash-flow margin." .
+    rdfs:comment "Negative trailing-twelve-month free-cash-flow margin. Exempt: regulated utilities (D-13) and equity REITs (D-14), both via the APP-00 company profile, never a GICS sector test (handoff §5, T-071). The exemption is described here, not encoded: CategoricalComparison only tests equality and the profile is not a graph node." .
 :Cmp_NEGATIVE_FCF_Margin a :ThresholdComparison ;
     :metricName "cashflow.free_cash_flow_margin" ; :operator "<" ; :thresholdValue "0.0"^^xsd:decimal .
 
@@ -104,7 +104,7 @@
     :ruleId "LIQUIDITY_DISTRESS" ; :category "FINANCIAL" ; :priorityRank 3 ;
     :ruleSeverity "SOFT" ; :penaltyPoints "15"^^xsd:decimal ; :validFrom "2026-10-10"^^xsd:date ;
     :hasClause :Clause_LIQUIDITY_DISTRESS_v11_Root ;
-    rdfs:comment "Current ratio below 1.0 and (interest coverage below 1.5 or operating cash-flow margin below 0). NOT applied to GICS Financials or Utilities: the exemption is a test on the asset's sector, and CategoricalComparison only tests equality, so it is described here, not encoded (upstream's T-071 moves it to their company profile, so it may change again: revisit when it lands, T-202). Evaluated upstream: 'could not tell' (no current ratio, or below 1.0 with neither coverage metric) is an upstream evaluation state, the stint stays open. An older stint is re-evaluated by the first run with the new code (it keeps its :raisedOn and :primaryRule; it closes, stays open with a later :lastSeenOn, or stays open as 'could not tell')." .
+    rdfs:comment "Current ratio below 1.0 and (interest coverage below 1.5 or operating cash-flow margin below 0). NOT applied to financial firms or regulated utilities, both via the APP-00 company profile since T-071 (handoff §5; never a GICS sector test). The exemption is described here, not encoded: CategoricalComparison only tests equality and the profile is not a graph node. Evaluated upstream: 'could not tell' (no current ratio, or below 1.0 with neither coverage metric) is an upstream evaluation state, the stint stays open. An older stint is re-evaluated by the first run with the new code (it keeps its :raisedOn and :primaryRule; it closes, stays open with a later :lastSeenOn, or stays open as 'could not tell')." .
 :Clause_LIQUIDITY_DISTRESS_v11_Root a :RuleClause ; :clauseType "AND" ;
     :operand1 :Cmp_LIQUIDITY_DISTRESS_v11_CurrentRatio ; :operand2 :Clause_LIQUIDITY_DISTRESS_v11_Coverage .
 :Clause_LIQUIDITY_DISTRESS_v11_Coverage a :RuleClause ; :clauseType "OR" ;
@@ -169,6 +169,83 @@
     rdfs:comment "Flag only: close below 0.95 x sma_200, a comparison of two quantities computed upstream (not :PriceObservation properties). SOFT with :penaltyPoints 0, so a stint is recorded but costs nothing; the only rule that declares its own points." .
 :Pred_BREAK_TREND_200 a :GraphPredicate ; :predicateName "BelowSma200Band" ;
     rdfs:comment "A label chosen here, not an upstream identifier. Evaluated upstream: close < 0.95 * sma_200 (T-187)." .
+
+# --- T-206 (Contract v18 handoff §5, T-071): the tenth selection rule. It is HARD and applies
+# only to regulated utilities (APP-00 company profile). priorityRank 10 is ours (upstream gives no
+# order, like T-187's 7-9). validFrom 2026-11-01 is the handoff date, an ASSUMPTION to confirm with
+# upstream: neither SPEC.md §2.6 nor TASKS.md records the day T-071 landed. The profile exemption
+# is described in the comment, not encoded (CategoricalComparison only tests equality).
+:Rule_UTILITY_CASH_COVERAGE a :RuleDefinition ;
+    :ruleId "UTILITY_CASH_COVERAGE" ; :category "FINANCIAL" ; :priorityRank 10 ;
+    :ruleSeverity "HARD" ; :validFrom "2026-11-01"^^xsd:date ;
+    :hasClause :Cmp_UTILITY_CASH_COVERAGE_3y ;
+    rdfs:comment "T-071 (D-13, Moody's C13 p.7), new in the Contract v18 catalog: applies only to regulated utilities (APP-00 profile). 3-year average (OCF before working capital) / total debt below 0.05 under both ambiguous-working-capital bounds. HARD. The profile exemption is not encoded in the tree: CategoricalComparison only tests equality and the profile is not a graph node." .
+:Cmp_UTILITY_CASH_COVERAGE_3y a :ThresholdComparison ;
+    :metricName "rule_input.utility_cash_coverage_3y" ; :operator "<" ; :thresholdValue "0.05"^^xsd:decimal .
+
+#################################################################
+# GUARD DAILY PROTECTION LAYERS (T-206, Contract v18 handoff §5)
+#
+# Five RuleDefinition individuals, one per GUARD rule id, in a
+# separate section because they are NOT veto rules: they never
+# exclude an asset from the book and are never the object of a
+# Veto's :appliesRule/:primaryRule (VetoShape refuses them).
+# Each has a single GraphPredicate leaf evaluated upstream, like
+# T-187's new rules. :category "GUARD" is what RuleDefinitionShape
+# uses to accept them without :ruleSeverity, :penaltyPoints or
+# :priorityRank: they carry none of the three. :guardLayer is the
+# 1..4 protection layer. The frozen parameters and academic sources
+# live only in rdfs:comment; nothing in this repo runs them.
+# L2_NEWS is disabled in the 2022-2025 backtest because the
+# gamug/FinBERT-financial-news training pool spans 2022-2026.
+# Calibrated out-of-sample on 2019-01-02..2021-12-31 (757 NYSE
+# sessions, never touching P1-P3).
+#
+# validFrom is the start of the calibration window, not an adoption
+# date: these are backtest mechanisms, not upstream catalog rows, and
+# a GUARD alert in P1-P3 must resolve to a rule valid on its date.
+# (Assumption flagged in the PR.)
+#################################################################
+
+:Rule_L1_STOP_LOSS a :RuleDefinition ;
+    :ruleId "L1_STOP_LOSS" ; :category "GUARD" ; :guardLayer 1 ;
+    :validFrom "2019-01-02"^^xsd:date ;
+    :hasClause :Pred_L1_STOP_LOSS ;
+    rdfs:comment "GUARD layer 1, per held asset: cumulative J=5-session simple return S_i(5) < -gamma (gamma = 0.1229) cuts the weight to 0 (to CASH). Inspired by Kaminski & Lo (2014), Def. 1. Not a veto rule: no :ruleSeverity, :penaltyPoints or :priorityRank." .
+:Pred_L1_STOP_LOSS a :GraphPredicate ; :predicateName "GuardStopLoss" ;
+    rdfs:comment "A label chosen here, not an upstream identifier. Evaluated upstream: S_i(5) < -0.1229." .
+
+:Rule_L1_REENTRY a :RuleDefinition ;
+    :ruleId "L1_REENTRY" ; :category "GUARD" ; :guardLayer 1 ;
+    :validFrom "2019-01-02"^^xsd:date ;
+    :hasClause :Pred_L1_REENTRY ;
+    rdfs:comment "GUARD layer 1 re-entry: after a stop-loss cut, re-enters when the asset's 1-session return is >= delta (delta = 0.0108). Inspired by Kaminski & Lo (2014), Def. 1. Not a veto rule: no :ruleSeverity, :penaltyPoints or :priorityRank." .
+:Pred_L1_REENTRY a :GraphPredicate ; :predicateName "GuardReentry" ;
+    rdfs:comment "A label chosen here, not an upstream identifier. Evaluated upstream: 1-session return >= 0.0108." .
+
+:Rule_L2_NEWS a :RuleDefinition ;
+    :ruleId "L2_NEWS" ; :category "GUARD" ; :guardLayer 2 ;
+    :validFrom "2019-01-02"^^xsd:date ;
+    :hasClause :Pred_L2_NEWS ;
+    rdfs:comment "GUARD layer 2 (news sentiment). DISABLED (enabled = false) in the 2022-2025 backtest because nlp.db's sentiment labels come from gamug/FinBERT-financial-news, trained on 2022-2026 data, so using them in that window would be look-ahead. Inspired by Tetlock (2007) and Loughran & McDonald (2011). Not a veto rule: no :ruleSeverity, :penaltyPoints or :priorityRank." .
+:Pred_L2_NEWS a :GraphPredicate ; :predicateName "GuardNews" ;
+    rdfs:comment "A label chosen here, not an upstream identifier. Evaluated upstream; disabled in the 2022-2025 backtest (see the rule's comment)." .
+
+:Rule_L3_VOL a :RuleDefinition ;
+    :ruleId "L3_VOL" ; :category "GUARD" ; :guardLayer 3 ;
+    :validFrom "2019-01-02"^^xsd:date ;
+    :hasClause :Pred_L3_VOL ;
+    rdfs:comment "GUARD layer 3: ex-ante 21-session annualized volatility sigma_hat_21 of the reference weights held fixed; scale factor s_sigma = min(1, sigma* / sigma_hat_21) with sigma* = 0.2455. Inspired by Moreira & Muir (2017). Not a veto rule: no :ruleSeverity, :penaltyPoints or :priorityRank." .
+:Pred_L3_VOL a :GraphPredicate ; :predicateName "GuardVolatilityScale" ;
+    rdfs:comment "A label chosen here, not an upstream identifier. Evaluated upstream: s_sigma = min(1, 0.2455 / sigma_hat_21)." .
+
+:Rule_L4_DD a :RuleDefinition ;
+    :ruleId "L4_DD" ; :category "GUARD" ; :guardLayer 4 ;
+    :validFrom "2019-01-02"^^xsd:date ;
+    :hasClause :Pred_L4_DD ;
+    rdfs:comment "GUARD layer 4: portfolio NAV W_t vs the running peak M_t since formation; scale factor s_DD = clip(m (W_t - alpha M_t) / W_t, 0, 1) with alpha = 0.6073 and m = 2.5467 (m(1-alpha) = 1.0001 >= 1). Inspired by Grossman & Zhou (1993) via Yang & Zhong (2012). Combined equity scale s = min(1, s_sigma, s_DD), remainder in CASH earning daily Kenneth French RF (FF_RF_DAILY). Not a veto rule: no :ruleSeverity, :penaltyPoints or :priorityRank." .
+:Pred_L4_DD a :GraphPredicate ; :predicateName "GuardDrawdownScale" ;
+    rdfs:comment "A label chosen here, not an upstream identifier. Evaluated upstream: s_DD = clip(2.5467 (W_t - 0.6073 M_t) / W_t, 0, 1)." .
 
 #################################################################
 # SUPERSEDED — the original seven tree rules (design history)

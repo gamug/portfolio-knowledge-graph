@@ -537,6 +537,30 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       `src/projection/view_expectations/_source.json`, add the new views' expectation files, and
       update the tests and the pinned counts. This is the pin only: projectors, ontology, SHACL and
       `rules.ttl` are separate changes.
+- [x] **T-206** *(done 2026-11-01: the Contract v18 ontology half. `schema/tbox.ttl` gains the 11
+      classes for `v_ticker_history`, `v_orchestrator_run`/`v_orchestrator_step` and the eight m018
+      views (`TickerHistory`, `OrchestratorRun`, `OrchestratorStep`, `StrategyBook`, `BookRebalance`,
+      `GuardAlert`, `GuardAction`, `BookWeightDaily`, `BookDailyPerformance`,
+      `PortfolioPeriodSummary`, `BacktestTest`), placed by property shape under `TemporalRelation`,
+      `Collection`, `RiskAndDecision` and `Observation`, with the handoff §6.2 `@es` label/definition
+      and no FIBO `seeAlso`; every view column has a property, the shared ones with no `rdfs:domain`,
+      and every m018 individual carries `:knowledgeDate`. `schema/shapes.ttl` gains 11 shapes (31
+      total), with the handoff §3.3 nullable columns optional, `sh:in` for the enumerated
+      vocabularies, no sign/range on drawdown/cost/max-drawdown, and a CASH weight row that needs no
+      Asset node. `rules.ttl` gains `UTILITY_CASH_COVERAGE` (HARD, 0.05, rank 10, valid from
+      2026-11-01 — the handoff date, an assumption), records the APP-00 exemptions in comments, and
+      adds the five GUARD rules in their own section (`:category "GUARD"`, `:guardLayer`,
+      `GraphPredicate` leaves, parameters only in comments, `L2_NEWS` disabled). `RuleDefinitionShape`
+      gets a GUARD `sh:or` branch, keeps the severity requirement for other active rules and makes
+      `:priorityRank` mandatory for non-GUARD rules (range `[1,10]`); `VetoShape` refuses GUARD rules.
+      Tests: `tests/test_ontology_v18.py` (classes, @es text, properties, every nullable case,
+      synthetic non-conformant cases, rule table) plus the updated `tests/test_schema_gate.py`.
+      Docs: `06` §1.10, `07` (PROPOSED `urn:graph:derived:backtest:{backtest_run_id}`), `08`,
+      `schema/README.md`, `SPEC.md`, `PLAN.md`, `README.md`, `docs/10` and `graphdb-setup.md` counts.
+      Bundle 4159 quads, `pyshacl` conforms. Not done: projectors, pin changes, GraphDB reload,
+      `protege-view.ttl` regeneration (T-070/T-071).)* Add the Contract v18 classes, properties,
+      SHACL shapes, Spanish labels/definitions and rule catalog, with no projector or pin change.
+      → `PLAN.md` Work item 4 step 7.
 - [ ] **T-158** Replace the `ASSET_DAY_AGGREGATE` placeholder with upstream's SEMANTIC
       `score_method` value once they give it (D14; with their Work item 4, after their T-100).
       **First, raise the ownership disagreement (unblocked now; ask before their T-141 ships its

@@ -30,6 +30,7 @@
 @prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
 @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
 @prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
 
 :AssetCoOccurrenceShape a sh:NodeShape ;
@@ -258,7 +259,8 @@
 :RuleDefinitionShape a sh:NodeShape ;
     sh:or ( [ sh:minCount 1 ;
                 sh:path :validTo ] [ sh:minCount 1 ;
-                sh:path :ruleSeverity ] ) ;
+                sh:path :ruleSeverity ] [ sh:hasValue "GUARD" ;
+                sh:path :category ] ) ;
     # CHANGED (T-187): a HARD rule excludes the asset, so it carries no penaltyPoints. Needs no action from upstream:
     # their penalty_points is already null on HARD rules and the rank is ours. A HARD rule's SOFT stint is charged the
     # run's soft_veto_penalty (our assumption, not yet confirmed: T-189).
@@ -267,6 +269,18 @@
                     sh:path :ruleSeverity ],
                 [ sh:minCount 1 ;
                     sh:path :penaltyPoints ] ] ;
+    # T-206: a GUARD rule is a RuleDefinition but not a veto rule. It carries :category "GUARD" and no
+    # :ruleSeverity/:penaltyPoints/:priorityRank; every non-GUARD rule still needs a priorityRank.
+    sh:or ( [ sh:hasValue "GUARD" ;
+                sh:path :category ] [ sh:minCount 1 ;
+                sh:path :priorityRank ] ) ;
+    sh:not [ a sh:NodeShape ;
+            sh:property [ sh:hasValue "GUARD" ;
+                    sh:path :category ] ;
+            sh:or ( [ sh:minCount 1 ;
+                        sh:path :ruleSeverity ] [ sh:minCount 1 ;
+                        sh:path :penaltyPoints ] [ sh:minCount 1 ;
+                        sh:path :priorityRank ] ) ] ;
     sh:property [ sh:datatype xsd:date ;
             sh:maxCount 1 ;
             sh:minCount 1 ;
@@ -275,7 +289,8 @@
             sh:minCount 1 ;
             sh:path :hasClause ],
         [ sh:datatype xsd:integer ;
-            sh:maxInclusive 9 ;
+            sh:maxCount 1 ;
+            sh:maxInclusive 10 ;
             sh:minInclusive 1 ;
             sh:path :priorityRank ],
         # CHANGED (T-187): upstream's penalty_points, on SOFT rules only (null on HARD ones: no triple); at least 0.
@@ -289,7 +304,12 @@
             sh:path :ruleId ],
         [ sh:in ( "HARD" "SOFT" ) ;
             sh:maxCount 1 ;
-            sh:path :ruleSeverity ] ;
+            sh:path :ruleSeverity ],
+        [ sh:datatype xsd:integer ;
+            sh:maxCount 1 ;
+            sh:maxInclusive 4 ;
+            sh:minInclusive 1 ;
+            sh:path :guardLayer ] ;
     sh:targetClass :RuleDefinition .
 
 :ScoreSnapshotShape a sh:NodeShape ;
@@ -457,7 +477,14 @@
             sh:path :lastSeenOn ],
         [ sh:in ( "HARD" "SOFT" ) ;
             sh:maxCount 1 ;
-            sh:path :vetoSeverity ] ;
+            sh:path :vetoSeverity ],
+        # T-206: a GUARD rule is not a veto rule; refuse it as the object of either rule link.
+        [ sh:node [ sh:not [ sh:property [ sh:hasValue "GUARD" ;
+                                sh:path :category ] ] ] ;
+            sh:path :appliesRule ],
+        [ sh:node [ sh:not [ sh:property [ sh:hasValue "GUARD" ;
+                                sh:path :category ] ] ] ;
+            sh:path :primaryRule ] ;
     sh:targetClass :Veto .
 
 :WeightComponentShape a sh:NodeShape ;
@@ -1204,3 +1231,609 @@
     sh:property [ sh:path :maxSectorWeight ; sh:datatype xsd:decimal ; sh:minInclusive 0.0 ; sh:maxInclusive 1.0 ; sh:maxCount 1 ] ;
     sh:property [ sh:path :softVetoPenalty ; sh:datatype xsd:decimal ; sh:minInclusive 0.0 ; sh:maxCount 1 ] ;
     sh:property [ sh:path :runId ; sh:datatype xsd:string ; sh:maxCount 1 ] .
+
+
+#################################################################
+# PART 3 -- CONTRACT v18 (T-206, 2026-11-01)
+#
+# The m015/m016/m018 classes, properties and SHACL shapes, mirrored
+# from portfolio-knowledge-graph's schema/tbox.ttl and shapes.ttl.
+# PROPOSED to upstream: the eight m018 views are read-only here, so
+# these terms describe what our projection will write, not a change
+# requested from portfolio-financial-analysis. No FIBO seeAlso
+# (FIBO_INTEGRATION_BRIEF.md §2/§4.1: FIBO has no class for backtest
+# runs, strategy arms, GUARD rules, Sharpe, drawdown, turnover, costs
+# or paired tests). Spanish labels/definitions are handoff §6.2.
+#################################################################
+
+# 1.0 CONTRACT v18 CLASSES (T-206, 2026-11-01) — one class per
+# view added between v12 and v18. Backbone placement is in section
+# 1.2 below, by property shape. Spanish labels/definitions are the
+# approved handoff §6.2 text verbatim (outer « » delimiters dropped).
+# No rdfs:seeAlso to FIBO: handoff §6.1 says FIBO has no class for
+# backtest runs, strategy arms, GUARD rules, Sharpe, drawdown,
+# turnover, costs or paired statistical tests. Every m018 class
+# carries :knowledgeDate (section 3) so knowledgeDate <= D queries
+# work uniformly; the m015/m016 classes do not (their views have no
+# knowledge_date column).
+#################################################################
+
+:TickerHistory
+    a owl:Class ;
+    rdfs:label "Ticker History" ;
+    rdfs:label "historial de símbolo bursátil"@es ;
+    skos:definition "Registro histórico de cada símbolo bursátil (ticker) utilizado por una línea de emisor (identificada por su CIK en la SEC) durante un intervalo [validFrom, validTo]. Permite resolver el símbolo vigente en cada fecha histórica."@es ;
+    rdfs:comment "One row of v_ticker_history (m016): a point-in-time symbol for one CIK line over [validFrom, validTo). validTo absent means the current symbol. The optional :tickerHistoryAsset link is v_ticker_history.asset_id (LEFT JOIN on canonical_symbol); :evidenceUrl/:evidenceDate are optional here because the task's v18 shape contract keeps them optional even though the m016 DDL marks them NOT NULL." .
+
+:OrchestratorRun
+    a owl:Class ;
+    rdfs:label "Orchestrator Run" ;
+    rdfs:label "ejecución del orquestador"@es ;
+    skos:definition "Registro de una corrida del orquestador del sistema (pipeline completo o comando individual), con su identificador de seguimiento (handle), fecha de corte (as_of), estado y configuración."@es ;
+    rdfs:comment "One row of v_orchestrator_run (m015): a pipeline or single-command run with its handle, as_of, status, surface and settings. Immutable dated process record (Observation), not a metric snapshot; no knowledgeDate because the view has none. The view has 0 rows in the completed backtest databases, so its shape is exercised by synthetic cases only." .
+
+:OrchestratorStep
+    a owl:Class ;
+    rdfs:label "Orchestrator Step" ;
+    rdfs:label "paso de ejecución del orquestador"@es ;
+    skos:definition "Paso individual ejecutado dentro de una corrida del orquestador, con su orden, estado, tiempos de inicio y fin, código de salida y referencia al registro de corrida del subsistema correspondiente."@es ;
+    rdfs:comment "One row of v_orchestrator_step (m015): one step of an OrchestratorRun, keyed by (orchestrator_run_id, ordinal). Links to its run by :stepOfOrchestratorRun; :runId (when present) is the step's own run-log id written '<run table>:<id>' from run_kind. The view has 0 rows in the completed backtest databases, so its shape is exercised by synthetic cases only." .
+
+:StrategyBook
+    a owl:Class ;
+    rdfs:label "Strategy Book" ;
+    rdfs:label "libro de estrategia de backtest"@es ;
+    skos:definition "Brazo experimental de una corrida de backtest en una ventana histórica (P1, P2 o P3): MARKOWITZ_BASE (optimización de mínima varianza sobre todo el universo elegible sin selección de ciclo), TOPN_MV_NOGUARD (selección Top-30 del ciclo + mínima varianza sin GUARD) o TOPN_MV_GUARD_NO_NLP (selección Top-30 + mínima varianza con protección diaria GUARD activa)."@es ;
+    rdfs:comment "One row of v_book (m018): an experimental arm of one backtest run (the name :StrategyBook, not :BacktestBook). A named pool of holdings, so a Collection like Portfolio. The backtest run itself has no class (no v_backtest_run view); :backtestRunId is the literal link to it. :guardLayers is optional and :excludeHardVetoed is a boolean with no per-arm constraint (see their comments)." .
+
+:BookRebalance
+    a owl:Class ;
+    rdfs:label "Book Rebalance" ;
+    rdfs:label "rebalanceo programado del libro"@es ;
+    skos:definition "Rebalanceo periódico de un libro de estrategia (cada 21 sesiones de NYSE): vincula la fecha de decisión (cierre de t-1) y la fecha de ejecución (cierre de t) con el portafolio de Markowitz, el modelo de riesgo y la corrida de selección del ciclo."@es ;
+    rdfs:comment "One row of v_book_rebalance (m018): a scheduled rebalance of one StrategyBook every 21 NYSE sessions. A dated n-ary relation (book, decision/execution dates, upstream quant/cycle/risk-model ids), so a TemporalRelation. :cycleRunId is optional (NULL on MARKOWITZ_BASE); the three upstream ids are literals, not nodes in this graph." .
+
+:GuardAlert
+    a owl:Class ;
+    rdfs:label "Guard Alert" ;
+    rdfs:label "alerta diaria de GUARD"@es ;
+    skos:definition "Alerta de riesgo generada al cierre de una sesión por las capas de protección diaria GUARD: corte individual por pérdida acumulada (capa 1, L1_STOP_LOSS / L1_REENTRY), volatilidad ex-ante del portafolio (capa 3, L3_VOL) o caída acumulada desde el máximo (capa 4, L4_DD)."@es ;
+    rdfs:comment "One row of v_guard_alert (m018): a GUARD layer's daily alert, with :alertRule pointing at its GUARD RuleDefinition. A dated measurement (value/threshold/state), so an Observation. :guardAsset and :guardTicker are optional (NULL on layers 3 and 4); :alertValue is optional (NULL on layer 1); :alertThreshold and :alertState are always populated. The view has no book_id: an alert reaches a book through its :alertHasGuardAction actions, never a direct alert-to-book property." .
+
+:GuardAction
+    a owl:Class ;
+    rdfs:label "Guard Action" ;
+    rdfs:label "acción de GUARD sobre un libro"@es ;
+    skos:definition "Evaluación y efecto de una alerta de GUARD sobre un libro de estrategia para la sesión siguiente (effective_date): APPLIED (aplicada), ARM_DISABLED (registrada como contrafactual en el brazo sin GUARD), NOT_HELD (activo no mantenido en cartera) o SUPERSEDED."@es ;
+    rdfs:comment "One row of v_guard_action (m018): the effect of a GuardAlert on one StrategyBook for the next session. A decision/action record, so a RiskAndDecision leaf. :guardAsset/:guardTicker and :weightBefore/:weightAfter are optional (NULL on layer 1 asset actions and on NOT_HELD); :actionAlert and :actionOfBook are required." .
+
+:BookWeightDaily
+    a owl:Class ;
+    rdfs:label "Book Weight Daily" ;
+    rdfs:label "peso de tenencia en el libro"@es ;
+    skos:definition "Peso objetivo de un activo o de la posición en efectivo (CASH) dentro de un libro de estrategia en sus fechas de decisión y ejecución (peso objetivo de Markowitz y peso objetivo final tras GUARD)."@es ;
+    rdfs:comment "One row of v_book_weight_daily (m018): one holding's weight in one StrategyBook on one date, keyed by (book, date, holding_key). A dated measurement, so an Observation. A holding_key 'CASH' row has no :holdingAsset and must not require an Asset node; :holdingName and both target weights are optional (NULL on ordinary sessions, where the view masks them)." .
+
+:BookDailyPerformance
+    a owl:Class ;
+    rdfs:label "Book Daily Performance" ;
+    rdfs:label "desempeño diario del libro"@es ;
+    skos:definition "Serie diaria a nivel de portafolio de un libro de estrategia: retorno bruto, rotación (turnover), costo de transacción (10 bps), retorno neto, valor liquidativo (NAV), caída desde el máximo (drawdown), peso en efectivo, número de acciones y retorno del índice equiponderado interno (SP500_EW_INTERNAL)."@es ;
+    rdfs:comment "One row of v_book_daily_performance (m018): one StrategyBook's portfolio-level daily series, keyed by (book, date). A dated measurement, so an Observation. :benchmarkReturn is optional (NULL upstream). No sign or range constraint is placed on :drawdown or :costReturn: the handoff states no sign convention, even though the three completed databases hold non-negative magnitudes." .
+
+:PortfolioPeriodSummary
+    a owl:Class ;
+    rdfs:label "Portfolio Period Summary" ;
+    rdfs:label "resumen de desempeño por período"@es ;
+    skos:definition "Estadísticas consolidadas de un libro de estrategia en una ventana o subperíodo de backtest (P1, P2, P2a, P2b, P3): retorno acumulado y anualizado, volatilidad anualizada, ratio de Sharpe ex-post sobre la tasa libre de riesgo diaria (FF_RF_DAILY), máximo drawdown, rotación total, costo total en puntos básicos, número de rebalanceos y número de acciones de GUARD."@es ;
+    rdfs:comment "One row of v_portfolio_period_summary (m018): consolidated statistics of one StrategyBook over one segment (P1, P2, P2a, P2b, P3), keyed by (book, segment). A derived observation. No sign or range constraint is placed on :maxDrawdown (the handoff states no sign convention)." .
+
+:BacktestTest
+    a owl:Class ;
+    rdfs:label "Backtest Test" ;
+    rdfs:label "prueba estadística pareada de backtest"@es ;
+    skos:definition "Resultado de una prueba de hipótesis pareada entre dos brazos de estrategia en un segmento (Jobson-Korkie con corrección de Memmel, bootstrap en bloques de Ledoit-Wolf para el ratio de Sharpe y diferencia de medias diarias con errores estándar HAC de Newey-West): estadístico, valor p y número de sesiones."@es ;
+    rdfs:comment "One row of v_backtest_test (m018): a paired hypothesis test between two strategy arms in one segment, keyed by (backtest_run_id, segment, arm_a, arm_b, test). A derived observation. :armA/:armB use the same arm vocabulary as :armCode; :testName is memmel_jk | ledoit_wolf | hac_mean_diff. No BacktestRun class: :backtestRunId is the literal link." .
+
+#################################################################
+
+# T-206 (Contract v18): the 11 new classes, placed by property shape, not theme.
+# - TickerHistory and BookRebalance are dated n-ary relations carrying data (a symbol interval;
+#   a book x decision/execution date x upstream ids), so TemporalRelation, like UniverseMembership.
+# - StrategyBook is a named pool of holdings, so Collection, like Portfolio.
+# - OrchestratorRun/Step, GuardAlert, BookWeightDaily, BookDailyPerformance,
+#   PortfolioPeriodSummary and BacktestTest are immutable dated records with scalar fields and no
+#   valid-time interval, so Observation, like PriceObservation/BenchmarkObservation. OrchestratorRun
+#   and OrchestratorStep are process provenance, not metric snapshots, which is why they are plain
+#   Observation and not ObservationSnapshot.
+# - GuardAction is the effect/decision taken on a book for the next session, not a measurement,
+#   so RiskAndDecision, beside RiskEvent/Veto.
+:TickerHistory rdfs:subClassOf :TemporalRelation .
+:BookRebalance rdfs:subClassOf :TemporalRelation .
+:StrategyBook rdfs:subClassOf :Collection .
+:OrchestratorRun rdfs:subClassOf :Observation .
+:OrchestratorStep rdfs:subClassOf :Observation .
+:GuardAlert rdfs:subClassOf :Observation .
+:GuardAction rdfs:subClassOf :RiskAndDecision .
+:BookWeightDaily rdfs:subClassOf :Observation .
+:BookDailyPerformance rdfs:subClassOf :Observation .
+:PortfolioPeriodSummary rdfs:subClassOf :Observation .
+:BacktestTest rdfs:subClassOf :Observation .
+
+#################################################################
+
+# 2.1 CONTRACT v18 OBJECT PROPERTIES (T-206, 2026-11-01)
+#
+# The m018 links between new classes. Functional only where the data
+# guarantees one value: a step has one run, a rebalance one book, an
+# action one book and one alert, a weight/performance/summary row one
+# book, a ticker-history row at most one asset. The inverse is
+# declared only where a reader would traverse the other way.
+#
+# There is no BacktestRun class (no v_backtest_run view; the run log
+# stays upstream, as T-106 decided), so a book or a test links to its
+# run by the literal :backtestRunId, never by an invented node.
+# v_guard_alert has no book_id, so an alert reaches a book through
+# its :alertHasGuardAction actions; there is deliberately no direct
+# alert-to-book property.
+#################################################################
+
+:stepOfOrchestratorRun a owl:ObjectProperty, owl:FunctionalProperty ; rdfs:domain :OrchestratorStep ; rdfs:range :OrchestratorRun ;
+    owl:inverseOf :orchestratorRunHasStep ;
+    rdfs:comment "v_orchestrator_step.orchestrator_run_id, resolved to the OrchestratorRun individual. A step belongs to exactly one run." .
+:orchestratorRunHasStep a owl:ObjectProperty ; rdfs:domain :OrchestratorRun ; rdfs:range :OrchestratorStep .
+
+:tickerHistoryAsset a owl:ObjectProperty, owl:FunctionalProperty ; rdfs:domain :TickerHistory ; rdfs:range :Asset ;
+    owl:inverseOf :assetTickerHistory ;
+    rdfs:comment "Optional: v_ticker_history.asset_id (LEFT JOIN on canonical_symbol). A history row is for one CIK line, so at most one asset; a row with no matching asset simply has no link." .
+:assetTickerHistory a owl:ObjectProperty ; rdfs:domain :Asset ; rdfs:range :TickerHistory .
+
+:rebalanceOfBook a owl:ObjectProperty, owl:FunctionalProperty ; rdfs:domain :BookRebalance ; rdfs:range :StrategyBook ;
+    owl:inverseOf :bookHasRebalance .
+:bookHasRebalance a owl:ObjectProperty ; rdfs:domain :StrategyBook ; rdfs:range :BookRebalance .
+
+:actionOfBook a owl:ObjectProperty, owl:FunctionalProperty ; rdfs:domain :GuardAction ; rdfs:range :StrategyBook ;
+    owl:inverseOf :bookHasGuardAction .
+:bookHasGuardAction a owl:ObjectProperty ; rdfs:domain :StrategyBook ; rdfs:range :GuardAction .
+
+:actionAlert a owl:ObjectProperty, owl:FunctionalProperty ; rdfs:domain :GuardAction ; rdfs:range :GuardAlert ;
+    owl:inverseOf :alertHasGuardAction ;
+    rdfs:comment "v_guard_action.alert_id: the alert this action evaluates. An alert can have several actions (one per book), so the inverse is not functional." .
+:alertHasGuardAction a owl:ObjectProperty ; rdfs:domain :GuardAlert ; rdfs:range :GuardAction .
+
+:alertRule a owl:ObjectProperty, owl:FunctionalProperty ; rdfs:domain :GuardAlert ; rdfs:range :RuleDefinition ;
+    rdfs:comment "v_guard_alert.rule_id, resolved to the GUARD RuleDefinition (L1_STOP_LOSS, L1_REENTRY, L2_NEWS, L3_VOL or L4_DD). This is the only way a GUARD rule is reached from an alert; it is not a Veto :appliesRule/:primaryRule target (VetoShape refuses category GUARD)." .
+
+:guardAsset a owl:ObjectProperty, owl:FunctionalProperty ; rdfs:range :Asset ;
+    rdfs:comment "Optional on GuardAlert and GuardAction. No rdfs:domain so the two classes can share it without entailing each other (the :runId pattern). NULL on layer 3/4 portfolio-level alerts/actions; a CASH weight row uses no asset link at all." .
+
+:weightOfBook a owl:ObjectProperty, owl:FunctionalProperty ; rdfs:domain :BookWeightDaily ; rdfs:range :StrategyBook ;
+    owl:inverseOf :bookHasWeight .
+:bookHasWeight a owl:ObjectProperty ; rdfs:domain :StrategyBook ; rdfs:range :BookWeightDaily .
+:holdingAsset a owl:ObjectProperty, owl:FunctionalProperty ; rdfs:domain :BookWeightDaily ; rdfs:range :Asset ;
+    rdfs:comment "Optional: v_book_weight_daily.asset_id. A holding_key 'CASH' row has no asset link and must not require an Asset node." .
+
+:performanceOfBook a owl:ObjectProperty, owl:FunctionalProperty ; rdfs:domain :BookDailyPerformance ; rdfs:range :StrategyBook ;
+    owl:inverseOf :bookHasPerformance .
+:bookHasPerformance a owl:ObjectProperty ; rdfs:domain :StrategyBook ; rdfs:range :BookDailyPerformance .
+
+:summaryOfBook a owl:ObjectProperty, owl:FunctionalProperty ; rdfs:domain :PortfolioPeriodSummary ; rdfs:range :StrategyBook ;
+    owl:inverseOf :bookHasSummary .
+:bookHasSummary a owl:ObjectProperty ; rdfs:domain :StrategyBook ; rdfs:range :PortfolioPeriodSummary .
+
+#################################################################
+
+# 3.1 CONTRACT v18 DATATYPE PROPERTIES (T-206, 2026-11-01)
+#
+# Properties shared across classes have NO rdfs:domain, the :runId
+# pattern (T-106): a domain would RDFS-entail one new class on an
+# individual of another and clash with AllDisjointClasses. The
+# shared ones are :bookId, :backtestRunId, :armCode, :windowId,
+# :knowledgeDate, :status, :decisionDate, :guardTicker, :guardLayer,
+# :segment, :handle, :startedAt, :finishedAt and :runKind. Per-class
+# fields carry a domain.
+#
+# Nullability follows the m015/m016/m018 DDL and the handoff §3.3:
+# only columns the views guarantee non-null are required in SHACL
+# (shapes.ttl). :drawdown, :costReturn and :maxDrawdown have no sign
+# or range constraint because the handoff states no sign convention.
+#################################################################
+
+# --- shared across the m018 views (no rdfs:domain) ---
+:bookId a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:range xsd:integer ;
+    rdfs:comment "v_book.book_id and the book_id of the five other m018 views that carry it. No rdfs:domain: shared across StrategyBook, BookRebalance, GuardAction, BookWeightDaily, BookDailyPerformance and PortfolioPeriodSummary." .
+:backtestRunId a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:range xsd:integer ;
+    rdfs:comment "v_*.backtest_run_id. No rdfs:domain: shared across all eight m018 classes. There is no BacktestRun class (no v_backtest_run view), so this literal is the link from a book or a test to its run." .
+:armCode a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:range xsd:string ;
+    rdfs:comment "MARKOWITZ_BASE | TOPN_MV_NOGUARD | TOPN_MV_GUARD_NO_NLP | TOPN_MV_GUARD. No rdfs:domain: shared across StrategyBook, BookRebalance, GuardAction, BookWeightDaily, BookDailyPerformance and PortfolioPeriodSummary. SHACL sh:in." .
+:windowId a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:range xsd:string ;
+    rdfs:comment "P1 | P2 | P3. No rdfs:domain: shared across StrategyBook, GuardAlert, BookDailyPerformance, PortfolioPeriodSummary and BacktestTest. SHACL sh:in." .
+:knowledgeDate a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:range xsd:date ;
+    rdfs:comment "The date the m018 row became known (v_* knowledge_date, the view's own date or the run's created_at date). No rdfs:domain: every m018 individual carries it, so a knowledgeDate <= D query works uniformly (handoff checklist 3). It is not valid time and not a replacement for :knowledgeDate-less m015/m016 rows." .
+:status a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:range xsd:string ;
+    rdfs:comment "No rdfs:domain: shared by OrchestratorRun/OrchestratorStep, BookRebalance and GuardAction, whose vocabularies differ. Open per class; GuardActionShape closes its values to APPLIED | ARM_DISABLED | NOT_HELD | SUPERSEDED." .
+:decisionDate a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:range xsd:date ;
+    rdfs:comment "The session close at which the decision was made. No rdfs:domain: shared by BookRebalance (the close before execution_date) and GuardAction (the alert's session)." .
+:guardTicker a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:range xsd:string ;
+    rdfs:comment "Optional on GuardAlert and GuardAction (v_*.ticker). No rdfs:domain, so the two classes share it without entailment. NULL on layers 3/4." .
+:guardLayer a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:range xsd:integer ;
+    rdfs:comment "T-206: 1..4, the GUARD protection layer. No rdfs:domain: it is the alert's v_guard_alert.layer and the GUARD RuleDefinition's layer. SHACL bounds it to 1..4 on both." .
+:segment a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:range xsd:string ;
+    rdfs:comment "P1 | P2 | P2a | P2b | P3. No rdfs:domain: shared by PortfolioPeriodSummary and BacktestTest. SHACL sh:in." .
+:handle a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:range xsd:string ;
+    rdfs:comment "v_orchestrator_run.handle, the uuid4 the run endpoints return; repeated on v_orchestrator_step from the joined run. No rdfs:domain." .
+:startedAt a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:range xsd:dateTime ;
+    rdfs:comment "Start time. No rdfs:domain: OrchestratorRun and OrchestratorStep share it. Optional on a step (the DDL allows NULL)." .
+:finishedAt a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:range xsd:dateTime ;
+    rdfs:comment "Finish time, optional. No rdfs:domain: OrchestratorRun and OrchestratorStep share it." .
+:runKind a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:range xsd:string ;
+    rdfs:comment "OrchestratorRun.kind (pipeline | pricing-agent | ...) and OrchestratorStep.run_kind (pricing | analysis | cycle | quant). Open vocabulary. No rdfs:domain." .
+
+# --- OrchestratorRun / OrchestratorStep ---
+:orchestratorRunId a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :OrchestratorRun ; rdfs:range xsd:integer ;
+    rdfs:comment "v_orchestrator_run.run_id (orchestrator_run.id). The run's natural key." .
+:settingsJson a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :OrchestratorRun ; rdfs:range xsd:string ;
+    rdfs:comment "v_orchestrator_run.settings_json, the JSON object of the given settings, or absent when NULL. Optional." .
+:surface a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :OrchestratorRun ; rdfs:range xsd:string ;
+    rdfs:comment "v_orchestrator_run.surface ('http' | 'cli' in the DDL; open)." .
+:stepName a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :OrchestratorStep ; rdfs:range xsd:string ;
+    rdfs:comment "v_orchestrator_step.step, the T-011 step name." .
+:ordinal a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :OrchestratorStep ; rdfs:range xsd:integer ;
+    rdfs:comment "1-based position of the step in its run; part of the (orchestrator_run_id, ordinal) natural key." .
+:argvJson a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :OrchestratorStep ; rdfs:range xsd:string ;
+    rdfs:comment "v_orchestrator_step.argv_json: a JSON array without the interpreter path." .
+:exitCode a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :OrchestratorStep ; rdfs:range xsd:integer ;
+    rdfs:comment "Optional: v_orchestrator_step.exit_code, absent when NULL." .
+:reason a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :OrchestratorStep ; rdfs:range xsd:string ;
+    rdfs:comment "Optional: v_orchestrator_step.reason." .
+:outputTail a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :OrchestratorStep ; rdfs:range xsd:string ;
+    rdfs:comment "Optional: v_orchestrator_step.output_tail, a JSON array of the last 40 lines." .
+
+# --- TickerHistory ---
+:tickerHistoryCik a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :TickerHistory ; rdfs:range xsd:string ;
+    rdfs:comment "v_ticker_history.cik. Named distinctly from :cikNumber (whose rdfs:domain is Asset) so a TickerHistory is not entailed to be an Asset." .
+:historicalSymbol a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :TickerHistory ; rdfs:range xsd:string ;
+    rdfs:comment "v_ticker_history.symbol: the symbol in use over [validFrom, validTo)." .
+:canonicalSymbol a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :TickerHistory ; rdfs:range xsd:string ;
+    rdfs:comment "v_ticker_history.canonical_symbol: the CIK line's current ticker, the one every other view shows." .
+:evidenceUrl a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :TickerHistory ; rdfs:range xsd:anyURI ;
+    rdfs:comment "Optional: v_ticker_history.evidence_url. The m016 DDL marks it NOT NULL, but the task's v18 shape contract keeps it optional (the expectation file dropped its non-null rule after the P1/P2/P3 check)." .
+:evidenceDate a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :TickerHistory ; rdfs:range xsd:date ;
+    rdfs:comment "Optional: v_ticker_history.evidence_date, for the same reason as :evidenceUrl." .
+:tickerHistoryRules a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :TickerHistory ; rdfs:range xsd:string ;
+    rdfs:comment "Optional: v_ticker_history.rules (e.g. 'L-11;APP-10a'), a provenance tag read verbatim and never parsed." .
+
+# --- StrategyBook ---
+:runStatus a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :StrategyBook ; rdfs:range xsd:string ;
+    rdfs:comment "v_book.run_status = backtest_run.status (running | completed | failed in the DDL; open). Distinct from :status." .
+:objective a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :StrategyBook ; rdfs:range xsd:string ;
+    rdfs:comment "v_book.objective, upstream's strategy_book.objective ('min_var' in the three backtest databases; 'equal_weight' is the benchmark in the DDL). Open, read verbatim." .
+:excludeHardVetoed a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :StrategyBook ; rdfs:range xsd:boolean ;
+    rdfs:comment "v_book.exclude_hard_vetoed, upstream INTEGER 0/1 projected as false/true. The DDL comment says 0 on MARKOWITZ_BASE and 1 on TOPN_MV_*; the completed P1/P2/P3 databases hold 0 on all three arms, so the shape requires only a boolean and does NOT constrain it per arm (data over DDL comment)." .
+:guardLayers a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :StrategyBook ; rdfs:range xsd:string ;
+    rdfs:comment "v_book.guard_layers, the JSON list text verbatim. Optional: the DDL comment says '[]' on BASE/NOGUARD, but the completed P1/P2/P3 databases hold NULL there and '[1, 3, 4]' on TOPN_MV_GUARD_NO_NLP, so the shape does not require it and never parses it." .
+:backtestStartDate a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :StrategyBook ; rdfs:range xsd:date ;
+    rdfs:comment "v_book.d_start (backtest_run.d_start)." .
+:backtestEndDate a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :StrategyBook ; rdfs:range xsd:date ;
+    rdfs:comment "v_book.d_end (backtest_run.d_end)." .
+:formationDate a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :StrategyBook ; rdfs:range xsd:date ;
+    rdfs:comment "Optional: v_book.formation_date, the first execution whose cycle selection succeeded; NULL until then." .
+
+# --- BookRebalance ---
+:rebalanceId a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :BookRebalance ; rdfs:range xsd:integer ;
+    rdfs:comment "v_book_rebalance.rebalance_id (book_rebalance.id)." .
+:executionDate a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :BookRebalance ; rdfs:range xsd:date ;
+    rdfs:comment "v_book_rebalance.execution_date: the NYSE session E_k = D1 + 21*k, one session after decision_date." .
+:quantPortfolioId a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :BookRebalance ; rdfs:range xsd:integer ;
+    rdfs:comment "Optional: v_book_rebalance.quant_portfolio_id, an upstream id. It is a literal, not a :Portfolio node: no v_quant_portfolio individual is minted by this class." .
+:cycleRunId a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :BookRebalance ; rdfs:range xsd:integer ;
+    rdfs:comment "Optional: v_book_rebalance.cycle_run_id. Always NULL on MARKOWITZ_BASE (no cycle Top-30 selection); an upstream id literal, not a node." .
+:riskModelId a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :BookRebalance ; rdfs:range xsd:integer ;
+    rdfs:comment "Optional: v_book_rebalance.risk_model_id, an upstream id literal, not a node." .
+
+# --- GuardAlert ---
+:alertId a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :GuardAlert ; rdfs:range xsd:integer ;
+    rdfs:comment "v_guard_alert.alert_id (guard_alert.id)." .
+:alertDate a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :GuardAlert ; rdfs:range xsd:date ;
+    rdfs:comment "v_guard_alert.date, the session close the alert was raised at." .
+:alertValue a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :GuardAlert ; rdfs:range xsd:decimal ;
+    rdfs:comment "Optional: v_guard_alert.value. Always NULL on layer 1 (the asset's return is masked under the Tiingo non-redistribution rule); :alertThreshold and :alertState are always populated." .
+:alertThreshold a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :GuardAlert ; rdfs:range xsd:decimal ;
+    rdfs:comment "v_guard_alert.threshold; always populated (handoff §3.3)." .
+:alertState a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :GuardAlert ; rdfs:range xsd:string ;
+    rdfs:comment "v_guard_alert.state: ENTER | EXIT | ACTIVE | COOLDOWN | SCALE. SHACL sh:in." .
+
+# --- GuardAction ---
+:actionId a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :GuardAction ; rdfs:range xsd:integer ;
+    rdfs:comment "v_guard_action.action_id (guard_action.id)." .
+:effectiveDate a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :GuardAction ; rdfs:range xsd:date ;
+    rdfs:comment "v_guard_action.effective_date: the session the target applies to (t+1)." .
+:weightBefore a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :GuardAction ; rdfs:range xsd:decimal ;
+    rdfs:comment "Optional: v_guard_action.weight_before. NULL on layer 1 asset actions (masked) and on NOT_HELD; portfolio-level L3/L4 scale factors keep it." .
+:weightAfter a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :GuardAction ; rdfs:range xsd:decimal ;
+    rdfs:comment "Optional: v_guard_action.weight_after, the same nullability as :weightBefore." .
+
+# --- BookWeightDaily ---
+:weightDate a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :BookWeightDaily ; rdfs:range xsd:date ;
+    rdfs:comment "v_book_weight_daily.date." .
+:holdingKey a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :BookWeightDaily ; rdfs:range xsd:string ;
+    rdfs:comment "v_book_weight_daily.holding_key: a ticker, or 'CASH' for the cash position. A CASH row has no :holdingAsset and must not require an Asset node." .
+:holdingName a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :BookWeightDaily ; rdfs:range xsd:string ;
+    rdfs:comment "Optional: v_book_weight_daily.holding_name; NULL when holding_key = 'CASH'." .
+:markowitzTargetWeight a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :BookWeightDaily ; rdfs:range xsd:decimal ;
+    rdfs:comment "Optional: v_book_weight_daily.markowitz_target_weight; NULL on ordinary sessions (only decision/execution dates expose targets)." .
+:finalTargetWeight a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :BookWeightDaily ; rdfs:range xsd:decimal ;
+    rdfs:comment "Optional: v_book_weight_daily.final_target_weight; the same ordinary-session masking as :markowitzTargetWeight." .
+
+# --- BookDailyPerformance ---
+:performanceDate a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :BookDailyPerformance ; rdfs:range xsd:date ;
+    rdfs:comment "v_book_daily_performance.date." .
+:grossReturn a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :BookDailyPerformance ; rdfs:range xsd:decimal .
+:turnover a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :BookDailyPerformance ; rdfs:range xsd:decimal .
+:costReturn a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :BookDailyPerformance ; rdfs:range xsd:decimal ;
+    rdfs:comment "v_book_daily_performance.cost_return. No sign or range constraint: the handoff states no sign convention." .
+:netReturn a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :BookDailyPerformance ; rdfs:range xsd:decimal .
+:nav a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :BookDailyPerformance ; rdfs:range xsd:decimal .
+:drawdown a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :BookDailyPerformance ; rdfs:range xsd:decimal ;
+    rdfs:comment "v_book_daily_performance.drawdown. No sign or range constraint: the handoff states no sign convention, even though P1/P2/P3 hold non-negative magnitudes (0 to 0.2492)." .
+:cashWeight a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :BookDailyPerformance ; rdfs:range xsd:decimal .
+:nEquity a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :BookDailyPerformance ; rdfs:range xsd:integer .
+:benchmarkReturn a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :BookDailyPerformance ; rdfs:range xsd:decimal ;
+    rdfs:comment "Optional: v_book_daily_performance.benchmark_return (SP500_EW_INTERNAL equal-weight total return); NULL upstream." .
+
+# --- PortfolioPeriodSummary ---
+:dateFrom a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :PortfolioPeriodSummary ; rdfs:range xsd:date .
+:dateTo a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :PortfolioPeriodSummary ; rdfs:range xsd:date .
+:cumulativeReturn a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :PortfolioPeriodSummary ; rdfs:range xsd:decimal .
+:annualizedReturn a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :PortfolioPeriodSummary ; rdfs:range xsd:decimal .
+:annualizedVol a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :PortfolioPeriodSummary ; rdfs:range xsd:decimal .
+:exPostSharpe a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :PortfolioPeriodSummary ; rdfs:range xsd:decimal .
+:maxDrawdown a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :PortfolioPeriodSummary ; rdfs:range xsd:decimal ;
+    rdfs:comment "v_portfolio_period_summary.max_drawdown. No sign or range constraint: the handoff states no sign convention." .
+:totalTurnover a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :PortfolioPeriodSummary ; rdfs:range xsd:decimal .
+:totalCostBps a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :PortfolioPeriodSummary ; rdfs:range xsd:decimal .
+:nRebalances a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :PortfolioPeriodSummary ; rdfs:range xsd:integer .
+:nGuardActions a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :PortfolioPeriodSummary ; rdfs:range xsd:integer .
+
+# --- BacktestTest ---
+:armA a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :BacktestTest ; rdfs:range xsd:string ;
+    rdfs:comment "v_backtest_test.arm_a, the same four-value arm vocabulary as :armCode. SHACL sh:in." .
+:armB a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :BacktestTest ; rdfs:range xsd:string ;
+    rdfs:comment "v_backtest_test.arm_b. SHACL sh:in." .
+:testName a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :BacktestTest ; rdfs:range xsd:string ;
+    rdfs:comment "v_backtest_test.test: memmel_jk | ledoit_wolf | hac_mean_diff. SHACL sh:in." .
+:statistic a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :BacktestTest ; rdfs:range xsd:decimal .
+:pValue a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :BacktestTest ; rdfs:range xsd:decimal .
+:nObs a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :BacktestTest ; rdfs:range xsd:integer .
+:paramsJson a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :BacktestTest ; rdfs:range xsd:string ;
+    rdfs:comment "Optional: v_backtest_test.params_json." .
+
+#################################################################
+
+# CONTRACT v18 SHAPES (T-206, 2026-11-01)
+#
+# One NodeShape per new class. Required (minCount 1) only what the
+# view guarantees non-null; the handoff §3.3 nullable columns are
+# optional and must never be required. Closed vocabularies use sh:in
+# where the handoff enumerates the values; where a vocabulary may
+# grow upstream it stays open and says so in a comment (the
+# :scoreMethod pattern). No sign or range constraint is placed on
+# :drawdown, :costReturn or :maxDrawdown: the handoff states no sign
+# convention, even though the three completed databases hold
+# non-negative magnitudes.
+#################################################################
+
+:TickerHistoryShape
+    a sh:NodeShape ;
+    sh:targetClass :TickerHistory ;
+    sh:property [ sh:path :tickerHistoryCik ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :historicalSymbol ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :canonicalSymbol ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    # validTo is exclusive and optional (NULL = current symbol); validFrom < validTo when present.
+    sh:property [ sh:path :validFrom ; sh:datatype xsd:date ; sh:minCount 1 ; sh:maxCount 1 ; sh:lessThan :validTo ] ;
+    sh:property [ sh:path :validTo ; sh:datatype xsd:date ; sh:maxCount 1 ] ;
+    # Optional: the LEFT JOIN can leave no asset; evidence_url/evidence_date are optional per the task's
+    # v18 shape contract even though the m016 DDL marks them NOT NULL.
+    sh:property [ sh:path :tickerHistoryAsset ; sh:class :Asset ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :evidenceUrl ; sh:datatype xsd:anyURI ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :evidenceDate ; sh:datatype xsd:date ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :tickerHistoryRules ; sh:datatype xsd:string ; sh:maxCount 1 ] .
+
+:OrchestratorRunShape
+    a sh:NodeShape ;
+    sh:targetClass :OrchestratorRun ;
+    sh:property [ sh:path :orchestratorRunId ; sh:datatype xsd:integer ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :handle ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :runKind ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :runAsOf ; sh:datatype xsd:date ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :surface ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :status ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :startedAt ; sh:datatype xsd:dateTime ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    # Optional per the m015 DDL / task: NULL is allowed.
+    sh:property [ sh:path :finishedAt ; sh:datatype xsd:dateTime ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :settingsJson ; sh:datatype xsd:string ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :codeVersion ; sh:datatype xsd:string ; sh:maxCount 1 ] .
+
+:OrchestratorStepShape
+    a sh:NodeShape ;
+    sh:targetClass :OrchestratorStep ;
+    sh:property [ sh:path :stepOfOrchestratorRun ; sh:class :OrchestratorRun ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :handle ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :ordinal ; sh:datatype xsd:integer ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :stepName ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :argvJson ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :status ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    # Optional: the m015 DDL allows NULL on started_at, and the task names finished_at, exit_code,
+    # run_kind, reason and output_tail as optional. run_id is the step's own run-log id, also optional.
+    sh:property [ sh:path :startedAt ; sh:datatype xsd:dateTime ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :finishedAt ; sh:datatype xsd:dateTime ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :exitCode ; sh:datatype xsd:integer ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :runKind ; sh:datatype xsd:string ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :runId ; sh:datatype xsd:string ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :reason ; sh:datatype xsd:string ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :outputTail ; sh:datatype xsd:string ; sh:maxCount 1 ] .
+
+:StrategyBookShape
+    a sh:NodeShape ;
+    sh:targetClass :StrategyBook ;
+    sh:property [ sh:path :bookId ; sh:datatype xsd:integer ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :backtestRunId ; sh:datatype xsd:integer ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :windowId ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ; sh:in ("P1" "P2" "P3") ] ;
+    sh:property [ sh:path :backtestStartDate ; sh:datatype xsd:date ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :backtestEndDate ; sh:datatype xsd:date ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :runStatus ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :armCode ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ;
+                  sh:in ("MARKOWITZ_BASE" "TOPN_MV_NOGUARD" "TOPN_MV_GUARD_NO_NLP" "TOPN_MV_GUARD") ] ;
+    sh:property [ sh:path :objective ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    # The DDL comment says 0 on MARKOWITZ_BASE and 1 on TOPN_MV_*; the real data has 0 on all three
+    # arms, so only the boolean type is enforced, never a per-arm value (data over DDL comment).
+    sh:property [ sh:path :excludeHardVetoed ; sh:datatype xsd:boolean ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    # Optional: NULL on MARKOWITZ_BASE and TOPN_MV_NOGUARD in all three databases, '[1, 3, 4]' on
+    # TOPN_MV_GUARD_NO_NLP (the DDL comment says '[]' on BASE/NOGUARD). Never required, never parsed.
+    sh:property [ sh:path :guardLayers ; sh:datatype xsd:string ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :formationDate ; sh:datatype xsd:date ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :codeVersion ; sh:datatype xsd:string ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :knowledgeDate ; sh:datatype xsd:date ; sh:minCount 1 ; sh:maxCount 1 ] .
+
+:BookRebalanceShape
+    a sh:NodeShape ;
+    sh:targetClass :BookRebalance ;
+    sh:property [ sh:path :rebalanceId ; sh:datatype xsd:integer ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :rebalanceOfBook ; sh:class :StrategyBook ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :backtestRunId ; sh:datatype xsd:integer ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :armCode ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ;
+                  sh:in ("MARKOWITZ_BASE" "TOPN_MV_NOGUARD" "TOPN_MV_GUARD_NO_NLP" "TOPN_MV_GUARD") ] ;
+    sh:property [ sh:path :decisionDate ; sh:datatype xsd:date ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :executionDate ; sh:datatype xsd:date ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :status ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    # Optional: cycle_run_id is always NULL on MARKOWITZ_BASE; the other two are upstream ids as literals.
+    sh:property [ sh:path :quantPortfolioId ; sh:datatype xsd:integer ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :cycleRunId ; sh:datatype xsd:integer ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :riskModelId ; sh:datatype xsd:integer ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :knowledgeDate ; sh:datatype xsd:date ; sh:minCount 1 ; sh:maxCount 1 ] .
+
+:GuardAlertShape
+    a sh:NodeShape ;
+    sh:targetClass :GuardAlert ;
+    sh:property [ sh:path :alertId ; sh:datatype xsd:integer ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :backtestRunId ; sh:datatype xsd:integer ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :windowId ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ; sh:in ("P1" "P2" "P3") ] ;
+    sh:property [ sh:path :alertDate ; sh:datatype xsd:date ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :guardLayer ; sh:datatype xsd:integer ; sh:minCount 1 ; sh:maxCount 1 ;
+                  sh:minInclusive 1 ; sh:maxInclusive 4 ] ;
+    # The rule id is resolved to its GUARD RuleDefinition; the five IRIs are the closed vocabulary.
+    sh:property [ sh:path :alertRule ; sh:class :RuleDefinition ; sh:minCount 1 ; sh:maxCount 1 ;
+                  sh:in ( :Rule_L1_STOP_LOSS :Rule_L1_REENTRY :Rule_L2_NEWS :Rule_L3_VOL :Rule_L4_DD ) ] ;
+    sh:property [ sh:path :alertThreshold ; sh:datatype xsd:decimal ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :alertState ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ;
+                  sh:in ("ENTER" "EXIT" "ACTIVE" "COOLDOWN" "SCALE") ] ;
+    # Optional: asset/ticker are NULL on layers 3 and 4; value is NULL on layer 1.
+    sh:property [ sh:path :guardAsset ; sh:class :Asset ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :guardTicker ; sh:datatype xsd:string ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :alertValue ; sh:datatype xsd:decimal ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :knowledgeDate ; sh:datatype xsd:date ; sh:minCount 1 ; sh:maxCount 1 ] .
+
+:GuardActionShape
+    a sh:NodeShape ;
+    sh:targetClass :GuardAction ;
+    sh:property [ sh:path :actionId ; sh:datatype xsd:integer ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :actionOfBook ; sh:class :StrategyBook ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :actionAlert ; sh:class :GuardAlert ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :backtestRunId ; sh:datatype xsd:integer ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :armCode ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ;
+                  sh:in ("MARKOWITZ_BASE" "TOPN_MV_NOGUARD" "TOPN_MV_GUARD_NO_NLP" "TOPN_MV_GUARD") ] ;
+    sh:property [ sh:path :decisionDate ; sh:datatype xsd:date ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :effectiveDate ; sh:datatype xsd:date ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :status ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ;
+                  sh:in ("APPLIED" "ARM_DISABLED" "NOT_HELD" "SUPERSEDED") ] ;
+    # Optional: asset/ticker are NULL on L3/L4 portfolio-scale actions; weight_before/after are NULL
+    # on layer 1 asset actions and on NOT_HELD.
+    sh:property [ sh:path :guardAsset ; sh:class :Asset ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :guardTicker ; sh:datatype xsd:string ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :weightBefore ; sh:datatype xsd:decimal ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :weightAfter ; sh:datatype xsd:decimal ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :knowledgeDate ; sh:datatype xsd:date ; sh:minCount 1 ; sh:maxCount 1 ] .
+
+:BookWeightDailyShape
+    a sh:NodeShape ;
+    sh:targetClass :BookWeightDaily ;
+    sh:property [ sh:path :weightOfBook ; sh:class :StrategyBook ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :bookId ; sh:datatype xsd:integer ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :backtestRunId ; sh:datatype xsd:integer ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :armCode ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ;
+                  sh:in ("MARKOWITZ_BASE" "TOPN_MV_NOGUARD" "TOPN_MV_GUARD_NO_NLP" "TOPN_MV_GUARD") ] ;
+    sh:property [ sh:path :weightDate ; sh:datatype xsd:date ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :holdingKey ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    # Optional: CASH has no asset/holding_name; target weights are NULL on ordinary sessions.
+    sh:property [ sh:path :holdingAsset ; sh:class :Asset ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :holdingName ; sh:datatype xsd:string ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :markowitzTargetWeight ; sh:datatype xsd:decimal ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :finalTargetWeight ; sh:datatype xsd:decimal ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :knowledgeDate ; sh:datatype xsd:date ; sh:minCount 1 ; sh:maxCount 1 ] .
+
+:BookDailyPerformanceShape
+    a sh:NodeShape ;
+    sh:targetClass :BookDailyPerformance ;
+    sh:property [ sh:path :performanceOfBook ; sh:class :StrategyBook ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :bookId ; sh:datatype xsd:integer ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :backtestRunId ; sh:datatype xsd:integer ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :armCode ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ;
+                  sh:in ("MARKOWITZ_BASE" "TOPN_MV_NOGUARD" "TOPN_MV_GUARD_NO_NLP" "TOPN_MV_GUARD") ] ;
+    sh:property [ sh:path :windowId ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ; sh:in ("P1" "P2" "P3") ] ;
+    sh:property [ sh:path :performanceDate ; sh:datatype xsd:date ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :grossReturn ; sh:datatype xsd:decimal ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :turnover ; sh:datatype xsd:decimal ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    # No sign/range on cost_return or drawdown: the handoff states no sign convention.
+    sh:property [ sh:path :costReturn ; sh:datatype xsd:decimal ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :netReturn ; sh:datatype xsd:decimal ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :nav ; sh:datatype xsd:decimal ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :drawdown ; sh:datatype xsd:decimal ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :cashWeight ; sh:datatype xsd:decimal ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :nEquity ; sh:datatype xsd:integer ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    # Optional: benchmark_return is NULL upstream.
+    sh:property [ sh:path :benchmarkReturn ; sh:datatype xsd:decimal ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :knowledgeDate ; sh:datatype xsd:date ; sh:minCount 1 ; sh:maxCount 1 ] .
+
+:PortfolioPeriodSummaryShape
+    a sh:NodeShape ;
+    sh:targetClass :PortfolioPeriodSummary ;
+    sh:property [ sh:path :summaryOfBook ; sh:class :StrategyBook ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :bookId ; sh:datatype xsd:integer ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :backtestRunId ; sh:datatype xsd:integer ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :armCode ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ;
+                  sh:in ("MARKOWITZ_BASE" "TOPN_MV_NOGUARD" "TOPN_MV_GUARD_NO_NLP" "TOPN_MV_GUARD") ] ;
+    sh:property [ sh:path :windowId ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ; sh:in ("P1" "P2" "P3") ] ;
+    sh:property [ sh:path :segment ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ;
+                  sh:in ("P1" "P2" "P2a" "P2b" "P3") ] ;
+    sh:property [ sh:path :dateFrom ; sh:datatype xsd:date ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :dateTo ; sh:datatype xsd:date ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :cumulativeReturn ; sh:datatype xsd:decimal ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :annualizedReturn ; sh:datatype xsd:decimal ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :annualizedVol ; sh:datatype xsd:decimal ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :exPostSharpe ; sh:datatype xsd:decimal ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    # No sign/range on max_drawdown: the handoff states no sign convention.
+    sh:property [ sh:path :maxDrawdown ; sh:datatype xsd:decimal ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :totalTurnover ; sh:datatype xsd:decimal ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :totalCostBps ; sh:datatype xsd:decimal ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :nRebalances ; sh:datatype xsd:integer ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :nGuardActions ; sh:datatype xsd:integer ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :knowledgeDate ; sh:datatype xsd:date ; sh:minCount 1 ; sh:maxCount 1 ] .
+
+:BacktestTestShape
+    a sh:NodeShape ;
+    sh:targetClass :BacktestTest ;
+    sh:property [ sh:path :backtestRunId ; sh:datatype xsd:integer ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :windowId ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ; sh:in ("P1" "P2" "P3") ] ;
+    sh:property [ sh:path :segment ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ;
+                  sh:in ("P1" "P2" "P2a" "P2b" "P3") ] ;
+    sh:property [ sh:path :armA ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ;
+                  sh:in ("MARKOWITZ_BASE" "TOPN_MV_NOGUARD" "TOPN_MV_GUARD_NO_NLP" "TOPN_MV_GUARD") ] ;
+    sh:property [ sh:path :armB ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ;
+                  sh:in ("MARKOWITZ_BASE" "TOPN_MV_NOGUARD" "TOPN_MV_GUARD_NO_NLP" "TOPN_MV_GUARD") ] ;
+    sh:property [ sh:path :testName ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ;
+                  sh:in ("memmel_jk" "ledoit_wolf" "hac_mean_diff") ] ;
+    sh:property [ sh:path :statistic ; sh:datatype xsd:decimal ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :pValue ; sh:datatype xsd:decimal ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :nObs ; sh:datatype xsd:integer ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :paramsJson ; sh:datatype xsd:string ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :knowledgeDate ; sh:datatype xsd:date ; sh:minCount 1 ; sh:maxCount 1 ] .

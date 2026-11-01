@@ -276,6 +276,11 @@ architecture, and not partitioned for the bitemporal audit trail
 6. Decide whether to define a read contract with `portfolio-nlp` (T-172), once T-033 has
    settled whether `src/etl/` survives. Until then `SPEC.md` §13 item 9 stands as an accepted
    risk: the only NLP read is the tag-pinned `news_export.fetch_processed_articles`.
+7. The Contract v18 ontology half (T-206, 2026-11-01) is in: the 11 classes for the m015/m016/m018
+   views, 31 SHACL shapes, and the 10 selection + 5 GUARD rules, with the handoff §3.3 nullable
+   columns left optional. The eight m018 projectors are still to be built; their named-graph
+   placement is PROPOSED in `docs/07` (`urn:graph:derived:backtest:{backtest_run_id}`) and must be
+   settled with the projector before it is written. No store was reloaded.
 
 **Prerequisite**: Work item 11 (the §2.6 drift decisions) — met: it closed
 2026-10-05 (see `CHANGELOG.md`).

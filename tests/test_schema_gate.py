@@ -505,6 +505,9 @@ def _rule(bundle: rdflib.Dataset, **extra: rdflib.term.Node) -> rdflib.Graph:
     g.add((_RULE, KG.ruleSeverity, rdflib.Literal("SOFT")))
     g.add((_RULE, KG.validFrom, _date("2026-10-13")))
     g.add((_RULE, KG.hasClause, leaf))
+    # T-206: a non-GUARD rule now needs a priorityRank; the rank cases override it through extra.
+    if "priorityRank" not in extra:
+        g.add((_RULE, KG.priorityRank, rdflib.Literal(1)))
     for name, value in extra.items():
         g.add((_RULE, KG[name], value))
     return g
@@ -545,13 +548,13 @@ def test_two_penalty_points_values_are_caught(bundle: rdflib.Dataset, shapes: rd
     assert _violations(g, shapes) == {(_RULE, KG.penaltyPoints)}
 
 
-def test_a_priority_rank_of_nine_conforms_and_ten_is_caught(
+def test_a_priority_rank_of_ten_conforms_and_eleven_is_caught(
     bundle: rdflib.Dataset, shapes: rdflib.Graph
 ) -> None:
-    nine = _rule(bundle, priorityRank=rdflib.Literal(9))
-    assert _violations(nine, shapes) == set()
     ten = _rule(bundle, priorityRank=rdflib.Literal(10))
-    assert _violations(ten, shapes) == {(_RULE, KG.priorityRank)}
+    assert _violations(ten, shapes) == set()
+    eleven = _rule(bundle, priorityRank=rdflib.Literal(11))
+    assert _violations(eleven, shapes) == {(_RULE, KG.priorityRank)}
 
 
 _ACTIVE_IDS = {
@@ -564,6 +567,7 @@ _ACTIVE_IDS = {
     "PRICE_CRASH": "15",
     "EARNINGS_MISSING": "15",
     "BREAK_TREND_200": "0",
+    "UTILITY_CASH_COVERAGE": None,
 }
 
 
@@ -575,11 +579,13 @@ def _rules_file() -> rdflib.Graph:
 
 
 def _active_rules() -> dict[str, rdflib.term.Node]:
-    """``ruleId`` to the one rule with no ``validTo`` (an active definition) in the catalog graph."""
+    """``ruleId`` to the one ACTIVE SELECTION rule (no ``validTo``, not category ``GUARD``)."""
     g = _rules_file()
     found: dict[str, rdflib.term.Node] = {}
     for rule in g.subjects(rdflib.RDF.type, KG.RuleDefinition):
         if (rule, KG.validTo, None) in g:
+            continue
+        if str(g.value(rule, KG.category)) == "GUARD":
             continue
         rule_id = str(g.value(rule, KG.ruleId))
         assert rule_id not in found, f"two active definitions of {rule_id}"
@@ -587,8 +593,23 @@ def _active_rules() -> dict[str, rdflib.term.Node]:
     return found
 
 
-def test_the_active_catalog_is_upstreams_nine_rules() -> None:
-    """The ids with no ``validTo`` in ``rules.ttl`` are exactly the nine (and none is defined twice)."""
+def _guard_rules() -> dict[str, rdflib.term.Node]:
+    """``ruleId`` to the one GUARD rule (category ``GUARD``, no ``validTo``)."""
+    g = _rules_file()
+    found: dict[str, rdflib.term.Node] = {}
+    for rule in g.subjects(rdflib.RDF.type, KG.RuleDefinition):
+        if (rule, KG.validTo, None) in g:
+            continue
+        if str(g.value(rule, KG.category)) != "GUARD":
+            continue
+        rule_id = str(g.value(rule, KG.ruleId))
+        assert rule_id not in found, f"two GUARD definitions of {rule_id}"
+        found[rule_id] = rule
+    return found
+
+
+def test_the_active_catalog_is_upstreams_ten_selection_rules() -> None:
+    """The ids with no ``validTo`` and no GUARD category are exactly the ten selection rules."""
     assert set(_active_rules()) == set(_ACTIVE_IDS)
 
 
@@ -603,11 +624,105 @@ def test_penalty_points_sit_on_the_soft_rules_only() -> None:
         assert (severity == "SOFT") == (expected is not None), rule_id
 
 
-def test_the_active_ranks_are_one_to_nine_without_repeats() -> None:
-    """``primaryRule`` picks the lowest rank, so the active ranks must be distinct."""
+def test_the_active_ranks_are_one_to_ten_without_repeats() -> None:
+    """``primaryRule`` picks the lowest rank, so the active selection ranks must be distinct."""
     g = _rules_file()
     ranks = sorted(int(str(g.value(rule, KG.priorityRank))) for rule in _active_rules().values())
-    assert ranks == list(range(1, 10))
+    assert ranks == list(range(1, 11))
+
+
+# --- T-206: GUARD rules are RuleDefinitions but not veto rules -----------------------------------
+
+
+def _guard_rule(bundle: rdflib.Dataset) -> rdflib.Graph:
+    """The worked example plus one GUARD RuleDefinition with no veto-only fields."""
+    g = _flat(bundle)
+    leaf = KG.Pred_T206
+    g.add((leaf, rdflib.RDF.type, KG.GraphPredicate))
+    g.add((leaf, KG.predicateName, rdflib.Literal("GuardTest")))
+    g.add((_RULE, rdflib.RDF.type, KG.RuleDefinition))
+    g.add((_RULE, KG.ruleId, rdflib.Literal("L1_TEST")))
+    g.add((_RULE, KG.category, rdflib.Literal("GUARD")))
+    g.add((_RULE, KG.guardLayer, rdflib.Literal(1)))
+    g.add((_RULE, KG.validFrom, _date("2019-01-02")))
+    g.add((_RULE, KG.hasClause, leaf))
+    return g
+
+
+def test_the_guard_catalog_has_the_five_rule_ids_and_layers() -> None:
+    g = _rules_file()
+    guards = _guard_rules()
+    assert set(guards) == {"L1_STOP_LOSS", "L1_REENTRY", "L2_NEWS", "L3_VOL", "L4_DD"}
+    assert {
+        rule_id: int(str(g.value(rule, KG.guardLayer))) for rule_id, rule in guards.items()
+    } == {"L1_STOP_LOSS": 1, "L1_REENTRY": 1, "L2_NEWS": 2, "L3_VOL": 3, "L4_DD": 4}
+    for rule in guards.values():
+        assert (rule, KG.ruleSeverity, None) not in g
+        assert (rule, KG.penaltyPoints, None) not in g
+        assert (rule, KG.priorityRank, None) not in g
+
+
+def test_a_guard_rule_without_veto_fields_conforms(
+    bundle: rdflib.Dataset, shapes: rdflib.Graph
+) -> None:
+    assert _violations(_guard_rule(bundle), shapes) == set()
+
+
+@pytest.mark.parametrize(
+    "extra",
+    [
+        (KG.ruleSeverity, rdflib.Literal("SOFT")),
+        (KG.penaltyPoints, _decimal("0")),
+        (KG.priorityRank, rdflib.Literal(1)),
+    ],
+    ids=["severity", "penalty", "rank"],
+)
+def test_a_guard_rule_carrying_a_veto_field_is_caught(
+    bundle: rdflib.Dataset, shapes: rdflib.Graph, extra: tuple[rdflib.term.Node, rdflib.term.Node]
+) -> None:
+    g = _guard_rule(bundle)
+    g.add((_RULE, *extra))
+    assert _violations(g, shapes) == {(_RULE, None)}
+
+
+def test_a_non_guard_active_rule_without_a_severity_is_still_caught(
+    bundle: rdflib.Dataset, shapes: rdflib.Graph
+) -> None:
+    """The GUARD branch must not weaken the rule for the other active definitions."""
+    g = _rule(bundle)
+    g.remove((_RULE, KG.ruleSeverity, None))
+    assert _violations(g, shapes) == {(_RULE, None)}
+
+
+def test_a_non_guard_rule_without_a_priority_rank_is_caught(
+    bundle: rdflib.Dataset, shapes: rdflib.Graph
+) -> None:
+    g = _rule(bundle)
+    g.remove((_RULE, KG.priorityRank, None))
+    assert _violations(g, shapes) == {(_RULE, None)}
+
+
+def test_a_veto_pointing_at_a_guard_rule_is_caught(
+    bundle: rdflib.Dataset, shapes: rdflib.Graph
+) -> None:
+    g = _guard_rule(bundle)
+    g.add((_VETO, rdflib.RDF.type, KG.Veto))
+    g.add((_VETO, KG.raisedOn, _date("2026-01-01")))
+    g.add((_VETO, KG.appliesRule, _RULE))
+    g.add((_VETO, KG.primaryRule, _RULE))
+    found = _violations(g, shapes)
+    assert {(_VETO, KG.appliesRule), (_VETO, KG.primaryRule)} <= found
+    # pyshacl also reports the inner sh:not failure on the value node.
+    assert (_RULE, None) in found
+
+
+def test_a_veto_pointing_at_a_selection_rule_conforms(
+    bundle: rdflib.Dataset, shapes: rdflib.Graph
+) -> None:
+    g = _veto(bundle, cleared=None, seen=())
+    g.add((_VETO, KG.appliesRule, KG.Rule_PRICE_CRASH))
+    g.add((_VETO, KG.primaryRule, KG.Rule_PRICE_CRASH))
+    assert _violations(g, shapes) == set()
 
 
 _DEFINITION_ON = """
@@ -708,15 +823,21 @@ def _rule_shape_facts(path: Path) -> tuple[set[str], set[str], set[str]]:
         if (prop, SH.path, KG.penaltyPoints) in g:
             points.add(str(g.value(prop, SH.minInclusive)))
     for negated in g.objects(KG.RuleDefinitionShape, SH["not"]):
-        for prop in g.objects(negated, SH.property):
-            exclusion.add(str(g.value(prop, SH.path)).rpartition("#")[2])
+        paths = {
+            str(g.value(prop, SH.path)).rpartition("#")[2]
+            for prop in g.objects(negated, SH.property)
+        }
+        # The HARD exclusion is the sh:not carrying both ruleSeverity and penaltyPoints; T-206's
+        # GUARD exclusion also carries :category, so select the HARD one explicitly.
+        if {"ruleSeverity", "penaltyPoints"} <= paths:
+            exclusion |= paths
     return ranks, points, exclusion
 
 
 def test_the_target_schema_shapes_a_rule_like_shapes_ttl() -> None:
     """``kg_target_schema.ttl`` carries the same ``priorityRank`` bound and ``penaltyPoints`` rules."""
     in_shapes = _rule_shape_facts(SCHEMA / "shapes.ttl")
-    assert in_shapes == ({"9"}, {"0.0"}, {"ruleSeverity", "penaltyPoints"})
+    assert in_shapes == ({"10"}, {"0.0"}, {"ruleSeverity", "penaltyPoints"})
     assert _rule_shape_facts(SCHEMA.parent / "kg_target_schema.ttl") == in_shapes
 
 

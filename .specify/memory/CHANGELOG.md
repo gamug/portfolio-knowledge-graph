@@ -503,3 +503,50 @@ reused.*
   non-null rules were removed, and the `drawdown`/`max_drawdown` min-0 ranges were removed because
   the handoff states no sign convention (`cost_return` min 0 kept; all three databases are
   non-negative).
+
+## Contract v18 ontology (2026-11-01, T-206)
+
+- The 11 views added between v12 and v18 now have ontology terms: `TickerHistory`,
+  `OrchestratorRun`, `OrchestratorStep`, `StrategyBook`, `BookRebalance`, `GuardAlert`, `GuardAction`,
+  `BookWeightDaily`, `BookDailyPerformance`, `PortfolioPeriodSummary` and `BacktestTest`, one per
+  view. `tbox.ttl` goes from 40 to 51 classes (38 disjoint leaves, 13 backbone) and `shapes.ttl`
+  from 20 to 31 named shapes; `AllDisjointClasses` gains the 11 leaves. Placement is by property
+  shape: `TemporalRelation` for `TickerHistory`/`BookRebalance`, `Collection` for `StrategyBook`,
+  `RiskAndDecision` for `GuardAction`, `Observation` for the other seven. Each class carries the
+  handoff §6.2 `rdfs:label`@es and `skos:definition`@es verbatim (outer « » dropped); no new class
+  has a FIBO `rdfs:seeAlso` (handoff §6.1).
+- Every view column has a property. The shared ones (`bookId`, `backtestRunId`, `armCode`,
+  `windowId`, `knowledgeDate`, `status`, `decisionDate`, `guardTicker`, `guardLayer`, `segment`,
+  `handle`, `startedAt`, `finishedAt`, `runKind`) have no `rdfs:domain`, the `:runId` pattern, and
+  every m018 individual carries `:knowledgeDate`. The handoff §3.3 nullable columns are optional in
+  SHACL and never required; a CASH weight row has no asset link and needs no `:Asset` node. The
+  completed P1/P2/P3 databases override the DDL comments: `guard_layers` is NULL on
+  `MARKOWITZ_BASE`/`TOPN_MV_NOGUARD` (optional in the shape) and `exclude_hard_vetoed` is 0 on all
+  three arms (only its boolean type is enforced); `drawdown`, `cost_return` and `max_drawdown` get no
+  sign or range constraint because the handoff states no sign convention.
+- `rules.ttl` gains `UTILITY_CASH_COVERAGE` (HARD, `rule_input.utility_cash_coverage_3y < 0.05`, rank
+  10, valid from 2026-11-01 — the handoff date, an assumption to confirm because T-071's landing date
+  is not recorded) as the tenth selection rule; the `LEVERAGE_EXTREME`/`NEGATIVE_FCF`/
+  `LIQUIDITY_DISTRESS` comments record the APP-00 profile exemptions (financial firms; regulated
+  utilities; equity REITs) without changing thresholds, severities or clauses. The five GUARD rules
+  (`L1_STOP_LOSS`, `L1_REENTRY`, `L2_NEWS`, `L3_VOL`, `L4_DD`) are `:category "GUARD"`
+  `RuleDefinition`s in a separate section, one `GraphPredicate` leaf each, `:guardLayer` 1..4 and the
+  frozen parameters/academic sources only in `rdfs:comment`; `L2_NEWS` is disabled in the 2022–2025
+  backtest. They carry no `:ruleSeverity`/`:penaltyPoints`/`:priorityRank`.
+- `RuleDefinitionShape` gets one `sh:or` branch for `:category "GUARD"`, keeps the severity
+  requirement for every other active rule and makes `:priorityRank` mandatory for non-GUARD rules
+  (range widened to `[1,10]`); `VetoShape` refuses a GUARD rule as `:appliesRule`/`:primaryRule`. A
+  GUARD rule is not a veto rule.
+- Tests: `tests/test_ontology_v18.py` covers the 51/38/31 counts, the @es text against handoff §6.2,
+  the property list, every nullable case (layer-1 alert without value, layer-3 alert without asset,
+  CASH weight without asset, MARKOWITZ_BASE rebalance without cycle run, book without guard layers,
+  ordinary-day weight without targets), synthetic non-conformant cases, the rule table and the
+  GUARD/veto separation; `tests/test_schema_gate.py` updates the 10 selection rules, the [1,10] rank
+  and the target-schema mirror.
+- Docs: `docs/06` §1.10 and the class tree/table, `docs/07` (PROPOSED
+  `urn:graph:derived:backtest:{backtest_run_id}`), `docs/08` (the future projector), `schema/README.md`
+  refinement 7, `SPEC.md` §2.1/§2.6, `PLAN.md` Work item 4 step 7, `README.md`, `docs/10` and
+  `docs/graphdb-setup.md` counts. Bundle **4159 quads; conforms: True**.
+- Not done: no projector (`src/projection/`), no change to the v18 pin, no ingest-gate pattern change
+  (only the schema-driven `CLOSABLE` list gains `TickerHistory`, because its shape reads `:validTo`),
+  no GraphDB write/reload and no `protege-view.ttl` regeneration (T-070/T-071).
