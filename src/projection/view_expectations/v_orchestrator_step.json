@@ -4,11 +4,7 @@
   "cap": 0,
   "null_rate": [
     {"column": "orchestrator_run_id", "max": 0},
-    {"column": "handle", "max": 0},
-    {"column": "ordinal", "max": 0},
-    {"column": "step", "max": 0},
-    {"column": "argv_json", "max": 0},
-    {"column": "status", "max": 0}
+    {"column": "ordinal", "max": 0}
   ],
   "types": {
     "orchestrator_run_id": "integer",

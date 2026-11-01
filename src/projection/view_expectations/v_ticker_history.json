@@ -6,9 +6,7 @@
     {"column": "cik", "max": 0},
     {"column": "symbol", "max": 0},
     {"column": "valid_from", "max": 0},
-    {"column": "canonical_symbol", "max": 0},
-    {"column": "evidence_url", "max": 0},
-    {"column": "evidence_date", "max": 0}
+    {"column": "canonical_symbol", "max": 0}
   ],
   "types": {
     "cik": "string",

@@ -37,7 +37,6 @@
   },
   "ranges": [
     {"column": "annualized_vol", "min": 0},
-    {"column": "max_drawdown", "min": 0},
     {"column": "total_turnover", "min": 0},
     {"column": "total_cost_bps", "min": 0},
     {"column": "n_rebalances", "min": 0},

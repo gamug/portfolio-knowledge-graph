@@ -498,3 +498,8 @@ reused.*
   real-file boundary suite was not run against it, and nothing was filtered or filled in to work
   around that.
 - A2 note: the final m018 design has eight views, not the A2 draft's 10–12.
+- Follow-up: the new-view expectations were re-checked on P1, P2 and P3; the orchestrator null
+  rules were relaxed to the key columns only, the `v_ticker_history` `evidence_url`/`evidence_date`
+  non-null rules were removed, and the `drawdown`/`max_drawdown` min-0 ranges were removed because
+  the handoff states no sign convention (`cost_return` min 0 kept; all three databases are
+  non-negative).

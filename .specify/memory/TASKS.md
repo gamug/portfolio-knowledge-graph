@@ -522,7 +522,12 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       the eight m018 backtest/GUARD views), `v_quant_return_daily.vendor` appended last (15 columns,
       pinned but unread under the Tiingo non-redistribution rule), floor and `contract_version` 18,
       and one expectation file per new view with the handoff §3.3 nullable columns left nullable.
-      The A2 draft's 10–12 m018 views were consolidated into the final eight. Not run: the
+      The A2 draft's 10–12 m018 views were consolidated into the final eight. Follow-up: the
+      new-view expectations were re-checked on P1, P2 and P3; the orchestrator null rules were
+      relaxed to the key columns only, the `v_ticker_history` `evidence_url`/`evidence_date`
+      non-null rules were removed, and the `drawdown`/`max_drawdown` min-0 ranges were removed
+      because the handoff states no sign convention (`cost_return` min 0 kept; all three
+      databases are non-negative). Not run: the
       real-file boundary suite against `rule_P1.db`, which holds
       22 `REPLAY` cycle runs and 13 `v_analysis_run` rows with a NULL `as_of`, so the source check
       refuses it by design; the checkout at `7658f78` is not available locally, only the database

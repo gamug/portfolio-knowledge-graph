@@ -35,7 +35,6 @@
   "ranges": [
     {"column": "turnover", "min": 0},
     {"column": "cost_return", "min": 0},
-    {"column": "drawdown", "min": 0},
     {"column": "cash_weight", "min": 0, "max": 1},
     {"column": "n_equity", "min": 0}
   ],
