@@ -1,0 +1,15 @@
+{
+  "view": "v_orchestrator_step",
+  "keys": [["orchestrator_run_id", "ordinal"]],
+  "cap": 0,
+  "null_rate": [
+    {"column": "orchestrator_run_id", "max": 0},
+    {"column": "ordinal", "max": 0}
+  ],
+  "types": {
+    "orchestrator_run_id": "integer",
+    "ordinal": "integer",
+    "exit_code": "integer",
+    "run_id": "integer"
+  }
+}

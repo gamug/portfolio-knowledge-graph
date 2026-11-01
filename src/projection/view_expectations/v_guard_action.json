@@ -1,0 +1,28 @@
+{
+  "view": "v_guard_action",
+  "keys": [["action_id"], ["book_id", "alert_id"]],
+  "cap": 0,
+  "null_rate": [
+    {"column": "action_id", "max": 0},
+    {"column": "book_id", "max": 0},
+    {"column": "backtest_run_id", "max": 0},
+    {"column": "arm_code", "max": 0},
+    {"column": "alert_id", "max": 0},
+    {"column": "decision_date", "max": 0},
+    {"column": "effective_date", "max": 0},
+    {"column": "status", "max": 0},
+    {"column": "knowledge_date", "max": 0}
+  ],
+  "types": {
+    "action_id": "integer",
+    "book_id": "integer",
+    "backtest_run_id": "integer",
+    "alert_id": "integer",
+    "weight_before": "number",
+    "weight_after": "number",
+    "knowledge_date": "string"
+  },
+  "ordered_pairs": [
+    {"left": "decision_date", "op": "<", "right": "effective_date", "null": "fail"}
+  ]
+}

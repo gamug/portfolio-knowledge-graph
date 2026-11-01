@@ -1,0 +1,42 @@
+{
+  "view": "v_book_daily_performance",
+  "keys": [["book_id", "date"]],
+  "cap": 0,
+  "null_rate": [
+    {"column": "book_id", "max": 0},
+    {"column": "backtest_run_id", "max": 0},
+    {"column": "arm_code", "max": 0},
+    {"column": "window_id", "max": 0},
+    {"column": "date", "max": 0},
+    {"column": "gross_return", "max": 0},
+    {"column": "turnover", "max": 0},
+    {"column": "cost_return", "max": 0},
+    {"column": "net_return", "max": 0},
+    {"column": "nav", "max": 0},
+    {"column": "drawdown", "max": 0},
+    {"column": "cash_weight", "max": 0},
+    {"column": "n_equity", "max": 0},
+    {"column": "knowledge_date", "max": 0}
+  ],
+  "types": {
+    "book_id": "integer",
+    "backtest_run_id": "integer",
+    "gross_return": "number",
+    "turnover": "number",
+    "cost_return": "number",
+    "net_return": "number",
+    "nav": "number",
+    "drawdown": "number",
+    "cash_weight": "number",
+    "n_equity": "integer",
+    "benchmark_return": "number",
+    "knowledge_date": "string"
+  },
+  "ranges": [
+    {"column": "turnover", "min": 0},
+    {"column": "cost_return", "min": 0},
+    {"column": "cash_weight", "min": 0, "max": 1},
+    {"column": "n_equity", "min": 0}
+  ],
+  "ordered_pairs": [{"left": "date", "op": "=", "right": "knowledge_date", "null": "fail"}]
+}

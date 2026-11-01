@@ -1,6 +1,6 @@
-"""The shipped view expectations over the rows of a real version-12 database.
+"""The shipped view expectations over the rows of a real version-18 database.
 
-Opt in with ``-m integration`` and ``PILOT_DB=<path to financial_pilot_v12.db>`` (exported). Every
+Opt in with ``-m integration`` and ``PILOT_DB=<path to a version-18 financial database>`` (exported). Every
 other test builds its rows in memory, so none of them can tell that an expectation is wrong for
 what upstream really writes (T-157: a natural key of ``metric_id`` alone, which repeats on every
 filing, passed 670 tests and stopped the real file). Run it before every re-pin and note the

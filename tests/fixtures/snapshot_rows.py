@@ -80,7 +80,7 @@ RUNS = [full_run()]
 
 _DDL = """
 CREATE TABLE schema_version (version INTEGER, applied_at TEXT, description TEXT);
-INSERT INTO schema_version VALUES (12, 'x', 'x');
+INSERT INTO schema_version VALUES (18, 'x', 'x');
 CREATE TABLE v_cycle_run (run_id INTEGER, cycle_type TEXT);
 INSERT INTO v_cycle_run VALUES (1, 'SELECTION');
 CREATE TABLE v_score_snapshot (
@@ -97,7 +97,7 @@ CREATE TABLE v_analysis_run (
 def financial_db(
     tmp_path: Path,
     rows: list[dict[str, Any]],
-    version: int = 12,
+    version: int = 18,
     runs: list[ss.AnalysisRun] | None = None,
 ) -> FinancialSource:
     """A financial database holding ``rows`` and ``runs`` (default: one full analysis run)."""

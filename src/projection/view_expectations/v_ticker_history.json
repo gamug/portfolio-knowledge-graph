@@ -1,0 +1,19 @@
+{
+  "view": "v_ticker_history",
+  "keys": [["cik", "symbol", "valid_from"]],
+  "cap": 0,
+  "null_rate": [
+    {"column": "cik", "max": 0},
+    {"column": "symbol", "max": 0},
+    {"column": "valid_from", "max": 0},
+    {"column": "canonical_symbol", "max": 0}
+  ],
+  "types": {
+    "cik": "string",
+    "symbol": "string",
+    "valid_from": "string",
+    "valid_to": "string",
+    "canonical_symbol": "string",
+    "asset_id": "integer"
+  }
+}

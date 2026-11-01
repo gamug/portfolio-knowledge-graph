@@ -1,11 +1,20 @@
 """The pinned read contract for upstream's ``v_*`` views.
 
 A full snapshot of every column of every view this repo may read, taken from
-``portfolio-financial-analysis`` ``src/kg_schema/views.py`` (commit 0a528be, 2026-10-05). No
-projector reads them yet, so this is wider than what the projection will depend on: trim
-each view to the columns the write path actually reads when it lands (T-031). Checked by
-``cli/check_view_contract.py`` (T-030): a pinned column that disappears is drift, a column
-upstream adds is only a note. Update the pin when upstream changes a view on purpose.
+``portfolio-financial-analysis`` ``src/kg_schema/views.py``. No projector reads them yet, so
+this is wider than what the projection will depend on: trim each view to the columns the write
+path actually reads when it lands (T-031). Checked by ``cli/check_view_contract.py`` (T-030): a
+pinned column that disappears is drift, a column upstream adds is only a note. Update the pin
+when upstream changes a view on purpose.
+
+Re-pinned (T-205) to Contract v18 against upstream's ``7658f783577bd54ed67c09e6963d3a27ed4062e2``
+(PR #188, branch ``feat/backtest``, 2026-11-01) and the completed v18 database ``rule_P1.db``
+(``schema_version`` 18): 44 contract views, 43 pinned here and ``v_universe_membership`` in
+:data:`NOT_READ`. The 11 views new since v12 are ``v_orchestrator_run``/``v_orchestrator_step``
+(m015), ``v_ticker_history`` (m016) and the eight m018 backtest/GUARD views;
+``v_quant_return_daily`` gains ``vendor`` as its last column (m017, 15 columns). No other existing
+view changed. ``vendor`` is pinned only: no projector reads it, and the Tiingo rows it marks stay
+out of the read under m017's non-redistribution rule.
 
 Re-pinned (T-157) against ``financial_pilot_v12.db`` (SHA-256 ``d4c6fa80…``, ``schema_version``
 12; the schema is from upstream's master ``6a80ec3``, and the file's run log still names the earlier
@@ -327,6 +336,7 @@ VIEW_COLUMNS: dict[str, tuple[str, ...]] = {
         "source",
         "engine_version",
         "computed_at",
+        "vendor",
     ),
     "v_risk_free_rate": (
         "id",
@@ -458,6 +468,165 @@ VIEW_COLUMNS: dict[str, tuple[str, ...]] = {
         "component_value",
         "configured_weight",
         "effective_weight",
+    ),
+    # New in m015 (T-012).
+    "v_orchestrator_run": (
+        "run_id",
+        "kind",
+        "as_of",
+        "code_version",
+        "status",
+        "started_at",
+        "finished_at",
+        "settings_json",
+        "handle",
+        "surface",
+    ),
+    "v_orchestrator_step": (
+        "orchestrator_run_id",
+        "handle",
+        "ordinal",
+        "step",
+        "status",
+        "started_at",
+        "finished_at",
+        "exit_code",
+        "run_kind",
+        "run_id",
+        "reason",
+        "argv_json",
+        "output_tail",
+    ),
+    # New in m016 (T-153 part 2).
+    "v_ticker_history": (
+        "cik",
+        "symbol",
+        "valid_from",
+        "valid_to",
+        "canonical_symbol",
+        "asset_id",
+        "evidence_url",
+        "evidence_date",
+        "rules",
+    ),
+    # New in m018 (WP-A / T-163: backtest and GUARD).
+    "v_book": (
+        "book_id",
+        "backtest_run_id",
+        "window_id",
+        "d_start",
+        "d_end",
+        "formation_date",
+        "run_status",
+        "arm_code",
+        "objective",
+        "exclude_hard_vetoed",
+        "guard_layers",
+        "code_version",
+        "knowledge_date",
+    ),
+    "v_book_rebalance": (
+        "rebalance_id",
+        "book_id",
+        "backtest_run_id",
+        "arm_code",
+        "decision_date",
+        "execution_date",
+        "quant_portfolio_id",
+        "cycle_run_id",
+        "risk_model_id",
+        "status",
+        "knowledge_date",
+    ),
+    "v_guard_alert": (
+        "alert_id",
+        "backtest_run_id",
+        "window_id",
+        "date",
+        "layer",
+        "ticker",
+        "asset_id",
+        "rule_id",
+        "value",
+        "threshold",
+        "state",
+        "knowledge_date",
+    ),
+    "v_guard_action": (
+        "action_id",
+        "book_id",
+        "backtest_run_id",
+        "arm_code",
+        "alert_id",
+        "decision_date",
+        "effective_date",
+        "ticker",
+        "asset_id",
+        "status",
+        "weight_before",
+        "weight_after",
+        "knowledge_date",
+    ),
+    "v_book_weight_daily": (
+        "book_id",
+        "backtest_run_id",
+        "arm_code",
+        "date",
+        "holding_key",
+        "asset_id",
+        "holding_name",
+        "markowitz_target_weight",
+        "final_target_weight",
+        "knowledge_date",
+    ),
+    "v_book_daily_performance": (
+        "book_id",
+        "backtest_run_id",
+        "arm_code",
+        "window_id",
+        "date",
+        "gross_return",
+        "turnover",
+        "cost_return",
+        "net_return",
+        "nav",
+        "drawdown",
+        "cash_weight",
+        "n_equity",
+        "benchmark_return",
+        "knowledge_date",
+    ),
+    "v_portfolio_period_summary": (
+        "book_id",
+        "backtest_run_id",
+        "arm_code",
+        "window_id",
+        "segment",
+        "date_from",
+        "date_to",
+        "cumulative_return",
+        "annualized_return",
+        "annualized_vol",
+        "ex_post_sharpe",
+        "max_drawdown",
+        "total_turnover",
+        "total_cost_bps",
+        "n_rebalances",
+        "n_guard_actions",
+        "knowledge_date",
+    ),
+    "v_backtest_test": (
+        "backtest_run_id",
+        "window_id",
+        "segment",
+        "arm_a",
+        "arm_b",
+        "test",
+        "statistic",
+        "p_value",
+        "n_obs",
+        "params_json",
+        "knowledge_date",
     ),
 }
 

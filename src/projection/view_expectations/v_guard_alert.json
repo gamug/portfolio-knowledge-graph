@@ -1,0 +1,25 @@
+{
+  "view": "v_guard_alert",
+  "keys": [["alert_id"]],
+  "cap": 0,
+  "null_rate": [
+    {"column": "alert_id", "max": 0},
+    {"column": "backtest_run_id", "max": 0},
+    {"column": "window_id", "max": 0},
+    {"column": "date", "max": 0},
+    {"column": "layer", "max": 0},
+    {"column": "rule_id", "max": 0},
+    {"column": "threshold", "max": 0},
+    {"column": "state", "max": 0},
+    {"column": "knowledge_date", "max": 0}
+  ],
+  "types": {
+    "alert_id": "integer",
+    "backtest_run_id": "integer",
+    "layer": "integer",
+    "value": "number",
+    "threshold": "number",
+    "knowledge_date": "string"
+  },
+  "ranges": [{"column": "layer", "min": 1, "max": 4}]
+}
