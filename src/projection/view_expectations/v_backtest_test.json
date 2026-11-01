@@ -1,0 +1,28 @@
+{
+  "view": "v_backtest_test",
+  "keys": [["backtest_run_id", "segment", "arm_a", "arm_b", "test"]],
+  "cap": 0,
+  "null_rate": [
+    {"column": "backtest_run_id", "max": 0},
+    {"column": "window_id", "max": 0},
+    {"column": "segment", "max": 0},
+    {"column": "arm_a", "max": 0},
+    {"column": "arm_b", "max": 0},
+    {"column": "test", "max": 0},
+    {"column": "statistic", "max": 0},
+    {"column": "p_value", "max": 0},
+    {"column": "n_obs", "max": 0},
+    {"column": "knowledge_date", "max": 0}
+  ],
+  "types": {
+    "backtest_run_id": "integer",
+    "statistic": "number",
+    "p_value": "number",
+    "n_obs": "integer",
+    "knowledge_date": "string"
+  },
+  "ranges": [
+    {"column": "p_value", "min": 0, "max": 1},
+    {"column": "n_obs", "min": 1}
+  ]
+}

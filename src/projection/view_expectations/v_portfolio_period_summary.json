@@ -1,0 +1,50 @@
+{
+  "view": "v_portfolio_period_summary",
+  "keys": [["book_id", "segment"]],
+  "cap": 0,
+  "null_rate": [
+    {"column": "book_id", "max": 0},
+    {"column": "backtest_run_id", "max": 0},
+    {"column": "arm_code", "max": 0},
+    {"column": "window_id", "max": 0},
+    {"column": "segment", "max": 0},
+    {"column": "date_from", "max": 0},
+    {"column": "date_to", "max": 0},
+    {"column": "cumulative_return", "max": 0},
+    {"column": "annualized_return", "max": 0},
+    {"column": "annualized_vol", "max": 0},
+    {"column": "ex_post_sharpe", "max": 0},
+    {"column": "max_drawdown", "max": 0},
+    {"column": "total_turnover", "max": 0},
+    {"column": "total_cost_bps", "max": 0},
+    {"column": "n_rebalances", "max": 0},
+    {"column": "n_guard_actions", "max": 0},
+    {"column": "knowledge_date", "max": 0}
+  ],
+  "types": {
+    "book_id": "integer",
+    "backtest_run_id": "integer",
+    "cumulative_return": "number",
+    "annualized_return": "number",
+    "annualized_vol": "number",
+    "ex_post_sharpe": "number",
+    "max_drawdown": "number",
+    "total_turnover": "number",
+    "total_cost_bps": "number",
+    "n_rebalances": "integer",
+    "n_guard_actions": "integer",
+    "knowledge_date": "string"
+  },
+  "ranges": [
+    {"column": "annualized_vol", "min": 0},
+    {"column": "max_drawdown", "min": 0},
+    {"column": "total_turnover", "min": 0},
+    {"column": "total_cost_bps", "min": 0},
+    {"column": "n_rebalances", "min": 0},
+    {"column": "n_guard_actions", "min": 0}
+  ],
+  "ordered_pairs": [
+    {"left": "date_from", "op": "<=", "right": "date_to", "null": "fail"},
+    {"left": "date_to", "op": "=", "right": "knowledge_date", "null": "fail"}
+  ]
+}

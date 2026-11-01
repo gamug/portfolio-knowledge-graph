@@ -1,0 +1,25 @@
+{
+  "view": "v_book",
+  "keys": [["book_id"], ["backtest_run_id", "arm_code"]],
+  "cap": 0,
+  "null_rate": [
+    {"column": "book_id", "max": 0},
+    {"column": "backtest_run_id", "max": 0},
+    {"column": "window_id", "max": 0},
+    {"column": "d_start", "max": 0},
+    {"column": "d_end", "max": 0},
+    {"column": "run_status", "max": 0},
+    {"column": "arm_code", "max": 0},
+    {"column": "objective", "max": 0},
+    {"column": "exclude_hard_vetoed", "max": 0},
+    {"column": "knowledge_date", "max": 0}
+  ],
+  "types": {
+    "book_id": "integer",
+    "backtest_run_id": "integer",
+    "exclude_hard_vetoed": "integer",
+    "knowledge_date": "string"
+  },
+  "ranges": [{"column": "exclude_hard_vetoed", "min": 0, "max": 1}],
+  "ordered_pairs": [{"left": "d_start", "op": "<=", "right": "d_end", "null": "fail"}]
+}

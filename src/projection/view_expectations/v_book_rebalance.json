@@ -1,0 +1,24 @@
+{
+  "view": "v_book_rebalance",
+  "keys": [["rebalance_id"], ["book_id", "execution_date"]],
+  "cap": 0,
+  "null_rate": [
+    {"column": "rebalance_id", "max": 0},
+    {"column": "book_id", "max": 0},
+    {"column": "backtest_run_id", "max": 0},
+    {"column": "arm_code", "max": 0},
+    {"column": "decision_date", "max": 0},
+    {"column": "execution_date", "max": 0},
+    {"column": "status", "max": 0},
+    {"column": "knowledge_date", "max": 0}
+  ],
+  "types": {
+    "rebalance_id": "integer",
+    "book_id": "integer",
+    "backtest_run_id": "integer",
+    "knowledge_date": "string"
+  },
+  "ordered_pairs": [
+    {"left": "decision_date", "op": "<", "right": "execution_date", "null": "fail"}
+  ]
+}

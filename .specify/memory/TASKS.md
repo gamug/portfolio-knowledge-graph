@@ -515,6 +515,23 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       "upstream T-144"`, and the reader counts those rows as left out by design
       (`LEFT_NULL_AVAILABLE_AT`, late keys). T-144 has landed and the v12 file has no NULL there, so a
       follow-up can make it `fail` and drop that path; proposed, not yet a task. The rule content (`penalty_points`, the new rules) is not in this file; it is T-187's work.
+- [x] **T-205** *(done 2026-11-01: re-pinned to Contract v18 against upstream `7658f78`
+      (PR #188, branch `feat/backtest`) and the completed `rule_P1.db` (`schema_version` 18): 44
+      contract views, 43 pinned plus `v_universe_membership` in `NOT_READ`; the 11 views added since
+      v12 (`v_orchestrator_run`/`v_orchestrator_step` from m015, `v_ticker_history` from m016 and
+      the eight m018 backtest/GUARD views), `v_quant_return_daily.vendor` appended last (15 columns,
+      pinned but unread under the Tiingo non-redistribution rule), floor and `contract_version` 18,
+      and one expectation file per new view with the handoff §3.3 nullable columns left nullable.
+      The A2 draft's 10–12 m018 views were consolidated into the final eight. Not run: the
+      real-file boundary suite against `rule_P1.db`, which holds
+      22 `REPLAY` cycle runs and 13 `v_analysis_run` rows with a NULL `as_of`, so the source check
+      refuses it by design; the checkout at `7658f78` is not available locally, only the database
+      built from it. The text below is the original task)* When upstream ships Contract v18: re-pin
+      `src/projection/view_contract.py` (the new views and columns, the commit in its docstring and
+      in `SPEC.md` §2.6), raise the `schema_version` floor and the `contract_version` in
+      `src/projection/view_expectations/_source.json`, add the new views' expectation files, and
+      update the tests and the pinned counts. This is the pin only: projectors, ontology, SHACL and
+      `rules.ttl` are separate changes.
 - [ ] **T-158** Replace the `ASSET_DAY_AGGREGATE` placeholder with upstream's SEMANTIC
       `score_method` value once they give it (D14; with their Work item 4, after their T-100).
       **First, raise the ownership disagreement (unblocked now; ask before their T-141 ships its

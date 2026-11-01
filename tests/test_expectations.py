@@ -34,10 +34,54 @@ def shipped() -> dict[str, ViewExpectation]:
 # --- the shipped files -------------------------------------------------------------------------
 
 
+NEW_V18_VIEWS = (
+    "v_orchestrator_run",
+    "v_orchestrator_step",
+    "v_ticker_history",
+    "v_book",
+    "v_book_rebalance",
+    "v_guard_alert",
+    "v_guard_action",
+    "v_book_weight_daily",
+    "v_book_daily_performance",
+    "v_portfolio_period_summary",
+    "v_backtest_test",
+)
+
+# Handoff §3.3: NULL by design on these rows, so no max-null-rate of 0 may be written for them.
+NULLABLE_BY_DESIGN = {
+    "v_book_rebalance": ("cycle_run_id",),
+    "v_guard_alert": ("asset_id", "ticker", "value"),
+    "v_guard_action": ("asset_id", "ticker", "weight_before", "weight_after"),
+    "v_book_weight_daily": (
+        "asset_id",
+        "holding_name",
+        "markowitz_target_weight",
+        "final_target_weight",
+    ),
+}
+
+
 def test_every_pinned_view_has_a_file(shipped: dict[str, ViewExpectation]) -> None:
     assert set(VIEW_COLUMNS) <= set(shipped)
-    assert set(shipped) == set(VIEW_COLUMNS)  # none is pending any more (T-157)
+    assert set(shipped) == set(VIEW_COLUMNS)  # none is pending any more (T-157, T-205)
     assert not any(e.pending or e.pending_columns for e in shipped.values())
+
+
+def test_every_new_v18_view_has_an_expectation_file(
+    shipped: dict[str, ViewExpectation],
+) -> None:
+    assert set(NEW_V18_VIEWS) <= set(shipped)
+    assert not any(shipped[v].pending for v in NEW_V18_VIEWS)
+    assert not any(shipped[v].pending_columns for v in NEW_V18_VIEWS)
+
+
+def test_the_documented_nullable_columns_are_not_forced_non_null(
+    shipped: dict[str, ViewExpectation],
+) -> None:
+    for view, columns in NULLABLE_BY_DESIGN.items():
+        forced = {rule.column for rule in shipped[view].null_rates if rule.max == 0}
+        assert not set(columns) & forced, f"{view}: {sorted(set(columns) & forced)} forced non-null"
 
 
 def test_no_view_may_lose_rows_yet(shipped: dict[str, ViewExpectation]) -> None:
@@ -47,8 +91,9 @@ def test_no_view_may_lose_rows_yet(shipped: dict[str, ViewExpectation]) -> None:
 
 def test_the_source_check_is_the_documented_one() -> None:
     source = load_source()
-    assert source.schema_version_floor == 12  # upstream's version (T-157)
-    assert source.contract_version == 12  # what the pin was built against (T-157)
+    assert source.schema_version_floor == 18  # upstream's version (T-205)
+    assert source.contract_version == 18  # what the pin was built against (T-205)
+    assert source.schema_version_floor == source.contract_version
     assert source.forbidden_cycle_types == ("REPLAY",)
 
 

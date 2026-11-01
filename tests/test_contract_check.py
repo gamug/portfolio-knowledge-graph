@@ -119,10 +119,29 @@ def test_real_pin_is_well_formed() -> None:
     assert not set(view_contract.NOT_READ) & set(view_contract.VIEW_COLUMNS)
 
 
-def test_real_pin_holds_the_version_12_views_and_appended_columns() -> None:
-    """T-157: re-pinned against a version-12 database; columns upstream appended come last."""
+NEW_V18_VIEWS = {
+    "v_orchestrator_run",
+    "v_orchestrator_step",
+    "v_ticker_history",
+    "v_book",
+    "v_book_rebalance",
+    "v_guard_alert",
+    "v_guard_action",
+    "v_book_weight_daily",
+    "v_book_daily_performance",
+    "v_portfolio_period_summary",
+    "v_backtest_test",
+}
+
+
+def test_real_pin_holds_the_version_18_views_and_appended_columns() -> None:
+    """T-205: re-pinned to Contract v18; columns upstream appended come last."""
     pin = view_contract.VIEW_COLUMNS
     assert "v_universe_membership" not in pin  # frozen upstream, never read (NOT_READ)
+    assert "v_universe_membership" in view_contract.NOT_READ
+    assert len(pin) == 43
+    assert len(set(pin) | set(view_contract.NOT_READ)) == 44
+    assert set(pin) >= NEW_V18_VIEWS
     assert {"v_fundamental_metric", "v_cycle_ranking_component"} <= set(pin)
     assert pin["v_fundamental_metric"][-1] == "run_id"
     assert pin["v_cycle_ranking_component"] == (
@@ -133,6 +152,8 @@ def test_real_pin_holds_the_version_12_views_and_appended_columns() -> None:
         "configured_weight",
         "effective_weight",
     )
+    assert pin["v_quant_return_daily"][-1] == "vendor"
+    assert len(pin["v_quant_return_daily"]) == 15
     assert pin["v_veto"][-1] == "expires_on"
     assert pin["v_price_observation"][-5:] == (
         "sma_200",

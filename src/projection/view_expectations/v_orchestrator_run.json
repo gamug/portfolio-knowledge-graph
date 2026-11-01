@@ -1,0 +1,22 @@
+{
+  "view": "v_orchestrator_run",
+  "keys": [["run_id"]],
+  "cap": 0,
+  "null_rate": [
+    {"column": "run_id", "max": 0},
+    {"column": "kind", "max": 0},
+    {"column": "as_of", "max": 0},
+    {"column": "status", "max": 0},
+    {"column": "started_at", "max": 0},
+    {"column": "handle", "max": 0},
+    {"column": "surface", "max": 0}
+  ],
+  "types": {
+    "run_id": "integer",
+    "kind": "string",
+    "as_of": "string",
+    "status": "string",
+    "handle": "string",
+    "surface": "string"
+  }
+}

@@ -280,37 +280,37 @@ def _run(url: str) -> subprocess.CompletedProcess[str]:
 
 def test_cli_exits_0_for_a_service_that_matches_the_pin_and_checks_its_contract_version() -> None:
     routes = {
-        "/api/v1/contract": (200, _contract(12)),
-        "/api/v1/contract/database": (200, _database(12)),
+        "/api/v1/contract": (200, _contract(18)),
+        "/api/v1/contract/database": (200, _database(18)),
     }
     with _serve(routes) as url:
         result = _run(url)
     assert result.returncode == 0, result.stdout + result.stderr
     assert "view contract: OK" in result.stdout
-    # the shipped pin records contract_version 12 (T-157), so the check runs and nothing is skipped
+    # the shipped pin records contract_version 18 (T-205), so the check runs and nothing is skipped
     assert "the pin records none" not in result.stdout
 
 
 def test_cli_exits_1_when_the_service_serves_another_contract_version() -> None:
     routes = {
-        "/api/v1/contract": (200, _contract(13)),
-        "/api/v1/contract/database": (200, _database(13)),
+        "/api/v1/contract": (200, _contract(19)),
+        "/api/v1/contract/database": (200, _database(19)),
     }
     with _serve(routes) as url:
         result = _run(url)
     assert result.returncode == 1
-    assert "DRIFT contract_version: the service declares 13, the pin records 12" in result.stdout
+    assert "DRIFT contract_version: the service declares 19, the pin records 18" in result.stdout
 
 
 def test_cli_exits_1_when_the_database_is_below_the_floor() -> None:
     routes = {
-        "/api/v1/contract": (200, _contract(12)),
+        "/api/v1/contract": (200, _contract(18)),
         "/api/v1/contract/database": (200, _database(8)),
     }
     with _serve(routes) as url:
         result = _run(url)
     assert result.returncode == 1
-    assert "DRIFT database: schema_version 8 is below the floor 12" in result.stdout
+    assert "DRIFT database: schema_version 8 is below the floor 18" in result.stdout
 
 
 def test_cli_exits_2_when_the_service_answers_something_else() -> None:

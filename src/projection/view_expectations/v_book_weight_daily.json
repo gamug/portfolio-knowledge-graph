@@ -1,0 +1,21 @@
+{
+  "view": "v_book_weight_daily",
+  "keys": [["book_id", "date", "holding_key"]],
+  "cap": 0,
+  "null_rate": [
+    {"column": "book_id", "max": 0},
+    {"column": "backtest_run_id", "max": 0},
+    {"column": "arm_code", "max": 0},
+    {"column": "date", "max": 0},
+    {"column": "holding_key", "max": 0},
+    {"column": "knowledge_date", "max": 0}
+  ],
+  "types": {
+    "book_id": "integer",
+    "backtest_run_id": "integer",
+    "markowitz_target_weight": "number",
+    "final_target_weight": "number",
+    "knowledge_date": "string"
+  },
+  "ordered_pairs": [{"left": "date", "op": "=", "right": "knowledge_date", "null": "fail"}]
+}

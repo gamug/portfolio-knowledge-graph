@@ -1,5 +1,5 @@
 {
-  "schema_version_floor": 12,
-  "contract_version": 12,
+  "schema_version_floor": 18,
+  "contract_version": 18,
   "forbidden_cycle_types": ["REPLAY"]
 }

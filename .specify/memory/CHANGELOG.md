@@ -480,3 +480,21 @@ reused.*
       graphs, which are out. Keep one guard anyway: refuse the replacement when another graph holds a
       triple about a subject the old graph declares; (c) the replacement keeps the IRIs of the rows that
       did not change. Tests with a fake store. → `PLAN.md` Work item 14.
+
+## Contract v18 re-pin (2026-11-01, T-205)
+
+- Re-pinned the upstream read contract from v12 (33 contract views) to v18 (44): 43 views pinned in
+  `src/projection/view_contract.py` plus `v_universe_membership` in `NOT_READ`. The 11 views added
+  since v12 are `v_orchestrator_run`/`v_orchestrator_step` (m015), `v_ticker_history` (m016) and the
+  eight m018 backtest/GUARD views; `v_quant_return_daily` gains `vendor` as its last column (m017,
+  15 columns, pinned but unread under the Tiingo non-redistribution rule). No other existing view
+  changed.
+- `src/projection/view_expectations/_source.json` records `schema_version_floor` and
+  `contract_version` 18; the 11 new views have expectation files with the handoff §3.3 nullable
+  columns left nullable.
+- The completed v18 database `rule_P1.db` (read-only) matches the handoff's 44 column tuples
+  exactly. It is a backtest database: all 22 `v_cycle_run` rows are `REPLAY` and 13
+  `v_analysis_run` rows have a NULL `as_of`, so the source check refuses it by design. The
+  real-file boundary suite was not run against it, and nothing was filtered or filled in to work
+  around that.
+- A2 note: the final m018 design has eight views, not the A2 draft's 10–12.
