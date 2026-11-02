@@ -349,10 +349,12 @@
     sh:property [ sh:path :tickerHistoryCik ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ] ;
     sh:property [ sh:path :historicalSymbol ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ] ;
     sh:property [ sh:path :canonicalSymbol ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ] ;
-    # validTo is exclusive and optional (NULL = current symbol); validFrom < validTo when present.
-    sh:property [ sh:path :validFrom ; sh:datatype xsd:date ; sh:minCount 1 ; sh:maxCount 1 ; sh:lessThan :validTo ] ;
+    # validTo is INCLUSIVE and optional (NULL = current symbol): v_ticker_history.valid_to is the
+    # symbol's last valid date (handoff §3.1), so validFrom <= validTo when present. This differs
+    # from RuleDefinition's exclusive validTo (T-187).
+    sh:property [ sh:path :validFrom ; sh:datatype xsd:date ; sh:minCount 1 ; sh:maxCount 1 ; sh:lessThanOrEquals :validTo ] ;
     sh:property [ sh:path :validTo ; sh:datatype xsd:date ; sh:maxCount 1 ] ;
-    # Optional: the LEFT JOIN can leave no asset; evidence_url/evidence_date are optional per the task's
+    # Optional: the LEFT JOIN can leave no asset; evidence_url/evidence_date are optional per the
     # v18 shape contract even though the m016 DDL marks them NOT NULL.
     sh:property [ sh:path :tickerHistoryAsset ; sh:class :Asset ; sh:maxCount 1 ] ;
     sh:property [ sh:path :evidenceUrl ; sh:datatype xsd:anyURI ; sh:maxCount 1 ] ;
@@ -362,14 +364,16 @@
 :OrchestratorRunShape
     a sh:NodeShape ;
     sh:targetClass :OrchestratorRun ;
+    # Only the natural key is required: the handoff §3.1 gives the view SQL but not the base table's
+    # NOT NULL constraints, and both orchestrator views have 0 rows in P1/P2/P3. Every other property
+    # is optional with its datatype and maxCount 1.
     sh:property [ sh:path :orchestratorRunId ; sh:datatype xsd:integer ; sh:minCount 1 ; sh:maxCount 1 ] ;
-    sh:property [ sh:path :handle ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ] ;
-    sh:property [ sh:path :runKind ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ] ;
-    sh:property [ sh:path :runAsOf ; sh:datatype xsd:date ; sh:minCount 1 ; sh:maxCount 1 ] ;
-    sh:property [ sh:path :surface ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ] ;
-    sh:property [ sh:path :status ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ] ;
-    sh:property [ sh:path :startedAt ; sh:datatype xsd:dateTime ; sh:minCount 1 ; sh:maxCount 1 ] ;
-    # Optional per the m015 DDL / task: NULL is allowed.
+    sh:property [ sh:path :handle ; sh:datatype xsd:string ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :runKind ; sh:datatype xsd:string ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :runAsOf ; sh:datatype xsd:date ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :surface ; sh:datatype xsd:string ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :status ; sh:datatype xsd:string ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :startedAt ; sh:datatype xsd:dateTime ; sh:maxCount 1 ] ;
     sh:property [ sh:path :finishedAt ; sh:datatype xsd:dateTime ; sh:maxCount 1 ] ;
     sh:property [ sh:path :settingsJson ; sh:datatype xsd:string ; sh:maxCount 1 ] ;
     sh:property [ sh:path :codeVersion ; sh:datatype xsd:string ; sh:maxCount 1 ] .
@@ -377,14 +381,14 @@
 :OrchestratorStepShape
     a sh:NodeShape ;
     sh:targetClass :OrchestratorStep ;
+    # Only the natural key is required, for the same reason as OrchestratorRunShape: handoff §3.1 has
+    # no base-table nullability and both views have 0 rows. Every other property is optional.
     sh:property [ sh:path :stepOfOrchestratorRun ; sh:class :OrchestratorRun ; sh:minCount 1 ; sh:maxCount 1 ] ;
-    sh:property [ sh:path :handle ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ] ;
     sh:property [ sh:path :ordinal ; sh:datatype xsd:integer ; sh:minCount 1 ; sh:maxCount 1 ] ;
-    sh:property [ sh:path :stepName ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ] ;
-    sh:property [ sh:path :argvJson ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ] ;
-    sh:property [ sh:path :status ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ] ;
-    # Optional: the m015 DDL allows NULL on started_at, and the task names finished_at, exit_code,
-    # run_kind, reason and output_tail as optional. run_id is the step's own run-log id, also optional.
+    sh:property [ sh:path :handle ; sh:datatype xsd:string ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :stepName ; sh:datatype xsd:string ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :argvJson ; sh:datatype xsd:string ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :status ; sh:datatype xsd:string ; sh:maxCount 1 ] ;
     sh:property [ sh:path :startedAt ; sh:datatype xsd:dateTime ; sh:maxCount 1 ] ;
     sh:property [ sh:path :finishedAt ; sh:datatype xsd:dateTime ; sh:maxCount 1 ] ;
     sh:property [ sh:path :exitCode ; sh:datatype xsd:integer ; sh:maxCount 1 ] ;

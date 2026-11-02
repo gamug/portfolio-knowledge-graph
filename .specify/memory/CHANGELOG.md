@@ -519,7 +519,12 @@ reused.*
   `windowId`, `knowledgeDate`, `status`, `decisionDate`, `guardTicker`, `guardLayer`, `segment`,
   `handle`, `startedAt`, `finishedAt`, `runKind`) have no `rdfs:domain`, the `:runId` pattern, and
   every m018 individual carries `:knowledgeDate`. The handoff §3.3 nullable columns are optional in
-  SHACL and never required; a CASH weight row has no asset link and needs no `:Asset` node. The
+  SHACL and never required; a CASH weight row has no asset link and needs no `:Asset` node.
+  `TickerHistory`'s interval is **inclusive** (`validFrom <= d <= validTo`; a one-day symbol is
+  valid), unlike `RuleDefinition`'s exclusive `validTo`; the gate's `CLOSABLE` entry carries an
+  `inclusive` flag for it. The Orchestrator shapes require only their natural keys
+  (`orchestratorRunId`; `stepOfOrchestratorRun` + `ordinal`): handoff §3.1 gives no base-table
+  nullability and both views have 0 rows. The
   completed P1/P2/P3 databases override the DDL comments: `guard_layers` is NULL on
   `MARKOWITZ_BASE`/`TOPN_MV_NOGUARD` (optional in the shape) and `exclude_hard_vetoed` is 0 on all
   three arms (only its boolean type is enforced); `drawdown`, `cost_return` and `max_drawdown` get no
@@ -540,13 +545,15 @@ reused.*
 - Tests: `tests/test_ontology_v18.py` covers the 51/38/31 counts, the @es text against handoff §6.2,
   the property list, every nullable case (layer-1 alert without value, layer-3 alert without asset,
   CASH weight without asset, MARKOWITZ_BASE rebalance without cycle run, book without guard layers,
-  ordinary-day weight without targets), synthetic non-conformant cases, the rule table and the
-  GUARD/veto separation; `tests/test_schema_gate.py` updates the 10 selection rules, the [1,10] rank
-  and the target-schema mirror.
+  ordinary-day weight without targets, a one-day TickerHistory, an Orchestrator run/step with only
+  its keys), synthetic non-conformant cases, the rule table and the GUARD/veto separation;
+  `tests/test_kg_gate.py` covers the inclusive one-day TickerHistory closure and keeps the same-day
+  membership closure refused; `tests/test_schema_gate.py` updates the 10 selection rules, the
+  [1,10] rank and the target-schema mirror.
 - Docs: `docs/06` §1.10 and the class tree/table, `docs/07` (PROPOSED
   `urn:graph:derived:backtest:{backtest_run_id}`), `docs/08` (the future projector), `schema/README.md`
   refinement 7, `SPEC.md` §2.1/§2.6, `PLAN.md` Work item 4 step 7, `README.md`, `docs/10` and
-  `docs/graphdb-setup.md` counts. Bundle **4159 quads; conforms: True**.
+  `docs/graphdb-setup.md` counts. Bundle **4149 quads; conforms: True**.
 - Not done: no projector (`src/projection/`), no change to the v18 pin, no ingest-gate pattern change
-  (only the schema-driven `CLOSABLE` list gains `TickerHistory`, because its shape reads `:validTo`),
-  no GraphDB write/reload and no `protege-view.ttl` regeneration (T-070/T-071).
+  beyond the schema-driven `CLOSABLE` entry and its `inclusive` flag for `TickerHistory`, no GraphDB
+  write/reload and no `protege-view.ttl` regeneration (T-070/T-071).

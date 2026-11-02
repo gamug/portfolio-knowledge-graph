@@ -329,12 +329,21 @@ what the store *enforces*.
      queries. A book or a test links to its backtest run by the literal `:backtestRunId`: there is no
      `BacktestRun` class and no invented node. `v_guard_alert` has no `book_id`, so an alert reaches a
      book through its `:alertHasGuardAction` actions, not a direct property.
+   - **TickerHistory's interval is inclusive.** `v_ticker_history.valid_to` is the symbol's last
+     valid date (handoff §3.1), and the lookup is `date BETWEEN valid_from AND
+     COALESCE(valid_to, '9999-12-31')`, so `TickerHistoryShape` uses `sh:lessThanOrEquals` and a
+     one-day symbol (`validFrom == validTo`) conforms. The shared `:validTo` stays exclusive on
+     `RuleDefinition` (T-187), `UniverseMembership`, `PortfolioPosition` and
+     `AttractivenessWeightScheme`; the gate's `CLOSABLE` entry carries an `inclusive` flag for
+     `TickerHistory` only.
    - **Nullable columns.** `sh:minCount` is 1 only where the m015/m016/m018 DDL or handoff §3.3
      guarantees a value. Never required: `v_book_rebalance.cycle_run_id`, `v_guard_alert`
      asset/ticker/value, `v_guard_action` asset/ticker/weight_before/weight_after,
      `v_book_weight_daily` asset/holding_name/both target weights, `v_book.guard_layers`,
-     `v_ticker_history` valid_to/evidence_url/evidence_date, and the orchestrator optional columns.
-     A CASH weight row has no `:holdingAsset` and needs no `:Asset` node.
+     `v_ticker_history` valid_to/evidence_url/evidence_date. The Orchestrator shapes require only
+     their natural keys (`orchestratorRunId`; `stepOfOrchestratorRun` + `ordinal`): handoff §3.1 gives
+     no base-table nullability and both views have 0 rows. A CASH weight row has no `:holdingAsset`
+     and needs no `:Asset` node.
    - **Data over the DDL comments.** `v_book.guard_layers` is NULL on `MARKOWITZ_BASE` and
      `TOPN_MV_NOGUARD` (the DDL says `'[]'`), so it is optional; `exclude_hard_vetoed` is 0 on all
      three arms (the DDL says 1 for `TOPN_MV_*`), so the shape requires only an `xsd:boolean` and never
@@ -352,9 +361,9 @@ what the store *enforces*.
      makes `:priorityRank` mandatory for non-GUARD rules (range widened to `[1,10]`); `VetoShape`
      refuses a GUARD rule as `:appliesRule`/`:primaryRule`. A GUARD rule is not a veto rule.
    - **Not done here:** no projector (`src/projection/`), no change to the v18 pin, no ingest-gate
-     pattern change (only the schema-driven `CLOSABLE` list gains `TickerHistory`, because its shape
-     reads `:validTo`), no GraphDB write/reload, and `protege-view.ttl` is not regenerated (generated
-     file; T-070/T-071). **4159 quads; conforms: True.**
+     pattern change beyond the schema-driven `CLOSABLE` entry and its `inclusive` flag for
+     `TickerHistory` (a one-day symbol must not be refused), no GraphDB write/reload, and
+     `protege-view.ttl` is not regenerated (generated file; T-070/T-071). **4149 quads; conforms: True.**
 
 ## Validation
 
@@ -411,7 +420,7 @@ conforms: True.** The `urn:graph:tbox` graph (which holds `shapes.ttl`) grows by
 
 **T-100 (D1, 2026-10-05: `universe.db` is the asset master).** Maintainer decision: the ETL reads `portfolio-data-mining`'s point-in-time `universe.db` instead of Wikipedia's live table, so every membership stint becomes a `:UniverseMembership` (`validFrom`, and `validTo` while closed, exclusive like upstream's predicate) in one `:Universe` (`:SP500Index`, emitted by the ETL into `data.ttl`, not stored here). One shape change: `AssetShape`'s `cikNumber` is no longer unconditionally required. It is now `sh:maxCount 1` plus a `sh:or`: either the asset has a `cikNumber`, or it has at least one `:UniverseMembership` and every one of them has a `validTo`. Why: upstream records no CIK for a company that has left the index (all closed stints lack it), and inventing one would put false data in the graph; a current member without a CIK still fails. `UniverseMembershipShape` also declares `validTo` (`xsd:date`, at most one) and requires `validFrom` before it, since an exclusive `validTo` at or before `validFrom` holds on no date (upstream has two such stints, `HNG` and `AYE`, which the ETL skips). Checked with five cases (closed-only without CIK passes; open without CIK, closed-plus-open without CIK, and no membership without CIK fail; CIK without membership passes). No new class or property; `AllDisjointClasses` is unchanged. **2383 quads; conforms: True.**
 
-**T-206 (Contract v18 ontology, 2026-11-01).** The 11 new classes, their properties and 11 shapes are in `tbox.ttl`/`shapes.ttl` (refinement 7 above), and `rules.ttl` now has the 10 selection rules plus the 5 GUARD rules. The bundle parses clean and `pyshacl` conforms: **4159 quads; conforms: True.** The canonical command is the same as above (`tbox.ttl` + `shapes.ttl` + `reference.ttl` + `rules.ttl` + `instances.trig`); the test suite also validates the flat union with `rules.ttl` included. No GraphDB write or reload was done; the live store still holds the pre-T-206 schema until the next `cli/load_schema.py` (maintainer's go-ahead). `schema/protege-view.ttl` is generated and was not regenerated (T-070/T-071).
+**T-206 (Contract v18 ontology, 2026-11-01).** The 11 new classes, their properties and 11 shapes are in `tbox.ttl`/`shapes.ttl` (refinement 7 above), and `rules.ttl` now has the 10 selection rules plus the 5 GUARD rules. `TickerHistory`'s interval is inclusive (`validFrom <= d <= validTo`; a one-day symbol is valid), and the Orchestrator shapes require only their natural keys (`orchestratorRunId`; `stepOfOrchestratorRun` + `ordinal`) because handoff §3.1 gives no base-table nullability and both views have 0 rows. The bundle parses clean and `pyshacl` conforms: **4149 quads; conforms: True.** The canonical command is the same as above (`tbox.ttl` + `shapes.ttl` + `reference.ttl` + `rules.ttl` + `instances.trig`); the test suite also validates the flat union with `rules.ttl` included. No GraphDB write or reload was done; the live store still holds the pre-T-206 schema until the next `cli/load_schema.py` (maintainer's go-ahead). `schema/protege-view.ttl` is generated and was not regenerated (T-070/T-071).
 
 "Active at cutoff" is the general predicate; the **T-1 lag is the same query with `?cutoff` bound to
 the previous cycle date**. It needs the store to query the union of the named graphs (GraphDB does

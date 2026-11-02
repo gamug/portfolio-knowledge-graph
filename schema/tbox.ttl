@@ -189,7 +189,7 @@
     rdfs:label "Ticker History" ;
     rdfs:label "historial de símbolo bursátil"@es ;
     skos:definition "Registro histórico de cada símbolo bursátil (ticker) utilizado por una línea de emisor (identificada por su CIK en la SEC) durante un intervalo [validFrom, validTo]. Permite resolver el símbolo vigente en cada fecha histórica."@es ;
-    rdfs:comment "One row of v_ticker_history (m016): a point-in-time symbol for one CIK line over [validFrom, validTo). validTo absent means the current symbol. The optional :tickerHistoryAsset link is v_ticker_history.asset_id (LEFT JOIN on canonical_symbol); :evidenceUrl/:evidenceDate are optional here because the task's v18 shape contract keeps them optional even though the m016 DDL marks them NOT NULL." .
+    rdfs:comment "One row of v_ticker_history (m016): a point-in-time symbol for one CIK line over the INCLUSIVE interval [validFrom, validTo]. validTo absent means the current symbol. The optional :tickerHistoryAsset link is v_ticker_history.asset_id (LEFT JOIN on canonical_symbol); :evidenceUrl/:evidenceDate are optional here because the v18 shape contract keeps them optional even though the m016 DDL marks them NOT NULL." .
 
 :OrchestratorRun
     a owl:Class ;
@@ -572,7 +572,7 @@
 :validFrom a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:range xsd:date ;
     rdfs:comment "Valid-time start (06-ontology-definition.md §1.4)." .
 :validTo   a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:range xsd:date ;
-    rdfs:comment "Valid-time end. Absent/unbound == currently active. On a RuleDefinition (T-187) it is exclusive: the rule is valid on d when validFrom <= d < validTo, and a successor with the same :ruleId starts on that day (the superseded LIQUIDITY_DISTRESS ends 2026-10-10, its redefinition starts then)." .
+    rdfs:comment "Valid-time end. Absent/unbound == currently active. On a RuleDefinition (T-187) it is exclusive: the rule is valid on d when validFrom <= d < validTo, and a successor with the same :ruleId starts on that day (the superseded LIQUIDITY_DISTRESS ends 2026-10-10, its redefinition starts then). On a TickerHistory (T-206) it is INCLUSIVE: the symbol is valid on d when validFrom <= d <= validTo, because v_ticker_history.valid_to is the symbol's last valid date (handoff §3.1), and TickerHistoryShape uses sh:lessThanOrEquals. UniverseMembership, PortfolioPosition and AttractivenessWeightScheme keep the exclusive reading." .
 
 # --- ScoreSnapshot / SectorAggregateSnapshot (via ObservationSnapshot union) ---
 :normalizedScore a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :ObservationSnapshot ; rdfs:range xsd:decimal ;
@@ -819,7 +819,7 @@
 :tickerHistoryCik a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :TickerHistory ; rdfs:range xsd:string ;
     rdfs:comment "v_ticker_history.cik. Named distinctly from :cikNumber (whose rdfs:domain is Asset) so a TickerHistory is not entailed to be an Asset." .
 :historicalSymbol a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :TickerHistory ; rdfs:range xsd:string ;
-    rdfs:comment "v_ticker_history.symbol: the symbol in use over [validFrom, validTo)." .
+    rdfs:comment "v_ticker_history.symbol: the symbol in use over the inclusive interval [validFrom, validTo]." .
 :canonicalSymbol a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :TickerHistory ; rdfs:range xsd:string ;
     rdfs:comment "v_ticker_history.canonical_symbol: the CIK line's current ticker, the one every other view shows." .
 :evidenceUrl a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :TickerHistory ; rdfs:range xsd:anyURI ;

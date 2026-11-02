@@ -48,7 +48,9 @@ so `knowledgeDate <= D` reads work without relying on the graph name. This is de
 proposal to settle with the projectors (and with the automation-per-repository decision, Work item
 17), not a placement implemented here: no projector exists yet and no store was written. The m015
 `OrchestratorRun`/`OrchestratorStep` and m016 `TickerHistory` classes are not m018 output; their
-graph placement is left open for the same discussion.
+graph placement is left open for the same discussion. `TickerHistory`'s own interval is inclusive
+(`validFrom <= d <= validTo`, `validTo` = the symbol's last valid date, handoff §3.1), unlike
+`RuleDefinition`'s exclusive `validTo`.
 
 **Restatements/amendments** (the concrete case critique gap #8 was raised for): a corrected 10-K
 does not edit the old `SECFilingSection` individual — it lands in a *new* dated EDGAR graph

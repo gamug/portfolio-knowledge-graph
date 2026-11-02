@@ -129,7 +129,7 @@ Portfolio Knowledge Graph
 | `RuleDefinition`, `RuleClause` | Rule System | v1 §4, critique #1 & #6 | The veto catalog's tree structure, versioned as graph data — see §1.5. |
 | `ThresholdComparison`, `CategoricalComparison`, `GraphPredicate` | Rule System → Rule Operand | v1 §4, critique #1 | The three leaf-operand kinds a `RuleClause` can compare — see §1.5. |
 | `AttractivenessWeightScheme`, `WeightComponent` | Rule System → Attractiveness Scheme | critique #2/#3, §1.8 | Per-metric weights feeding the attractiveness score: per run for upstream schemes (one `cycle_run`, dated by `cycleDate`, never closed; T-121), versioned (`validFrom`/`validTo`) for the design-history `WeightScheme_v1`. |
-| `TickerHistory` | Temporal Relation | T-206 (`v_ticker_history`, m016) | A point-in-time symbol for one CIK line over `[validFrom, validTo)`; `validTo` absent = current symbol. Optional link to the canonical `Asset`. |
+| `TickerHistory` | Temporal Relation | T-206 (`v_ticker_history`, m016) | A point-in-time symbol for one CIK line over the INCLUSIVE interval `[validFrom, validTo]`; `validTo` absent = current symbol. Optional link to the canonical `Asset`. |
 | `OrchestratorRun` | Observation | T-206 (`v_orchestrator_run`, m015) | One Orchestrator run (pipeline or single command): handle, `as_of`, kind, status, surface, settings. Immutable process record, not a metric snapshot. |
 | `OrchestratorStep` | Observation | T-206 (`v_orchestrator_step`, m015) | One step of an `OrchestratorRun`, keyed by `(orchestrator_run_id, ordinal)`, with status, times, exit code and its own run-log id. |
 | `StrategyBook` | Domain Entity → Collection | T-206 (`v_book`, m018) | One experimental arm of a backtest run (`MARKOWITZ_BASE`, `TOPN_MV_NOGUARD`, `TOPN_MV_GUARD_NO_NLP`, `TOPN_MV_GUARD`); a named pool of holdings. |
@@ -615,8 +615,17 @@ guarantees a value. The following are optional and must never be required: `cycl
 alerts; `weight_before`/`weight_after` on asset actions and `NOT_HELD`; `asset_id`/`holding_name`
 and both target weights on `BookWeightDaily` (CASH has no asset; ordinary sessions mask the targets);
 `v_book.guard_layers`; `valid_to` (NULL = current symbol), `evidence_url` and `evidence_date` on
-`TickerHistory`; and the Orchestrator optional columns. A CASH row is a `BookWeightDaily` with
-`holdingKey "CASH"` and no `:holdingAsset`; it never needs an `:Asset` node.
+`TickerHistory`. The Orchestrator shapes require only their natural keys — `orchestratorRunId` on a
+run, `stepOfOrchestratorRun` + `ordinal` on a step — because handoff §3.1 gives no base-table
+nullability and both views have 0 rows. A CASH row is a `BookWeightDaily` with `holdingKey "CASH"`
+and no `:holdingAsset`; it never needs an `:Asset` node.
+
+**TickerHistory's interval is inclusive.** `v_ticker_history.valid_to` is the symbol's **last valid
+date** (handoff §3.1), and the point-in-time lookup is `date BETWEEN valid_from AND
+COALESCE(valid_to, '9999-12-31')`, so the model is `validFrom <= d <= validTo` and a one-day symbol
+has `validFrom == validTo`. `TickerHistoryShape` uses `sh:lessThanOrEquals`; the shared `:validTo`
+property stays exclusive on `RuleDefinition` (T-187), `UniverseMembership`, `PortfolioPosition` and
+`AttractivenessWeightScheme`.
 
 **Data over the handoff's DDL comments.** Measured on the completed `rule_P1/P2/P3.db` (identical in
 all three): `MARKOWITZ_BASE` and `TOPN_MV_NOGUARD` have `guard_layers` NULL, while the DDL comment
@@ -638,7 +647,7 @@ not a veto rule:** it carries no `:ruleSeverity`, `:penaltyPoints` or `:priority
 `VetoShape` refuses it as the object of `:appliesRule`/`:primaryRule`. `RuleDefinitionShape` adds one
 `sh:or` branch for `:category "GUARD"`, keeps the severity requirement for every other active rule,
 makes `:priorityRank` mandatory for non-GUARD rules, and widens the rank range to `[1,10]` for
-`UTILITY_CASH_COVERAGE`. The bundle is **4159 quads; conforms: True** (the FR-001 gate).
+`UTILITY_CASH_COVERAGE`. The bundle is **4149 quads; conforms: True** (the FR-001 gate).
 
 ---
 

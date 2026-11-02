@@ -668,6 +668,28 @@ def test_the_whole_m018_set_conforms(bundle: rdflib.Dataset, shapes: rdflib.Grap
     assert _violations(_m018(bundle), shapes) == set()
 
 
+def test_an_orchestrator_run_with_only_its_key_conforms(
+    bundle: rdflib.Dataset, shapes: rdflib.Graph
+) -> None:
+    """The handoff §3.1 has no base-table nullability and the view has 0 rows: only the key is required."""
+    g = _flat(bundle)
+    g.add((RUN, RDF.type, KG.OrchestratorRun))
+    g.add((RUN, KG.orchestratorRunId, _int(1)))
+    assert _violations(g, shapes) == set()
+
+
+def test_an_orchestrator_step_with_only_its_key_conforms(
+    bundle: rdflib.Dataset, shapes: rdflib.Graph
+) -> None:
+    g = _flat(bundle)
+    g.add((RUN, RDF.type, KG.OrchestratorRun))
+    g.add((RUN, KG.orchestratorRunId, _int(1)))
+    g.add((STEP, RDF.type, KG.OrchestratorStep))
+    g.add((STEP, KG.stepOfOrchestratorRun, RUN))
+    g.add((STEP, KG.ordinal, _int(1)))
+    assert _violations(g, shapes) == set()
+
+
 @pytest.mark.parametrize(
     ("subject", "path"),
     [
@@ -682,6 +704,7 @@ def test_the_whole_m018_set_conforms(bundle: rdflib.Dataset, shapes: rdflib.Grap
         (TICKER, KG.tickerHistoryCik),
         (RUN, KG.orchestratorRunId),
         (STEP, KG.stepOfOrchestratorRun),
+        (STEP, KG.ordinal),
     ],
     ids=[
         "book-id",
@@ -695,6 +718,7 @@ def test_the_whole_m018_set_conforms(bundle: rdflib.Dataset, shapes: rdflib.Grap
         "ticker-cik",
         "run-id",
         "step-run",
+        "step-ordinal",
     ],
 )
 def test_a_missing_required_property_is_caught(
@@ -813,6 +837,13 @@ def test_a_negative_drawdown_and_cost_conform(bundle: rdflib.Dataset, shapes: rd
     g.add((PERFORMANCE, KG.costReturn, _dec("-0.001")))
     g.remove((SUMMARY, KG.maxDrawdown, None))
     g.add((SUMMARY, KG.maxDrawdown, _dec("-0.2")))
+    assert _violations(g, shapes) == set()
+
+
+def test_a_one_day_ticker_history_conforms(bundle: rdflib.Dataset, shapes: rdflib.Graph) -> None:
+    """TickerHistory's interval is inclusive: validFrom == validTo is a one-day symbol."""
+    g = _m018(bundle)
+    g.add((TICKER, KG.validTo, _date("2020-01-01")))  # validFrom is 2020-01-01
     assert _violations(g, shapes) == set()
 
 
