@@ -27,6 +27,7 @@ special query language feature.
 | `urn:graph:ingest:EDGAR:{date-or-quarter}` | `SECFiling`/`SECFilingSection` individuals from the EDGAR batch pipeline (roadmap step 4), including restated sections | Append-only — see the restatement pattern below. |
 | `urn:graph:derived:quant:{date}` | Benchmark `Portfolio` books (never upstream's `live_book` snapshot, T-109), their `PortfolioPosition`s and `BenchmarkObservation`s (T-108; from `v_quant_portfolio`/`v_quant_position`/`v_quant_benchmark_performance`/`v_quant_vs_live`). Never returns, μ or Σ | Append-only; separate from `urn:graph:portfolio:current` (the live book). |
 | `urn:graph:derived:entity-resolution:{date}` | `AssetCoOccurrence` candidate edges (T-107; news co-occurrence, method/weight) and other entity-resolution-service output (roadmap step 7); `sharedExecutiveWith` only if verified | Append-only; kept separate from the EDGAR graphs it draws on since it's a different service's output. |
+| `urn:graph:derived:backtest:{backtest_run_id}` | **PROPOSED (T-206, not built):** the eight m018 backtest/GUARD views' individuals — `StrategyBook`, `BookRebalance`, `GuardAlert`, `GuardAction`, `BookWeightDaily`, `BookDailyPerformance`, `PortfolioPeriodSummary`, `BacktestTest` — one graph per backtest run, with each individual carrying `:knowledgeDate` for `knowledgeDate <= D` reads. Settle with the projectors before writing; `docs/08` names the future writer. | Append-only; a run is a frozen artifact, so a re-run is a new `backtest_run_id` (and, per Work item 17, a new automation/repository), never an edit. |
 | `urn:graph:universe:{year}-Q{n}` | The `Universe` individual + its membership boundary for that quarter | Append-only, closed by writing `validTo` on the *previous* quarter's memberships (never by deleting them); the gate checks that each closure names a stored, open record and a date after it opened (`graphdb-setup.md`, check 7). |
 | `urn:graph:portfolio:current` | Live `PortfolioPosition` individuals — the actively-held book | The one graph that's genuinely mutated in place, but even here, closing a position sets `validTo` rather than deleting the triple, preserving history in place (checked as above). |
 
@@ -37,6 +38,19 @@ slowly-changing nature as the taxonomy it's classified against); the rule catalo
 `urn:graph:rules:catalog`; and the Orchestrator's own output (`Veto`s) and entity resolution's
 derived output (`sharedExecutiveWith`) each need a graph pattern distinct from the four *agents'*
 ingest graphs this table originally enumerated. All four are folded into the table above.
+
+**Contract v18 backtest/GUARD placement (PROPOSED, T-206).** The eight m018 views are a *backtest
+run's* output, not an agent's daily batch: one run owns three books, and each book owns its
+rebalances, alerts/actions, daily weights, daily performance, period summaries and tests. The
+proposal is therefore `urn:graph:derived:backtest:{backtest_run_id}` — one append-only graph per
+run, written by the future projector (`docs/08`), with every individual carrying `:knowledgeDate`
+so `knowledgeDate <= D` reads work without relying on the graph name. This is deliberately a
+proposal to settle with the projectors (and with the automation-per-repository decision, Work item
+17), not a placement implemented here: no projector exists yet and no store was written. The m015
+`OrchestratorRun`/`OrchestratorStep` and m016 `TickerHistory` classes are not m018 output; their
+graph placement is left open for the same discussion. `TickerHistory`'s own interval is inclusive
+(`validFrom <= d <= validTo`, `validTo` = the symbol's last valid date, handoff §3.1), unlike
+`RuleDefinition`'s exclusive `validTo`.
 
 **Restatements/amendments** (the concrete case critique gap #8 was raised for): a corrected 10-K
 does not edit the old `SECFilingSection` individual — it lands in a *new* dated EDGAR graph
@@ -148,7 +162,7 @@ Recommend **OWL 2 RL / RDFS+ only** — not a full OWL DL reasoner:
 - **Turn on:** `rdfs:subClassOf` transitivity — this now pays off in two places, not one. The GICS
   `Industry → Sector` roll-up ("give me every `Asset` in the Information Technology sector",
   ~11 sectors/~70 industries) is cheap to materialize, as before. As of the 2026-08-23 taxonomy
-  revision (`06-ontology-definition.md` §1.2), the ontology's own 27 domain classes also have
+  revision (`06-ontology-definition.md` §1.2), the ontology's own 38 domain classes also have
   `subClassOf` structure to reason over — e.g. `?x a :ObservationSnapshot` now correctly returns
   every `ScoreSnapshot`, `SectorAggregateSnapshot`, and `AttractivenessSnapshot` individual without
   the query author enumerating all three types by hand. Before that revision this setting only ever

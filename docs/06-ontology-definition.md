@@ -1,11 +1,12 @@
 # Ontology Definition — Portfolio Knowledge Graph (v2)
 
 **Implementation:** [`schema/`](../schema/) — the formal OWL/SHACL/TriG implementation of
-everything described below, split into `tbox.ttl` (classes/properties, **40 classes total** as of
-this revision — 27 mutually-disjoint leaf/domain classes plus a 13-class `rdfs:subClassOf`
-taxonomic backbone, see §1.2), `shapes.ttl` (SHACL, 20 shapes), `reference.ttl` (GICS taxonomy +
-asset master data + the new `MetricType` controlled vocabulary, §1.9), `rules.ttl` (the nine active veto
-rules and the seven original ones as trees), and `instances.trig` (a worked, multi-graph, multi-asset dataset). Parsed clean
+everything described below, split into `tbox.ttl` (classes/properties, **51 classes total** as of
+this revision — 38 mutually-disjoint leaf/domain classes plus a 13-class `rdfs:subClassOf`
+taxonomic backbone, see §1.2), `shapes.ttl` (SHACL, 31 shapes), `reference.ttl` (GICS taxonomy +
+asset master data + the new `MetricType` controlled vocabulary, §1.9), `rules.ttl` (the ten active
+selection rules, the five GUARD protection rules, and the seven original ones as trees), and
+`instances.trig` (a worked, multi-graph, multi-asset dataset). Parsed clean
 with `rdflib` and SHACL-validated with `pyshacl` (**conforms: True**); the veto rule trees were
 independently re-executed in Python against the instance data and reproduced the expected firings
 exactly (see `schema/README.md`). This document is the prose walkthrough; `schema/` is the
@@ -48,12 +49,12 @@ academic grounding — it signals the class design isn't arbitrary, without payi
 
 ## 1.2 Class taxonomy
 
-Replaces the earlier flat, disjointness-only inventory. The 25 leaf/domain classes are organized
+Replaces the earlier flat, disjointness-only inventory. The 38 leaf/domain classes are organized
 under 6 broad categories and, in 4 cases, an intervening mid-level category — placement was decided
 by **shared property shape**, a structural criterion, not by theme (e.g. `AttractivenessSnapshot`
 sits under `Observation Snapshot`, not next to `Veto`, because it shares `ScoreSnapshot`'s
 immutable/timestamped/one-per-cycle shape, even though thematically it's also "an orchestrator
-decision output"). Depth is kept shallow (max 4 levels) to match a 24-leaf ontology.
+decision output"). Depth is kept shallow (max 4 levels) to match a 38-leaf ontology.
 
 ```
 Portfolio Knowledge Graph
@@ -65,10 +66,13 @@ Portfolio Knowledge Graph
 │   │   └── Industry
 │   └── Collection
 │       ├── Universe
-│       └── Portfolio
+│       ├── Portfolio
+│       └── StrategyBook              (T-206)
 ├── Temporal Relation
 │   ├── UniverseMembership
-│   └── PortfolioPosition
+│   ├── PortfolioPosition
+│   ├── TickerHistory                 (T-206)
+│   └── BookRebalance                 (T-206)
 ├── Observation
 │   ├── Observation Snapshot
 │   │   ├── ScoreSnapshot
@@ -76,7 +80,14 @@ Portfolio Knowledge Graph
 │   │   └── AttractivenessSnapshot    (§1.8)
 │   ├── PriceObservation
 │   ├── AssetCoOccurrence             (T-107)
-│   └── BenchmarkObservation          (T-108)
+│   ├── BenchmarkObservation          (T-108)
+│   ├── OrchestratorRun               (T-206)
+│   ├── OrchestratorStep              (T-206)
+│   ├── GuardAlert                    (T-206)
+│   ├── BookWeightDaily               (T-206)
+│   ├── BookDailyPerformance          (T-206)
+│   ├── PortfolioPeriodSummary        (T-206)
+│   └── BacktestTest                  (T-206)
 ├── Evidence
 │   ├── Source Document
 │   │   └── SECFiling
@@ -86,7 +97,8 @@ Portfolio Knowledge Graph
 │       └── DataQualityIssue
 ├── Risk And Decision
 │   ├── RiskEvent
-│   └── Veto
+│   ├── Veto
+│   └── GuardAction                   (T-206)
 └── Rule System
     ├── RuleDefinition
     ├── RuleClause
@@ -117,6 +129,17 @@ Portfolio Knowledge Graph
 | `RuleDefinition`, `RuleClause` | Rule System | v1 §4, critique #1 & #6 | The veto catalog's tree structure, versioned as graph data — see §1.5. |
 | `ThresholdComparison`, `CategoricalComparison`, `GraphPredicate` | Rule System → Rule Operand | v1 §4, critique #1 | The three leaf-operand kinds a `RuleClause` can compare — see §1.5. |
 | `AttractivenessWeightScheme`, `WeightComponent` | Rule System → Attractiveness Scheme | critique #2/#3, §1.8 | Per-metric weights feeding the attractiveness score: per run for upstream schemes (one `cycle_run`, dated by `cycleDate`, never closed; T-121), versioned (`validFrom`/`validTo`) for the design-history `WeightScheme_v1`. |
+| `TickerHistory` | Temporal Relation | T-206 (`v_ticker_history`, m016) | A point-in-time symbol for one CIK line over the INCLUSIVE interval `[validFrom, validTo]`; `validTo` absent = current symbol. Optional link to the canonical `Asset`. |
+| `OrchestratorRun` | Observation | T-206 (`v_orchestrator_run`, m015) | One Orchestrator run (pipeline or single command): handle, `as_of`, kind, status, surface, settings. Immutable process record, not a metric snapshot. |
+| `OrchestratorStep` | Observation | T-206 (`v_orchestrator_step`, m015) | One step of an `OrchestratorRun`, keyed by `(orchestrator_run_id, ordinal)`, with status, times, exit code and its own run-log id. |
+| `StrategyBook` | Domain Entity → Collection | T-206 (`v_book`, m018) | One experimental arm of a backtest run (`MARKOWITZ_BASE`, `TOPN_MV_NOGUARD`, `TOPN_MV_GUARD_NO_NLP`, `TOPN_MV_GUARD`); a named pool of holdings. |
+| `BookRebalance` | Temporal Relation | T-206 (`v_book_rebalance`, m018) | A scheduled 21-session rebalance: book × decision/execution dates × upstream quant-portfolio/cycle-run/risk-model ids (literals). |
+| `GuardAlert` | Observation | T-206 (`v_guard_alert`, m018) | A GUARD layer's daily alert, linked to its GUARD rule; value optional on layer 1, asset optional on layers 3–4. |
+| `GuardAction` | Risk And Decision | T-206 (`v_guard_action`, m018) | The effect of a `GuardAlert` on one book for the next session (`APPLIED`, `ARM_DISABLED`, `NOT_HELD`, `SUPERSEDED`); weights optional on layer 1. |
+| `BookWeightDaily` | Observation | T-206 (`v_book_weight_daily`, m018) | One holding's weight in a book on a date; a `CASH` row has no asset link, and the target weights exist only on decision/execution dates. |
+| `BookDailyPerformance` | Observation | T-206 (`v_book_daily_performance`, m018) | A book's portfolio-level daily series (gross/net return, turnover, cost, NAV, drawdown, cash weight, equity count, benchmark return). |
+| `PortfolioPeriodSummary` | Observation | T-206 (`v_portfolio_period_summary`, m018) | Consolidated statistics of one book over one segment (`P1`, `P2`, `P2a`, `P2b`, `P3`). |
+| `BacktestTest` | Observation | T-206 (`v_backtest_test`, m018) | A paired hypothesis test between two arms in one segment (`memmel_jk`, `ledoit_wolf`, `hac_mean_diff`): statistic, p-value, observations. |
 
 ### 1.2.1 Taxonomic backbone, formally
 
@@ -321,6 +344,20 @@ raw value.
 only; a SOFT stint whose rule has none, a HARD rule's included, costs the run's `soft_veto_penalty`, the HARD-rule case assumed: T-191 ask (8)), the three new rules are `GraphPredicate` leaves evaluated upstream, and `LIQUIDITY_DISTRESS`'s sector exemption is
 in its comment. Detail: `schema/README.md`.
 
+**Addendum (T-206, 2026-11-01) — ten selection rules and five GUARD rules.** Contract v18's catalog
+adds `UTILITY_CASH_COVERAGE` (HARD, `rule_input.utility_cash_coverage_3y < 0.05`, rank 10; applies
+only to regulated utilities by the APP-00 profile) to the nine selection rules. The `LEVERAGE_EXTREME`,
+`NEGATIVE_FCF` and `LIQUIDITY_DISTRESS` comments now record the APP-00 profile exemptions (financial
+firms; regulated utilities; equity REITs); no threshold, severity or clause changed. The five GUARD
+daily-protection rules (`L1_STOP_LOSS`, `L1_REENTRY`, `L2_NEWS`, `L3_VOL`, `L4_DD`) are
+`RuleDefinition` individuals in a separate section, one `GraphPredicate` leaf each and `:guardLayer`
+1..4; the frozen parameters and academic sources live only in `rdfs:comment`. **A GUARD rule is not a
+veto rule:** it carries no `:ruleSeverity`, `:penaltyPoints` or `:priorityRank`, and `VetoShape`
+refuses it as `:appliesRule`/`:primaryRule`. `RuleDefinitionShape` gets one `sh:or` branch for
+`:category "GUARD"`, keeps the severity requirement for every other active rule and makes
+`:priorityRank` mandatory for non-GUARD rules. `L2_NEWS` is disabled in the 2022–2025 backtest.
+Detail: `schema/README.md` refinement 7 and §1.10.
+
 **Addendum — implementation surfaced a gap in this section.** Encoding all 6 rules from v1's
 catalog (`schema/rules.ttl`), not just `VETO_COMP_01`, revealed that `ThresholdComparison` alone
 doesn't cover the catalog: `VETO_LEG_01`/`VETO_COMP_02` gate on `RiskEvent.category`/`severity`
@@ -336,11 +373,11 @@ own tree structure and reproduced the intended firings exactly — see `schema/R
 ## 1.6 SHACL shapes for data-quality enforcement
 
 SHACL (Shapes Constraint Language) is RDF's declarative validator — the world-view equivalent of
-a schema/type checker, but expressed as data rather than code. 20 shapes are defined
+a schema/type checker, but expressed as data rather than code. 31 shapes are defined
 (`schema/shapes.ttl`; 10 before 2026-08-13, including `ThresholdComparisonShape`,
 `CategoricalComparisonShape`, and `GraphPredicateShape` added during implementation to cover the
 two new leaf types from the addendum above, plus four more added 2026-08-13 for the
-attractiveness-ranking feature, see §1.8, plus `VetoShape` added 2026-10-03 for T-102 and `DataQualityIssueShape` for T-104), each closing a specific gap:
+attractiveness-ranking feature, see §1.8, plus `VetoShape` added 2026-10-03 for T-102 and `DataQualityIssueShape` for T-104; the 11 Contract v18 shapes were added by T-206, §1.10), each closing a specific gap:
 
 | Shape | Constraint | Closes |
 |---|---|---|
@@ -355,7 +392,8 @@ attractiveness-ranking feature, see §1.8, plus `VetoShape` added 2026-10-03 for
 | `AssetCoOccurrenceShape` | exactly two assets; kind (`SHARED_EXECUTIVE_CANDIDATE`), method and weight required; `coOccurrenceComputedOn` and T-106 run provenance optional | Keeps news candidates carrying their method/weight (T-107) |
 | `PortfolioShape` | name and `portfolioKind` ∈ {LIVE, BENCHMARK} required; `benchmarkObjective` and `benchmarkKind` optional (`benchmarkKind` may never be `live_book`, enforced by SHACL, T-109) | Lets benchmark books share `Portfolio` with the live book (T-108). |
 | `BenchmarkObservationShape` (+ `QuantSubjectShape`) | portfolio, metric (free text) and value required; `quantPortfolio` must be a BENCHMARK or the LIVE book; `quantAsset`, `quantUnit`, `quantAsOf`, `quantBenchmark` and T-106 run provenance optional; a LIVE subject may only carry the four performance metrics | Carries upstream's finished quant numbers without interpreting them (T-108); upstream's columns, units and the `live_book` handling were pinned in T-109. |
-| `VetoShape` | `raisedOn` required; `clearedOn`/`lastSeenOn` optional, never before `raisedOn`; no `lastSeenOn` after `clearedOn` (T-185, same day passes); `vetoSeverity` ∈ {HARD, SOFT}; optional, multi-valued `expiresOn` (T-188, like `lastSeenOn`: upstream moves it, current = MAX), each value not before `raisedOn` (the same day passes); it never closes a stint, only `clearedOn` does | Veto stints (T-102): a stint is closed by `clearedOn`, never deleted. |
+| `VetoShape` | `raisedOn` required; `clearedOn`/`lastSeenOn` optional, never before `raisedOn`; no `lastSeenOn` after `clearedOn` (T-185, same day passes); `vetoSeverity` ∈ {HARD, SOFT}; optional, multi-valued `expiresOn` (T-188, like `lastSeenOn`: upstream moves it, current = MAX), each value not before `raisedOn` (the same day passes); it never closes a stint, only `clearedOn` does; since T-206 a GUARD-category rule is refused as `appliesRule`/`primaryRule` | Veto stints (T-102): a stint is closed by `clearedOn`, never deleted. |
+| The 11 Contract v18 shapes (`TickerHistoryShape`, `OrchestratorRunShape`, `OrchestratorStepShape`, `StrategyBookShape`, `BookRebalanceShape`, `GuardAlertShape`, `GuardActionShape`, `BookWeightDailyShape`, `BookDailyPerformanceShape`, `PortfolioPeriodSummaryShape`, `BacktestTestShape`) | Required only what the view guarantees non-null; the handoff §3.3 nullable columns stay optional (cycle_run_id on MARKOWITZ_BASE, layer-1 alert value, layer-3/4 asset/ticker, action weights, CASH asset/name/targets, book guard_layers, ticker valid_to/evidence). `sh:in` for window_id, segment, arm_code, GUARD rule ids, alert state, action status and test name; no sign/range on drawdown, cost_return or max_drawdown. Sourcery review: `bookId` required on BookRebalance/GuardAction; `pValue` ∈ [0,1] and `nObs` ≥ 1 on BacktestTest; `sh:equals` for the six row-date/`knowledgeDate` pairs; a CASH row must have no `holdingAsset` | Carries the m015/m016/m018 views into the ontology (T-206, §1.10); a CASH row never needs an Asset node. |
 
 Validated end-to-end with `pyshacl` against the full worked dataset below: **conforms = True**.
 
@@ -529,6 +567,101 @@ and this `sh:in` tightening is a real check, not a no-op: it would have failed h
 value fallen outside the 5-member set. Adding a new metric type going forward means adding one
 `skos:Concept` here and one value to each `sh:in` list, exactly the workflow already established
 for adding a GICS industry.
+
+## 1.10 Contract v18 backtest and GUARD classes (T-206, 2026-11-01)
+
+The 11 views added between v12 and v18 (`SPEC.md` §2.6, T-205) now have ontology terms. One class
+per view: `TickerHistory` (`v_ticker_history`, m016), `OrchestratorRun`/`OrchestratorStep`
+(`v_orchestrator_run`/`v_orchestrator_step`, m015) and the eight m018 backtest/GUARD classes
+`StrategyBook` (`v_book`), `BookRebalance`, `GuardAlert`, `GuardAction`, `BookWeightDaily`,
+`BookDailyPerformance`, `PortfolioPeriodSummary` and `BacktestTest`. `tbox.ttl` is now 51 classes
+(38 disjoint leaves) and `shapes.ttl` 31 named shapes; `AllDisjointClasses` gains the 11 leaves.
+
+**Placement is by property shape, not theme** (the rule in §1.2 and the constitution's Project
+structure #2). `TickerHistory` and `BookRebalance` are dated n-ary relations carrying data, so
+`TemporalRelation`, like `UniverseMembership`/`PortfolioPosition`. `StrategyBook` is a named pool of
+holdings, so `Collection`, like `Portfolio`. `GuardAction` is the decision/effect taken on a book, so
+`RiskAndDecision`, beside `RiskEvent`/`Veto`. The other seven are immutable dated records with scalar
+fields and no valid-time interval, so plain `Observation` (not `ObservationSnapshot`: they are not
+metric snapshots with `metricType`/`agentOrigin`/`timestamp`). `OrchestratorRun`/`OrchestratorStep`
+are process provenance, which is why they are `Observation` and not a `Run` class: T-106 already
+decided the run log stays upstream.
+
+**Spanish labels and definitions.** Each of the 11 classes carries one `rdfs:label`@es and one
+`skos:definition`@es, the handoff §6.2 text verbatim (outer « » delimiters dropped), plus the English
+label/comment the other classes carry. There is **no FIBO `rdfs:seeAlso`** on any of them: handoff
+§6.1 says FIBO has no class for backtest runs, strategy arms, GUARD rules, Sharpe, drawdown,
+turnover, costs or paired statistical tests. FIBO alignment for the 40 pre-existing classes is a
+later PR, not this one.
+
+**Properties.** Every column of the 11 views has a property. The columns shared across classes
+(`bookId`, `backtestRunId`, `armCode`, `windowId`, `knowledgeDate`, `status`, `decisionDate`,
+`guardTicker`, `guardLayer`, `segment`, `handle`, `startedAt`, `finishedAt`, `runKind`) are declared
+**without `rdfs:domain`**, the `:runId` pattern (T-106): a domain would RDFS-entail one new class on
+another class's individual and contradict `AllDisjointClasses`. Every m018 individual carries
+`:knowledgeDate` (`xsd:date`), so a uniform `knowledgeDate <= D` query works (handoff checklist 3).
+A book or a test links to its backtest run by the literal `:backtestRunId`; there is no
+`BacktestRun` class and no invented node. A rebalance's `quant_portfolio_id`, `cycle_run_id` and
+`risk_model_id` are literals too, because they are upstream ids, not nodes in this graph. Object
+links exist only between the new classes: `stepOfOrchestratorRun`, `tickerHistoryAsset`,
+`rebalanceOfBook`, `actionOfBook`, `actionAlert`, `alertRule`, `guardAsset`, `weightOfBook`,
+`performanceOfBook`, `summaryOfBook`, `holdingAsset`. Functional only where the data guarantees one
+value (a step has one run, an action one alert and one book, a weight/performance/summary row one
+book).
+
+**Nullable columns.** `sh:minCount 1` is used only where the m015/m016/m018 DDL or handoff §3.3
+guarantees a value. The following are optional and must never be required: `cycle_run_id` on
+`MARKOWITZ_BASE` rebalances; `asset_id`/`ticker` on layer 3–4 alerts and actions; `value` on layer 1
+alerts; `weight_before`/`weight_after` on asset actions and `NOT_HELD`; `asset_id`/`holding_name`
+and both target weights on `BookWeightDaily` (CASH has no asset; ordinary sessions mask the targets);
+`v_book.guard_layers`; `valid_to` (NULL = current symbol), `evidence_url` and `evidence_date` on
+`TickerHistory`. The Orchestrator shapes require only their natural keys — `orchestratorRunId` on a
+run, `stepOfOrchestratorRun` + `ordinal` on a step — because handoff §3.1 gives no base-table
+nullability and both views have 0 rows. A CASH row is a `BookWeightDaily` with `holdingKey "CASH"`
+and no `:holdingAsset`; it never needs an `:Asset` node.
+
+**TickerHistory's interval is inclusive.** `v_ticker_history.valid_to` is the symbol's **last valid
+date** (handoff §3.1), and the point-in-time lookup is `date BETWEEN valid_from AND
+COALESCE(valid_to, '9999-12-31')`, so the model is `validFrom <= d <= validTo` and a one-day symbol
+has `validFrom == validTo`. `TickerHistoryShape` uses `sh:lessThanOrEquals`; the shared `:validTo`
+property stays exclusive on `RuleDefinition` (T-187), `UniverseMembership`, `PortfolioPosition` and
+`AttractivenessWeightScheme`.
+
+**Data over the handoff's DDL comments.** Measured on the completed `rule_P1/P2/P3.db` (identical in
+all three): `MARKOWITZ_BASE` and `TOPN_MV_NOGUARD` have `guard_layers` NULL, while the DDL comment
+says `'[]'`; `exclude_hard_vetoed` is 0 on all three arms, while the DDL says 1 for `TOPN_MV_*`. The
+upstream maintainer confirmed the real values: `guard_layers` is NULL (not `'[]'`) for
+`MARKOWITZ_BASE` and `TOPN_MV_NOGUARD`, and `'[1, 3, 4]'` for `TOPN_MV_GUARD_NO_NLP` (the driver
+writes `None` when the arm has no guard, else a sorted JSON list); `exclude_hard_vetoed` is 0 on all
+three arms because the `TOPN_MV_*` arms optimize over the 30 candidates cycle already filtered of
+HARD vetoes, so the column is persisted as 0 (upstream's DDL comment reads `0 (the arms) | 1`). The
+shapes stay as they are: `guard_layers` is optional and `exclude_hard_vetoed` is only an
+`xsd:boolean`, with no per-arm value. `drawdown`, `cost_return` and `max_drawdown` are non-negative
+magnitudes in the data, but the handoff states no sign convention, so no sign or range constraint is
+placed on them.
+
+**Rule catalog.** `UTILITY_CASH_COVERAGE` (HARD, `rule_input.utility_cash_coverage_3y < 0.05`, rank
+10, valid from **2026-10-31**) joins the nine selection rules; the date is the last safe one: the
+rule was already in upstream's catalog in the completed backtest runs (`rule_P1/P2/P3.db`, runs of
+2026-10-31) and raised a real veto in P1 on 2022-03-03, so a later date is impossible. It is not
+backdated to 2019/2020: valid-time here means when a definition was in force in production (T-187,
+T-201), not that a backtest applies a rule retroactively. Upstream's `v_rule_catalog.created_at`
+(2026-10-31T19:37:32) is a technical persistence timestamp, not the adoption date; the true T-071
+merge date is still to confirm with upstream. The `LEVERAGE_EXTREME`, `NEGATIVE_FCF` and
+`LIQUIDITY_DISTRESS` comments record the APP-00 profile exemptions (financial firms; regulated
+utilities; equity REITs) without changing any threshold, severity or clause. The five GUARD rules
+(`L1_STOP_LOSS`, `L1_REENTRY`, `L2_NEWS`, `L3_VOL`, `L4_DD`) are `RuleDefinition` individuals in a
+separate, labelled section of `rules.ttl`: one `GraphPredicate` leaf each, `:category "GUARD"`,
+`:guardLayer` 1..4, the frozen parameters and academic sources only in `rdfs:comment`. Their
+`validFrom` 2019-01-02 is the calibration-window start (2019-01-02..2021-12-31, 757 NYSE sessions,
+`params.frozen.toml`), confirmed by the upstream maintainer, and covers every alert and action of
+P1, P2 and P3. `L2_NEWS` is
+disabled in the 2022–2025 backtest (the FinBERT training pool spans 2022–2026). **A GUARD rule is
+not a veto rule:** it carries no `:ruleSeverity`, `:penaltyPoints` or `:priorityRank`, and
+`VetoShape` refuses it as the object of `:appliesRule`/`:primaryRule`. `RuleDefinitionShape` adds one
+`sh:or` branch for `:category "GUARD"`, keeps the severity requirement for every other active rule,
+makes `:priorityRank` mandatory for non-GUARD rules, and widens the rank range to `[1,10]` for
+`UTILITY_CASH_COVERAGE`. The bundle is **4178 quads; conforms: True** (the FR-001 gate).
 
 ---
 

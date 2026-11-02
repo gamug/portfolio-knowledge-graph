@@ -96,14 +96,14 @@ built upstream); it makes no portfolio or trading decision and renders no report
 
 ### 2.1 In scope
 
-- The formal ontology bundle in `schema/`: `tbox.ttl` (40 classes — 27
+- The formal ontology bundle in `schema/`: `tbox.ttl` (51 classes — 38
   mutually-disjoint leaves under a 13-class `rdfs:subClassOf` backbone),
-  `shapes.ttl` (20 SHACL node shapes), `reference.ttl` (GICS taxonomy + 5
-  worked-example assets + the `MetricType` vocabulary), `rules.ttl` (a
-  9 active upstream veto rules as single-leaf `RuleDefinition`s, the 7 original tree rules kept
-  closed with `validTo`, + `AttractivenessWeightScheme`),
+  `shapes.ttl` (31 SHACL node shapes), `reference.ttl` (GICS taxonomy + 5
+  worked-example assets + the `MetricType` vocabulary), `rules.ttl` (10
+  active selection rules as `RuleDefinition`s, 5 GUARD protection rules in their own section,
+  the 8 superseded definitions kept closed with `validTo`, + `AttractivenessWeightScheme`),
   `instances.trig` (a 16-named-graph worked-example ABox) — roadmap step 0,
-  done and verified (**2648 quads, `pyshacl conforms: True**).
+  done and verified (**4178 quads, `pyshacl conforms: True**).
 - The five numbered architecture/spec docs (`06`–`10`) plus
   `critique-and-evolution.md` as the traceability anchor every class/
   property/graph-placement decision elsewhere cites back to.
@@ -178,7 +178,7 @@ built upstream); it makes no portfolio or trading decision and renders no report
 
 | ID | Requirement | Acceptance criteria |
 |---|---|---|
-| **FR-001** | The `tbox.ttl`/`shapes.ttl`/`reference.ttl`/`rules.ttl`/`instances.trig` bundle parses as a single `rdflib.Dataset` in the documented load order and `pyshacl`-conforms against `shapes.ttl`. | The `schema/README.md` parse script reports `quads: 2648`; a `pyshacl.validate` run over the same combined graph reports `conforms: True` — both required after any schema edit. |
+| **FR-001** | The `tbox.ttl`/`shapes.ttl`/`reference.ttl`/`rules.ttl`/`instances.trig` bundle parses as a single `rdflib.Dataset` in the documented load order and `pyshacl`-conforms against `shapes.ttl`. | The `schema/README.md` parse script reports `quads: 4178`; a `pyshacl.validate` run over the same combined graph reports `conforms: True` — both required after any schema edit. |
 | **FR-002** | Every domain class in `tbox.ttl` that is not a shared-property superclass (`ObservationSnapshot`/`EvidenceSource`/`RuleOperand`) belongs to exactly one `AllDisjointClasses` set and reaches at least one of the 6 taxonomy roots via `rdfs:subClassOf`. | `tbox.ttl`'s `AllDisjointClasses` block lists exactly 25 leaf classes; a taxonomy audit (cycle/orphan/multi-parent detection over the `subClassOf` graph) reports 0 cycles, 0 self-loops, all 38 classes reaching a root, exactly 3 legitimately multi-parented classes (`schema/README.md`'s implementation addendum). |
 | **FR-003** | Every `RuleDefinition` in `rules.ttl` expresses its veto condition as an explicit `RuleClause` tree (`AND`/`OR` of `ThresholdComparison`/`CategoricalComparison`/`GraphPredicate` leaves), never as an infix boolean string. | No `RuleDefinition` in `rules.ttl` carries a rule condition as a literal string to be re-parsed; every `hasClause` path terminates in one of the three documented leaf operand kinds. A single leaf (upstream's rules, T-103; nine since T-187) is a valid tree. |
 | **FR-004** | `cli/build_data_ttl.py` projects `portfolio-data-mining`'s point-in-time `universe.db` (`SQL_UNIVERSE_DB`, read-only through `portfolio_common.db`) into one `:UniverseMembership` per `universe_membership` stint (`validFrom` = `valid_from`; `validTo` = `valid_to`, exclusive, absent while the stint is open) in the single `:SP500Index` `:Universe`, and one `:Asset` per symbol with `:classifiedAs` when upstream has a sub-industry. A symbol whose stints are all closed has only `tickerSymbol` and `companyName`: upstream has no CIK or sector for it, and none is invented (`AssetShape` allows a missing `cikNumber` only then). Tickers `reference.ttl` already declares as `:Asset` get memberships but are not re-emitted (so `cikNumber` never collides under the functional-property `sh:maxCount 1` contract). Each run prints `universe.db`'s latest recorded change and its file modification date, because upstream refreshes it by hand. | A full run's `:Asset` count plus `reference.ttl`'s tickers equals `universe.db`'s distinct symbols; its `:UniverseMembership` count equals `universe_membership`'s rows; none of `reference.ttl`'s tickers appears as a second `:Asset` declaration in `data.ttl`; the run summary prints the freshness line. |
@@ -666,6 +666,45 @@ check refuses it by design; the real-file boundary suite was not run against it,
 filtered or filled in to work around that. The pin is 43 views plus `v_universe_membership` in
 `NOT_READ`; the floor and `contract_version` are 18.
 
+**Contract v18 ontology (2026-11-01, T-206).** The 11 views added between v12 and v18 now have
+ontology terms: 11 classes (`TickerHistory`, `OrchestratorRun`, `OrchestratorStep`, `StrategyBook`,
+`BookRebalance`, `GuardAlert`, `GuardAction`, `BookWeightDaily`, `BookDailyPerformance`,
+`PortfolioPeriodSummary`, `BacktestTest`), one per view, placed under the backbone by property shape
+(`06` §1.2/§1.10): `TemporalRelation` for `TickerHistory`/`BookRebalance`, `Collection` for
+`StrategyBook`, `RiskAndDecision` for `GuardAction`, `Observation` for the other seven. `tbox.ttl`
+is 51 classes (38 disjoint leaves) and `shapes.ttl` 31 named shapes; `AllDisjointClasses` gains the
+11 leaves. Each class carries the handoff §6.2 `rdfs:label`@es and `skos:definition`@es verbatim
+(outer « » dropped), plus the English label/comment; no new class has a FIBO `rdfs:seeAlso` (handoff
+§6.1). Every view column has a property; the shared ones (`bookId`, `backtestRunId`, `armCode`,
+`windowId`, `knowledgeDate`, `status`, `decisionDate`, `guardTicker`, `guardLayer`, `segment`,
+`handle`, `startedAt`, `finishedAt`, `runKind`) have no `rdfs:domain` (the `:runId` pattern, T-106),
+and every m018 individual carries `:knowledgeDate` for `knowledgeDate <= D` reads. The handoff §3.3
+nullable columns are optional in SHACL and must never be required; a CASH weight row has no asset
+link and needs no `:Asset` node. `TickerHistory`'s interval is inclusive (`validFrom <= d <= validTo`;
+a one-day symbol is valid), and the Orchestrator shapes require only their natural keys
+(`orchestratorRunId`; `stepOfOrchestratorRun` + `ordinal`) because handoff §3.1 gives no base-table
+nullability and both views have 0 rows. The completed P1/P2/P3 databases override the DDL comments:
+`v_book.guard_layers` is NULL on `MARKOWITZ_BASE`/`TOPN_MV_NOGUARD` (the DDL says `'[]'`), so it is
+optional, and `exclude_hard_vetoed` is 0 on all three arms (the DDL says 1 for `TOPN_MV_*`), so only
+its boolean type is enforced, never a per-arm value; `drawdown`, `cost_return` and `max_drawdown`
+carry no sign or range constraint because the handoff states no sign convention.
+`rules.ttl` gains `UTILITY_CASH_COVERAGE` (HARD, `rule_input.utility_cash_coverage_3y < 0.05`, rank
+10, valid from 2026-10-31 — the last safe date: the rule was already in upstream's catalog in the
+completed backtest runs and raised a real veto in P1 on 2022-03-03, so a later date is impossible;
+not backdated to 2019/2020, and upstream's `v_rule_catalog.created_at` (2026-10-31T19:37:32) is a
+technical persistence timestamp, not the adoption date) as the tenth selection rule,
+records the APP-00 profile exemptions in the `LEVERAGE_EXTREME`/`NEGATIVE_FCF`/`LIQUIDITY_DISTRESS`
+comments without changing thresholds/severities/clauses, and adds the five GUARD rules
+(`L1_STOP_LOSS`, `L1_REENTRY`, `L2_NEWS`, `L3_VOL`, `L4_DD`) as `:category "GUARD"`
+`RuleDefinition`s with `:guardLayer` and a `GraphPredicate` leaf each, frozen parameters only in
+`rdfs:comment`; they carry no `:ruleSeverity`/`:penaltyPoints`/`:priorityRank` and are refused as a
+Veto's `:appliesRule`/`:primaryRule` by `VetoShape`. `RuleDefinitionShape` gets one `sh:or` branch
+for `:category "GUARD"`, keeps the severity requirement for every other active rule and makes
+`:priorityRank` mandatory for non-GUARD rules (range widened to `[1,10]`). No projector, no pin
+change, no ingest-gate pattern change beyond the schema-driven `CLOSABLE` entry and its `inclusive`
+flag for `TickerHistory` (a one-day symbol must not be refused), no GraphDB write/reload and no
+`protege-view.ttl` regeneration; the bundle is **4178 quads, `pyshacl conforms: True`**.
+
 **Read contract and score scale (T-030, 2026-10-05; re-pinned by T-157 and T-205).**
 `src/projection/view_contract.py` pins a full snapshot of the columns of 43 of upstream's 44
 `v_*` views (Contract v18, `7658f78`; `v_universe_membership` is listed as not read, being
@@ -747,7 +786,7 @@ re-litigated without a constitution amendment:
 
 ```mermaid
 flowchart TB
-    SCHEMA["schema/ -- step 0, DONE<br/>tbox+shapes+reference+rules+instances<br/>2648 quads * pyshacl conforms"]
+    SCHEMA["schema/ -- step 0, DONE<br/>tbox+shapes+reference+rules+instances<br/>4178 quads * pyshacl conforms"]
     STORE["triple store -- step 1, DONE<br/>GraphDB repository portfolio<br/>src/kg_store/, cli/load_schema.py"]
     GRAPHS["named graphs -- step 1, DONE<br/>static: tbox/reference/rules<br/>ingest:{agent}:{date} * portfolio:current<br/>worked example only"]
     GATE["SHACL ingest gate -- DONE<br/>pyshacl, src/kg_store/gate.py<br/>cli/ingest.py"]
@@ -792,10 +831,10 @@ Authoritative map: `schema/README.md`. File → named graph → format:
 
 | File | Format | Named graph | Contents |
 |---|---|---|---|
-| `tbox.ttl` | Turtle | `urn:graph:tbox` | 40 classes (27 disjoint leaves + 13-class backbone), properties, cardinality restrictions |
-| `shapes.ttl` | Turtle | `urn:graph:tbox` | 20 SHACL node shapes (the closed-world ingest gate) |
+| `tbox.ttl` | Turtle | `urn:graph:tbox` | 51 classes (38 disjoint leaves + 13-class backbone), properties, cardinality restrictions |
+| `shapes.ttl` | Turtle | `urn:graph:tbox` | 31 SHACL node shapes (the closed-world ingest gate) |
 | `reference.ttl` | Turtle | `urn:graph:reference` | GICS sector/industry taxonomy + 5 worked-example assets + `MetricType` vocab |
-| `rules.ttl` | Turtle | `urn:graph:rules:catalog` | 9 active upstream veto rules (single-leaf `RuleDefinition`s) + the 7 superseded tree rules (closed, `validTo`) + `AttractivenessWeightScheme` |
+| `rules.ttl` | Turtle | `urn:graph:rules:catalog` | 10 active selection rules + 5 GUARD protection rules (`RuleDefinition`s) + the 8 superseded definitions (closed, `validTo`) + `AttractivenessWeightScheme` |
 | `instances.trig` | TriG | 14 `GRAPH` blocks | Dated toy ABox: membership, snapshots, evidence, vetoes, filings, portfolio, rankings |
 | `06`–`10` | Markdown | — | Ontology definition · topology · agent architecture · NLP pipeline · integration roadmap |
 
@@ -822,7 +861,7 @@ snapshot to carry a `rawValue` in `[-1, 1]` (option 1; see `schema/README.md`, r
 **Schema validation** (`schema/README.md`, run from inside `schema/`):
 
 1. Parse `tbox.ttl → shapes.ttl → reference.ttl → rules.ttl` then
-   `instances.trig` into one `rdflib.Dataset`; assert `quads: 2648`.
+   `instances.trig` into one `rdflib.Dataset`; assert `quads: 4178`.
 2. `pyshacl.validate` the same combined graph against `shapes.ttl`; assert
    `conforms: True`.
 3. Run after **every** schema edit — `tbox.ttl`'s `AllDisjointClasses` block

@@ -962,9 +962,10 @@ def test_two_closing_dates_for_one_subject_are_refused(make_db: MakeDB) -> None:
 def test_every_closable_class_is_a_leaf_class_and_carries_its_opening_property(
     schema: gate.GateSchema,
 ) -> None:
-    for prop, (classes, opened, _seen) in gate.CLOSABLE.items():
+    for prop, (classes, opened, _seen, inclusive) in gate.CLOSABLE.items():
         assert prop in gate.CLOSING_PROPERTIES
         assert classes <= schema.leaf_classes
+        assert inclusive <= classes
         assert (opened, rdflib.RDF.type, rdflib.OWL.DatatypeProperty) in schema.tbox
     assert set(gate.CLOSABLE) == gate.CLOSING_PROPERTIES
 
@@ -1078,6 +1079,32 @@ def test_a_batch_with_a_good_and_a_bad_closure_is_refused_and_names_only_the_bad
     assert ":missing" in problems[0]
     assert ":good" not in problems[0]
     assert gate.refused_closures(gate.parse_batch(batch), state) == problems  # deterministic
+
+
+def test_a_one_day_ticker_history_closure_is_not_refused(make_db: MakeDB) -> None:
+    """TickerHistory's interval is inclusive: validFrom == validTo is a one-day symbol (T-206)."""
+    batch = gate.parse_batch(PREFIXES + f':t :validTo "2026-01-01"{DATE} .'.encode())
+    rows = [
+        {"s": str(KG.t), "p": str(rdflib.RDF.type), "o": str(KG.TickerHistory)},
+        {"s": str(KG.t), "p": str(KG.validFrom), "o": "2026-01-01"},
+    ]
+    fake = make_db(rows=rows)
+    state = gate.fetch_closing_state(fake.db, {KG.t})
+    assert gate.refused_closures(batch, state) == []
+
+
+def test_a_same_day_membership_closure_is_still_refused(make_db: MakeDB) -> None:
+    """The inclusive exception is TickerHistory-only; every other valid-time class stays strict."""
+    batch = gate.parse_batch(PREFIXES + f':m :validTo "2026-01-01"{DATE} .'.encode())
+    rows = [
+        {"s": str(KG.m), "p": str(rdflib.RDF.type), "o": str(KG.UniverseMembership)},
+        {"s": str(KG.m), "p": str(KG.validFrom), "o": "2026-01-01"},
+    ]
+    fake = make_db(rows=rows)
+    state = gate.fetch_closing_state(fake.db, {KG.m})
+    problems = gate.refused_closures(batch, state)
+    assert len(problems) == 1
+    assert "not after the date it opened" in problems[0]
 
 
 def test_fetch_closing_state_queries_in_chunks_of_200(make_db: MakeDB) -> None:

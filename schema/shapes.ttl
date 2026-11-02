@@ -96,7 +96,15 @@
     # clears a stint did not see it raised, so no sighting is later than the clearing (T-185; the same
     # day passes). The gate makes the same check when a stored Veto is cleared later.
     sh:property [ sh:path :lastSeenOn ; sh:datatype xsd:date ; sh:lessThanOrEquals :clearedOn ] ;
-    sh:property [ sh:path :vetoSeverity ; sh:in ("HARD" "SOFT") ; sh:maxCount 1 ] .
+    sh:property [ sh:path :vetoSeverity ; sh:in ("HARD" "SOFT") ; sh:maxCount 1 ] ;
+    # T-206: a GUARD rule is not a veto rule. Refuse it as the object of either rule link, so a Veto
+    # can never reach one even though both are :RuleDefinition individuals. (No sh:class here: the
+    # canonical pyshacl command validates instances.trig without rules.ttl, so the rule nodes are not
+    # typed in that data graph; the range is declared in tbox.ttl.)
+    sh:property [ sh:path :appliesRule ;
+                  sh:node [ sh:not [ sh:property [ sh:path :category ; sh:hasValue "GUARD" ] ] ] ] ;
+    sh:property [ sh:path :primaryRule ;
+                  sh:node [ sh:not [ sh:property [ sh:path :category ; sh:hasValue "GUARD" ] ] ] ] .
 
 :DataQualityIssueShape
     a sh:NodeShape ;
@@ -178,7 +186,8 @@
     sh:targetClass :RuleDefinition ;
     sh:property [ sh:path :validFrom ; sh:datatype xsd:date ; sh:minCount 1 ; sh:maxCount 1 ] ;
     sh:property [ sh:path :hasClause ; sh:minCount 1 ; sh:maxCount 1 ] ;
-    sh:property [ sh:path :priorityRank ; sh:datatype xsd:integer ; sh:minInclusive 1 ; sh:maxInclusive 9 ] ;
+    # T-206: widened from [1,9] to [1,10] for UTILITY_CASH_COVERAGE (rank 10).
+    sh:property [ sh:path :priorityRank ; sh:datatype xsd:integer ; sh:minInclusive 1 ; sh:maxInclusive 10 ; sh:maxCount 1 ] ;
     sh:property [ sh:path :ruleId ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ] ;
     # T-187: upstream's penalty_points, SOFT rules only; at least 0. A HARD rule excludes the asset, so it has none; a HARD rule's SOFT stint is charged the run's soft_veto_penalty (assumed, T-191 ask 8).
     sh:property [ sh:path :penaltyPoints ; sh:datatype xsd:decimal ; sh:minInclusive 0.0 ; sh:maxCount 1 ] ;
@@ -186,8 +195,22 @@
              sh:property [ sh:path :ruleSeverity ; sh:hasValue "HARD" ] ;
              sh:property [ sh:path :penaltyPoints ; sh:minCount 1 ] ] ;
     sh:property [ sh:path :ruleSeverity ; sh:in ("HARD" "SOFT") ; sh:maxCount 1 ] ;
-    # T-103: an active rule (no validTo) must declare its severity; the closed design-history rules need not.
-    sh:or ( [ sh:path :validTo ; sh:minCount 1 ] [ sh:path :ruleSeverity ; sh:minCount 1 ] ) .
+    # T-206: a GUARD rule is a RuleDefinition but not a veto rule. It carries :category "GUARD" and
+    # no :ruleSeverity/:penaltyPoints/:priorityRank; the three sh:or/sh:not blocks below are the only
+    # shape change. They do not weaken the veto rules: a non-GUARD active rule still needs a severity
+    # and every non-GUARD rule still needs a priorityRank.
+    sh:or ( [ sh:path :validTo ; sh:minCount 1 ]
+            [ sh:path :ruleSeverity ; sh:minCount 1 ]
+            [ sh:path :category ; sh:hasValue "GUARD" ] ) ;
+    sh:or ( [ sh:path :category ; sh:hasValue "GUARD" ]
+            [ sh:path :priorityRank ; sh:minCount 1 ] ) ;
+    sh:not [ a sh:NodeShape ;
+             sh:property [ sh:path :category ; sh:hasValue "GUARD" ] ;
+             sh:or ( [ sh:path :ruleSeverity ; sh:minCount 1 ]
+                     [ sh:path :penaltyPoints ; sh:minCount 1 ]
+                     [ sh:path :priorityRank ; sh:minCount 1 ] ) ] ;
+    # T-206: the GUARD layer is optional on a rule, but bounded 1..4 when present.
+    sh:property [ sh:path :guardLayer ; sh:datatype xsd:integer ; sh:minInclusive 1 ; sh:maxInclusive 4 ; sh:maxCount 1 ] .
 
 :RuleClauseShape
     a sh:NodeShape ;
@@ -203,7 +226,8 @@
                   sh:in ("ScoreFinanciero" "ScoreCuantitativo" "ScoreTecnico" "Sentiment" "SectorRelativeMomentum"
                          "leverage.debt_to_equity" "cashflow.free_cash_flow_margin" "liquidity.current_ratio"
                          "max_drawdown_90d" "fundamental_score_age_days"
-                         "leverage.interest_coverage" "cashflow.operating_cash_flow_margin") ] ;
+                         "leverage.interest_coverage" "cashflow.operating_cash_flow_margin"
+                         "rule_input.utility_cash_coverage_3y") ] ;
     sh:property [ sh:path :operator ; sh:in (">" "<" ">=" "<=") ; sh:minCount 1 ; sh:maxCount 1 ] ;
     sh:property [ sh:path :thresholdValue ; sh:datatype xsd:decimal ; sh:minCount 1 ; sh:maxCount 1 ] .
 
@@ -304,3 +328,256 @@
                   sh:in ("ScoreFinanciero" "ScoreCuantitativo" "ScoreTecnico" "Sentiment" "SectorRelativeMomentum") ] ;
     sh:property [ sh:path :weightValue ; sh:datatype xsd:decimal ; sh:minInclusive 0.0 ; sh:maxInclusive 1.0 ; sh:minCount 1 ; sh:maxCount 1 ] ;
     sh:property [ sh:path :inverted ; sh:datatype xsd:boolean ; sh:maxCount 1 ] .
+
+#################################################################
+# CONTRACT v18 SHAPES (T-206, 2026-11-01)
+#
+# One NodeShape per new class. Required (minCount 1) only what the
+# view guarantees non-null; the handoff §3.3 nullable columns are
+# optional and must never be required. Closed vocabularies use sh:in
+# where the handoff enumerates the values; where a vocabulary may
+# grow upstream it stays open and says so in a comment (the
+# :scoreMethod pattern). No sign or range constraint is placed on
+# :drawdown, :costReturn or :maxDrawdown: the handoff states no sign
+# convention, even though the three completed databases hold
+# non-negative magnitudes.
+#################################################################
+
+:TickerHistoryShape
+    a sh:NodeShape ;
+    sh:targetClass :TickerHistory ;
+    sh:property [ sh:path :tickerHistoryCik ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :historicalSymbol ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :canonicalSymbol ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    # validTo is INCLUSIVE and optional (NULL = current symbol): v_ticker_history.valid_to is the
+    # symbol's last valid date (handoff §3.1), so validFrom <= validTo when present. This differs
+    # from RuleDefinition's exclusive validTo (T-187).
+    sh:property [ sh:path :validFrom ; sh:datatype xsd:date ; sh:minCount 1 ; sh:maxCount 1 ; sh:lessThanOrEquals :validTo ] ;
+    sh:property [ sh:path :validTo ; sh:datatype xsd:date ; sh:maxCount 1 ] ;
+    # Optional: the LEFT JOIN can leave no asset; evidence_url/evidence_date are optional per the
+    # v18 shape contract even though the m016 DDL marks them NOT NULL.
+    sh:property [ sh:path :tickerHistoryAsset ; sh:class :Asset ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :evidenceUrl ; sh:datatype xsd:anyURI ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :evidenceDate ; sh:datatype xsd:date ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :tickerHistoryRules ; sh:datatype xsd:string ; sh:maxCount 1 ] .
+
+:OrchestratorRunShape
+    a sh:NodeShape ;
+    sh:targetClass :OrchestratorRun ;
+    # Only the natural key is required: the handoff §3.1 gives the view SQL but not the base table's
+    # NOT NULL constraints, and both orchestrator views have 0 rows in P1/P2/P3. Every other property
+    # is optional with its datatype and maxCount 1.
+    sh:property [ sh:path :orchestratorRunId ; sh:datatype xsd:integer ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :handle ; sh:datatype xsd:string ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :runKind ; sh:datatype xsd:string ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :runAsOf ; sh:datatype xsd:date ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :surface ; sh:datatype xsd:string ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :status ; sh:datatype xsd:string ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :startedAt ; sh:datatype xsd:dateTime ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :finishedAt ; sh:datatype xsd:dateTime ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :settingsJson ; sh:datatype xsd:string ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :codeVersion ; sh:datatype xsd:string ; sh:maxCount 1 ] .
+
+:OrchestratorStepShape
+    a sh:NodeShape ;
+    sh:targetClass :OrchestratorStep ;
+    # Only the natural key is required, for the same reason as OrchestratorRunShape: handoff §3.1 has
+    # no base-table nullability and both views have 0 rows. Every other property is optional.
+    sh:property [ sh:path :stepOfOrchestratorRun ; sh:class :OrchestratorRun ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :ordinal ; sh:datatype xsd:integer ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :handle ; sh:datatype xsd:string ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :stepName ; sh:datatype xsd:string ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :argvJson ; sh:datatype xsd:string ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :status ; sh:datatype xsd:string ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :startedAt ; sh:datatype xsd:dateTime ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :finishedAt ; sh:datatype xsd:dateTime ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :exitCode ; sh:datatype xsd:integer ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :runKind ; sh:datatype xsd:string ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :runId ; sh:datatype xsd:string ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :reason ; sh:datatype xsd:string ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :outputTail ; sh:datatype xsd:string ; sh:maxCount 1 ] .
+
+:StrategyBookShape
+    a sh:NodeShape ;
+    sh:targetClass :StrategyBook ;
+    sh:property [ sh:path :bookId ; sh:datatype xsd:integer ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :backtestRunId ; sh:datatype xsd:integer ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :windowId ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ; sh:in ("P1" "P2" "P3") ] ;
+    sh:property [ sh:path :backtestStartDate ; sh:datatype xsd:date ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :backtestEndDate ; sh:datatype xsd:date ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :runStatus ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :armCode ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ;
+                  sh:in ("MARKOWITZ_BASE" "TOPN_MV_NOGUARD" "TOPN_MV_GUARD_NO_NLP" "TOPN_MV_GUARD") ] ;
+    sh:property [ sh:path :objective ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    # Confirmed by the upstream maintainer: exclude_hard_vetoed is 0 on all three arms. The TOPN_MV_*
+    # arms optimize over the 30 candidates cycle already filtered of HARD vetoes, so the column is
+    # persisted as 0 (upstream's DDL comment reads `0 (the arms) | 1`). Only the boolean type is
+    # enforced, never a per-arm value.
+    sh:property [ sh:path :excludeHardVetoed ; sh:datatype xsd:boolean ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    # Confirmed by the upstream maintainer: guard_layers is NULL (not '[]') for MARKOWITZ_BASE and
+    # TOPN_MV_NOGUARD, and '[1, 3, 4]' for TOPN_MV_GUARD_NO_NLP. Upstream's driver writes None when
+    # the arm has no guard, else a sorted JSON list. Optional; never required, never parsed.
+    sh:property [ sh:path :guardLayers ; sh:datatype xsd:string ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :formationDate ; sh:datatype xsd:date ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :codeVersion ; sh:datatype xsd:string ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :knowledgeDate ; sh:datatype xsd:date ; sh:minCount 1 ; sh:maxCount 1 ] .
+
+:BookRebalanceShape
+    a sh:NodeShape ;
+    sh:targetClass :BookRebalance ;
+    sh:property [ sh:path :rebalanceId ; sh:datatype xsd:integer ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :bookId ; sh:datatype xsd:integer ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :rebalanceOfBook ; sh:class :StrategyBook ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :backtestRunId ; sh:datatype xsd:integer ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :armCode ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ;
+                  sh:in ("MARKOWITZ_BASE" "TOPN_MV_NOGUARD" "TOPN_MV_GUARD_NO_NLP" "TOPN_MV_GUARD") ] ;
+    sh:property [ sh:path :decisionDate ; sh:datatype xsd:date ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    # v_book_rebalance.knowledge_date = execution_date (handoff §3.2).
+    sh:property [ sh:path :executionDate ; sh:datatype xsd:date ; sh:minCount 1 ; sh:maxCount 1 ;
+                  sh:equals :knowledgeDate ] ;
+    sh:property [ sh:path :status ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    # Optional: cycle_run_id is always NULL on MARKOWITZ_BASE; the other two are upstream ids as literals.
+    sh:property [ sh:path :quantPortfolioId ; sh:datatype xsd:integer ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :cycleRunId ; sh:datatype xsd:integer ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :riskModelId ; sh:datatype xsd:integer ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :knowledgeDate ; sh:datatype xsd:date ; sh:minCount 1 ; sh:maxCount 1 ] .
+
+:GuardAlertShape
+    a sh:NodeShape ;
+    sh:targetClass :GuardAlert ;
+    sh:property [ sh:path :alertId ; sh:datatype xsd:integer ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :backtestRunId ; sh:datatype xsd:integer ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :windowId ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ; sh:in ("P1" "P2" "P3") ] ;
+    # v_guard_alert.knowledge_date = date (handoff §3.2).
+    sh:property [ sh:path :alertDate ; sh:datatype xsd:date ; sh:minCount 1 ; sh:maxCount 1 ;
+                  sh:equals :knowledgeDate ] ;
+    sh:property [ sh:path :guardLayer ; sh:datatype xsd:integer ; sh:minCount 1 ; sh:maxCount 1 ;
+                  sh:minInclusive 1 ; sh:maxInclusive 4 ] ;
+    # The rule id is resolved to its GUARD RuleDefinition; the five IRIs are the closed vocabulary.
+    sh:property [ sh:path :alertRule ; sh:class :RuleDefinition ; sh:minCount 1 ; sh:maxCount 1 ;
+                  sh:in ( :Rule_L1_STOP_LOSS :Rule_L1_REENTRY :Rule_L2_NEWS :Rule_L3_VOL :Rule_L4_DD ) ] ;
+    sh:property [ sh:path :alertThreshold ; sh:datatype xsd:decimal ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :alertState ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ;
+                  sh:in ("ENTER" "EXIT" "ACTIVE" "COOLDOWN" "SCALE") ] ;
+    # Optional: asset/ticker are NULL on layers 3 and 4; value is NULL on layer 1.
+    sh:property [ sh:path :guardAsset ; sh:class :Asset ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :guardTicker ; sh:datatype xsd:string ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :alertValue ; sh:datatype xsd:decimal ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :knowledgeDate ; sh:datatype xsd:date ; sh:minCount 1 ; sh:maxCount 1 ] .
+
+:GuardActionShape
+    a sh:NodeShape ;
+    sh:targetClass :GuardAction ;
+    sh:property [ sh:path :actionId ; sh:datatype xsd:integer ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :bookId ; sh:datatype xsd:integer ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :actionOfBook ; sh:class :StrategyBook ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :actionAlert ; sh:class :GuardAlert ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :backtestRunId ; sh:datatype xsd:integer ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :armCode ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ;
+                  sh:in ("MARKOWITZ_BASE" "TOPN_MV_NOGUARD" "TOPN_MV_GUARD_NO_NLP" "TOPN_MV_GUARD") ] ;
+    sh:property [ sh:path :decisionDate ; sh:datatype xsd:date ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    # v_guard_action.knowledge_date = effective_date (handoff §3.2).
+    sh:property [ sh:path :effectiveDate ; sh:datatype xsd:date ; sh:minCount 1 ; sh:maxCount 1 ;
+                  sh:equals :knowledgeDate ] ;
+    sh:property [ sh:path :status ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ;
+                  sh:in ("APPLIED" "ARM_DISABLED" "NOT_HELD" "SUPERSEDED") ] ;
+    # Optional: asset/ticker are NULL on L3/L4 portfolio-scale actions; weight_before/after are NULL
+    # on layer 1 asset actions and on NOT_HELD.
+    sh:property [ sh:path :guardAsset ; sh:class :Asset ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :guardTicker ; sh:datatype xsd:string ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :weightBefore ; sh:datatype xsd:decimal ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :weightAfter ; sh:datatype xsd:decimal ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :knowledgeDate ; sh:datatype xsd:date ; sh:minCount 1 ; sh:maxCount 1 ] .
+
+:BookWeightDailyShape
+    a sh:NodeShape ;
+    sh:targetClass :BookWeightDaily ;
+    sh:property [ sh:path :weightOfBook ; sh:class :StrategyBook ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :bookId ; sh:datatype xsd:integer ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :backtestRunId ; sh:datatype xsd:integer ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :armCode ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ;
+                  sh:in ("MARKOWITZ_BASE" "TOPN_MV_NOGUARD" "TOPN_MV_GUARD_NO_NLP" "TOPN_MV_GUARD") ] ;
+    # v_book_weight_daily.knowledge_date = date (handoff §3.2).
+    sh:property [ sh:path :weightDate ; sh:datatype xsd:date ; sh:minCount 1 ; sh:maxCount 1 ;
+                  sh:equals :knowledgeDate ] ;
+    sh:property [ sh:path :holdingKey ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    # Optional: CASH has no asset/holding_name; target weights are NULL on ordinary sessions.
+    sh:property [ sh:path :holdingAsset ; sh:class :Asset ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :holdingName ; sh:datatype xsd:string ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :markowitzTargetWeight ; sh:datatype xsd:decimal ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :finalTargetWeight ; sh:datatype xsd:decimal ; sh:maxCount 1 ] ;
+    # CASH is never an asset (handoff §3.3): either the holding is not CASH, or it has no asset link.
+    sh:or ( [ sh:path :holdingKey ; sh:not [ sh:hasValue "CASH" ] ]
+            [ sh:path :holdingAsset ; sh:maxCount 0 ] ) ;
+    sh:property [ sh:path :knowledgeDate ; sh:datatype xsd:date ; sh:minCount 1 ; sh:maxCount 1 ] .
+
+:BookDailyPerformanceShape
+    a sh:NodeShape ;
+    sh:targetClass :BookDailyPerformance ;
+    sh:property [ sh:path :performanceOfBook ; sh:class :StrategyBook ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :bookId ; sh:datatype xsd:integer ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :backtestRunId ; sh:datatype xsd:integer ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :armCode ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ;
+                  sh:in ("MARKOWITZ_BASE" "TOPN_MV_NOGUARD" "TOPN_MV_GUARD_NO_NLP" "TOPN_MV_GUARD") ] ;
+    sh:property [ sh:path :windowId ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ; sh:in ("P1" "P2" "P3") ] ;
+    # v_book_daily_performance.knowledge_date = date (handoff §3.2).
+    sh:property [ sh:path :performanceDate ; sh:datatype xsd:date ; sh:minCount 1 ; sh:maxCount 1 ;
+                  sh:equals :knowledgeDate ] ;
+    sh:property [ sh:path :grossReturn ; sh:datatype xsd:decimal ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :turnover ; sh:datatype xsd:decimal ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    # No sign/range on cost_return or drawdown: the handoff states no sign convention.
+    sh:property [ sh:path :costReturn ; sh:datatype xsd:decimal ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :netReturn ; sh:datatype xsd:decimal ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :nav ; sh:datatype xsd:decimal ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :drawdown ; sh:datatype xsd:decimal ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :cashWeight ; sh:datatype xsd:decimal ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :nEquity ; sh:datatype xsd:integer ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    # Optional: benchmark_return is NULL upstream.
+    sh:property [ sh:path :benchmarkReturn ; sh:datatype xsd:decimal ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :knowledgeDate ; sh:datatype xsd:date ; sh:minCount 1 ; sh:maxCount 1 ] .
+
+:PortfolioPeriodSummaryShape
+    a sh:NodeShape ;
+    sh:targetClass :PortfolioPeriodSummary ;
+    sh:property [ sh:path :summaryOfBook ; sh:class :StrategyBook ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :bookId ; sh:datatype xsd:integer ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :backtestRunId ; sh:datatype xsd:integer ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :armCode ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ;
+                  sh:in ("MARKOWITZ_BASE" "TOPN_MV_NOGUARD" "TOPN_MV_GUARD_NO_NLP" "TOPN_MV_GUARD") ] ;
+    sh:property [ sh:path :windowId ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ; sh:in ("P1" "P2" "P3") ] ;
+    sh:property [ sh:path :segment ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ;
+                  sh:in ("P1" "P2" "P2a" "P2b" "P3") ] ;
+    sh:property [ sh:path :dateFrom ; sh:datatype xsd:date ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    # v_portfolio_period_summary.knowledge_date = date_to (handoff §3.2).
+    sh:property [ sh:path :dateTo ; sh:datatype xsd:date ; sh:minCount 1 ; sh:maxCount 1 ;
+                  sh:equals :knowledgeDate ] ;
+    sh:property [ sh:path :cumulativeReturn ; sh:datatype xsd:decimal ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :annualizedReturn ; sh:datatype xsd:decimal ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :annualizedVol ; sh:datatype xsd:decimal ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :exPostSharpe ; sh:datatype xsd:decimal ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    # No sign/range on max_drawdown: the handoff states no sign convention.
+    sh:property [ sh:path :maxDrawdown ; sh:datatype xsd:decimal ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :totalTurnover ; sh:datatype xsd:decimal ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :totalCostBps ; sh:datatype xsd:decimal ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :nRebalances ; sh:datatype xsd:integer ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :nGuardActions ; sh:datatype xsd:integer ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :knowledgeDate ; sh:datatype xsd:date ; sh:minCount 1 ; sh:maxCount 1 ] .
+
+:BacktestTestShape
+    a sh:NodeShape ;
+    sh:targetClass :BacktestTest ;
+    sh:property [ sh:path :backtestRunId ; sh:datatype xsd:integer ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :windowId ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ; sh:in ("P1" "P2" "P3") ] ;
+    sh:property [ sh:path :segment ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ;
+                  sh:in ("P1" "P2" "P2a" "P2b" "P3") ] ;
+    sh:property [ sh:path :armA ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ;
+                  sh:in ("MARKOWITZ_BASE" "TOPN_MV_NOGUARD" "TOPN_MV_GUARD_NO_NLP" "TOPN_MV_GUARD") ] ;
+    sh:property [ sh:path :armB ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ;
+                  sh:in ("MARKOWITZ_BASE" "TOPN_MV_NOGUARD" "TOPN_MV_GUARD_NO_NLP" "TOPN_MV_GUARD") ] ;
+    sh:property [ sh:path :testName ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ;
+                  sh:in ("memmel_jk" "ledoit_wolf" "hac_mean_diff") ] ;
+    sh:property [ sh:path :statistic ; sh:datatype xsd:decimal ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :pValue ; sh:datatype xsd:decimal ; sh:minInclusive 0.0 ; sh:maxInclusive 1.0 ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :nObs ; sh:datatype xsd:integer ; sh:minInclusive 1 ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :paramsJson ; sh:datatype xsd:string ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :knowledgeDate ; sh:datatype xsd:date ; sh:minCount 1 ; sh:maxCount 1 ] .

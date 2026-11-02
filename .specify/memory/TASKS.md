@@ -537,6 +537,39 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       `src/projection/view_expectations/_source.json`, add the new views' expectation files, and
       update the tests and the pinned counts. This is the pin only: projectors, ontology, SHACL and
       `rules.ttl` are separate changes.
+- [x] **T-206** *(done 2026-11-01: the Contract v18 ontology half. `schema/tbox.ttl` gains the 11
+      classes for `v_ticker_history`, `v_orchestrator_run`/`v_orchestrator_step` and the eight m018
+      views (`TickerHistory`, `OrchestratorRun`, `OrchestratorStep`, `StrategyBook`, `BookRebalance`,
+      `GuardAlert`, `GuardAction`, `BookWeightDaily`, `BookDailyPerformance`,
+      `PortfolioPeriodSummary`, `BacktestTest`), placed by property shape under `TemporalRelation`,
+      `Collection`, `RiskAndDecision` and `Observation`, with the handoff §6.2 `@es` label/definition
+      and no FIBO `seeAlso`; every view column has a property, the shared ones with no `rdfs:domain`,
+      and every m018 individual carries `:knowledgeDate`. `TickerHistory`'s interval is inclusive
+      (`validFrom <= d <= validTo`; a one-day symbol is valid), and the Orchestrator shapes require
+      only their natural keys (`orchestratorRunId`; `stepOfOrchestratorRun` + `ordinal`) because
+      handoff §3.1 gives no base-table nullability and both views have 0 rows. `schema/shapes.ttl`
+      gains 11 shapes (31 total), with the handoff §3.3 nullable columns optional, `sh:in` for the
+      enumerated vocabularies, no sign/range on drawdown/cost/max-drawdown, and a CASH weight row
+      that needs no Asset node. `rules.ttl` gains `UTILITY_CASH_COVERAGE` (HARD, 0.05, rank 10, valid from
+      2026-10-31 — the last safe date: the rule was already in upstream's catalog in the completed
+      backtest runs and raised a real veto in P1 on 2022-03-03, so a later date is impossible; not
+      backdated to 2019/2020, and upstream's `v_rule_catalog.created_at` (2026-10-31T19:37:32) is a
+      technical persistence timestamp, not the adoption date), records the APP-00 exemptions in comments, and
+      adds the five GUARD rules in their own section (`:category "GUARD"`, `:guardLayer`,
+      `GraphPredicate` leaves, parameters only in comments, `L2_NEWS` disabled). `RuleDefinitionShape`
+      gets a GUARD `sh:or` branch, keeps the severity requirement for other active rules and makes
+      `:priorityRank` mandatory for non-GUARD rules (range `[1,10]`); `VetoShape` refuses GUARD rules.
+      Tests: `tests/test_ontology_v18.py` (classes, @es text, properties, every nullable case, a
+      one-day TickerHistory, Orchestrator keys-only, synthetic non-conformant cases, rule table) plus
+      `tests/test_kg_gate.py` (the inclusive one-day closure; a same-day membership still refused)
+      and the updated `tests/test_schema_gate.py`.
+      Docs: `06` §1.10, `07` (PROPOSED `urn:graph:derived:backtest:{backtest_run_id}`), `08`,
+      `schema/README.md`, `SPEC.md`, `PLAN.md`, `README.md`, `docs/10` and `graphdb-setup.md` counts.
+      `src/kg_store/gate.py` adds the `inclusive` flag for TickerHistory. Bundle 4178 quads,
+      `pyshacl` conforms. Not done: projectors, pin changes, GraphDB reload,
+      `protege-view.ttl` regeneration (T-070/T-071).)* Add the Contract v18 classes, properties,
+      SHACL shapes, Spanish labels/definitions and rule catalog, with no projector or pin change.
+      → `PLAN.md` Work item 4 step 7.
 - [ ] **T-158** Replace the `ASSET_DAY_AGGREGATE` placeholder with upstream's SEMANTIC
       `score_method` value once they give it (D14; with their Work item 4, after their T-100).
       **First, raise the ownership disagreement (unblocked now; ask before their T-141 ships its
@@ -717,6 +750,16 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       comment) and `schema/README.md`. Needs T-187's `:penaltyPoints`. Docs and a
       comment; the check itself is T-155's test. -> `PLAN.md` Work item 15.
 - [ ] **T-201** *(from T-187, PR #104)* Resolve a Veto stint's rule by its `raisedOn`: where the projection or a reader turns `rule_id` into a `RuleDefinition`, pick the one with that `:ruleId` valid on the day (`validFrom <= raisedOn < validTo`; `LIQUIDITY_DISTRESS` has two definitions since 2026-10-10). Today `tests/test_schema_gate.py` shows the data allows it and nothing in `src/` does it. Proposed: an old stint re-confirmed after 2026-10-10 still resolves by `raisedOn`, and the re-evaluation shows only in its later `lastSeenOn`; the developer confirms in the PR. A `feat/` PR. -> `PLAN.md` Work item 15.
+      **Backtest vetoes (T-206 follow-up, recorded 2026-11-02, not implemented):** backtest vetoes are
+      raised in 2022–2025, before every active rule's `validFrom`, so `raisedOn`-based resolution cannot
+      work for them. Proposed convention for the projector PR: resolve a backtest veto's rule by
+      `:ruleId` against the definition in force on the backtest run's date (2026-10-31), because
+      upstream rewrites the catalog in place and applies it to the whole window. Decide it in the
+      projector PR; do not implement it here.
+      **GuardAlert layer (Sourcery review, recorded 2026-11-02, not implemented):** the projector
+      derives the alert's `:guardLayer` from its linked `:alertRule` and tests that they agree; a
+      shape cannot enforce it reliably because the rule triples are usually not in the validated
+      graph.
 - [ ] **T-202** *(from T-187, PR #104)* When upstream's T-071 lands, revisit `NEGATIVE_FCF` (utilities exempt, a replacement HARD rule) and `LIQUIDITY_DISTRESS`'s Financials/Utilities exemption, which is only in the rule's comment today. Waits on them; nothing to do now. -> `PLAN.md` Work item 15.
 - [ ] **T-203** *(from T-188, PR #105 review)* Let the ingest gate take a moved `expiresOn`. Upstream moves `expires_on` 10 NYSE sessions on while a temporary HARD condition holds, and `:expiresOn` is multi-valued (current = MAX) so the shapes allow it, but the gate accepts a later value on a stored Veto only for `lastSeenOn` (`APPENDING_PROPERTIES`, T-194): a batch with `:v :expiresOn <date>` and no type is refused. Add `expiresOn` as an appendable property on a Veto that is not cleared, with a date after the latest stored `expiresOn` (an equal date is a replay, and an earlier one is refused: upstream only moves it forward) and not before `raisedOn`, with tests as T-194 has. The projection writes a value only when `v_veto.expires_on` differs from the stored `MAX`. Start from the test that pins today's refusal (`test_a_moved_expiry_is_refused_until_t203`) and turn it round. **Blocks** T-031's vetoes lane from writing a second cycle for a stint (the lane's entry says so); nothing writes `expiresOn` today. A `feat/` PR. -> `PLAN.md` Work item 15.
 - [x] **T-204** *(done 2026-10-16: re-pinned `portfolio-common` `v1.2.1` → `v1.2.2`

@@ -134,6 +134,32 @@ code; not run here. Differences from the design above:
 The stint model and the T-1 predicate (T-102) and the rule catalog (T-103) are reflected in
 `schema/`; see `schema/README.md` for the SPARQL pattern.
 
+## Contract v18 backtest/GUARD projection (PROPOSED, T-206)
+
+The eight m018 views (`v_book`, `v_book_rebalance`, `v_guard_alert`, `v_guard_action`,
+`v_book_weight_daily`, `v_book_daily_performance`, `v_portfolio_period_summary`, `v_backtest_test`)
+are **not agent output**: they are the backtest engine's own results, computed upstream and read
+here. No agent in this document computes them. The future writer is the step-2 projector
+(`src/projection/`, Work item 4), which will read the views and write `StrategyBook`,
+`BookRebalance`, `GuardAlert`, `GuardAction`, `BookWeightDaily`, `BookDailyPerformance`,
+`PortfolioPeriodSummary` and `BacktestTest` individuals into the proposed
+`urn:graph:derived:backtest:{backtest_run_id}` graph (`docs/07`), each carrying `:knowledgeDate`.
+
+Two rules the projector must keep, both from the handoff §3.3 and the completed P1/P2/P3 databases:
+
+- **Do not require a value the view masks.** `cycle_run_id` is NULL on `MARKOWITZ_BASE`; layer-1
+  alerts have no `value`; layers 3–4 have no asset/ticker; asset-level actions have no
+  `weight_before`/`weight_after`; CASH weight rows have no asset/holding name; ordinary-session
+  weight rows have no target weights; `v_book.guard_layers` is NULL on `MARKOWITZ_BASE` and
+  `TOPN_MV_NOGUARD`. The shapes leave all of these optional; the projector must not invent a value.
+- **The GUARD rules are read, not evaluated.** The five `RuleDefinition`s in `rules.ttl` are
+  `:category "GUARD"` and carry `:guardLayer`; an alert links to one through `:alertRule`. They are
+  not veto rules and must never be written as a `Veto`'s `:appliesRule`/`:primaryRule`. `L2_NEWS`
+  is disabled in the 2022–2025 backtest.
+
+This section is a proposal for the projector work, not a description of code that exists; the
+named-graph placement is flagged in `docs/07` and is to be settled with the projector.
+
 ---
 
 *Diagram for this document (Exhibit 3) is in the companion Artifact: both LangGraph graphs, their
