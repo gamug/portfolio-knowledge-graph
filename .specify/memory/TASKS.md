@@ -565,7 +565,7 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       and the updated `tests/test_schema_gate.py`.
       Docs: `06` §1.10, `07` (PROPOSED `urn:graph:derived:backtest:{backtest_run_id}`), `08`,
       `schema/README.md`, `SPEC.md`, `PLAN.md`, `README.md`, `docs/10` and `graphdb-setup.md` counts.
-      `src/kg_store/gate.py` adds the `inclusive` flag for TickerHistory. Bundle 4149 quads,
+      `src/kg_store/gate.py` adds the `inclusive` flag for TickerHistory. Bundle 4178 quads,
       `pyshacl` conforms. Not done: projectors, pin changes, GraphDB reload,
       `protege-view.ttl` regeneration (T-070/T-071).)* Add the Contract v18 classes, properties,
       SHACL shapes, Spanish labels/definitions and rule catalog, with no projector or pin change.
@@ -756,6 +756,10 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       `:ruleId` against the definition in force on the backtest run's date (2026-10-31), because
       upstream rewrites the catalog in place and applies it to the whole window. Decide it in the
       projector PR; do not implement it here.
+      **GuardAlert layer (Sourcery review, recorded 2026-11-02, not implemented):** the projector
+      derives the alert's `:guardLayer` from its linked `:alertRule` and tests that they agree; a
+      shape cannot enforce it reliably because the rule triples are usually not in the validated
+      graph.
 - [ ] **T-202** *(from T-187, PR #104)* When upstream's T-071 lands, revisit `NEGATIVE_FCF` (utilities exempt, a replacement HARD rule) and `LIQUIDITY_DISTRESS`'s Financials/Utilities exemption, which is only in the rule's comment today. Waits on them; nothing to do now. -> `PLAN.md` Work item 15.
 - [ ] **T-203** *(from T-188, PR #105 review)* Let the ingest gate take a moved `expiresOn`. Upstream moves `expires_on` 10 NYSE sessions on while a temporary HARD condition holds, and `:expiresOn` is multi-valued (current = MAX) so the shapes allow it, but the gate accepts a later value on a stored Veto only for `lastSeenOn` (`APPENDING_PROPERTIES`, T-194): a batch with `:v :expiresOn <date>` and no type is refused. Add `expiresOn` as an appendable property on a Veto that is not cleared, with a date after the latest stored `expiresOn` (an equal date is a replay, and an earlier one is refused: upstream only moves it forward) and not before `raisedOn`, with tests as T-194 has. The projection writes a value only when `v_veto.expires_on` differs from the stored `MAX`. Start from the test that pins today's refusal (`test_a_moved_expiry_is_refused_until_t203`) and turn it round. **Blocks** T-031's vetoes lane from writing a second cycle for a stint (the lane's entry says so); nothing writes `expiresOn` today. A `feat/` PR. -> `PLAN.md` Work item 15.
 - [x] **T-204** *(done 2026-10-16: re-pinned `portfolio-common` `v1.2.1` → `v1.2.2`

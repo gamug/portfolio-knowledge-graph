@@ -344,6 +344,12 @@ what the store *enforces*.
      their natural keys (`orchestratorRunId`; `stepOfOrchestratorRun` + `ordinal`): handoff §3.1 gives
      no base-table nullability and both views have 0 rows. A CASH weight row has no `:holdingAsset`
      and needs no `:Asset` node.
+   - **Sourcery-review constraints.** `bookId` is required on `BookRebalance`/`GuardAction`;
+     `BacktestTest`'s `pValue` is in [0,1] and `nObs` at least 1; six row-date properties are
+     `sh:equals` to `:knowledgeDate` (rebalance `executionDate`, alert `alertDate`, action
+     `effectiveDate`, weight `weightDate`, performance `performanceDate`, summary `dateTo`); a CASH
+     weight row must have no `:holdingAsset`. `StrategyBook`/`BacktestTest` are deliberately not
+     equated: their `knowledgeDate` is the run's `created_at` day, not a row date.
    - **Data over the DDL comments.** `v_book.guard_layers` is NULL on `MARKOWITZ_BASE` and
      `TOPN_MV_NOGUARD` (the DDL says `'[]'`), so it is optional; `exclude_hard_vetoed` is 0 on all
      three arms (the DDL says 1 for `TOPN_MV_*`), so the shape requires only an `xsd:boolean` and never
@@ -367,7 +373,7 @@ what the store *enforces*.
    - **Not done here:** no projector (`src/projection/`), no change to the v18 pin, no ingest-gate
      pattern change beyond the schema-driven `CLOSABLE` entry and its `inclusive` flag for
      `TickerHistory` (a one-day symbol must not be refused), no GraphDB write/reload, and
-     `protege-view.ttl` is not regenerated (generated file; T-070/T-071). **4149 quads; conforms: True.**
+     `protege-view.ttl` is not regenerated (generated file; T-070/T-071). **4178 quads; conforms: True.**
 
 ## Validation
 
@@ -424,7 +430,7 @@ conforms: True.** The `urn:graph:tbox` graph (which holds `shapes.ttl`) grows by
 
 **T-100 (D1, 2026-10-05: `universe.db` is the asset master).** Maintainer decision: the ETL reads `portfolio-data-mining`'s point-in-time `universe.db` instead of Wikipedia's live table, so every membership stint becomes a `:UniverseMembership` (`validFrom`, and `validTo` while closed, exclusive like upstream's predicate) in one `:Universe` (`:SP500Index`, emitted by the ETL into `data.ttl`, not stored here). One shape change: `AssetShape`'s `cikNumber` is no longer unconditionally required. It is now `sh:maxCount 1` plus a `sh:or`: either the asset has a `cikNumber`, or it has at least one `:UniverseMembership` and every one of them has a `validTo`. Why: upstream records no CIK for a company that has left the index (all closed stints lack it), and inventing one would put false data in the graph; a current member without a CIK still fails. `UniverseMembershipShape` also declares `validTo` (`xsd:date`, at most one) and requires `validFrom` before it, since an exclusive `validTo` at or before `validFrom` holds on no date (upstream has two such stints, `HNG` and `AYE`, which the ETL skips). Checked with five cases (closed-only without CIK passes; open without CIK, closed-plus-open without CIK, and no membership without CIK fail; CIK without membership passes). No new class or property; `AllDisjointClasses` is unchanged. **2383 quads; conforms: True.**
 
-**T-206 (Contract v18 ontology, 2026-11-01).** The 11 new classes, their properties and 11 shapes are in `tbox.ttl`/`shapes.ttl` (refinement 7 above), and `rules.ttl` now has the 10 selection rules plus the 5 GUARD rules. `TickerHistory`'s interval is inclusive (`validFrom <= d <= validTo`; a one-day symbol is valid), and the Orchestrator shapes require only their natural keys (`orchestratorRunId`; `stepOfOrchestratorRun` + `ordinal`) because handoff §3.1 gives no base-table nullability and both views have 0 rows. The bundle parses clean and `pyshacl` conforms: **4149 quads; conforms: True.** The canonical command is the same as above (`tbox.ttl` + `shapes.ttl` + `reference.ttl` + `rules.ttl` + `instances.trig`); the test suite also validates the flat union with `rules.ttl` included. No GraphDB write or reload was done; the live store still holds the pre-T-206 schema until the next `cli/load_schema.py` (maintainer's go-ahead). `schema/protege-view.ttl` is generated and was not regenerated (T-070/T-071).
+**T-206 (Contract v18 ontology, 2026-11-01).** The 11 new classes, their properties and 11 shapes are in `tbox.ttl`/`shapes.ttl` (refinement 7 above), and `rules.ttl` now has the 10 selection rules plus the 5 GUARD rules. `TickerHistory`'s interval is inclusive (`validFrom <= d <= validTo`; a one-day symbol is valid), and the Orchestrator shapes require only their natural keys (`orchestratorRunId`; `stepOfOrchestratorRun` + `ordinal`) because handoff §3.1 gives no base-table nullability and both views have 0 rows. The bundle parses clean and `pyshacl` conforms: **4178 quads; conforms: True.** The canonical command is the same as above (`tbox.ttl` + `shapes.ttl` + `reference.ttl` + `rules.ttl` + `instances.trig`); the test suite also validates the flat union with `rules.ttl` included. No GraphDB write or reload was done; the live store still holds the pre-T-206 schema until the next `cli/load_schema.py` (maintainer's go-ahead). `schema/protege-view.ttl` is generated and was not regenerated (T-070/T-071).
 
 "Active at cutoff" is the general predicate; the **T-1 lag is the same query with `?cutoff` bound to
 the previous cycle date**. It needs the store to query the union of the named graphs (GraphDB does

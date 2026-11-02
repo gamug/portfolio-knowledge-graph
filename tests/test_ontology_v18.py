@@ -474,6 +474,7 @@ def _add_rebalance(g: rdflib.Graph) -> None:
     g.add((REBALANCE, RDF.type, KG.BookRebalance))
     g.add((REBALANCE, KG.rebalanceOfBook, BOOK))
     g.add((REBALANCE, KG.rebalanceId, _int(1)))
+    g.add((REBALANCE, KG.bookId, _int(1)))
     g.add((REBALANCE, KG.backtestRunId, _int(1)))
     g.add((REBALANCE, KG.armCode, rdflib.Literal("MARKOWITZ_BASE")))
     g.add((REBALANCE, KG.decisionDate, _date("2022-01-04")))
@@ -514,6 +515,7 @@ def _add_action(g: rdflib.Graph) -> None:
     # Layer 1 action: weight_before/after absent, asset present.
     g.add((ACTION, RDF.type, KG.GuardAction))
     g.add((ACTION, KG.actionId, _int(1)))
+    g.add((ACTION, KG.bookId, _int(1)))
     g.add((ACTION, KG.actionOfBook, BOOK))
     g.add((ACTION, KG.actionAlert, ALERT))
     g.add((ACTION, KG.backtestRunId, _int(1)))
@@ -527,6 +529,7 @@ def _add_action(g: rdflib.Graph) -> None:
     # Layer 3 action: asset/ticker absent, portfolio-scale weights present.
     g.add((L3_ACTION, RDF.type, KG.GuardAction))
     g.add((L3_ACTION, KG.actionId, _int(2)))
+    g.add((L3_ACTION, KG.bookId, _int(1)))
     g.add((L3_ACTION, KG.actionOfBook, BOOK))
     g.add((L3_ACTION, KG.actionAlert, L3_ALERT))
     g.add((L3_ACTION, KG.backtestRunId, _int(1)))
@@ -694,9 +697,11 @@ def test_an_orchestrator_step_with_only_its_key_conforms(
     ("subject", "path"),
     [
         (BOOK, KG.bookId),
+        (REBALANCE, KG.bookId),
         (REBALANCE, KG.executionDate),
         (ALERT, KG.alertState),
         (ACTION, KG.actionAlert),
+        (ACTION, KG.bookId),
         (WEIGHT, KG.weightOfBook),
         (PERFORMANCE, KG.nav),
         (SUMMARY, KG.maxDrawdown),
@@ -708,9 +713,11 @@ def test_an_orchestrator_step_with_only_its_key_conforms(
     ],
     ids=[
         "book-id",
+        "rebalance-book-id",
         "rebalance-date",
         "alert-state",
         "action-alert",
+        "action-book-id",
         "weight-book",
         "performance-nav",
         "summary-drawdown",
@@ -797,6 +804,93 @@ def test_a_cash_weight_without_an_asset_conforms(
     assert (CASH_WEIGHT, KG.holdingAsset, None) not in g
     assert (CASH_WEIGHT, KG.holdingName, None) not in g
     assert _violations(g, shapes) == set()
+
+
+def test_a_cash_weight_with_an_asset_is_caught(
+    bundle: rdflib.Dataset, shapes: rdflib.Graph
+) -> None:
+    """CASH is never an asset (handoff §3.3)."""
+    g = _m018(bundle)
+    g.add((WEIGHT, KG.holdingAsset, KG.AAPL))
+    assert _violations(g, shapes) == {(WEIGHT, None)}
+
+
+def test_an_equity_weight_with_an_asset_conforms(
+    bundle: rdflib.Dataset, shapes: rdflib.Graph
+) -> None:
+    g = _m018(bundle)
+    g.remove((WEIGHT, KG.holdingKey, None))
+    g.add((WEIGHT, KG.holdingKey, rdflib.Literal("AAPL")))
+    g.add((WEIGHT, KG.holdingAsset, KG.AAPL))
+    assert _violations(g, shapes) == set()
+
+
+@pytest.mark.parametrize(
+    ("subject", "path", "wrong"),
+    [
+        (REBALANCE, KG.executionDate, _date("2022-01-06")),
+        (ALERT, KG.alertDate, _date("2022-02-09")),
+        (ACTION, KG.effectiveDate, _date("2022-02-09")),
+        (WEIGHT, KG.weightDate, _date("2022-02-09")),
+        (PERFORMANCE, KG.performanceDate, _date("2022-02-09")),
+        (SUMMARY, KG.dateTo, _date("2022-10-13")),
+    ],
+    ids=["rebalance", "alert", "action", "weight", "performance", "summary"],
+)
+def test_a_row_date_that_disagrees_with_knowledge_date_is_caught(
+    bundle: rdflib.Dataset,
+    shapes: rdflib.Graph,
+    subject: rdflib.URIRef,
+    path: rdflib.URIRef,
+    wrong: rdflib.Literal,
+) -> None:
+    g = _m018(bundle)
+    g.remove((subject, path, None))
+    g.add((subject, path, wrong))
+    assert _violations(g, shapes) == {(subject, path)}
+
+
+def test_strategy_book_and_backtest_test_do_not_equate_knowledge_date(
+    shapes: rdflib.Graph,
+) -> None:
+    """Their knowledge_date is the run's created_at day, not a row date (handoff §3.2)."""
+    for shape in (KG.StrategyBookShape, KG.BacktestTestShape):
+        for prop in shapes.objects(shape, SH.property):
+            assert (prop, SH.equals, None) not in shapes
+
+
+@pytest.mark.parametrize("value", ["0.0", "1.0"], ids=["lower", "upper"])
+def test_a_p_value_at_the_bounds_conforms(
+    bundle: rdflib.Dataset, shapes: rdflib.Graph, value: str
+) -> None:
+    g = _m018(bundle)
+    g.remove((TEST, KG.pValue, None))
+    g.add((TEST, KG.pValue, _dec(value)))
+    assert _violations(g, shapes) == set()
+
+
+@pytest.mark.parametrize("value", ["-0.1", "1.2"], ids=["below", "above"])
+def test_a_p_value_outside_0_to_1_is_caught(
+    bundle: rdflib.Dataset, shapes: rdflib.Graph, value: str
+) -> None:
+    g = _m018(bundle)
+    g.remove((TEST, KG.pValue, None))
+    g.add((TEST, KG.pValue, _dec(value)))
+    assert _violations(g, shapes) == {(TEST, KG.pValue)}
+
+
+def test_one_observation_conforms(bundle: rdflib.Dataset, shapes: rdflib.Graph) -> None:
+    g = _m018(bundle)
+    g.remove((TEST, KG.nObs, None))
+    g.add((TEST, KG.nObs, _int(1)))
+    assert _violations(g, shapes) == set()
+
+
+def test_zero_observations_are_caught(bundle: rdflib.Dataset, shapes: rdflib.Graph) -> None:
+    g = _m018(bundle)
+    g.remove((TEST, KG.nObs, None))
+    g.add((TEST, KG.nObs, _int(0)))
+    assert _violations(g, shapes) == {(TEST, KG.nObs)}
 
 
 def test_a_markowitz_base_rebalance_without_a_cycle_run_conforms(

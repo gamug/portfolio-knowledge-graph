@@ -555,7 +555,7 @@ reused.*
 - Docs: `docs/06` §1.10 and the class tree/table, `docs/07` (PROPOSED
   `urn:graph:derived:backtest:{backtest_run_id}`), `docs/08` (the future projector), `schema/README.md`
   refinement 7, `SPEC.md` §2.1/§2.6, `PLAN.md` Work item 4 step 7, `README.md`, `docs/10` and
-  `docs/graphdb-setup.md` counts. Bundle **4149 quads; conforms: True**.
+  `docs/graphdb-setup.md` counts. Bundle **4178 quads; conforms: True**.
 - Not done: no projector (`src/projection/`), no change to the v18 pin, no ingest-gate pattern change
   beyond the schema-driven `CLOSABLE` entry and its `inclusive` flag for `TickerHistory`, no GraphDB
   write/reload and no `protege-view.ttl` regeneration (T-070/T-071).
