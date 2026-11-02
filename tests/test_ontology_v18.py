@@ -452,6 +452,7 @@ RUN = KG.OrchestratorRun_T206
 STEP = KG.OrchestratorStep_T206
 CASH_WEIGHT = KG.CashWeight_T206
 L3_ALERT = KG.AlertL3_T206
+L3_ACTION = KG.ActionL3_T206
 
 
 def _add_book(g: rdflib.Graph) -> None:
@@ -510,7 +511,7 @@ def _add_alerts(g: rdflib.Graph) -> None:
 
 
 def _add_action(g: rdflib.Graph) -> None:
-    # Layer 1 action: weight_before/after absent.
+    # Layer 1 action: weight_before/after absent, asset present.
     g.add((ACTION, RDF.type, KG.GuardAction))
     g.add((ACTION, KG.actionId, _int(1)))
     g.add((ACTION, KG.actionOfBook, BOOK))
@@ -523,6 +524,19 @@ def _add_action(g: rdflib.Graph) -> None:
     g.add((ACTION, KG.guardAsset, KG.AAPL))
     g.add((ACTION, KG.guardTicker, rdflib.Literal("AAPL")))
     g.add((ACTION, KG.knowledgeDate, _date("2022-02-02")))
+    # Layer 3 action: asset/ticker absent, portfolio-scale weights present.
+    g.add((L3_ACTION, RDF.type, KG.GuardAction))
+    g.add((L3_ACTION, KG.actionId, _int(2)))
+    g.add((L3_ACTION, KG.actionOfBook, BOOK))
+    g.add((L3_ACTION, KG.actionAlert, L3_ALERT))
+    g.add((L3_ACTION, KG.backtestRunId, _int(1)))
+    g.add((L3_ACTION, KG.armCode, rdflib.Literal("MARKOWITZ_BASE")))
+    g.add((L3_ACTION, KG.decisionDate, _date("2022-02-02")))
+    g.add((L3_ACTION, KG.effectiveDate, _date("2022-02-03")))
+    g.add((L3_ACTION, KG.status, rdflib.Literal("APPLIED")))
+    g.add((L3_ACTION, KG.weightBefore, _dec("1.0")))
+    g.add((L3_ACTION, KG.weightAfter, _dec("0.8")))
+    g.add((L3_ACTION, KG.knowledgeDate, _date("2022-02-03")))
 
 
 def _add_weights(g: rdflib.Graph) -> None:
@@ -740,6 +754,15 @@ def test_a_layer_three_alert_without_an_asset_conforms(
     g = _m018(bundle)
     assert (L3_ALERT, KG.guardAsset, None) not in g
     assert (L3_ALERT, KG.guardTicker, None) not in g
+    assert _violations(g, shapes) == set()
+
+
+def test_a_layer_three_action_without_an_asset_conforms(
+    bundle: rdflib.Dataset, shapes: rdflib.Graph
+) -> None:
+    g = _m018(bundle)
+    assert (L3_ACTION, KG.guardAsset, None) not in g
+    assert (L3_ACTION, KG.guardTicker, None) not in g
     assert _violations(g, shapes) == set()
 
 
