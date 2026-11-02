@@ -4,7 +4,7 @@ A batch is Turtle destined for one named graph. It is written only if
 
 1. the target graph is named as ``07-ontology-topology.md`` prescribes
    (``urn:graph:ingest:{agent}:{date}``, ``urn:graph:derived:entity-resolution:{date}``,
-   ``urn:graph:derived:quant:{date}``,
+   ``urn:graph:derived:quant:{date}``, ``urn:graph:derived:backtest:{P1|P2|P3}:{run}``,
    ``urn:graph:universe:{year}-Q{n}``, or ``urn:graph:portfolio:current``); the TBox,
    reference and rule-catalog graphs are loaded by ``cli/load_schema.py``;
 2. the graph is new, for the append-only ones (an ingest graph is never edited after
@@ -92,6 +92,9 @@ STORED_DATE_PROPERTIES = CLOSING_PROPERTIES | APPENDING_PROPERTIES
 MUTABLE_GRAPHS = ("urn:graph:portfolio:current",)
 _DATE = r"\d{4}-\d{2}-\d{2}"
 _QUARTER = r"\d{4}-Q[1-4]"
+#: A backtest graph is window-qualified (the three run databases each start their ids at 1) and
+#: ends in a positive run id, not a date, so :func:`check_target` validates it separately.
+_BACKTEST_TARGET = re.compile(r"urn:graph:derived:backtest:(P1|P2|P3):([1-9][0-9]*)")
 #: Append-only graph names (``07``): agents write a dated graph; FUNDAMENTAL writes per
 #: quarter; EDGAR and entity resolution take a date or a quarter; universes are quarterly.
 APPEND_ONLY_PATTERNS = (
@@ -102,6 +105,7 @@ APPEND_ONLY_PATTERNS = (
     re.compile(rf"urn:graph:ingest:EDGAR:({_DATE}|{_QUARTER})"),
     re.compile(rf"urn:graph:derived:entity-resolution:({_DATE}|{_QUARTER})"),
     re.compile(rf"urn:graph:derived:quant:({_DATE})"),
+    _BACKTEST_TARGET,
     re.compile(rf"urn:graph:universe:({_QUARTER})"),
 )
 
@@ -138,6 +142,10 @@ def check_target(graph: str) -> bool:
     for pattern in APPEND_ONLY_PATTERNS:
         m = pattern.fullmatch(graph)
         if m:
+            if pattern is _BACKTEST_TARGET:
+                # The pattern already pins P1|P2|P3 and a positive, zero-free integer; the last
+                # capture group is an id, so _date_ok would refuse every valid name.
+                return True
             if not _date_ok(m.group(m.lastindex or 0)):
                 raise IngestRejected(f"{graph} has an impossible date")
             return True
@@ -146,6 +154,7 @@ def check_target(graph: str) -> bool:
         "{SEMANTIC|VALORIZATION|TECHNICAL|SECTOR|ORCHESTRATOR}:YYYY-MM-DD, "
         "urn:graph:ingest:FUNDAMENTAL:YYYY-Qn, urn:graph:ingest:EDGAR:{date|quarter}, "
         "urn:graph:derived:entity-resolution:{date|quarter}, urn:graph:derived:quant:YYYY-MM-DD, "
+        "urn:graph:derived:backtest:{P1|P2|P3}:{positive integer}, "
         "urn:graph:universe:YYYY-Qn, "
         f"{', '.join(MUTABLE_GRAPHS)}"
     )

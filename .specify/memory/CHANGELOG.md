@@ -559,3 +559,43 @@ reused.*
 - Not done: no projector (`src/projection/`), no change to the v18 pin, no ingest-gate pattern change
   beyond the schema-driven `CLOSABLE` entry and its `inclusive` flag for `TickerHistory`, no GraphDB
   write/reload and no `protege-view.ttl` regeneration (T-070/T-071).
+
+## Contract v18 backtest/GUARD projector (2026-11-02, T-207)
+
+- `src/projection/backtest.py` reads only the eight m018 views (`v_book`, `v_book_rebalance`,
+  `v_guard_alert`, `v_guard_action`, `v_book_weight_daily`, `v_book_daily_performance`,
+  `v_portfolio_period_summary`, `v_backtest_test`), runs the eight shipped boundary expectation
+  files, and writes one append-only graph per completed run,
+  `urn:graph:derived:backtest:{window_id}:{backtest_run_id}`. The window qualifies the name because
+  P1/P2/P3 each start their `backtest_run.id`/`strategy_book.id` at 1. `src/projection/project_backtest.py`
+  is the policy/`main`; `cli/project_backtest.py` is the thin entry point.
+- The separate source check requires `schema_version >= 18` and `v_book.run_status = 'completed'`
+  and never reads `v_cycle_run` (a backtest database's cycle runs are `REPLAY` by construction).
+  The live `check_source` is unchanged and still refuses `REPLAY`.
+- Every individual carries `:knowledgeDate` exactly as its view gives it. Masked/NULL columns are
+  omitted, never filled: layer-1 alert value, layer-3/4 asset/ticker, asset-level action weights,
+  ordinary-session target weights, CASH asset/name. A CASH row has no `:holdingAsset` and creates
+  no `:Asset` node. Asset links are written only for tickers in `SQL_UNIVERSE_DB`; the rest keep
+  their `:guardTicker`/`:holdingKey` and are counted per view. `:alertRule` resolves to the GUARD
+  `:Rule_{rule_id}`; an unknown rule or a view layer that disagrees with the rule's `:guardLayer`
+  stops the run. The five layers are 1, 1, 2, 3, 4, and all three real databases agree.
+- Deterministic Turtle and window-qualified IRIs (`Book_{window}_{arm}`,
+  `Rebalance_{window}_{arm}_{YYYYMMDD}`, `GuardAlert_{window}_{alert_id}`,
+  `GuardAction_{window}_{action_id}`, `BookWeight_{window}_{arm}_{YYYYMMDD}_{holdingKey}`,
+  `BookPerf_{window}_{arm}_{YYYYMMDD}`, `PeriodSummary_{window}_{arm}_{segment}`,
+  `BacktestTest_{window}_{segment}_{armA}_{armB}_{test}`) are pinned by
+  `tests/test_backtest.py` over a synthetic database built from handoff §3.2's literal DDL and view
+  SQL, covering every §3.3 nullable case and two windows with colliding ids.
+  `tests/test_project_backtest.py`/`tests/test_cli_project_backtest.py` cover the dry run, the
+  production `--write` guard (`--to-production`) and the exit status; `tests/test_backtest_real.py`
+  is the opt-in `BACKTEST_DB` row-count check.
+- `src/kg_store/gate.py` accepts the new graph on its own branch (window `P1|P2|P3`, positive
+  integer run id) instead of passing the id through `_date_ok`; `tests/test_kg_gate.py` covers the
+  accepted/malformed forms and keeps the existing patterns unchanged.
+- Real dry runs: P1 18,062 rows / 194,259 triples, P2 17,129 / 182,182, P3 19,421 / 205,892, each
+  `pyshacl`-conformant, ~11–13 s and ~0.6–0.7 GB peak RSS. The asset links omitted are 303/112/52
+  alerts, 606/224/104 actions and 14,709/14,301/16,392 weight rows. No GraphDB write or reload.
+- Docs: `docs/07` (accepted graph and frozen-run rule), `docs/08` (the writer and how to run it),
+  `docs/graphdb-setup.md`, `schema/README.md` refinement 7, `SPEC.md` §2.6, `PLAN.md` Work item 4,
+  `TASKS.md` T-207 and the T-208/T-209 follow-ups. No schema file changed; the bundle stays
+  **4178 quads; conforms: True**.

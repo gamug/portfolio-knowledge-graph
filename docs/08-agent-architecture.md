@@ -134,31 +134,47 @@ code; not run here. Differences from the design above:
 The stint model and the T-1 predicate (T-102) and the rule catalog (T-103) are reflected in
 `schema/`; see `schema/README.md` for the SPARQL pattern.
 
-## Contract v18 backtest/GUARD projection (PROPOSED, T-206)
+## Contract v18 backtest/GUARD projection (T-206/T-207)
 
 The eight m018 views (`v_book`, `v_book_rebalance`, `v_guard_alert`, `v_guard_action`,
 `v_book_weight_daily`, `v_book_daily_performance`, `v_portfolio_period_summary`, `v_backtest_test`)
 are **not agent output**: they are the backtest engine's own results, computed upstream and read
-here. No agent in this document computes them. The future writer is the step-2 projector
-(`src/projection/`, Work item 4), which will read the views and write `StrategyBook`,
-`BookRebalance`, `GuardAlert`, `GuardAction`, `BookWeightDaily`, `BookDailyPerformance`,
-`PortfolioPeriodSummary` and `BacktestTest` individuals into the proposed
-`urn:graph:derived:backtest:{backtest_run_id}` graph (`docs/07`), each carrying `:knowledgeDate`.
+here. No agent in this document computes them. The writer is the step-2 projector
+(`src/projection/backtest.py`, policy in `src/projection/project_backtest.py`, CLI
+`cli/project_backtest.py`), which reads the views and writes `StrategyBook`, `BookRebalance`,
+`GuardAlert`, `GuardAction`, `BookWeightDaily`, `BookDailyPerformance`, `PortfolioPeriodSummary`
+and `BacktestTest` individuals into `urn:graph:derived:backtest:{window_id}:{backtest_run_id}`
+(`docs/07`), each carrying `:knowledgeDate`. Run it with:
 
-Two rules the projector must keep, both from the handoff §3.3 and the completed P1/P2/P3 databases:
+```bash
+uv run python cli/project_backtest.py --db rule_P1.db --db rule_P2.db   # dry run: read, check, SHACL
+uv run python cli/project_backtest.py --db rule_P1.db --write           # append through the gate
+```
 
-- **Do not require a value the view masks.** `cycle_run_id` is NULL on `MARKOWITZ_BASE`; layer-1
-  alerts have no `value`; layers 3–4 have no asset/ticker; asset-level actions have no
+A dry run is the default and never contacts the store. `--write` appends each run's graph through
+the ingest gate; a graph that already exists is reported and skipped, and the production repository
+needs `--to-production` as well (a backtest is a frozen artifact; where it lives is the
+maintainer's decision). The writer reads only the eight views, never a base table, and keeps a
+masked/NULL column out of the Turtle rather than filling it. A GUARD alert points at its
+`:Rule_{rule_id}` and the projector refuses a rule id it does not know or a view layer that
+disagrees with the rule's `:guardLayer`. An asset link is written only for a ticker in the
+universe database; a former index member absent from that small database keeps its
+`:guardTicker`/`:holdingKey` and is counted.
+
+Two rules the projector keeps, both from the handoff §3.3 and the completed P1/P2/P3 databases:
+
+- **It does not require a value the view masks.** `cycle_run_id` is NULL on `MARKOWITZ_BASE`;
+  layer-1 alerts have no `value`; layers 3–4 have no asset/ticker; asset-level actions have no
   `weight_before`/`weight_after`; CASH weight rows have no asset/holding name; ordinary-session
   weight rows have no target weights; `v_book.guard_layers` is NULL on `MARKOWITZ_BASE` and
-  `TOPN_MV_NOGUARD`. The shapes leave all of these optional; the projector must not invent a value.
+  `TOPN_MV_NOGUARD`. The shapes leave all of these optional and the projector never invents a value.
 - **The GUARD rules are read, not evaluated.** The five `RuleDefinition`s in `rules.ttl` are
   `:category "GUARD"` and carry `:guardLayer`; an alert links to one through `:alertRule`. They are
-  not veto rules and must never be written as a `Veto`'s `:appliesRule`/`:primaryRule`. `L2_NEWS`
-  is disabled in the 2022–2025 backtest.
+  not veto rules and are never written as a `Veto`'s `:appliesRule`/`:primaryRule`. `L2_NEWS` is
+  disabled in the 2022–2025 backtest.
 
-This section is a proposal for the projector work, not a description of code that exists; the
-named-graph placement is flagged in `docs/07` and is to be settled with the projector.
+The dry runs over `rule_P1/P2/P3.db` and their row/triple counts are recorded in `SPEC.md` §2.6 and
+`TASKS.md` T-207; no store was written.
 
 ---
 

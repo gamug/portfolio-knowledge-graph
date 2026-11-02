@@ -125,7 +125,10 @@ built upstream); it makes no portfolio or trading decision and renders no report
   (`cli/check_view_contract.py`), the 0–100 → [0, 1] score conversion
   (`score_scale.py`, §2.6) and the boundary expectations, one JSON file per
   view under `view_expectations/` read by `expectations.py` (T-162, §13 item
-  10). Nothing reads the `v_*` views or writes ingest graphs yet (T-031).
+  10). `v_score_snapshot` projects into dated ingest graphs (T-031) and the
+  eight m018 backtest/GUARD views project into
+  `urn:graph:derived:backtest:{window_id}:{backtest_run_id}` (T-207); the
+  other lanes remain (Work item 4).
 - Keeping the schema and its companion docs internally consistent: the exact
   class/shape/graph/quad counts asserted in `06`/`07` and `schema/README.md`
   must stay in sync with `tbox.ttl`/`shapes.ttl`/`instances.trig` after any
@@ -705,6 +708,38 @@ change, no ingest-gate pattern change beyond the schema-driven `CLOSABLE` entry 
 flag for `TickerHistory` (a one-day symbol must not be refused), no GraphDB write/reload and no
 `protege-view.ttl` regeneration; the bundle is **4178 quads, `pyshacl conforms: True`**.
 
+**Contract v18 backtest/GUARD projector (2026-11-02, T-207).** The eight m018 views (`v_book`,
+`v_book_rebalance`, `v_guard_alert`, `v_guard_action`, `v_book_weight_daily`,
+`v_book_daily_performance`, `v_portfolio_period_summary`, `v_backtest_test`) are now read by
+`src/projection/backtest.py` (policy in `src/projection/project_backtest.py`, CLI
+`cli/project_backtest.py`) and written into one append-only graph per run,
+`urn:graph:derived:backtest:{window_id}:{backtest_run_id}`. The window qualifies the name because
+the three completed databases each start `backtest_run.id`/`strategy_book.id` at 1; every
+individual IRI is window-qualified too (`Book_{window}_{arm}`,
+`Rebalance_{window}_{arm}_{YYYYMMDD}`, `GuardAlert_{window}_{alert_id}`,
+`GuardAction_{window}_{action_id}`, `BookWeight_{window}_{arm}_{YYYYMMDD}_{holdingKey}`,
+`BookPerf_{window}_{arm}_{YYYYMMDD}`, `PeriodSummary_{window}_{arm}_{segment}`,
+`BacktestTest_{window}_{segment}_{armA}_{armB}_{test}`). A run is a frozen artifact: a re-run is a
+new run id, and the gate refuses an existing graph. The source check is separate from the live one:
+it never reads `v_cycle_run` (a backtest database's cycle runs are `REPLAY` by construction) and
+requires `schema_version >= 18` plus `v_book.run_status = 'completed'` for every run read. The
+eight views then go through the shipped boundary expectations, unchanged. Every individual carries
+`:knowledgeDate` exactly as its view gives it; a masked/NULL column is omitted, never filled
+(layer-1 alert value, layer-3/4 asset/ticker, asset-level action weights, ordinary-session target
+weights, CASH asset/name). A CASH weight row has no `:holdingAsset` and creates no `:Asset` node.
+Asset links (`:guardAsset`, `:holdingAsset`) are written only when the ticker exists in the
+universe database (`SQL_UNIVERSE_DB`, read through `etl.asset_master.read_stints`); a former index
+member absent from that small database keeps its `:guardTicker`/`:holdingKey` and is counted per
+view. `:alertRule` resolves to the GUARD `:Rule_{rule_id}` in `rules.ttl`; an unknown rule id or a
+`v_guard_alert.layer` that disagrees with the rule's `:guardLayer` stops the run. A dry run is the
+default and SHACL-validates each graph beside the rules and the universe assets; `--write` appends
+through the ingest gate, and the production repository also needs `--to-production` (a backtest is a
+frozen artifact; where it lives is the maintainer's decision). The real dry runs read 18,062 (P1),
+17,129 (P2) and 19,421 (P3) rows and built 194,259 / 182,182 / 205,892 triples, each graph
+`pyshacl`-conformant; all five GUARD rule ids agree with every alert's layer (0 disagreements), and
+the asset links omitted are 303/112/52 alerts, 606/224/104 actions and 14,709/14,301/16,392 weight
+rows. No schema file changed; the bundle stays **4178 quads, `pyshacl conforms: True`**.
+
 **Read contract and score scale (T-030, 2026-10-05; re-pinned by T-157 and T-205).**
 `src/projection/view_contract.py` pins a full snapshot of the columns of 43 of upstream's 44
 `v_*` views (Contract v18, `7658f78`; `v_universe_membership` is listed as not read, being
@@ -790,7 +825,7 @@ flowchart TB
     STORE["triple store -- step 1, DONE<br/>GraphDB repository portfolio<br/>src/kg_store/, cli/load_schema.py"]
     GRAPHS["named graphs -- step 1, DONE<br/>static: tbox/reference/rules<br/>ingest:{agent}:{date} * portfolio:current<br/>worked example only"]
     GATE["SHACL ingest gate -- DONE<br/>pyshacl, src/kg_store/gate.py<br/>cli/ingest.py"]
-    PROJ["src/projection/ -- step 2, STARTED<br/>v_* contract pinned + drift check (T-030)<br/>write path NOT BUILT (T-031)"]
+    PROJ["src/projection/ -- step 2, PARTIAL<br/>v_* contract pinned + drift check (T-030)<br/>score snapshots (T-031) + backtest/GUARD (T-207)"]
     FIN["fin-analysis v_* views<br/>(contract pinned, not yet read)"]
     NLPRES["portfolio-nlp RESULTS store<br/>article_sentiment / article_category<br/>(READ TODAY, via news_export)"]
     ETL["src/etl/ -- step 2 shortcut, PARTIAL<br/>cli/build_data_ttl.py<br/>flat data.ttl, not partitioned"]
@@ -1258,7 +1293,7 @@ of what this project is, not a gap someone forgot to close:
 | 12 — FR-005 vs. the ETL's `body_text` read | **Resolved** (spec amended to match the code, 2026-10-05) | `PLAN.md` Work item 11, T-113 — done |
 | 10 — `kg_schema`/`schema/` vocabulary and semantic drift | **Mitigated; manual check done (T-135); automation waits on T-173** | `PLAN.md` Work item 11 (decisions closed 2026-10-05, T-100–T-113; dispositions in §2.6); Work item 4, T-030 done (pin + manual drift check); T-135 done (an `integration` test, manual), and an upstream contract endpoint requested (T-173) |
 | 11 — SEMANTIC score not computed here | **Computation resolved; materialization disputed (§2.6 D14, T-158); cut-over pending** (upstream aggregation + local replacement) | `PLAN.md` Work items 4–5 (reassigned), §2.5 |
-| 2 — no `v_*`-views projection | **Pending development** | Folded into `PLAN.md` Work item 4 (the real step-2 projection); today's `src/etl/` shortcut stays live until that lands |
+| 2 — no `v_*`-views projection | **Partially built** | `v_score_snapshot` (T-031) and the eight m018 backtest/GUARD views (T-207) project into the store; the other lanes remain in `PLAN.md` Work item 4, and today's `src/etl/` shortcut stays live until they land |
 | 3 — roadmap names superseded repos | **Pending development** (cheap, no blockers) | `PLAN.md` Work item 1 |
 | 4 — `protege-view.ttl` stale | **Pending development** (manual, needs a real Protégé session) | `PLAN.md` Work item 8 |
 | 5 — `CLAUDE.md` can lag `origin/master` | **Resolved** for this checkout; general risk stays covered by constitution conduct #2 | `PLAN.md` Work item 2 — done |

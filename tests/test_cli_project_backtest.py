@@ -1,0 +1,76 @@
+"""``cli/project_backtest.py`` as a subprocess: the entry point really runs (T-207).
+
+Its logic lives in ``projection.project_backtest`` and is tested in
+``test_project_backtest.py``; these run the script itself, as constitution Project structure #10
+asks, over synthetic databases passed through the environment. None of them writes: no store is
+needed.
+"""
+
+from __future__ import annotations
+
+import os
+import subprocess
+import sys
+from pathlib import Path
+
+from fixtures.backtest_rows import backtest_db, universe_db
+
+CLI = Path(__file__).resolve().parent.parent / "cli" / "project_backtest.py"
+
+
+def _run(
+    tmp_path: Path, *args: str, backtest: Path | None = None, repository: str = "test"
+) -> subprocess.CompletedProcess[str]:
+    env = {
+        **os.environ,
+        # The shell's environment wins over .env (load_env does not override it).
+        "SQL_UNIVERSE_DB": str(universe_db(tmp_path)),
+        "KG_HOST": "http://host.invalid",
+        "KG_REPOSITORY": repository,
+    }
+    return subprocess.run(  # noqa: S603 -- fixed interpreter and script, tmp_path arguments
+        [sys.executable, str(CLI), *args],
+        capture_output=True,
+        text=True,
+        check=False,
+        env=env,
+        cwd=tmp_path,
+    )
+
+
+def test_a_dry_run_over_a_synthetic_database_exits_0(tmp_path: Path) -> None:
+    path = backtest_db(tmp_path)
+    result = _run(tmp_path, "--db", str(path))
+    assert result.returncode == 0, result.stderr
+    assert "urn:graph:derived:backtest:P1:1" in result.stdout
+    assert "SHACL-valid, not written" in result.stdout
+    assert "already in the store: not checked (dry run)" in result.stdout
+
+
+def test_two_databases_are_projected_in_one_run(tmp_path: Path) -> None:
+    first = backtest_db(tmp_path, name="p1.db", window="P1")
+    second = backtest_db(tmp_path, name="p2.db", window="P2")
+    result = _run(tmp_path, "--db", str(first), "--db", str(second))
+    assert result.returncode == 0, result.stderr
+    assert "urn:graph:derived:backtest:P1:1" in result.stdout
+    assert "urn:graph:derived:backtest:P2:1" in result.stdout
+
+
+def test_to_production_without_write_exits_2(tmp_path: Path) -> None:
+    path = backtest_db(tmp_path)
+    result = _run(tmp_path, "--db", str(path), "--to-production")
+    assert result.returncode == 2
+    assert "--to-production only matters with --write" in result.stderr
+
+
+def test_a_production_write_without_the_opt_in_exits_2(tmp_path: Path) -> None:
+    path = backtest_db(tmp_path)
+    result = _run(tmp_path, "--db", str(path), "--write", repository="portfolio")
+    assert result.returncode == 2
+    assert "a backtest is a frozen artifact" in result.stderr
+
+
+def test_a_missing_database_exits_1(tmp_path: Path) -> None:
+    result = _run(tmp_path, "--db", str(tmp_path / "no.db"))
+    assert result.returncode == 1
+    assert "source error:" in result.stderr

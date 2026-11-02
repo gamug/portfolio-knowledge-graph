@@ -570,6 +570,41 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       `protege-view.ttl` regeneration (T-070/T-071).)* Add the Contract v18 classes, properties,
       SHACL shapes, Spanish labels/definitions and rule catalog, with no projector or pin change.
       → `PLAN.md` Work item 4 step 7.
+- [x] **T-207** *(done 2026-11-02: the eight m018 projectors. `src/projection/backtest.py` reads
+      `v_book`, `v_book_rebalance`, `v_guard_alert`, `v_guard_action`, `v_book_weight_daily`,
+      `v_book_daily_performance`, `v_portfolio_period_summary` and `v_backtest_test` only, runs
+      the eight shipped boundary expectation files, and writes one append-only graph per run,
+      `urn:graph:derived:backtest:{window_id}:{backtest_run_id}`; the window qualifies the name
+      because P1/P2/P3 each start their ids at 1. The separate source check requires
+      `schema_version >= 18` and `v_book.run_status = 'completed'` and never reads `v_cycle_run`.
+      Every individual carries `:knowledgeDate` as the view gives it; masked/NULL columns are
+      omitted (layer-1 alert value, layer-3/4 asset/ticker, asset-level action weights,
+      ordinary-session target weights, CASH asset/name), a CASH row has no `:holdingAsset` and no
+      `:Asset` node, and asset links are written only for tickers in `SQL_UNIVERSE_DB`, with the
+      rest counted per view. `:alertRule` resolves to the GUARD `:Rule_{rule_id}`; an unknown rule
+      or a layer disagreement stops the run, and the five layers are 1, 1, 2, 3, 4 (0
+      disagreements in P1/P2/P3). The deterministic Turtle and the IRI stems are pinned by
+      `tests/test_backtest.py` over a synthetic database built from handoff §3.2's literal DDL and
+      view SQL (all §3.3 nullable cases plus two windows with colliding ids);
+      `tests/test_project_backtest.py` and `tests/test_cli_project_backtest.py` cover the dry run,
+      the production `--write` guard (`--to-production`) and exit status;
+      `tests/test_backtest_real.py` is the opt-in `BACKTEST_DB` row-count check. `gate.check_target`
+      accepts the new graph on its own positive-integer branch. Real dry runs: P1 18,062 rows /
+      194,259 triples, P2 17,129 / 182,182, P3 19,421 / 205,892, each SHACL-conformant, ~11–13 s and
+      ~0.6–0.7 GB peak RSS; no GraphDB write or reload. Docs: `docs/07`, `docs/08`,
+      `docs/graphdb-setup.md`, `schema/README.md` refinement 7, `SPEC.md`, `PLAN.md` Work item 4,
+      `CHANGELOG.md`. Bundle unchanged: **4178 quads; conforms: True**.)* Project the eight m018
+      backtest/GUARD views into one append-only graph per completed run. → `PLAN.md` Work item 4,
+      step 7.
+- [ ] **T-208** *(PR-C2, from T-206/T-207)* Project the remaining Contract v18 views
+      `v_ticker_history`, `v_orchestrator_run` and `v_orchestrator_step`, and settle their
+      graph placement; no projector exists for them yet, and T-207 deliberately reads only the
+      eight m018 views. A `feat/` PR. → `PLAN.md` Work item 4.
+- [ ] **T-209** *(from T-201/T-207)* Project backtest vetoes (`v_veto`) once a veto projector
+      exists: resolve a backtest veto's rule by `:ruleId` against the definition in force on the
+      backtest run's date (2026-10-31), not by `raisedOn`, because the 2022–2025 stints predate
+      every active rule's `validFrom`. T-207 does not read `v_veto`; the rule-resolution
+      convention stays open until this task. → `PLAN.md` Work item 4/15.
 - [ ] **T-158** Replace the `ASSET_DAY_AGGREGATE` placeholder with upstream's SEMANTIC
       `score_method` value once they give it (D14; with their Work item 4, after their T-100).
       **First, raise the ownership disagreement (unblocked now; ask before their T-141 ships its
@@ -752,14 +787,15 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
 - [ ] **T-201** *(from T-187, PR #104)* Resolve a Veto stint's rule by its `raisedOn`: where the projection or a reader turns `rule_id` into a `RuleDefinition`, pick the one with that `:ruleId` valid on the day (`validFrom <= raisedOn < validTo`; `LIQUIDITY_DISTRESS` has two definitions since 2026-10-10). Today `tests/test_schema_gate.py` shows the data allows it and nothing in `src/` does it. Proposed: an old stint re-confirmed after 2026-10-10 still resolves by `raisedOn`, and the re-evaluation shows only in its later `lastSeenOn`; the developer confirms in the PR. A `feat/` PR. -> `PLAN.md` Work item 15.
       **Backtest vetoes (T-206 follow-up, recorded 2026-11-02, not implemented):** backtest vetoes are
       raised in 2022–2025, before every active rule's `validFrom`, so `raisedOn`-based resolution cannot
-      work for them. Proposed convention for the projector PR: resolve a backtest veto's rule by
-      `:ruleId` against the definition in force on the backtest run's date (2026-10-31), because
-      upstream rewrites the catalog in place and applies it to the whole window. Decide it in the
-      projector PR; do not implement it here.
-      **GuardAlert layer (Sourcery review, recorded 2026-11-02, not implemented):** the projector
-      derives the alert's `:guardLayer` from its linked `:alertRule` and tests that they agree; a
-      shape cannot enforce it reliably because the rule triples are usually not in the validated
-      graph.
+      work for them. The convention remains: resolve a backtest veto's rule by `:ruleId` against the
+      definition in force on the backtest run's date (2026-10-31), because upstream rewrites the
+      catalog in place and applies it to the whole window. T-207 does not read `v_veto`; T-209 owns
+      the backtest veto projector and this decision.
+      **GuardAlert layer (Sourcery review, recorded 2026-11-02):** covered by T-207. The projector
+      derives the alert's `:guardLayer` from its linked `:alertRule` and refuses a disagreement;
+      `tests/test_backtest.py` pins the five rule ids to layers 1, 1, 2, 3, 4 and every alert of the
+      three real databases agrees (0 disagreements). A shape cannot enforce it reliably because the
+      rule triples are usually not in the validated graph.
 - [ ] **T-202** *(from T-187, PR #104)* When upstream's T-071 lands, revisit `NEGATIVE_FCF` (utilities exempt, a replacement HARD rule) and `LIQUIDITY_DISTRESS`'s Financials/Utilities exemption, which is only in the rule's comment today. Waits on them; nothing to do now. -> `PLAN.md` Work item 15.
 - [ ] **T-203** *(from T-188, PR #105 review)* Let the ingest gate take a moved `expiresOn`. Upstream moves `expires_on` 10 NYSE sessions on while a temporary HARD condition holds, and `:expiresOn` is multi-valued (current = MAX) so the shapes allow it, but the gate accepts a later value on a stored Veto only for `lastSeenOn` (`APPENDING_PROPERTIES`, T-194): a batch with `:v :expiresOn <date>` and no type is refused. Add `expiresOn` as an appendable property on a Veto that is not cleared, with a date after the latest stored `expiresOn` (an equal date is a replay, and an earlier one is refused: upstream only moves it forward) and not before `raisedOn`, with tests as T-194 has. The projection writes a value only when `v_veto.expires_on` differs from the stored `MAX`. Start from the test that pins today's refusal (`test_a_moved_expiry_is_refused_until_t203`) and turn it round. **Blocks** T-031's vetoes lane from writing a second cycle for a stint (the lane's entry says so); nothing writes `expiresOn` today. A `feat/` PR. -> `PLAN.md` Work item 15.
 - [x] **T-204** *(done 2026-10-16: re-pinned `portfolio-common` `v1.2.1` → `v1.2.2`

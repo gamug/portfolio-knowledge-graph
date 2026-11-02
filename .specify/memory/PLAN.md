@@ -278,9 +278,12 @@ architecture, and not partitioned for the bitemporal audit trail
    risk: the only NLP read is the tag-pinned `news_export.fetch_processed_articles`.
 7. The Contract v18 ontology half (T-206, 2026-11-01) is in: the 11 classes for the m015/m016/m018
    views, 31 SHACL shapes, and the 10 selection + 5 GUARD rules, with the handoff §3.3 nullable
-   columns left optional. The eight m018 projectors are still to be built; their named-graph
-   placement is PROPOSED in `docs/07` (`urn:graph:derived:backtest:{backtest_run_id}`) and must be
-   settled with the projector before it is written. No store was reloaded.
+   columns left optional. The eight m018 projectors are built (T-207, 2026-11-02):
+   `src/projection/backtest.py` writes one append-only graph per run,
+   `urn:graph:derived:backtest:{window_id}:{backtest_run_id}`, with a dry run by default and
+   `--write` behind the ingest gate; the source check reads `v_book.run_status` rather than
+   `v_cycle_run`, and no store was reloaded. The m015/m016 views (`v_ticker_history`,
+   `v_orchestrator_run`, `v_orchestrator_step`) remain PR-C2 (T-208).
 
 **Prerequisite**: Work item 11 (the §2.6 drift decisions) — met: it closed
 2026-10-05 (see `CHANGELOG.md`).
@@ -293,6 +296,9 @@ architecture, and not partitioned for the bitemporal audit trail
   the fact).
 - The full ~503-constituent universe and its available signals (not a
   5-asset or news-only slice) are represented once this lands.
+- The eight m018 backtest/GUARD views project into one append-only graph per run
+  (`urn:graph:derived:backtest:{window_id}:{backtest_run_id}`) through the ingest gate, with a
+  dry run by default (T-207).
 - `src/etl/`'s role after this lands is explicitly documented (retired,
   folded in, or kept as a separate smoke-test path) — not left ambiguous.
 

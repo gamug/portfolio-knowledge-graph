@@ -79,7 +79,8 @@ nothing written:
 
 1. the target is named as `07` prescribes: `urn:graph:ingest:{agent}:{date}` (`FUNDAMENTAL` by
    quarter, `EDGAR` by date or quarter), `urn:graph:derived:entity-resolution:{date|quarter}`,
-   `urn:graph:derived:quant:{date}`, `urn:graph:universe:{year}-Q{n}` or `urn:graph:portfolio:current` (TBox, reference and rules go
+   `urn:graph:derived:quant:{date}`, `urn:graph:derived:backtest:{P1|P2|P3}:{run}`,
+   `urn:graph:universe:{year}-Q{n}` or `urn:graph:portfolio:current` (TBox, reference and rules go
    through `cli/load_schema.py`);
 2. an append-only graph (all but `portfolio:current`) does not exist yet;
 3. every IRI is absolute and every `rdf:type` is one of the 38 leaf classes (the
@@ -135,12 +136,14 @@ existing graph (check 2), an existing individual (check 6), what a closing tripl
 whether a stored section a restatement replaces is current (check 8's other half), and a batch that points
 at individuals it does not declare fails check 5 under `--check` for want of what the store holds about them (the rejection says so).
 
-**T-206 note.** The Contract v18 ontology adds `TickerHistory` to `gate.CLOSABLE` (its shape reads
-`:validTo`); the gate's checks and graph-name pattern are otherwise unchanged. The proposed
-`urn:graph:derived:backtest:{backtest_run_id}` (`docs/07`, T-206) is **not** accepted by check 1
-yet: adding it belongs to the m018 projector work, not to this schema change. The live store was not
-reloaded, so its copy of the schema is pre-T-206 until the maintainer runs `cli/load_schema.py` (and
-then `cli/verify_store.py`); no GraphDB write was made here.
+**T-206/T-207 note.** The Contract v18 ontology added `TickerHistory` to `gate.CLOSABLE` (its shape
+reads `:validTo`). T-207 adds the accepted backtest graph
+`urn:graph:derived:backtest:{window_id}:{backtest_run_id}` to check 1; its last capture group is a
+positive integer id, not a date, so `check_target` validates the window and id on a separate branch
+instead of passing the id to `_date_ok`. The projector that writes those graphs
+(`src/projection/backtest.py`, CLI `cli/project_backtest.py`) was run here as a dry run only; no
+GraphDB write or reload was made. The live store was not reloaded, so its copy of the schema is
+pre-T-206 until the maintainer runs `cli/load_schema.py` (and then `cli/verify_store.py`).
 
 Validation reads `tbox.ttl` and `shapes.ttl` from `schema/` on disk (once per process); reload with
 `cli/load_schema.py` after a schema edit so the store's copy matches. Limits: this is a code path,
