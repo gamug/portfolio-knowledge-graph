@@ -4,7 +4,7 @@ Each behaviour T-163 names (source first, stop, quarantine, cascade, late or los
 pending) has one test. T-164 adds a passing and a failing case for every view check kind
 (``test_a_view_check_kind_passes_good_rows_and_reports_bad_ones``, which also says whether the
 failure stops the run or quarantines the row), the shipped look-ahead boundaries, and a guard that
-ties the cases to the runner's ``CHECK_KINDS``; the source kinds' cases are the two source-check tests.
+ties the cases to the runner's ``CHECK_KINDS``; the source kinds' cases are the source-check tests.
 """
 
 from __future__ import annotations
@@ -29,6 +29,7 @@ from projection.boundary import (
     BoundaryError,
     BoundaryReport,
     Failure,
+    check_backtest_source,
     check_source,
     load_late_keys,
     mark_written,
@@ -119,9 +120,32 @@ def test_source_check_names_a_stale_schema_and_a_replay_run() -> None:
         ("source", "schema_version"),
         ("v_cycle_run", "forbidden_cycle_type"),
     ]
-    # every source kind fails here and passes in the test above
-    assert {f.check for f in failures} == SOURCE_CHECKS
+    # the live source kinds fail here and pass in the test above
+    assert {f.check for f in failures} == {"schema_version", "forbidden_cycle_type"}
     assert "2 run(s) of type REPLAY" in failures[1].detail
+
+
+def test_backtest_source_check_accepts_a_completed_run() -> None:
+    floor = load_source().schema_version_floor
+    books = [{"backtest_run_id": 1, "window_id": "P1", "run_status": "completed"}]
+    assert check_backtest_source(floor, books, load_source()) == []
+
+
+def test_backtest_source_check_names_a_stale_schema_and_a_non_completed_run() -> None:
+    # T-207: a backtest database's cycle runs are REPLAY by construction, so its source check
+    # reads v_book.run_status instead of v_cycle_run.
+    books = [
+        {"backtest_run_id": 1, "window_id": "P1", "run_status": "completed"},
+        {"backtest_run_id": 2, "window_id": "P2", "run_status": "running"},
+    ]
+    failures = check_backtest_source(8, books, load_source())
+    assert [(f.view, f.check) for f in failures] == [
+        ("source", "schema_version"),
+        ("v_book", "backtest_run_status"),
+    ]
+    assert {f.check for f in failures} == {"schema_version", "backtest_run_status"}
+    assert "run 2 in window P2 is 'running'" in failures[1].detail
+    assert check_backtest_source(18, [], load_source())[0].check == "backtest_run_status"
 
 
 def test_a_source_failure_stops_before_any_row_is_read(

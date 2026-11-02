@@ -47,6 +47,57 @@ def test_the_mutable_graph_is_not_append_only() -> None:
 @pytest.mark.parametrize(
     "name",
     [
+        "urn:graph:derived:backtest:P1:1",
+        "urn:graph:derived:backtest:P2:42",
+        "urn:graph:derived:backtest:P3:999999",
+    ],
+)
+def test_a_backtest_graph_is_append_only_and_accepted(name: str) -> None:
+    # T-207: the last capture group is a positive id, not a date, so check_target validates it
+    # on its own branch instead of passing it through _date_ok.
+    assert gate.check_target(name) is True
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        "urn:graph:derived:backtest:P4:1",  # not a Contract v18 window
+        "urn:graph:derived:backtest:P1:0",  # id is not positive
+        "urn:graph:derived:backtest:P1:-1",
+        "urn:graph:derived:backtest:P1:abc",
+        "urn:graph:derived:backtest:P1:01",  # leading zero, not the canonical integer
+        "urn:graph:derived:backtest:P1",
+        "urn:graph:derived:backtest:P1:1/extra",
+        "urn:graph:derived:backtest::1",
+    ],
+)
+def test_a_malformed_backtest_graph_is_refused(name: str) -> None:
+    with pytest.raises(gate.IngestRejected, match="not an ingest target"):
+        gate.check_target(name)
+
+
+def test_the_refusal_lists_the_backtest_graph() -> None:
+    with pytest.raises(gate.IngestRejected, match=r"derived:backtest:\{P1\|P2\|P3\}"):
+        gate.check_target("urn:graph:nope")
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        "urn:graph:ingest:SEMANTIC:2026-08-05",
+        "urn:graph:ingest:FUNDAMENTAL:2026-Q3",
+        "urn:graph:derived:entity-resolution:2026-Q3",
+        "urn:graph:derived:quant:2026-08-05",
+        "urn:graph:universe:2026-Q3",
+    ],
+)
+def test_the_existing_graph_patterns_are_unchanged(name: str) -> None:
+    assert gate.check_target(name) is True
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
         "urn:graph:tbox",
         "urn:graph:derived:quant:2026-Q3",  # quant is dated, never quarterly (docs/07)
         "urn:graph:derived:quant:",

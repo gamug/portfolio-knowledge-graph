@@ -370,10 +370,19 @@ what the store *enforces*.
      branch for `:category "GUARD"`, keeps the severity requirement for every other active rule and
      makes `:priorityRank` mandatory for non-GUARD rules (range widened to `[1,10]`); `VetoShape`
      refuses a GUARD rule as `:appliesRule`/`:primaryRule`. A GUARD rule is not a veto rule.
-   - **Not done here:** no projector (`src/projection/`), no change to the v18 pin, no ingest-gate
-     pattern change beyond the schema-driven `CLOSABLE` entry and its `inclusive` flag for
-     `TickerHistory` (a one-day symbol must not be refused), no GraphDB write/reload, and
-     `protege-view.ttl` is not regenerated (generated file; T-070/T-071). **4178 quads; conforms: True.**
+   - **Projector (T-207).** The eight m018 views are now projected by `src/projection/backtest.py`
+     (policy in `src/projection/project_backtest.py`, CLI `cli/project_backtest.py`) into
+     `urn:graph:derived:backtest:{window_id}:{backtest_run_id}`, one append-only graph per run. The
+     window qualifies the name because the P1/P2/P3 databases each start their run/book ids at 1.
+     A dry run is the default and SHACL-validates each graph; `--write` appends through the gate
+     and production also needs `--to-production`. The writer keeps every masked/NULL column out of
+     the Turtle, links an asset only when the universe database has the ticker, resolves
+     `:alertRule` to `:Rule_{rule_id}` and refuses an unknown rule or a layer disagreement. No
+     schema file changed, so the bundle stays **4178 quads; conforms: True**.
+   - **Not done here:** no change to the v18 pin, no ingest-gate pattern change beyond the
+     schema-driven `CLOSABLE` entry, its `inclusive` flag for `TickerHistory` (a one-day symbol must
+     not be refused) and T-207's backtest graph name, no GraphDB write/reload, and
+     `protege-view.ttl` is not regenerated (generated file; T-070/T-071).
 
 ## Validation
 

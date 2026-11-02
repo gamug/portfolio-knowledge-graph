@@ -83,7 +83,7 @@ FORENSIC_FLAGS = frozenset(
 
 # Every ``Failure.check`` the runner may write. A new kind is added here (``Failure`` refuses any
 # other name) and gets its passing and failing case in ``tests/test_boundary.py`` (T-164).
-SOURCE_CHECKS = frozenset({"schema_version", "forbidden_cycle_type"})
+SOURCE_CHECKS = frozenset({"schema_version", "forbidden_cycle_type", "backtest_run_status"})
 VIEW_CHECKS = frozenset(
     {
         "missing_column",
@@ -229,6 +229,45 @@ def check_source(db: Source, expected: SourceExpectation) -> list[Failure]:
         )
         for kind, n in found
     ]
+    return failures
+
+
+def check_backtest_source(
+    version: int, books: Sequence[Row], expected: SourceExpectation
+) -> list[Failure]:
+    """The source check for a completed backtest database (T-207): the schema floor and every
+    run in ``v_book`` completed.
+
+    Unlike :func:`check_source` it never reads ``v_cycle_run``: a backtest database's cycle runs
+    are ``REPLAY`` by construction, and the run this projection reads is the *backtest* run, whose
+    status is ``v_book.run_status``. Any other status refuses the database rather than projecting
+    a partial run.
+    """
+    failures: list[Failure] = []
+    if version < expected.schema_version_floor:
+        failures.append(
+            Failure(
+                "source",
+                "schema_version",
+                None,
+                f"{version} is below the floor {expected.schema_version_floor}",
+            )
+        )
+    runs = {
+        (row.get("backtest_run_id"), row.get("window_id"), row.get("run_status")) for row in books
+    }
+    if not runs:
+        failures.append(Failure("v_book", "backtest_run_status", None, "no backtest run in v_book"))
+    for run_id, window, status in sorted(runs, key=lambda run: (str(run[0]), str(run[1]))):
+        if status != "completed":
+            failures.append(
+                Failure(
+                    "v_book",
+                    "backtest_run_status",
+                    "run_status",
+                    f"run {run_id} in window {window} is {status!r}, not 'completed'",
+                )
+            )
     return failures
 
 
