@@ -629,19 +629,33 @@ property stays exclusive on `RuleDefinition` (T-187), `UniverseMembership`, `Por
 
 **Data over the handoff's DDL comments.** Measured on the completed `rule_P1/P2/P3.db` (identical in
 all three): `MARKOWITZ_BASE` and `TOPN_MV_NOGUARD` have `guard_layers` NULL, while the DDL comment
-says `'[]'`; `exclude_hard_vetoed` is 0 on all three arms, while the DDL says 1 for `TOPN_MV_*`. So
-`guard_layers` is optional and `exclude_hard_vetoed` is only an `xsd:boolean` (no per-arm value).
-`drawdown`, `cost_return` and `max_drawdown` are non-negative magnitudes in the data, but the handoff
-states no sign convention, so no sign or range constraint is placed on them.
+says `'[]'`; `exclude_hard_vetoed` is 0 on all three arms, while the DDL says 1 for `TOPN_MV_*`. The
+upstream maintainer confirmed the real values: `guard_layers` is NULL (not `'[]'`) for
+`MARKOWITZ_BASE` and `TOPN_MV_NOGUARD`, and `'[1, 3, 4]'` for `TOPN_MV_GUARD_NO_NLP` (the driver
+writes `None` when the arm has no guard, else a sorted JSON list); `exclude_hard_vetoed` is 0 on all
+three arms because the `TOPN_MV_*` arms optimize over the 30 candidates cycle already filtered of
+HARD vetoes, so the column is persisted as 0 (upstream's DDL comment reads `0 (the arms) | 1`). The
+shapes stay as they are: `guard_layers` is optional and `exclude_hard_vetoed` is only an
+`xsd:boolean`, with no per-arm value. `drawdown`, `cost_return` and `max_drawdown` are non-negative
+magnitudes in the data, but the handoff states no sign convention, so no sign or range constraint is
+placed on them.
 
 **Rule catalog.** `UTILITY_CASH_COVERAGE` (HARD, `rule_input.utility_cash_coverage_3y < 0.05`, rank
-10, valid from 2026-11-01 — the handoff date, an assumption to confirm because T-071's landing date
-is not recorded) joins the nine selection rules; the `LEVERAGE_EXTREME`, `NEGATIVE_FCF` and
+10, valid from **2026-10-31**) joins the nine selection rules; the date is the last safe one: the
+rule was already in upstream's catalog in the completed backtest runs (`rule_P1/P2/P3.db`, runs of
+2026-10-31) and raised a real veto in P1 on 2022-03-03, so a later date is impossible. It is not
+backdated to 2019/2020: valid-time here means when a definition was in force in production (T-187,
+T-201), not that a backtest applies a rule retroactively. Upstream's `v_rule_catalog.created_at`
+(2026-10-31T19:37:32) is a technical persistence timestamp, not the adoption date; the true T-071
+merge date is still to confirm with upstream. The `LEVERAGE_EXTREME`, `NEGATIVE_FCF` and
 `LIQUIDITY_DISTRESS` comments record the APP-00 profile exemptions (financial firms; regulated
 utilities; equity REITs) without changing any threshold, severity or clause. The five GUARD rules
 (`L1_STOP_LOSS`, `L1_REENTRY`, `L2_NEWS`, `L3_VOL`, `L4_DD`) are `RuleDefinition` individuals in a
 separate, labelled section of `rules.ttl`: one `GraphPredicate` leaf each, `:category "GUARD"`,
-`:guardLayer` 1..4, the frozen parameters and academic sources only in `rdfs:comment`. `L2_NEWS` is
+`:guardLayer` 1..4, the frozen parameters and academic sources only in `rdfs:comment`. Their
+`validFrom` 2019-01-02 is the calibration-window start (2019-01-02..2021-12-31, 757 NYSE sessions,
+`params.frozen.toml`), confirmed by the upstream maintainer, and covers every alert and action of
+P1, P2 and P3. `L2_NEWS` is
 disabled in the 2022–2025 backtest (the FinBERT training pool spans 2022–2026). **A GUARD rule is
 not a veto rule:** it carries no `:ruleSeverity`, `:penaltyPoints` or `:priorityRank`, and
 `VetoShape` refuses it as the object of `:appliesRule`/`:primaryRule`. `RuleDefinitionShape` adds one

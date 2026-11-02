@@ -689,7 +689,10 @@ optional, and `exclude_hard_vetoed` is 0 on all three arms (the DDL says 1 for `
 its boolean type is enforced, never a per-arm value; `drawdown`, `cost_return` and `max_drawdown`
 carry no sign or range constraint because the handoff states no sign convention.
 `rules.ttl` gains `UTILITY_CASH_COVERAGE` (HARD, `rule_input.utility_cash_coverage_3y < 0.05`, rank
-10, valid from 2026-11-01 — the handoff date, an assumption to confirm) as the tenth selection rule,
+10, valid from 2026-10-31 — the last safe date: the rule was already in upstream's catalog in the
+completed backtest runs and raised a real veto in P1 on 2022-03-03, so a later date is impossible;
+not backdated to 2019/2020, and upstream's `v_rule_catalog.created_at` (2026-10-31T19:37:32) is a
+technical persistence timestamp, not the adoption date) as the tenth selection rule,
 records the APP-00 profile exemptions in the `LEVERAGE_EXTREME`/`NEGATIVE_FCF`/`LIQUIDITY_DISTRESS`
 comments without changing thresholds/severities/clauses, and adds the five GUARD rules
 (`L1_STOP_LOSS`, `L1_REENTRY`, `L2_NEWS`, `L3_VOL`, `L4_DD`) as `:category "GUARD"`

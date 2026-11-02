@@ -409,11 +409,14 @@
     sh:property [ sh:path :armCode ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ;
                   sh:in ("MARKOWITZ_BASE" "TOPN_MV_NOGUARD" "TOPN_MV_GUARD_NO_NLP" "TOPN_MV_GUARD") ] ;
     sh:property [ sh:path :objective ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ] ;
-    # The DDL comment says 0 on MARKOWITZ_BASE and 1 on TOPN_MV_*; the real data has 0 on all three
-    # arms, so only the boolean type is enforced, never a per-arm value (data over DDL comment).
+    # Confirmed by the upstream maintainer: exclude_hard_vetoed is 0 on all three arms. The TOPN_MV_*
+    # arms optimize over the 30 candidates cycle already filtered of HARD vetoes, so the column is
+    # persisted as 0 (upstream's DDL comment reads `0 (the arms) | 1`). Only the boolean type is
+    # enforced, never a per-arm value.
     sh:property [ sh:path :excludeHardVetoed ; sh:datatype xsd:boolean ; sh:minCount 1 ; sh:maxCount 1 ] ;
-    # Optional: NULL on MARKOWITZ_BASE and TOPN_MV_NOGUARD in all three databases, '[1, 3, 4]' on
-    # TOPN_MV_GUARD_NO_NLP (the DDL comment says '[]' on BASE/NOGUARD). Never required, never parsed.
+    # Confirmed by the upstream maintainer: guard_layers is NULL (not '[]') for MARKOWITZ_BASE and
+    # TOPN_MV_NOGUARD, and '[1, 3, 4]' for TOPN_MV_GUARD_NO_NLP. Upstream's driver writes None when
+    # the arm has no guard, else a sorted JSON list. Optional; never required, never parsed.
     sh:property [ sh:path :guardLayers ; sh:datatype xsd:string ; sh:maxCount 1 ] ;
     sh:property [ sh:path :formationDate ; sh:datatype xsd:date ; sh:maxCount 1 ] ;
     sh:property [ sh:path :codeVersion ; sh:datatype xsd:string ; sh:maxCount 1 ] ;

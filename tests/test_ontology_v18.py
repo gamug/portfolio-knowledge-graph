@@ -923,7 +923,7 @@ def test_the_new_rule_carries_the_handoff_metric_and_rank() -> None:
     assert str(g.value(leaf, KG.operator)) == "<"
     assert str(g.value(leaf, KG.thresholdValue)) == "0.05"
     assert str(g.value(rule, KG.priorityRank)) == "10"
-    assert str(g.value(rule, KG.validFrom)) == "2026-11-01"
+    assert str(g.value(rule, KG.validFrom)) == "2026-10-31"
 
 
 def test_the_guard_rules_are_not_in_the_selection_catalog() -> None:

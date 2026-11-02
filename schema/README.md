@@ -350,7 +350,11 @@ what the store *enforces*.
      a per-arm value. `drawdown`, `cost_return` and `max_drawdown` are non-negative in P1/P2/P3, but
      the handoff states no sign convention, so no sign or range constraint is placed on them.
    - **Rule catalog.** `UTILITY_CASH_COVERAGE` (HARD, `rule_input.utility_cash_coverage_3y < 0.05`,
-     rank 10, valid from 2026-11-01 — the handoff date, an assumption to confirm) joins the 9
+     rank 10, valid from 2026-10-31 — the last safe date: the rule was already in upstream's catalog
+     in the completed backtest runs (runs of 2026-10-31) and raised a real veto in P1 on 2022-03-03,
+     so a later date is impossible; it is not backdated to 2019/2020, and upstream's
+     `v_rule_catalog.created_at` (2026-10-31T19:37:32) is a technical persistence timestamp, not the
+     adoption date) joins the 9
      selection rules; the `LEVERAGE_EXTREME`/`NEGATIVE_FCF`/`LIQUIDITY_DISTRESS` comments record the
      APP-00 profile exemptions (financial firms; regulated utilities; equity REITs), with no
      threshold/severity/clause change. The 5 GUARD rules are `RuleDefinition`s in their own section,

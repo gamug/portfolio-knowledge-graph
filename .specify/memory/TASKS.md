@@ -551,7 +551,10 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       gains 11 shapes (31 total), with the handoff §3.3 nullable columns optional, `sh:in` for the
       enumerated vocabularies, no sign/range on drawdown/cost/max-drawdown, and a CASH weight row
       that needs no Asset node. `rules.ttl` gains `UTILITY_CASH_COVERAGE` (HARD, 0.05, rank 10, valid from
-      2026-11-01 — the handoff date, an assumption), records the APP-00 exemptions in comments, and
+      2026-10-31 — the last safe date: the rule was already in upstream's catalog in the completed
+      backtest runs and raised a real veto in P1 on 2022-03-03, so a later date is impossible; not
+      backdated to 2019/2020, and upstream's `v_rule_catalog.created_at` (2026-10-31T19:37:32) is a
+      technical persistence timestamp, not the adoption date), records the APP-00 exemptions in comments, and
       adds the five GUARD rules in their own section (`:category "GUARD"`, `:guardLayer`,
       `GraphPredicate` leaves, parameters only in comments, `L2_NEWS` disabled). `RuleDefinitionShape`
       gets a GUARD `sh:or` branch, keeps the severity requirement for other active rules and makes
@@ -747,6 +750,12 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       comment) and `schema/README.md`. Needs T-187's `:penaltyPoints`. Docs and a
       comment; the check itself is T-155's test. -> `PLAN.md` Work item 15.
 - [ ] **T-201** *(from T-187, PR #104)* Resolve a Veto stint's rule by its `raisedOn`: where the projection or a reader turns `rule_id` into a `RuleDefinition`, pick the one with that `:ruleId` valid on the day (`validFrom <= raisedOn < validTo`; `LIQUIDITY_DISTRESS` has two definitions since 2026-10-10). Today `tests/test_schema_gate.py` shows the data allows it and nothing in `src/` does it. Proposed: an old stint re-confirmed after 2026-10-10 still resolves by `raisedOn`, and the re-evaluation shows only in its later `lastSeenOn`; the developer confirms in the PR. A `feat/` PR. -> `PLAN.md` Work item 15.
+      **Backtest vetoes (T-206 follow-up, recorded 2026-11-02, not implemented):** backtest vetoes are
+      raised in 2022–2025, before every active rule's `validFrom`, so `raisedOn`-based resolution cannot
+      work for them. Proposed convention for the projector PR: resolve a backtest veto's rule by
+      `:ruleId` against the definition in force on the backtest run's date (2026-10-31), because
+      upstream rewrites the catalog in place and applies it to the whole window. Decide it in the
+      projector PR; do not implement it here.
 - [ ] **T-202** *(from T-187, PR #104)* When upstream's T-071 lands, revisit `NEGATIVE_FCF` (utilities exempt, a replacement HARD rule) and `LIQUIDITY_DISTRESS`'s Financials/Utilities exemption, which is only in the rule's comment today. Waits on them; nothing to do now. -> `PLAN.md` Work item 15.
 - [ ] **T-203** *(from T-188, PR #105 review)* Let the ingest gate take a moved `expiresOn`. Upstream moves `expires_on` 10 NYSE sessions on while a temporary HARD condition holds, and `:expiresOn` is multi-valued (current = MAX) so the shapes allow it, but the gate accepts a later value on a stored Veto only for `lastSeenOn` (`APPENDING_PROPERTIES`, T-194): a batch with `:v :expiresOn <date>` and no type is refused. Add `expiresOn` as an appendable property on a Veto that is not cleared, with a date after the latest stored `expiresOn` (an equal date is a replay, and an earlier one is refused: upstream only moves it forward) and not before `raisedOn`, with tests as T-194 has. The projection writes a value only when `v_veto.expires_on` differs from the stored `MAX`. Start from the test that pins today's refusal (`test_a_moved_expiry_is_refused_until_t203`) and turn it round. **Blocks** T-031's vetoes lane from writing a second cycle for a stint (the lane's entry says so); nothing writes `expiresOn` today. A `feat/` PR. -> `PLAN.md` Work item 15.
 - [x] **T-204** *(done 2026-10-16: re-pinned `portfolio-common` `v1.2.1` → `v1.2.2`
