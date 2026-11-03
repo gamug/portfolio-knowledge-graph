@@ -152,8 +152,8 @@ For a linked row, the Spanish definition in `fibo.ttl` is FIBO's meaning, never 
 Spanish definitions live in `tbox.ttl` (S2), where the six "differs" classes state why FIBO does
 not define every instance of ours. The 27 pre-existing leaf classes now carry one `@es` label and
 one `@es` definition each; the 11 v18 classes' handoff §6.2 texts are unchanged. Those 54 new
-triples take the FR-001 bundle to **4203 quads at this revision; conforms: True** (4236 before
-T-220's `sh:class :Asset` +1 and T-233/T-234: the five `sh:in` window lists and two segment lists
+triples take the FR-001 bundle to **4204 quads at this revision; conforms: True** (4236 before
+T-220's `sh:class :Asset` and T-227's `sh:class :Universe` +2 and T-233/T-234: the five `sh:in` window lists and two segment lists
 become one `sh:pattern` each, −50 quads, and `:runLabel` adds 16), `fibo.ttl` is a separate
 277-statement graph. `:SP500Index` gets its `rdfs:seeAlso` in the ETL output, where the universe
 individual is emitted (S3), not in `urn:graph:tbox`.
@@ -534,7 +534,8 @@ last-safe date T-206 used while the date was unconfirmed. It is not backdated to
 valid-time means when a definition was in force in production, not that a backtest applies a rule
 retroactively — the P1 backtest replays history with today's catalog and raised this rule's veto on
 2022-03-03, which is why backtest vetoes cannot resolve their rule by `raisedOn` (T-209). The
-bundle was at 4236 quads at that revision (4203 after T-220's `sh:class :Asset` and T-233/T-234).
+bundle was at 4236 quads at that revision (4204 after T-220/T-227's `sh:class` triples and
+T-233/T-234).
 
 ## 1.6 SHACL shapes for data-quality enforcement
 
@@ -851,8 +852,8 @@ not a veto rule:** it carries no `:ruleSeverity`, `:penaltyPoints` or `:priority
 `VetoShape` refuses it as the object of `:appliesRule`/`:primaryRule`. `RuleDefinitionShape` adds one
 `sh:or` branch for `:category "GUARD"`, keeps the severity requirement for every other active rule,
 makes `:priorityRank` mandatory for non-GUARD rules, and widens the rank range to `[1,10]` for
-`UTILITY_CASH_COVERAGE`. The bundle is **4203 quads; conforms: True** (the FR-001 gate; T-220 adds
-the `UniverseMembershipShape` `sh:class :Asset` triple, T-233/T-234 contribute the net −34).
+`UTILITY_CASH_COVERAGE`. The bundle is **4204 quads; conforms: True** (the FR-001 gate; T-220 and
+T-227 add the two `UniverseMembershipShape` `sh:class` triples, T-233/T-234 contribute the net −34).
 
 ---
 

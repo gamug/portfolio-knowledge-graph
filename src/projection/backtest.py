@@ -220,6 +220,9 @@ def validation_context(assets: Mapping[str, AssetInfo], catalog: GuardCatalog) -
     context = rdflib.Graph()
     for triple in catalog.graph:
         context.add(triple)
+    # T-227: `:membershipUniverse` carries `sh:class :Universe`; a membership the context adds must
+    # point at a typed Universe, and the store would hold that type for `:SP500Index`.
+    context.add((KG.SP500Index, RDF.type, KG.Universe))
     for symbol, info in assets.items():
         asset = KG[symbol]
         context.add((asset, RDF.type, KG.Asset))

@@ -497,11 +497,12 @@ No GraphDB write or reload was made in that change; the store was reloaded with 
 `sh:class :Asset` on `:membershipAsset` so the gate's context read follows a stored Asset a
 membership batch points at. Without it `gate.context_predicates` fetched only `rdf:type` for the
 five assets `reference.ttl` already declares, and `AssetShape` then failed on
-`:tickerSymbol`/`:cikNumber`. The `:membershipUniverse` half waits on T-227: the backtest
-projector's dry-run context does not type `:SP500Index`, so it would break five existing tests. At
-that revision the FR-001 bundle was **4237 quads; conforms: True** (4236 + 1; 4203 after
+`:tickerSymbol`/`:cikNumber`. The `:membershipUniverse` half waited on T-227 (the backtest
+projector's dry-run context did not type `:SP500Index`); T-227 typed it and added the second
+`sh:class` triple, so both ends are now checked. At
+that revision the FR-001 bundle was **4237 quads; conforms: True** (4236 + 1; 4204 after T-227 and
 T-233/T-234), and a fresh `cli/load_schema.py` load was 20 graphs and 4514 asserted triples
-(4513 + 1; 4480 after T-233/T-234); no store was
+(4513 + 1; 4481 after T-227 and T-233/T-234); no store was
 reloaded in that change.
 `cli/load_universe.py`
 (logic in `src/kg_store/universe.py`) loads the real `:Universe`/`:Asset`/`:UniverseMembership`
@@ -530,8 +531,9 @@ fourth window or a new sub-period needs no schema edit. **Trade-off:** a typo in
 no longer caught by SHACL (`P4` for `P1` is a well-formed window); the arm list stays closed. Five
 window lists and two segment lists become one triple each (−50) and `:runLabel` adds 16 (a
 property with its comment in `tbox.ttl`, and a required `sh:property` with five constraints in each
-of the two shapes), so after merging with T-220 the bundle is **4203 quads; conforms: True**
-(4236 + 1 − 50 + 16) and a fresh load is 20 graphs and 4480 asserted triples (4513 + 1 − 34).
+of the two shapes), so after merging with T-220 the bundle is **4204 quads; conforms: True**
+(4236 + 2 − 50 + 16, the +2 being T-220's `sh:class :Asset` and T-227's `sh:class :Universe`) and a
+fresh load is 20 graphs and 4481 asserted triples (4513 + 2 − 34).
 `kg_target_schema.ttl` carries the same property and shapes. No GraphDB load was made; the
 maintainer must reload the schema and drop any backtest graph written under the retired unlabelled
 name (`urn:graph:derived:backtest:{window_id}:{run}`) before projecting with labels.

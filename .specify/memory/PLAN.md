@@ -1161,9 +1161,9 @@ appends through `gate.ingest`, and `KG_REPOSITORY=portfolio` also needs `--to-pr
 `cli/project_backtest.py` has it. `reference.ttl`'s five `:Asset`s get memberships but are never
 re-declared (gate check 6). The gate is not changed; `UniverseMembershipShape` gains the
 `sh:class :Asset` triple on `:membershipAsset` that lets `gate.context_predicates` follow a stored
-Asset a membership batch points at (T-221). The `sh:class :Universe` half waits on T-227: the
-backtest projector's dry-run context does not type `:SP500Index`, so that triple would break five
-existing tests in a file this work item does not own.
+Asset a membership batch points at (T-221). T-227 added the `sh:class :Universe` half on
+`:membershipUniverse` once the backtest projector's `validation_context` typed `:SP500Index a
+:Universe`; the five dry-run tests that failed on the first attempt now pass.
 
 **Acceptance criteria**:
 
@@ -1177,15 +1177,15 @@ existing tests in a file this work item does not own.
   deterministic output, gate acceptance, the production guard and a fake-store write; the
   `sh:class` change has a gate test for an Asset the store holds (accepted) and one it does not
   (refused).
-- ✅ FR-001 parse + `pyshacl` on the 4237-quad bundle at that revision (4203 after T-233/T-234); every pinned count updated in the same
+- ✅ FR-001 parse + `pyshacl` on the 4237-quad bundle at that revision (4204 after T-227 and T-233/T-234); every pinned count updated in the same
   change.
 - ⬜ First real `--write` to a scratch repository (T-226), never production by default; it needs the
-  maintainer's go-ahead, a schema reload there (the store is 4513 until the merged 4203-quad
+  maintainer's go-ahead, a schema reload there (the store is 4513 until the merged 4204-quad
   bundle is loaded) and the full universe in `SQL_UNIVERSE_DB`.
 
 **Open**: T-225 (the worked example's `2026-Q3` memberships overlap the loader's catalog for the
 five reference assets; clean it when the worked example stops being loaded into the real store) and
-T-226 (the live write). Everything else landed with T-220–T-224.
+T-226 (the live write). Everything else landed with T-220–T-227.
 ## Work item 20 — Label backtest runs and open the window vocabulary (T-230–T-237)
 
 **Why**: the m018 views carry no identifier for the run itself — no input hash, no parameters — so
@@ -1221,7 +1221,7 @@ repository. The window and segment vocabularies were also closed `sh:in` lists (
 - `:runLabel` is required by SHACL on `StrategyBook`/`BacktestTest`; a missing, upper-case or
   too-short label is refused.
 - `P4` and `P2c` conform; `Q1` and `P2A` do not; the arm list is still a closed `sh:in`.
-- FR-001 parse + `pyshacl` pass at **4203 quads**; `kg_target_schema.ttl` carries the same facts.
+- FR-001 parse + `pyshacl` pass at **4204 quads**; `kg_target_schema.ttl` carries the same facts.
 - `uv run pytest`, `mypy` and `pre-commit` pass.
 
 **Blocked on**: nothing. The live-store reload and the drop of stale unlabelled backtest graphs

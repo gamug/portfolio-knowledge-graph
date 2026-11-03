@@ -194,16 +194,17 @@ on 2026-11-02 (T-212, below), and `verify_store` passes.
 `[a-z][a-z0-9_]{1,31}` and the window is open to `P<number>` instead of `P1|P2|P3`. The retired
 unlabelled names (`urn:graph:derived:backtest:{window}:{run}`) are no longer accepted; no real data
 uses them, but a scratch repository may still hold one, and the maintainer should drop it before
-projecting the same window with a label. The FR-001 bundle is now **4203 quads** (T-220's
-`sh:class :Asset` +1, five `sh:in`
+projecting the same window with a label. The FR-001 bundle is now **4204 quads** (T-220's
+`sh:class :Asset` and T-227's `sh:class :Universe` +2, five `sh:in`
 window lists and two segment lists became `sh:pattern`, −50, and `:runLabel` adds 16). No GraphDB
 load was made in this change: the schema must be reloaded (the T-212 command) before a labelled
 projection writes, because the store's `shapes.ttl` still lacks `:runLabel`.
 
 **T-211 note (FIBO Phase 2).** `schema/fibo.ttl` is a 277-statement reference slice and loads into
 its own graph, `urn:graph:reference:fibo`, after `reference.ttl`. The loader therefore owns 20
-graphs and 4480 asserted triples on a fresh load (4513 at the T-212 reload; +1 for T-220's
-`sh:class :Asset` and −34 for T-233/T-234, whose bundle is now 4203 quads; the slice adds 277). No
+graphs and 4481 asserted triples on a fresh load (4513 at the T-212 reload; +2 for T-220's and
+T-227's `sh:class` triples and −34 for T-233/T-234, whose bundle is now 4204 quads; the slice adds
+277). No
 load was run for this change; the store was reloaded on 2026-11-02 (T-212, below), and the
 live Appendix A queries ran the same day (T-213). The
 slice is rebuilt only for a new FIBO release; `cli/build_fibo_slice.py` refuses any zip whose

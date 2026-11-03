@@ -1024,10 +1024,11 @@ with asset links is refused. See `PLAN.md` Work item 19 and SPEC FR-008.*
       `sh:class :Asset` to `:membershipAsset` in `UniverseMembershipShape`, so the gate's context
       read follows a stored Asset a membership batch points at. Without it
       `gate.context_predicates` fetched only `rdf:type`, and `AssetShape` failed on
-      `:tickerSymbol`/`:cikNumber` for AAPL/JPM/XOM/JNJ/PG. FR-001 bundle 4237 quads at that revision (was 4236; 4203 after
-      T-233/T-234 merged), `pyshacl` conforms; a fresh `load_schema` load was 4514 (was 4513;
-      4480 after T-233/T-234). No store was reloaded. Gate
-      unchanged. The `sh:class :Universe` half is T-227. → `PLAN.md` Work item 19.
+      `:tickerSymbol`/`:cikNumber` for AAPL/JPM/XOM/JNJ/PG. FR-001 bundle 4237 quads at that revision (was 4236; 4204 after
+      T-227 and T-233/T-234), `pyshacl` conforms; a fresh `load_schema` load was 4514 (was 4513;
+      4481 after T-227 and T-233/T-234). No store was reloaded. Gate
+      unchanged. The `sh:class :Universe` half is T-227 (done 2026-11-03, after the projector's
+      context was typed). → `PLAN.md` Work item 19.
 - [x] **T-222** *(done 2026-11-03)* Hermetic tests in `tests/test_universe_load.py`,
       `tests/test_cli_load_universe.py`, `tests/fixtures/universe_rows.py` and two gate cases in
       `tests/test_kg_gate.py`: a ticker's two eras (old closed stint dropped, open one kept), a
@@ -1057,16 +1058,19 @@ with asset links is refused. See `PLAN.md` Work item 19 and SPEC FR-008.*
       then. → `PLAN.md` Work item 19.
 - [ ] **T-226** *(from T-220; needs the maintainer's explicit go-ahead)* First real
       `--write` of `cli/load_universe.py` into a scratch repository, never production by default;
-      needs the schema reloaded there (the merged 4203-quad bundle, 4480 asserted triples) and the
+      needs the schema reloaded there (the merged 4204-quad bundle, 4481 asserted triples) and the
       full universe in `SQL_UNIVERSE_DB`. Then a real `cli/project_backtest.py --write` can link assets.
       → `PLAN.md` Work item 19.
-- [ ] **T-227** *(from T-221; needs the backtest projector's owner)* Add `sh:class :Universe` to
+- [x] **T-227** *(done 2026-11-03: `validation_context` in `src/projection/backtest.py` types
+      `:SP500Index a :Universe`, `UniverseMembershipShape` gains `sh:class :Universe` on
+      `:membershipUniverse`, and the five backtest dry-run cases plus the whole suite pass; the
+      merged bundle is 4204 quads and a fresh load is 4481, not the 4238/4515 the pre-merge note
+      expected. `kg_target_schema.ttl` has no `UniverseMembershipShape` to mirror, so nothing to
+      change there; the text below is the original task)* Add `sh:class :Universe` to
       `:membershipUniverse` once `src/projection/backtest.py`'s `validation_context` types
       `:SP500Index a :Universe`. T-220 tried the second triple and five backtest dry-run tests failed
       (`Membership_*` uses `:SP500Index` with no type); that file is outside T-220's scope, so only
-      `:membershipAsset`'s `sh:class :Asset` landed. With the projector's context fixed, the triple
-      is one line in `UniverseMembershipShape` and the FR-001 bundle is 4238 quads (fresh load
-      4515). → `PLAN.md` Work item 19.
+      `:membershipAsset`'s `sh:class :Asset` landed. → `PLAN.md` Work item 19.
 
 ## Work item 20 — Label backtest runs and open the window vocabulary
 
@@ -1108,10 +1112,10 @@ name and every individual IRI. See `PLAN.md` Work item 20. Task IDs T-230–T-23
       mistyped window number is no longer caught by SHACL. → step 5.
 - [x] **T-235** *(done 2026-11-03: `docs/06` §1.10, `docs/07`, `docs/08`, `docs/10`,
       `docs/graphdb-setup.md`, `schema/README.md`, `README.md`, `SPEC.md` §2.1/§2.6 and `PLAN.md`
-      Work items 4/20 updated; the FR-001 bundle count is 4203 in every place SPEC states it
-      (4236 + 1 for T-220's `sh:class :Asset` − 50 for the five window and two segment RDF lists
-      + 16 for `:runLabel`), and the load-plan count is 4480 (`tests/test_kg_load_schema.py`,
-      4513 + 1 − 34).)* Update the
+      Work items 4/20 updated; the FR-001 bundle count is 4204 in every place SPEC states it
+      (4236 + 2 for T-220/T-227's `sh:class` triples − 50 for the five window and two segment RDF
+      lists + 16 for `:runLabel`), and the load-plan count is 4481
+      (`tests/test_kg_load_schema.py`, 4513 + 2 − 34).)* Update the
       docs and every asserted count (NR-001) in the same change. → step 6.
 - [x] **T-236** *(done 2026-11-03, read-only: `rule_P1.db` with label `rule` and an empty universe
       database gives 18,062 rows and 18,062 individuals, the same as T-207, and 193,938 triples
@@ -1143,7 +1147,7 @@ Work item 16 (T-160–T-165, T-192): T-160 done (plain checks, quarantine-with-c
 Work item 17 (T-196–T-200): open; replaces the cancelled T-195.
 Work item 20 (T-230–T-237): T-230–T-236 done (2026-11-03); T-237 (the live schema reload and dropping stale unlabelled backtest graphs from scratch repositories) is open, the maintainer's.
 Work item 18 (T-204): done 2026-10-16 — re-pinned `portfolio-common` to `v1.2.2`, a real bug fix here (`news_to_rdf`'s `attach()`-based read of `urls.db`), not just a consistency bump; proved by a new regression test that fails against the old pin and passes against the new one.
-Work item 19 (T-220–T-229): T-220–T-224 done 2026-11-03 (the loader, the `sh:class :Asset` triple, tests, the real dry-run verification and the docs); T-225 (worked-example overlap), T-226 (first real `--write`, maintainer go-ahead) and T-227 (`sh:class :Universe`, projector owner) open.
+Work item 19 (T-220–T-229): T-220–T-224 done 2026-11-03 (the loader, the `sh:class :Asset` triple, tests, the real dry-run verification and the docs); T-225 (worked-example overlap) and T-226 (first real `--write`, maintainer go-ahead) open; T-227 (`sh:class :Universe`) done 2026-11-03.
 T-163 (function done, PR #68) closes with T-031, whose first slice (PR #72) calls it on the real read and re-reads the late keys for `v_score_snapshot`; T-164 done (PR #69).
 Work item 8 (T-070–T-071) is independent but needs a human at a Protégé
 session, not a coding session.
