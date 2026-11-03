@@ -525,6 +525,16 @@ excluded from typing, upgraded to an ordinary superclass in this revision) so
 exercising all three leaf kinds, was independently re-evaluated in Python against the ontology's
 own tree structure and reproduced the intended firings exactly — see `schema/README.md`.
 
+**Addendum (T-216, 2026-11-03) — `UTILITY_CASH_COVERAGE`'s real `validFrom`.** The upstream
+maintainer supplied T-071's integration date: part 2a (PR #167, merge commit `7ae8ba8`, "Merge pull
+request #167 from gamug/feat/t071b-vetoes") reached upstream master on 2026-10-14 20:51:47 -0500
+(already 2026-10-15 in UTC). The rule's `validFrom` is therefore 2026-10-14, not the 2026-10-31
+last-safe date T-206 used while the date was unconfirmed. It is not backdated to 2019/2020:
+valid-time means when a definition was in force in production, not that a backtest applies a rule
+retroactively — the P1 backtest replays history with today's catalog and raised this rule's veto on
+2022-03-03, which is why backtest vetoes cannot resolve their rule by `raisedOn` (T-209). The
+bundle stays at 4236 quads.
+
 ## 1.6 SHACL shapes for data-quality enforcement
 
 SHACL (Shapes Constraint Language) is RDF's declarative validator — the world-view equivalent of
@@ -800,13 +810,15 @@ magnitudes in the data, but the handoff states no sign convention, so no sign or
 placed on them.
 
 **Rule catalog.** `UTILITY_CASH_COVERAGE` (HARD, `rule_input.utility_cash_coverage_3y < 0.05`, rank
-10, valid from **2026-10-31**) joins the nine selection rules; the date is the last safe one: the
-rule was already in upstream's catalog in the completed backtest runs (`rule_P1/P2/P3.db`, runs of
-2026-10-31) and raised a real veto in P1 on 2022-03-03, so a later date is impossible. It is not
-backdated to 2019/2020: valid-time here means when a definition was in force in production (T-187,
-T-201), not that a backtest applies a rule retroactively. Upstream's `v_rule_catalog.created_at`
-(2026-10-31T19:37:32) is a technical persistence timestamp, not the adoption date; the true T-071
-merge date is still to confirm with upstream. The `LEVERAGE_EXTREME`, `NEGATIVE_FCF` and
+10, valid from **2026-10-14**) joins the nine selection rules. T-216 set that date from the
+maintainer: T-071 part 2a (PR #167, merge commit `7ae8ba8`) reached upstream master on 2026-10-14
+20:51:47 -0500 (already 2026-10-15 in UTC); it was 2026-10-31, the last safe date, until T-216. It
+is not backdated to 2019/2020: valid-time here means when a definition was in force in production
+(T-187, T-201), not that a backtest applies a rule retroactively — the P1 backtest replays history
+with today's catalog and raised this rule's veto on 2022-03-03, which is why backtest vetoes cannot
+resolve their rule by `raisedOn` (T-209). Upstream's `v_rule_catalog.created_at`
+(2026-10-31T19:37:32) is a technical persistence timestamp, not the adoption date. The
+`LEVERAGE_EXTREME`, `NEGATIVE_FCF` and
 `LIQUIDITY_DISTRESS` comments record the APP-00 profile exemptions (financial firms; regulated
 utilities; equity REITs) without changing any threshold, severity or clause. The five GUARD rules
 (`L1_STOP_LOSS`, `L1_REENTRY`, `L2_NEWS`, `L3_VOL`, `L4_DD`) are `RuleDefinition` individuals in a

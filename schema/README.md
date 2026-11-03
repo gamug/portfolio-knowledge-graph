@@ -368,11 +368,14 @@ what the store *enforces*.
      a per-arm value. `drawdown`, `cost_return` and `max_drawdown` are non-negative in P1/P2/P3, but
      the handoff states no sign convention, so no sign or range constraint is placed on them.
    - **Rule catalog.** `UTILITY_CASH_COVERAGE` (HARD, `rule_input.utility_cash_coverage_3y < 0.05`,
-     rank 10, valid from 2026-10-31 — the last safe date: the rule was already in upstream's catalog
-     in the completed backtest runs (runs of 2026-10-31) and raised a real veto in P1 on 2022-03-03,
-     so a later date is impossible; it is not backdated to 2019/2020, and upstream's
-     `v_rule_catalog.created_at` (2026-10-31T19:37:32) is a technical persistence timestamp, not the
-     adoption date) joins the 9
+     rank 10, valid from 2026-10-14 — the day T-071 part 2a (PR #167, merge commit `7ae8ba8`)
+     reached upstream master, 2026-10-14 20:51:47 -0500 (already 2026-10-15 in UTC); T-216 supplied
+     that real date, replacing 2026-10-31, the last safe date, used until then. It is not backdated
+     to 2019/2020: valid-time means when a definition was in force in production, not that a
+     backtest applies a rule retroactively — the P1 backtest replays history with today's catalog
+     and raised this rule's veto on 2022-03-03, which is why backtest vetoes cannot resolve their
+     rule by `raisedOn` (T-209); upstream's `v_rule_catalog.created_at` (2026-10-31T19:37:32) is a
+     technical persistence timestamp, not the adoption date) joins the 9
      selection rules; the `LEVERAGE_EXTREME`/`NEGATIVE_FCF`/`LIQUIDITY_DISTRESS` comments record the
      APP-00 profile exemptions (financial firms; regulated utilities; equity REITs), with no
      threshold/severity/clause change. The 5 GUARD rules are `RuleDefinition`s in their own section,
@@ -501,6 +504,13 @@ FR-001 bundle is **4237 quads; conforms: True** (4236 + 1), and a fresh `cli/loa
 population from `universe.db` into `urn:graph:universe:{year}-Q{n}` through the gate; `reference.ttl`
 keeps its five worked-example assets, and the loader gives them memberships without re-declaring
 them. The overlap with `instances.trig`'s worked-example memberships is documented in `docs/07`.
+**T-216 (`UTILITY_CASH_COVERAGE` `validFrom`, 2026-11-03).** The upstream maintainer supplied
+T-071's real integration date: part 2a (PR #167, merge commit `7ae8ba8`) reached upstream master on
+2026-10-14 20:51:47 -0500 (already 2026-10-15 in UTC), so the rule's `validFrom` is now 2026-10-14,
+not 2026-10-31, the last safe date, used until then. Only that literal and the surrounding
+block/`rdfs:comment` changed in `rules.ttl`; the bundle is unchanged at **4236 quads; conforms:
+True**. No GraphDB write or reload: the live store keeps 2026-10-31 for this rule until the next
+`cli/load_schema.py` (T-212).
 
 "Active at cutoff" is the general predicate; the **T-1 lag is the same query with `?cutoff` bound to
 the previous cycle date**. It needs the store to query the union of the named graphs (GraphDB does
