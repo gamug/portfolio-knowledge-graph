@@ -280,7 +280,8 @@ architecture, and not partitioned for the bitemporal audit trail
    views, 31 SHACL shapes, and the 10 selection + 5 GUARD rules, with the handoff §3.3 nullable
    columns left optional. The eight m018 projectors are built (T-207, 2026-11-02):
    `src/projection/backtest.py` writes one append-only graph per run,
-   `urn:graph:derived:backtest:{window_id}:{backtest_run_id}`, with a dry run by default and
+   `urn:graph:derived:backtest:{run_label}:{window_id}:{backtest_run_id}` (Work item 19 added the
+   label), with a dry run by default and
    `--write` behind the ingest gate; the source check reads `v_book.run_status` rather than
    `v_cycle_run`; no store was reloaded then, and the reload landed with T-212 on 2026-11-02. The
    m015/m016 views (`v_ticker_history`,
@@ -311,8 +312,8 @@ architecture, and not partitioned for the bitemporal audit trail
 - The full ~503-constituent universe and its available signals (not a
   5-asset or news-only slice) are represented once this lands.
 - The eight m018 backtest/GUARD views project into one append-only graph per run
-  (`urn:graph:derived:backtest:{window_id}:{backtest_run_id}`) through the ingest gate, with a
-  dry run by default (T-207).
+  (`urn:graph:derived:backtest:{run_label}:{window_id}:{backtest_run_id}`) through the ingest gate,
+  with a dry run by default (T-207, labelled by T-231).
 - `src/etl/`'s role after this lands is explicitly documented (retired,
   folded in, or kept as a separate smoke-test path) — not left ambiguous.
 
@@ -1135,6 +1136,47 @@ seeing the writer's just-committed row rather than a stale snapshot.
   mentions of "734 hermetic tests" were stale after this PR's own new test — fixed to 735 in the
   hero pill, the "What exists today" bullet and the "Validation has two layers" bullet.)
 
+## Work item 19 — Label backtest runs and open the window vocabulary (T-230–T-237)
+
+**Why**: the m018 views carry no identifier for the run itself — no input hash, no parameters — so
+every backtest run of one window projected to the same graph name and the same individual IRIs.
+`urn:graph:derived:backtest:P1:1` and `:Book_P1_MARKOWITZ_BASE` were identical for any two runs of
+P1 (each run database restarts ids at 1), and the gate's "a new individual only" check refused the
+second family. Several result families (`rule`, `champ_v1`, …) must be able to live in one
+repository. The window and segment vocabularies were also closed `sh:in` lists (`P1|P2|P3`,
+`P1|P2|P2a|P2b|P3`), so a new window needed a schema edit.
+
+**Approach**:
+
+1. `--db LABEL=PATH` (repeatable) replaces `--db PATH`; a missing or malformed label exits 2; the
+   existing duplicate-graph guard stays, now over labelled names.
+2. The graph is `urn:graph:derived:backtest:{label}:{window}:{run_id}`; the gate's backtest pattern
+   accepts the label and `P[0-9]+` and retires the unlabelled names.
+3. Every IRI stem carries the label after its prefix (`Book_{label}_{window}_{arm}`, …), so labels,
+   windows and arms never collide; a test projects two labels on the same window.
+4. `:runLabel` (xsd:string, `[a-z][a-z0-9_]{1,31}`) is required on `StrategyBook` and
+   `BacktestTest`, the two m018 classes with no book link; `tbox.ttl`, `shapes.ttl` and
+   `kg_target_schema.ttl` carry it.
+5. `windowId`/`segment` become `^P[0-9]+$`/`^P[0-9]+[a-z]?$` in `shapes.ttl`, the projector and
+   the gate pattern; the arm list stays closed; `docs/06` §1.10 states the trade-off.
+6. Docs and every asserted count follow in the same change.
+
+**Acceptance criteria**:
+
+- `rule_P1.db` with label `rule`, empty universe: 18,062 rows and 18,062 individuals, the same as
+  T-207, and 193,938 triples (`193,929` plus one `:runLabel` on each of the 3 books and 6 tests),
+  graph `urn:graph:derived:backtest:rule:P1:1`.
+- Two labels on the same window produce two graphs and disjoint IRIs; the gate refuses
+  `urn:graph:derived:backtest:P1:1` and accepts `...:champ_v1:P2:1`.
+- `:runLabel` is required by SHACL on `StrategyBook`/`BacktestTest`; a missing, upper-case or
+  too-short label is refused.
+- `P4` and `P2c` conform; `Q1` and `P2A` do not; the arm list is still a closed `sh:in`.
+- FR-001 parse + `pyshacl` pass at **4202 quads**; `kg_target_schema.ttl` carries the same facts.
+- `uv run pytest`, `mypy` and `pre-commit` pass.
+
+**Blocked on**: nothing. The live-store reload and the drop of stale unlabelled backtest graphs
+from scratch repositories are the maintainer's (T-237).
+
 ## Sequencing
 
 ```
@@ -1167,6 +1209,8 @@ Work item 15 (upstream's v_* changes) — T-150, T-170 and T-171 (PR #56) done, 
   the rest as upstream's T-144/T-145 ship; feeds Work item 4 (T-031) and 12 (T-121)
 Work item 16 (boundary validation of upstream rows; T-192 adds the veto stint check after T-031's vetoes lane) — T-160 done (plain checks), T-161 closed, T-162 done; T-163 open (its function is done, the wiring into the read path started with Work item 4's T-031, PR #72)
 Work item 17 (one GraphDB repository per automation) — T-196–T-200 open; replaces T-195; starts with T-196 (the maintainer's decision)
+Work item 19 (backtest run labels, open window vocabulary) — T-230–T-236 done; T-237 (live reload and dropping
+  stale unlabelled graphs from scratch repositories) is the maintainer's
 ```
 
 Work items 1, 2, and 9 have no dependencies and no blockers — they can land

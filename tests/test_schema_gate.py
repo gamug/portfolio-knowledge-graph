@@ -402,6 +402,47 @@ def test_the_target_schema_bounds_raw_value_like_shapes_ttl(
     assert _raw_value_bounds(SCHEMA.parent / "kg_target_schema.ttl", metric) == in_shapes
 
 
+# --- run labels and the open window vocabulary (T-233/T-234) ------------------------------------
+
+
+def _shape_property_facts(path: Path, shape: str, prop: str) -> dict[str, str]:
+    """The constraints one named shape puts on one property path, as text."""
+    g = rdflib.Graph()
+    g.parse(path, format="turtle")
+    keys = (SH.datatype, SH.minCount, SH.maxCount, SH.pattern, SH["in"])
+    for node in g.objects(KG[shape], SH.property):
+        if (node, SH.path, KG[prop]) in g:
+            return {
+                str(key).rsplit("#", 1)[-1]: str(g.value(node, key))
+                for key in keys
+                if g.value(node, key) is not None
+            }
+    return {}
+
+
+@pytest.mark.parametrize(
+    ("shape", "prop"),
+    [
+        ("StrategyBookShape", "runLabel"),
+        ("BacktestTestShape", "runLabel"),
+        ("StrategyBookShape", "windowId"),
+        ("GuardAlertShape", "windowId"),
+        ("BookDailyPerformanceShape", "windowId"),
+        ("PortfolioPeriodSummaryShape", "windowId"),
+        ("BacktestTestShape", "windowId"),
+        ("PortfolioPeriodSummaryShape", "segment"),
+        ("BacktestTestShape", "segment"),
+    ],
+)
+def test_the_target_schema_carries_the_run_label_and_vocabulary_patterns(
+    shape: str, prop: str
+) -> None:
+    """``kg_target_schema.ttl`` is the proposal sent upstream; T-233/T-234 changed both files."""
+    in_shapes = _shape_property_facts(SCHEMA / "shapes.ttl", shape, prop)
+    assert in_shapes
+    assert _shape_property_facts(SCHEMA.parent / "kg_target_schema.ttl", shape, prop) == in_shapes
+
+
 # --- a Veto's sightings against its clearing (T-185) --------------------------------------------
 
 _VETO = KG.Veto_T185

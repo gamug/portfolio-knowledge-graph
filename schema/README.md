@@ -379,8 +379,10 @@ what the store *enforces*.
      refuses a GUARD rule as `:appliesRule`/`:primaryRule`. A GUARD rule is not a veto rule.
    - **Projector (T-207).** The eight m018 views are now projected by `src/projection/backtest.py`
      (policy in `src/projection/project_backtest.py`, CLI `cli/project_backtest.py`) into
-     `urn:graph:derived:backtest:{window_id}:{backtest_run_id}`, one append-only graph per run. The
-     window qualifies the name because the P1/P2/P3 databases each start their run/book ids at 1.
+     `urn:graph:derived:backtest:{run_label}:{window_id}:{backtest_run_id}` (T-231 added the run
+     label), one append-only graph per run. The window qualifies the name because the P1/P2/P3
+     databases each start their run/book ids at 1; the label qualifies it again because the views
+     expose no run identity, so several result families can share a window.
      A dry run is the default and SHACL-validates each graph; `--write` appends through the gate
      and production also needs `--to-production`. The writer keeps every masked/NULL column out of
      the Turtle, links an asset only when the universe database has the ticker, resolves
@@ -388,7 +390,7 @@ what the store *enforces*.
      schema file changed, so the bundle stayed **4178 quads at that revision; conforms: True**.
    - **Not done here:** no change to the v18 pin, no ingest-gate pattern change beyond the
      schema-driven `CLOSABLE` entry, its `inclusive` flag for `TickerHistory` (a one-day symbol must
-     not be refused) and T-207's backtest graph name, no GraphDB write/reload, and
+     not be refused) and T-207's/T-231's backtest graph name, no GraphDB write/reload, and
      `protege-view.ttl` is not regenerated (generated file; T-070/T-071).
 
 ## Validation
@@ -473,12 +475,32 @@ sha256, verbatim MIT licence, comment), 277 in total. It has no `rdf:type`, so n
 `owl:Class` here. `schema/fibo_terms.csv` now has 25 rows with the reviewed Spanish columns;
 `cli/build_fibo_slice.py` (logic in `src/projection/fibo_slice.py`) refuses any other sha256 and
 rebuilds the file deterministically. `tbox.ttl` gains one `@es` label and one `@es` definition on
-each of the 27 pre-existing leaf classes (the 11 v18 texts are unchanged), so the FR-001 bundle is
-**4236 quads; conforms: True**. `fibo.ttl` loads into `urn:graph:reference:fibo` after
-`reference.ttl` (S1); with it the loader's next fresh load is 20 graphs and 4513 asserted triples.
+each of the 27 pre-existing leaf classes (the 11 v18 texts are unchanged), so the FR-001 bundle was
+**4236 quads at that revision; conforms: True**. `fibo.ttl` loads into `urn:graph:reference:fibo` after
+`reference.ttl` (S1); with it the loader's fresh load was 20 graphs and 4513 asserted triples at that
+revision (4479 after T-233/T-234's 34-quad reduction).
 No GraphDB write or reload was made in that change; the store was reloaded with T-212 on
 2026-11-02, and the live Appendix A queries ran with T-213 the same day (`docs/graphdb-setup.md`).
 `protege-view.ttl`/`.txt` are still generated and stale (T-070/T-071).
+
+**T-233/T-234 (run labels and the window vocabulary, 2026-11-03).** A completed backtest run's
+views expose neither an input hash nor its parameters, so two result families of the same window
+would project the same graph and the same individual IRIs. `:runLabel` (xsd:string,
+`[a-z][a-z0-9_]{1,31}`) is now **required** on `StrategyBook` and `BacktestTest`, the two m018
+classes with no book link; a book's children reach its label through the book, and an alert
+through its actions. The CLI names it (`--db LABEL=PATH`), the graph is
+`urn:graph:derived:backtest:{run_label}:{window_id}:{backtest_run_id}` and every individual IRI
+stem carries it (`Book_{label}_{window}_{arm}`, `BookWeight_{label}_{window}_{arm}_{date}_{key}`,
+…). `windowId` and `segment` stop being closed `sh:in` lists: they are `sh:pattern` `^P[0-9]+$`
+and `^P[0-9]+[a-z]?$` in `shapes.ttl`, in the projector and in the gate's graph pattern, so a
+fourth window or a new sub-period needs no schema edit. **Trade-off:** a typo in a window id is
+no longer caught by SHACL (`P4` for `P1` is a well-formed window); the arm list stays closed. Five
+window lists and two segment lists become one triple each (−50 quads) and `:runLabel` adds 16 (a
+property with its comment in `tbox.ttl`, and a required `sh:property` with five constraints in each
+of the two shapes), so the bundle is **4202 quads; conforms: True**. `kg_target_schema.ttl`
+carries the same property and shapes. No GraphDB load was made; the maintainer must reload the
+schema and drop any backtest graph written under the retired unlabelled name
+(`urn:graph:derived:backtest:{window_id}:{run}`) before projecting with labels.
 
 "Active at cutoff" is the general predicate; the **T-1 lag is the same query with `?cutoff` bound to
 the previous cycle date**. It needs the store to query the union of the named graphs (GraphDB does

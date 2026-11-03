@@ -28,7 +28,7 @@ special query language feature.
 | `urn:graph:ingest:EDGAR:{date-or-quarter}` | `SECFiling`/`SECFilingSection` individuals from the EDGAR batch pipeline (roadmap step 4), including restated sections | Append-only — see the restatement pattern below. |
 | `urn:graph:derived:quant:{date}` | Benchmark `Portfolio` books (never upstream's `live_book` snapshot, T-109), their `PortfolioPosition`s and `BenchmarkObservation`s (T-108; from `v_quant_portfolio`/`v_quant_position`/`v_quant_benchmark_performance`/`v_quant_vs_live`). Never returns, μ or Σ | Append-only; separate from `urn:graph:portfolio:current` (the live book). |
 | `urn:graph:derived:entity-resolution:{date}` | `AssetCoOccurrence` candidate edges (T-107; news co-occurrence, method/weight) and other entity-resolution-service output (roadmap step 7); `sharedExecutiveWith` only if verified | Append-only; kept separate from the EDGAR graphs it draws on since it's a different service's output. |
-| `urn:graph:derived:backtest:{window_id}:{backtest_run_id}` | The eight m018 backtest/GUARD views' individuals — `StrategyBook`, `BookRebalance`, `GuardAlert`, `GuardAction`, `BookWeightDaily`, `BookDailyPerformance`, `PortfolioPeriodSummary`, `BacktestTest` — one graph per backtest run, written by `src/projection/backtest.py` (T-207; `docs/08`), with each individual carrying `:knowledgeDate` for `knowledgeDate <= D` reads. The window (`P1`/`P2`/`P3`) qualifies the name because the three run databases each start their ids at 1. | Append-only; a run is a frozen artifact, so a re-run is a new `backtest_run_id` (and, per Work item 17, a new automation/repository), never an edit. |
+| `urn:graph:derived:backtest:{run_label}:{window_id}:{backtest_run_id}` | The eight m018 backtest/GUARD views' individuals — `StrategyBook`, `BookRebalance`, `GuardAlert`, `GuardAction`, `BookWeightDaily`, `BookDailyPerformance`, `PortfolioPeriodSummary`, `BacktestTest` — one graph per backtest run, written by `src/projection/backtest.py` (T-207, T-231; `docs/08`), with each individual carrying `:knowledgeDate` for `knowledgeDate <= D` reads. The window qualifies the name because the three run databases each start their ids at 1; the run label (`rule`, `champ_v1`, …) qualifies it again because the views expose no run identity, so several result families can share one repository. | Append-only; a run is a frozen artifact, so a re-run is a new `backtest_run_id` (and, per Work item 17, a new automation/repository), never an edit. |
 | `urn:graph:universe:{year}-Q{n}` | The `Universe` individual + its membership boundary for that quarter | Append-only, closed by writing `validTo` on the *previous* quarter's memberships (never by deleting them); the gate checks that each closure names a stored, open record and a date after it opened (`graphdb-setup.md`, check 7). |
 | `urn:graph:portfolio:current` | Live `PortfolioPosition` individuals — the actively-held book | The one graph that's genuinely mutated in place, but even here, closing a position sets `validTo` rather than deleting the triple, preserving history in place (checked as above). |
 
@@ -40,18 +40,25 @@ slowly-changing nature as the taxonomy it's classified against); the rule catalo
 derived output (`sharedExecutiveWith`) each need a graph pattern distinct from the four *agents'*
 ingest graphs this table originally enumerated. All four are folded into the table above.
 
-**Contract v18 backtest/GUARD placement (T-206/T-207).** The eight m018 views are a *backtest
-run's* output, not an agent's daily batch: one run owns three books, and each book owns its
-rebalances, alerts/actions, daily weights, daily performance, period summaries and tests. The
-accepted placement is `urn:graph:derived:backtest:{window_id}:{backtest_run_id}` — one append-only
-graph per run, written by `src/projection/backtest.py` (`docs/08`), with every individual carrying
-`:knowledgeDate` so `knowledgeDate <= D` reads work without relying on the graph name. The window
-is part of the name because `rule_P1.db`, `rule_P2.db` and `rule_P3.db` each start their
-`backtest_run.id`/`strategy_book.id` at 1; a graph therefore never depends on a bare upstream id.
-A run is a frozen artifact: a re-run is a new `backtest_run_id` (and, per Work item 17, a new
-automation/repository), never an edit, and the gate refuses an existing graph. The m015
-`OrchestratorRun`/`OrchestratorStep` and m016 `TickerHistory` classes are not m018 output; their
-placement is left to PR-C2 (T-208). `TickerHistory`'s own interval is inclusive
+**Contract v18 backtest/GUARD placement (T-206/T-207, T-231).** The eight m018 views are a
+*backtest run's* output, not an agent's daily batch: one run owns three books, and each book owns
+its rebalances, alerts/actions, daily weights, daily performance, period summaries and tests. The
+accepted placement is `urn:graph:derived:backtest:{run_label}:{window_id}:{backtest_run_id}` — one
+append-only graph per run, written by `src/projection/backtest.py` (`docs/08`), with every
+individual carrying `:knowledgeDate` so `knowledgeDate <= D` reads work without relying on the
+graph name. The window is part of the name because `rule_P1.db`, `rule_P2.db` and `rule_P3.db` each
+start their `backtest_run.id`/`strategy_book.id` at 1; the label is there because the views expose
+no run identity at all (no input hash, no parameters), so the operator names the result family and
+several can share a window. The label reaches every individual IRI stem as well
+(`Book_{label}_{window}_{arm}`, …), so two families never share an individual; the gate's
+backtest target pattern accepts only a label matching `[a-z][a-z0-9_]{1,31}` and a window
+matching `P[0-9]+`. A label therefore identifies one run per window: a re-run of the same family
+and window needs a different label or, per Work item 17, another automation/repository, because
+equal stems would otherwise coincide. A run is a frozen artifact: a re-run is a new
+`backtest_run_id` (and, per Work item 17, a new automation/repository), never an edit, and the gate
+refuses an existing graph. The
+m015 `OrchestratorRun`/`OrchestratorStep` and m016 `TickerHistory` classes are not m018 output;
+their placement is left to PR-C2 (T-208). `TickerHistory`'s own interval is inclusive
 (`validFrom <= d <= validTo`, `validTo` = the symbol's last valid date, handoff §3.1), unlike
 `RuleDefinition`'s exclusive `validTo`.
 
