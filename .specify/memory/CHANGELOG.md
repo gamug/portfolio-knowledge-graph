@@ -641,3 +641,41 @@ reused.*
   `docs/06`'s bundle count. Phase 2 (the 25-term slice, the authors' `@es` text and S1–S5) is
   T-211 and is not started. `protege-view.ttl`/`.txt` are generated and still carry the old IRIs;
   T-070/T-071 must regenerate and verify them with the six new links.
+
+## FIBO Phase 2 glossary slice (2026-11-03, T-211)
+
+- **Terms file.** `schema/fibo_terms.csv` grows to the 25 seeds of brief §4.1: the six Phase 1
+  link rows now carry Spanish, the `:SP500Index` row is the seventh link, and the 18 glossary-only
+  rows have an empty `our_term` and `fit = glossary`. Every row has a reviewed `label_es` and
+  `definition_es`; a row is loaded only when both are filled. The thesis proposal was searched for
+  a glossary (none found; its Word glossary part is empty), so its vocabulary governs: `portafolio`
+  rather than `cartera`, and `tasa de retorno` rather than the brief's `tasa de rentabilidad`.
+- **Builder.** `cli/build_fibo_slice.py` (logic in `src/projection/fibo_slice.py`) refuses any zip
+  whose sha256 is not
+  `7a4ccebc9ff5c1e202bf1ae44928d9149a5f6f8ff1289dde42edff13e601f579`, expands the 25 seeds through
+  the release's named `rdfs:subClassOf` ancestors, keeps only labels, definitions, named parents
+  and the `cmns-av` notes, copies literals with their original language tags, and writes a sorted,
+  byte-identical file. It drops `rdf:type`, so no FIBO term is an `owl:Class` (NR-004).
+- **Slice.** `schema/fibo.ttl` is 277 statements: 54 entries (25 seeds + 29 ancestors), 223 English
+  statements (54 labels, 54 definitions, 63 named parents, 37 explanatory notes, 7 abbreviations, 6
+  synonyms, 2 usage notes), 50 Spanish statements (25 labels + 25 definitions) and 4 header
+  statements (version, sha256, verbatim MIT licence, comment). 16 parents outside the release stay
+  only as the objects of their edges.
+- **Spanish for our classes.** `schema/tbox.ttl` gains one `rdfs:label`@es and one
+  `skos:definition`@es on each of the 27 pre-existing leaf classes, including the six "differs"
+  definitions of brief §4.3; `kg_target_schema.ttl` mirrors the 14 it declares. The 11 v18 texts are
+  unchanged (digest test). The FR-001 bundle is **4236 quads; conforms: True**.
+- **S1/S3.** `schema/fibo.ttl` loads into `urn:graph:reference:fibo` after `reference.ttl`; the
+  fresh-load total is 20 graphs and 4513 asserted triples. The ETL emits
+  `:SP500Index rdfs:seeAlso <.../IND/MarketIndices/BasketIndices/EquityIndex>` once, in
+  `src/etl/asset_master.py`.
+- **Tests.** `tests/test_fibo_slice.py`: the §4.2 counts, no `rdf:type`, every FIBO link target is
+  an entry, the 38 leaves and the 11 v18 digest, the Appendix A queries offline, the synthetic
+  builder and the opt-in `FIBO_ZIP` byte-for-byte rebuild. `tests/test_fibo_terms.py`,
+  `tests/test_asset_master.py` and `tests/test_kg_load_schema.py` are updated for 25 rows, the ETL
+  link and the new graph.
+- **Docs.** `docs/06` §1.1 (Phase 2, rebuild command, the two Appendix A queries unchanged),
+  `docs/07`, `docs/graphdb-setup.md`, `schema/README.md`, `SPEC.md`, `PLAN.md`, `TASKS.md`,
+  `README.md`.
+- **Not done.** No GraphDB write or reload (T-212); the live Appendix A run is T-213; the generated
+  `protege-view.ttl`/`.txt` still need regeneration (T-070/T-071).

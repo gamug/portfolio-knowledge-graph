@@ -187,8 +187,9 @@ are closed (see `CHANGELOG.md`).*
 ## Work item 8 — Regenerate `schema/protege-view.ttl` (manual, independent)
 
 - [ ] **T-070** *(whoever needs the Protégé view current; T-210 adds six FIBO
-      `rdfs:seeAlso` links and removes the two broken EDMC-FIBO ones, so the
-      regenerated view must reflect them)* Open the four
+      `rdfs:seeAlso` links and removes the two broken EDMC-FIBO ones, and T-211
+      adds the Spanish `@es` labels/definitions to the 27 pre-existing leaf
+      classes, so the regenerated view must reflect both)* Open the four
       authoritative sources + `instances.trig` in Protégé, export flattened
       Turtle, re-add the `:sourceNamedGraph` annotation. → `PLAN.md` Work
       item 8.
@@ -620,11 +621,22 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       `tests/test_fibo_terms.py` (the six rows, no old EDMC-FIBO IRI in the hand-maintained files,
       the tbox/target link pairs both ways, the synthetic-zip checker and the CLI). Bundle 4182
       quads, `pyshacl` conforms. Docs: `docs/06` §1.1, `schema/README.md`, SPEC, PLAN, CHANGELOG.
-      Not done: Phase 2 (T-211); `protege-view.ttl`/`.txt` are generated and still carry the old
+      Phase 2 was T-211 (now done); `protege-view.ttl`/`.txt` are generated and still carry the old
       IRIs, so T-070/T-071 (Work item 8) must regenerate and verify them with these six links.)*
       Align the six terms to FIBO as `rdfs:seeAlso` and remove the two broken links.
       → `PLAN.md` Work item 4, step 7.
-- [ ] **T-211** *(Phase 2, from T-210; not started)* Build the 25-term FIBO glossary slice:
+- [x] **T-211** *(done 2026-11-03: FIBO Phase 2. `schema/fibo.ttl` is the 25-seed slice built by
+      `cli/build_fibo_slice.py` (logic in `src/projection/fibo_slice.py`): 54 entries, 223 English
+      statements, 50 `@es` statements and 4 header statements (277 total), sha256-pinned,
+      deterministic and free of `rdf:type`; `schema/fibo_terms.csv` has the 25 reviewed rows;
+      `tbox.ttl` and `kg_target_schema.ttl` carry the 27/14 `@es` additions and the 11 v18 texts
+      are unchanged; the ETL emits the `:SP500Index` link; `fibo.ttl` is in `load_schema` after
+      `reference.ttl`. Tests: `tests/test_fibo_slice.py` plus the updated `test_fibo_terms`,
+      `test_asset_master` and `test_kg_load_schema`; docs: `docs/06` §1.1 (with the Appendix A
+      queries), `docs/07`, `docs/graphdb-setup.md`, `schema/README.md`, SPEC, PLAN, CHANGELOG.
+      FR-001 bundle 4236 quads, `pyshacl` conforms; no store write. Not done: live reload (T-212),
+      live Appendix A run (T-213), `protege-view` regeneration (T-070/T-071).)* Build the 25-term
+      FIBO glossary slice:
       `cli/build_fibo_slice.py --zip PATH --terms schema/fibo_terms.csv --out schema/fibo.ttl`,
       deterministic and sha256-checked, with the 54 entries / 223 English statements of brief
       §4.2; load it into `urn:graph:reference:fibo` after `reference.ttl` (S1); add the authors'
@@ -633,6 +645,30 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       (S3); add the slice tests and the opt-in `FIBO_ZIP` reproducibility test (S4); and add the
       slice graph to `schema/README.md`/`docs/07` (S5). Do not add `@es` text or `fibo.ttl` before
       this task. → `PLAN.md` Work item 4, step 7.
+- [ ] **T-212** *(from T-211; needs the maintainer's explicit go-ahead)* Reload the live store with
+      `schema/fibo.ttl` in the load plan (after `reference.ttl`) and verify
+      `urn:graph:reference:fibo` has 277 asserted triples and the fresh load reports 20 graphs /
+      4513 asserted triples; run `cli/load_schema.py` then `cli/verify_store.py`. No write was made
+      for T-211. → `PLAN.md` Work item 4, step 7.
+- [ ] **T-213** *(from T-211; after T-212)* Run the two Appendix A queries against the loaded store
+      (A1 for `:Portfolio`, A2 for `volatilidad`) and record that they return our Spanish pair, the
+      FIBO term with its English definition and the FIBO `@es` text. The offline versions live in
+      `docs/06` §1.1 and `tests/test_fibo_slice.py`; this task checks the live graph layout.
+      → `PLAN.md` Work item 4, step 7.
+- [ ] **T-214** *(design follow-ups, from the PR #113 text review; not started — record only, do not
+      implement)* The Phase 2 review left these design questions open:
+      (1) Asset identity by ticker versus ticker history (links to T-208);
+      (2) `Industry` versus `IndustryGroup` naming and the hybrid Energy split (GICS has 25 industry
+      groups and 74 industries; `schema/reference.ttl` has 26 individuals because Energy is split into
+      its two industries);
+      (3) split `BenchmarkObservation` into a benchmark-series observation and an active-weight
+      observation;
+      (4) `BoardMember` and `CorporateOfficer` as subclasses of `Executive`;
+      (5) `@es` labels for properties;
+      (6) a `skos:scopeNote` split so the longest `@es` definitions (`DataQualityIssue`,
+      `AttractivenessWeightScheme`, `ThresholdComparison`, `GraphPredicate`, `BenchmarkObservation`,
+      `WeightComponent`) become short conceptual definitions plus a scope note.
+      → `PLAN.md` Work item 4, step 7.
 - [ ] **T-158** Replace the `ASSET_DAY_AGGREGATE` placeholder with upstream's SEMANTIC
       `score_method` value once they give it (D14; with their Work item 4, after their T-100).
       **First, raise the ownership disagreement (unblocked now; ask before their T-141 ships its

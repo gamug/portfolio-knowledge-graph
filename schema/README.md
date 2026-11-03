@@ -12,6 +12,7 @@ actually building it (each flagged inline in the file that surfaced it, and summ
 | `tbox.ttl` | Turtle | `urn:graph:tbox` | 51 classes (38 mutually disjoint leaf/domain classes + a 13-class `rdfs:subClassOf` taxonomic backbone), properties, OWL cardinality restrictions. |
 | `shapes.ttl` | Turtle | `urn:graph:tbox` | 31 SHACL node shapes (data-quality shapes kept as a separate file/concern from `tbox.ttl` — OWL semantics vs. SHACL validation, see below). |
 | `reference.ttl` | Turtle | `urn:graph:reference` | GICS sector/industry taxonomy + asset master data (5 worked-example tickers). |
+| `fibo.ttl` | Turtle | `urn:graph:reference:fibo` | The 25-term FIBO 2026Q2 glossary slice (54 entries, 277 statements) plus the authors' Spanish `@es` layer; built by `cli/build_fibo_slice.py`, never hand-edited. |
 | `rules.ttl` | Turtle | `urn:graph:rules:catalog` | The active catalog: 10 selection rules (upstream's 9 plus `UTILITY_CASH_COVERAGE` from T-071, T-206) as `RuleDefinition`s, 5 GUARD protection rules (`L1_STOP_LOSS`, `L1_REENTRY`, `L2_NEWS`, `L3_VOL`, `L4_DD`) in their own section, the 7 original tree rules plus the pre-2026-10-10 `LIQUIDITY_DISTRESS` kept closed as design history, and the `AttractivenessWeightScheme`. |
 | `instances.trig` | **TriG** | *(self-describing — see below)* | Dated ABox: universe membership, agent snapshots, evidence, vetoes, filings, portfolio; sector-aggregate and attractiveness-ranking output (added 2026-08-13). |
 
@@ -24,10 +25,12 @@ from within `instances.trig` like every other per-agent ingest graph.
 Several more files live in this directory but load into nothing (none is part of the load order
 above):
 
-- `fibo_terms.csv` — the FIBO Phase 1 terms file (header + six rows, T-210), **not RDF** and not
-  loaded: it is the single source for the six `rdfs:seeAlso` links in `tbox.ttl` and for the
-  Phase 2 glossary slice. `cli/check_fibo_terms.py` checks every `fibo_iri` against the pinned
-  `prod.ttl.zip` (label and definition); the Spanish columns stay empty until Phase 2.
+- `fibo_terms.csv` — the FIBO terms file (header + 25 rows, T-210/T-211), **not RDF** and not
+  loaded: it is the single source for the seven `rdfs:seeAlso` links (six in `tbox.ttl`, one in the
+  ETL output) and for the 25 seeds of the glossary slice. `cli/check_fibo_terms.py` checks every
+  `fibo_iri` against the pinned `prod.ttl.zip` (label and definition); rows 1–7 name one of our
+  terms (`fit` `same` or `broader`), rows 8–25 are `glossary` only and leave `our_term` empty. All
+  25 now carry the reviewed Spanish columns.
 - `graphdb-repo-config.ttl` — **not data**: the GraphDB repository configuration (reasoning profile),
   never loaded into a graph. See `docs/graphdb-setup.md`.
 - `protege-view.ttl` — a **generated**, flattened plain-Turtle bundle for Protégé (which can't
@@ -41,9 +44,9 @@ above):
   anything, kept as the record of that pass.
 
 **Load order for a fresh GraphDB/Fuseki repository:** `tbox.ttl` → `shapes.ttl` → `reference.ttl`
-→ `rules.ttl` → `instances.trig`. Nothing strictly requires this order at load time (a quad store
-doesn't validate on ingest unless SHACL validation is explicitly turned on), but it matches
-dependency order and is the sequence `10-integration-roadmap.md` step 1 assumes.
+→ `fibo.ttl` → `rules.ttl` → `instances.trig`. Nothing strictly requires this order at load time (a
+quad store doesn't validate on ingest unless SHACL validation is explicitly turned on), but it
+matches dependency order and is the sequence `10-integration-roadmap.md` step 1 assumes.
 
 ## Why both OWL restrictions (`tbox.ttl` §4) and SHACL shapes (`shapes.ttl`)
 
@@ -461,6 +464,20 @@ label and a definition; it is outside the hermetic suite because the zip is not 
 real run printed six `IRI -> label` lines in 1.6 s at ~111 MB peak. `protege-view.ttl`/`.txt` are
 generated and still carry the old EDMC-FIBO IRIs until T-070/T-071; the Phase 2 slice (`fibo.ttl`,
 `@es` text, S1–S5) is not started.
+
+**T-211 (FIBO Phase 2, 2026-11-03).** `schema/fibo.ttl` is the 25-seed glossary slice: 54 entries
+(25 seeds plus 29 ancestors), 223 English statements (54 labels, 54 definitions, 63 named
+`rdfs:subClassOf` edges, 37 explanatory notes, 7 abbreviations, 6 synonyms, 2 usage notes), 50
+Spanish statements (25 `rdfs:label`@es + 25 `skos:definition`@es) and 4 header statements (version,
+sha256, verbatim MIT licence, comment), 277 in total. It has no `rdf:type`, so no FIBO term is an
+`owl:Class` here. `schema/fibo_terms.csv` now has 25 rows with the reviewed Spanish columns;
+`cli/build_fibo_slice.py` (logic in `src/projection/fibo_slice.py`) refuses any other sha256 and
+rebuilds the file deterministically. `tbox.ttl` gains one `@es` label and one `@es` definition on
+each of the 27 pre-existing leaf classes (the 11 v18 texts are unchanged), so the FR-001 bundle is
+**4236 quads; conforms: True**. `fibo.ttl` loads into `urn:graph:reference:fibo` after
+`reference.ttl` (S1); with it the loader's next fresh load is 20 graphs and 4513 asserted triples.
+No GraphDB write or reload was done; the live store stays as it was. `protege-view.ttl`/`.txt` are
+still generated and stale (T-070/T-071).
 
 "Active at cutoff" is the general predicate; the **T-1 lag is the same query with `?cutoff` bound to
 the previous cycle date**. It needs the store to query the union of the named graphs (GraphDB does

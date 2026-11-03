@@ -37,7 +37,7 @@ KG = rdflib.Namespace(OUR_NAMESPACE)
 SKOS = rdflib.Namespace("http://www.w3.org/2004/02/skos/core#")
 
 #: The six linked rows of the brief §2, in the terms file's order (the Phase 2 :SP500Index row is
-#: deliberately absent).
+#: deliberately absent from this list and checked separately by the slice/ETL tests).
 EXPECTED = [
     (
         f"{FIBO_BASE}FND/OwnershipAndControl/Ownership/Portfolio",
@@ -55,8 +55,10 @@ EXPECTED = [
         "same",
     ),
     (
-        f"{FIBO_BASE}SEC/Securities/SecuritiesClassification/"
-        "GlobalIndustryClassificationStandardsClassifier",
+        (
+            f"{FIBO_BASE}SEC/Securities/SecuritiesClassification/"
+            "GlobalIndustryClassificationStandardsClassifier"
+        ),
         f"{OUR_NAMESPACE}Sector",
         "same",
     ),
@@ -71,6 +73,35 @@ EXPECTED = [
         "broader",
     ),
 ]
+
+#: The 18 glossary-only seeds of brief §4.1, in order. Their ``our_term`` stays empty.
+GLOSSARY = [
+    f"{FIBO_BASE}SEC/Equities/EquityInstruments/ListedShare",
+    f"{FIBO_BASE}BE/LegalEntities/CorporateBodies/PubliclyHeldCompany",
+    f"{FIBO_BASE}SEC/Equities/EquityInstruments/EquityPosition",
+    f"{FIBO_BASE}FBC/FunctionalEntities/Markets/Exchange",
+    (
+        f"{FIBO_BASE}FBC/FunctionalEntities/NorthAmericanEntities/USRegulatoryAgencies/"
+        "SecuritiesAndExchangeCommission"
+    ),
+    f"{FIBO_BASE}BE/OwnershipAndControl/Executives/BoardMember",
+    f"{FIBO_BASE}BE/OwnershipAndControl/Executives/CorporateOfficer",
+    f"{FIBO_BASE}FBC/FinancialInstruments/InstrumentPricing/ClosingPrice",
+    f"{FIBO_BASE}FBC/FinancialInstruments/InstrumentPricing/AdjustedClosingPrice",
+    f"{FIBO_BASE}FBC/FinancialInstruments/InstrumentPricing/RateOfReturn",
+    f"{FIBO_BASE}IND/Indicators/Indicators/Volatility",
+    f"{FIBO_BASE}FND/Utilities/Analytics/Variance",
+    f"{FIBO_BASE}FND/Utilities/Analytics/StandardDeviation",
+    f"{FIBO_BASE}IND/EconomicIndicators/EconomicIndicators/ConsumerPriceIndex",
+    (
+        f"{FIBO_BASE}IND/EconomicIndicators/NorthAmericanIndicators/USEconomicIndicators/"
+        "UrbanConsumerPriceIndex"
+    ),
+    f"{FIBO_BASE}IND/EconomicIndicators/EconomicIndicators/InflationRate",
+    f"{FIBO_BASE}IND/MarketIndices/BasketIndices/MarketCapitalization",
+    f"{FIBO_BASE}SEC/Equities/EquityInstruments/Dividend",
+]
+SP500 = f"{FIBO_BASE}IND/MarketIndices/BasketIndices/EquityIndex"
 
 #: The hand-maintained schema files P4(a) names. ``protege-view.ttl``/``.txt`` are generated and are
 #: the documented exception: they still carry the old EDMC-FIBO IRIs until T-070/T-071 regenerates
@@ -122,22 +153,33 @@ def _declared(path: Path) -> set[str]:
 # --- P4(c): the terms file ----------------------------------------------------------------------
 
 
-def test_the_terms_file_has_exactly_the_six_phase_one_rows() -> None:
+def test_the_terms_file_has_the_25_phase_two_rows() -> None:
     rows = _rows()
     assert list(rows[0]) == ["fibo_iri", "our_term", "fit", "label_es", "definition_es"]
-    assert len(rows) == 6
-    assert [(row["fibo_iri"], row["our_term"], row["fit"]) for row in rows] == EXPECTED
-    assert all(row["label_es"] == "" and row["definition_es"] == "" for row in rows)
-    assert len({row["fibo_iri"] for row in rows}) == 6
-    assert len({row["our_term"] for row in rows}) == 6
+    assert len(rows) == 25
+    assert [(row["fibo_iri"], row["our_term"], row["fit"]) for row in rows[:6]] == EXPECTED
+    assert (rows[6]["fibo_iri"], rows[6]["our_term"], rows[6]["fit"]) == (
+        SP500,
+        f"{OUR_NAMESPACE}SP500Index",
+        "same",
+    )
+    assert [(row["fibo_iri"], row["our_term"], row["fit"]) for row in rows[7:]] == [
+        (iri, "", "glossary") for iri in GLOSSARY
+    ]
+    assert all(row["label_es"] and row["definition_es"] for row in rows)
+    assert len({row["fibo_iri"] for row in rows}) == 25
+    assert len({row["our_term"] for row in rows if row["our_term"]}) == 7
 
 
 def test_every_fibo_iri_is_unversioned_and_under_the_fibo_ontology() -> None:
     for row in _rows():
         assert row["fibo_iri"].startswith(FIBO_BASE)
         assert "/master/" not in row["fibo_iri"]
-        assert row["fit"] in {"same", "broader"}
-        assert row["our_term"].startswith(OUR_NAMESPACE)
+        assert row["fit"] in {"same", "broader", "glossary"}
+        if row["fit"] == "glossary":
+            assert row["our_term"] == ""
+        else:
+            assert row["our_term"].startswith(OUR_NAMESPACE)
 
 
 def test_read_terms_rejects_a_fit_the_brief_does_not_define(tmp_path: Path) -> None:
@@ -149,6 +191,29 @@ def test_read_terms_rejects_a_fit_the_brief_does_not_define(tmp_path: Path) -> N
         encoding="utf-8",
     )
     with pytest.raises(FiboTermsError, match="fit"):
+        read_terms(path)
+
+
+def test_read_terms_rejects_a_glossary_row_with_our_term(tmp_path: Path) -> None:
+    path = tmp_path / "terms.csv"
+    path.write_text(
+        "fibo_iri,our_term,fit,label_es,definition_es\n"
+        f"{FIBO_BASE}SEC/Equities/EquityInstruments/ListedShare,"
+        f"{OUR_NAMESPACE}Asset,glossary,,\n",
+        encoding="utf-8",
+    )
+    with pytest.raises(FiboTermsError, match="empty our_term"):
+        read_terms(path)
+
+
+def test_read_terms_rejects_a_link_row_without_our_term(tmp_path: Path) -> None:
+    path = tmp_path / "terms.csv"
+    path.write_text(
+        "fibo_iri,our_term,fit,label_es,definition_es\n"
+        f"{FIBO_BASE}FND/OwnershipAndControl/Ownership/Portfolio,,same,,\n",
+        encoding="utf-8",
+    )
+    with pytest.raises(FiboTermsError, match="our_term"):
         read_terms(path)
 
 
@@ -179,9 +244,11 @@ def test_no_old_edmc_fibo_iri_remains_in_a_hand_maintained_schema_file(path: Pat
 def test_tbox_fibo_links_equal_the_terms_file_rows_it_declares() -> None:
     declared = _declared(SCHEMA / "tbox.ttl")
     expected = {
-        (rdflib.URIRef(our_term), rdflib.URIRef(fibo_iri))
-        for fibo_iri, our_term, _fit in EXPECTED
-        if our_term in declared
+        (rdflib.URIRef(row["our_term"]), rdflib.URIRef(row["fibo_iri"]))
+        for row in _rows()
+        if row["our_term"]
+        and row["our_term"] != f"{OUR_NAMESPACE}SP500Index"
+        and row["our_term"] in declared
     }
     assert _fibo_links(SCHEMA / "tbox.ttl") == expected
     assert len(expected) == 6
@@ -197,7 +264,8 @@ def test_target_schema_mirrors_the_links_for_the_terms_it_declares() -> None:
     declared = _declared(path)
     # The target schema does not declare :Sector or :Industry (it only refers to them as ranges),
     # so it mirrors four of the six links; that is the P3 finding recorded in the PR.
-    declared_terms = {our_term for _fibo_iri, our_term, _fit in EXPECTED if our_term in declared}
+    linked = [row for row in _rows() if row["our_term"] and row["fit"] != "glossary"]
+    declared_terms = {row["our_term"] for row in linked if row["our_term"] in declared}
     assert declared_terms == {
         f"{OUR_NAMESPACE}Portfolio",
         f"{OUR_NAMESPACE}PortfolioPosition",
@@ -205,9 +273,9 @@ def test_target_schema_mirrors_the_links_for_the_terms_it_declares() -> None:
         f"{OUR_NAMESPACE}SECFiling",
     }
     expected = {
-        (rdflib.URIRef(our_term), rdflib.URIRef(fibo_iri))
-        for fibo_iri, our_term, _fit in EXPECTED
-        if our_term in declared
+        (rdflib.URIRef(row["our_term"]), rdflib.URIRef(row["fibo_iri"]))
+        for row in linked
+        if row["our_term"] in declared
     }
     assert _fibo_links(path) == expected
     graph = rdflib.Graph().parse(path, format="turtle")
@@ -246,8 +314,8 @@ def _release_zip(
 
 def _all_terms() -> dict[str, tuple[str | None, str | None]]:
     return {
-        fibo_iri: (f"label {number}", f"definition {number}")
-        for number, (fibo_iri, _, _) in enumerate(EXPECTED)
+        row["fibo_iri"]: (f"label {number}", f"definition {number}")
+        for number, row in enumerate(_rows())
     }
 
 
@@ -257,7 +325,7 @@ def test_the_checker_accepts_a_release_with_a_label_and_definition_for_every_row
     path = _release_zip(tmp_path, _all_terms())
     result = check_release(path, TERMS, expected_sha256=sha256(path))
     assert result.ok
-    assert {term.iri for term in result.found.values()} == {row[0] for row in EXPECTED}
+    assert {term.iri for term in result.found.values()} == {row["fibo_iri"] for row in _rows()}
     assert all(term.label.startswith("label ") for term in result.found.values())
 
 

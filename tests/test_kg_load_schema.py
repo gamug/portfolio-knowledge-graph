@@ -28,7 +28,12 @@ def _copy_schema(tmp_path: Path) -> Path:
 
 def test_expected_sizes_cover_every_graph_the_files_name() -> None:
     sizes = load_schema.expected_sizes(SCHEMA)
-    assert {"urn:graph:tbox", "urn:graph:reference", "urn:graph:rules:catalog"} <= set(sizes)
+    assert {
+        "urn:graph:tbox",
+        "urn:graph:reference",
+        "urn:graph:reference:fibo",
+        "urn:graph:rules:catalog",
+    } <= set(sizes)
     assert "urn:graph:portfolio:current" in sizes
     assert all(n > 0 for n in sizes.values())
 
@@ -38,6 +43,13 @@ def test_tbox_and_shapes_share_one_graph() -> None:
     for name in ("tbox.ttl", "shapes.ttl"):
         union.parse(SCHEMA / name, format="turtle")
     assert load_schema.expected_sizes(SCHEMA)["urn:graph:tbox"] == len(union)
+
+
+def test_the_load_plan_has_20_graphs_and_4513_asserted_triples() -> None:
+    sizes = load_schema.expected_sizes(SCHEMA)
+    assert len(sizes) == 20
+    assert sum(sizes.values()) == 4513
+    assert sizes["urn:graph:reference:fibo"] == 277
 
 
 def test_expected_sizes_refuses_a_missing_file(tmp_path: Path) -> None:
@@ -74,6 +86,7 @@ def test_load_drops_then_uploads_in_load_order(
         ("text/turtle", "urn:graph:tbox"),
         ("text/turtle", "urn:graph:tbox"),
         ("text/turtle", "urn:graph:reference"),
+        ("text/turtle", "urn:graph:reference:fibo"),
         ("text/turtle", "urn:graph:rules:catalog"),
         ("application/x-trig", None),
     ]

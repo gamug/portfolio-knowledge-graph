@@ -289,8 +289,13 @@ architecture, and not partitioned for the bitemporal audit trail
    `kg_target_schema.ttl`, the two broken `https://www.omg.org/spec/EDMC-FIBO/` links removed, and
    `cli/check_fibo_terms.py` checking every linked IRI against the pinned FIBO 2026Q2
    `prod.ttl.zip`. FIBO is a reference vocabulary, not a dependency: no import, no equivalence and
-   no reasoning over its axioms. Phase 2 (the 25-term slice, the authors' `@es` text and S1–S5) is
-   T-211; the generated `protege-view` files still carry the old IRIs until T-070/T-071.
+   no reasoning over its axioms. FIBO Phase 2 (T-211, 2026-11-03) is in too:
+   `schema/fibo.ttl` holds the 54-entry/277-statement glossary slice (25 reviewed seeds, 29
+   ancestors, the Spanish `@es` layer and the version/sha256/licence header),
+   `schema/fibo_terms.csv` carries the 25 rows, the 27 pre-existing leaf classes have `@es` text,
+   and the ETL emits the `:SP500Index` link. The slice loads into `urn:graph:reference:fibo` after
+   `reference.ttl`; no store was reloaded (T-212), and the generated `protege-view` files still
+   carry the old IRIs until T-070/T-071.
 
 **Prerequisite**: Work item 11 (the §2.6 drift decisions) — met: it closed
 2026-10-05 (see `CHANGELOG.md`).

@@ -240,7 +240,11 @@ def build_assets(
     out_fh.write("# reference.ttl get memberships but are not re-emitted as :Asset.\n")
     out_fh.write("#################################################################\n\n")
     out_fh.write(f"{UNIVERSE_IRI}\n    a :Universe ;\n")
-    out_fh.write('    rdfs:label "S&P 500 index membership (universe.db)" .\n\n')
+    out_fh.write('    rdfs:label "S&P 500 index membership (universe.db)" ;\n')
+    out_fh.write(
+        "    rdfs:seeAlso "
+        "<https://spec.edmcouncil.org/fibo/ontology/IND/MarketIndices/BasketIndices/EquityIndex> .\n\n"
+    )
 
     unmapped_sub_industries: set[str] = set()
     sector_mismatches: list[tuple[str, str, str, str]] = []

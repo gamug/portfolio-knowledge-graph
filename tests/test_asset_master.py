@@ -13,11 +13,18 @@ from dataclasses import replace
 from pathlib import Path
 
 import pytest
+import rdflib
 from portfolio_common.db import Database
 
 from etl import asset_master, build_data_ttl
 from etl.asset_master import Stint
 from etl.common import gics_rollup
+
+SCHEMA = Path(__file__).resolve().parent.parent / "schema"
+KG = rdflib.Namespace("https://thesis.local/kg/portfolio#")
+FIBO_EQUITY_INDEX = rdflib.URIRef(
+    "https://spec.edmcouncil.org/fibo/ontology/IND/MarketIndices/BasketIndices/EquityIndex"
+)
 
 _DDL = (
     "CREATE TABLE universe_membership (symbol TEXT, security TEXT, gics_sector TEXT, "
@@ -134,6 +141,22 @@ def test_build_assets_without_skip_set_writes_every_asset() -> None:
     summary = asset_master.build_assets([_stint("AAPL"), _stint("MSFT")], out, [])
     assert summary.assets_written == 2
     assert ":AAPL\n    a :Asset" in out.getvalue()
+
+
+def test_build_assets_emits_the_sp500_fibo_link_once_and_the_slice_has_it() -> None:
+    """S3: the only FIBO link in the ETL output points at an entry of schema/fibo.ttl."""
+    out = io.StringIO()
+    asset_master.build_assets([_stint("AAPL")], out, [])
+    ttl = (
+        "@prefix : <https://thesis.local/kg/portfolio#> .\n"
+        "@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .\n"
+        "@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .\n" + out.getvalue()
+    )
+    graph = rdflib.Graph().parse(data=ttl, format="turtle")
+    assert list(graph.objects(KG.SP500Index, rdflib.RDFS.seeAlso)) == [FIBO_EQUITY_INDEX]
+    assert ttl.count("rdfs:seeAlso") == 1
+    slice_graph = rdflib.Graph().parse(SCHEMA / "fibo.ttl", format="turtle")
+    assert (FIBO_EQUITY_INDEX, None, None) in slice_graph
 
 
 # --- build_assets: GICS rollup warnings -------------------------------------------------

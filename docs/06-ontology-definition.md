@@ -49,7 +49,7 @@ of ours — the same meaning, or a broader FIBO term. Where FIBO's definition wo
 there is no link, and our own definition states the difference.
 
 The six Phase 1 links live in `schema/tbox.ttl` and in `schema/fibo_terms.csv` (the single source
-for them and for the later glossary slice); the Spanish columns are empty until Phase 2. Here
+for them and for the glossary slice); they were empty in Phase 1 and are filled in Phase 2. Here
 `fibo:` stands for `https://spec.edmcouncil.org/fibo/ontology/`:
 
 | Our term | FIBO term (`fibo:` + path) | Fit | Link | What our own definition must say |
@@ -60,7 +60,7 @@ for them and for the later glossary slice); the Spanish columns are empty until 
 | `:Sector` | `SEC/Securities/SecuritiesClassification/GlobalIndustryClassificationStandardsClassifier` | same | yes | Our 11 sectors are GICS's 11. |
 | `:Industry` | `FND/Arrangements/ClassificationSchemes/IndustrySectorClassifier` | broader | yes | GICS-based industry groups. GICS has 25; `reference.ttl` has 26 because it splits the Energy group into its two GICS industries, so the link is to the generic classifier, not the GICS one. |
 | `:SECFiling` | `FND/Arrangements/Reporting/Report` | broader | yes | It lists the forms it covers (10-K, 10-Q, 8-K, DEF 14A). FIBO has no filing class. |
-| `:SP500Index` (the `:Universe` individual the ETL emits) | `IND/MarketIndices/BasketIndices/EquityIndex` | same | Phase 2 (S3) | |
+| `:SP500Index` (the `:Universe` individual the ETL emits) | `IND/MarketIndices/BasketIndices/EquityIndex` | same | yes (ETL output) | |
 | `:Asset` | none (nearest: `ListedShare`, `PubliclyHeldCompany`) | differs | **no** | See the note below. The broken `.../LegalPersons/LegalPerson` link is removed and not replaced. |
 | `:Universe` | none (nearest: `EquityIndex`, defined as a benchmark) | differs | no | The pool the system selects from: the S&P 500 members valid on each date. It is not the yardstick that performance is measured against. |
 | `:UniverseMembership` | none (nearest: `FND/DatesAndTimes/FinancialDates/DatedCollectionConstituent`, one date) | differs | no | Membership over an interval `[validFrom, validTo)`. With no `validTo`, it is still current. |
@@ -121,9 +121,85 @@ THE SOFTWARE IS PROVIDED 'AS IS', WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 See https://opensource.org/licenses/MIT.
 ```
 
-Phase 1 adds only the six `rdfs:seeAlso` links and `schema/fibo_terms.csv`. The 25-term glossary
-slice (`schema/fibo.ttl`, `urn:graph:reference:fibo`), the authors' Spanish `@es` text and tasks
-S1–S5 are Phase 2 and are not in this revision.
+**FIBO Phase 2: the glossary slice (T-211).** The slice is built and committed as
+`schema/fibo.ttl`; `schema/fibo_terms.csv` now holds the 25 seeds of brief §4.1 with their reviewed
+Spanish columns. The slice has 54 entries (25 seeds plus 29 ancestors the release describes) and
+223 English statements: 54 `rdfs:label`, 54 `skos:definition`, 63 `rdfs:subClassOf` (16 of them to
+parents outside the release, kept only as the objects of their edges), 37 explanatory notes, 7
+abbreviations, 6 synonyms and 2 usage notes. It copies no `rdf:type`, so no FIBO term is an
+`owl:Class` in this repository (NR-004 as written); a `?c a owl:Class` query cannot return one. The
+Spanish layer adds 50 statements (25 labels plus 25 definitions) and the header adds 4: the
+release (`owl:versionInfo "FIBO 2026Q2"`), the zip's sha256, the `dct:license` text copied verbatim
+from `AboutFIBOProd`, and a comment saying the `@es` text is the thesis authors' translation.
+
+Rebuild it with:
+
+```bash
+uv run python cli/build_fibo_slice.py --zip /path/to/prod.ttl.zip \
+    --terms schema/fibo_terms.csv --out schema/fibo.ttl
+```
+
+The builder refuses any zip whose sha256 is not
+`7a4ccebc9ff5c1e202bf1ae44928d9149a5f6f8ff1289dde42edff13e601f579`, and the same zip and terms
+file give a byte-identical file. It keeps only labels, definitions, named parents and the
+`cmns-av` notes, copies every literal with its language tag exactly as in the release (FIBO's own
+text is untagged or `@en`), and adds `rdfs:label`@es and `skos:definition`@es for a row only when
+both Spanish columns are filled. All 25 rows are filled in this revision; the thesis authors
+approve them by merging the change. The slice loads into `urn:graph:reference:fibo` after
+`reference.ttl` (S1), and is append-only in effect: it is rebuilt only for a new FIBO release.
+
+For a linked row, the Spanish definition in `fibo.ttl` is FIBO's meaning, never ours; our own
+Spanish definitions live in `tbox.ttl` (S2), where the six "differs" classes state why FIBO does
+not define every instance of ours. The 27 pre-existing leaf classes now carry one `@es` label and
+one `@es` definition each; the 11 v18 classes' handoff §6.2 texts are unchanged. Those 54 new
+triples take the FR-001 bundle to **4236 quads; conforms: True**; `fibo.ttl` is a separate
+277-statement graph. `:SP500Index` gets its `rdfs:seeAlso` in the ETL output, where the universe
+individual is emitted (S3), not in `urn:graph:tbox`.
+
+**Lookup queries for the reports agent (brief Appendix A, unchanged).** `A1` explains one of our
+terms from `urn:graph:tbox` and, when it has an `rdfs:seeAlso` into FIBO, adds the standard term's
+English definition and the authors' `@es` text. `A2` looks up a general finance term by its Spanish
+label in `urn:graph:reference:fibo`. The FIBO text is the untagged or `@en` literal; `@es` is
+always the authors' translation, never FIBO's words.
+
+```sparql
+PREFIX :     <https://thesis.local/kg/portfolio#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+
+SELECT ?labelEs ?defEs ?fibo ?fiboLabelEs ?fiboDefEs ?fiboDef
+WHERE {
+  GRAPH <urn:graph:tbox> {
+    :Portfolio rdfs:label ?labelEs ; skos:definition ?defEs .
+    FILTER (lang(?labelEs) = "es" && lang(?defEs) = "es")
+  }
+  OPTIONAL {
+    GRAPH <urn:graph:tbox> { :Portfolio rdfs:seeAlso ?fibo . }
+    GRAPH <urn:graph:reference:fibo> {
+      ?fibo skos:definition ?fiboDef .
+      FILTER (!langMatches(lang(?fiboDef), "es"))
+      OPTIONAL { ?fibo rdfs:label      ?fiboLabelEs FILTER (lang(?fiboLabelEs) = "es") }
+      OPTIONAL { ?fibo skos:definition ?fiboDefEs   FILTER (lang(?fiboDefEs)   = "es") }
+    }
+  }
+}
+```
+
+```sparql
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+
+SELECT ?term ?defEs ?fiboDef
+WHERE {
+  GRAPH <urn:graph:reference:fibo> {
+    ?term rdfs:label ?l .
+    FILTER (lang(?l) = "es" && lcase(str(?l)) = "volatilidad")
+    ?term skos:definition ?fiboDef .
+    FILTER (!langMatches(lang(?fiboDef), "es"))
+    OPTIONAL { ?term skos:definition ?defEs FILTER (lang(?defEs) = "es") }
+  }
+}
+```
 
 ## 1.2 Class taxonomy
 
@@ -200,11 +276,11 @@ Portfolio Knowledge Graph
 | `PriceObservation` | Observation | scope requirement (daily pricing) | **New in v2, derived-summary only** — see the topology document for why raw OHLCV ticks do *not* belong in the triple store. |
 | `AssetCoOccurrence` | Observation | T-107 (upstream D10) | A method-versioned, weighted *candidate* link between two assets from news co-occurrence (`coOccurrenceKind`/`Method`/`Weight`/`ComputedOn`, exactly two `coOccurrenceAsset`). Not a verified directorship; `sharedExecutiveWith` stays reserved for verified edges. |
 | `BenchmarkObservation` | Observation | T-108 (upstream D11) | One finished number upstream's `quant` computed about a benchmark `Portfolio` (or, for the performance numbers upstream measured on its `live_book` snapshot, about the LIVE `Portfolio`; the snapshot's holdings are not re-projected, T-109): a performance metric (`v_quant_benchmark_performance`) or a per-asset active weight against the live book (`v_quant_vs_live`, with `quantAsset`). Projected as handed over, never computed here; returns, μ and Σ are not projected. `Portfolio` also gains required `portfolioKind` (`LIVE`/`BENCHMARK`, set by source view) and optional `benchmarkObjective` (upstream's `objective`) and `benchmarkKind` (its `kind`, never `live_book`); `quantBenchmark` names the reference index of a performance number; benchmark weights are ordinary `PortfolioPosition`s. |
-| `SECFiling` | Evidence → Source Document | v1 §2B | One EDGAR filing (10-K/10-Q/8-K/DEF 14A) for one `Asset`. |
+| `SECFiling` | Evidence → Source Document | v1 §2B | One document filed with the SEC through EDGAR (10-K/10-Q/8-K/DEF 14A) for one `Asset`. |
 | `NewsArticle`, `SECFilingSection` | Evidence → Evidence Source | v1 §3B | Evidence leaves cited by `backedBy` (a restated section is replaced by a new one through `:supersededBy`, `07` "Restatements and re-runs"); cross-referenced to `portfolio-data-mining`'s news pipeline (`news_collector`/`extractor`, `urls.db`) via `provenanceId` (see §1.6 and `09-nlp-finbert-architecture.md`). |
 | `DataQualityIssue` | Evidence → Evidence Source | T-104 (upstream D5) | One Ring-1 `DQ_*` gate firing (upstream `data_quality_issue` row): `dqGateCode`, `dqSeverity`, `quarantined`, `dqRaisedOn`, optional `dqIssueOfFiling`/`dqMetricName`/`gatedValue`/`provenanceId`. HARD ones back the `DATA_QUALITY` veto via a `RiskEvent`. |
 | `RiskEvent`, `Veto` | Risk And Decision | v1 §3B/§4 | A flagged event, SHACL-required to carry evidence (closes critique #5); and the orchestrator's per-cycle exclusion decision. |
-| `RuleDefinition`, `RuleClause` | Rule System | v1 §4, critique #1 & #6 | The veto catalog's tree structure, versioned as graph data — see §1.5. |
+| `RuleDefinition`, `RuleClause` | Rule System | v1 §4, critique #1 & #6 | The rule catalog's tree structure (selection and GUARD rules), versioned as graph data — see §1.5. |
 | `ThresholdComparison`, `CategoricalComparison`, `GraphPredicate` | Rule System → Rule Operand | v1 §4, critique #1 | The three leaf-operand kinds a `RuleClause` can compare — see §1.5. |
 | `AttractivenessWeightScheme`, `WeightComponent` | Rule System → Attractiveness Scheme | critique #2/#3, §1.8 | Per-metric weights feeding the attractiveness score: per run for upstream schemes (one `cycle_run`, dated by `cycleDate`, never closed; T-121), versioned (`validFrom`/`validTo`) for the design-history `WeightScheme_v1`. |
 | `TickerHistory` | Temporal Relation | T-206 (`v_ticker_history`, m016) | A point-in-time symbol for one CIK line over the INCLUSIVE interval `[validFrom, validTo]`; `validTo` absent = current symbol. Optional link to the canonical `Asset`. |
@@ -515,13 +591,16 @@ disjoint leaf types) and `shapes.ttl` to 14 shapes (§1.6):
   aggregate and stored in `rawValue` (signed; `[-1.0, 1.0]` until T-155 widened it to `[-100.0, 100.0]`, upstream's TECHNICAL points); it is the first `ScoreSnapshot`
   `metricType` that leaves `normalizedScore` unset, which required relaxing `ScoreSnapshotShape`'s
   `sh:minCount 1` on that field to a conditional exempting this one `metricType`; T-081 added the same exemption for `Sentiment`, and requires every `Sentiment` snapshot to carry a `rawValue` in `[-1.0, 1.0]`; T-140 requires a `rawValue` of every `SectorRelativeMomentum` snapshot (first in `[-1.0, 1.0]`, for the attractiveness formula's `(rawValue + 1) / 2`; T-155 widened it to `[-100.0, 100.0]` once that formula was no longer computed here), allows `rawValue` at most once, and pairs each `agentOrigin` with its one `metricType`; T-171 (D17) adds `ScoreFinanciero` (FUNDAMENTAL) as a third exemption, for an unrelated reason — upstream rewrites its `normalized_score` in place every cycle, which a `ScoreSnapshot` individual can't carry without becoming a mutable observation — and requires every `ScoreFinanciero` snapshot to carry a `rawValue` too; T-177 bounds it to `[0.0, 100.0]` (upstream's answer to Q6: the assessment's score, which their model bounds at 0 and 100).
-- **`AttractivenessSnapshot`** — the Orchestrator's computed ranking output for one `Asset` in one
-  cycle: the positive counterpart to `Veto` (v1 modeled exclusion only). Closes part of critique
-  #2/evolution layer B3's ranking half, not the position-sizing half. Carries `attractivenessScore`
+- **`AttractivenessSnapshot`** — the Orchestrator's immutable attractiveness ranking result for one
+  `Asset` in one selection cycle: its combined attractiveness score. It is **not** the opposite of
+  `Veto`: an asset can have both, and a SOFT veto subtracts its rule's `penaltyPoints` from the
+  blended score. Closes part of critique #2/evolution layer B3's ranking half, not the
+  position-sizing half. Carries `attractivenessScore`
   (functional, at most `1.0`, 1 = most attractive; no lower bound since T-155, because upstream's `blended_score / 100` goes negative when the SOFT-veto penalties exceed the blend; from upstream's version 11 the penalty is the sum of the active SOFT stints' rules' `penaltyPoints`, 15 each unless the stint's rule declares its own, a HARD rule's SOFT stint included: assumed, T-189), `computedAt`, and an audit-trail pointer
   `computedWithScheme` back to the `AttractivenessWeightScheme` that produced it — the same role
-  `appliesRule`/`primaryRule` play for `Veto`. No stored rank field: rank is relative to whatever
-  comparison set a query defines, so it is always a query-time `ORDER BY attractivenessScore`,
+  `appliesRule`/`primaryRule` play for `Veto`. No stored rank or selection-status field: `v_cycle_ranking`
+  also carries `rank`, `selected` and `status`, but the class does not model them; rank is relative to
+  whatever comparison set a query defines, so it is always a query-time `ORDER BY attractivenessScore`,
   never a persisted fact.
 - **`AttractivenessWeightScheme`** — the blend behind `attractivenessScore` as upstream's cycle
   runner recorded it for **one `cycle_run`** (read, never applied here, T-155; per-run since T-121):
@@ -740,7 +819,7 @@ not a veto rule:** it carries no `:ruleSeverity`, `:penaltyPoints` or `:priority
 `VetoShape` refuses it as the object of `:appliesRule`/`:primaryRule`. `RuleDefinitionShape` adds one
 `sh:or` branch for `:category "GUARD"`, keeps the severity requirement for every other active rule,
 makes `:priorityRank` mandatory for non-GUARD rules, and widens the rank range to `[1,10]` for
-`UTILITY_CASH_COVERAGE`. The bundle is **4182 quads; conforms: True** (the FR-001 gate).
+`UTILITY_CASH_COVERAGE`. The bundle is **4236 quads; conforms: True** (the FR-001 gate).
 
 ---
 
