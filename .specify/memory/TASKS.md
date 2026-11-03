@@ -553,11 +553,13 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       handoff §3.1 gives no base-table nullability and both views have 0 rows. `schema/shapes.ttl`
       gains 11 shapes (31 total), with the handoff §3.3 nullable columns optional, `sh:in` for the
       enumerated vocabularies, no sign/range on drawdown/cost/max-drawdown, and a CASH weight row
-      that needs no Asset node. `rules.ttl` gains `UTILITY_CASH_COVERAGE` (HARD, 0.05, rank 10, valid from
-      2026-10-31 — the last safe date: the rule was already in upstream's catalog in the completed
-      backtest runs and raised a real veto in P1 on 2022-03-03, so a later date is impossible; not
-      backdated to 2019/2020, and upstream's `v_rule_catalog.created_at` (2026-10-31T19:37:32) is a
-      technical persistence timestamp, not the adoption date), records the APP-00 exemptions in comments, and
+      that needs no Asset node. `rules.ttl` gains `UTILITY_CASH_COVERAGE` (HARD, 0.05, rank 10;
+      valid from 2026-10-14 since T-216 (2026-11-03), the real T-071 part 2a merge (PR #167,
+      `7ae8ba8`, 2026-10-14 20:51:47 -0500); it was 2026-10-31, the last safe date, until T-216 —
+      used because the rule was already in upstream's catalog in the completed backtest runs and
+      raised a real veto in P1 on 2022-03-03 — and is not backdated to 2019/2020; upstream's
+      `v_rule_catalog.created_at` (2026-10-31T19:37:32) is a technical persistence timestamp, not
+      the adoption date), records the APP-00 exemptions in comments, and
       adds the five GUARD rules in their own section (`:category "GUARD"`, `:guardLayer`,
       `GraphPredicate` leaves, parameters only in comments, `L2_NEWS` disabled). `RuleDefinitionShape`
       gets a GUARD `sh:or` branch, keeps the severity requirement for other active rules and makes
@@ -650,8 +652,11 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       `verified: 20 graphs, 4513 asserted triples match the local parse`, and `cli/verify_store.py`
       passes all six checks. `urn:graph:reference:fibo` holds the 277 statements of the slice; that
       follows only as the arithmetic 4513 − 4236 (the FR-001 bundle without it), not from a separate
-      per-graph count, which was not measured. Recorded in `docs/graphdb-setup.md`. The text below is
-      the original task)* Reload the live store with
+      per-graph count, which was not measured. Recorded in `docs/graphdb-setup.md`. Since T-216
+      (2026-11-03) `rules.ttl` carries `UTILITY_CASH_COVERAGE`'s corrected `validFrom` 2026-10-14, so
+      the live store still holds 2026-10-31 until the next `cli/load_schema.py`, which the maintainer
+      will run later together with other schema changes; this entry is that reload note, no separate
+      task. The text below is the original task)* Reload the live store with
       `schema/fibo.ttl` in the load plan (after `reference.ttl`) and verify
       `urn:graph:reference:fibo` has 277 asserted triples and the fresh load reports 20 graphs /
       4513 asserted triples; run `cli/load_schema.py` then `cli/verify_store.py`. No write was made
@@ -685,9 +690,17 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       default; needs the schema reloaded there and the FULL universe in `SQL_UNIVERSE_DB`, because
       backtest graphs are append-only and with the 20-symbol pilot universe the asset links are
       omitted for good. → `PLAN.md` Work item 4.
-- [ ] **T-216** *(for the maintainer)* Ask upstream the real merge date of T-071
-      (`UTILITY_CASH_COVERAGE` `validFrom` is 2026-10-31, the last safe date). → `PLAN.md` Work
-      item 15.
+- [x] **T-216** *(done 2026-11-03: the maintainer supplied T-071's real merge date. `rules.ttl`
+      sets `UTILITY_CASH_COVERAGE`'s `validFrom` to 2026-10-14, the day T-071 part 2a (PR #167, merge
+      commit `7ae8ba8`, "Merge pull request #167 from gamug/feat/t071b-vetoes") reached upstream
+      master at 2026-10-14 20:51:47 -0500 (already 2026-10-15 in UTC); it was 2026-10-31, the last
+      safe date, until then. The comment, `docs/06`, `schema/README.md`, `SPEC.md`, `PLAN.md` and the
+      test now carry the real date; the bundle is unchanged at 4236 quads, `pyshacl` conforms. No store was
+      written or reloaded: the live store (and the scratch store, if any) still holds the old
+      2026-10-31 `validFrom` until the next `cli/load_schema.py`, which the maintainer will run later
+      together with other schema changes (see T-212); T-215's scratch reload will pick up the
+      corrected date. → `PLAN.md` Work item 15. The original task: ask upstream T-071's real merge
+      date.)*
 - [ ] **T-158** Replace the `ASSET_DAY_AGGREGATE` placeholder with upstream's SEMANTIC
       `score_method` value once they give it (D14; with their Work item 4, after their T-100).
       **First, raise the ownership disagreement (unblocked now; ask before their T-141 ships its

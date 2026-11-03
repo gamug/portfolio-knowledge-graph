@@ -7,6 +7,7 @@ The synthetic individuals below exercise every new shape, including each nullabl
 
 from __future__ import annotations
 
+from datetime import date
 from pathlib import Path
 
 import pyshacl
@@ -1017,7 +1018,12 @@ def test_the_new_rule_carries_the_handoff_metric_and_rank() -> None:
     assert str(g.value(leaf, KG.operator)) == "<"
     assert str(g.value(leaf, KG.thresholdValue)) == "0.05"
     assert str(g.value(rule, KG.priorityRank)) == "10"
-    assert str(g.value(rule, KG.validFrom)) == "2026-10-31"
+    valid_from = g.value(rule, KG.validFrom)
+    assert isinstance(valid_from, rdflib.Literal)
+    assert str(valid_from) == "2026-10-14"
+    # T-209 resolves a backtest veto's rule on the run date (2026-10-31), so the
+    # definition must still be in force then.
+    assert valid_from.toPython() <= date(2026, 10, 31)
 
 
 def test_the_guard_rules_are_not_in_the_selection_catalog() -> None:
