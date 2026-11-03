@@ -48,6 +48,11 @@ above):
 quad store doesn't validate on ingest unless SHACL validation is explicitly turned on), but it
 matches dependency order and is the sequence `10-integration-roadmap.md` step 1 assumes.
 
+`reference.ttl`'s five `:Asset` individuals are the worked-example master. The real asset master
+(`universe.db`) is ABox data and is written through the ingest gate by `cli/load_universe.py` into
+`urn:graph:universe:{year}-Q{n}` (`docs/07`), never into `urn:graph:reference`: `cli/load_schema.py`
+drops and rewrites that graph as a whole on every schema reload.
+
 ## Why both OWL restrictions (`tbox.ttl` §4) and SHACL shapes (`shapes.ttl`)
 
 They answer different questions and neither substitutes for the other:
@@ -363,11 +368,14 @@ what the store *enforces*.
      a per-arm value. `drawdown`, `cost_return` and `max_drawdown` are non-negative in P1/P2/P3, but
      the handoff states no sign convention, so no sign or range constraint is placed on them.
    - **Rule catalog.** `UTILITY_CASH_COVERAGE` (HARD, `rule_input.utility_cash_coverage_3y < 0.05`,
-     rank 10, valid from 2026-10-31 — the last safe date: the rule was already in upstream's catalog
-     in the completed backtest runs (runs of 2026-10-31) and raised a real veto in P1 on 2022-03-03,
-     so a later date is impossible; it is not backdated to 2019/2020, and upstream's
-     `v_rule_catalog.created_at` (2026-10-31T19:37:32) is a technical persistence timestamp, not the
-     adoption date) joins the 9
+     rank 10, valid from 2026-10-14 — the day T-071 part 2a (PR #167, merge commit `7ae8ba8`)
+     reached upstream master, 2026-10-14 20:51:47 -0500 (already 2026-10-15 in UTC); T-216 supplied
+     that real date, replacing 2026-10-31, the last safe date, used until then. It is not backdated
+     to 2019/2020: valid-time means when a definition was in force in production, not that a
+     backtest applies a rule retroactively — the P1 backtest replays history with today's catalog
+     and raised this rule's veto on 2022-03-03, which is why backtest vetoes cannot resolve their
+     rule by `raisedOn` (T-209); upstream's `v_rule_catalog.created_at` (2026-10-31T19:37:32) is a
+     technical persistence timestamp, not the adoption date) joins the 9
      selection rules; the `LEVERAGE_EXTREME`/`NEGATIVE_FCF`/`LIQUIDITY_DISTRESS` comments record the
      APP-00 profile exemptions (financial firms; regulated utilities; equity REITs), with no
      threshold/severity/clause change. The 5 GUARD rules are `RuleDefinition`s in their own section,
@@ -385,7 +393,10 @@ what the store *enforces*.
      expose no run identity, so several result families can share a window.
      A dry run is the default and SHACL-validates each graph; `--write` appends through the gate
      and production also needs `--to-production`. The writer keeps every masked/NULL column out of
-     the Turtle, links an asset only when the universe database has the ticker, resolves
+     the Turtle, links an asset only when the universe database has the ticker (point
+     `SQL_UNIVERSE_DB` at `/workspaces/thesis/data/universe_history.db` and load it with
+     `cli/load_universe.py` first, or a real write is refused for want of the stored `:Asset`
+     individuals), resolves
      `:alertRule` to `:Rule_{rule_id}` and refuses an unknown rule or a layer disagreement. No
      schema file changed, so the bundle stayed **4178 quads at that revision; conforms: True**.
    - **Not done here:** no change to the v18 pin, no ingest-gate pattern change beyond the
@@ -477,11 +488,33 @@ sha256, verbatim MIT licence, comment), 277 in total. It has no `rdf:type`, so n
 rebuilds the file deterministically. `tbox.ttl` gains one `@es` label and one `@es` definition on
 each of the 27 pre-existing leaf classes (the 11 v18 texts are unchanged), so the FR-001 bundle was
 **4236 quads at that revision; conforms: True**. `fibo.ttl` loads into `urn:graph:reference:fibo` after
-`reference.ttl` (S1); with it the loader's fresh load was 20 graphs and 4513 asserted triples at that
-revision (4479 after T-233/T-234's 34-quad reduction).
+`reference.ttl` (S1); with it that load was 20 graphs and 4513 asserted triples.
 No GraphDB write or reload was made in that change; the store was reloaded with T-212 on
 2026-11-02, and the live Appendix A queries ran with T-213 the same day (`docs/graphdb-setup.md`).
 `protege-view.ttl`/`.txt` are still generated and stale (T-070/T-071).
+
+**T-220 (asset master through the ingest gate, 2026-11-03).** `UniverseMembershipShape` gains
+`sh:class :Asset` on `:membershipAsset` so the gate's context read follows a stored Asset a
+membership batch points at. Without it `gate.context_predicates` fetched only `rdf:type` for the
+five assets `reference.ttl` already declares, and `AssetShape` then failed on
+`:tickerSymbol`/`:cikNumber`. The `:membershipUniverse` half waits on T-227: the backtest
+projector's dry-run context does not type `:SP500Index`, so it would break five existing tests. At
+that revision the FR-001 bundle was **4237 quads; conforms: True** (4236 + 1; 4203 after
+T-233/T-234), and a fresh `cli/load_schema.py` load was 20 graphs and 4514 asserted triples
+(4513 + 1; 4480 after T-233/T-234); no store was
+reloaded in that change.
+`cli/load_universe.py`
+(logic in `src/kg_store/universe.py`) loads the real `:Universe`/`:Asset`/`:UniverseMembership`
+population from `universe.db` into `urn:graph:universe:{year}-Q{n}` through the gate; `reference.ttl`
+keeps its five worked-example assets, and the loader gives them memberships without re-declaring
+them. The overlap with `instances.trig`'s worked-example memberships is documented in `docs/07`.
+**T-216 (`UTILITY_CASH_COVERAGE` `validFrom`, 2026-11-03).** The upstream maintainer supplied
+T-071's real integration date: part 2a (PR #167, merge commit `7ae8ba8`) reached upstream master on
+2026-10-14 20:51:47 -0500 (already 2026-10-15 in UTC), so the rule's `validFrom` is now 2026-10-14,
+not 2026-10-31, the last safe date, used until then. Only that literal and the surrounding
+block/`rdfs:comment` changed in `rules.ttl`; the bundle was unchanged at **4236 quads at that
+revision**. No GraphDB write or reload: the live store keeps 2026-10-31 for this rule until the next
+`cli/load_schema.py` (T-212).
 
 **T-233/T-234 (run labels and the window vocabulary, 2026-11-03).** A completed backtest run's
 views expose neither an input hash nor its parameters, so two result families of the same window
@@ -495,12 +528,13 @@ stem carries it (`Book_{label}_{window}_{arm}`, `BookWeight_{label}_{window}_{ar
 and `^P[0-9]+[a-z]?$` in `shapes.ttl`, in the projector and in the gate's graph pattern, so a
 fourth window or a new sub-period needs no schema edit. **Trade-off:** a typo in a window id is
 no longer caught by SHACL (`P4` for `P1` is a well-formed window); the arm list stays closed. Five
-window lists and two segment lists become one triple each (−50 quads) and `:runLabel` adds 16 (a
+window lists and two segment lists become one triple each (−50) and `:runLabel` adds 16 (a
 property with its comment in `tbox.ttl`, and a required `sh:property` with five constraints in each
-of the two shapes), so the bundle is **4202 quads; conforms: True**. `kg_target_schema.ttl`
-carries the same property and shapes. No GraphDB load was made; the maintainer must reload the
-schema and drop any backtest graph written under the retired unlabelled name
-(`urn:graph:derived:backtest:{window_id}:{run}`) before projecting with labels.
+of the two shapes), so after merging with T-220 the bundle is **4203 quads; conforms: True**
+(4236 + 1 − 50 + 16) and a fresh load is 20 graphs and 4480 asserted triples (4513 + 1 − 34).
+`kg_target_schema.ttl` carries the same property and shapes. No GraphDB load was made; the
+maintainer must reload the schema and drop any backtest graph written under the retired unlabelled
+name (`urn:graph:derived:backtest:{window_id}:{run}`) before projecting with labels.
 
 "Active at cutoff" is the general predicate; the **T-1 lag is the same query with `?cutoff` bound to
 the previous cycle date**. It needs the store to query the union of the named graphs (GraphDB does

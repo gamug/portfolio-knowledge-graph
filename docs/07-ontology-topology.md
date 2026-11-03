@@ -29,7 +29,7 @@ special query language feature.
 | `urn:graph:derived:quant:{date}` | Benchmark `Portfolio` books (never upstream's `live_book` snapshot, T-109), their `PortfolioPosition`s and `BenchmarkObservation`s (T-108; from `v_quant_portfolio`/`v_quant_position`/`v_quant_benchmark_performance`/`v_quant_vs_live`). Never returns, μ or Σ | Append-only; separate from `urn:graph:portfolio:current` (the live book). |
 | `urn:graph:derived:entity-resolution:{date}` | `AssetCoOccurrence` candidate edges (T-107; news co-occurrence, method/weight) and other entity-resolution-service output (roadmap step 7); `sharedExecutiveWith` only if verified | Append-only; kept separate from the EDGAR graphs it draws on since it's a different service's output. |
 | `urn:graph:derived:backtest:{run_label}:{window_id}:{backtest_run_id}` | The eight m018 backtest/GUARD views' individuals — `StrategyBook`, `BookRebalance`, `GuardAlert`, `GuardAction`, `BookWeightDaily`, `BookDailyPerformance`, `PortfolioPeriodSummary`, `BacktestTest` — one graph per backtest run, written by `src/projection/backtest.py` (T-207, T-231; `docs/08`), with each individual carrying `:knowledgeDate` for `knowledgeDate <= D` reads. The window qualifies the name because the three run databases each start their ids at 1; the run label (`rule`, `champ_v1`, …) qualifies it again because the views expose no run identity, so several result families can share one repository. | Append-only; a run is a frozen artifact, so a re-run is a new `backtest_run_id` (and, per Work item 17, a new automation/repository), never an edit. |
-| `urn:graph:universe:{year}-Q{n}` | The `Universe` individual + its membership boundary for that quarter | Append-only, closed by writing `validTo` on the *previous* quarter's memberships (never by deleting them); the gate checks that each closure names a stored, open record and a date after it opened (`graphdb-setup.md`, check 7). |
+| `urn:graph:universe:{year}-Q{n}` | The `Universe` individual + its membership boundary for that quarter; since T-220 the real asset catalog (`:SP500Index` + one `:Asset` per symbol + one `:UniverseMembership` per stint) written there by `cli/load_universe.py` from `universe.db`, in the quarter of its `--as-of` | Append-only, closed by writing `validTo` on the *previous* quarter's memberships (never by deleting them); the gate checks that each closure names a stored, open record and a date after it opened (`graphdb-setup.md`, check 7). |
 | `urn:graph:portfolio:current` | Live `PortfolioPosition` individuals — the actively-held book | The one graph that's genuinely mutated in place, but even here, closing a position sets `validTo` rather than deleting the triple, preserving history in place (checked as above). |
 
 **Implementation addendum — three graph patterns this table originally missed.** Building
@@ -61,6 +61,29 @@ m015 `OrchestratorRun`/`OrchestratorStep` and m016 `TickerHistory` classes are n
 their placement is left to PR-C2 (T-208). `TickerHistory`'s own interval is inclusive
 (`validFrom <= d <= validTo`, `validTo` = the symbol's last valid date, handoff §3.1), unlike
 `RuleDefinition`'s exclusive `validTo`.
+
+**Asset master load (T-220).** The real asset master (`portfolio-data-mining`'s point-in-time
+`universe.db`, D1) is written by `cli/load_universe.py` (logic in `src/kg_store/universe.py`) into
+the quarter graph of its `--as-of`, through the ingest gate, reusing `etl.asset_master`. It does
+not go into `urn:graph:reference`, where the table above puts *static* reference data:
+`cli/load_schema.py` drops and rewrites every graph owned by `schema/` on each reload, so ABox
+individuals written there would disappear on the next schema edit, and the loader could not append
+to it (the gate refuses an existing graph for every append-only target). The quarter graph is the
+placement this table already assigns to the universe and the gate already accepts; the catalog is
+the membership boundary of that quarter. `--since` (default 2019-01-02) keeps a stint with no
+`validTo` or `validTo >= since`, so a ticker reused by another company (`CEG`, `DELL`, `Q`) is one
+`:Asset` described by the era the backtests and the live index can see; nothing is invented for the
+dropped stints. The five `:Asset`s `reference.ttl` already declares get memberships but are never
+re-declared, and a CIK-less asset is accepted only when all its memberships are closed
+(`AssetShape`).
+
+**Known overlap with the worked example.** `schema/instances.trig` already holds `:UM_*_2026Q3`
+memberships for the five `reference.ttl` assets in `urn:graph:universe:2026-Q3`, against
+`:SP500Watchlist_2026Q3` (a fundamental-agent watchlist, not `:SP500Index`). The loader adds a
+second set of memberships for those five in its own quarter graph; they are different
+`:UniverseMembership` individuals in a different `:Universe`, and neither the batch nor this
+change removes or re-declares anything. The overlap is accepted until the worked-example ABox stops
+being loaded into the real store (TASKS T-225).
 
 **Restatements/amendments** (the concrete case critique gap #8 was raised for): a corrected 10-K
 does not edit the old `SECFilingSection` individual — it lands in a *new* dated EDGAR graph

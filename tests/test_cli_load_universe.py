@@ -1,0 +1,88 @@
+"""``cli/load_universe.py`` as a subprocess: the entry point really runs (T-220).
+
+The loader's logic lives in ``kg_store.universe`` and is tested in ``test_universe_load.py``;
+these run the script itself, as constitution Project structure #10 asks, over a synthetic
+``universe.db`` passed through the environment. None of them writes or contacts the store.
+"""
+
+from __future__ import annotations
+
+import os
+import subprocess
+import sys
+from pathlib import Path
+
+from fixtures.universe_rows import universe_db
+
+CLI = Path(__file__).resolve().parent.parent / "cli" / "load_universe.py"
+
+
+def _run(
+    tmp_path: Path,
+    *args: str,
+    db: Path | None = None,
+    repository: str = "test",
+) -> subprocess.CompletedProcess[str]:
+    env = {
+        **os.environ,
+        # The shell's environment wins over .env (load_env does not override it).
+        "SQL_UNIVERSE_DB": str(db or tmp_path / "universe.db"),
+        "KG_HOST": "http://host.invalid",
+        "KG_REPOSITORY": repository,
+    }
+    return subprocess.run(  # noqa: S603 -- fixed interpreter and script, tmp_path arguments
+        [sys.executable, str(CLI), *args],
+        capture_output=True,
+        text=True,
+        check=False,
+        env=env,
+        cwd=tmp_path,
+    )
+
+
+def test_a_dry_run_reports_the_catalog_and_writes_nothing(tmp_path: Path) -> None:
+    db = universe_db(tmp_path / "universe.db")
+    result = _run(tmp_path, "--as-of", "2026-11-03", db=db)
+    assert result.returncode == 0, result.stderr
+    assert "kept 4 of 6 stint(s) over 4 symbol(s)" in result.stdout
+    assert "dropped 2 stint(s) over 2 symbol(s)" in result.stdout
+    assert "Assets: 3 written, 1 already in reference.ttl (4 symbol(s) loaded)" in result.stdout
+    assert "Memberships: 4 (3 open, 1 closed)" in result.stdout
+    assert "urn:graph:universe:2026-Q4" in result.stdout
+    assert "triples: 37" in result.stdout
+    assert "SHACL: conforms" in result.stdout
+    assert "dry run, nothing written" in result.stdout
+
+
+def test_as_of_names_the_quarter_graph(tmp_path: Path) -> None:
+    db = universe_db(tmp_path / "universe.db")
+    result = _run(tmp_path, "--as-of", "2027-01-01", db=db)
+    assert result.returncode == 0, result.stderr
+    assert "urn:graph:universe:2027-Q1" in result.stdout
+
+
+def test_a_bad_date_is_a_bad_argument(tmp_path: Path) -> None:
+    db = universe_db(tmp_path / "universe.db")
+    result = _run(tmp_path, "--since", "yesterday", db=db)
+    assert result.returncode == 2
+    assert "not a YYYY-MM-DD date" in result.stderr
+
+
+def test_to_production_without_write_exits_2(tmp_path: Path) -> None:
+    db = universe_db(tmp_path / "universe.db")
+    result = _run(tmp_path, "--to-production", db=db)
+    assert result.returncode == 2
+    assert "--to-production only matters with --write" in result.stderr
+
+
+def test_a_production_write_without_the_opt_in_exits_2(tmp_path: Path) -> None:
+    db = universe_db(tmp_path / "universe.db")
+    result = _run(tmp_path, "--write", db=db, repository="portfolio")
+    assert result.returncode == 2
+    assert "needs --to-production" in result.stderr
+
+
+def test_a_missing_database_exits_1(tmp_path: Path) -> None:
+    result = _run(tmp_path)  # no database was written at tmp_path/universe.db
+    assert result.returncode == 1
+    assert "source error:" in result.stderr

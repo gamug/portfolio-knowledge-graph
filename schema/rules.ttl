@@ -172,20 +172,21 @@
 
 # --- T-206 (Contract v18 handoff §5, T-071): the tenth selection rule. It is HARD and applies
 # only to regulated utilities (APP-00 company profile). priorityRank 10 is ours (upstream gives no
-# order, like T-187's 7-9). validFrom 2026-10-31 is the LAST SAFE DATE: the rule was already in
-# upstream's catalog in the completed backtest runs (rule_P1/P2/P3.db, runs of 2026-10-31) and even
-# raised a real veto in P1 on 2022-03-03, so a later date is impossible. It is NOT backdated to 2019
-# or 2020: the other nine rules carry adoption dates (2026-08-13, 2026-10-02, 2026-10-10), and
-# valid-time here means when a definition was in force in production (T-187, T-201), not that a
-# backtest applies a rule retroactively. Upstream's v_rule_catalog.created_at (2026-10-31T19:37:32)
-# is a technical persistence timestamp, not the adoption date; the true T-071 merge date is still
-# to confirm with upstream. The profile exemption is described in the comment, not encoded
-# (CategoricalComparison only tests equality).
+# order, like T-187's 7-9). validFrom 2026-10-14 is the day T-071 part 2a (PR #167, merge commit
+# 7ae8ba8) reached upstream master, 2026-10-14 20:51:47 -0500 (already 2026-10-15 in UTC); T-216
+# supplied that real date. It was 2026-10-31, the last safe date, until T-216. It is NOT backdated
+# to 2019 or 2020: the other nine rules carry adoption dates (2026-08-13, 2026-10-02, 2026-10-10),
+# and valid-time here means when a definition was in force in production (T-187, T-201), not that a
+# backtest applies a rule retroactively. The 2022-03-03 veto in the P1 backtest comes from the
+# backtest replaying history with today's catalog, which is why backtest vetoes cannot resolve
+# their rule by raisedOn (T-209). Upstream's v_rule_catalog.created_at (2026-10-31T19:37:32) is a
+# technical persistence timestamp, not the adoption date. The profile exemption is described in
+# the comment, not encoded (CategoricalComparison only tests equality).
 :Rule_UTILITY_CASH_COVERAGE a :RuleDefinition ;
     :ruleId "UTILITY_CASH_COVERAGE" ; :category "FINANCIAL" ; :priorityRank 10 ;
-    :ruleSeverity "HARD" ; :validFrom "2026-10-31"^^xsd:date ;
+    :ruleSeverity "HARD" ; :validFrom "2026-10-14"^^xsd:date ;
     :hasClause :Cmp_UTILITY_CASH_COVERAGE_3y ;
-    rdfs:comment "T-071 (D-13, Moody's C13 p.7), new in the Contract v18 catalog: applies only to regulated utilities (APP-00 profile). 3-year average (OCF before working capital) / total debt below 0.05 under both ambiguous-working-capital bounds. HARD. validFrom 2026-10-31 is the last safe date: the rule was already in upstream's catalog in the completed backtest runs (rule_P1/P2/P3.db, runs of 2026-10-31) and raised a real veto in P1 on 2022-03-03, so a later date is impossible. It is not backdated to 2019/2020: valid-time means when a definition was in force in production, not that a backtest applies a rule retroactively. Upstream's v_rule_catalog.created_at (2026-10-31T19:37:32) is a technical persistence timestamp, not the adoption date; the true T-071 merge date is still to confirm with upstream. The profile exemption is not encoded in the tree: CategoricalComparison only tests equality and the profile is not a graph node." .
+    rdfs:comment "T-071 (D-13, Moody's C13 p.7), new in the Contract v18 catalog: applies only to regulated utilities (APP-00 profile). 3-year average (OCF before working capital) / total debt below 0.05 under both ambiguous-working-capital bounds. HARD. validFrom 2026-10-14 is the day T-071 part 2a (PR #167, merge commit 7ae8ba8) reached upstream master (2026-10-14 20:51:47 -0500, already 2026-10-15 in UTC); T-216 supplied that real date, replacing 2026-10-31, the last safe date, used until then. It is not backdated to 2019/2020: valid-time means when a definition was in force in production, not that a backtest applies a rule retroactively. The 2022-03-03 veto in the P1 backtest comes from the backtest replaying history with today's catalog, which is why backtest vetoes cannot resolve their rule by raisedOn (T-209). Upstream's v_rule_catalog.created_at (2026-10-31T19:37:32) is a technical persistence timestamp, not the adoption date. The profile exemption is not encoded in the tree: CategoricalComparison only tests equality and the profile is not a graph node." .
 :Cmp_UTILITY_CASH_COVERAGE_3y a :ThresholdComparison ;
     :metricName "rule_input.utility_cash_coverage_3y" ; :operator "<" ; :thresholdValue "0.05"^^xsd:decimal .
 

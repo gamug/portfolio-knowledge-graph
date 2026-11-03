@@ -152,8 +152,8 @@ For a linked row, the Spanish definition in `fibo.ttl` is FIBO's meaning, never 
 Spanish definitions live in `tbox.ttl` (S2), where the six "differs" classes state why FIBO does
 not define every instance of ours. The 27 pre-existing leaf classes now carry one `@es` label and
 one `@es` definition each; the 11 v18 classes' handoff §6.2 texts are unchanged. Those 54 new
-triples take the FR-001 bundle to **4202 quads at this revision; conforms: True** (4236 before
-T-233/T-234's run label and window patterns: the five `sh:in` window lists and two segment lists
+triples take the FR-001 bundle to **4203 quads at this revision; conforms: True** (4236 before
+T-220's `sh:class :Asset` +1 and T-233/T-234: the five `sh:in` window lists and two segment lists
 become one `sh:pattern` each, −50 quads, and `:runLabel` adds 16), `fibo.ttl` is a separate
 277-statement graph. `:SP500Index` gets its `rdfs:seeAlso` in the ETL output, where the universe
 individual is emitted (S3), not in `urn:graph:tbox`.
@@ -526,6 +526,16 @@ excluded from typing, upgraded to an ordinary superclass in this revision) so
 exercising all three leaf kinds, was independently re-evaluated in Python against the ontology's
 own tree structure and reproduced the intended firings exactly — see `schema/README.md`.
 
+**Addendum (T-216, 2026-11-03) — `UTILITY_CASH_COVERAGE`'s real `validFrom`.** The upstream
+maintainer supplied T-071's integration date: part 2a (PR #167, merge commit `7ae8ba8`, "Merge pull
+request #167 from gamug/feat/t071b-vetoes") reached upstream master on 2026-10-14 20:51:47 -0500
+(already 2026-10-15 in UTC). The rule's `validFrom` is therefore 2026-10-14, not the 2026-10-31
+last-safe date T-206 used while the date was unconfirmed. It is not backdated to 2019/2020:
+valid-time means when a definition was in force in production, not that a backtest applies a rule
+retroactively — the P1 backtest replays history with today's catalog and raised this rule's veto on
+2022-03-03, which is why backtest vetoes cannot resolve their rule by `raisedOn` (T-209). The
+bundle was at 4236 quads at that revision (4203 after T-220's `sh:class :Asset` and T-233/T-234).
+
 ## 1.6 SHACL shapes for data-quality enforcement
 
 SHACL (Shapes Constraint Language) is RDF's declarative validator — the world-view equivalent of
@@ -819,13 +829,15 @@ arm list stays closed: it is a small, stable vocabulary the shapes can still pol
 mistyped arm remains a SHACL failure.
 
 **Rule catalog.** `UTILITY_CASH_COVERAGE` (HARD, `rule_input.utility_cash_coverage_3y < 0.05`, rank
-10, valid from **2026-10-31**) joins the nine selection rules; the date is the last safe one: the
-rule was already in upstream's catalog in the completed backtest runs (`rule_P1/P2/P3.db`, runs of
-2026-10-31) and raised a real veto in P1 on 2022-03-03, so a later date is impossible. It is not
-backdated to 2019/2020: valid-time here means when a definition was in force in production (T-187,
-T-201), not that a backtest applies a rule retroactively. Upstream's `v_rule_catalog.created_at`
-(2026-10-31T19:37:32) is a technical persistence timestamp, not the adoption date; the true T-071
-merge date is still to confirm with upstream. The `LEVERAGE_EXTREME`, `NEGATIVE_FCF` and
+10, valid from **2026-10-14**) joins the nine selection rules. T-216 set that date from the
+maintainer: T-071 part 2a (PR #167, merge commit `7ae8ba8`) reached upstream master on 2026-10-14
+20:51:47 -0500 (already 2026-10-15 in UTC); it was 2026-10-31, the last safe date, until T-216. It
+is not backdated to 2019/2020: valid-time here means when a definition was in force in production
+(T-187, T-201), not that a backtest applies a rule retroactively — the P1 backtest replays history
+with today's catalog and raised this rule's veto on 2022-03-03, which is why backtest vetoes cannot
+resolve their rule by `raisedOn` (T-209). Upstream's `v_rule_catalog.created_at`
+(2026-10-31T19:37:32) is a technical persistence timestamp, not the adoption date. The
+`LEVERAGE_EXTREME`, `NEGATIVE_FCF` and
 `LIQUIDITY_DISTRESS` comments record the APP-00 profile exemptions (financial firms; regulated
 utilities; equity REITs) without changing any threshold, severity or clause. The five GUARD rules
 (`L1_STOP_LOSS`, `L1_REENTRY`, `L2_NEWS`, `L3_VOL`, `L4_DD`) are `RuleDefinition` individuals in a
@@ -839,7 +851,8 @@ not a veto rule:** it carries no `:ruleSeverity`, `:penaltyPoints` or `:priority
 `VetoShape` refuses it as the object of `:appliesRule`/`:primaryRule`. `RuleDefinitionShape` adds one
 `sh:or` branch for `:category "GUARD"`, keeps the severity requirement for every other active rule,
 makes `:priorityRank` mandatory for non-GUARD rules, and widens the rank range to `[1,10]` for
-`UTILITY_CASH_COVERAGE`. The bundle is **4202 quads; conforms: True** (the FR-001 gate).
+`UTILITY_CASH_COVERAGE`. The bundle is **4203 quads; conforms: True** (the FR-001 gate; T-220 adds
+the `UniverseMembershipShape` `sh:class :Asset` triple, T-233/T-234 contribute the net −34).
 
 ---
 

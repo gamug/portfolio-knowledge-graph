@@ -360,6 +360,49 @@ def test_fetch_context_also_reads_the_memberships_of_a_referenced_asset(
     assert f"?r <{KG.hasUniverseMembership}> ?s" in fake.queries[0]
 
 
+def _membership_batch() -> rdflib.Graph:
+    """One membership for a stored ``:AAPL``, which the batch does not declare (T-220)."""
+    return gate.parse_batch(
+        PREFIXES + b":UM a :UniverseMembership ; :membershipAsset :AAPL ;"
+        b" :membershipUniverse :SP500Index ;"
+        b' :validFrom "2026-10-01"^^<http://www.w3.org/2001/XMLSchema#date> .'
+        b" :SP500Index a :Universe ."
+    )
+
+
+def test_a_membership_batch_reads_the_stored_asset_it_points_at(
+    make_db: MakeDB, schema: gate.GateSchema
+) -> None:
+    """T-220: ``:membershipAsset`` carries ``sh:class :Asset``, so the context read follows the
+    AssetShape for a stored asset the batch does not declare. Without it only ``rdf:type`` was
+    fetched, and AssetShape then failed on ``:tickerSymbol``/``:cikNumber``."""
+    batch = _membership_batch()
+    refs = gate.references(batch, schema)
+    paths = gate.context_predicates(batch, refs, schema)
+    assert {KG.tickerSymbol, KG.cikNumber, KG.hasUniverseMembership} <= paths
+    stored = [
+        {"s": KG.AAPL, "p": rdflib.RDF.type, "o": KG.Asset},
+        {"s": KG.AAPL, "p": KG.tickerSymbol, "o": rdflib.Literal("AAPL")},
+        {"s": KG.AAPL, "p": KG.cikNumber, "o": rdflib.Literal("0000320193")},
+    ]
+    context = gate.fetch_context(make_db(terms=stored).db, refs, schema, batch)
+    gate.validate(batch, context=context)
+
+
+def test_a_membership_batch_naming_an_asset_the_store_does_not_hold_is_refused(
+    make_db: MakeDB, schema: gate.GateSchema
+) -> None:
+    batch = _membership_batch()
+    refs = gate.references(batch, schema)
+    context = gate.fetch_context(make_db().db, refs, schema, batch)
+    with pytest.raises(gate.ShaclRejected) as info:
+        gate.validate(batch, context=context)
+    components = {
+        c for c in info.value.results.objects(None, rdflib.namespace.SH.sourceConstraintComponent)
+    }
+    assert components == {rdflib.namespace.SH.ClassConstraintComponent}
+
+
 def test_the_context_reads_only_what_the_shapes_of_the_references_read(
     make_db: MakeDB, schema: gate.GateSchema
 ) -> None:
