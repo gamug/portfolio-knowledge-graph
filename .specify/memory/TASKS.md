@@ -655,6 +655,20 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       FIBO term with its English definition and the FIBO `@es` text. The offline versions live in
       `docs/06` §1.1 and `tests/test_fibo_slice.py`; this task checks the live graph layout.
       → `PLAN.md` Work item 4, step 7.
+- [ ] **T-214** *(design follow-ups, from the PR #113 text review; not started — record only, do not
+      implement)* The Phase 2 review left these design questions open:
+      (1) Asset identity by ticker versus ticker history (links to T-208);
+      (2) `Industry` versus `IndustryGroup` naming and the hybrid Energy split (GICS has 25 industry
+      groups and 74 industries; `schema/reference.ttl` has 26 individuals because Energy is split into
+      its two industries);
+      (3) split `BenchmarkObservation` into a benchmark-series observation and an active-weight
+      observation;
+      (4) `BoardMember` and `CorporateOfficer` as subclasses of `Executive`;
+      (5) `@es` labels for properties;
+      (6) a `skos:scopeNote` split so the longest `@es` definitions (`DataQualityIssue`,
+      `AttractivenessWeightScheme`, `ThresholdComparison`, `GraphPredicate`, `BenchmarkObservation`,
+      `WeightComponent`) become short conceptual definitions plus a scope note.
+      → `PLAN.md` Work item 4, step 7.
 - [ ] **T-158** Replace the `ASSET_DAY_AGGREGATE` placeholder with upstream's SEMANTIC
       `score_method` value once they give it (D14; with their Work item 4, after their T-100).
       **First, raise the ownership disagreement (unblocked now; ask before their T-141 ships its

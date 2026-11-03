@@ -95,17 +95,17 @@
 :SECFiling
     a owl:Class ;
     rdfs:label "SEC Filing" ;
-    rdfs:label "declaración ante la SEC"@es ;
-    skos:definition "Una declaración individual presentada en EDGAR (10-K, 10-Q, 8-K o DEF 14A) para un activo."@es ;
-    rdfs:comment "A single EDGAR filing (10-K, 10-Q, 8-K, DEF 14A) for one Asset." ;
+    rdfs:label "documento presentado ante la SEC"@es ;
+    skos:definition "Documento individual presentado ante la SEC a través de EDGAR (10-K, 10-Q, 8-K o DEF 14A) para un activo."@es ;
+    rdfs:comment "A single document filed with the SEC through EDGAR (10-K, 10-Q, 8-K, DEF 14A) for one Asset." ;
     rdfs:seeAlso <https://spec.edmcouncil.org/fibo/ontology/FND/Arrangements/Reporting/Report> .
 
 :SECFilingSection
     a owl:Class ;
     rdfs:label "SEC Filing Section" ;
-    rdfs:label "sección de la declaración ante la SEC"@es ;
-    skos:definition "Fuente de evidencia: una sección extraída de una declaración ante la SEC (por ejemplo, el punto 1A, el punto 3 o la lista de directores del DEF 14A). Puede ser reemplazada por una sección corregida posterior."@es ;
-    rdfs:comment "Evidence leaf: an extracted section of a SECFiling (Item 1A, Item 3, DEF 14A director list — v1 §2B). May be supersededBy a later corrected section (restatement — closes critique #8, see 07-ontology-topology.md)." .
+    rdfs:label "sección del documento presentado ante la SEC"@es ;
+    skos:definition "Fuente de evidencia: una sección extraída de un documento presentado ante la SEC (por ejemplo, el punto 1A, el punto 3 o la lista de directores del DEF 14A). Puede ser reemplazada por una sección corregida posterior."@es ;
+    rdfs:comment "Evidence leaf: an extracted section of a document filed with the SEC (Item 1A, Item 3, DEF 14A director list — v1 §2B). May be supersededBy a later corrected section (restatement — closes critique #8, see 07-ontology-topology.md)." .
 
 :DataQualityIssue
     a owl:Class ;
@@ -189,8 +189,8 @@
     a owl:Class ;
     rdfs:label "Portfolio Position" ;
     rdfs:label "posición del portafolio"@es ;
-    skos:definition "Relación n-aria: la posición ponderada de un activo dentro de un portafolio durante [validFrom, validTo)."@es ;
-    rdfs:comment "N-ary relation: one Asset's weighted position within one Portfolio over [validFrom, validTo)." ;
+    skos:definition "Relación n-aria: la posición ponderada de un activo dentro de un portafolio durante [validFrom, validTo). Una posición siempre tiene un activo; CASH no es una posición del portafolio: aparece solo como un BookWeightDaily con holdingKey \"CASH\" en el backtest."@es ;
+    rdfs:comment "N-ary relation: one Asset's weighted position within one Portfolio over [validFrom, validTo). A position always has an asset; CASH is not a PortfolioPosition: it appears only as a BookWeightDaily with holdingKey \"CASH\" in the backtest." ;
     rdfs:seeAlso <https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/FinancialProductsAndServices/Position> .
 
 :PriceObservation
@@ -211,8 +211,8 @@
     a owl:Class ;
     rdfs:label "Attractiveness Snapshot" ;
     rdfs:label "instantánea de atractivo"@es ;
-    skos:definition "Resultado de ranking calculado por el orquestador para un activo en un ciclo; es la contraparte positiva del veto."@es ;
-    rdfs:comment "The Orchestrator's computed ranking output for one Asset in one cycle -- the positive counterpart to Veto (v1 modeled exclusion only). Closes part of critique #2/evolution layer B3's ranking half (not the position-sizing half). Added 2026-08-13." .
+    skos:definition "Resultado inmutable del ranking de atractivo de un activo en un ciclo de selección: su puntuación combinada de atractivo. No es lo contrario de un veto: un activo puede tener ambos, y un veto SOFT resta de la puntuación combinada los penaltyPoints de su regla."@es ;
+    rdfs:comment "The Orchestrator's immutable attractiveness ranking result for one Asset in one selection cycle: its combined attractiveness score. It is not the opposite of a Veto: an Asset can have both, and a SOFT veto subtracts its rule's penaltyPoints from the blended score. The class stores the Asset, the score, the computation time and the scheme; v_cycle_ranking also carries rank, selected and status, but they are not modelled here. Closes part of critique #2/evolution layer B3's ranking half (not the position-sizing half). Added 2026-08-13." .
 
 :AttractivenessWeightScheme
     a owl:Class ;

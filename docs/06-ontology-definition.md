@@ -276,7 +276,7 @@ Portfolio Knowledge Graph
 | `PriceObservation` | Observation | scope requirement (daily pricing) | **New in v2, derived-summary only** — see the topology document for why raw OHLCV ticks do *not* belong in the triple store. |
 | `AssetCoOccurrence` | Observation | T-107 (upstream D10) | A method-versioned, weighted *candidate* link between two assets from news co-occurrence (`coOccurrenceKind`/`Method`/`Weight`/`ComputedOn`, exactly two `coOccurrenceAsset`). Not a verified directorship; `sharedExecutiveWith` stays reserved for verified edges. |
 | `BenchmarkObservation` | Observation | T-108 (upstream D11) | One finished number upstream's `quant` computed about a benchmark `Portfolio` (or, for the performance numbers upstream measured on its `live_book` snapshot, about the LIVE `Portfolio`; the snapshot's holdings are not re-projected, T-109): a performance metric (`v_quant_benchmark_performance`) or a per-asset active weight against the live book (`v_quant_vs_live`, with `quantAsset`). Projected as handed over, never computed here; returns, μ and Σ are not projected. `Portfolio` also gains required `portfolioKind` (`LIVE`/`BENCHMARK`, set by source view) and optional `benchmarkObjective` (upstream's `objective`) and `benchmarkKind` (its `kind`, never `live_book`); `quantBenchmark` names the reference index of a performance number; benchmark weights are ordinary `PortfolioPosition`s. |
-| `SECFiling` | Evidence → Source Document | v1 §2B | One EDGAR filing (10-K/10-Q/8-K/DEF 14A) for one `Asset`. |
+| `SECFiling` | Evidence → Source Document | v1 §2B | One document filed with the SEC through EDGAR (10-K/10-Q/8-K/DEF 14A) for one `Asset`. |
 | `NewsArticle`, `SECFilingSection` | Evidence → Evidence Source | v1 §3B | Evidence leaves cited by `backedBy` (a restated section is replaced by a new one through `:supersededBy`, `07` "Restatements and re-runs"); cross-referenced to `portfolio-data-mining`'s news pipeline (`news_collector`/`extractor`, `urls.db`) via `provenanceId` (see §1.6 and `09-nlp-finbert-architecture.md`). |
 | `DataQualityIssue` | Evidence → Evidence Source | T-104 (upstream D5) | One Ring-1 `DQ_*` gate firing (upstream `data_quality_issue` row): `dqGateCode`, `dqSeverity`, `quarantined`, `dqRaisedOn`, optional `dqIssueOfFiling`/`dqMetricName`/`gatedValue`/`provenanceId`. HARD ones back the `DATA_QUALITY` veto via a `RiskEvent`. |
 | `RiskEvent`, `Veto` | Risk And Decision | v1 §3B/§4 | A flagged event, SHACL-required to carry evidence (closes critique #5); and the orchestrator's per-cycle exclusion decision. |
@@ -591,13 +591,16 @@ disjoint leaf types) and `shapes.ttl` to 14 shapes (§1.6):
   aggregate and stored in `rawValue` (signed; `[-1.0, 1.0]` until T-155 widened it to `[-100.0, 100.0]`, upstream's TECHNICAL points); it is the first `ScoreSnapshot`
   `metricType` that leaves `normalizedScore` unset, which required relaxing `ScoreSnapshotShape`'s
   `sh:minCount 1` on that field to a conditional exempting this one `metricType`; T-081 added the same exemption for `Sentiment`, and requires every `Sentiment` snapshot to carry a `rawValue` in `[-1.0, 1.0]`; T-140 requires a `rawValue` of every `SectorRelativeMomentum` snapshot (first in `[-1.0, 1.0]`, for the attractiveness formula's `(rawValue + 1) / 2`; T-155 widened it to `[-100.0, 100.0]` once that formula was no longer computed here), allows `rawValue` at most once, and pairs each `agentOrigin` with its one `metricType`; T-171 (D17) adds `ScoreFinanciero` (FUNDAMENTAL) as a third exemption, for an unrelated reason — upstream rewrites its `normalized_score` in place every cycle, which a `ScoreSnapshot` individual can't carry without becoming a mutable observation — and requires every `ScoreFinanciero` snapshot to carry a `rawValue` too; T-177 bounds it to `[0.0, 100.0]` (upstream's answer to Q6: the assessment's score, which their model bounds at 0 and 100).
-- **`AttractivenessSnapshot`** — the Orchestrator's computed ranking output for one `Asset` in one
-  cycle: the positive counterpart to `Veto` (v1 modeled exclusion only). Closes part of critique
-  #2/evolution layer B3's ranking half, not the position-sizing half. Carries `attractivenessScore`
+- **`AttractivenessSnapshot`** — the Orchestrator's immutable attractiveness ranking result for one
+  `Asset` in one selection cycle: its combined attractiveness score. It is **not** the opposite of
+  `Veto`: an asset can have both, and a SOFT veto subtracts its rule's `penaltyPoints` from the
+  blended score. Closes part of critique #2/evolution layer B3's ranking half, not the
+  position-sizing half. Carries `attractivenessScore`
   (functional, at most `1.0`, 1 = most attractive; no lower bound since T-155, because upstream's `blended_score / 100` goes negative when the SOFT-veto penalties exceed the blend; from upstream's version 11 the penalty is the sum of the active SOFT stints' rules' `penaltyPoints`, 15 each unless the stint's rule declares its own, a HARD rule's SOFT stint included: assumed, T-189), `computedAt`, and an audit-trail pointer
   `computedWithScheme` back to the `AttractivenessWeightScheme` that produced it — the same role
-  `appliesRule`/`primaryRule` play for `Veto`. No stored rank field: rank is relative to whatever
-  comparison set a query defines, so it is always a query-time `ORDER BY attractivenessScore`,
+  `appliesRule`/`primaryRule` play for `Veto`. No stored rank or selection-status field: `v_cycle_ranking`
+  also carries `rank`, `selected` and `status`, but the class does not model them; rank is relative to
+  whatever comparison set a query defines, so it is always a query-time `ORDER BY attractivenessScore`,
   never a persisted fact.
 - **`AttractivenessWeightScheme`** — the blend behind `attractivenessScore` as upstream's cycle
   runner recorded it for **one `cycle_run`** (read, never applied here, T-155; per-run since T-121):
