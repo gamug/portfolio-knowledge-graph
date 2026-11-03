@@ -18,6 +18,10 @@
 # T-171's two shape changes and two comments are already in our
 # schema/ in portfolio-knowledge-graph PR #56; T-121's scheme terms are
 # in PR #65 (see the T-121 block below: the date became :cycleDate).
+# T-210 also mirrors the FIBO rdfs:seeAlso links for the four terms this
+# file declares (:Portfolio, :PortfolioPosition, :tickerSymbol,
+# :SECFiling); :Sector and :Industry are only referred to as ranges here,
+# so they have no declaration to mirror.
 #
 # Namespace: https://thesis.local/kg/portfolio#  (prefix ":")
 # OWL = what can be inferred (open world); SHACL = what our ingest
@@ -819,7 +823,8 @@
 :tickerSymbol a owl:DatatypeProperty,
         owl:FunctionalProperty ;
     rdfs:domain :Asset ;
-    rdfs:range xsd:string .
+    rdfs:range xsd:string ;
+    rdfs:seeAlso <https://spec.edmcouncil.org/fibo/ontology/SEC/Securities/SecuritiesIdentification/TickerSymbol> .
 
 :vetoOfAsset a owl:FunctionalProperty,
         owl:ObjectProperty ;
@@ -961,12 +966,13 @@
 :PortfolioPosition a owl:Class ;
     rdfs:label "Portfolio Position" ;
     rdfs:comment "N-ary relation: one Asset's weighted position within one Portfolio over [validFrom, validTo)." ;
+    rdfs:seeAlso <https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/FinancialProductsAndServices/Position> ;
     rdfs:subClassOf :TemporalRelation .
 
 :SECFiling a owl:Class ;
     rdfs:label "SEC Filing" ;
     rdfs:comment "A single EDGAR filing (10-K, 10-Q, 8-K, DEF 14A) for one Asset." ;
-    rdfs:seeAlso <https://www.omg.org/spec/EDMC-FIBO/FND/Documents/Documents/Filing> ;
+    rdfs:seeAlso <https://spec.edmcouncil.org/fibo/ontology/FND/Arrangements/Reporting/Report> ;
     rdfs:subClassOf :SourceDocument .
 
 :WeightComponent a owl:Class ;
@@ -1038,6 +1044,7 @@
 :Portfolio a owl:Class ;
     rdfs:label "Portfolio" ;
     rdfs:comment "The actively-held book. Closes critique #2 (v1 had exclusion/veto only, no inclusion/holding model)." ;
+    rdfs:seeAlso <https://spec.edmcouncil.org/fibo/ontology/FND/OwnershipAndControl/Ownership/Portfolio> ;
     rdfs:subClassOf :Collection .
 
 :DataQualityIssue a owl:Class ;
@@ -1058,7 +1065,6 @@
 :Asset a owl:Class ;
     rdfs:label "Asset" ;
     rdfs:comment "A publicly traded S&P 500 constituent tracked by the system (v1 §2A, §3A)." ;
-    rdfs:seeAlso <https://www.omg.org/spec/EDMC-FIBO/BE/LegalEntities/LegalPersons/LegalPerson> ;
     rdfs:subClassOf :DomainEntity .
 
 

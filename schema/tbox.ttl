@@ -35,20 +35,21 @@
 :Asset
     a owl:Class ;
     rdfs:label "Asset" ;
-    rdfs:comment "A publicly traded S&P 500 constituent tracked by the system (v1 §2A, §3A)." ;
-    rdfs:seeAlso <https://www.omg.org/spec/EDMC-FIBO/BE/LegalEntities/LegalPersons/LegalPerson> .
+    rdfs:comment "A publicly traded S&P 500 constituent tracked by the system (v1 §2A, §3A)." .
 
 :Sector
     a owl:Class ;
     rdfs:subClassOf skos:Concept ;
     rdfs:label "Sector" ;
-    rdfs:comment "GICS-level sector concept (e.g. 'Information Technology'). Closes critique #3 (no sector layer)." .
+    rdfs:comment "GICS-level sector concept (e.g. 'Information Technology'). Closes critique #3 (no sector layer)." ;
+    rdfs:seeAlso <https://spec.edmcouncil.org/fibo/ontology/SEC/Securities/SecuritiesClassification/GlobalIndustryClassificationStandardsClassifier> .
 
 :Industry
     a owl:Class ;
     rdfs:subClassOf skos:Concept ;
     rdfs:label "Industry" ;
-    rdfs:comment "GICS-level industry-group concept, rolls up to exactly one Sector via memberOfSector. Closes critique #3." .
+    rdfs:comment "GICS-level industry-group concept, rolls up to exactly one Sector via memberOfSector. Closes critique #3." ;
+    rdfs:seeAlso <https://spec.edmcouncil.org/fibo/ontology/FND/Arrangements/ClassificationSchemes/IndustrySectorClassifier> .
 
 :Universe
     a owl:Class ;
@@ -79,7 +80,7 @@
     a owl:Class ;
     rdfs:label "SEC Filing" ;
     rdfs:comment "A single EDGAR filing (10-K, 10-Q, 8-K, DEF 14A) for one Asset." ;
-    rdfs:seeAlso <https://www.omg.org/spec/EDMC-FIBO/FND/Documents/Documents/Filing> .
+    rdfs:seeAlso <https://spec.edmcouncil.org/fibo/ontology/FND/Arrangements/Reporting/Report> .
 
 :SECFilingSection
     a owl:Class ;
@@ -139,12 +140,14 @@
 :Portfolio
     a owl:Class ;
     rdfs:label "Portfolio" ;
-    rdfs:comment "The actively-held book. Closes critique #2 (v1 had exclusion/veto only, no inclusion/holding model)." .
+    rdfs:comment "The actively-held book. Closes critique #2 (v1 had exclusion/veto only, no inclusion/holding model)." ;
+    rdfs:seeAlso <https://spec.edmcouncil.org/fibo/ontology/FND/OwnershipAndControl/Ownership/Portfolio> .
 
 :PortfolioPosition
     a owl:Class ;
     rdfs:label "Portfolio Position" ;
-    rdfs:comment "N-ary relation: one Asset's weighted position within one Portfolio over [validFrom, validTo)." .
+    rdfs:comment "N-ary relation: one Asset's weighted position within one Portfolio over [validFrom, validTo)." ;
+    rdfs:seeAlso <https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/FinancialProductsAndServices/Position> .
 
 :PriceObservation
     a owl:Class ;
@@ -563,7 +566,8 @@
 # 3. DATATYPE PROPERTIES
 #################################################################
 
-:tickerSymbol a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :Asset ; rdfs:range xsd:string .
+:tickerSymbol a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :Asset ; rdfs:range xsd:string ;
+    rdfs:seeAlso <https://spec.edmcouncil.org/fibo/ontology/SEC/Securities/SecuritiesIdentification/TickerSymbol> .
 :companyName  a owl:DatatypeProperty ; rdfs:domain :Asset ; rdfs:range xsd:string .
 :cikNumber    a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :Asset ; rdfs:range xsd:string ;
     rdfs:comment "SEC Central Index Key — stable join key to edgar_tool.py output." .

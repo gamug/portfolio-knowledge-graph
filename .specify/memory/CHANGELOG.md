@@ -599,3 +599,45 @@ reused.*
   `docs/graphdb-setup.md`, `schema/README.md` refinement 7, `SPEC.md` §2.6, `PLAN.md` Work item 4,
   `TASKS.md` T-207 and the T-208/T-209 follow-ups. No schema file changed; the bundle stays
   **4178 quads; conforms: True**.
+
+## FIBO Phase 1 alignment (2026-11-03, T-210)
+
+- **Decision.** FIBO is a reference vocabulary, not a dependency: our terms stay in
+  `https://thesis.local/kg/portfolio#`, there is no `owl:imports`/`owl:equivalentClass`/
+  `rdfs:subClassOf` to FIBO, and no reader reasons over FIBO's axioms. A term gets
+  `rdfs:seeAlso` only when FIBO's definition is true of every instance of it (same meaning, or a
+  broader FIBO term); where FIBO would misstate ours there is no link and our definition states the
+  difference.
+- **Terms file.** `schema/fibo_terms.csv` (UTF-8, header `fibo_iri,our_term,fit,label_es,
+  definition_es`, six data rows) is the single source for the six Phase 1 links. The Spanish
+  columns are empty until Phase 2. Full IRIs are written in both IRI columns.
+- **Schema.** `schema/tbox.ttl` removes the two broken
+  `https://www.omg.org/spec/EDMC-FIBO/` links (`:Asset` → `LegalPerson`, with no replacement
+  because `:Asset` is one node per ticker and FIBO has no matching term; `:SECFiling` → `Filing`,
+  replaced by `Report`) and adds the six links: `:Portfolio`, `:PortfolioPosition`,
+  `:tickerSymbol`, `:Sector`, `:Industry` and `:SECFiling`. `kg_target_schema.ttl` gets the same
+  removals and four of the six links (it does not declare `:Sector`/`:Industry`). Net +4 triples in
+  `tbox.ttl`: **4182 quads; conforms: True**.
+- **Release check.** `cli/check_fibo_terms.py` (logic in `src/projection/fibo_terms.py`) refuses a
+  zip whose sha256 is not
+  `7a4ccebc9ff5c1e202bf1ae44928d9149a5f6f8ff1289dde42edff13e601f579` and requires every
+  `fibo_iri` to have an `rdfs:label` and a `skos:definition`. The real run against
+  `prod.ttl.zip` printed six `IRI -> label` lines in 1.6 s at ~111 MB peak.
+- **Measured reasons for not importing FIBO.** The 2026Q2 release has 220 modules and 134,946
+  statements, 2,240 named classes against our 51, and 71% of its statements describe 11,763 named
+  individuals. The 2026-10-27 evaluation load inferred about 178,000 statements and returned 2,280
+  classes (not re-measured); P1 (2026-11-02/03) counted 180,948 inferred before dropping the FIBO
+  graph and 908 after (180,040 fewer), with the graph itself holding 134,946 statements and the
+  other 18 graphs keeping their 2,550 explicit statements. The release is MIT-licensed (copyright
+  EDM Association dba EDM Council, Inc. and Object Management Group) per `AboutFIBOProd`.
+- **Tests.** `tests/test_fibo_terms.py`: the six rows and their fit/namespace/version rules; no old
+  EDMC-FIBO IRI in the hand-maintained schema files; the `tbox.ttl` and `kg_target_schema.ttl`
+  `rdfs:seeAlso` pairs equal the terms file in both directions (four links in the target schema);
+  the synthetic-zip checker (wrong sha256, missing IRI, missing label, missing definition) and the
+  CLI exit codes.
+- **Docs.** `docs/06` §1.1 (decision, link rule, alignment table with the differs rows and the
+  `:Asset`/`:PriceObservation` notes, measured sizes and inference cost, release and licence),
+  `schema/README.md`, `SPEC.md` §2.1/§2.6, `PLAN.md` Work item 4 step 7, `README.md`,
+  `docs/06`'s bundle count. Phase 2 (the 25-term slice, the authors' `@es` text and S1–S5) is
+  T-211 and is not started. `protege-view.ttl`/`.txt` are generated and still carry the old IRIs;
+  T-070/T-071 must regenerate and verify them with the six new links.

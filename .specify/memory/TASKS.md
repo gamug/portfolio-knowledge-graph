@@ -186,7 +186,9 @@ are closed (see `CHANGELOG.md`).*
 
 ## Work item 8 — Regenerate `schema/protege-view.ttl` (manual, independent)
 
-- [ ] **T-070** *(whoever needs the Protégé view current)* Open the four
+- [ ] **T-070** *(whoever needs the Protégé view current; T-210 adds six FIBO
+      `rdfs:seeAlso` links and removes the two broken EDMC-FIBO ones, so the
+      regenerated view must reflect them)* Open the four
       authoritative sources + `instances.trig` in Protégé, export flattened
       Turtle, re-add the `:sourceNamedGraph` annotation. → `PLAN.md` Work
       item 8.
@@ -605,6 +607,32 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       backtest run's date (2026-10-31), not by `raisedOn`, because the 2022–2025 stints predate
       every active rule's `validFrom`. T-207 does not read `v_veto`; the rule-resolution
       convention stays open until this task. → `PLAN.md` Work item 4/15.
+- [x] **T-210** *(done 2026-11-03: FIBO Phase 1. `schema/fibo_terms.csv` holds the six linked rows
+      of the brief §2 (`:Portfolio`, `:PortfolioPosition`, `:tickerSymbol`, `:Sector`, `:Industry`,
+      `:SECFiling`), full IRIs and empty Spanish columns; `schema/tbox.ttl` and
+      `kg_target_schema.ttl` lose the two broken `https://www.omg.org/spec/EDMC-FIBO/` links
+      (`:Asset` → `LegalPerson`, no replacement because `:Asset` is one node per ticker;
+      `:SECFiling` → `Filing`, replaced by `Report`) and gain the six links (four in
+      `kg_target_schema.ttl`, which does not declare `:Sector`/`:Industry`). `cli/check_fibo_terms.py`
+      (logic in `src/projection/fibo_terms.py`) refuses a zip whose sha256 is not the pin and checks
+      every `fibo_iri` for an `rdfs:label` and a `skos:definition`; the real run against
+      `prod.ttl.zip` printed six `IRI -> label` lines in 1.6 s at ~111 MB peak. Tests:
+      `tests/test_fibo_terms.py` (the six rows, no old EDMC-FIBO IRI in the hand-maintained files,
+      the tbox/target link pairs both ways, the synthetic-zip checker and the CLI). Bundle 4182
+      quads, `pyshacl` conforms. Docs: `docs/06` §1.1, `schema/README.md`, SPEC, PLAN, CHANGELOG.
+      Not done: Phase 2 (T-211); `protege-view.ttl`/`.txt` are generated and still carry the old
+      IRIs, so T-070/T-071 (Work item 8) must regenerate and verify them with these six links.)*
+      Align the six terms to FIBO as `rdfs:seeAlso` and remove the two broken links.
+      → `PLAN.md` Work item 4, step 7.
+- [ ] **T-211** *(Phase 2, from T-210; not started)* Build the 25-term FIBO glossary slice:
+      `cli/build_fibo_slice.py --zip PATH --terms schema/fibo_terms.csv --out schema/fibo.ttl`,
+      deterministic and sha256-checked, with the 54 entries / 223 English statements of brief
+      §4.2; load it into `urn:graph:reference:fibo` after `reference.ttl` (S1); add the authors'
+      `rdfs:label`@es and `skos:definition`@es to the 27 leaf classes, including the "differs"
+      wording of brief §2 (S2); emit the `:SP500Index` link where the ETL emits it and add its row
+      (S3); add the slice tests and the opt-in `FIBO_ZIP` reproducibility test (S4); and add the
+      slice graph to `schema/README.md`/`docs/07` (S5). Do not add `@es` text or `fibo.ttl` before
+      this task. → `PLAN.md` Work item 4, step 7.
 - [ ] **T-158** Replace the `ASSET_DAY_AGGREGATE` placeholder with upstream's SEMANTIC
       `score_method` value once they give it (D14; with their Work item 4, after their T-100).
       **First, raise the ownership disagreement (unblocked now; ask before their T-141 ships its
