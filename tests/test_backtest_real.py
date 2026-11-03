@@ -15,7 +15,13 @@ from pathlib import Path
 import pytest
 
 from etl import config
-from projection.backtest import VIEWS, load_guard_catalog, project, read_view, universe_assets
+from projection.backtest import (
+    VIEWS,
+    load_guard_catalog,
+    project,
+    read_view,
+    universe_assets,
+)
 from projection.boundary import check_backtest_source, validate
 from projection.expectations import load_expectations, load_source
 from projection.source import FinancialSource
@@ -94,6 +100,7 @@ def test_the_real_database_has_the_handoff_counts_and_projects_one_per_row() -> 
         result.rows,
         universe_assets(universe),
         load_guard_catalog(config.schema_dir() / "rules.ttl"),
+        "rule",
     )
     total_rows = sum(len(rows[view]) for view in VIEWS)
     assert sum(projection.individuals.values()) == total_rows
@@ -122,7 +129,7 @@ def test_the_three_real_databases_have_disjoint_window_qualified_iris() -> None:
             rows = {view: read_view(source, view) for view in VIEWS}
         finally:
             source.close()
-        projection = project(rows, assets, catalog)
+        projection = project(rows, assets, catalog, "rule")
         for graph in projection.graphs.values():
             iris.update(subject for subject, _, _ in graph.triples)
     assert len(iris) == 18_062 + 17_129 + 19_421

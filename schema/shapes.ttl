@@ -245,12 +245,13 @@
 :UniverseMembershipShape
     a sh:NodeShape ;
     sh:targetClass :UniverseMembership ;
-    # T-220: the Asset end's class, so the gate's context read follows a stored Asset a membership
-    # batch points at. Without `sh:class` it fetched only rdf:type, and AssetShape then failed on
-    # tickerSymbol/cikNumber for the five assets reference.ttl already declares. The `:Universe`
-    # end waits on T-227: the backtest projector's dry-run context does not type :SP500Index.
+    # T-220/T-227: the Asset and Universe ends' classes, so the gate's context read follows a
+    # stored Asset a membership batch points at. Without `sh:class :Asset` it fetched only
+    # rdf:type, and AssetShape then failed on tickerSymbol/cikNumber for the five assets
+    # reference.ttl already declares; without `sh:class :Universe` the projector's dry-run context
+    # did not type :SP500Index.
     sh:property [ sh:path :membershipAsset ; sh:class :Asset ; sh:minCount 1 ; sh:maxCount 1 ] ;
-    sh:property [ sh:path :membershipUniverse ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :membershipUniverse ; sh:class :Universe ; sh:minCount 1 ; sh:maxCount 1 ] ;
     sh:property [ sh:path :validFrom ; sh:datatype xsd:date ; sh:minCount 1 ; sh:maxCount 1 ; sh:lessThan :validTo ] ;
     # T-100: validTo is exclusive, so a stint with validTo <= validFrom would hold on no date.
     sh:property [ sh:path :validTo ; sh:datatype xsd:date ; sh:maxCount 1 ] .
@@ -406,7 +407,11 @@
     sh:targetClass :StrategyBook ;
     sh:property [ sh:path :bookId ; sh:datatype xsd:integer ; sh:minCount 1 ; sh:maxCount 1 ] ;
     sh:property [ sh:path :backtestRunId ; sh:datatype xsd:integer ; sh:minCount 1 ; sh:maxCount 1 ] ;
-    sh:property [ sh:path :windowId ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ; sh:in ("P1" "P2" "P3") ] ;
+    # The operator's run label (T-233), required on the two classes with no book link. Window and
+    # segment are patterns since T-234: a typo in a window's digits is no longer caught.
+    sh:property [ sh:path :runLabel ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ;
+                  sh:pattern "^[a-z][a-z0-9_]{1,31}$" ] ;
+    sh:property [ sh:path :windowId ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ; sh:pattern "^P[0-9]+$" ] ;
     sh:property [ sh:path :backtestStartDate ; sh:datatype xsd:date ; sh:minCount 1 ; sh:maxCount 1 ] ;
     sh:property [ sh:path :backtestEndDate ; sh:datatype xsd:date ; sh:minCount 1 ; sh:maxCount 1 ] ;
     sh:property [ sh:path :runStatus ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ] ;
@@ -451,7 +456,7 @@
     sh:targetClass :GuardAlert ;
     sh:property [ sh:path :alertId ; sh:datatype xsd:integer ; sh:minCount 1 ; sh:maxCount 1 ] ;
     sh:property [ sh:path :backtestRunId ; sh:datatype xsd:integer ; sh:minCount 1 ; sh:maxCount 1 ] ;
-    sh:property [ sh:path :windowId ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ; sh:in ("P1" "P2" "P3") ] ;
+    sh:property [ sh:path :windowId ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ; sh:pattern "^P[0-9]+$" ] ;
     # v_guard_alert.knowledge_date = date (handoff §3.2).
     sh:property [ sh:path :alertDate ; sh:datatype xsd:date ; sh:minCount 1 ; sh:maxCount 1 ;
                   sh:equals :knowledgeDate ] ;
@@ -523,7 +528,7 @@
     sh:property [ sh:path :backtestRunId ; sh:datatype xsd:integer ; sh:minCount 1 ; sh:maxCount 1 ] ;
     sh:property [ sh:path :armCode ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ;
                   sh:in ("MARKOWITZ_BASE" "TOPN_MV_NOGUARD" "TOPN_MV_GUARD_NO_NLP" "TOPN_MV_GUARD") ] ;
-    sh:property [ sh:path :windowId ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ; sh:in ("P1" "P2" "P3") ] ;
+    sh:property [ sh:path :windowId ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ; sh:pattern "^P[0-9]+$" ] ;
     # v_book_daily_performance.knowledge_date = date (handoff §3.2).
     sh:property [ sh:path :performanceDate ; sh:datatype xsd:date ; sh:minCount 1 ; sh:maxCount 1 ;
                   sh:equals :knowledgeDate ] ;
@@ -548,9 +553,9 @@
     sh:property [ sh:path :backtestRunId ; sh:datatype xsd:integer ; sh:minCount 1 ; sh:maxCount 1 ] ;
     sh:property [ sh:path :armCode ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ;
                   sh:in ("MARKOWITZ_BASE" "TOPN_MV_NOGUARD" "TOPN_MV_GUARD_NO_NLP" "TOPN_MV_GUARD") ] ;
-    sh:property [ sh:path :windowId ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ; sh:in ("P1" "P2" "P3") ] ;
+    sh:property [ sh:path :windowId ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ; sh:pattern "^P[0-9]+$" ] ;
     sh:property [ sh:path :segment ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ;
-                  sh:in ("P1" "P2" "P2a" "P2b" "P3") ] ;
+                  sh:pattern "^P[0-9]+[a-z]?$" ] ;
     sh:property [ sh:path :dateFrom ; sh:datatype xsd:date ; sh:minCount 1 ; sh:maxCount 1 ] ;
     # v_portfolio_period_summary.knowledge_date = date_to (handoff §3.2).
     sh:property [ sh:path :dateTo ; sh:datatype xsd:date ; sh:minCount 1 ; sh:maxCount 1 ;
@@ -571,9 +576,11 @@
     a sh:NodeShape ;
     sh:targetClass :BacktestTest ;
     sh:property [ sh:path :backtestRunId ; sh:datatype xsd:integer ; sh:minCount 1 ; sh:maxCount 1 ] ;
-    sh:property [ sh:path :windowId ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ; sh:in ("P1" "P2" "P3") ] ;
+    sh:property [ sh:path :runLabel ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ;
+                  sh:pattern "^[a-z][a-z0-9_]{1,31}$" ] ;
+    sh:property [ sh:path :windowId ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ; sh:pattern "^P[0-9]+$" ] ;
     sh:property [ sh:path :segment ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ;
-                  sh:in ("P1" "P2" "P2a" "P2b" "P3") ] ;
+                  sh:pattern "^P[0-9]+[a-z]?$" ] ;
     sh:property [ sh:path :armA ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ;
                   sh:in ("MARKOWITZ_BASE" "TOPN_MV_NOGUARD" "TOPN_MV_GUARD_NO_NLP" "TOPN_MV_GUARD") ] ;
     sh:property [ sh:path :armB ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ;

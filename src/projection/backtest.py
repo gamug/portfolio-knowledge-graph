@@ -1,11 +1,14 @@
-"""``v_book`` … ``v_backtest_test`` -> one append-only graph per backtest run (T-207).
+"""``v_book`` … ``v_backtest_test`` -> one append-only graph per backtest run (T-207, T-231).
 
 The eight m018 views are a completed ``portfolio-financial-analysis`` backtest run's own output,
 not an agent's daily batch. This module reads them through the boundary
 (:mod:`projection.boundary`), turns each surviving row into one individual of the Contract v18
 classes and writes the batch for each run into
-``urn:graph:derived:backtest:{window_id}:{backtest_run_id}`` (``docs/07``). The window qualifies
-the name because the three run databases (P1, P2 and P3) each start their ids at 1.
+``urn:graph:derived:backtest:{run_label}:{window_id}:{backtest_run_id}`` (``docs/07``). The window
+qualifies the name because the three run databases (P1, P2 and P3) each start their ids at 1; the
+label qualifies it further because the views expose no run identity (no input hash, no
+parameters), so several result families (``rule``, ``champ_v1``, …) can live in one repository.
+The label reaches every IRI stem too, so two families never share an individual.
 
 Every individual carries ``:knowledgeDate`` exactly as its view gives it. A NULL column is
 omitted, never filled: the handoff §3.3 masks layer-1 alert values, layer-3/4 assets, asset-level
@@ -13,6 +16,11 @@ action weights, ordinary-session target weights and CASH's asset/name. A CASH we
 ``:holdingAsset`` and never creates an ``:Asset`` node. An asset link is written only for a ticker
 that exists in the universe database; a former S&P 500 member absent from that small database
 keeps its ``:guardTicker``/``:holdingKey`` and is counted, not dropped.
+
+The window and segment vocabularies are patterns, not closed lists: ``windowId`` is ``P<number>``
+and ``segment`` is ``P<number>`` with an optional lowercase sub-period suffix (``P2a``), so a new
+window needs no schema change (T-234). The arm vocabulary stays closed.
+
 
 A GUARD alert's ``:alertRule`` points at the matching ``:Rule_{rule_id}`` in ``schema/rules.ttl``;
 an unknown rule id, or a view layer that disagrees with the rule's ``:guardLayer``, stops the run.
@@ -77,8 +85,19 @@ ORDER: dict[str, tuple[str, ...]] = {
 }
 
 GRAPH_PREFIX = "urn:graph:derived:backtest:"
-WINDOW_IDS = frozenset({"P1", "P2", "P3"})
+#: A run label: the operator's name for one result family (``--db LABEL=PATH``). Lowercase,
+#: 2-32 characters, and the same pattern SHACL's ``:runLabel`` enforces (T-233).
+RUN_LABEL_PATTERN = r"[a-z][a-z0-9_]{1,31}"
+#: A window id. It was the closed set ``P1|P2|P3``; it is now open to ``P<number>`` so new data
+#: needs no schema change (T-234).
+WINDOW_PATTERN = r"P[0-9]+"
+#: A segment: a window id plus an optional lowercase sub-period suffix (``P2a``, ``P2b``).
+SEGMENT_PATTERN = r"P[0-9]+[a-z]?"
 ARMS = frozenset({"MARKOWITZ_BASE", "TOPN_MV_NOGUARD", "TOPN_MV_GUARD_NO_NLP", "TOPN_MV_GUARD"})
+
+_RUN_LABEL = re.compile(RUN_LABEL_PATTERN)
+_WINDOW = re.compile(WINDOW_PATTERN)
+_SEGMENT = re.compile(SEGMENT_PATTERN)
 
 _PREFIXES = (
     "@prefix : <https://thesis.local/kg/portfolio#> .\n"
@@ -201,6 +220,9 @@ def validation_context(assets: Mapping[str, AssetInfo], catalog: GuardCatalog) -
     context = rdflib.Graph()
     for triple in catalog.graph:
         context.add(triple)
+    # T-227: `:membershipUniverse` carries `sh:class :Universe`; a membership the context adds must
+    # point at a typed Universe, and the store would hold that type for `:SP500Index`.
+    context.add((KG.SP500Index, RDF.type, KG.Universe))
     for symbol, info in assets.items():
         asset = KG[symbol]
         context.add((asset, RDF.type, KG.Asset))
@@ -299,13 +321,31 @@ def _name(term: Node) -> str:
 # --- identifiers and value checks ---------------------------------------------------------------
 
 
-def graph_name(window: str, run_id: int) -> str:
+def graph_name(label: str, window: str, run_id: int) -> str:
     """The named graph of one completed backtest run (``docs/07``)."""
-    if window not in WINDOW_IDS:
-        raise ProjectionError(f"window_id {window!r} is not P1, P2 or P3")
+    if not _RUN_LABEL.fullmatch(label):
+        raise ProjectionError(f"run label {label!r} does not match {RUN_LABEL_PATTERN}")
+    if not _WINDOW.fullmatch(window):
+        raise ProjectionError(f"window_id {window!r} does not match {WINDOW_PATTERN}")
     if not isinstance(run_id, int) or isinstance(run_id, bool) or run_id < 1:
         raise ProjectionError(f"backtest_run_id {run_id!r} is not a positive integer")
-    return f"{GRAPH_PREFIX}{window}:{run_id}"
+    return f"{GRAPH_PREFIX}{label}:{window}:{run_id}"
+
+
+def _window(value: object, where: str) -> str:
+    """A window id: ``P<number>`` (T-234)."""
+    text = str(value)
+    if not _WINDOW.fullmatch(text):
+        raise ProjectionError(f"{where}: window_id {text!r} does not match {WINDOW_PATTERN}")
+    return text
+
+
+def _segment(value: object, where: str) -> str:
+    """A segment: ``P<number>`` plus an optional lowercase sub-period suffix (T-234)."""
+    text = str(value)
+    if not _SEGMENT.fullmatch(text):
+        raise ProjectionError(f"{where}: segment {text!r} does not match {SEGMENT_PATTERN}")
+    return text
 
 
 def _safe(value: object, what: str, where: str) -> str:
@@ -377,6 +417,7 @@ def _bool_lit(value: int) -> rdflib.Literal:
 class _Book:
     row: Row
     graph: str
+    label: str
     window: str
     run_id: int
     arm: str
@@ -426,16 +467,20 @@ def project(
     rows: Mapping[str, Sequence[Row]],
     assets: Mapping[str, AssetInfo],
     catalog: GuardCatalog,
+    label: str,
 ) -> Projection:
     """Turn the validated rows into one deterministic batch per backtest run.
 
     Every row that reaches here becomes one individual; the projection refuses (rather than
-    silently drops) a row it cannot identify, link or type.
+    silently drops) a row it cannot identify, link or type. ``label`` names the run family and
+    reaches the graph name and every IRI stem.
     """
+    if not _RUN_LABEL.fullmatch(label):
+        raise ProjectionError(f"run label {label!r} does not match {RUN_LABEL_PATTERN}")
     out = Projection()
     for view in VIEWS:
         out.rows[view] = len(rows.get(view, ()))
-    books = _books(rows.get("v_book", ()), out)
+    books = _books(rows.get("v_book", ()), label, out)
     by_book_id = {_int_row(book.row, "book_id", "v_book"): book for book in books}
     runs: dict[int, str] = {}
     for book in books:
@@ -443,13 +488,13 @@ def project(
             raise ProjectionError(
                 f"v_book: run {book.run_id} appears in windows {runs[book.run_id]} and {book.window}"
             )
-    alerts = _alerts(rows.get("v_guard_alert", ()), runs, assets, catalog, out)
+    alerts = _alerts(rows.get("v_guard_alert", ()), runs, assets, catalog, label, out)
     _rebalances(rows.get("v_book_rebalance", ()), by_book_id, out)
     _actions(rows.get("v_guard_action", ()), by_book_id, alerts, assets, out)
     _weights(rows.get("v_book_weight_daily", ()), by_book_id, assets, out)
     _performance(rows.get("v_book_daily_performance", ()), by_book_id, out)
     _summaries(rows.get("v_portfolio_period_summary", ()), by_book_id, out)
-    _tests(rows.get("v_backtest_test", ()), runs, out)
+    _tests(rows.get("v_backtest_test", ()), runs, label, out)
     return out
 
 
@@ -457,25 +502,26 @@ def _int_row(row: Row, column: str, view: str, key: str = "id") -> int:
     return _integer(_required(row, column, _where(view, row, key)), column, _where(view, row, key))
 
 
-def _books(rows: Sequence[Row], out: Projection) -> list[_Book]:
+def _books(rows: Sequence[Row], label: str, out: Projection) -> list[_Book]:
     books: list[_Book] = []
     seen: set[rdflib.URIRef] = set()
     for row in rows:
         where = _where("v_book", row, "book_id")
-        window = str(_required(row, "window_id", where))
+        window = _window(_required(row, "window_id", where), where)
         run_id = _int_row(row, "backtest_run_id", "v_book", "book_id")
         arm = _safe(_required(row, "arm_code", where), "arm_code", where)
         if arm not in ARMS:
             raise ProjectionError(f"{where}: arm_code {arm!r} is not a Contract v18 arm")
-        iri = KG[f"Book_{window}_{arm}"]
+        iri = KG[f"Book_{label}_{window}_{arm}"]
         if iri in seen:
             raise ProjectionError(f"{where}: two books would share the IRI {_n3(iri)}")
         seen.add(iri)
-        book = _Book(row, graph_name(window, run_id), window, run_id, arm, iri)
+        book = _Book(row, graph_name(label, window, run_id), label, window, run_id, arm, iri)
         books.append(book)
         builder = out.individual(book.graph, iri, "StrategyBook")
         builder.add(iri, KG.bookId, _int_lit(_int_row(row, "book_id", "v_book", "book_id")))
         builder.add(iri, KG.backtestRunId, _int_lit(run_id))
+        builder.add(iri, KG.runLabel, rdflib.Literal(label))
         builder.add(iri, KG.windowId, rdflib.Literal(window))
         builder.add(
             iri,
@@ -513,18 +559,19 @@ def _books(rows: Sequence[Row], out: Projection) -> list[_Book]:
     return books
 
 
-def _alerts(
+def _alerts(  # noqa: PLR0913, PLR0917 -- the call site reads better with the names explicit
     rows: Sequence[Row],
     runs: Mapping[int, str],
     assets: Mapping[str, AssetInfo],
     catalog: GuardCatalog,
+    label: str,
     out: Projection,
 ) -> dict[tuple[str, int], rdflib.URIRef]:
     iris: dict[tuple[str, int], rdflib.URIRef] = {}
     for row in rows:
         where = _where("v_guard_alert", row, "alert_id")
         run_id = _int_row(row, "backtest_run_id", "v_guard_alert", "alert_id")
-        window = str(_required(row, "window_id", where))
+        window = _window(_required(row, "window_id", where), where)
         if runs.get(run_id) != window:
             raise ProjectionError(
                 f"{where}: run {run_id} belongs to window {runs.get(run_id)!r}, not {window!r}"
@@ -539,12 +586,12 @@ def _alerts(
             raise ProjectionError(
                 f"{where}: layer {layer} disagrees with {rule_id}'s guardLayer {rule.layer}"
             )
-        iri = KG[f"GuardAlert_{window}_{alert_id}"]
+        iri = KG[f"GuardAlert_{label}_{window}_{alert_id}"]
         key = (window, alert_id)
         if key in iris:
             raise ProjectionError(f"{where}: two alerts would share the IRI {_n3(iri)}")
         iris[key] = iri
-        graph = graph_name(window, run_id)
+        graph = graph_name(label, window, run_id)
         builder = out.individual(graph, iri, "GuardAlert")
         builder.add(iri, KG.alertId, _int_lit(alert_id))
         builder.add(iri, KG.backtestRunId, _int_lit(run_id))
@@ -610,7 +657,7 @@ def _rebalances(rows: Sequence[Row], books: Mapping[int, _Book], out: Projection
             raise ProjectionError(f"{where}: book_id is not a v_book row")
         _same_book(row, book, where)
         execution = _day(_required(row, "execution_date", where), "execution_date", where)
-        iri = KG[f"Rebalance_{book.window}_{book.arm}_{_day_key(execution)}"]
+        iri = KG[f"Rebalance_{book.label}_{book.window}_{book.arm}_{_day_key(execution)}"]
         if iri in seen:
             raise ProjectionError(f"{where}: two rebalances would share {_n3(iri)}")
         seen.add(iri)
@@ -683,7 +730,7 @@ def _actions(
                 f"{where}: alert_id {alert_id} is not a v_guard_alert row of window {book.window}"
             )
         action_id = _int_row(row, "action_id", "v_guard_action", "action_id")
-        iri = KG[f"GuardAction_{book.window}_{action_id}"]
+        iri = KG[f"GuardAction_{book.label}_{book.window}_{action_id}"]
         if iri in seen:
             raise ProjectionError(f"{where}: two actions would share the IRI {_n3(iri)}")
         seen.add(iri)
@@ -749,7 +796,7 @@ def _weights(
         _same_book(row, book, where)
         day = _day(_required(row, "date", where), "date", where)
         holding_key = _safe(_required(row, "holding_key", where), "holding_key", where)
-        iri = KG[f"BookWeight_{book.window}_{book.arm}_{_day_key(day)}_{holding_key}"]
+        iri = KG[f"BookWeight_{book.label}_{book.window}_{book.arm}_{_day_key(day)}_{holding_key}"]
         if iri in seen:
             raise ProjectionError(f"{where}: two weight rows would share the IRI {_n3(iri)}")
         seen.add(iri)
@@ -816,7 +863,7 @@ def _performance(rows: Sequence[Row], books: Mapping[int, _Book], out: Projectio
                 f"{where}: window_id {row.get('window_id')!r} disagrees with the book's {book.window!r}"
             )
         day = _day(_required(row, "date", where), "date", where)
-        iri = KG[f"BookPerf_{book.window}_{book.arm}_{_day_key(day)}"]
+        iri = KG[f"BookPerf_{book.label}_{book.window}_{book.arm}_{_day_key(day)}"]
         if iri in seen:
             raise ProjectionError(f"{where}: two performance rows would share {_n3(iri)}")
         seen.add(iri)
@@ -876,8 +923,8 @@ def _summaries(rows: Sequence[Row], books: Mapping[int, _Book], out: Projection)
             raise ProjectionError(
                 f"{where}: window_id {row.get('window_id')!r} disagrees with the book's {book.window!r}"
             )
-        segment = _safe(_required(row, "segment", where), "segment", where)
-        iri = KG[f"PeriodSummary_{book.window}_{book.arm}_{segment}"]
+        segment = _segment(_required(row, "segment", where), where)
+        iri = KG[f"PeriodSummary_{book.label}_{book.window}_{book.arm}_{segment}"]
         if iri in seen:
             raise ProjectionError(f"{where}: two summaries would share {_n3(iri)}")
         seen.add(iri)
@@ -934,26 +981,27 @@ def _summaries(rows: Sequence[Row], books: Mapping[int, _Book], out: Projection)
         )
 
 
-def _tests(rows: Sequence[Row], runs: Mapping[int, str], out: Projection) -> None:
+def _tests(rows: Sequence[Row], runs: Mapping[int, str], label: str, out: Projection) -> None:
     seen: set[rdflib.URIRef] = set()
     for row in rows:
         where = _where("v_backtest_test", row, "test")
         run_id = _int_row(row, "backtest_run_id", "v_backtest_test", "test")
-        window = str(_required(row, "window_id", where))
+        window = _window(_required(row, "window_id", where), where)
         if runs.get(run_id) != window:
             raise ProjectionError(
                 f"{where}: run {run_id} belongs to window {runs.get(run_id)!r}, not {window!r}"
             )
-        segment = _safe(_required(row, "segment", where), "segment", where)
+        segment = _segment(_required(row, "segment", where), where)
         arm_a = _safe(_required(row, "arm_a", where), "arm_a", where)
         arm_b = _safe(_required(row, "arm_b", where), "arm_b", where)
         test = _safe(_required(row, "test", where), "test", where)
-        iri = KG[f"BacktestTest_{window}_{segment}_{arm_a}_{arm_b}_{test}"]
+        iri = KG[f"BacktestTest_{label}_{window}_{segment}_{arm_a}_{arm_b}_{test}"]
         if iri in seen:
             raise ProjectionError(f"{where}: two tests would share {_n3(iri)}")
         seen.add(iri)
-        builder = out.individual(graph_name(window, run_id), iri, "BacktestTest")
+        builder = out.individual(graph_name(label, window, run_id), iri, "BacktestTest")
         builder.add(iri, KG.backtestRunId, _int_lit(run_id))
+        builder.add(iri, KG.runLabel, rdflib.Literal(label))
         builder.add(iri, KG.windowId, rdflib.Literal(window))
         builder.add(iri, KG.segment, rdflib.Literal(segment))
         builder.add(iri, KG.armA, rdflib.Literal(arm_a))
@@ -1033,12 +1081,15 @@ def run(
     source: FinancialSource,
     assets: Mapping[str, AssetInfo],
     catalog: GuardCatalog,
+    label: str,
     store: GraphDB | None = None,
 ) -> RunResult:
     """Read, check, project and (when ``store`` is given) write the eight m018 views.
 
-    The source check runs before the other seven views are read: a database whose backtest run is
-    not ``completed`` is refused, never projected partially. The boundary then checks every view
+    ``label`` is the operator's name for this run family (``--db LABEL=PATH``): the views expose
+    no run identity, so it is what keeps two families' graphs and individuals apart. The source
+    check runs before the other seven views are read: a database whose backtest run is not
+    ``completed`` is refused, never projected partially. The boundary then checks every view
     against its shipped expectation file. A dry run validates each graph beside the rules and
     assets from ``schema/``/the universe database; a write hands the batches to the ingest gate,
     which fetches that context from the store.
@@ -1053,7 +1104,7 @@ def run(
         {view: expectations[view] for view in VIEWS},
         source_failures=source_failures,
     )
-    projection = project(result.rows, assets, catalog)
+    projection = project(result.rows, assets, catalog, label)
     out = RunResult(
         result.report,
         projection.rows,
@@ -1095,8 +1146,10 @@ def _graph_exists(store: GraphDB, graph: str) -> bool:
 __all__ = [
     "ARMS",
     "GRAPH_PREFIX",
+    "RUN_LABEL_PATTERN",
+    "SEGMENT_PATTERN",
     "VIEWS",
-    "WINDOW_IDS",
+    "WINDOW_PATTERN",
     "AssetInfo",
     "BoundaryReport",
     "Failure",

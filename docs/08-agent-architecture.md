@@ -134,7 +134,7 @@ code; not run here. Differences from the design above:
 The stint model and the T-1 predicate (T-102) and the rule catalog (T-103) are reflected in
 `schema/`; see `schema/README.md` for the SPARQL pattern.
 
-## Contract v18 backtest/GUARD projection (T-206/T-207)
+## Contract v18 backtest/GUARD projection (T-206/T-207, T-230–T-234)
 
 The eight m018 views (`v_book`, `v_book_rebalance`, `v_guard_alert`, `v_guard_action`,
 `v_book_weight_daily`, `v_book_daily_performance`, `v_portfolio_period_summary`, `v_backtest_test`)
@@ -143,23 +143,36 @@ here. No agent in this document computes them. The writer is the step-2 projecto
 (`src/projection/backtest.py`, policy in `src/projection/project_backtest.py`, CLI
 `cli/project_backtest.py`), which reads the views and writes `StrategyBook`, `BookRebalance`,
 `GuardAlert`, `GuardAction`, `BookWeightDaily`, `BookDailyPerformance`, `PortfolioPeriodSummary`
-and `BacktestTest` individuals into `urn:graph:derived:backtest:{window_id}:{backtest_run_id}`
-(`docs/07`), each carrying `:knowledgeDate`. Run it with:
+and `BacktestTest` individuals into
+`urn:graph:derived:backtest:{run_label}:{window_id}:{backtest_run_id}` (`docs/07`), each carrying
+`:knowledgeDate`. The run label is the operator's name for one result family, because the views
+carry no run identity of their own (no input hash, no parameters): it is required on
+`StrategyBook` and `BacktestTest`, reaches every individual IRI stem, and lets several families
+(e.g. `rule` and `champ_v1`) share a window in one repository. Run it with:
 
 ```bash
-uv run python cli/project_backtest.py --db rule_P1.db --db rule_P2.db   # dry run: read, check, SHACL
-uv run python cli/project_backtest.py --db rule_P1.db --write           # append through the gate
+uv run python cli/project_backtest.py --db rule=rule_P1.db --db rule=rule_P2.db  # dry run: read, check, SHACL
+uv run python cli/project_backtest.py --db rule=rule_P1.db --write               # append through the gate
 ```
 
-A dry run is the default and never contacts the store. `--write` appends each run's graph through
-the ingest gate; a graph that already exists is reported and skipped, and the production repository
-needs `--to-production` as well (a backtest is a frozen artifact; where it lives is the
-maintainer's decision). The writer reads only the eight views, never a base table, and keeps a
-masked/NULL column out of the Turtle rather than filling it. A GUARD alert points at its
-`:Rule_{rule_id}` and the projector refuses a rule id it does not know or a view layer that
-disagrees with the rule's `:guardLayer`. An asset link is written only for a ticker in the
-universe database; a former index member absent from that small database keeps its
+`--db` takes `LABEL=PATH` (repeatable). A label is `[a-z][a-z0-9_]{1,31}`; a missing or malformed
+one, a database repeated on the command line, or two databases that would write the same graph
+exits 2 before any graph is built or written. A dry run is the default and never contacts the
+store. `--write`
+appends each run's graph through the ingest gate; a graph that already exists is reported and
+skipped, and the production repository needs `--to-production` as well (a backtest is a frozen
+artifact; where it lives is the maintainer's decision). The writer reads only the eight views,
+never a base table, and keeps a masked/NULL column out of the Turtle rather than filling it. A
+GUARD alert points at its `:Rule_{rule_id}` and the projector refuses a rule id it does not know or
+a view layer that disagrees with the rule's `:guardLayer`. An asset link is written only for a
+ticker in the universe database; a former index member absent from that small database keeps its
 `:guardTicker`/`:holdingKey` and is counted.
+
+The window and segment vocabularies are patterns, not closed lists: `windowId` must match
+`P[0-9]+` and `segment` `P[0-9]+[a-z]?`, in the projector, the gate's graph pattern and
+`shapes.ttl`. A new window (`P4`) or sub-period (`P2c`) therefore needs no schema change; the
+trade-off, stated in `docs/06` §1.10, is that SHACL no longer catches a mistyped window number.
+The arm list stays closed.
 
 The full asset master makes those links resolve. Load it once per repository with
 `uv run python cli/load_universe.py --write` (`docs/graphdb-setup.md`), then run the projector with
@@ -183,7 +196,7 @@ Two rules the projector keeps, both from the handoff §3.3 and the completed P1/
   disabled in the 2022–2025 backtest.
 
 The dry runs over `rule_P1/P2/P3.db` and their row/triple counts are recorded in `SPEC.md` §2.6 and
-`TASKS.md` T-207; no store was written.
+`TASKS.md` T-207/T-230–T-236; no store was written.
 
 ---
 

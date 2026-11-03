@@ -390,6 +390,7 @@ SHARED_PROPERTIES = (
     "backtestRunId",
     "armCode",
     "windowId",
+    "runLabel",
     "knowledgeDate",
     "status",
     "decisionDate",
@@ -460,6 +461,7 @@ def _add_book(g: rdflib.Graph) -> None:
     g.add((BOOK, RDF.type, KG.StrategyBook))
     g.add((BOOK, KG.bookId, _int(1)))
     g.add((BOOK, KG.backtestRunId, _int(1)))
+    g.add((BOOK, KG.runLabel, rdflib.Literal("rule")))
     g.add((BOOK, KG.windowId, rdflib.Literal("P1")))
     g.add((BOOK, KG.backtestStartDate, _date("2022-01-03")))
     g.add((BOOK, KG.backtestEndDate, _date("2022-10-12")))
@@ -608,6 +610,7 @@ def _add_summary(g: rdflib.Graph) -> None:
 def _add_test(g: rdflib.Graph) -> None:
     g.add((TEST, RDF.type, KG.BacktestTest))
     g.add((TEST, KG.backtestRunId, _int(1)))
+    g.add((TEST, KG.runLabel, rdflib.Literal("rule")))
     g.add((TEST, KG.windowId, rdflib.Literal("P1")))
     g.add((TEST, KG.segment, rdflib.Literal("P1")))
     g.add((TEST, KG.armA, rdflib.Literal("MARKOWITZ_BASE")))
@@ -707,6 +710,8 @@ def test_an_orchestrator_step_with_only_its_key_conforms(
         (PERFORMANCE, KG.nav),
         (SUMMARY, KG.maxDrawdown),
         (TEST, KG.testName),
+        (BOOK, KG.runLabel),
+        (TEST, KG.runLabel),
         (TICKER, KG.tickerHistoryCik),
         (RUN, KG.orchestratorRunId),
         (STEP, KG.stepOfOrchestratorRun),
@@ -723,6 +728,8 @@ def test_an_orchestrator_step_with_only_its_key_conforms(
         "performance-nav",
         "summary-drawdown",
         "test-name",
+        "book-run-label",
+        "test-run-label",
         "ticker-cik",
         "run-id",
         "step-run",
@@ -749,6 +756,11 @@ def test_a_missing_required_property_is_caught(
         (TEST, KG.testName, rdflib.Literal("BOGUS")),
         (SUMMARY, KG.segment, rdflib.Literal("BOGUS")),
         (BOOK, KG.excludeHardVetoed, _int(0)),
+        (BOOK, KG.runLabel, rdflib.Literal("Rule")),
+        (TEST, KG.runLabel, rdflib.Literal("r")),
+        (BOOK, KG.windowId, rdflib.Literal("Q1")),
+        (TEST, KG.windowId, rdflib.Literal("P1a")),
+        (SUMMARY, KG.segment, rdflib.Literal("P2A")),
     ],
     ids=[
         "alert-state",
@@ -757,6 +769,11 @@ def test_a_missing_required_property_is_caught(
         "test-name",
         "segment",
         "boolean-as-integer",
+        "upper-case-label",
+        "too-short-label",
+        "window-not-p-number",
+        "window-with-suffix",
+        "segment-upper-case-suffix",
     ],
 )
 def test_an_invalid_value_is_caught(
@@ -770,6 +787,31 @@ def test_an_invalid_value_is_caught(
     g.remove((subject, path, None))
     g.add((subject, path, value))
     assert _violations(g, shapes) == {(subject, path)}
+
+
+@pytest.mark.parametrize(
+    ("subject", "path", "value"),
+    [
+        (BOOK, KG.windowId, rdflib.Literal("P4")),
+        (TEST, KG.windowId, rdflib.Literal("P12")),
+        (SUMMARY, KG.segment, rdflib.Literal("P2c")),
+        (TEST, KG.segment, rdflib.Literal("P12z")),
+        (BOOK, KG.runLabel, rdflib.Literal("champ_v1")),
+    ],
+    ids=["new-window", "two-digit-window", "new-sub-period", "two-digit-sub-period", "family"],
+)
+def test_a_new_window_sub_period_or_label_conforms(
+    bundle: rdflib.Dataset,
+    shapes: rdflib.Graph,
+    subject: rdflib.URIRef,
+    path: rdflib.URIRef,
+    value: rdflib.Literal,
+) -> None:
+    """T-234: the windows and segments are patterns; an unseen P<number> needs no schema edit."""
+    g = _m018(bundle)
+    g.remove((subject, path, None))
+    g.add((subject, path, value))
+    assert _violations(g, shapes) == set()
 
 
 def test_a_layer_one_alert_without_a_value_conforms(
