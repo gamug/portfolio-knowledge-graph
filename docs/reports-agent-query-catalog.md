@@ -65,13 +65,19 @@ is the template.
 
 ### A1. One or more of our terms, with the FIBO link in the same `OPTIONAL`
 
-`A1` explains several of our terms at once. `:Asset` deliberately has no FIBO
-link: one `:Asset` is one ticker symbol, not one company, so FIBO's
-`LegalPerson`/`PubliclyHeldCompany` would misstate multi-class companies and
-reused tickers. The `:Asset` row therefore comes back with every `?fibo*`
-variable unbound; it is not dropped, and it does not cross-join the glossary.
+`A1` explains ten of our terms at once: `:Portfolio`, `:PortfolioPosition`,
+`:Sector`, `:Industry`, `:SECFiling`, `:Asset`, `:Universe`,
+`:UniverseMembership`, `:PriceObservation` and `:Executive`. Five of them have
+a FIBO link (`:Portfolio`, `:PortfolioPosition`, `:Sector`, `:Industry` and
+`:SECFiling`); the other five come back with every `?fibo*` variable unbound.
+`:Asset` is deliberately one of the unbound ones: one `:Asset` is one ticker
+symbol, not one company, so FIBO's `LegalPerson`/`PubliclyHeldCompany` would
+misstate multi-class companies and reused tickers (its own definition names
+GOOGL and GOOG). `:Universe` and `:UniverseMembership`, `:PriceObservation`
+and `:Executive` have no FIBO link for the reasons `docs/06` §1.1 gives. The
+rows are not dropped, and they do not cross-join the glossary.
 
-<!-- q:A1-terms expect:6 -->
+<!-- q:A1-terms expect:10 -->
 
 ```sparql
 PREFIX :     <https://thesis.local/kg/portfolio#>
@@ -80,7 +86,10 @@ PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
 
 SELECT ?term ?labelEs ?defEs ?fibo ?fiboLabelEs ?fiboDefEs ?fiboDef
 WHERE {
-  VALUES ?term { :Portfolio :PortfolioPosition :Sector :Industry :SECFiling :Asset }
+  VALUES ?term {
+    :Portfolio :PortfolioPosition :Sector :Industry :SECFiling :Asset
+    :Universe :UniverseMembership :PriceObservation :Executive
+  }
 
   GRAPH <urn:graph:tbox> {
     ?term rdfs:label ?labelEs ; skos:definition ?defEs .
@@ -120,6 +129,69 @@ WHERE {
   GRAPH <urn:graph:reference:fibo> {
     ?term rdfs:label ?l .
     FILTER (lang(?l) = "es" && lcase(str(?l)) = "volatilidad")
+    ?term skos:definition ?fiboDef .
+    FILTER (!langMatches(lang(?fiboDef), "es"))
+    OPTIONAL { ?term skos:definition ?defEs FILTER (lang(?defEs) = "es") }
+  }
+}
+```
+
+The same shape answers the other Spanish labels the evaluation questions name.
+`A2-equity-index` is the FIBO `EquityIndex` term; the `:SP500Index` individual
+itself is written by the asset loader, not by this slice. `A2-price-close`
+returns both price terms, which have no `rdfs:seeAlso` from
+`:PriceObservation`: FIBO's adjusted close includes dividends, while our
+`PriceObservation` close is split-adjusted and price-only. `A2-sec` is the
+regulator FIBO names.
+
+<!-- q:A2-equity-index expect:1 -->
+
+```sparql
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+
+SELECT ?term ?defEs ?fiboDef
+WHERE {
+  GRAPH <urn:graph:reference:fibo> {
+    ?term rdfs:label ?l .
+    FILTER (lang(?l) = "es" && lcase(str(?l)) = "índice bursátil de renta variable")
+    ?term skos:definition ?fiboDef .
+    FILTER (!langMatches(lang(?fiboDef), "es"))
+    OPTIONAL { ?term skos:definition ?defEs FILTER (lang(?defEs) = "es") }
+  }
+}
+```
+
+<!-- q:A2-price-close expect:2 -->
+
+```sparql
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+
+SELECT ?term ?defEs ?fiboDef
+WHERE {
+  GRAPH <urn:graph:reference:fibo> {
+    ?term rdfs:label ?l .
+    FILTER (lang(?l) = "es" && lcase(str(?l)) IN ("precio de cierre", "precio de cierre ajustado"))
+    ?term skos:definition ?fiboDef .
+    FILTER (!langMatches(lang(?fiboDef), "es"))
+    OPTIONAL { ?term skos:definition ?defEs FILTER (lang(?defEs) = "es") }
+  }
+}
+ORDER BY ?term
+```
+
+<!-- q:A2-sec expect:1 -->
+
+```sparql
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+
+SELECT ?term ?defEs ?fiboDef
+WHERE {
+  GRAPH <urn:graph:reference:fibo> {
+    ?term rdfs:label ?l .
+    FILTER (lang(?l) = "es" && lcase(str(?l)) = "comisión de bolsa y valores de ee. uu. (sec)")
     ?term skos:definition ?fiboDef .
     FILTER (!langMatches(lang(?fiboDef), "es"))
     OPTIONAL { ?term skos:definition ?defEs FILTER (lang(?defEs) = "es") }
@@ -426,6 +498,38 @@ GROUP BY ?window ?arm
 ORDER BY ?window ?arm
 ```
 
+### 5.9 Equities per arm on the last performance day
+
+One row per window and arm with the `:nEquity` of the latest
+`:performanceDate`. This is a **backtest book**, not the live portfolio: the
+live portfolio is not projected yet (`v_portfolio_position` has no projector),
+so this number must never be presented as the number of positions in the live
+portfolio.
+
+<!-- q:n-equity-per-arm-on-last-day expect:6 -->
+
+```sparql
+PREFIX : <https://thesis.local/kg/portfolio#>
+
+SELECT ?window ?arm ?date ?nEquity
+WHERE {
+  GRAPH ?g {
+    ?perf a :BookDailyPerformance ; :windowId ?window ; :armCode ?arm ;
+      :performanceDate ?date ; :nEquity ?nEquity .
+  }
+  FILTER (STRSTARTS(STR(?g), "urn:graph:derived:backtest:"))
+  FILTER NOT EXISTS {
+    GRAPH ?g2 {
+      ?later a :BookDailyPerformance ; :windowId ?window ; :armCode ?arm ;
+        :performanceDate ?laterDate .
+    }
+    FILTER (STRSTARTS(STR(?g2), "urn:graph:derived:backtest:"))
+    FILTER (?laterDate > ?date)
+  }
+}
+ORDER BY ?window ?arm
+```
+
 ## 6. Limits: what this graph can and cannot answer
 
 The status column is one of:
@@ -444,27 +548,29 @@ The status column is one of:
   Per-asset daily returns and drifted weights are masked at the source under
   the Tiingo non-redistribution rule; weights are exposed only on decision and
   execution dates.
+- **Not projected yet** — the graph has the term but no data of that kind and
+  no projector is scheduled: executives of a company, the live portfolio.
 
 ### 6.1 The brief's eleven evaluation questions
 
 The integration brief is an external, untracked document (`docs/fibo_kg/` is
-gitignored); this table is the catalog's record of the eleven questions its
-§6 asks the reports agent to answer, kept here so the contract is
-self-contained and the test can pin the count and the statuses.
+gitignored); the eleven questions below are reproduced verbatim from its §6,
+in its order, so the contract is self-contained and the test can pin the exact
+text and the statuses.
 
 | # | Question (Spanish) | Status | Where |
 |---|---|---|---|
-| Q1 | ¿Qué es un portafolio y qué es una posición del portafolio? | Today | `A1-terms` |
-| Q2 | ¿Qué es un sector y qué es una industria? | Today (the terms); after the asset catalog (which companies belong to each) | `A1-terms`; asset catalog |
-| Q3 | ¿Qué es un documento presentado ante la SEC y qué formularios cubre? | Today | `A1-terms` |
-| Q4 | ¿Qué es un activo y por qué no es exactamente una empresa? | Today (the definition, with no FIBO row by design) | `A1-terms` |
-| Q5 | ¿Qué es la volatilidad? | Today | `A2-volatilidad` |
-| Q6 | ¿Qué es el Sharpe y qué mide un resumen de período? | Today (our own `@es` definition; FIBO has no Sharpe term) | `fibo-missing-sharpe` |
-| Q7 | ¿Qué empresas están en el S&P 500 y cuál es su relación de pertenencia al universo, con símbolo, nombre, sector e industria? | After the asset catalog | asset catalog and `:UniverseMembership` |
-| Q8 | ¿Cómo se comportó cada brazo en cada ventana y segmento? | Today | `performance-window-arm-segment` |
-| Q9 | ¿Por qué salió un activo en un rebalanceo? | After T-209 (GUARD cuts are already explainable today) | `cut-explanation` today; T-209 for selection vetoes |
-| Q10 | ¿Qué símbolo tenía una empresa en una fecha pasada y qué pasos ejecutó el orquestador? | After T-208 | ticker-history and orchestrator views |
-| Q11 | ¿Cuál fue el retorno diario de un activo y cómo derivó su peso entre rebalanceos? | Never by design | `book-weight-daily-properties` shows the absence |
+| Q1 | ¿Qué es una posición en el portafolio? | Today | A1-terms (:PortfolioPosition, which also states that CASH is not a position) |
+| Q2 | ¿Por qué GOOGL y GOOG aparecen como dos activos? | Today | A1-terms (:Asset's own definition names these share classes; no FIBO link by design) |
+| Q3 | ¿Qué es el S&P 500 y cómo se relaciona con el universo de activos? | Today for the definitions (:Universe, :UniverseMembership); After the asset catalog for the :SP500Index individual and its FIBO EquityIndex link, which the asset loader writes | A1-terms and A2 by Spanish label "índice bursátil de renta variable" |
+| Q4 | ¿Qué precio de cierre usa el sistema? ¿Está ajustado por dividendos? | Today | A1-terms (:PriceObservation says: split-adjusted close, not dividend-adjusted, price-only return) plus A2 for "precio de cierre" and "precio de cierre ajustado" (FIBO terms with no link, because FIBO's adjusted close includes dividends) |
+| Q5 | ¿A qué sector GICS pertenece X y qué significa? | The meaning: Today (A1-terms :Sector). The sector of a given company: After the asset catalog | A1-terms; asset catalog |
+| Q6 | ¿Qué es un informe 10-K y quién lo recibe? | Today | A1-terms (:SECFiling) plus A2 for "comisión de bolsa y valores de ee. uu. (sec)" |
+| Q7 | ¿Qué papel tiene X en la empresa Y? | Not projected yet (needs :Executive individuals from DEF 14A; no projector exists or is scheduled) | A1-terms for the class :Executive only |
+| Q8 | ¿Qué es la volatilidad y cómo la usa el sistema? | Today (A2 for "volatilidad" plus the VOLATILITY_SHOCK and BREAK_TREND_200 rules in the rule-catalog query) | A2-volatilidad; the rule catalog query |
+| Q9 | (control) ¿Por qué salió X del portafolio? | GUARD cuts: Today; selection vetoes at a rebalance: After T-209 | cut-explanation |
+| Q10 | (control) ¿Cuántas posiciones tiene el portafolio actual? | Not projected yet for the live portfolio (v_portfolio_position has no projector); for a backtest book, the number of equities per day is :nEquity on BookDailyPerformance (Today) and must NOT be presented as the live portfolio | n-equity-per-arm-on-last-day (new query) |
+| Q11 | (control) ¿Qué empresas del portafolio son bancos o aseguradoras? | After the asset catalog (industries Banks and Insurance come from the GICS classification of the assets, never from FIBO); the brief states the answer must not change with the FIBO slice | note only; no query yet |
 
 ### 6.2 The backtest questions
 
@@ -490,6 +596,9 @@ the agent why a specific asset was excluded; asking `cut-explanation` does not
 tell it what a stop loss means. The two surfaces are complementary and must
 not be substituted for each other.
 
+The brief's control rule: the answers to questions 9 to 11 must not change
+with or without the FIBO slice.
+
 ## 7. Keeping the catalog true
 
 `tests/test_query_catalog.py`:
@@ -503,12 +612,14 @@ not be substituted for each other.
    scenario, projected with `projection.backtest.project`;
 3. runs every query and checks its expectation: an exact row count, a
    non-empty result, or a named rule (`expect:rule=...`);
-4. checks the two extra facts the catalog promises: `:Asset` has no FIBO row
-   in `A1`, and no property named like a drifted weight or a per-asset daily
-   return appears on `BookWeightDaily`/`BookDailyPerformance`;
-5. checks that the limits table still lists eleven evaluation questions and
-   the eight backtest questions, and that the statuses use the five labels
-   above.
+4. checks the no-FIBO rows in `A1` (`:Asset`, `:Universe`,
+   `:UniverseMembership`, `:PriceObservation`, `:Executive`) stay unbound
+   while exactly five of the ten terms carry a FIBO link, and that no
+   property named like a drifted weight or a per-asset daily return appears
+   on `BookWeightDaily`/`BookDailyPerformance`;
+5. checks that the limits table still lists the eleven evaluation questions
+   verbatim and the eight backtest questions, and that the statuses use the
+   six labels above.
 
 The test is hermetic: it reads the committed `.ttl` files and the synthetic
 fixture, never a live GraphDB repository and never a real backtest database.

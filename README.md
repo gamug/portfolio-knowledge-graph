@@ -33,7 +33,7 @@ the numbered docs, in order:
 | `08` | [`docs/08-agent-architecture.md`](docs/08-agent-architecture.md) | The compute-layer *design* — two LangGraph state graphs (`SelectionCycleGraph` quarterly, `MonitoringCycleGraph` daily) for v1's two-speed cycle. Reference only: the cycle is implemented upstream in `portfolio-financial-analysis`'s `cycle` package (mapping at the end of the doc). |
 | `09` | [`docs/09-nlp-finbert-architecture.md`](docs/09-nlp-finbert-architecture.md) | The Semantic Agent's NLP pipeline (FinBERT tone + NER + event/category classification). |
 | `10` | [`docs/10-integration-roadmap.md`](docs/10-integration-roadmap.md) | Dependency-ordered steps (0–9) with the owning repo and status of each. Step 0 (`schema/`) is the only one built here; steps 3–9 are computation built (or planned) in the sibling repos. |
-| — | [`docs/reports-agent-query-catalog.md`](docs/reports-agent-query-catalog.md) | The reports-agent query contract: scoped SPARQL for the FIBO glossary and the backtest battery, the questions the graph cannot answer, and the executable test that keeps the catalog true. |
+| — | [`docs/reports-agent-query-catalog.md`](docs/reports-agent-query-catalog.md) | The reports-agent query contract: scoped SPARQL for the FIBO glossary and the backtest battery, the brief's 11 evaluation questions (including what is not projected yet), and the executable test that keeps the catalog true. |
 
 Each doc is a companion to its neighbors, not standalone — a class defined in `06` gets its
 storage location assigned in `07` and its writer assigned in `08`.

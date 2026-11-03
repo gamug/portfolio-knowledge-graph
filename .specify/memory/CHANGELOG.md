@@ -715,11 +715,12 @@ Documentation only; no code, schema, shape or test logic changed.
 no `src/`, `schema/` or gate change.*
 
 - [x] **T-240** *(done 2026-11-03)* Write `docs/reports-agent-query-catalog.md`: the scope rule
-      (always `GRAPH`, never the default union), the Appendix A lookups (`A1` for several of our
-      terms at once with the FIBO link in the same `OPTIONAL`; `A2` by Spanish label), the terms
-      FIBO does not define (a `@es` definition containing "sharpe": `PortfolioPeriodSummary` and
-      `BacktestTest`), the active rules by category (10 selection + 5 GUARD, active = no
-      `validTo`), and the backtest battery. Every `sparql` block is preceded by
+      (always `GRAPH`, never the default union), the Appendix A lookups (`A1` for ten of our
+      terms at once with the FIBO link in the same `OPTIONAL`; `A2` by Spanish label, the
+      volatility, equity-index, closing-price and SEC terms), the terms FIBO does not define (a
+      `@es` definition containing "sharpe": `PortfolioPeriodSummary` and `BacktestTest`), the
+      active rules by category (10 selection + 5 GUARD, active = no `validTo`), and the backtest
+      battery (including `n-equity-per-arm-on-last-day`). Every `sparql` block is preceded by
       `<!-- q:NAME expect:... -->`. → `PLAN.md` Work item 19, step 1.
 - [x] **T-241** *(done 2026-11-03)* Add `tests/test_query_catalog.py`: parse every tagged query,
       build one in-memory `rdflib.Dataset` from `schema/tbox.ttl` (`urn:graph:tbox`),
@@ -727,14 +728,23 @@ no `src/`, `schema/` or gate change.*
       (`urn:graph:rules:catalog`) and `schema/reference.ttl` (`urn:graph:reference`), plus the
       two synthetic backtest windows (`P1`, `P2`) projected with `projection.backtest.project`;
       run every query and check its exact row count or named rule. The test also pins the A1
-      `:Asset` row with no FIBO link, the two Sharpe-less terms, the 5/1/4/5 active-rule split,
-      and the absence of a drifted weight or a per-asset daily return on `BookWeightDaily` and
-      `BookDailyPerformance`. → step 2.
-- [x] **T-242** *(done 2026-11-03)* Write the limits section: the 11 evaluation questions of
-      brief §6 and the backtest questions mapped to today / after the asset catalog / after
-      T-209 / after T-208 / never by design; state the §5 boundary rule. The statuses are pinned
-      by the test, and the table has exactly 11 `Q` rows. → step 3.
+      no-FIBO rows (`:Asset`, `:Universe`, `:UniverseMembership`, `:PriceObservation`,
+      `:Executive`), the exact eleven questions, the six status labels, the two Sharpe-less
+      terms, the 5/1/4/5 active-rule split, and the absence of a drifted weight or a per-asset
+      daily return on `BookWeightDaily` and `BookDailyPerformance`. → step 2.
+- [x] **T-242** *(done 2026-11-03)* Write the limits section: the brief's 11 evaluation
+      questions and the backtest questions mapped to today / after the asset catalog / after
+      T-209 / after T-208 / never by design / not projected yet; state the §5 boundary rule and
+      the control rule that the answers to questions 9 to 11 must not change with or without the
+      FIBO slice. The exact questions and the six labels are pinned by the test, and the table
+      has exactly 11 `Q` rows. → step 3.
 - [x] **T-243** *(done 2026-11-03)* Verify and reconcile: `uv run pytest -q`,
       `uv run mypy --config-file=.code_quality/mypy.ini`, `uv run pre-commit run --all-files`;
       update `README.md`, `docs/06` §1.1, `SPEC.md`, `PLAN.md`, `TASKS.md` and this file. No
       schema count changed, so `schema/README.md` and the FR-001 bundle are untouched. → step 4.
+- [x] **Follow-up (2026-11-03, PR #116 review).** Replace the reconstructed §6 table with the
+      brief's 11 questions verbatim; add the `Not projected yet` status, the §5 control rule and
+      the `n-equity-per-arm-on-last-day` query; extend `A1` to `:Universe`,
+      `:UniverseMembership`, `:PriceObservation` and `:Executive`, and add the equity-index,
+      closing-price and SEC A2 labels. The test now pins the exact question text and the six
+      labels. No new task ID; this completes the same work item.

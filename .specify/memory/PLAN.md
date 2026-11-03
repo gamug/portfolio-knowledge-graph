@@ -1149,19 +1149,28 @@ terms mean, never why an asset was in or out of a portfolio** (brief §5).
 **What was built**:
 
 1. `docs/reports-agent-query-catalog.md`: the scope rule (always `GRAPH`, never the default
-   union), A1 for several of our terms at once with the FIBO link in the same `OPTIONAL`, A2 by
-   Spanish label, the terms FIBO does not define (Sharpe), the active rules by category, the
-   backtest battery (performance, GUARD alerts, latest NAV known on D, layer-1 cuts, one
-   end-to-end cut explanation, book knowledge dates, the full `BookWeightDaily`/
-   `BookDailyPerformance` property list, the weight scale) and the limits table mapping the
-   brief's 11 evaluation questions and the backtest questions to today / after the asset catalog
-   / after T-209 / after T-208 / never by design.
+   union), A1 for ten of our terms at once with the FIBO link in the same `OPTIONAL`, A2 by
+   Spanish label (volatility, the equity index, the two closing prices, the SEC), the terms FIBO
+   does not define (Sharpe), the active rules by category, the backtest battery (performance,
+   GUARD alerts, latest NAV known on D, layer-1 cuts, one end-to-end cut explanation, book
+   knowledge dates, the full `BookWeightDaily`/`BookDailyPerformance` property list, the weight
+   scale, and `n-equity-per-arm-on-last-day`) and the limits table with the brief's 11 evaluation
+   questions verbatim and the backtest questions, mapped to today / after the asset catalog /
+   after T-209 / after T-208 / never by design / not projected yet.
 2. `tests/test_query_catalog.py`: parses every tagged query, builds one in-memory
    `rdflib.Dataset` from `tbox.ttl`, `fibo.ttl`, `rules.ttl` and `reference.ttl` plus the two
    synthetic backtest windows projected with `projection.backtest.project`, runs every query and
-   checks its exact row count or named rule, and pins the A1 no-FIBO `:Asset` row, the two
-   Sharpe-less terms, the 10+5 active-rule split and the absence of per-asset daily returns and
-   drifted weights.
+   checks its exact row count or named rule, and pins the A1 no-FIBO rows, the two Sharpe-less
+   terms, the 10+5 active-rule split, the exact eleven questions and six status labels, and the
+   absence of per-asset daily returns and drifted weights.
+
+**Follow-up (2026-11-03, PR #116 review).** The first commit reconstructed §6 from the task
+summary because the brief was not in the container; the review supplied the real questions. This
+follow-up replaces the table verbatim, adds the `Not projected yet` status (executives of a
+company, the live portfolio), the §5 control rule (questions 9 to 11 must not change with or
+without the FIBO slice), the `n-equity-per-arm-on-last-day` query, and the extra A2 labels; it
+extends `A1` to `:Universe`, `:UniverseMembership`, `:PriceObservation` and `:Executive`, and
+pins the exact question text in the test.
 
 **Acceptance**: every `sparql` block in the catalog is tagged and tested; the test is hermetic
 (`uv run pytest -q`); no `src/`, `schema/` or gate change; `uv run mypy

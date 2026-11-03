@@ -48,6 +48,9 @@ EXPECTED_NAMES = frozenset(
     {
         "A1-terms",
         "A2-volatilidad",
+        "A2-equity-index",
+        "A2-price-close",
+        "A2-sec",
         "fibo-missing-sharpe",
         "active-rules",
         "performance-window-arm-segment",
@@ -58,6 +61,7 @@ EXPECTED_NAMES = frozenset(
         "book-knowledge-dates",
         "book-weight-daily-properties",
         "weight-scale",
+        "n-equity-per-arm-on-last-day",
     }
 )
 
@@ -72,16 +76,33 @@ BACKTEST_NAMES = frozenset(
         "book-knowledge-dates",
         "book-weight-daily-properties",
         "weight-scale",
+        "n-equity-per-arm-on-last-day",
     }
 )
 
-#: The five status labels of the limits table (brief §6).
+#: The eleven questions of the brief's §6, verbatim and in its order.
+EXPECTED_QUESTIONS = (
+    "¿Qué es una posición en el portafolio?",
+    "¿Por qué GOOGL y GOOG aparecen como dos activos?",
+    "¿Qué es el S&P 500 y cómo se relaciona con el universo de activos?",
+    "¿Qué precio de cierre usa el sistema? ¿Está ajustado por dividendos?",
+    "¿A qué sector GICS pertenece X y qué significa?",
+    "¿Qué es un informe 10-K y quién lo recibe?",
+    "¿Qué papel tiene X en la empresa Y?",
+    "¿Qué es la volatilidad y cómo la usa el sistema?",
+    "(control) ¿Por qué salió X del portafolio?",
+    "(control) ¿Cuántas posiciones tiene el portafolio actual?",
+    "(control) ¿Qué empresas del portafolio son bancos o aseguradoras?",
+)
+
+#: The six status labels of the limits table (brief §6 plus "Not projected yet").
 STATUSES = (
     "Today",
     "After the asset catalog",
     "After T-209",
     "After T-208",
     "Never by design",
+    "Not projected yet",
 )
 
 
@@ -164,8 +185,11 @@ def test_every_sparql_block_has_one_tag() -> None:
 def test_the_limits_table_lists_eleven_questions() -> None:
     rows = TABLE_ROW.findall(_document())
     assert [row[0] for row in rows] == [f"Q{number}" for number in range(1, 12)]
+    assert [row[1] for row in rows] == list(EXPECTED_QUESTIONS)
     for _, _, status, _ in rows:
         assert any(label in status for label in STATUSES), status
+    assert "Not projected yet" in rows[6][2]  # Q7, executives
+    assert "Not projected yet" in rows[9][2]  # Q10, live portfolio
 
 
 def test_the_backtest_table_lists_the_battery() -> None:
@@ -175,6 +199,7 @@ def test_the_backtest_table_lists_the_battery() -> None:
 def test_the_boundary_rule_is_stated() -> None:
     text = " ".join(_document().replace(">", " ").split())
     assert "never why an asset was in or out of a portfolio" in text
+    assert "questions 9 to 11 must not change with or without the FIBO slice" in text
     for status in STATUSES:
         assert status in text
 
@@ -217,11 +242,14 @@ def test_every_query_matches_its_expectation(
 # --- the promises the catalog makes about specific queries --------------------------------------
 
 
-def test_a1_returns_asset_without_a_fibo_row(catalog_dataset: rdflib.Dataset) -> None:
+def test_a1_returns_the_no_fibo_terms_without_a_fibo_row(
+    catalog_dataset: rdflib.Dataset,
+) -> None:
     rows: list[ResultRow] = _rows(catalog_dataset, _query("A1-terms"))
+    assert len(rows) == 10
     by_term = {str(row["term"]): row for row in rows}
-    asset = by_term[f"{NS}Asset"]
-    assert asset["fibo"] is None
+    for name in ("Asset", "Universe", "UniverseMembership", "PriceObservation", "Executive"):
+        assert by_term[f"{NS}{name}"]["fibo"] is None
     assert sum(1 for row in rows if row["fibo"] is not None) == 5
 
 
@@ -232,6 +260,24 @@ def test_a2_returns_the_fibo_volatility_term(catalog_dataset: rdflib.Dataset) ->
     )
     assert str(rows[0]["defEs"]).startswith("Medida estadística")
     assert str(rows[0]["fiboDef"]).startswith("statistical measure")
+
+
+def test_a2_returns_the_labels_the_evaluation_questions_name(
+    catalog_dataset: rdflib.Dataset,
+) -> None:
+    equity = _rows(catalog_dataset, _query("A2-equity-index"))
+    assert len(equity) == 1
+    assert str(equity[0]["term"]).endswith("/EquityIndex")
+
+    prices = _rows(catalog_dataset, _query("A2-price-close"))
+    assert {str(row["term"]).rsplit("/", 1)[-1] for row in prices} == {
+        "ClosingPrice",
+        "AdjustedClosingPrice",
+    }
+
+    sec = _rows(catalog_dataset, _query("A2-sec"))
+    assert len(sec) == 1
+    assert str(sec[0]["term"]).endswith("/SecuritiesAndExchangeCommission")
 
 
 def test_fibo_does_not_define_sharpe(catalog_dataset: rdflib.Dataset) -> None:
@@ -264,3 +310,15 @@ def test_the_weight_classes_expose_no_per_asset_return_or_drifted_weight(
     # The daily performance series is portfolio-level, never per asset.
     assert "nav" in names
     assert "netreturn" in names
+
+
+def test_n_equity_is_the_latest_performance_row(catalog_dataset: rdflib.Dataset) -> None:
+    rows: list[ResultRow] = _rows(catalog_dataset, _query("n-equity-per-arm-on-last-day"))
+    assert len(rows) == 6
+    by_key = {(str(row["window"]), str(row["arm"])): row for row in rows}
+    markowitz = by_key[("P1", "MARKOWITZ_BASE")]
+    assert str(markowitz["date"]) == "2022-01-05"
+    assert int(str(markowitz["nEquity"])) == 2
+    no_guard = by_key[("P2", "TOPN_MV_NOGUARD")]
+    assert str(no_guard["date"]) == "2022-01-06"
+    assert int(str(no_guard["nEquity"])) == 1

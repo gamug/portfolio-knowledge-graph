@@ -113,7 +113,8 @@ built upstream); it makes no portfolio or trading decision and renders no report
   property/graph-placement decision elsewhere cites back to.
 - The reports-agent query catalog (`docs/reports-agent-query-catalog.md`,
   T-240–T-243): the scoped SPARQL for the Appendix A term lookups and the
-  backtest battery, the limits of what the graph can answer, and the
+  backtest battery, the limits of what the graph can answer (the brief's 11
+  evaluation questions, including the not-projected-yet cases), and the
   hermetic test `tests/test_query_catalog.py` that runs every tagged query.
   It is a document, not a service: no endpoint, no new package and no
   computation.
