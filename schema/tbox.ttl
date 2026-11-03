@@ -146,8 +146,8 @@
     a owl:Class ;
     rdfs:label "Rule Definition" ;
     rdfs:label "definición de regla"@es ;
-    skos:definition "Regla de veto versionada, válida durante [validFrom, validTo). Se almacena como datos del grafo, no como código de la aplicación."@es ;
-    rdfs:comment "A versioned veto rule, valid over [validFrom, validTo). Stored as graph data, not application code (closes critique #6)." .
+    skos:definition "Regla versionada del catálogo, válida durante [validFrom, validTo): puede ser una regla de selección, cuya activación da lugar a un veto, o una regla de protección diaria GUARD, que no es una regla de veto. Se almacena como datos del grafo, no como código de la aplicación."@es ;
+    rdfs:comment "A versioned catalog rule, valid over [validFrom, validTo): either a selection rule, whose firing can raise a veto, or a GUARD protection rule, which is not a veto rule. Stored as graph data, not application code (closes critique #6)." .
 
 :RuleClause
     a owl:Class ;
