@@ -677,5 +677,34 @@ reused.*
 - **Docs.** `docs/06` §1.1 (Phase 2, rebuild command, the two Appendix A queries unchanged),
   `docs/07`, `docs/graphdb-setup.md`, `schema/README.md`, `SPEC.md`, `PLAN.md`, `TASKS.md`,
   `README.md`.
-- **Not done.** No GraphDB write or reload (T-212); the live Appendix A run is T-213; the generated
-  `protege-view.ttl`/`.txt` still need regeneration (T-070/T-071).
+- **Not done then.** No GraphDB write or reload was made in that change; T-212 and T-213 landed
+  on 2026-11-02 (see the next entry), and the generated `protege-view.ttl`/`.txt` still need
+  regeneration (T-070/T-071).
+
+## Live-store reload and FIBO graph drop (2026-11-02, T-212/T-213)
+
+Documentation only; no code, schema, shape or test logic changed.
+
+- **P1, the full FIBO graph drop.** P1 of the FIBO integration brief, done by the maintainer by hand
+  in the GraphDB Workbench on 2026-11-02 (local evening), repository `portfolio`. The graph
+  `<https://spec.edmcouncil.org/fibo/ontology/2026Q2>` was dropped with `DROP GRAPH`, nothing else.
+  Before: 137,496 explicit and 180,948 inferred statements over 19 graphs, 134,946 of them in that
+  graph. After: 2,550 explicit and 908 inferred over 18 graphs. Difference: 134,946 explicit and
+  180,040 inferred; the remaining 2,550 explicit statements equal the sum of the other 18 graphs.
+  Recorded in `docs/graphdb-setup.md`; `docs/06` §1.1 already cited the same measurement.
+- **T-212, the schema reload.** The maintainer, by hand on 2026-11-02, from `master` at `0267d90`
+  (the merge of PR #113): `cli/load_schema.py` exit 0, `verified: 20 graphs, 4513 asserted triples
+  match the local parse`; `cli/verify_store.py` exit 0, all six checks pass (the store size stays
+  4513). The local `.env` needed `KG_HOST=http://host.docker.internal:7200` instead of
+  `127.0.0.1`; no `verify_store` ran before the reload. `urn:graph:reference:fibo` holds the 277
+  statements of the slice, which follows only as 4513 − 4236, not from a separate per-graph count.
+- **T-213, the live Appendix A run.** The maintainer, in the Workbench on 2026-11-02, ran the two
+  queries exactly as in `docs/06` §1.1: A2 returned one row for `Volatility`, A1 one row for
+  `Portfolio`, each with our Spanish pair, the FIBO IRI, FIBO's English definition and the authors'
+  `@es` text. Both match `tests/test_fibo_slice.py`, confirming the live graph layout.
+- **T-187/T-188** no longer wait for the reload: `verify_store` passes. T-187 stays open only for
+  the maintainer's local, untracked `CLAUDE.md` ("six rules").
+- **Follow-ups.** T-215 (first real backtest `--write` into a scratch repository, needs the full
+  universe) and T-216 (ask upstream T-071's real merge date) are open. The generated
+  `protege-view.ttl`/`.txt` remain stale (T-070/T-071); no backtest graph was written. The FR-001
+  bundle is unchanged at 4236 quads.

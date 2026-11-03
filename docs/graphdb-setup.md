@@ -141,15 +141,15 @@ reads `:validTo`). T-207 adds the accepted backtest graph
 `urn:graph:derived:backtest:{window_id}:{backtest_run_id}` to check 1; its last capture group is a
 positive integer id, not a date, so `check_target` validates the window and id on a separate branch
 instead of passing the id to `_date_ok`. The projector that writes those graphs
-(`src/projection/backtest.py`, CLI `cli/project_backtest.py`) was run here as a dry run only; no
-GraphDB write or reload was made. The live store was not reloaded, so its copy of the schema is
-pre-T-206 until the maintainer runs `cli/load_schema.py` (and then `cli/verify_store.py`).
+(`src/projection/backtest.py`, CLI `cli/project_backtest.py`) was run here as a dry run only, and
+that change made no GraphDB write or reload; the store was then still pre-T-206. It was reloaded
+on 2026-11-02 (T-212, below), and `verify_store` passes.
 
 **T-211 note (FIBO Phase 2).** `schema/fibo.ttl` is a 277-statement reference slice and loads into
 its own graph, `urn:graph:reference:fibo`, after `reference.ttl`. The loader therefore owns 20
 graphs and 4513 asserted triples on a fresh load (the FR-001 bundle is 4236 quads; the slice adds
-277). No load was run for this change: the live store stays as it was until the maintainer runs
-`cli/load_schema.py` and `cli/verify_store.py`, and `TASKS.md` carries that reload as T-212. The
+277). No load was run for this change; the store was reloaded on 2026-11-02 (T-212, below), and the
+live Appendix A queries ran the same day (T-213). The
 slice is rebuilt only for a new FIBO release; `cli/build_fibo_slice.py` refuses any zip whose
 sha256 is not the pinned value.
 
@@ -182,7 +182,7 @@ of T-176 and the one of T-181 below, and exits non-zero if any fails ([`kg_store
 | Reasoning profile | the repository reports `rdfsplus-optimized` and `disableSameAs` true, and `?x a :Observation` is answered by inference (nothing is asserted with it) and includes a `ScoreSnapshot`, which is two `rdfs:subClassOf` steps below it, so the chain is followed and not just one hop |
 | Schema graphs (T-176) | each graph `schema/` owns (read from `schema/` by `load_schema.expected_sizes`) has the asserted size a fresh load gives; a graph the store holds that `schema/` does not own is reported, not failed, so dated `urn:graph:ingest:…` graphs do not break a healthy store |
 | `:agentOrigin` (T-176) | no individual has more than one `:agentOrigin`, and none has a value outside the `sh:in` list of `ScoreSnapshotShape`, read from `shapes.ttl` |
-| Quant batch (T-181) | the worked example's quant batch (`urn:graph:derived:quant:2026-08-05` in `instances.trig`, read from `schema/`, never written) passes the gate beside what the store holds about its Portfolios, fetched by `gate.fetch_context`: its `:portfolioKind` rules (`sh:in`, `sh:hasValue "BENCHMARK"`) compare terms, so it fails if a stored string is read in a form other than the plain literal the batches use. Like the schema-graphs check it takes the store to be a fresh `schema/` load, the worked example included (`instances.trig`, `reference.ttl`): on a store that holds none of the batch's individuals it fails with "load schema/ first", and an example batch missing from `instances.trig` fails instead of validating nothing. Added in T-181 and **not yet run against the live repository** |
+| Quant batch (T-181) | the worked example's quant batch (`urn:graph:derived:quant:2026-08-05` in `instances.trig`, read from `schema/`, never written) passes the gate beside what the store holds about its Portfolios, fetched by `gate.fetch_context`: its `:portfolioKind` rules (`sh:in`, `sh:hasValue "BENCHMARK"`) compare terms, so it fails if a stored string is read in a form other than the plain literal the batches use. Like the schema-graphs check it takes the store to be a fresh `schema/` load, the worked example included (`instances.trig`, `reference.ttl`): on a store that holds none of the batch's individuals it fails with "load schema/ first", and an example batch missing from `instances.trig` fails instead of validating nothing. Added in T-181; it ran against the live repository with T-212 (2026-11-02) and passes |
 
 ### Live run (T-141, 2026-10-08)
 
@@ -298,6 +298,78 @@ T-186 asked for these six lines from the live store (T-181's sixth check reads s
 `GraphDB._term`). The sixth line is the proof: that check fails when the store writes a string in a form
 `select_terms` does not read as equal to `"BENCHMARK"` (`acceptance.check_quant_batch`), and it passed. They are
 the record, and T-186 is done.
+
+### Dropping the full FIBO graph (P1, 2026-11-02)
+
+P1 of the FIBO integration brief, done by the maintainer by hand in the GraphDB Workbench on
+2026-11-02 (local evening), repository `portfolio`. The full FIBO graph
+`<https://spec.edmcouncil.org/fibo/ontology/2026Q2>` was dropped with `DROP GRAPH`; nothing else
+was dropped.
+
+| | Before | After |
+|---|---|---|
+| Explicit statements | 137,496 | 2,550 |
+| Inferred statements | 180,948 | 908 |
+| Graphs | 19 | 18 |
+
+The difference is 134,946 explicit statements (exactly the graph's size) and 180,040 inferred. The
+remaining 2,550 explicit statements equal the sum of the other 18 graphs, unchanged. `docs/06` §1.1
+cites the same measurement as the cost of the 2026-10-27 evaluation load; this section records the
+store operation behind it.
+
+### Reloading after T-206 to T-211 (T-212 and T-213, 2026-11-02)
+
+The schema reload for T-212 and the live Appendix A run for T-213, both done by the maintainer by
+hand on 2026-11-02, from `master` at `0267d90` (the merge of PR #113), repository `portfolio`.
+
+The maintainer's local `.env` had `KG_HOST=http://127.0.0.1:7200/`, which cannot reach GraphDB from
+the devcontainer (Connection refused); it was changed locally to `http://host.docker.internal:7200`.
+The `.env` is git-ignored and is not recorded here. No `verify_store` run was made before the
+reload.
+
+1. `uv run python cli/load_schema.py`: exit 0.
+
+```text
+loaded tbox.ttl -> urn:graph:tbox
+loaded shapes.ttl -> urn:graph:tbox
+loaded reference.ttl -> urn:graph:reference
+loaded fibo.ttl -> urn:graph:reference:fibo
+loaded rules.ttl -> urn:graph:rules:catalog
+loaded instances.trig
+verified: 20 graphs, 4513 asserted triples match the local parse
+```
+
+The loader owns 20 graphs and 4513 asserted triples. `urn:graph:reference:fibo` holds the 277
+statements of `schema/fibo.ttl`; that number follows from the arithmetic 4513 − 4236 (the FR-001
+bundle without the slice), not from a separate per-graph count, which was not measured.
+
+2. `uv run python cli/verify_store.py`: exit 0, all six checks pass.
+
+```text
+PASS SPARQL query returns real results: 5 assets returned, first https://thesis.local/kg/portfolio#AAPL
+PASS malformed write rejected by the gate: rejected by SHACL (:timestamp minCount); store size unchanged at 4513, urn:graph:ingest:SEMANTIC:2099-01-01 absent
+PASS reasoning profile matches 07: ruleset rdfsplus-optimized, disableSameAs true; ?x a :Observation = 41 inferred, 0 asserted
+PASS schema graphs have their expected size: 20 schema graphs have the size a fresh load gives
+PASS every :agentOrigin is single and in the shape's list (FUNDAMENTAL, SECTOR, SEMANTIC, TECHNICAL, VALORIZATION)
+PASS the quant batch passes beside the stored Portfolios: the quant batch passes beside the 3 stored individual(s) it points at
+```
+
+3. The live Appendix A queries (T-213), run by the maintainer in the Workbench on 2026-11-02,
+   repository `portfolio`, the two queries exactly as in `docs/06` §1.1:
+   - A2 for "volatilidad" returned one row: `fibo:IND/Indicators/Indicators/Volatility` (shown by
+     the Workbench as `fibo-ind-ind-ind:Volatility`), the authors' Spanish definition «Medida
+     estadística de la dispersión alrededor de la media de una variable aleatoria durante un
+     período de tiempo.»@es and FIBO's English definition "statistical measure of the dispersion
+     around the average of some random variable over some period of time".
+   - A1 for `:Portfolio` returned one row: `labelEs` "portafolio"@es; `defEs` «El libro de
+     posiciones activas.»@es; FIBO `fibo:FND/OwnershipAndControl/Ownership/Portfolio` (shown as
+     `fibo-fnd-oac-own:Portfolio`); `fiboLabelEs` "portafolio"@es; `fiboDefEs` «Colección de
+     tenencias reunidas y mantenidas como una unidad con fines de gestión para alcanzar objetivos
+     estratégicos.»@es; `fiboDef` "collection of holdings assembled and maintained as a unit for
+     management purposes to achieve strategic objectives".
+
+Both match the offline versions in `tests/test_fibo_slice.py`, so the live graph layout
+(`urn:graph:tbox`, `urn:graph:reference:fibo`) is confirmed. T-212 and T-213 are done.
 
 ## Connecting
 

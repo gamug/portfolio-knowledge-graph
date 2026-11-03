@@ -789,9 +789,9 @@ graphs and 4513 asserted triples. The ETL emits
 `tests/test_fibo_slice.py` (counts, no `rdf:type`, every link target is an entry, the 38 leaves, the
 11 v18 digest, the Appendix A queries, the synthetic builder and the opt-in `FIBO_ZIP`
 reproducibility test). `docs/06` §1.1 carries the Phase 2 text and the two lookup queries unchanged;
-`docs/07`, `docs/graphdb-setup.md` and `schema/README.md` carry the graph. No GraphDB write or
-reload was done; T-212 carries the reload and T-213 the live Appendix A run, and `protege-view`
-regeneration stays T-070/T-071.
+`docs/07`, `docs/graphdb-setup.md` and `schema/README.md` carry the graph. The store was reloaded
+with T-212 on 2026-11-02 and the live Appendix A queries ran with T-213 the same day
+(`docs/graphdb-setup.md`); `protege-view` regeneration stays T-070/T-071.
 
 **Read contract and score scale (T-030, 2026-10-05; re-pinned by T-157 and T-205).**
 `src/projection/view_contract.py` pins a full snapshot of the columns of 43 of upstream's 44
