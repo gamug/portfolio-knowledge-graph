@@ -22,7 +22,7 @@ import csv
 import hashlib
 import sys
 import zipfile
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -35,7 +35,9 @@ FIBO_BASE = "https://spec.edmcouncil.org/fibo/ontology/"
 OUR_NAMESPACE = "https://thesis.local/kg/portfolio#"
 #: FIBO 2026Q2, ``prod.ttl.zip`` (the brief §3/P2 pin; the release is never committed).
 PINNED_SHA256 = "7a4ccebc9ff5c1e202bf1ae44928d9149a5f6f8ff1289dde42edff13e601f579"
-FITS = frozenset({"same", "broader"})
+#: ``same``/``broader`` are links (``our_term`` names one of our terms); ``glossary`` is a
+#: Phase 2 seed that is only a FIBO term (``our_term`` stays empty).
+FITS = frozenset({"same", "broader", "glossary"})
 HEADER = ("fibo_iri", "our_term", "fit", "label_es", "definition_es")
 SKOS = Namespace("http://www.w3.org/2004/02/skos/core#")
 
@@ -102,6 +104,17 @@ def sha256(path: str | Path) -> str:
     return digest.hexdigest()
 
 
+def _check_our_term(where: str, term: Term) -> None:
+    """A glossary row names no term of ours; every link row names one under our namespace."""
+    if term.fit == "glossary":
+        if term.our_term:
+            raise FiboTermsError(
+                f"{where}: fit 'glossary' requires an empty our_term, got {term.our_term!r}"
+            )
+    elif not term.our_term.startswith(OUR_NAMESPACE):
+        raise FiboTermsError(f"{where}: our_term {term.our_term!r} is not under {OUR_NAMESPACE}")
+
+
 def read_terms(path: str | Path) -> tuple[Term, ...]:
     """Read and validate the terms file; every bad row is named in the error.
 
@@ -134,10 +147,7 @@ def read_terms(path: str | Path) -> tuple[Term, ...]:
             raise FiboTermsError(f"{where}: fibo_iri {term.fibo_iri!r} carries a /master/ segment")
         if term.fit not in FITS:
             raise FiboTermsError(f"{where}: fit {term.fit!r} is not one of {sorted(FITS)}")
-        if not term.our_term.startswith(OUR_NAMESPACE):
-            raise FiboTermsError(
-                f"{where}: our_term {term.our_term!r} is not under {OUR_NAMESPACE}"
-            )
+        _check_our_term(where, term)
         if term.fibo_iri in seen:
             raise FiboTermsError(f"{where}: duplicate fibo_iri {term.fibo_iri!r}")
         seen.add(term.fibo_iri)
@@ -149,16 +159,13 @@ def _modules(archive: zipfile.ZipFile) -> list[str]:
     return sorted(name for name in archive.namelist() if name.endswith(".ttl"))
 
 
-def load_release(zip_path: str | Path, iris: Sequence[str]) -> dict[str, ReleaseTerm]:
-    """Every label/definition the release's Turtle modules carry for ``iris``.
+def iter_release_modules(zip_path: str | Path) -> Iterator[tuple[str, rdflib.Graph]]:
+    """Yield ``(module name, graph)`` for every Turtle module, in name order.
 
-    Modules are parsed one at a time and only the six requested IRIs are kept, so the peak memory
-    is one module rather than the whole 134,946-statement release. An IRI may be described in more
-    than one module (``:Portfolio`` is), so the values are collected across all of them.
+    Shared by the Phase 1 checker and the Phase 2 builder so the zip validation and parser-error
+    wrapping exist once. A caller that only needs a subset can keep one module at a time instead of
+    holding the whole 134,946-statement release.
     """
-    wanted = {URIRef(iri) for iri in iris}
-    labels: dict[str, list[Literal]] = {iri: [] for iri in iris}
-    definitions: dict[str, list[Literal]] = {iri: [] for iri in iris}
     path = Path(zip_path)
     if not zipfile.is_zipfile(path):
         raise FiboTermsError(f"{path}: not a zip file")
@@ -168,18 +175,29 @@ def load_release(zip_path: str | Path, iris: Sequence[str]) -> dict[str, Release
             raise FiboTermsError(f"{path}: no Turtle modules")
         for name in modules:
             try:
-                graph = rdflib.Graph().parse(data=archive.read(name), format="turtle")
+                yield name, rdflib.Graph().parse(data=archive.read(name), format="turtle")
             except Exception as exc:  # rdflib raises several parser-specific exceptions
                 raise FiboTermsError(f"{path}: {name} does not parse as Turtle: {exc}") from exc
-            for iri in wanted:
-                labels[str(iri)].extend(
-                    value for value in graph.objects(iri, RDFS.label) if isinstance(value, Literal)
-                )
-                definitions[str(iri)].extend(
-                    value
-                    for value in graph.objects(iri, SKOS.definition)
-                    if isinstance(value, Literal)
-                )
+
+
+def load_release(zip_path: str | Path, iris: Sequence[str]) -> dict[str, ReleaseTerm]:
+    """Every label/definition the release's Turtle modules carry for ``iris``.
+
+    Modules are parsed one at a time and only the requested IRIs are kept, so the peak memory is
+    one module rather than the whole 134,946-statement release. An IRI may be described in more
+    than one module (``:Portfolio`` is), so the values are collected across all of them.
+    """
+    wanted = {URIRef(iri) for iri in iris}
+    labels: dict[str, list[Literal]] = {iri: [] for iri in iris}
+    definitions: dict[str, list[Literal]] = {iri: [] for iri in iris}
+    for _name, graph in iter_release_modules(zip_path):
+        for iri in wanted:
+            labels[str(iri)].extend(
+                value for value in graph.objects(iri, RDFS.label) if isinstance(value, Literal)
+            )
+            definitions[str(iri)].extend(
+                value for value in graph.objects(iri, SKOS.definition) if isinstance(value, Literal)
+            )
     return {
         iri: ReleaseTerm(
             iri,

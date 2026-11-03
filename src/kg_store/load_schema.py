@@ -2,9 +2,9 @@
 
 Each Turtle file goes wholesale into the graph named in ``schema/README.md``'s
 file-to-graph table; ``instances.trig`` is self-describing. The load order is
-``tbox -> shapes -> reference -> rules -> instances``. Re-running is safe: every
-target graph is dropped first, so the result is the same as a load into a fresh
-repository, and edits to ``schema/`` replace rather than accumulate.
+``tbox -> shapes -> reference -> fibo -> rules -> instances``. Re-running is safe:
+every target graph is dropped first, so the result is the same as a load into a
+fresh repository, and edits to ``schema/`` replace rather than accumulate.
 
 The drops and uploads run in one transaction: if anything fails, nothing changes.
 
@@ -30,6 +30,7 @@ LOAD_PLAN: list[tuple[str, str | None]] = [
     ("tbox.ttl", "urn:graph:tbox"),
     ("shapes.ttl", "urn:graph:tbox"),
     ("reference.ttl", "urn:graph:reference"),
+    ("fibo.ttl", "urn:graph:reference:fibo"),
     ("rules.ttl", "urn:graph:rules:catalog"),
     ("instances.trig", None),
 ]

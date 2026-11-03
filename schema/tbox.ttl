@@ -35,12 +35,16 @@
 :Asset
     a owl:Class ;
     rdfs:label "Asset" ;
+    rdfs:label "activo"@es ;
+    skos:definition "Línea cotizada del S&P 500 que sigue el sistema, identificada por su símbolo bursátil. Una empresa con varias clases de acciones en el índice tiene un nodo por clase (GOOGL y GOOG, FOXA y FOX, NWSA y NWS); un símbolo reutilizado por otra empresa es un solo nodo, descrito por su uso más reciente (por ejemplo, CEG)."@es ;
     rdfs:comment "A publicly traded S&P 500 constituent tracked by the system (v1 §2A, §3A)." .
 
 :Sector
     a owl:Class ;
     rdfs:subClassOf skos:Concept ;
     rdfs:label "Sector" ;
+    rdfs:label "sector"@es ;
+    skos:definition "Sector de la clasificación GICS (por ejemplo, «tecnología de la información»)."@es ;
     rdfs:comment "GICS-level sector concept (e.g. 'Information Technology'). Closes critique #3 (no sector layer)." ;
     rdfs:seeAlso <https://spec.edmcouncil.org/fibo/ontology/SEC/Securities/SecuritiesClassification/GlobalIndustryClassificationStandardsClassifier> .
 
@@ -48,130 +52,180 @@
     a owl:Class ;
     rdfs:subClassOf skos:Concept ;
     rdfs:label "Industry" ;
+    rdfs:label "industria"@es ;
+    skos:definition "Grupo de industria de la clasificación GICS. Coincide con los 25 grupos de GICS, salvo Energía, que el grafo divide en sus dos industrias: equipos y servicios de energía, y petróleo, gas y combustibles consumibles."@es ;
     rdfs:comment "GICS-level industry-group concept, rolls up to exactly one Sector via memberOfSector. Closes critique #3." ;
     rdfs:seeAlso <https://spec.edmcouncil.org/fibo/ontology/FND/Arrangements/ClassificationSchemes/IndustrySectorClassifier> .
 
 :Universe
     a owl:Class ;
     rdfs:label "Universe" ;
+    rdfs:label "universo"@es ;
+    skos:definition "Conjunto de activos entre los que el sistema puede elegir; en esta tesis, los miembros del S&P 500 vigentes en cada fecha. No es la referencia contra la que se mide el desempeño."@es ;
     rdfs:comment "A named candidate pool (e.g. the quarterly Watchlist) that Assets belong to via UniverseMembership (v1 §2A)." .
 
 :UniverseMembership
     a owl:Class ;
     rdfs:label "Universe Membership" ;
+    rdfs:label "pertenencia al universo"@es ;
+    skos:definition "Pertenencia de un activo al universo durante un intervalo [validFrom, validTo); sin validTo, sigue vigente."@es ;
     rdfs:comment "N-ary relation reifying v1's (Asset)-[PERTENECE_A_UNIVERSO{fecha_inicio,fecha_fin}]->(Universe) edge as a first-class individual. validTo absent/unbound == still active (mirrors v1's fecha_fin=NULL)." .
 
 :ScoreSnapshot
     a owl:Class ;
     rdfs:label "Score Snapshot" ;
+    rdfs:label "instantánea de puntuación"@es ;
+    skos:definition "Observación inmutable y con marca de tiempo, registrada por un agente especializado; nunca se actualiza en el mismo individuo."@es ;
     rdfs:comment "Immutable, timestamped observation persisted by one specialist agent (v1 §3A). Never updated in place." .
 
 :RiskEvent
     a owl:Class ;
     rdfs:label "Risk Event" ;
+    rdfs:label "evento de riesgo"@es ;
+    skos:definition "Evento discreto señalado (legal, financiero, de mercado o de red) que puede desencadenar un veto y que siempre está respaldado por al menos una fuente de evidencia."@es ;
     rdfs:comment "A discrete flagged event (legal, financial, market, network) that can trigger a Veto, always backed by >=1 evidence item (v1 §3B; SHACL-enforced, closes critique #5)." .
 
 :NewsArticle
     a owl:Class ;
     rdfs:label "News Article" ;
+    rdfs:label "artículo de noticias"@es ;
+    skos:definition "Fuente de evidencia: un artículo de noticias que respalda un evento de riesgo. El identificador de procedencia (provenanceId) lo vincula con el pipeline de recolección y rastreo de noticias."@es ;
     rdfs:comment "Evidence leaf: a news article backing a RiskEvent. provenanceId cross-references the existing news-collector/news-crawler SQLite pipeline." .
 
 :SECFiling
     a owl:Class ;
     rdfs:label "SEC Filing" ;
+    rdfs:label "declaración ante la SEC"@es ;
+    skos:definition "Una declaración individual presentada en EDGAR (10-K, 10-Q, 8-K o DEF 14A) para un activo."@es ;
     rdfs:comment "A single EDGAR filing (10-K, 10-Q, 8-K, DEF 14A) for one Asset." ;
     rdfs:seeAlso <https://spec.edmcouncil.org/fibo/ontology/FND/Arrangements/Reporting/Report> .
 
 :SECFilingSection
     a owl:Class ;
     rdfs:label "SEC Filing Section" ;
+    rdfs:label "sección de la declaración ante la SEC"@es ;
+    skos:definition "Fuente de evidencia: una sección extraída de una declaración ante la SEC (por ejemplo, el punto 1A, el punto 3 o la lista de directores del DEF 14A). Puede ser reemplazada por una sección corregida posterior."@es ;
     rdfs:comment "Evidence leaf: an extracted section of a SECFiling (Item 1A, Item 3, DEF 14A director list — v1 §2B). May be supersededBy a later corrected section (restatement — closes critique #8, see 07-ontology-topology.md)." .
 
 :DataQualityIssue
     a owl:Class ;
     rdfs:label "Data Quality Issue" ;
+    rdfs:label "problema de calidad de datos"@es ;
+    skos:definition "Fuente de evidencia: una activación de una verificación DQ_* de la primera ronda (fila data_quality_issue del sistema de origen, dq-v2) sobre los datos de una declaración de un activo. Una métrica bloqueada se lee como NULL en el sistema de origen. Un problema HARD es el que cita el veto DATA_QUALITY: un evento de riesgo lo respalda o la regla del veto evalúa el predicado HasHardDataQualityIssue sobre él."@es ;
     rdfs:comment "Evidence leaf (T-104): one Ring-1 DQ_* gate firing (upstream's data_quality_issue row, dq-v2) on an asset's filing data. A quarantined gated metric reads as NULL upstream. A HARD issue is what the DATA_QUALITY veto cites: a RiskEvent is backedBy it, or the veto's rule evaluates the HasHardDataQualityIssue predicate over it." .
 
 :Executive
     a owl:Class ;
     rdfs:label "Executive" ;
+    rdfs:label "directivo o miembro de la junta directiva"@es ;
+    skos:definition "Director (miembro de la junta directiva) o directivo de una empresa, nombrado en su declaración de representación (proxy, DEF 14A). Lo usa la regla de contagio VETO_RED_01."@es ;
     rdfs:comment "A named director/officer extracted from DEF 14A filings, used by the VETO_RED_01 contagion rule (v1 §4). canonicalId is populated by the entity-resolution service (roadmap step 7)." .
 
 :AssetCoOccurrence
     a owl:Class ;
     rdfs:label "Asset Co-occurrence" ;
+    rdfs:label "coocurrencia de activos"@es ;
+    skos:definition "Vínculo candidato, ponderado y versionado por método, entre dos activos, derivado de su coocurrencia en noticias. Está reificado porque el vínculo transporta método y peso; no es un vínculo verificado de dirección compartida y nunca implica sharedExecutiveWith."@es ;
     rdfs:comment "T-107 (D10): one method-versioned, weighted CANDIDATE link between two assets derived from news co-occurrence (upstream shared_executive_edge, method news-per-cooccurrence-v1; or the media_cooccurrence table once populated). Reified because the link carries method/weight. It is NOT a verified shared directorship and never implies :sharedExecutiveWith." .
 
 :BenchmarkObservation
     a owl:Class ;
     rdfs:label "Benchmark Observation" ;
+    rdfs:label "observación de referencia"@es ;
+    skos:definition "Un número terminado que el módulo cuantitativo del sistema de origen calculó sobre un portafolio: una métrica de desempeño de un libro de referencia o un peso activo por activo frente al libro vivo. Se proyecta tal como se recibe, nunca se calcula aquí; los retornos, mu y Sigma no se proyectan."@es ;
     rdfs:comment "T-108 (D11): one finished number that upstream's quant module computed about a Portfolio -- a benchmark book's performance metric (v_quant_benchmark_performance) or a per-asset active weight against the live book (v_quant_vs_live, with quantAsset). Projected as handed over, never computed here; returns, mu and Sigma are not projected." .
 
 :Veto
     a owl:Class ;
     rdfs:label "Veto" ;
+    rdfs:label "veto"@es ;
+    skos:definition "Nodo de decisión del orquestador para un activo: qué regla o reglas se activaron y por qué. Desde T-102, un veto es un período (raisedOn..clearedOn, filas de veto del sistema de origen), no un evento de un solo ciclo."@es ;
     rdfs:comment "The orchestrator's decision node for one Asset: which rule(s) fired and why (v1 §4). Since T-102 a Veto is a stint (raisedOn..clearedOn, upstream veto rows), not a single-cycle event." .
 
 :RuleDefinition
     a owl:Class ;
     rdfs:label "Rule Definition" ;
+    rdfs:label "definición de regla"@es ;
+    skos:definition "Regla de veto versionada, válida durante [validFrom, validTo). Se almacena como datos del grafo, no como código de la aplicación."@es ;
     rdfs:comment "A versioned veto rule, valid over [validFrom, validTo). Stored as graph data, not application code (closes critique #6)." .
 
 :RuleClause
     a owl:Class ;
     rdfs:label "Rule Clause" ;
+    rdfs:label "cláusula de regla"@es ;
+    skos:definition "Nodo AND/OR del árbol de expresión booleana de una definición de regla. Sustituye la cadena infija sin paréntesis de v1 por un árbol explícito."@es ;
     rdfs:comment "One AND/OR node in a RuleDefinition's boolean expression tree. Replaces v1's unparenthesized infix string (source of critique #1's precedence bug) with an explicit tree." .
 
 :ThresholdComparison
     a owl:Class ;
     rdfs:label "Threshold Comparison" ;
+    rdfs:label "comparación de umbral"@es ;
+    skos:definition "Operando hoja de una cláusula de regla: una terna numérica de métrica, operador y umbral, por ejemplo (ScoreFinanciero, '>', 0.65). La comparación usa normalizedScore para las métricas Score* y rawValue para Sentiment, SectorRelativeMomentum y las métricas del sistema de origen que no son tipos de ScoreSnapshot."@es ;
     rdfs:comment "A leaf RuleClause operand: one numeric metric/operator/threshold triple, e.g. (ScoreFinanciero, '>', 0.65). CONVENTION (found while populating instances.trig, not stated in 06-ontology-definition.md): the Orchestrator's tree-walker compares Score* metrics (ScoreFinanciero/ScoreTecnico/ScoreCuantitativo) against ScoreSnapshot.normalizedScore ([0.0,1.0], matches v1's 0.65-0.90 thresholds), but compares the Sentiment metric against ScoreSnapshot.rawValue ([-1.0,1.0], matches v1's -0.50/-0.60 thresholds, which are out of range on the normalized scale). This per-metric dispatch has to be hardcoded in the evaluator; it is not derivable from the ontology alone. Added 2026-08-13: SectorRelativeMomentum (a ScoreSnapshot metricType, not a new class) is a third entry in this same dispatch table, compared via rawValue like Sentiment -- see rules.ttl's VETO_MKT_02. Added 2026-10-03 (T-103): upstream's catalog uses metrics that are not ScoreSnapshot types (leverage.debt_to_equity, cashflow.free_cash_flow_margin, liquidity.current_ratio — fundamental ratios; max_drawdown_90d — a price-derived metric computed upstream, not a :PriceObservation property; fundamental_score_age_days — derived). They carry upstream's own identifiers and compare against the metric's raw value; there is no normalizedScore for them." .
 
 :CategoricalComparison
     a owl:Class ;
     rdfs:label "Categorical Comparison" ;
+    rdfs:label "comparación categórica"@es ;
+    skos:definition "Operando hoja de una cláusula de regla que compara un campo categórico (por ejemplo, RiskEvent.category o RiskEvent.severity) con un valor de texto esperado mediante igualdad."@es ;
     rdfs:comment "A leaf RuleClause operand comparing a categorical field (e.g. RiskEvent.category, RiskEvent.severity) against an expected string value via equality. DISCOVERED DURING IMPLEMENTATION: the original ThresholdComparison-only design (06-ontology-definition.md §1.5) covers the numeric confluent rules but not VETO_LEG_01/VETO_COMP_02, which gate on RiskEvent.category/severity, not a numeric ScoreSnapshot metric — this class fills that gap. See rules.ttl." .
 
 :GraphPredicate
     a owl:Class ;
     rdfs:label "Graph Predicate" ;
+    rdfs:label "predicado de grafo"@es ;
+    skos:definition "Operando hoja de una cláusula de regla que representa una condición booleana evaluada mediante recorrido del grafo o una consulta ASK de SPARQL, en lugar de una comparación escalar o categórica. predicateName identifica el recorrido con nombre que ejecuta el orquestador; la lógica del recorrido vive en el código del agente, no en el grafo."@es ;
     rdfs:comment "A leaf RuleClause operand representing a boolean condition evaluated via graph traversal / a SPARQL ASK query rather than a scalar or categorical comparison — e.g. VETO_RED_01's HasSharedPrimaryVetoExecutive(A) (and, as a second use since DATA_QUALITY and T-187, a condition evaluated upstream: see predicateName) over the sharedExecutiveWith network and T-1 veto state. DISCOVERED DURING IMPLEMENTATION alongside CategoricalComparison, for the same reason: VETO_RED_01 doesn't fit the numeric/categorical leaf shapes either. predicateName identifies which named traversal the Orchestrator agent (08-agent-architecture.md) runs; the traversal logic itself lives in agent code, not in the graph." .
 
 :Portfolio
     a owl:Class ;
     rdfs:label "Portfolio" ;
+    rdfs:label "portafolio"@es ;
+    skos:definition "El libro de posiciones activas."@es ;
     rdfs:comment "The actively-held book. Closes critique #2 (v1 had exclusion/veto only, no inclusion/holding model)." ;
     rdfs:seeAlso <https://spec.edmcouncil.org/fibo/ontology/FND/OwnershipAndControl/Ownership/Portfolio> .
 
 :PortfolioPosition
     a owl:Class ;
     rdfs:label "Portfolio Position" ;
+    rdfs:label "posición del portafolio"@es ;
+    skos:definition "Relación n-aria: la posición ponderada de un activo dentro de un portafolio durante [validFrom, validTo)."@es ;
     rdfs:comment "N-ary relation: one Asset's weighted position within one Portfolio over [validFrom, validTo)." ;
     rdfs:seeAlso <https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/FinancialProductsAndServices/Position> .
 
 :PriceObservation
     a owl:Class ;
     rdfs:label "Price Observation" ;
+    rdfs:label "observación de precio"@es ;
+    skos:definition "Resumen diario derivado de un activo (cierre, retorno, volatilidad, ATR, momentum), no un precio negociado. El cierre está ajustado por splits a la fecha de descarga y no por dividendos, por lo que su retorno es solo de precio; los retornos con dividendos se calculan aparte."@es ;
     rdfs:comment "A DERIVED daily summary (close, return, ATR, ...) for one Asset — NOT the raw OHLCV tick panel (see 07-ontology-topology.md)." .
 
 :SectorAggregateSnapshot
     a owl:Class ;
     rdfs:label "Sector Aggregate Snapshot" ;
+    rdfs:label "instantánea agregada por sector"@es ;
+    skos:definition "Instantánea inmutable y con marca de tiempo que agrega el ScoreTecnico de los activos miembros de un sector en una fecha, escrita por el agente de sector."@es ;
     rdfs:comment "Immutable, timestamped roll-up of member Assets' ScoreTecnico for one Sector on one date, written by the Sector Agent (08-agent-architecture.md). Added 2026-08-13, closes part of critique #3 (sector layer) -- see docs/superpowers/specs/2026-08-13-attractiveness-sector-momentum-design.md." .
 
 :AttractivenessSnapshot
     a owl:Class ;
     rdfs:label "Attractiveness Snapshot" ;
+    rdfs:label "instantánea de atractivo"@es ;
+    skos:definition "Resultado de ranking calculado por el orquestador para un activo en un ciclo; es la contraparte positiva del veto."@es ;
     rdfs:comment "The Orchestrator's computed ranking output for one Asset in one cycle -- the positive counterpart to Veto (v1 modeled exclusion only). Closes part of critique #2/evolution layer B3's ranking half (not the position-sizing half). Added 2026-08-13." .
 
 :AttractivenessWeightScheme
     a owl:Class ;
     rdfs:label "Attractiveness Weight Scheme" ;
+    rdfs:label "esquema de ponderación del atractivo"@es ;
+    skos:definition "Combinación de pesos que respalda attractivenessScore de una instantánea de atractivo, tal como la registró el ejecutor de ciclos del sistema de origen para un solo cycle_run. Se lee del sistema de origen y nunca se aplica aquí. Un esquema por ejecución es una observación, no un esquema válido en el tiempo; el esquema histórico WeightScheme_v1 sí lo es."@es ;
     rdfs:comment "The blend behind AttractivenessSnapshot.attractivenessScore, as upstream's cycle runner recorded it for ONE cycle_run (read from upstream, never applied here; T-121). Two shapes of individual: an upstream scheme is a per-run observation (schemeId 'cycle_run:<id>', cycleDate = v_weight_scheme.cycle_date, never closed, never updated: a later run is a new scheme; written to urn:graph:ingest:ORCHESTRATOR:{cycleDate} with the snapshots that point at it); the design-history WeightScheme_v1 is a versioned scheme valid over [validFrom, validTo). A per-run scheme is deliberately NOT valid-time, so its absent validTo never reads as 'still active'. Carries upstream's book-weighting rule (:bookWeightingRule) and scalar knobs. Added 2026-08-13; per-run since T-121." .
 
 :WeightComponent
     a owl:Class ;
     rdfs:label "Weight Component" ;
+    rdfs:label "componente de ponderación"@es ;
+    skos:definition "Par (métrica, peso) dentro de un esquema de ponderación del atractivo, configurado por el sistema de origen para una ejecución: uno por score_type (FUNDAMENTAL, VALORIZATION, TECHNICAL y, en ejecuciones antiguas, SEMANTIC). SectorRelativeMomentum no tiene peso en el sistema de origen. :inverted es historia de diseño opcional."@es ;
     rdfs:comment "One (metric, weight) pair within an AttractivenessWeightScheme, as configured upstream for one run: one per score_type (FUNDAMENTAL, VALORIZATION, TECHNICAL, plus SEMANTIC in older runs); SectorRelativeMomentum has no upstream weight. :inverted is optional design history (T-121). Added 2026-08-13." .
 
 #################################################################

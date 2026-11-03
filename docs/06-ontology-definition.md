@@ -49,7 +49,7 @@ of ours — the same meaning, or a broader FIBO term. Where FIBO's definition wo
 there is no link, and our own definition states the difference.
 
 The six Phase 1 links live in `schema/tbox.ttl` and in `schema/fibo_terms.csv` (the single source
-for them and for the later glossary slice); the Spanish columns are empty until Phase 2. Here
+for them and for the glossary slice); they were empty in Phase 1 and are filled in Phase 2. Here
 `fibo:` stands for `https://spec.edmcouncil.org/fibo/ontology/`:
 
 | Our term | FIBO term (`fibo:` + path) | Fit | Link | What our own definition must say |
@@ -60,7 +60,7 @@ for them and for the later glossary slice); the Spanish columns are empty until 
 | `:Sector` | `SEC/Securities/SecuritiesClassification/GlobalIndustryClassificationStandardsClassifier` | same | yes | Our 11 sectors are GICS's 11. |
 | `:Industry` | `FND/Arrangements/ClassificationSchemes/IndustrySectorClassifier` | broader | yes | GICS-based industry groups. GICS has 25; `reference.ttl` has 26 because it splits the Energy group into its two GICS industries, so the link is to the generic classifier, not the GICS one. |
 | `:SECFiling` | `FND/Arrangements/Reporting/Report` | broader | yes | It lists the forms it covers (10-K, 10-Q, 8-K, DEF 14A). FIBO has no filing class. |
-| `:SP500Index` (the `:Universe` individual the ETL emits) | `IND/MarketIndices/BasketIndices/EquityIndex` | same | Phase 2 (S3) | |
+| `:SP500Index` (the `:Universe` individual the ETL emits) | `IND/MarketIndices/BasketIndices/EquityIndex` | same | yes (ETL output) | |
 | `:Asset` | none (nearest: `ListedShare`, `PubliclyHeldCompany`) | differs | **no** | See the note below. The broken `.../LegalPersons/LegalPerson` link is removed and not replaced. |
 | `:Universe` | none (nearest: `EquityIndex`, defined as a benchmark) | differs | no | The pool the system selects from: the S&P 500 members valid on each date. It is not the yardstick that performance is measured against. |
 | `:UniverseMembership` | none (nearest: `FND/DatesAndTimes/FinancialDates/DatedCollectionConstituent`, one date) | differs | no | Membership over an interval `[validFrom, validTo)`. With no `validTo`, it is still current. |
@@ -121,9 +121,85 @@ THE SOFTWARE IS PROVIDED 'AS IS', WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 See https://opensource.org/licenses/MIT.
 ```
 
-Phase 1 adds only the six `rdfs:seeAlso` links and `schema/fibo_terms.csv`. The 25-term glossary
-slice (`schema/fibo.ttl`, `urn:graph:reference:fibo`), the authors' Spanish `@es` text and tasks
-S1–S5 are Phase 2 and are not in this revision.
+**FIBO Phase 2: the glossary slice (T-211).** The slice is built and committed as
+`schema/fibo.ttl`; `schema/fibo_terms.csv` now holds the 25 seeds of brief §4.1 with their reviewed
+Spanish columns. The slice has 54 entries (25 seeds plus 29 ancestors the release describes) and
+223 English statements: 54 `rdfs:label`, 54 `skos:definition`, 63 `rdfs:subClassOf` (16 of them to
+parents outside the release, kept only as the objects of their edges), 37 explanatory notes, 7
+abbreviations, 6 synonyms and 2 usage notes. It copies no `rdf:type`, so no FIBO term is an
+`owl:Class` in this repository (NR-004 as written); a `?c a owl:Class` query cannot return one. The
+Spanish layer adds 50 statements (25 labels plus 25 definitions) and the header adds 4: the
+release (`owl:versionInfo "FIBO 2026Q2"`), the zip's sha256, the `dct:license` text copied verbatim
+from `AboutFIBOProd`, and a comment saying the `@es` text is the thesis authors' translation.
+
+Rebuild it with:
+
+```bash
+uv run python cli/build_fibo_slice.py --zip /path/to/prod.ttl.zip \
+    --terms schema/fibo_terms.csv --out schema/fibo.ttl
+```
+
+The builder refuses any zip whose sha256 is not
+`7a4ccebc9ff5c1e202bf1ae44928d9149a5f6f8ff1289dde42edff13e601f579`, and the same zip and terms
+file give a byte-identical file. It keeps only labels, definitions, named parents and the
+`cmns-av` notes, copies every literal with its language tag exactly as in the release (FIBO's own
+text is untagged or `@en`), and adds `rdfs:label`@es and `skos:definition`@es for a row only when
+both Spanish columns are filled. All 25 rows are filled in this revision; the thesis authors
+approve them by merging the change. The slice loads into `urn:graph:reference:fibo` after
+`reference.ttl` (S1), and is append-only in effect: it is rebuilt only for a new FIBO release.
+
+For a linked row, the Spanish definition in `fibo.ttl` is FIBO's meaning, never ours; our own
+Spanish definitions live in `tbox.ttl` (S2), where the six "differs" classes state why FIBO does
+not define every instance of ours. The 27 pre-existing leaf classes now carry one `@es` label and
+one `@es` definition each; the 11 v18 classes' handoff §6.2 texts are unchanged. Those 54 new
+triples take the FR-001 bundle to **4236 quads; conforms: True**; `fibo.ttl` is a separate
+277-statement graph. `:SP500Index` gets its `rdfs:seeAlso` in the ETL output, where the universe
+individual is emitted (S3), not in `urn:graph:tbox`.
+
+**Lookup queries for the reports agent (brief Appendix A, unchanged).** `A1` explains one of our
+terms from `urn:graph:tbox` and, when it has an `rdfs:seeAlso` into FIBO, adds the standard term's
+English definition and the authors' `@es` text. `A2` looks up a general finance term by its Spanish
+label in `urn:graph:reference:fibo`. The FIBO text is the untagged or `@en` literal; `@es` is
+always the authors' translation, never FIBO's words.
+
+```sparql
+PREFIX :     <https://thesis.local/kg/portfolio#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+
+SELECT ?labelEs ?defEs ?fibo ?fiboLabelEs ?fiboDefEs ?fiboDef
+WHERE {
+  GRAPH <urn:graph:tbox> {
+    :Portfolio rdfs:label ?labelEs ; skos:definition ?defEs .
+    FILTER (lang(?labelEs) = "es" && lang(?defEs) = "es")
+  }
+  OPTIONAL {
+    GRAPH <urn:graph:tbox> { :Portfolio rdfs:seeAlso ?fibo . }
+    GRAPH <urn:graph:reference:fibo> {
+      ?fibo skos:definition ?fiboDef .
+      FILTER (!langMatches(lang(?fiboDef), "es"))
+      OPTIONAL { ?fibo rdfs:label      ?fiboLabelEs FILTER (lang(?fiboLabelEs) = "es") }
+      OPTIONAL { ?fibo skos:definition ?fiboDefEs   FILTER (lang(?fiboDefEs)   = "es") }
+    }
+  }
+}
+```
+
+```sparql
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+
+SELECT ?term ?defEs ?fiboDef
+WHERE {
+  GRAPH <urn:graph:reference:fibo> {
+    ?term rdfs:label ?l .
+    FILTER (lang(?l) = "es" && lcase(str(?l)) = "volatilidad")
+    ?term skos:definition ?fiboDef .
+    FILTER (!langMatches(lang(?fiboDef), "es"))
+    OPTIONAL { ?term skos:definition ?defEs FILTER (lang(?defEs) = "es") }
+  }
+}
+```
 
 ## 1.2 Class taxonomy
 
@@ -740,7 +816,7 @@ not a veto rule:** it carries no `:ruleSeverity`, `:penaltyPoints` or `:priority
 `VetoShape` refuses it as the object of `:appliesRule`/`:primaryRule`. `RuleDefinitionShape` adds one
 `sh:or` branch for `:category "GUARD"`, keeps the severity requirement for every other active rule,
 makes `:priorityRank` mandatory for non-GUARD rules, and widens the rank range to `[1,10]` for
-`UTILITY_CASH_COVERAGE`. The bundle is **4182 quads; conforms: True** (the FR-001 gate).
+`UTILITY_CASH_COVERAGE`. The bundle is **4236 quads; conforms: True** (the FR-001 gate).
 
 ---
 

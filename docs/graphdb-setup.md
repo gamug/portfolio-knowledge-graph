@@ -56,7 +56,7 @@ queries prove slow.
 uv run python cli/load_schema.py [--dir path/to/schema]
 ```
 
-Loads `tbox → shapes → reference → rules → instances.trig` per the graph map in
+Loads `tbox → shapes → reference → fibo → rules → instances.trig` per the graph map in
 [`schema/README.md`](../schema/README.md). It first drops every graph it is about to write, so a
 re-run (for example after a schema edit) replaces rather than duplicates. It then parses the same
 files with `rdflib` and compares the asserted triple count of each of those graphs with the store's
@@ -144,6 +144,14 @@ instead of passing the id to `_date_ok`. The projector that writes those graphs
 (`src/projection/backtest.py`, CLI `cli/project_backtest.py`) was run here as a dry run only; no
 GraphDB write or reload was made. The live store was not reloaded, so its copy of the schema is
 pre-T-206 until the maintainer runs `cli/load_schema.py` (and then `cli/verify_store.py`).
+
+**T-211 note (FIBO Phase 2).** `schema/fibo.ttl` is a 277-statement reference slice and loads into
+its own graph, `urn:graph:reference:fibo`, after `reference.ttl`. The loader therefore owns 20
+graphs and 4513 asserted triples on a fresh load (the FR-001 bundle is 4236 quads; the slice adds
+277). No load was run for this change: the live store stays as it was until the maintainer runs
+`cli/load_schema.py` and `cli/verify_store.py`, and `TASKS.md` carries that reload as T-212. The
+slice is rebuilt only for a new FIBO release; `cli/build_fibo_slice.py` refuses any zip whose
+sha256 is not the pinned value.
 
 Validation reads `tbox.ttl` and `shapes.ttl` from `schema/` on disk (once per process); reload with
 `cli/load_schema.py` after a schema edit so the store's copy matches. Limits: this is a code path,
