@@ -92,8 +92,8 @@ returns separately (upstream SPEC FR-009).
 classes against our 51. 71% of its statements describe its 11,763 named individuals (exchanges,
 market codes and the like). The evaluation load of 2026-10-27, with the `rdfsplus-optimized`
 ruleset, produced about 178,000 inferred statements and an unscoped "list all classes" query
-returned 2,280 classes; the 2,280 figure was not re-measured. P1 removed that load on 2026-11-02
-and measured the cost on 2026-11-03: before dropping the FIBO graph the repository held 137,496
+returned 2,280 classes; the 2,280 figure was not re-measured. P1 removed that load and measured the
+cost on 2026-11-02: before dropping the FIBO graph the repository held 137,496
 explicit and 180,948 inferred statements across 19 graphs, with 134,946 statements in the FIBO
 graph; after dropping only that graph it held 2,550 explicit and 908 inferred. The difference is
 134,946 explicit (exactly the graph's size) and **180,040 inferred**, which confirms the order of

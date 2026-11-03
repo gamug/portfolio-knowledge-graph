@@ -761,7 +761,7 @@ refuses a zip whose sha256 is not
 FIBO 2026Q2 has 220 modules and 134,946 statements, 2,240 named classes against our 51, and 71% of
 its statements describe 11,763 named individuals; the 2026-10-27 evaluation load inferred about
 178,000 statements and returned 2,280 classes (not re-measured), and the P1 measurement of
-2026-11-03 counted 180,948 inferred before dropping the FIBO graph and 908 after (180,040 fewer;
+2026-11-02 counted 180,948 inferred before dropping the FIBO graph and 908 after (180,040 fewer;
 the graph held 134,946 statements and the other 18 graphs kept their 2,550 explicit statements).
 The release is MIT-licensed (copyright EDM Association dba EDM Council, Inc. and Object Management
 Group) per `AboutFIBOProd`'s `dct:license`. Tests: `tests/test_fibo_terms.py` (the six rows, no old
