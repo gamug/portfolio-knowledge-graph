@@ -278,7 +278,9 @@ architecture, and not partitioned for the bitemporal audit trail
    risk: the only NLP read is the tag-pinned `news_export.fetch_processed_articles`.
 7. The Contract v18 ontology half (T-206, 2026-11-01) is in: the 11 classes for the m015/m016/m018
    views, 31 SHACL shapes, and the 10 selection + 5 GUARD rules, with the handoff §3.3 nullable
-   columns left optional. The eight m018 projectors are built (T-207, 2026-11-02):
+   columns left optional. `UTILITY_CASH_COVERAGE`'s `validFrom` is 2026-10-14, the real T-071 part
+   2a merge date (T-216, 2026-11-03; it was 2026-10-31, the last safe date, until then). The eight
+   m018 projectors are built (T-207, 2026-11-02):
    `src/projection/backtest.py` writes one append-only graph per run,
    `urn:graph:derived:backtest:{window_id}:{backtest_run_id}`, with a dry run by default and
    `--write` behind the ingest gate; the source check reads `v_book.run_status` rather than

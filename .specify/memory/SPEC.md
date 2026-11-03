@@ -694,10 +694,14 @@ optional, and `exclude_hard_vetoed` is 0 on all three arms (the DDL says 1 for `
 its boolean type is enforced, never a per-arm value; `drawdown`, `cost_return` and `max_drawdown`
 carry no sign or range constraint because the handoff states no sign convention.
 `rules.ttl` gains `UTILITY_CASH_COVERAGE` (HARD, `rule_input.utility_cash_coverage_3y < 0.05`, rank
-10, valid from 2026-10-31 — the last safe date: the rule was already in upstream's catalog in the
-completed backtest runs and raised a real veto in P1 on 2022-03-03, so a later date is impossible;
-not backdated to 2019/2020, and upstream's `v_rule_catalog.created_at` (2026-10-31T19:37:32) is a
-technical persistence timestamp, not the adoption date) as the tenth selection rule,
+10, valid from 2026-10-14 — the day T-071 part 2a (PR #167, merge commit `7ae8ba8`) reached
+upstream master, 2026-10-14 20:51:47 -0500 (already 2026-10-15 in UTC); T-216 supplied that real
+date, replacing 2026-10-31, the last safe date, used until then. Not backdated to 2019/2020:
+valid-time means when a definition was in force in production, not that a backtest applies a rule
+retroactively — the P1 backtest replays history with today's catalog and raised this rule's veto on
+2022-03-03, which is why backtest vetoes cannot resolve their rule by `raisedOn` (T-209); upstream's
+`v_rule_catalog.created_at` (2026-10-31T19:37:32) is a technical persistence timestamp, not the
+adoption date) as the tenth selection rule,
 records the APP-00 profile exemptions in the `LEVERAGE_EXTREME`/`NEGATIVE_FCF`/`LIQUIDITY_DISTRESS`
 comments without changing thresholds/severities/clauses, and adds the five GUARD rules
 (`L1_STOP_LOSS`, `L1_REENTRY`, `L2_NEWS`, `L3_VOL`, `L4_DD`) as `:category "GUARD"`
