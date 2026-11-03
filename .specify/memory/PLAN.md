@@ -284,6 +284,13 @@ architecture, and not partitioned for the bitemporal audit trail
    `--write` behind the ingest gate; the source check reads `v_book.run_status` rather than
    `v_cycle_run`, and no store was reloaded. The m015/m016 views (`v_ticker_history`,
    `v_orchestrator_run`, `v_orchestrator_step`) remain PR-C2 (T-208).
+   FIBO Phase 1 (T-210, 2026-11-03) is in too: six `rdfs:seeAlso` links from
+   `schema/fibo_terms.csv` in `tbox.ttl` and (for the four terms it declares)
+   `kg_target_schema.ttl`, the two broken `https://www.omg.org/spec/EDMC-FIBO/` links removed, and
+   `cli/check_fibo_terms.py` checking every linked IRI against the pinned FIBO 2026Q2
+   `prod.ttl.zip`. FIBO is a reference vocabulary, not a dependency: no import, no equivalence and
+   no reasoning over its axioms. Phase 2 (the 25-term slice, the authors' `@es` text and S1–S5) is
+   T-211; the generated `protege-view` files still carry the old IRIs until T-070/T-071.
 
 **Prerequisite**: Work item 11 (the §2.6 drift decisions) — met: it closed
 2026-10-05 (see `CHANGELOG.md`).

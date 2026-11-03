@@ -40,12 +40,90 @@ dereferenceable namespace at deployment time; nothing in the design *depends* on
 Every class/property below lives under this single namespace (prefix `:`), which keeps the
 ontology self-contained and avoids a dependency on any external ontology resolving at parse time.
 
-**FIBO alignment, as documentation only.** Several classes carry `rdfs:seeAlso` pointers to
-Financial Industry Business Ontology (FIBO) concepts — e.g. `:Asset rdfs:seeAlso
-fibo:LegalPersons/LegalPerson`, `:SECFiling rdfs:seeAlso fibo:Documents/Filing`. This is
-deliberately *not* `owl:equivalentClass` or `owl:imports`: a full FIBO import is heavy (FIBO spans
-dozens of modules) and buys nothing at thesis scale, but citing the alignment is worth doing for
-academic grounding — it signals the class design isn't arbitrary, without paying FIBO's load cost.
+**FIBO alignment (Phase 1, 2026-11-03; T-210).** FIBO is a **reference vocabulary, not a
+dependency** (the FIBO integration brief §1). Our terms stay in
+`https://thesis.local/kg/portfolio#` (constitution Project structure #8, SPEC NR-004); there is no
+`owl:imports`, `owl:equivalentClass` or `rdfs:subClassOf` to FIBO, and FIBO's axioms are never used
+for reasoning. A term gets `rdfs:seeAlso` only when FIBO's definition is true of **every** instance
+of ours — the same meaning, or a broader FIBO term. Where FIBO's definition would misstate ours
+there is no link, and our own definition states the difference.
+
+The six Phase 1 links live in `schema/tbox.ttl` and in `schema/fibo_terms.csv` (the single source
+for them and for the later glossary slice); the Spanish columns are empty until Phase 2. Here
+`fibo:` stands for `https://spec.edmcouncil.org/fibo/ontology/`:
+
+| Our term | FIBO term (`fibo:` + path) | Fit | Link | What our own definition must say |
+|---|---|---|---|---|
+| `:Portfolio` | `FND/OwnershipAndControl/Ownership/Portfolio` | same | yes | |
+| `:PortfolioPosition` | `FBC/ProductsAndServices/FinancialProductsAndServices/Position` | same | yes | It carries a weight and a validity interval `[validFrom, validTo)`. |
+| `:tickerSymbol` (property) | `SEC/Securities/SecuritiesIdentification/TickerSymbol` | same | yes | FIBO defines a ticker as reassignable; see the `:Asset` note below. |
+| `:Sector` | `SEC/Securities/SecuritiesClassification/GlobalIndustryClassificationStandardsClassifier` | same | yes | Our 11 sectors are GICS's 11. |
+| `:Industry` | `FND/Arrangements/ClassificationSchemes/IndustrySectorClassifier` | broader | yes | GICS-based industry groups. GICS has 25; `reference.ttl` has 26 because it splits the Energy group into its two GICS industries, so the link is to the generic classifier, not the GICS one. |
+| `:SECFiling` | `FND/Arrangements/Reporting/Report` | broader | yes | It lists the forms it covers (10-K, 10-Q, 8-K, DEF 14A). FIBO has no filing class. |
+| `:SP500Index` (the `:Universe` individual the ETL emits) | `IND/MarketIndices/BasketIndices/EquityIndex` | same | Phase 2 (S3) | |
+| `:Asset` | none (nearest: `ListedShare`, `PubliclyHeldCompany`) | differs | **no** | See the note below. The broken `.../LegalPersons/LegalPerson` link is removed and not replaced. |
+| `:Universe` | none (nearest: `EquityIndex`, defined as a benchmark) | differs | no | The pool the system selects from: the S&P 500 members valid on each date. It is not the yardstick that performance is measured against. |
+| `:UniverseMembership` | none (nearest: `FND/DatesAndTimes/FinancialDates/DatedCollectionConstituent`, one date) | differs | no | Membership over an interval `[validFrom, validTo)`. With no `validTo`, it is still current. |
+| `:PriceObservation` | none (nearest: `ClosingPrice`, `AdjustedClosingPrice`) | differs | no | See the note below. |
+| `:Executive` | none (nearest: `CorporateOfficer`, `BoardMember`) | differs | no | A director or an officer named in a proxy statement (DEF 14A). FIBO's `Executive` manages the organization, which excludes non-executive directors. |
+| The 17 explanation-layer classes | none | ours | no | Their own definitions. |
+
+The 17 explanation-layer classes are `ScoreSnapshot`, `SectorAggregateSnapshot`,
+`AttractivenessSnapshot`, `AssetCoOccurrence`, `BenchmarkObservation`, `NewsArticle`,
+`SECFilingSection`, `DataQualityIssue`, `RiskEvent`, `Veto`, `RuleDefinition`, `RuleClause`,
+`ThresholdComparison`, `CategoricalComparison`, `GraphPredicate`, `AttractivenessWeightScheme` and
+`WeightComponent`.
+
+**Why `:Asset` has no FIBO link.** `:Asset` is one node per ticker symbol
+(`src/etl/asset_master.py`), not one per company. A company with several share classes in the
+index has one node per class (GOOGL/GOOG, FOXA/FOX, NWSA/NWS); upstream, 503 assets map to 500
+CIKs. A ticker reused by another company is one node (Q, CEG, DELL). FIBO's `LegalPerson` is a
+company, so the old link misstated every multi-class company and every reused ticker. There is no
+replacement: `ListedShare` is one listing and `PubliclyHeldCompany` is the issuer, neither of which
+is our per-ticker node.
+
+**Why `:PriceObservation` has no FIBO link.** It is a derived daily summary (close, return,
+volatility, ATR, momentum), not a traded price. Its close is split-adjusted as of download and not
+adjusted for dividends (upstream `src/pricing_agent/integrity.py`), so its return is price-only.
+FIBO's adjusted close also includes dividends; upstream's `quant` computes dividend-inclusive
+returns separately (upstream SPEC FR-009).
+
+**Why FIBO is not imported.** The release has 220 modules and 134,946 statements, with 2,240 named
+classes against our 51. 71% of its statements describe its 11,763 named individuals (exchanges,
+market codes and the like). The evaluation load of 2026-10-27, with the `rdfsplus-optimized`
+ruleset, produced about 178,000 inferred statements and an unscoped "list all classes" query
+returned 2,280 classes; the 2,280 figure was not re-measured. P1 removed that load and measured the
+cost on 2026-11-02: before dropping the FIBO graph the repository held 137,496
+explicit and 180,948 inferred statements across 19 graphs, with 134,946 statements in the FIBO
+graph; after dropping only that graph it held 2,550 explicit and 908 inferred. The difference is
+134,946 explicit (exactly the graph's size) and **180,040 inferred**, which confirms the order of
+magnitude of the 2026-10-27 evaluation. The remaining 2,550 explicit statements are the other 18
+graphs, unchanged. The full release is therefore never kept in the `portfolio` repository; the zip
+stays the source and a browsing copy would need a separate repository with no reasoning.
+
+**Release and licence.** The pinned release is FIBO 2026Q2, `prod.ttl.zip` (220 Turtle modules,
+134,946 statements), sha256
+`7a4ccebc9ff5c1e202bf1ae44928d9149a5f6f8ff1289dde42edff13e601f579`; it is not committed. It is
+MIT-licensed: copyright EDM Association dba EDM Council, Inc. and Object Management Group, as the
+release's `AboutFIBOProd` `dct:license` states, verbatim (one whitespace-only line in the source is
+rendered blank):
+
+```text
+Copyright (c) 2018-2026 EDM Association dba EDM Council, Inc.
+Copyright (c) 2018-2025 Object Management Group, Inc.
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the 'Software'), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED 'AS IS', WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+See https://opensource.org/licenses/MIT.
+```
+
+Phase 1 adds only the six `rdfs:seeAlso` links and `schema/fibo_terms.csv`. The 25-term glossary
+slice (`schema/fibo.ttl`, `urn:graph:reference:fibo`), the authors' Spanish `@es` text and tasks
+S1–S5 are Phase 2 and are not in this revision.
 
 ## 1.2 Class taxonomy
 
@@ -591,8 +669,9 @@ decided the run log stays upstream.
 `skos:definition`@es, the handoff §6.2 text verbatim (outer « » delimiters dropped), plus the English
 label/comment the other classes carry. There is **no FIBO `rdfs:seeAlso`** on any of them: handoff
 §6.1 says FIBO has no class for backtest runs, strategy arms, GUARD rules, Sharpe, drawdown,
-turnover, costs or paired statistical tests. FIBO alignment for the 40 pre-existing classes is a
-later PR, not this one.
+turnover, costs or paired statistical tests. The FIBO alignment for the pre-existing classes is
+Phase 1 of the FIBO brief (T-210, §1.1); these 11 classes still have no FIBO link because FIBO has
+no class for them.
 
 **Properties.** Every column of the 11 views has a property. The columns shared across classes
 (`bookId`, `backtestRunId`, `armCode`, `windowId`, `knowledgeDate`, `status`, `decisionDate`,
@@ -661,7 +740,7 @@ not a veto rule:** it carries no `:ruleSeverity`, `:penaltyPoints` or `:priority
 `VetoShape` refuses it as the object of `:appliesRule`/`:primaryRule`. `RuleDefinitionShape` adds one
 `sh:or` branch for `:category "GUARD"`, keeps the severity requirement for every other active rule,
 makes `:priorityRank` mandatory for non-GUARD rules, and widens the rank range to `[1,10]` for
-`UTILITY_CASH_COVERAGE`. The bundle is **4178 quads; conforms: True** (the FR-001 gate).
+`UTILITY_CASH_COVERAGE`. The bundle is **4182 quads; conforms: True** (the FR-001 gate).
 
 ---
 

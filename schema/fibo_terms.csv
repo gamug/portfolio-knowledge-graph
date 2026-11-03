@@ -1,0 +1,7 @@
+fibo_iri,our_term,fit,label_es,definition_es
+https://spec.edmcouncil.org/fibo/ontology/FND/OwnershipAndControl/Ownership/Portfolio,https://thesis.local/kg/portfolio#Portfolio,same,,
+https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/FinancialProductsAndServices/Position,https://thesis.local/kg/portfolio#PortfolioPosition,same,,
+https://spec.edmcouncil.org/fibo/ontology/SEC/Securities/SecuritiesIdentification/TickerSymbol,https://thesis.local/kg/portfolio#tickerSymbol,same,,
+https://spec.edmcouncil.org/fibo/ontology/SEC/Securities/SecuritiesClassification/GlobalIndustryClassificationStandardsClassifier,https://thesis.local/kg/portfolio#Sector,same,,
+https://spec.edmcouncil.org/fibo/ontology/FND/Arrangements/ClassificationSchemes/IndustrySectorClassifier,https://thesis.local/kg/portfolio#Industry,broader,,
+https://spec.edmcouncil.org/fibo/ontology/FND/Arrangements/Reporting/Report,https://thesis.local/kg/portfolio#SECFiling,broader,,

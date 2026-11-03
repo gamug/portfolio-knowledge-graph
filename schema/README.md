@@ -21,9 +21,13 @@ other file loads wholesale into the single graph named in the table. No new file
 attractiveness-ranking feature: its `urn:graph:ingest:SECTOR:{date}` graph pattern is populated
 from within `instances.trig` like every other per-agent ingest graph.
 
-Two more files live in this directory but load into nothing (neither is part of the load order
+Several more files live in this directory but load into nothing (none is part of the load order
 above):
 
+- `fibo_terms.csv` — the FIBO Phase 1 terms file (header + six rows, T-210), **not RDF** and not
+  loaded: it is the single source for the six `rdfs:seeAlso` links in `tbox.ttl` and for the
+  Phase 2 glossary slice. `cli/check_fibo_terms.py` checks every `fibo_iri` against the pinned
+  `prod.ttl.zip` (label and definition); the Spanish columns stay empty until Phase 2.
 - `graphdb-repo-config.ttl` — **not data**: the GraphDB repository configuration (reasoning profile),
   never loaded into a graph. See `docs/graphdb-setup.md`.
 - `protege-view.ttl` — a **generated**, flattened plain-Turtle bundle for Protégé (which can't
@@ -378,7 +382,7 @@ what the store *enforces*.
      and production also needs `--to-production`. The writer keeps every masked/NULL column out of
      the Turtle, links an asset only when the universe database has the ticker, resolves
      `:alertRule` to `:Rule_{rule_id}` and refuses an unknown rule or a layer disagreement. No
-     schema file changed, so the bundle stays **4178 quads; conforms: True**.
+     schema file changed, so the bundle stayed **4178 quads at that revision; conforms: True**.
    - **Not done here:** no change to the v18 pin, no ingest-gate pattern change beyond the
      schema-driven `CLOSABLE` entry, its `inclusive` flag for `TickerHistory` (a one-day symbol must
      not be refused) and T-207's backtest graph name, no GraphDB write/reload, and
@@ -439,7 +443,24 @@ conforms: True.** The `urn:graph:tbox` graph (which holds `shapes.ttl`) grows by
 
 **T-100 (D1, 2026-10-05: `universe.db` is the asset master).** Maintainer decision: the ETL reads `portfolio-data-mining`'s point-in-time `universe.db` instead of Wikipedia's live table, so every membership stint becomes a `:UniverseMembership` (`validFrom`, and `validTo` while closed, exclusive like upstream's predicate) in one `:Universe` (`:SP500Index`, emitted by the ETL into `data.ttl`, not stored here). One shape change: `AssetShape`'s `cikNumber` is no longer unconditionally required. It is now `sh:maxCount 1` plus a `sh:or`: either the asset has a `cikNumber`, or it has at least one `:UniverseMembership` and every one of them has a `validTo`. Why: upstream records no CIK for a company that has left the index (all closed stints lack it), and inventing one would put false data in the graph; a current member without a CIK still fails. `UniverseMembershipShape` also declares `validTo` (`xsd:date`, at most one) and requires `validFrom` before it, since an exclusive `validTo` at or before `validFrom` holds on no date (upstream has two such stints, `HNG` and `AYE`, which the ETL skips). Checked with five cases (closed-only without CIK passes; open without CIK, closed-plus-open without CIK, and no membership without CIK fail; CIK without membership passes). No new class or property; `AllDisjointClasses` is unchanged. **2383 quads; conforms: True.**
 
-**T-206 (Contract v18 ontology, 2026-11-01).** The 11 new classes, their properties and 11 shapes are in `tbox.ttl`/`shapes.ttl` (refinement 7 above), and `rules.ttl` now has the 10 selection rules plus the 5 GUARD rules. `TickerHistory`'s interval is inclusive (`validFrom <= d <= validTo`; a one-day symbol is valid), and the Orchestrator shapes require only their natural keys (`orchestratorRunId`; `stepOfOrchestratorRun` + `ordinal`) because handoff §3.1 gives no base-table nullability and both views have 0 rows. The bundle parses clean and `pyshacl` conforms: **4178 quads; conforms: True.** The canonical command is the same as above (`tbox.ttl` + `shapes.ttl` + `reference.ttl` + `rules.ttl` + `instances.trig`); the test suite also validates the flat union with `rules.ttl` included. No GraphDB write or reload was done; the live store still holds the pre-T-206 schema until the next `cli/load_schema.py` (maintainer's go-ahead). `schema/protege-view.ttl` is generated and was not regenerated (T-070/T-071).
+**T-206 (Contract v18 ontology, 2026-11-01).** The 11 new classes, their properties and 11 shapes are in `tbox.ttl`/`shapes.ttl` (refinement 7 above), and `rules.ttl` now has the 10 selection rules plus the 5 GUARD rules. `TickerHistory`'s interval is inclusive (`validFrom <= d <= validTo`; a one-day symbol is valid), and the Orchestrator shapes require only their natural keys (`orchestratorRunId`; `stepOfOrchestratorRun` + `ordinal`) because handoff §3.1 gives no base-table nullability and both views have 0 rows. The bundle parses clean and `pyshacl` conforms: **4178 quads at that revision; conforms: True.** The canonical command is the same as above (`tbox.ttl` + `shapes.ttl` + `reference.ttl` + `rules.ttl` + `instances.trig`); the test suite also validates the flat union with `rules.ttl` included. No GraphDB write or reload was done; the live store still holds the pre-T-206 schema until the next `cli/load_schema.py` (maintainer's go-ahead). `schema/protege-view.ttl` is generated and was not regenerated (T-070/T-071).
+
+**T-210 (FIBO Phase 1, 2026-11-03).** FIBO is a reference vocabulary, not a dependency: six
+`rdfs:seeAlso` links, no `owl:imports`/`owl:equivalentClass`/`rdfs:subClassOf`, no FIBO axioms in
+reasoning. `tbox.ttl` loses the two broken `https://www.omg.org/spec/EDMC-FIBO/` links (`:Asset`'s
+`LegalPerson`, with no replacement because `:Asset` is one node per ticker; `:SECFiling`'s
+`Filing`, replaced by `Report`) and gains the six links in `fibo_terms.csv`: `:Portfolio`,
+`:PortfolioPosition`, `:tickerSymbol`, `:Sector`, `:Industry` and `:SECFiling`. `kg_target_schema.ttl`
+gets the same removals and four of the six links (it does not declare `:Sector` or `:Industry`; it
+only refers to them as ranges). The net is +4 triples in `tbox.ttl`: the bundle is **4182 quads;
+conforms: True**. `schema/fibo_terms.csv` is the source for the links and the later slice; the
+Spanish columns are empty until Phase 2. `cli/check_fibo_terms.py` (logic in
+`src/projection/fibo_terms.py`) checks the six IRIs against the pinned FIBO 2026Q2
+`prod.ttl.zip` (sha256 `7a4ccebc9ff5c1e202bf1ae44928d9149a5f6f8ff1289dde42edff13e601f579`) with a
+label and a definition; it is outside the hermetic suite because the zip is not committed. The
+real run printed six `IRI -> label` lines in 1.6 s at ~111 MB peak. `protege-view.ttl`/`.txt` are
+generated and still carry the old EDMC-FIBO IRIs until T-070/T-071; the Phase 2 slice (`fibo.ttl`,
+`@es` text, S1–S5) is not started.
 
 "Active at cutoff" is the general predicate; the **T-1 lag is the same query with `?cutoff` bound to
 the previous cycle date**. It needs the store to query the union of the named graphs (GraphDB does
