@@ -708,3 +708,33 @@ Documentation only; no code, schema, shape or test logic changed.
   universe) and T-216 (ask upstream T-071's real merge date) are open. The generated
   `protege-view.ttl`/`.txt` remain stale (T-070/T-071); no backtest graph was written. The FR-001
   bundle is unchanged at 4236 quads.
+
+## Work item 19 — Reports-agent query catalog and its executable test (2026-11-03)
+
+*Closed 2026-11-03. Plan: `PLAN.md` Work item 19. The catalog is a document plus a hermetic test;
+no `src/`, `schema/` or gate change.*
+
+- [x] **T-240** *(done 2026-11-03)* Write `docs/reports-agent-query-catalog.md`: the scope rule
+      (always `GRAPH`, never the default union), the Appendix A lookups (`A1` for several of our
+      terms at once with the FIBO link in the same `OPTIONAL`; `A2` by Spanish label), the terms
+      FIBO does not define (a `@es` definition containing "sharpe": `PortfolioPeriodSummary` and
+      `BacktestTest`), the active rules by category (10 selection + 5 GUARD, active = no
+      `validTo`), and the backtest battery. Every `sparql` block is preceded by
+      `<!-- q:NAME expect:... -->`. → `PLAN.md` Work item 19, step 1.
+- [x] **T-241** *(done 2026-11-03)* Add `tests/test_query_catalog.py`: parse every tagged query,
+      build one in-memory `rdflib.Dataset` from `schema/tbox.ttl` (`urn:graph:tbox`),
+      `schema/fibo.ttl` (`urn:graph:reference:fibo`), `schema/rules.ttl`
+      (`urn:graph:rules:catalog`) and `schema/reference.ttl` (`urn:graph:reference`), plus the
+      two synthetic backtest windows (`P1`, `P2`) projected with `projection.backtest.project`;
+      run every query and check its exact row count or named rule. The test also pins the A1
+      `:Asset` row with no FIBO link, the two Sharpe-less terms, the 5/1/4/5 active-rule split,
+      and the absence of a drifted weight or a per-asset daily return on `BookWeightDaily` and
+      `BookDailyPerformance`. → step 2.
+- [x] **T-242** *(done 2026-11-03)* Write the limits section: the 11 evaluation questions of
+      brief §6 and the backtest questions mapped to today / after the asset catalog / after
+      T-209 / after T-208 / never by design; state the §5 boundary rule. The statuses are pinned
+      by the test, and the table has exactly 11 `Q` rows. → step 3.
+- [x] **T-243** *(done 2026-11-03)* Verify and reconcile: `uv run pytest -q`,
+      `uv run mypy --config-file=.code_quality/mypy.ini`, `uv run pre-commit run --all-files`;
+      update `README.md`, `docs/06` §1.1, `SPEC.md`, `PLAN.md`, `TASKS.md` and this file. No
+      schema count changed, so `schema/README.md` and the FR-001 bundle are untouched. → step 4.

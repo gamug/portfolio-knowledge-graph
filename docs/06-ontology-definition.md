@@ -201,6 +201,12 @@ WHERE {
 }
 ```
 
+The executable forms of these two lookups, together with the backtest battery and the limits of
+what the graph can answer, live in
+[`reports-agent-query-catalog.md`](reports-agent-query-catalog.md);
+`tests/test_query_catalog.py` runs every query there against the schema bundle and the synthetic
+two-window backtest.
+
 ## 1.2 Class taxonomy
 
 Replaces the earlier flat, disjointness-only inventory. The 38 leaf/domain classes are organized

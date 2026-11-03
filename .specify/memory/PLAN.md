@@ -1135,6 +1135,41 @@ seeing the writer's just-committed row rather than a stale snapshot.
   mentions of "734 hermetic tests" were stale after this PR's own new test — fixed to 735 in the
   hero pill, the "What exists today" bullet and the "Validation has two layers" bullet.)
 
+## Work item 19 — Reports-agent query catalog and its executable test (T-240–T-243)
+
+**Status: closed 2026-11-03.**
+
+**Why**: `portfolio-reports` receives questions about what a term means, how a backtest arm
+performed and why an asset was cut or excluded. The graph answers them, but the queries were
+spread between `docs/06`'s Appendix A and the store notes, and a query could silently drift from
+the schema or from the backtest graph naming. The FIBO slice adds a second way to answer "what is
+X", so the boundary between a definition and a reason has to be written down: **FIBO explains what
+terms mean, never why an asset was in or out of a portfolio** (brief §5).
+
+**What was built**:
+
+1. `docs/reports-agent-query-catalog.md`: the scope rule (always `GRAPH`, never the default
+   union), A1 for several of our terms at once with the FIBO link in the same `OPTIONAL`, A2 by
+   Spanish label, the terms FIBO does not define (Sharpe), the active rules by category, the
+   backtest battery (performance, GUARD alerts, latest NAV known on D, layer-1 cuts, one
+   end-to-end cut explanation, book knowledge dates, the full `BookWeightDaily`/
+   `BookDailyPerformance` property list, the weight scale) and the limits table mapping the
+   brief's 11 evaluation questions and the backtest questions to today / after the asset catalog
+   / after T-209 / after T-208 / never by design.
+2. `tests/test_query_catalog.py`: parses every tagged query, builds one in-memory
+   `rdflib.Dataset` from `tbox.ttl`, `fibo.ttl`, `rules.ttl` and `reference.ttl` plus the two
+   synthetic backtest windows projected with `projection.backtest.project`, runs every query and
+   checks its exact row count or named rule, and pins the A1 no-FIBO `:Asset` row, the two
+   Sharpe-less terms, the 10+5 active-rule split and the absence of per-asset daily returns and
+   drifted weights.
+
+**Acceptance**: every `sparql` block in the catalog is tagged and tested; the test is hermetic
+(`uv run pytest -q`); no `src/`, `schema/` or gate change; `uv run mypy
+--config-file=.code_quality/mypy.ini` and `uv run pre-commit run --all-files` pass. Verified
+2026-11-03.
+
+**Blocked on**: nothing.
+
 ## Sequencing
 
 ```
@@ -1167,6 +1202,7 @@ Work item 15 (upstream's v_* changes) — T-150, T-170 and T-171 (PR #56) done, 
   the rest as upstream's T-144/T-145 ship; feeds Work item 4 (T-031) and 12 (T-121)
 Work item 16 (boundary validation of upstream rows; T-192 adds the veto stint check after T-031's vetoes lane) — T-160 done (plain checks), T-161 closed, T-162 done; T-163 open (its function is done, the wiring into the read path started with Work item 4's T-031, PR #72)
 Work item 17 (one GraphDB repository per automation) — T-196–T-200 open; replaces T-195; starts with T-196 (the maintainer's decision)
+Work item 19 (reports-agent query catalog) — closed 2026-11-03 (T-240–T-243); see `CHANGELOG.md`
 ```
 
 Work items 1, 2, and 9 have no dependencies and no blockers — they can land
