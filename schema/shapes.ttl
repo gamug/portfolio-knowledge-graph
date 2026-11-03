@@ -245,7 +245,11 @@
 :UniverseMembershipShape
     a sh:NodeShape ;
     sh:targetClass :UniverseMembership ;
-    sh:property [ sh:path :membershipAsset ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    # T-220: the Asset end's class, so the gate's context read follows a stored Asset a membership
+    # batch points at. Without `sh:class` it fetched only rdf:type, and AssetShape then failed on
+    # tickerSymbol/cikNumber for the five assets reference.ttl already declares. The `:Universe`
+    # end waits on T-227: the backtest projector's dry-run context does not type :SP500Index.
+    sh:property [ sh:path :membershipAsset ; sh:class :Asset ; sh:minCount 1 ; sh:maxCount 1 ] ;
     sh:property [ sh:path :membershipUniverse ; sh:minCount 1 ; sh:maxCount 1 ] ;
     sh:property [ sh:path :validFrom ; sh:datatype xsd:date ; sh:minCount 1 ; sh:maxCount 1 ; sh:lessThan :validTo ] ;
     # T-100: validTo is exclusive, so a stint with validTo <= validFrom would hold on no date.

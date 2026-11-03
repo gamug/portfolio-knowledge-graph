@@ -996,6 +996,63 @@ See `PLAN.md` Work item 16.*
       not a service); if yes, amend the constitution first. **Done when** the maintainer has decided and,
       if yes, the amendment has landed; a "no" closes it. → step 5.
 
+## Work item 19 — Load the asset master into the store through the ingest gate
+
+*The store holds only `reference.ttl`'s five worked-example assets, so a real backtest `--write`
+with asset links is refused. See `PLAN.md` Work item 19 and SPEC FR-008.*
+
+- [x] **T-220** *(done 2026-11-03)* Implement the loader: `src/kg_store/universe.py` (reuse
+      `etl.asset_master.read_stints`/`build_assets`, `--since` filter, `urn:graph:universe:{year}-Q{n}`
+      from `--as-of`, dry run through `gate.validate`, write through `gate.ingest`, production guard)
+      and the thin entry point `cli/load_universe.py`. It reads `SQL_UNIVERSE_DB`; the five
+      `reference.ttl` assets get memberships but are not re-declared. → `PLAN.md` Work item 19.
+- [x] **T-221** *(done 2026-11-03; scope exception granted for this hunk only)* Add
+      `sh:class :Asset` to `:membershipAsset` in `UniverseMembershipShape`, so the gate's context
+      read follows a stored Asset a membership batch points at. Without it
+      `gate.context_predicates` fetched only `rdf:type`, and `AssetShape` failed on
+      `:tickerSymbol`/`:cikNumber` for AAPL/JPM/XOM/JNJ/PG. FR-001 bundle 4237 quads (was 4236),
+      `pyshacl` conforms; a fresh `load_schema` load is 4514 (was 4513). No store was reloaded. Gate
+      unchanged. The `sh:class :Universe` half is T-227. → `PLAN.md` Work item 19.
+- [x] **T-222** *(done 2026-11-03)* Hermetic tests in `tests/test_universe_load.py`,
+      `tests/test_cli_load_universe.py`, `tests/fixtures/universe_rows.py` and two gate cases in
+      `tests/test_kg_gate.py`: a ticker's two eras (old closed stint dropped, open one kept), a
+      CIK-less closed asset, `BRK.B`, quarter naming, deterministic output, gate acceptance, the
+      production guard and a fake-store `--write`; a membership pointing at an asset the fake store
+      holds (accepted) and one it does not (refused). → `PLAN.md` Work item 19.
+- [x] **T-223** *(done 2026-11-03, read-only dry run)* Verify on
+      `/workspaces/thesis/data/universe_history.db`: 657 of 891 stints kept over 653 symbols;
+      234 stints of 229 symbols dropped (214 symbols not loaded, 15 with a later stint kept);
+      648 `:Asset`s written + 5 in `reference.ttl`; 657 memberships (503 open, 154 closed);
+      6476 triples; SHACL conforms in 1.3 s; no CIK-less asset with an open membership. Every
+      ticker in `v_book_weight_daily` (CASH excluded), `v_guard_alert` and `v_guard_action` of
+      `rule_P1/P2/P3.db` is in the loaded set (P1 100, P2 123, P3 115; 0 missing). Recorded in
+      `docs/graphdb-setup.md`. → `PLAN.md` Work item 19.
+- [x] **T-224** *(done 2026-11-03)* Docs: `docs/07` (asset master lives in the quarter graph and
+      why not `urn:graph:reference`; the worked-example overlap), `docs/graphdb-setup.md` (how to
+      run the loader, its limits and the real dry run), `schema/README.md` (the `sh:class :Asset`
+      triple and the loader), `docs/08` + `schema/README.md` (after the loader runs,
+      `SQL_UNIVERSE_DB=/workspaces/thesis/data/universe_history.db` makes the backtest projector
+      link assets), SPEC FR-008 and all pinned quad/load counts. → `PLAN.md` Work item 19.
+- [ ] **T-225** *(from T-220; known overlap, no code now)* `schema/instances.trig` holds its own
+      `2026-Q3` memberships for the five `reference.ttl` assets in `urn:graph:universe:2026-Q3`,
+      against `:SP500Watchlist_2026Q3`; the loader adds a second set for those five in its own
+      quarter graph against `:SP500Index`. Accepted for now and documented in `docs/07`/`TASKS.md`;
+      clean it (drop or stop loading the worked-example universe memberships) when the worked
+      example stops being loaded into the real store. Do not remove or re-declare anything before
+      then. → `PLAN.md` Work item 19.
+- [ ] **T-226** *(from T-220; needs the maintainer's explicit go-ahead)* First real
+      `--write` of `cli/load_universe.py` into a scratch repository, never production by default;
+      needs the schema reloaded there (the 4237-quad bundle, 4514 asserted triples) and the full
+      universe in `SQL_UNIVERSE_DB`. Then a real `cli/project_backtest.py --write` can link assets.
+      → `PLAN.md` Work item 19.
+- [ ] **T-227** *(from T-221; needs the backtest projector's owner)* Add `sh:class :Universe` to
+      `:membershipUniverse` once `src/projection/backtest.py`'s `validation_context` types
+      `:SP500Index a :Universe`. T-220 tried the second triple and five backtest dry-run tests failed
+      (`Membership_*` uses `:SP500Index` with no type); that file is outside T-220's scope, so only
+      `:membershipAsset`'s `sh:class :Asset` landed. With the projector's context fixed, the triple
+      is one line in `UniverseMembershipShape` and the FR-001 bundle is 4238 quads (fresh load
+      4515). → `PLAN.md` Work item 19.
+
 ## Status
 
 Closed Work items 1, 2, 3, 5, 7 (superseded/decided by T-007), 9, 10, 11 and 14 are in
@@ -1013,6 +1070,7 @@ Work item 15, from the sixth reply: T-182 (the analysis run's year bounds read a
 Work item 16 (T-160–T-165, T-192): T-160 done (plain checks, quarantine-with-cap), T-161 closed with it (no dependency) and T-162 done (JSON files per view, strict loader);
 Work item 17 (T-196–T-200): open; replaces the cancelled T-195.
 Work item 18 (T-204): done 2026-10-16 — re-pinned `portfolio-common` to `v1.2.2`, a real bug fix here (`news_to_rdf`'s `attach()`-based read of `urls.db`), not just a consistency bump; proved by a new regression test that fails against the old pin and passes against the new one.
+Work item 19 (T-220–T-229): T-220–T-224 done 2026-11-03 (the loader, the `sh:class :Asset` triple, tests, the real dry-run verification and the docs); T-225 (worked-example overlap), T-226 (first real `--write`, maintainer go-ahead) and T-227 (`sh:class :Universe`, projector owner) open.
 T-163 (function done, PR #68) closes with T-031, whose first slice (PR #72) calls it on the real read and re-reads the late keys for `v_score_snapshot`; T-164 done (PR #69).
 Work item 8 (T-070–T-071) is independent but needs a human at a Protégé
 session, not a coding session.

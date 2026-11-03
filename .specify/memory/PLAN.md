@@ -1135,6 +1135,55 @@ seeing the writer's just-committed row rather than a stale snapshot.
   mentions of "734 hermetic tests" were stale after this PR's own new test — fixed to 735 in the
   hero pill, the "What exists today" bullet and the "Validation has two layers" bullet.)
 
+## Work item 19 — Load the asset master into the store through the ingest gate (T-220–T-229)
+
+**Why**: the store holds only `reference.ttl`'s five worked-example `:Asset`s. A real `--write` of
+a backtest run whose `:holdingAsset`/`:guardAsset` links name other S&P 500 tickers is refused by
+the gate because the store does not hold those individuals; the dry run looks fine because the
+projector validates beside a context built from `universe.db`. The asset master already exists as
+an ETL output (`etl.asset_master`, FR-004), but `data.ttl` is one flat file with no named graphs,
+so it does not put the individuals into the store either.
+
+**Design (T-220)**: `cli/load_universe.py` (logic in `src/kg_store/universe.py`) reuses
+`etl.asset_master.read_stints`/`build_assets` rather than rewriting them. It reads
+`SQL_UNIVERSE_DB`, keeps the stints with no `valid_to` or `valid_to >= --since` (default
+`2019-01-02`, so a reused ticker such as `CEG`, `DELL` or `Q` is one `:Asset` described by the era
+the backtests can see) and writes the `:SP500Index` `:Universe` (with the ETL's FIBO
+`rdfs:seeAlso`), one `:Asset` per symbol and one `:UniverseMembership` per kept stint into
+`urn:graph:universe:{year}-Q{n}` for `--as-of` (default today). That quarter graph is the placement
+`docs/07` already assigns; `urn:graph:reference` is dropped and rewritten by `cli/load_schema.py`,
+so ABox individuals written there would vanish on the next reload. The default is a dry run that
+reads, builds and SHACL-validates through `gate.validate` without contacting the store; `--write`
+appends through `gate.ingest`, and `KG_REPOSITORY=portfolio` also needs `--to-production`, as
+`cli/project_backtest.py` has it. `reference.ttl`'s five `:Asset`s get memberships but are never
+re-declared (gate check 6). The gate is not changed; `UniverseMembershipShape` gains the
+`sh:class :Asset` triple on `:membershipAsset` that lets `gate.context_predicates` follow a stored
+Asset a membership batch points at (T-221). The `sh:class :Universe` half waits on T-227: the
+backtest projector's dry-run context does not type `:SP500Index`, so that triple would break five
+existing tests in a file this work item does not own.
+
+**Acceptance criteria**:
+
+- ✅ A dry run over the full `universe_history.db` reports what `--since` kept and dropped (657 of
+  891 stints over 653 symbols kept; 234 stints of 229 symbols dropped), the `:Asset` and
+  `:UniverseMembership` counts, 6476 triples and a passing `gate.validate`; no asset is left
+  without a CIK and with an open membership.
+- ✅ Every ticker in `v_book_weight_daily` (CASH excluded), `v_guard_alert` and `v_guard_action` of
+  `rule_P1/P2/P3.db` is in the loaded symbol set (P1 100, P2 123, P3 115; 0 missing).
+- ✅ Hermetic tests: a ticker's two eras, a CIK-less closed asset, `BRK.B`, the quarter name,
+  deterministic output, gate acceptance, the production guard and a fake-store write; the
+  `sh:class` change has a gate test for an Asset the store holds (accepted) and one it does not
+  (refused).
+- ✅ FR-001 parse + `pyshacl` on the 4237-quad bundle; every pinned count updated in the same
+  change.
+- ⬜ First real `--write` to a scratch repository (T-226), never production by default; it needs the
+  maintainer's go-ahead, a schema reload there (the store is 4513 until the 4237-quad bundle is
+  loaded) and the full universe in `SQL_UNIVERSE_DB`.
+
+**Open**: T-225 (the worked example's `2026-Q3` memberships overlap the loader's catalog for the
+five reference assets; clean it when the worked example stops being loaded into the real store) and
+T-226 (the live write). Everything else landed with T-220–T-224.
+
 ## Sequencing
 
 ```
@@ -1167,6 +1216,8 @@ Work item 15 (upstream's v_* changes) — T-150, T-170 and T-171 (PR #56) done, 
   the rest as upstream's T-144/T-145 ship; feeds Work item 4 (T-031) and 12 (T-121)
 Work item 16 (boundary validation of upstream rows; T-192 adds the veto stint check after T-031's vetoes lane) — T-160 done (plain checks), T-161 closed, T-162 done; T-163 open (its function is done, the wiring into the read path started with Work item 4's T-031, PR #72)
 Work item 17 (one GraphDB repository per automation) — T-196–T-200 open; replaces T-195; starts with T-196 (the maintainer's decision)
+Work item 19 (asset master through the ingest gate) — T-220–T-224 done; T-225 (worked-example
+  overlap) and T-226 (first real --write) open
 ```
 
 Work items 1, 2, and 9 have no dependencies and no blockers — they can land

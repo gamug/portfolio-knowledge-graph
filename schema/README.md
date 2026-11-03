@@ -48,6 +48,11 @@ above):
 quad store doesn't validate on ingest unless SHACL validation is explicitly turned on), but it
 matches dependency order and is the sequence `10-integration-roadmap.md` step 1 assumes.
 
+`reference.ttl`'s five `:Asset` individuals are the worked-example master. The real asset master
+(`universe.db`) is ABox data and is written through the ingest gate by `cli/load_universe.py` into
+`urn:graph:universe:{year}-Q{n}` (`docs/07`), never into `urn:graph:reference`: `cli/load_schema.py`
+drops and rewrites that graph as a whole on every schema reload.
+
 ## Why both OWL restrictions (`tbox.ttl` §4) and SHACL shapes (`shapes.ttl`)
 
 They answer different questions and neither substitutes for the other:
@@ -383,7 +388,10 @@ what the store *enforces*.
      window qualifies the name because the P1/P2/P3 databases each start their run/book ids at 1.
      A dry run is the default and SHACL-validates each graph; `--write` appends through the gate
      and production also needs `--to-production`. The writer keeps every masked/NULL column out of
-     the Turtle, links an asset only when the universe database has the ticker, resolves
+     the Turtle, links an asset only when the universe database has the ticker (point
+     `SQL_UNIVERSE_DB` at `/workspaces/thesis/data/universe_history.db` and load it with
+     `cli/load_universe.py` first, or a real write is refused for want of the stored `:Asset`
+     individuals), resolves
      `:alertRule` to `:Rule_{rule_id}` and refuses an unknown rule or a layer disagreement. No
      schema file changed, so the bundle stayed **4178 quads at that revision; conforms: True**.
    - **Not done here:** no change to the v18 pin, no ingest-gate pattern change beyond the
@@ -473,12 +481,26 @@ sha256, verbatim MIT licence, comment), 277 in total. It has no `rdf:type`, so n
 `owl:Class` here. `schema/fibo_terms.csv` now has 25 rows with the reviewed Spanish columns;
 `cli/build_fibo_slice.py` (logic in `src/projection/fibo_slice.py`) refuses any other sha256 and
 rebuilds the file deterministically. `tbox.ttl` gains one `@es` label and one `@es` definition on
-each of the 27 pre-existing leaf classes (the 11 v18 texts are unchanged), so the FR-001 bundle is
-**4236 quads; conforms: True**. `fibo.ttl` loads into `urn:graph:reference:fibo` after
-`reference.ttl` (S1); with it the loader's next fresh load is 20 graphs and 4513 asserted triples.
+each of the 27 pre-existing leaf classes (the 11 v18 texts are unchanged), so the FR-001 bundle was
+**4236 quads at that revision**. `fibo.ttl` loads into `urn:graph:reference:fibo` after
+`reference.ttl` (S1); with it that load was 20 graphs and 4513 asserted triples.
 No GraphDB write or reload was made in that change; the store was reloaded with T-212 on
 2026-11-02, and the live Appendix A queries ran with T-213 the same day (`docs/graphdb-setup.md`).
 `protege-view.ttl`/`.txt` are still generated and stale (T-070/T-071).
+
+**T-220 (asset master through the ingest gate, 2026-11-03).** `UniverseMembershipShape` gains
+`sh:class :Asset` on `:membershipAsset` so the gate's context read follows a stored Asset a
+membership batch points at. Without it `gate.context_predicates` fetched only `rdf:type` for the
+five assets `reference.ttl` already declares, and `AssetShape` then failed on
+`:tickerSymbol`/`:cikNumber`. The `:membershipUniverse` half waits on T-227: the backtest
+projector's dry-run context does not type `:SP500Index`, so it would break five existing tests. The
+FR-001 bundle is **4237 quads; conforms: True** (4236 + 1), and a fresh `cli/load_schema.py` load is
+20 graphs and 4514 asserted triples (4513 + 1); no store was reloaded in that change.
+`cli/load_universe.py`
+(logic in `src/kg_store/universe.py`) loads the real `:Universe`/`:Asset`/`:UniverseMembership`
+population from `universe.db` into `urn:graph:universe:{year}-Q{n}` through the gate; `reference.ttl`
+keeps its five worked-example assets, and the loader gives them memberships without re-declaring
+them. The overlap with `instances.trig`'s worked-example memberships is documented in `docs/07`.
 
 "Active at cutoff" is the general predicate; the **T-1 lag is the same query with `?cutoff` bound to
 the previous cycle date**. It needs the store to query the union of the named graphs (GraphDB does
