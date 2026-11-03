@@ -45,10 +45,12 @@ def test_tbox_and_shapes_share_one_graph() -> None:
     assert load_schema.expected_sizes(SCHEMA)["urn:graph:tbox"] == len(union)
 
 
-def test_the_load_plan_has_20_graphs_and_4513_asserted_triples() -> None:
+def test_the_load_plan_has_20_graphs_and_4514_asserted_triples() -> None:
+    # T-220: shapes.ttl gains the sh:class :Asset triple of UniverseMembershipShape (4236 -> 4237
+    # in the FR-001 bundle), so a fresh load is 4513 + 1.
     sizes = load_schema.expected_sizes(SCHEMA)
     assert len(sizes) == 20
-    assert sum(sizes.values()) == 4513
+    assert sum(sizes.values()) == 4514
     assert sizes["urn:graph:reference:fibo"] == 277
 
 

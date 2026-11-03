@@ -51,7 +51,7 @@ storage location assigned in `07` and its writer assigned in `08`.
 │   ├── instances.trig                     worked-example ABox (TriG, multiple named graphs)
 │   └── protege-view.ttl                   generated flat Turtle bundle for Protégé — STALE as of 2026-08-23, not regenerated after the tbox.ttl/reference.ttl/shapes.ttl edits below; regenerate before using in Protégé
 ├── src/etl/, cli/build_data_ttl.py         transitional ETL: universe.db + portfolio-nlp results → flat data.ttl (roadmap step 2 shortcut)
-├── src/kg_store/, cli/load_schema.py, cli/ingest.py, cli/verify_store.py   GraphDB store, schema loader, SHACL ingest gate (roadmap step 1)
+├── src/kg_store/, cli/load_schema.py, cli/ingest.py, cli/verify_store.py, cli/load_universe.py   GraphDB store, schema loader, SHACL ingest gate and the asset-master loader (roadmap step 1, T-220)
 ├── src/projection/, cli/check_view_contract.py (a checkout or the service's URL)   real step-2 projection (Work item 4): v_* read contract, drift check, score conversion, boundary expectations (view_expectations/*.json) and their runner (boundary.py), `v_score_snapshot` -> `:ScoreSnapshot` (score_snapshots.py, project_scores.py; entry point cli/project_scores.py), and the eight m018 backtest/GUARD views -> `urn:graph:derived:backtest:{window}:{run}` (backtest.py, project_backtest.py; entry point cli/project_backtest.py)
 └── docs/                                  all Markdown design documents
     ├── critique-and-evolution.md          v1 critique + v2 evolution layers
@@ -82,7 +82,7 @@ class taxonomy (§1.2 in `06-ontology-definition.md`) and MetricType vocabulary 
 directly into `tbox.ttl`/`reference.ttl`/`shapes.ttl` — not left as separate addendum files. Full
 `rdflib` parse + `pyshacl` conformance re-verified against the real files after the merge: **parses
 clean (1608 quads at the 2026-08-23 revision — `schema/taxonomy-quality-review-2026-08-23.md` has the +1 delta from a
-same-day `RuleClause` fix; 1771 after T-102/T-103, 1881 after T-104, 1951 after T-101, 1953 after T-105, 2064 after T-106, 2150 after T-107, 2298 after T-108, 2352 after T-109, 2366 after T-111, 2378 after T-100, 2383 after its review, 2400 after T-081, 2458 after T-140, 2648 after T-187/T-188, 4178 after T-206, 4182 after T-210, 4236 after T-211), conforms: True** (`schema/README.md`'s Validation section has the exact
+same-day `RuleClause` fix; 1771 after T-102/T-103, 1881 after T-104, 1951 after T-101, 1953 after T-105, 2064 after T-106, 2150 after T-107, 2298 after T-108, 2352 after T-109, 2366 after T-111, 2378 after T-100, 2383 after its review, 2400 after T-081, 2458 after T-140, 2648 after T-187/T-188, 4178 after T-206, 4182 after T-210, 4236 after T-211, 4237 after T-220), conforms: True** (`schema/README.md`'s Validation section has the exact
 command). `protege-view.ttl` is the one file *not* re-verified — it's a generated bundle
 (`schema/README.md`: "never hand-edit") that predates this revision's edits, the T-206 Contract
 v18 classes, T-210's FIBO links and T-211's Spanish layer, and needs regenerating from a real

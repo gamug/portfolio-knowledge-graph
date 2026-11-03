@@ -152,8 +152,9 @@ For a linked row, the Spanish definition in `fibo.ttl` is FIBO's meaning, never 
 Spanish definitions live in `tbox.ttl` (S2), where the six "differs" classes state why FIBO does
 not define every instance of ours. The 27 pre-existing leaf classes now carry one `@es` label and
 one `@es` definition each; the 11 v18 classes' handoff §6.2 texts are unchanged. Those 54 new
-triples take the FR-001 bundle to **4236 quads; conforms: True**; `fibo.ttl` is a separate
-277-statement graph. `:SP500Index` gets its `rdfs:seeAlso` in the ETL output, where the universe
+triples take the FR-001 bundle to **4237 quads; conforms: True** (T-220 adds the `sh:class :Asset`
+triple to `UniverseMembershipShape`); `fibo.ttl` is a separate 277-statement graph.
+`:SP500Index` gets its `rdfs:seeAlso` in the ETL output, where the universe
 individual is emitted (S3), not in `urn:graph:tbox`.
 
 **Lookup queries for the reports agent (brief Appendix A, unchanged).** `A1` explains one of our
@@ -831,7 +832,8 @@ not a veto rule:** it carries no `:ruleSeverity`, `:penaltyPoints` or `:priority
 `VetoShape` refuses it as the object of `:appliesRule`/`:primaryRule`. `RuleDefinitionShape` adds one
 `sh:or` branch for `:category "GUARD"`, keeps the severity requirement for every other active rule,
 makes `:priorityRank` mandatory for non-GUARD rules, and widens the rank range to `[1,10]` for
-`UTILITY_CASH_COVERAGE`. The bundle is **4236 quads; conforms: True** (the FR-001 gate).
+`UTILITY_CASH_COVERAGE`. The bundle is **4237 quads; conforms: True** (the FR-001 gate; T-220
+adds the `UniverseMembershipShape` `sh:class :Asset` triple).
 
 ---
 

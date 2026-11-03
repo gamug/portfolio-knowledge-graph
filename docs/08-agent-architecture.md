@@ -161,6 +161,15 @@ disagrees with the rule's `:guardLayer`. An asset link is written only for a tic
 universe database; a former index member absent from that small database keeps its
 `:guardTicker`/`:holdingKey` and is counted.
 
+The full asset master makes those links resolve. Load it once per repository with
+`uv run python cli/load_universe.py --write` (`docs/graphdb-setup.md`), then run the projector with
+`SQL_UNIVERSE_DB=/workspaces/thesis/data/universe_history.db`: every ticker the P1/P2/P3
+`v_book_weight_daily` (CASH excluded), `v_guard_alert` and `v_guard_action` rows name is then in
+the loaded set (P1 100, P2 123, P3 115; 0 missing in the 2026-11-03 dry run). A real `--write`
+still needs the loader's write first: the gate validates the batch beside the stored `:Asset`
+individuals, so without them the asset links are refused. A dry run reads the universe database
+itself and does not need the store.
+
 Two rules the projector keeps, both from the handoff §3.3 and the completed P1/P2/P3 databases:
 
 - **It does not require a value the view masks.** `cycle_run_id` is NULL on `MARKOWITZ_BASE`;

@@ -67,6 +67,49 @@ counted in a closing note; a graph removed from `schema/` has to be dropped by h
 Needs write access (`WRITE_REPO_portfolio`). It loads `schema/` only; the ETL's `data.ttl` and
 projected upstream data belong to Work item 4.
 
+## Loading the asset master (T-220)
+
+After `schema/` is loaded (the gate validates the batch beside the stored reference individuals),
+and before any batch that links `:Asset` nodes (`cli/project_backtest.py`, a score projection or an
+ORCHESTRATOR batch):
+
+```bash
+uv run python cli/load_universe.py                       # dry run: read, build, SHACL-validate
+uv run python cli/load_universe.py --as-of 2026-11-03 --write
+```
+
+It reads `SQL_UNIVERSE_DB` (`portfolio-data-mining`'s point-in-time `universe.db`, read-only
+through `portfolio_common.db`) and reuses `etl.asset_master`: the `:SP500Index` `:Universe`
+(with its FIBO `rdfs:seeAlso`), one `:Asset` per symbol and one `:UniverseMembership` per stint.
+The five `:Asset`s `schema/reference.ttl` already declares get memberships but are not re-declared
+(the gate's check 6 refuses a second declaration, and `cikNumber` is functional).
+
+| Option | Meaning |
+|---|---|
+| `--since YYYY-MM-DD` | Keep a stint with no `valid_to` or `valid_to >= since` (default `2019-01-02`). A ticker reused by another company (`CEG`, `DELL`, `Q`) keeps only the era the backtests and the live index can see, and the dropped stints are counted, never silently omitted. |
+| `--as-of YYYY-MM-DD` | The day the catalog is seen as of; it names the graph. Default: today in UTC. |
+| `--write` | Append the batch through `cli/ingest.py`'s gate (`kg_store.gate.ingest`). Default: a dry run that reads, builds and SHACL-validates through `gate.validate`, contacting no store. |
+| `--to-production` | With `--write`, allow the production repository (`KG_REPOSITORY=portfolio`); without it the run exits 2 before reading anything, as `cli/project_backtest.py` does. |
+
+The target is the quarter graph `urn:graph:universe:{year}-Q{n}` computed from `--as-of` (the gate
+accepts that pattern; it was not changed). It is not `urn:graph:reference`: `cli/load_schema.py`
+drops and rewrites every graph `schema/` owns on each reload, so ABox individuals written there
+would disappear, and an existing graph is never appended to. The load is append-only and one-time
+per repository: a second run into the same quarter is refused because the graph exists, and a run
+into another quarter re-declares the same `:Asset`/`:Universe` individuals and is refused by check
+6. A later quarter's changed memberships are a separate batch of new individuals; a new automation
+gets its own repository (Work item 17). Exit status: 0 on success, 1 if the source, the shapes, the
+gate or the store stop the run, 2 on a bad argument or the production guard.
+
+A dry run of 2026-11-03 over `/workspaces/thesis/data/universe_history.db` (read-only; no write was
+made) kept 657 of 891 stints over 653 symbols and dropped 234 stints of 229 symbols (214 not
+loaded at all, 15 with a later stint kept), wrote 648 `:Asset`s plus the five already in
+`reference.ttl`, 657 memberships (503 open, 154 closed), and built 6476 triples; `gate.validate`
+reported SHACL conforms in 1.3 s. Every ticker in `v_book_weight_daily` (CASH excluded),
+`v_guard_alert` and `v_guard_action` of `rule_P1/P2/P3.db` is in the loaded set (P1 100, P2 123,
+P3 115; 0 missing). The known overlap with the worked example's `2026-Q3` memberships is recorded
+in `docs/07`.
+
 ## Ingest gate (T-023)
 
 ```bash
@@ -147,9 +190,10 @@ on 2026-11-02 (T-212, below), and `verify_store` passes.
 
 **T-211 note (FIBO Phase 2).** `schema/fibo.ttl` is a 277-statement reference slice and loads into
 its own graph, `urn:graph:reference:fibo`, after `reference.ttl`. The loader therefore owns 20
-graphs and 4513 asserted triples on a fresh load (the FR-001 bundle is 4236 quads; the slice adds
-277). No load was run for this change; the store was reloaded on 2026-11-02 (T-212, below), and the
-live Appendix A queries ran the same day (T-213). The
+graphs and 4514 asserted triples on a fresh load (the FR-001 bundle is 4237 quads; the slice adds
+277; T-220 added the `sh:class :Asset` triple, so the live store is 4513 over 20 graphs until it is
+reloaded). No load was run for this change; the store was reloaded on 2026-11-02 (T-212, below),
+and the live Appendix A queries ran the same day (T-213). The
 slice is rebuilt only for a new FIBO release; `cli/build_fibo_slice.py` refuses any zip whose
 sha256 is not the pinned value.
 
