@@ -282,7 +282,8 @@ architecture, and not partitioned for the bitemporal audit trail
    `src/projection/backtest.py` writes one append-only graph per run,
    `urn:graph:derived:backtest:{window_id}:{backtest_run_id}`, with a dry run by default and
    `--write` behind the ingest gate; the source check reads `v_book.run_status` rather than
-   `v_cycle_run`, and no store was reloaded. The m015/m016 views (`v_ticker_history`,
+   `v_cycle_run`; no store was reloaded then, and the reload landed with T-212 on 2026-11-02. The
+   m015/m016 views (`v_ticker_history`,
    `v_orchestrator_run`, `v_orchestrator_step`) remain PR-C2 (T-208).
    FIBO Phase 1 (T-210, 2026-11-03) is in too: six `rdfs:seeAlso` links from
    `schema/fibo_terms.csv` in `tbox.ttl` and (for the four terms it declares)
@@ -294,8 +295,9 @@ architecture, and not partitioned for the bitemporal audit trail
    ancestors, the Spanish `@es` layer and the version/sha256/licence header),
    `schema/fibo_terms.csv` carries the 25 rows, the 27 pre-existing leaf classes have `@es` text,
    and the ETL emits the `:SP500Index` link. The slice loads into `urn:graph:reference:fibo` after
-   `reference.ttl`; no store was reloaded (T-212), and the generated `protege-view` files still
-   carry the old IRIs until T-070/T-071.
+   `reference.ttl`; the store was reloaded with T-212 on 2026-11-02 and the live Appendix A queries
+   ran with T-213, and the generated `protege-view` files still carry the old IRIs until
+   T-070/T-071.
 
 **Prerequisite**: Work item 11 (the §2.6 drift decisions) — met: it closed
 2026-10-05 (see `CHANGELOG.md`).
@@ -900,7 +902,7 @@ reads the new columns from a re-pinned `view_contract.py` and computes none of t
 step 2; no doc or schema comment describes the attractiveness blend as computed here; T-120 is closed;
 no shape rejects a value upstream documents as valid (the SECTOR `raw_value` range, a negative
 `blended_score`), checked with synthetic rows at those bounds, and a filing with no current metric
-row fails no shape; T-187 to T-190 (version 11's content, decided in T-183; T-187's code is PR #104 and T-188's is PR #105, their store reload is pending, once for both; T-201 picks the rule by `raisedOn`, T-203 lets the gate take a moved `expiresOn`, T-202 waits on upstream's T-071) are built or explicitly
+row fails no shape; T-187 to T-190 (version 11's content, decided in T-183; T-187's code is PR #104 and T-188's is PR #105, their store reload landed with T-212 on 2026-11-02; T-201 picks the rule by `raisedOn`, T-203 lets the gate take a moved `expiresOn`, T-202 waits on upstream's T-071) are built or explicitly
 deferred: the three-component scheme test (T-190, done 2026-10-12; the new rules with `penaltyPoints` are PR #104, `Veto` `expiresOn` is PR #105 and the penalty identity in the docs is T-189, PR #106, done 2026-10-14; the five price columns wait for a consumer, T-183 (3)); T-191 has recorded upstream's answers to the T-184 letter (the seventh reply, 2026-10-11: asks (1) to (5) answered; asks (6), (7) and (8), not in the letter, are open), so T-187 and T-188 are unblocked.
 
 **Blocked on**: nothing for T-150, T-170, T-151's rule, T-155's formula removal, T-171's

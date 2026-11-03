@@ -235,8 +235,8 @@ what the store *enforces*.
    batch (the ingest gate's check 8), and that the sections not superseded are the current ones. No shape or
    property change. `kg_target_schema.ttl` does not carry `:supersededBy`, so it has no twin to update, and
    `protege-view.ttl` (generated) keeps the old comment until T-070 regenerates it. The rule is in `07`
-   ("Restatements and re-runs"); the live store's copy of that one literal differs until the next reload, and
-   `verify_store`'s size check still passes. **2550 quads, unchanged.**
+   ("Restatements and re-runs"); the live store's copy of that one literal differed until the next reload, and
+   `verify_store`'s size check still passed. **2550 quads, unchanged.**
 
    **T-151, the rule half (Work item 15, 2026-10-07).** Upstream can reuse a run id after a deletion, so
    `:runId` (`<run table>:<id>`) is not unique on its own. Its comment in `tbox.ttl` now says it is
@@ -446,7 +446,7 @@ conforms: True.** The `urn:graph:tbox` graph (which holds `shapes.ttl`) grows by
 
 **T-100 (D1, 2026-10-05: `universe.db` is the asset master).** Maintainer decision: the ETL reads `portfolio-data-mining`'s point-in-time `universe.db` instead of Wikipedia's live table, so every membership stint becomes a `:UniverseMembership` (`validFrom`, and `validTo` while closed, exclusive like upstream's predicate) in one `:Universe` (`:SP500Index`, emitted by the ETL into `data.ttl`, not stored here). One shape change: `AssetShape`'s `cikNumber` is no longer unconditionally required. It is now `sh:maxCount 1` plus a `sh:or`: either the asset has a `cikNumber`, or it has at least one `:UniverseMembership` and every one of them has a `validTo`. Why: upstream records no CIK for a company that has left the index (all closed stints lack it), and inventing one would put false data in the graph; a current member without a CIK still fails. `UniverseMembershipShape` also declares `validTo` (`xsd:date`, at most one) and requires `validFrom` before it, since an exclusive `validTo` at or before `validFrom` holds on no date (upstream has two such stints, `HNG` and `AYE`, which the ETL skips). Checked with five cases (closed-only without CIK passes; open without CIK, closed-plus-open without CIK, and no membership without CIK fail; CIK without membership passes). No new class or property; `AllDisjointClasses` is unchanged. **2383 quads; conforms: True.**
 
-**T-206 (Contract v18 ontology, 2026-11-01).** The 11 new classes, their properties and 11 shapes are in `tbox.ttl`/`shapes.ttl` (refinement 7 above), and `rules.ttl` now has the 10 selection rules plus the 5 GUARD rules. `TickerHistory`'s interval is inclusive (`validFrom <= d <= validTo`; a one-day symbol is valid), and the Orchestrator shapes require only their natural keys (`orchestratorRunId`; `stepOfOrchestratorRun` + `ordinal`) because handoff §3.1 gives no base-table nullability and both views have 0 rows. The bundle parses clean and `pyshacl` conforms: **4178 quads at that revision; conforms: True.** The canonical command is the same as above (`tbox.ttl` + `shapes.ttl` + `reference.ttl` + `rules.ttl` + `instances.trig`); the test suite also validates the flat union with `rules.ttl` included. No GraphDB write or reload was done; the live store still holds the pre-T-206 schema until the next `cli/load_schema.py` (maintainer's go-ahead). `schema/protege-view.ttl` is generated and was not regenerated (T-070/T-071).
+**T-206 (Contract v18 ontology, 2026-11-01).** The 11 new classes, their properties and 11 shapes are in `tbox.ttl`/`shapes.ttl` (refinement 7 above), and `rules.ttl` now has the 10 selection rules plus the 5 GUARD rules. `TickerHistory`'s interval is inclusive (`validFrom <= d <= validTo`; a one-day symbol is valid), and the Orchestrator shapes require only their natural keys (`orchestratorRunId`; `stepOfOrchestratorRun` + `ordinal`) because handoff §3.1 gives no base-table nullability and both views have 0 rows. The bundle parses clean and `pyshacl` conforms: **4178 quads at that revision; conforms: True.** The canonical command is the same as above (`tbox.ttl` + `shapes.ttl` + `reference.ttl` + `rules.ttl` + `instances.trig`); the test suite also validates the flat union with `rules.ttl` included. No GraphDB write or reload was made in that change; the store was reloaded with T-212 on 2026-11-02 (`docs/graphdb-setup.md`), and `verify_store` passes. `schema/protege-view.ttl` is generated and was not regenerated (T-070/T-071).
 
 **T-210 (FIBO Phase 1, 2026-11-03).** FIBO is a reference vocabulary, not a dependency: six
 `rdfs:seeAlso` links, no `owl:imports`/`owl:equivalentClass`/`rdfs:subClassOf`, no FIBO axioms in
@@ -476,8 +476,9 @@ rebuilds the file deterministically. `tbox.ttl` gains one `@es` label and one `@
 each of the 27 pre-existing leaf classes (the 11 v18 texts are unchanged), so the FR-001 bundle is
 **4236 quads; conforms: True**. `fibo.ttl` loads into `urn:graph:reference:fibo` after
 `reference.ttl` (S1); with it the loader's next fresh load is 20 graphs and 4513 asserted triples.
-No GraphDB write or reload was done; the live store stays as it was. `protege-view.ttl`/`.txt` are
-still generated and stale (T-070/T-071).
+No GraphDB write or reload was made in that change; the store was reloaded with T-212 on
+2026-11-02, and the live Appendix A queries ran with T-213 the same day (`docs/graphdb-setup.md`).
+`protege-view.ttl`/`.txt` are still generated and stale (T-070/T-071).
 
 "Active at cutoff" is the general predicate; the **T-1 lag is the same query with `?cutoff` bound to
 the previous cycle date**. It needs the store to query the union of the named graphs (GraphDB does

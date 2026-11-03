@@ -569,8 +569,8 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       Docs: `06` §1.10, `07` (PROPOSED `urn:graph:derived:backtest:{backtest_run_id}`), `08`,
       `schema/README.md`, `SPEC.md`, `PLAN.md`, `README.md`, `docs/10` and `graphdb-setup.md` counts.
       `src/kg_store/gate.py` adds the `inclusive` flag for TickerHistory. Bundle 4178 quads,
-      `pyshacl` conforms. Not done: projectors, pin changes, GraphDB reload,
-      `protege-view.ttl` regeneration (T-070/T-071).)* Add the Contract v18 classes, properties,
+      `pyshacl` conforms. Not done then: projectors, pin changes, GraphDB reload (done with T-212,
+      2026-11-02), `protege-view.ttl` regeneration (T-070/T-071, still open).)* Add the Contract v18 classes, properties,
       SHACL shapes, Spanish labels/definitions and rule catalog, with no projector or pin change.
       → `PLAN.md` Work item 4 step 7.
 - [x] **T-207** *(done 2026-11-02: the eight m018 projectors. `src/projection/backtest.py` reads
@@ -634,8 +634,9 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       `reference.ttl`. Tests: `tests/test_fibo_slice.py` plus the updated `test_fibo_terms`,
       `test_asset_master` and `test_kg_load_schema`; docs: `docs/06` §1.1 (with the Appendix A
       queries), `docs/07`, `docs/graphdb-setup.md`, `schema/README.md`, SPEC, PLAN, CHANGELOG.
-      FR-001 bundle 4236 quads, `pyshacl` conforms; no store write. Not done: live reload (T-212),
-      live Appendix A run (T-213), `protege-view` regeneration (T-070/T-071).)* Build the 25-term
+      FR-001 bundle 4236 quads, `pyshacl` conforms; no store write in that change. Not done then:
+      live reload (T-212, done 2026-11-02), live Appendix A run (T-213, done 2026-11-02),
+      `protege-view` regeneration (T-070/T-071, still open).)* Build the 25-term
       FIBO glossary slice:
       `cli/build_fibo_slice.py --zip PATH --terms schema/fibo_terms.csv --out schema/fibo.ttl`,
       deterministic and sha256-checked, with the 54 entries / 223 English statements of brief
@@ -645,12 +646,22 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       (S3); add the slice tests and the opt-in `FIBO_ZIP` reproducibility test (S4); and add the
       slice graph to `schema/README.md`/`docs/07` (S5). Do not add `@es` text or `fibo.ttl` before
       this task. → `PLAN.md` Work item 4, step 7.
-- [ ] **T-212** *(from T-211; needs the maintainer's explicit go-ahead)* Reload the live store with
+- [x] **T-212** *(done 2026-11-02 by the maintainer, by hand: `cli/load_schema.py` exit 0,
+      `verified: 20 graphs, 4513 asserted triples match the local parse`, and `cli/verify_store.py`
+      passes all six checks. `urn:graph:reference:fibo` holds the 277 statements of the slice; that
+      follows only as the arithmetic 4513 − 4236 (the FR-001 bundle without it), not from a separate
+      per-graph count, which was not measured. Recorded in `docs/graphdb-setup.md`. The text below is
+      the original task)* Reload the live store with
       `schema/fibo.ttl` in the load plan (after `reference.ttl`) and verify
       `urn:graph:reference:fibo` has 277 asserted triples and the fresh load reports 20 graphs /
       4513 asserted triples; run `cli/load_schema.py` then `cli/verify_store.py`. No write was made
       for T-211. → `PLAN.md` Work item 4, step 7.
-- [ ] **T-213** *(from T-211; after T-212)* Run the two Appendix A queries against the loaded store
+- [x] **T-213** *(done 2026-11-02 by the maintainer in the Workbench, after T-212: A2 for
+      `volatilidad` returned the FIBO `Volatility` term with its English and Spanish definitions, and
+      A1 for `:Portfolio` returned `portafolio`, our definition, the FIBO `Portfolio` IRI and its
+      English and Spanish definitions, both matching the offline queries in
+      `tests/test_fibo_slice.py`; recorded in `docs/graphdb-setup.md`. The text below is the original
+      task)* Run the two Appendix A queries against the loaded store
       (A1 for `:Portfolio`, A2 for `volatilidad`) and record that they return our Spanish pair, the
       FIBO term with its English definition and the FIBO `@es` text. The offline versions live in
       `docs/06` §1.1 and `tests/test_fibo_slice.py`; this task checks the live graph layout.
@@ -669,6 +680,14 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       `AttractivenessWeightScheme`, `ThresholdComparison`, `GraphPredicate`, `BenchmarkObservation`,
       `WeightComponent`) become short conceptual definitions plus a scope note.
       → `PLAN.md` Work item 4, step 7.
+- [ ] **T-215** *(from T-207; needs the maintainer's explicit go-ahead)* First real `--write` of a
+      backtest run (`cli/project_backtest.py`) into a scratch repository, never production by
+      default; needs the schema reloaded there and the FULL universe in `SQL_UNIVERSE_DB`, because
+      backtest graphs are append-only and with the 20-symbol pilot universe the asset links are
+      omitted for good. → `PLAN.md` Work item 4.
+- [ ] **T-216** *(for the maintainer)* Ask upstream the real merge date of T-071
+      (`UTILITY_CASH_COVERAGE` `validFrom` is 2026-10-31, the last safe date). → `PLAN.md` Work
+      item 15.
 - [ ] **T-158** Replace the `ASSET_DAY_AGGREGATE` placeholder with upstream's SEMANTIC
       `score_method` value once they give it (D14; with their Work item 4, after their T-100).
       **First, raise the ownership disagreement (unblocked now; ask before their T-141 ships its
@@ -790,7 +809,7 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       - [ ] (7) not in the letter (from PR #104): did the three new rules (`VOLATILITY_SHOCK`, `CRASH_Z_SCORE`, `BREAK_TREND_200`) take effect on the same day as the redefined `LIQUIDITY_DISTRESS` (2026-10-10, `b3c7661`)? `rules.ttl` assumes so
       - [ ] (8) not in the letter (from T-189, PR #106): what does a SOFT stint of a HARD rule cost (upstream's seventh reply says "`penalty_points` applies only to SOFT rules (HARD rules exclude the asset, so theirs is null)", and a HARD rule can still emit a SOFT stint (`LEVERAGE_EXTREME` emits SOFT for a negative-equity firm when neither `net_debt_to_ebitda` nor `interest_coverage` is available: `rules.ttl`, `Rule_LEVERAGE_EXTREME`'s comment, "routes a negative-equity firm with neither metric to SOFT review"; and a HARD rule has no `penalty_points`)? We assume the run's `soft_veto_penalty` (15); the seventh reply only says "every SOFT rule costs 15 unless it declares its own"
 
-- [ ] **T-187** *(from T-183 (1); code and docs landed in PR #104 (2026-10-13: `rules.ttl` holds the nine; the choices were `GraphPredicate` leaves for the three new rules, `penaltyPoints` on SOFT rules only, the sector exemption in the comment); **open: the live-store reload and the dated row in `docs/graphdb-setup.md` (the maintainer's go-ahead; `verify_store` fails until then), and `CLAUDE.md`, which still says six**; unblocked 2026-10-12: upstream's definitions, `penalty_points` and the old-stint rule are in `SPEC.md` §2.6 (seventh reply); `NEGATIVE_FCF` and the sector exemption change later in their T-071)* Add the
+- [ ] **T-187** *(from T-183 (1); code and docs landed in PR #104 (2026-10-13: `rules.ttl` holds the nine; the choices were `GraphPredicate` leaves for the three new rules, `penaltyPoints` on SOFT rules only, the sector exemption in the comment); the live-store reload and its dated row in `docs/graphdb-setup.md` landed with T-212 on 2026-11-02 (the maintainer's go-ahead; `verify_store` passes); **open: `CLAUDE.md`, which still says six**; unblocked 2026-10-12: upstream's definitions, `penalty_points` and the old-stint rule are in `SPEC.md` §2.6 (seventh reply); `NEGATIVE_FCF` and the sector exemption change later in their T-071)* Add the
       three rules and the redefinition to `schema/rules.ttl`. `BREAK_TREND_200`, `VOLATILITY_SHOCK` and
       `CRASH_Z_SCORE` are `RuleDefinition`s, each a tree like the six *(taken in PR #104: a single `GraphPredicate` leaf evaluated upstream, not a tree, for all three, since none fits a threshold)*; the leaf kind is chosen from upstream's
       definition (the nine-rule table in `SPEC.md` §2.6, seventh reply): `ThresholdComparison` on the raw value
@@ -831,7 +850,7 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       and re-check the values against `v_rule_catalog` when the final pilot (T-143) arrives. Update the counts in
       `schema/README.md` and `docs/06`, add synthetic cases (a negative `penaltyPoints` fails), and add the
       rules to `instances.trig` only where the worked example needs them. When it lands, the live store is reloaded from `schema/` (the maintainer's go-ahead; `verify_store` compares each graph's size with `schema/`, T-176) and a dated row goes in `docs/graphdb-setup.md`, as T-179 did. `SPEC.md` §2.6's D4 adoption row carries a note (PR #98: six at T-103, nine in their code); when `rules.ttl` holds the nine, replace that note with the final count. `CLAUDE.md` is local and untracked and also says "six rules": the maintainer updates it. A `feat/` PR. -> `PLAN.md` Work item 15.
-- [ ] **T-188** *(code and docs landed in PR #105 (2026-10-13); **open: the live-store reload and the dated row in `docs/graphdb-setup.md`, the maintainer's go-ahead; it can go with T-187's, one reload for both; the expected result after both PRs is `verified: 19 graphs, 2648 asserted triples match the local parse` (2640 after T-187 alone)**; from T-183 (2); unblocked 2026-10-12: only `VOLATILITY_SHOCK` and `CRASH_Z_SCORE` set it, never a SOFT stint, and the cycle clears the stint, not the date: `SPEC.md` §2.6, seventh reply)* Add an optional, functional
+- [x] **T-188** *(code and docs landed in PR #105 (2026-10-13); done 2026-11-02 with T-212: the live-store reload and the dated row in `docs/graphdb-setup.md` (the maintainer's go-ahead; one reload covered T-187 and T-188), and `verify_store` passes. The expected `2648` was superseded by the v18/FIBO loads: the store now holds 4513 asserted triples over 20 graphs; from T-183 (2); unblocked 2026-10-12: only `VOLATILITY_SHOCK` and `CRASH_Z_SCORE` set it, never a SOFT stint, and the cycle clears the stint, not the date: `SPEC.md` §2.6, seventh reply. The text below is the original task)* Add an optional, functional
       `:expiresOn` (`xsd:date`) on `Veto`, with the shape: each value not before `:raisedOn`. Multi-valued like `:lastSeenOn` (PR #105 review): upstream moves it while the condition holds and the graphs are append-only, so current = MAX. A stint
       without it never expires by date, as today; `v_veto.expires_on` is filled only on stints of the new
       temporary HARD rules, and NULL maps to no triple. Upstream's answer (seventh reply, `SPEC.md` §2.6): the cycle writes `cleared_on`
