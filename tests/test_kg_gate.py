@@ -1483,3 +1483,38 @@ def test_a_restatement_the_batch_refuses_costs_no_store_query(make_db: MakeDB) -
     with pytest.raises(gate.IngestRejected, match="does not replace itself"):
         gate.ingest(fake.db, PREFIXES + b":v1 :supersededBy :v1 .\n", GRAPH_EDGAR)
     assert fake.queries == []
+
+
+# --- plan/write: the pre-flight runs every store-dependent check (Work item 29) -----------------
+
+
+def test_a_plan_reports_an_existing_append_only_graph_as_a_skip(make_db: MakeDB) -> None:
+    fake = make_db(rows=[{"s": "x"}])
+    plan = gate.plan(fake.db, GOOD, "urn:graph:ingest:SEMANTIC:2026-08-05")
+    assert plan.status is gate.IngestPlanStatus.ALREADY_IN_STORE
+    assert fake.added == []
+    with pytest.raises(gate.IngestRejected, match="already exists and is append-only"):
+        gate.write(fake.db, plan)
+    assert fake.added == []
+
+
+def test_a_plan_runs_the_existing_individual_check(make_db: MakeDB) -> None:
+    fake = make_db(rows=[{"s": str(KG.a)}])
+    with pytest.raises(gate.IngestRejected, match="already exist in the store"):
+        gate.plan(fake.db, GOOD, "urn:graph:portfolio:current")
+    assert fake.added == []
+
+
+def test_a_plan_runs_the_closing_state_check(make_db: MakeDB) -> None:
+    fake = _holding(make_db, ":m", None)
+    with pytest.raises(gate.IngestRejected, match="the store does not hold it"):
+        gate.plan(fake.db, CLOSE_MEMBERSHIP, GRAPH)
+    assert fake.added == []
+
+
+def test_write_applies_a_would_write_plan(make_db: MakeDB) -> None:
+    fake = make_db()
+    plan = gate.plan(fake.db, GOOD, "urn:graph:ingest:SEMANTIC:2026-08-05")
+    assert plan.status is gate.IngestPlanStatus.WOULD_WRITE
+    assert gate.write(fake.db, plan) == plan.triples
+    assert len(fake.added) == 1

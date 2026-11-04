@@ -11,9 +11,9 @@ thin entry point (constitution Project structure #10); :mod:`projection.referenc
 ``--db`` takes ``LABEL=PATH``. The label names the source family and is part of the ticker-history
 graph and every individual IRI, so two databases never collide. A dry run (the default) reads the
 database, runs the boundary, builds every graph and validates it against ``shapes.ttl``; it never
-contacts the store and writes nothing. ``--check-store`` builds the same graphs and validates them
-beside the live store's fetched context with ``SELECT`` only, then reports whether a write would be
-accepted; it never writes. ``--write`` appends each graph through the ingest gate, but
+contacts the store and writes nothing. ``--check-store`` builds the same graphs and runs the full
+gate plan against the live store with ``SELECT`` only, reporting each graph as would-be-written,
+already-in-the-store (skipped) or refused; it never writes. ``--write`` appends each graph through the ingest gate, but
 writing to the production repository (``KG_REPOSITORY=portfolio``) also needs
 ``--to-production``; without it the run exits 2 before any graph is built or written. A graph that
 already exists is never appended to; it is reported and skipped.

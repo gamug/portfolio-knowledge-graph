@@ -660,22 +660,22 @@ def run(
             gate.validate(batch, context=context)
             out.checked.append(graph)
             continue
-        if _graph_exists(store, graph):
+        try:
+            plan = gate.plan(store, data, graph)
+        except gate.IngestRejected as exc:
+            out.rejected[graph] = str(exc)
+            continue
+        if plan.status is gate.IngestPlanStatus.ALREADY_IN_STORE:
             out.already_in_store.append(graph)
             continue
         try:
-            out.written[graph] = gate.ingest(store, data, graph)
+            out.written[graph] = gate.write(store, plan)
         except gate.WriteInDoubt as exc:
             out.in_doubt = graph
             raise StoreInterrupted(out, exc) from exc
         except gate.IngestRejected as exc:
             out.rejected[graph] = str(exc)
     return out
-
-
-def _graph_exists(store: GraphDB, graph: str) -> bool:
-    """Whether ``graph`` holds any statement: the gate's own test for an append-only graph."""
-    return bool(store.select(f"SELECT * WHERE {{ GRAPH <{graph}> {{ ?s ?p ?o }} }} LIMIT 1"))
 
 
 #: Keep the public report/link helpers together for callers and tests.

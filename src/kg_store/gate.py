@@ -74,6 +74,7 @@ import functools
 import re
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
+from enum import StrEnum
 from pathlib import Path
 from types import MappingProxyType
 from typing import NamedTuple, cast
@@ -165,6 +166,26 @@ class ShaclRejected(IngestRejected):
     def __init__(self, report: str, results: rdflib.Graph) -> None:
         super().__init__("SHACL validation failed:\n" + report)
         self.results = results
+
+
+class IngestPlanStatus(StrEnum):
+    """What a pre-flight plan says a real write would do."""
+
+    WOULD_WRITE = "would-be-written"
+    ALREADY_IN_STORE = "already-in-the-store"
+
+
+@dataclass(frozen=True)
+class IngestPlan:
+    """A validated batch plus what the store-dependent checks decided about it.
+
+    ``plan`` runs every check a write runs; ``write`` applies a plan and cannot skip or add one.
+    """
+
+    graph: str
+    batch: rdflib.Graph
+    status: IngestPlanStatus
+    triples: int
 
 
 def check_target(graph: str) -> bool:
@@ -876,7 +897,8 @@ def validate_against_store(db: GraphDB, batch: rdflib.Graph, directory: Path | N
     """Run the gate's validation with the context the live store holds about ``batch``'s refs.
 
     Read-only: it issues only the ``SELECT`` queries of :func:`fetch_context` and never writes.
-    This is the check ``--check-store`` runs to catch a context fetch that a dry run cannot see.
+    It is the shape/context half of the gate, kept for callers that only need that; the
+    ``--check-store`` pre-flight uses :func:`plan`, which runs every store-dependent check.
     """
     schema = load_gate_schema((directory or schema_dir()).resolve())
     refs = references(batch, schema)
@@ -902,12 +924,15 @@ def existing_subjects(db: GraphDB, batch: rdflib.Graph) -> list[str]:
     return found
 
 
-def ingest(db: GraphDB, data: bytes, graph: str, directory: Path | None = None) -> int:
-    """Validate a Turtle batch and, only if it passes, append it to ``graph``. Returns triples written.
+def plan(db: GraphDB, data: bytes, graph: str, directory: Path | None = None) -> IngestPlan:
+    """Run every check :func:`ingest` runs, without writing; return the plan.
 
-    The store is read for the individuals the batch points at, whether the graph exists (append-only
-    ones), the closing triples' subjects and the stored sections it restates, and the typed individuals
-    it declares, in that order, each only after the checks before it passed."""
+    The store is read for the individuals the batch points at, whether the graph exists
+    (append-only ones), the closing triples' subjects and the stored sections it restates, and the
+    typed individuals it declares, in that order, each only after the checks before it passed.
+    ``ALREADY_IN_STORE`` means the target append-only graph exists, so a writer skips it;
+    :func:`write` keeps the historical refusal for a real ``ingest`` call.
+    """
     append_only = check_target(graph)
     batch = parse_batch(data)
     schema = load_gate_schema((directory or schema_dir()).resolve())
@@ -916,7 +941,7 @@ def ingest(db: GraphDB, data: bytes, graph: str, directory: Path | None = None) 
     # the context is fetched lazily, and the two checks below it run on a batch that passed.
     validate(batch, directory, (lambda: fetch_context(db, refs, schema, batch)) if refs else None)
     if append_only and db.select(f"SELECT * WHERE {{ GRAPH <{graph}> {{ ?s ?p ?o }} }} LIMIT 1"):
-        raise IngestRejected(f"{graph} already exists and is append-only; write a new dated graph")
+        return IngestPlan(graph, batch, IngestPlanStatus.ALREADY_IN_STORE, len(batch))
     closing = {s for s, _ in closing_values(batch)}
     restated = superseded_sections(batch)
     if closing or restated:
@@ -938,8 +963,30 @@ def ingest(db: GraphDB, data: bytes, graph: str, directory: Path | None = None) 
             "individuals that already exist in the store (observations are immutable; use a "
             "new IRI, or :validTo / :clearedOn to close one): " + ", ".join(taken)
         )
+    return IngestPlan(graph, batch, IngestPlanStatus.WOULD_WRITE, len(batch))
+
+
+def write(db: GraphDB, plan: IngestPlan) -> int:
+    """Apply a plan from :func:`plan`. Returns the triples written.
+
+    An existing append-only graph is still refused here, as ``ingest`` always did; a caller that
+    wants to skip it checks ``plan.status`` first. ``AnswerLost`` becomes ``WriteInDoubt``.
+    """
+    if plan.status is IngestPlanStatus.ALREADY_IN_STORE:
+        raise IngestRejected(
+            f"{plan.graph} already exists and is append-only; write a new dated graph"
+        )
     try:
-        db.add(batch.serialize(format="nt").encode(), "application/n-triples", graph)
+        db.add(plan.batch.serialize(format="nt").encode(), "application/n-triples", plan.graph)
     except AnswerLost as exc:
         raise WriteInDoubt(str(exc)) from exc
-    return len(batch)
+    return plan.triples
+
+
+def ingest(db: GraphDB, data: bytes, graph: str, directory: Path | None = None) -> int:
+    """Plan every check and, only if it passes, append the batch to ``graph``.
+
+    Returns the triples written. Kept as the one-call API for callers that do not need the plan;
+    it is exactly ``write(db, plan(db, data, graph, directory))``.
+    """
+    return write(db, plan(db, data, graph, directory))

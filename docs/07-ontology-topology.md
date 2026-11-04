@@ -88,8 +88,10 @@ property shape) still fetch `:ruleId`/`:category`/`:ruleSeverity` and
 `:cikNumber`/`:hasUniverseMembership`; fetching only `rdf:type` made `AssetShape` and
 `RuleDefinitionShape` fail on the first real selection write (2026-11-04, `portfolio_test`). The
 dry run validates beside the full local rules/asset graphs and cannot see this difference, so the
-projection CLIs offer a read-only `--check-store`: it runs the same `fetch_context` against the live
-store with `SELECT` only and then `gate.validate`, writing nothing.
+projection CLIs offer a read-only `--check-store`: it runs the same `gate.plan` a write uses
+against the live store with `SELECT` only -- the context validation plus checks 2 (target graph),
+6 (stored individuals) and 7 (closing state) -- and reports `would-be-written`,
+`already-in-the-store` (skipped) or `refused`, writing nothing.
 
 **Asset master load (T-220).** The real asset master (`portfolio-data-mining`'s point-in-time
 `universe.db`, D1) is written by `cli/load_universe.py` (logic in `src/kg_store/universe.py`) into

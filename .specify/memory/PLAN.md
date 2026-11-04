@@ -1659,7 +1659,84 @@ dry runs.
 `REFERENCE_DB=rule_P1.db` and `SQL_UNIVERSE_DB=universe_history_gics.db`. No GraphDB write or
 reload; the pilot `financial.db` has no `schema_version` (reads 0, below the v18 floor), and the
 task's `base.db`/`scored_rule.db`/`scratch/bt/integ` paths are absent from this checkout.
+## Work item 29 — Prove the whole final load in one run (T-390–T-419)
 
+**Status: closed 2026-11-04.**
+
+**Why**: the final backtest must load in minutes and be proved. The m018 verifier from Work item
+24 knew one graph, while Work item 26 added a second graph per run with no verifier at all; the
+operator still followed a long manual sequence in `docs/backtest-load-runbook.md`. A load that is
+not re-projected and compared cannot show that the store holds what the deterministic projector
+builds.
+
+**What was built**:
+
+1. `src/projection/verify_backtest.py` / `cli/verify_backtest.py` now dispatch on the graph name.
+   The m018 path and its 21 checks are unchanged; a `urn:graph:derived:backtest:selection:…` graph
+   is re-projected through the new `projection.backtest.project_selection_source` and checked
+   against the store: graph identity from `SelectionCycle`, total triples, one individual per
+   projected source row for `SelectionCycle`, `AttractivenessSnapshot`,
+   `AttractivenessWeightScheme`, `Veto` and the configured/effective `WeightComponent` links; the
+   UNSCORED/UNPRICED placeholder count; `:attractivenessOfAsset`/`:vetoOfAsset` distinct links and
+   the unlinked-ticker ceiling; vetoes grouped by resolved rule IRI; and the cross-graph check
+   that every `:cycleRunId` on a TOPN `BookRebalance` in the m018 sibling has a `SelectionCycle`
+   (`MARKOWITZ_BASE` has none). It remains read-only (`SELECT` only), one `PASS`/`FAIL` line per
+   check, exit 0 only when all pass.
+2. `src/projection/load_run.py` / `cli/load_run.py`: one command for `--label` plus `--db PATH`
+   (repeatable) or `--dir DIR` of `*_P<number>.db`. It runs, stopping at the first failure: the
+   optional `--contract TARGET`; a dry run of both projectors (counts, unlinked); with `--write`,
+   the m018 graphs first and then their selection siblings through the existing gate; and the
+   verifier for every graph. It prints a final `graph / triples / checks passed` table, keeps the
+   `--to-production` guard and the duplicate-graph refusal, reuses the projector/gate/verifier
+   code, and never drops: on a verification failure it prints the exact one-graph
+   `DROP GRAPH <iri>` commands for the graphs it wrote.
+3. `docs/backtest-load-runbook.md` now leads with the one-command flow, keeps the step-by-step
+   commands as the manual fallback, covers both graph names in naming, verification and rollback,
+   and records re-measured read-only dry runs (below). `README.md` gained the command table;
+   `docs/graphdb-setup.md` and `SPEC.md` FR-009/FR-011 carry the new checks and numbers.
+4. Tests: `tests/test_verify_backtest_selection.py` uses the in-memory `rdflib.Dataset` fake store
+   for the pass case, a missing class, an altered count, a missing link, a missing placeholder
+   marker, a wrong label, a wrong graph name and a missing cross-graph cycle;
+   `tests/test_load_run.py` covers the ordered sequence, a verification failure that stops it, the
+   printed drops and a write failure; `tests/test_cli_load_run.py` runs the real script for the
+   argument contract and the dry-run/directory flow. `tests/test_selection_real.py` verifies the
+   real `rule_P1.db` m018 and selection projections in memory (21/21 over 209,886 triples and
+   15/15 over 321,324).
+5. Follow-up T-399 (to the merged Work item 30): `gate.ingest` is split into `gate.plan` (every
+   check, no write) and `gate.write` (apply the plan). `--check-store` and the `--delta` dry run
+   call the same plan, so they now run the append-only target check (2), the stored-individual
+   check (6) and the closing-state checks (7) beside the shape/context validation, and report
+   `would-be-written`, `already-in-the-store` (skipped) or `refused`. The projectors' write loops
+   use the plan too; `tests/test_kg_gate.py` and `tests/test_store_check.py` cover each outcome.
+
+**Measured read-only dry runs** (`cli/load_run.py`, both projectors, no store contacted):
+
+| Database | `v_book_weight_daily` rows | m018 triples | Selection rows | Selection triples | Time | Peak RSS |
+|---|---|---|---|---|---|---|
+| `rule_P1.db` | 15,615 | 209,886 | 42,700 | 321,324 | 93.2 s | 1.16 GB |
+| `rule_P2.db` | 15,641 | 196,840 | 41,259 | 309,728 | 90.2 s | 1.10 GB |
+| `rule_P3.db` | 18,025 | 222,449 | 45,440 | 342,934 | 101.0 s | 1.22 GB |
+
+Unlinked tickers: 0 ranking and 0 veto in every database after the shared CIK-aware link rule.
+
+**Acceptance criteria** (all verified):
+
+- ✅ A selection graph verifies read-only with one PASS/FAIL line per check; the m018 checks and
+  their 21/21 result are unchanged.
+- ✅ `cli/load_run.py` runs contract check, both dry runs, both writes and every verifier in order,
+  stops at the first failure, prints the final table and the one-graph drop commands, and keeps
+  `--to-production`.
+- ✅ The real `rule_P1.db` projections pass both verifiers in memory; the dry-run numbers above are
+  measured, not copied.
+- ✅ The read-only pre-flight runs every store-dependent gate check, and the real write applies the
+  same plan; each graph is reported as would-be-written, already-in-the-store (skipped) or refused.
+- ✅ `uv run pytest`, `mypy` and the pinned pre-commit hooks pass; docs, counts and `SPEC.md` are
+  consistent; no schema count changed.
+- **Residual risk:** no live GraphDB read or write was made in this work item. The verifier's
+  store-side SPARQL over the selection graph and `load_run.py --write` have not run against
+  GraphDB; the first live run is the operator's step in `docs/backtest-load-runbook.md`.
+
+**Blocked on**: nothing.
 ## Sequencing
 
 ```
@@ -1709,6 +1786,8 @@ Work item 25 (reports-agent sector and industry queries) — closed 2026-11-04 (
 Work item 26 (backtest selection side) — closed 2026-11-04 (T-320–T-328); see `CHANGELOG.md`
 Work item 27 (ticker history and orchestrator projectors) — closed 2026-11-04 (T-350–T-360,
   T-208); see `CHANGELOG.md`
+Work item 29 (selection verifier and one-command load) — closed 2026-11-04 (T-390–T-398); see
+  `CHANGELOG.md`
 ```
 
 Work items 1, 2, and 9 have no dependencies and no blockers — they can land

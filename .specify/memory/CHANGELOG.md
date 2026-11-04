@@ -1152,6 +1152,59 @@ rule are P1 321,324 / P2 309,728 / P3 342,934 triples with 0 unlinked ranking/ve
 - [x] **T-360** Mark T-208 and Work item 27 done, move the task block to `CHANGELOG.md`, update
       the asserted counts and run `pytest`, `mypy` and the pinned pre-commit hooks. → step 7.
 
+## Work item 29 — Prove the whole final load in one run
+
+*From the final-load handoff: the selection graphs had no verifier and the load was still a manual
+sequence. See `PLAN.md` Work item 29. Task IDs T-390–T-419 (T-390–T-398 used).*
+
+- [x] **T-390** *(done 2026-11-04: `project_selection_source` in `src/projection/backtest.py`,
+      shared by `run_selection` and the verifier; `verify` dispatches on the graph prefix so the
+      m018 path and its 21 checks are unchanged.)* Add the selection source projection and the
+      graph-name dispatch to `src/projection/verify_backtest.py`/`cli/verify_backtest.py`.
+- [x] **T-391** *(done 2026-11-04: `selection_graph_identity`; `SelectionCycle` identity check;
+      total triples; `SelectionCycle`, `AttractivenessSnapshot`, `AttractivenessWeightScheme`,
+      `Veto`, configured `WeightComponent` and effective `WeightComponent` counts.)* Implement the
+      selection graph identity, triple and individual checks.
+- [x] **T-392** *(done 2026-11-04: UNSCORED/UNPRICED placeholder count, distinct
+      `:attractivenessOfAsset`/`:vetoOfAsset` links, `v_cycle_ranking`/`v_veto` unlinked ceiling
+      and vetoes grouped by resolved rule IRI.)* Implement the placeholder, asset-link and
+      resolved-rule group checks.
+- [x] **T-393** *(done 2026-11-04: every TOPN `BookRebalance` `:cycleRunId` in the m018 sibling
+      must have a `SelectionCycle`; `MARKOWITZ_BASE` is asserted to have none; a missing m018
+      graph fails the check.)* Add the cross-graph check.
+- [x] **T-394** *(done 2026-11-04: `src/projection/load_run.py` and `cli/load_run.py`;
+      `--label` + repeatable `--db` or `--dir` of `*_P<number>.db`, optional `--contract`,
+      `--write`, `--to-production`; both dry runs, m018 writes then selection writes, verifier for
+      every graph, final table, duplicate-input refusal and one-graph drop commands.)* Build the
+      one-command loader.
+- [x] **T-395** *(done 2026-11-04: `tests/test_verify_backtest_selection.py`, in-memory
+      `rdflib.Dataset` pass case, missing class, altered count, missing link, missing placeholder
+      marker, wrong label, wrong graph name and missing cross-graph cycle; the m018 tests still
+      pass unchanged.)* Add the selection verifier tests.
+- [x] **T-396** *(done 2026-11-04: `tests/test_load_run.py` covers the ordered stages, a
+      verification failure that stops the sequence, the printed drops, a successful write table and
+      a write failure after the m018 write; `tests/test_cli_load_run.py` covers the subprocess
+      contract, a synthetic dry run, `--dir` discovery and the production guard.)* Add the loader
+      sequence and CLI tests.
+- [x] **T-397** *(done 2026-11-04, read-only: the real `rule_P1.db` m018 and selection projections
+      in an in-memory Dataset pass 21/21 checks over 209,886 triples and 15/15 over 321,324
+      triples; `cli/load_run.py` dry runs measured P1 93.2 s / 1.16 GB, P2 90.2 s / 1.10 GB and P3
+      101.0 s / 1.22 GB; selection rows 42,700 / 41,259 / 45,440 and triples 321,324 / 309,728 /
+      342,934; no store contacted.)* Verify the real P1 projections in memory and re-measure the
+      three dry runs.
+- [x] **T-398** *(done 2026-11-04: `docs/backtest-load-runbook.md` rewritten around the
+      one-command flow with the manual fallback, both graph names in naming/verification/rollback
+      and the failure table; `README.md` command table, `docs/graphdb-setup.md`, `SPEC.md`
+      FR-009/FR-011, `PLAN.md` Work item 29 and this section updated; this section cut to
+      `CHANGELOG.md`.)* Update the docs and close Work item 29.
+- [x] **T-399** *(done 2026-11-04, follow-up to the merged Work item 30: `gate.ingest` is now
+      `gate.write(db, gate.plan(...))`; `--check-store` and the `--delta` dry run use the same
+      plan, which runs the shape/context validation plus checks 2, 6 and 7; they report
+      `would-be-written`, `already-in-the-store` (skipped) or `refused`. `tests/test_kg_gate.py`
+      covers a skip, an existing individual and a closing-state refusal; `tests/test_store_check.py`
+      covers all three reported outcomes.)* Make the pre-flight run every store-dependent gate
+      check.
+
 ## Work item 30 — Gate context falls back to the relation range
 
 *From the first real selection write (portfolio_test, 2026-11-04). See `PLAN.md` Work item 30.

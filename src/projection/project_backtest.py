@@ -13,9 +13,10 @@ family. A label matches ``[a-z][a-z0-9_]{1,31}``; two families (``rule``, ``cham
 a window because the label is part of every graph name and IRI stem.
 
 A dry run (the default) reads every database, runs the boundary, builds each run's batch and
-validates it against ``shapes.ttl``; it never contacts the store and writes nothing. ``--check-store`` builds the same graphs and
-validates them beside the live store's fetched context with ``SELECT`` only; it reports whether a
-write would be accepted and never writes. ``--write``
+validates it against ``shapes.ttl``; it never contacts the store and writes nothing.
+``--check-store`` builds the same graphs and runs the full gate plan against the live store with
+``SELECT`` only; it reports each graph as would-be-written, already-in-the-store (skipped) or
+refused, and never writes. ``--write``
 appends each graph through the ingest gate, but a backtest is a frozen artifact and where it lives
 is the maintainer's decision: writing to the production repository (``KG_REPOSITORY=portfolio``)
 also needs ``--to-production``, and without it the run exits 2 before any graph is built or written.

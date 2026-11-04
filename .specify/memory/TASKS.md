@@ -1237,11 +1237,14 @@ Work item 28 (T-370–T-389): T-370–T-379 done 2026-11-04 — the incremental 
 `urn:graph:universe:{year}-Q{n}:delta:{n}` target), its hermetic tests and the read-only
 `portfolio_test` verification; T-380 (the first real `--write`) is the maintainer's and keeps the
 work item open.
+Work item 29 (T-390–T-398): closed 2026-11-04 — the verifier covers the selection graph and the
+m018 cross-graph cycle link, and `cli/load_run.py` runs the contract check, both dry runs, both
+writes and every verification in one command; see `CHANGELOG.md`.
+
 Work item 30 (T-420–T-425): closed 2026-11-04 — the gate context falls back to the relation's
 TBox range, the real-fetch regression tests cover the selection batch, and `--check-store` was
 accepted read-only against `portfolio_test` for the six backtest graphs and the ticker-history
 snapshot; see `CHANGELOG.md` and `PLAN.md` Work item 30.
-
 T-163 (function done, PR #68) closes with T-031, whose first slice (PR #72) calls it on the real read and re-reads the late keys for `v_score_snapshot`; T-164 done (PR #69).
 Work item 8 (T-070–T-071) is independent but needs a human at a Protégé
 session, not a coding session.

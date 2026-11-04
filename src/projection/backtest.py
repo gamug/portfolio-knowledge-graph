@@ -1726,11 +1726,16 @@ def run(
             gate.validate(batch, context=context)
             out.checked.append(graph)
             continue
-        if _graph_exists(store, graph):
+        try:
+            plan = gate.plan(store, data, graph)
+        except gate.IngestRejected as exc:
+            out.rejected[graph] = str(exc)
+            continue
+        if plan.status is gate.IngestPlanStatus.ALREADY_IN_STORE:
             out.already_in_store.append(graph)
             continue
         try:
-            out.written[graph] = gate.ingest(store, data, graph)
+            out.written[graph] = gate.write(store, plan)
         except gate.WriteInDoubt as exc:
             out.in_doubt = graph
             raise StoreInterrupted(out, exc) from exc
@@ -1754,7 +1759,14 @@ def project_selection_source(
     catalog: SelectionRuleCatalog,
     label: str,
 ) -> SelectionSourceProjection:
-    """Read the six selection views, run the boundary and project them; no store and no SHACL."""
+    """Read the six selection views plus ``v_book``, run the boundary and project them.
+
+    The selection-side twin of :func:`project_source`: no store and no SHACL, so a dry run, a
+    write and the verifier all rebuild the same deterministic batch (Work item 29). ``v_book``
+    supplies the one backtest run and its knowledge date; ``v_ticker_history`` supplies the CIKs
+    for the shared exact-or-same-CIK asset link; the source check is the m018 one (the backtest run
+    must be ``completed``).
+    """
     books = read_view(source, "v_book")
     source_failures = check_backtest_source(source.schema_version, books, load_source())
     rows = {"v_book": books}
@@ -1788,10 +1800,9 @@ def run_selection(
     cycle run is not ``completed`` is counted as skipped; its components are counted too.
     """
     source_projection = project_selection_source(source, assets, catalog, label)
-    result = source_projection.report
     projection = source_projection.projection
     out = RunResult(
-        result,
+        source_projection.report,
         projection.rows,
         projection.individuals,
         triples_by_class=projection.triples_by_class(),
@@ -1808,22 +1819,22 @@ def run_selection(
             gate.validate(batch, context=context)
             out.checked.append(graph)
             continue
-        if _graph_exists(store, graph):
+        try:
+            plan = gate.plan(store, data, graph)
+        except gate.IngestRejected as exc:
+            out.rejected[graph] = str(exc)
+            continue
+        if plan.status is gate.IngestPlanStatus.ALREADY_IN_STORE:
             out.already_in_store.append(graph)
             continue
         try:
-            out.written[graph] = gate.ingest(store, data, graph)
+            out.written[graph] = gate.write(store, plan)
         except gate.WriteInDoubt as exc:
             out.in_doubt = graph
             raise StoreInterrupted(out, exc) from exc
         except gate.IngestRejected as exc:
             out.rejected[graph] = str(exc)
     return out
-
-
-def _graph_exists(store: GraphDB, graph: str) -> bool:
-    """Whether ``graph`` holds any statement: the gate's own test for an append-only graph."""
-    return bool(store.select(f"SELECT * WHERE {{ GRAPH <{graph}> {{ ?s ?p ?o }} }} LIMIT 1"))
 
 
 #: A ``Failure`` import keeps the module's public report types together for callers/tests.

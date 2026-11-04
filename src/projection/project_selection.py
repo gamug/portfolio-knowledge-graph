@@ -14,9 +14,9 @@ an already-written m018 graph is neither a target nor rewritten.
 
 A dry run (the default) reads every database, runs the boundary, builds each run's batch and
 validates it against ``shapes.ttl`` beside ``rules.ttl`` and the universe assets; it never contacts
-the store and writes nothing. ``--check-store`` builds the same graphs but fetches the context from
-the live store with ``SELECT`` only and runs the gate's validation, reporting whether a write would
-be accepted; it never writes. ``--write`` appends each graph through the ingest gate, but a backtest
+the store and writes nothing. ``--check-store`` builds the same graphs and runs the full gate plan
+against the live store with ``SELECT`` only, reporting each graph as would-be-written,
+already-in-the-store (skipped) or refused; it never writes. ``--write`` appends each graph through the ingest gate, but a backtest
 is a frozen artifact and where it lives is the maintainer's decision: writing to the production
 repository (``KG_REPOSITORY=portfolio``) also needs ``--to-production``, and without it the run
 exits 2 before any graph is built or written. A graph that already exists is never appended to; it

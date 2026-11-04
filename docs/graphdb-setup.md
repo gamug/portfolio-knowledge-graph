@@ -70,7 +70,7 @@ projected upstream data belong to Work item 4.
 ## Loading the asset master (T-220)
 
 After `schema/` is loaded (the gate validates the batch beside the stored reference individuals),
-and before any batch that links `:Asset` nodes (`cli/project_backtest.py`, `cli/project_selection.py`, a score projection or an
+and before any batch that links `:Asset` nodes (`cli/project_backtest.py`, `cli/project_selection.py`, `cli/load_run.py`, a score projection or an
 ORCHESTRATOR batch):
 
 ```bash
@@ -312,6 +312,9 @@ uv run python cli/project_selection.py --db rule=rule_P1.db --db rule=rule_P2.db
 uv run python cli/project_selection.py --db rule=rule_P1.db --write
 ```
 
+For the final load, `cli/load_run.py` runs both projectors and the verifier in order
+(`--label rule --dir runs --write`); the manual commands remain the fallback.
+
 A backtest veto's rule is resolved by `:ruleId` on the run's knowledge date (2026-10-31), not by
 `:raisedOn`; `LIQUIDITY_DISTRESS` resolves to `_v11` and an unknown id stops the run. The projector
 reads the six selection views plus `v_ticker_history`, keeps `v_veto.evidence_json` out of the
@@ -358,40 +361,60 @@ the store before sending it again: if it landed, checks 6, 7 and 8 refuse the se
 says "already closed", with a note when the stored date is the batch's own; a restatement is refused
 by check 6, since its new section already exists, and by check 8, "already superseded by …").
 
-## Verifying a loaded backtest (T-280)
+## Verifying a loaded backtest (T-280, Work item 29)
 
-Once a run is written (or before writing, against a scratch repository), prove that the named graph
-holds what the deterministic projector builds from its source database:
+Once a run is written (or before writing, against a scratch repository), prove that **both** named
+graphs hold what the deterministic projectors build from their source database:
 
 ```bash
 uv run python cli/verify_backtest.py \
   --graph urn:graph:derived:backtest:rule:P1:1 \
   --db data/backtests/rule_P1.db --label rule
+uv run python cli/verify_backtest.py \
+  --graph urn:graph:derived:backtest:selection:rule:P1:1 \
+  --db data/backtests/rule_P1.db --label rule
 ```
 
-It reads the repository from `KG_HOST`/`KG_REPOSITORY` (the same environment as `project_backtest`
-and `verify_store`), prints the repository and graph it checked, re-projects the source in memory
-through `projection.backtest.project_source`, and prints one `PASS`/`FAIL` line per check. It only
-issues SPARQL `SELECT` queries, so it is safe against any repository, including production; exit 0
-means every check passed. The checks and their details are in `SPEC.md` FR-009; the full load
-procedure is [`backtest-load-runbook.md`](backtest-load-runbook.md).
+It reads the repository from `KG_HOST`/`KG_REPOSITORY` (the same environment as
+`project_backtest`, `project_selection` and `verify_store`), prints the repository and graph it
+checked, re-projects the source in memory through `projection.backtest.project_source` (m018) or
+`project_selection_source` (selection), and prints one `PASS`/`FAIL` line per check. It only issues
+SPARQL `SELECT` queries, so it is safe against any repository, including production; exit 0 means
+every check passed. The m018 checks are unchanged. The selection checks add graph identity, total
+triples, one individual per projected selection row, the placeholder count, the asset links and
+their unlinked ceiling, vetoes grouped by resolved rule, and the cross-graph check that every TOPN
+`:cycleRunId` in the m018 graph has its `SelectionCycle`; `MARKOWITZ_BASE` has none. The checks and
+their details are in `SPEC.md` FR-009; the full load procedure is
+[`backtest-load-runbook.md`](backtest-load-runbook.md).
+
+`cli/load_run.py` runs the whole sequence in one command (optional contract check, both dry runs,
+both writes, then the verifier for every graph):
+
+```bash
+SQL_UNIVERSE_DB=/workspaces/thesis/data/universe_history_gics.db \
+uv run python cli/load_run.py --label rule --dir data/backtests --write
+```
+
+It prints a final table of graph, stored triples and checks passed. A verification failure stops
+the run and prints the exact one-graph `DROP GRAPH <iri>` commands for the graphs it wrote; it
+never drops anything itself. The one-command flow and its manual fallback are in
+[`backtest-load-runbook.md`](backtest-load-runbook.md).
 
 Read-only dry runs on 2026-11-04 over the completed databases in
-`/workspaces/thesis/scratch/final/runs/` (no store was contacted):
+`/workspaces/thesis/scratch/final/runs/` (no store was contacted; `cli/load_run.py`, both
+projectors):
 
-| Database | `v_book_weight_daily` rows | Re-projected graph triples | Peak RSS |
-|---|---|---|---|
-| `rule_P1.db` | 15,615 | 209,886 | 0.70 GB |
-| `rule_P2.db` | 15,641 | 196,840 | 0.66 GB |
-| `rule_P3.db` | 18,025 | 222,449 | 0.73 GB |
+| Database | `v_book_weight_daily` rows | m018 triples | Selection rows | Selection triples | Time | Peak RSS |
+|---|---|---|---|---|---|---|
+| `rule_P1.db` | 15,615 | 209,886 | 42,700 | 321,324 | 93.2 s | 1.16 GB |
+| `rule_P2.db` | 15,641 | 196,840 | 41,259 | 309,728 | 90.2 s | 1.10 GB |
+| `rule_P3.db` | 18,025 | 222,449 | 45,440 | 342,934 | 101.0 s | 1.22 GB |
 
-The three runs took 44–48 s each (all eight views read, boundary run, every graph built and
-`pyshacl`-validated). The verifier's in-memory re-projection skips the SHACL pass, so it is faster
-per graph, but it still reads the whole database and builds every graph of that database before
-comparing one. On 2026-11-04 the verifier also ran against an in-memory `rdflib.Dataset` holding
-`rule_P1.db`'s projection: 21 of 21 checks passed over 209,886 triples. It has **not** yet been run
-against a live GraphDB repository (this change made no GraphDB read or write); that first live run
-is the operator's step in the runbook.
+Unlinked tickers: 0 ranking and 0 veto in every database after the shared CIK-aware link rule. On 2026-11-04 the verifier also ran against an in-memory `rdflib.Dataset`
+holding `rule_P1.db`'s two projections: 21 of 21 m018 checks passed over 209,886 triples and 15 of
+15 selection checks passed over 321,324 triples, including the cross-graph check. It has **not**
+yet been run against a live GraphDB repository (this change made no GraphDB read or write); that
+first live run is the operator's step in the runbook.
 
 ## Acceptance check (T-025)
 
