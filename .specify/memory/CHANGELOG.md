@@ -1172,6 +1172,6 @@ Task IDs T-420–T-439.*
       against the live test repository.
 - [x] **T-424** *(done 2026-11-04: `PLAN.md` Work item 30, `SPEC.md` FR-010, `docs/07` context rule,
       `docs/backtest-load-runbook.md` §4a, `CHANGELOG.md`.)* Update the docs.
-- [x] **T-425** *(done 2026-11-04: `uv run pytest -q` = 1237 passed, 58 deselected in 795.30 s;
-      `mypy` = success, 98 files; pinned pre-commit and FR-001 pass; the real check-store results
+- [x] **T-425** *(done 2026-11-04: `uv run pytest -q` = 1264 passed, 58 deselected in 775.75 s;
+      `mypy` = success, 99 files; pinned pre-commit and FR-001 pass; the real check-store results
       above.)* Run the checks and record them.

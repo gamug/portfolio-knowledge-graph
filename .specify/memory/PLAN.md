@@ -2106,7 +2106,7 @@ context nodes against the class shapes. m018's `:holdingAsset`, `:guardAsset`, `
 
 **Blocked on**: nothing. The user performs every write.
 
-**Verified 2026-11-04**: `uv run pytest -q` = **1237 passed, 58 deselected in 795.30 s**;
-`mypy` = success, **98 files**; pinned pre-commit hooks pass on every changed file; FR-001 remains
+**Verified 2026-11-04**: `uv run pytest -q` = **1264 passed, 58 deselected in 775.75 s**;
+`mypy` = success, **99 files**; pinned pre-commit hooks pass on every changed file; FR-001 remains
 **4431 quads; conforms: True**. No GraphDB write or reload was made.
 
