@@ -781,6 +781,27 @@ tests). The bundle is **4204 quads, `pyshacl conforms: True** (T-220's `sh:class
 T-227's `sh:class :Universe` +2, and the net −34 of T-233/T-234: five `sh:in` window lists and two
 segment lists became `sh:pattern`, and `:runLabel` adds 16).
 
+**Contract v18 ticker-history and orchestrator projector (2026-11-04, T-208/T-350–T-360).** The
+remaining three views are read by `src/projection/reference.py` (policy in
+`src/projection/project_reference.py`, CLI `cli/project_reference.py`). `v_ticker_history` becomes a
+complete, labelled, dated snapshot in `urn:graph:derived:ticker-history:{label}:{snapshot_date}`;
+every `TickerHistory` IRI carries the label and date (`TickerHistory_{label}_{YYYYMMDD}_{cik}_{symbol}_{validFrom}`),
+so a later refresh is a new graph with new individuals and never a re-declaration (the gate refuses
+both an existing graph and a stored typed individual). The interval is inclusive
+(`validFrom <= D <= validTo`; NULL `validTo` is the current symbol), and a latest row whose
+`canonical_symbol` is not one of its CIK line's latest symbols stops the run. `v_orchestrator_run`
+and `v_orchestrator_step` become one append-only graph per run,
+`urn:graph:derived:orchestrator:{label}:{run_id}`, with the step linked by `:stepOfOrchestratorRun`
+and its own `run_id` written as `"{run_kind}:{id}"`; the shapes require only the natural keys. A
+masked/NULL optional column is omitted; a multi-date `evidence_date` is omitted and counted, and
+`evidence_url` is kept verbatim. `:tickerHistoryAsset` links by exact canonical symbol first, then to
+the one loaded `:Asset` under the same CIK (`FBIN`→`:FBHS`, `GAP`→`:GPS`), otherwise it is unset and
+counted; no `:Asset` is invented and no link crosses CIKs. The real dry runs over P1/P2/P3 read 21
+ticker-history rows, built 198 triples and 21 individuals per database, linked 17 exact + 4 by CIK
+with 0 unlinked, omitted 4 multi-date evidence cells, and reported 0 orchestrator rows / nothing to
+write; each graph is `pyshacl`-conformant in 1.25–1.42 s at ~73 MB peak RSS. The gate accepts the
+two new graph patterns. No schema file changed; the bundle stays **4204 quads, conforms: True**.
+
 **FIBO Phase 1 alignment (2026-11-03, T-210).** FIBO is a reference vocabulary, not a dependency
 (the FIBO integration brief §1): our terms stay in `https://thesis.local/kg/portfolio#`, there is
 no `owl:imports`/`owl:equivalentClass`/`rdfs:subClassOf` to FIBO, and no reader reasons over FIBO's

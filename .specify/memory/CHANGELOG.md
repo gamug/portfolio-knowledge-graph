@@ -963,3 +963,39 @@ changed file: all hooks passed (`ruff-check`, `ruff-format`, `mypy`, the file/se
 verifier also ran against an in-memory Dataset holding `rule_P1.db`'s projection: 21 of 21 checks
 passed over 209,886 triples. No GraphDB write or reload was made; the verifier has never run
 against a live repository, so that first live run remains the operator's step in the runbook.
+
+## Work item 27 — Project ticker history and the orchestrator views (2026-11-04)
+
+Design: `PLAN.md` Work item 27. This work item closes T-208.
+
+- [x] **T-350** *(design first; commit before any code)* Record the read-only measurements (21
+      ticker rows, 8 NULL `valid_to`, 0 orchestrator rows, 17 exact + 4 unique-CIK links, 0
+      unlinked) and the graph/IRI/nullability/asset-link design in `PLAN.md` Work item 27.
+      → step 1.
+- [x] **T-351** Add the shared asset-link rule (exact symbol, else exactly one `:Asset` under the
+      same CIK, else unlinked and counted) with hermetic tests, including `FBIN`→`:FBHS` and
+      `GAP`→`:GPS`. Reuse it in the new projector and document it for Work item 26. → step 2.
+- [x] **T-352** Project `v_ticker_history` into
+      `urn:graph:derived:ticker-history:{label}:{snapshot_date}`, with snapshot-qualified IRIs,
+      the inclusive `validFrom`/`validTo` interval, optional evidence, and the latest-symbol check.
+      → step 2.
+- [x] **T-353** Project `v_orchestrator_run`/`v_orchestrator_step` into one
+      `urn:graph:derived:orchestrator:{label}:{run_id}` per run, natural keys only, and make the
+      empty case say there is nothing to write. → step 2.
+- [x] **T-354** Add `cli/project_reference.py` (logic in `src/projection/project_reference.py`)
+      following `cli/project_backtest.py`: repeatable `--db LABEL=PATH`, `--as-of`, dry run by
+      default, `--write`, `--to-production`, exit codes 0/1/2. → step 3.
+- [x] **T-355** Extend `kg_store.gate.check_target` with the ticker-history and orchestrator
+      append-only patterns and add accepted/refused cases to `tests/test_kg_gate.py`. → step 3.
+- [x] **T-356** Hermetic fixtures and tests for the projector, the link rule, the empty
+      orchestrator case, the CLI and the new catalog query. → step 4.
+- [x] **T-357** Add an opt-in real-database test (`REFERENCE_DB`, `integration` marker) and run
+      the real dry runs; record rows, individuals, triples, exact/CIK/unlinked links, SHACL and
+      timings. → step 5.
+- [x] **T-358** Update `docs/06`, `docs/07`, `docs/08`, `docs/graphdb-setup.md` and
+      `docs/backtest-load-runbook.md`. → step 6.
+- [x] **T-359** Add the tagged, tested "which symbol did company X use on date D" query to
+      `docs/reports-agent-query-catalog.md`, move the rename question from `After T-208` to
+      `Today`, and keep both sides when merging `origin/master` (#120/#122). → step 6.
+- [x] **T-360** Mark T-208 and Work item 27 done, move the task block to `CHANGELOG.md`, update
+      the asserted counts and run `pytest`, `mypy` and the pinned pre-commit hooks. → step 7.

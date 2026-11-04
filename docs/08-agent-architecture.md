@@ -198,6 +198,58 @@ Two rules the projector keeps, both from the handoff §3.3 and the completed P1/
 The dry runs over `rule_P1/P2/P3.db` and their row/triple counts are recorded in `SPEC.md` §2.6 and
 `TASKS.md` T-207/T-230–T-236; no store was written.
 
+## Ticker history and orchestrator process records (T-208, T-350–T-360)
+
+The three remaining Contract v18 views are written by the reference/process projector
+(`src/projection/reference.py`, policy in `src/projection/project_reference.py`, CLI
+`cli/project_reference.py`):
+
+```bash
+uv run python cli/project_reference.py --db live=base.db --as-of 2026-11-04  # dry run
+uv run python cli/project_reference.py --db live=base.db --as-of 2026-11-04 --write
+```
+
+`--db LABEL=PATH` is repeatable; the label names the source family and is part of every graph and
+individual IRI. A dry run reads the three views, runs the boundary, builds each graph and validates
+it against `shapes.ttl`; it never contacts the store. `--write` appends through the gate, and the
+production repository also needs `--to-production`. A graph that already exists is reported and
+skipped.
+
+**Ticker history is a labelled, dated snapshot.** The graph is
+`urn:graph:derived:ticker-history:{label}:{snapshot_date}` and every individual is
+`TickerHistory_{label}_{YYYYMMDD}_{cik}_{symbol}_{validFrom}`. The snapshot date is `--as-of`
+(default today in UTC). A later refresh writes a new graph and new individuals; it never rewrites
+or re-declares the previous snapshot. This is necessary because the gate refuses both an existing
+graph and a typed individual that already exists in any graph (checks 2 and 6). The interval is
+inclusive: `validFrom <= D <= validTo`, and a NULL `validTo` is the current symbol. The projector
+refuses a database whose `canonical_symbol` is not the latest `valid_from` symbol of its CIK.
+
+**An orchestrator run is one graph.** The graph is
+`urn:graph:derived:orchestrator:{label}:{run_id}`, with
+`OrchestratorRun_{label}_{run_id}` and `OrchestratorStep_{label}_{run_id}_{ordinal}`. A step points
+at its run by `:stepOfOrchestratorRun`; its own `run_id` is written as `"{run_kind}:{id}"` (or the
+bare id when `run_kind` is NULL), matching the ontology's `:runId` string. Both orchestrator views
+hold 0 rows in the completed databases: the projector builds no orchestrator graph and the CLI
+prints `v_orchestrator_run: 0 rows, v_orchestrator_step: 0 rows: nothing to write`.
+
+**The asset link rule.** A `:TickerHistory` links to `:tickerHistoryAsset` only through a loaded
+`:Asset`:
+
+1. the exact `canonical_symbol` when it is a loaded `:Asset` IRI (`META` → `:META`);
+2. otherwise the **one** loaded `:Asset` carrying the row's CIK. This is the T-208 extra case:
+   the catalog still names Fortune Brands `FBHS` and Gap `GPS`, while `v_ticker_history` says the
+   same CIK continued as `FBIN` and `GAP`; the link is `FBIN` → `:FBHS` and `GAP` → `:GPS`;
+3. otherwise no link, counted under `asset link omitted`. The projector never creates an `:Asset`,
+   never links across CIKs, and never guesses among several same-CIK assets (concurrent classes or
+   a mixed CIK).
+
+Work item 26's selection projector should reuse `projection.asset_link.resolve_asset` for the same
+`FBIN`/`GAP` rows it currently leaves unlinked.
+
+An optional `v_ticker_history.evidence_date` is written only when it is one ISO date; the four
+completed rows that carry `"date ; date"` (DISCA, DISCK, WBD and PSKY) omit the property and are
+counted. `evidence_url` is kept verbatim as `xsd:anyURI` evidence text.
+
 ---
 
 *Diagram for this document (Exhibit 3) is in the companion Artifact: both LangGraph graphs, their

@@ -287,7 +287,7 @@ architecture, and not partitioned for the bitemporal audit trail
    `--write` behind the ingest gate; the source check reads `v_book.run_status` rather than
    `v_cycle_run`; no store was reloaded then, and the reload landed with T-212 on 2026-11-02. The
    m015/m016 views (`v_ticker_history`,
-   `v_orchestrator_run`, `v_orchestrator_step`) remain PR-C2 (T-208).
+   `v_orchestrator_run`, `v_orchestrator_step`) landed in Work item 27 (T-208, 2026-11-04).
    FIBO Phase 1 (T-210, 2026-11-03) is in too: six `rdfs:seeAlso` links from
    `schema/fibo_terms.csv` in `tbox.ttl` and (for the four terms it declares)
    `kg_target_schema.ttl`, the two broken `https://www.omg.org/spec/EDMC-FIBO/` links removed, and
@@ -1453,7 +1453,7 @@ procedure around both halves.
 
 ## Work item 27 — Project ticker history and the orchestrator views (T-350–T-369)
 
-**Status: in progress (closes T-208).**
+**Status: closed 2026-11-04 (closes T-208).**
 
 **Why**: Contract v18 added three views that still have no projector: `v_ticker_history` (m016) and
 `v_orchestrator_run`/`v_orchestrator_step` (m015). The eight m018 backtest/GUARD views are already
@@ -1485,10 +1485,11 @@ its latest `valid_from` row: **0 mismatches**. The six pure rename chains the as
 canonical symbols `META`, `WTW`, `EG`, `CPAY`, `DAY`, `ECHO` are exactly the loaded `:Asset` IRIs.
 The other rows are `DISCK`/`DISCA`→`WBD`, `PSKY`→`SKYD`, `FBHS`→`FBIN` and `GPS`→`GAP`.
 
-Two `v_ticker_history` rows carry a **multi-date** `evidence_date` (`DISCA` and `PSKY`:
-`"2022-04-07 ; 2022-04-10"` and `"2025-08-07 ; 2026-10-06"`); the `:evidenceDate` shape is one
-`xsd:date`, so the projector omits that property on those rows and counts the omission. Their
-`evidence_url` also joins two URLs with `" ; "`; it is kept verbatim as `xsd:anyURI` evidence text.
+Four `v_ticker_history` rows carry a **multi-date** `evidence_date` (`DISCA`, `DISCK` and `WBD`
+share `"2022-04-07 ; 2022-04-10"`; `PSKY` carries `"2025-08-07 ; 2026-10-06"`); the
+`:evidenceDate` shape is one `xsd:date`, so the projector omits that property on those rows and
+counts the omission. Their `evidence_url` also joins two URLs with `" ; "`; it is kept verbatim as
+`xsd:anyURI` evidence text.
 
 ### The `FBIN`/`FBHS`/`GAP`/`GPS` case
 
@@ -1552,9 +1553,11 @@ not a different company. The selection projector's reported unlinked rows (ranki
    The projector never creates an `:Asset`, never links a different CIK, and never guesses among
    several same-CIK assets. On the 21 real rows this gives 17 exact links + 4 unique-CIK links
    (`FBIN`→`:FBHS` twice, `GAP`→`:GPS` twice) = 21 linked, 0 unlinked. Exact-only would leave 4
-   unlinked. The projector also refuses a database whose `canonical_symbol` is not the latest
-   `valid_from` symbol for its CIK, because then the history and the catalog disagree about the
-   company line.
+   unlinked. The projector also refuses a latest row whose `canonical_symbol` is not one of its
+   CIK line's latest `valid_from` symbols, because then the history and the catalog disagree about
+   the company line. Older rows may keep another canonical symbol on purpose: in the mixed CIK
+   `DISCA`/`DISCK`/`WBD` the concurrent `DISCK` row says `DISCK` while the later `WBD` row says
+   `WBD`; the invariant is checked on the latest row(s), not on every historical row.
 
 6. **CLI.** `cli/project_reference.py` follows `cli/project_backtest.py`: repeatable
    `--db LABEL=PATH`, dry run by default, `--as-of YYYY-MM-DD` for the ticker snapshot, `--write`
@@ -1573,9 +1576,10 @@ not a different company. The selection projector's reported unlinked rows (ranki
 
 - ✅ The ticker-history and orchestrator views have a projector and CLI with the same dry-run /
   write / production-guard / exit-code policy as the backtest projector.
-- ✅ The real dry run reads 21 ticker-history rows, builds one snapshot graph, reports 17 exact +
-  4 unique-CIK links and 0 unlinked, and prints SHACL conformance, individuals, triples and
-  timings; the orchestrator views report 0 rows and nothing to write.
+- ✅ The real dry run reads 21 ticker-history rows, builds one 198-triple snapshot graph, reports
+  17 exact + 4 unique-CIK links and 0 unlinked, and prints SHACL conformance, individuals,
+  triples and timings (1.25–1.42 s, ~73 MB peak RSS per database); 4 multi-date evidence cells
+  are omitted and counted; the orchestrator views report 0 rows and nothing to write.
 - ✅ The gate accepts the two new graph names and refuses malformed labels/dates/run ids; hermetic
   tests cover the projection, the link rule, the empty case, the CLI and the query.
 - ✅ The reports-agent catalog answers the rename question with a tagged, tested query and moves
@@ -1627,6 +1631,8 @@ Work item 23 (inclusive membership end, one `:Asset` per CIK) — closed 2026-11
   `CHANGELOG.md`
 Work item 24 (backtest verifier and load runbook) — closed 2026-11-04 (T-280–T-283); see
   `CHANGELOG.md`
+Work item 27 (ticker history and orchestrator projectors) — closed 2026-11-04 (T-350–T-360,
+  T-208); see `CHANGELOG.md`
 ```
 
 Work items 1, 2, and 9 have no dependencies and no blockers — they can land

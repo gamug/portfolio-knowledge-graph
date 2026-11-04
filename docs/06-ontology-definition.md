@@ -865,6 +865,19 @@ makes `:priorityRank` mandatory for non-GUARD rules, and widens the rank range t
 `UTILITY_CASH_COVERAGE`. The bundle is **4204 quads; conforms: True** (the FR-001 gate; T-220 and
 T-227 add the two `UniverseMembershipShape` `sh:class` triples, T-233/T-234 contribute the net −34).
 
+**Projection of the three remaining v18 views (T-208, T-352/T-353).** `TickerHistory`,
+`OrchestratorRun` and `OrchestratorStep` are now written by `src/projection/reference.py`:
+`TickerHistory` into a labelled, dated append-only snapshot
+(`urn:graph:derived:ticker-history:{label}:{snapshot_date}`) whose IRIs carry the label and date,
+and each orchestrator run into its own append-only graph
+(`urn:graph:derived:orchestrator:{label}:{run_id}`). No class, property or shape changed. The
+ticker interval stays inclusive (`validFrom <= d <= validTo`); `valid_to` NULL is the current
+symbol. The optional properties stay optional: `evidence_date` is omitted (and counted) when the
+source cell holds more than one date, `evidence_url` is copied verbatim, and the two orchestrator
+shapes still require only their natural keys. `:tickerHistoryAsset` links by exact canonical
+symbol first, then to the one loaded `:Asset` carrying the same CIK (`FBIN` → `:FBHS`, `GAP` →
+`:GPS`), otherwise it is unset and counted; the projector never invents an `:Asset`.
+
 ---
 
 *Diagrams for this document live in the companion Artifact (n-ary relation + named-graph layering,

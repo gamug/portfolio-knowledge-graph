@@ -602,7 +602,12 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       `CHANGELOG.md`. Bundle unchanged: **4178 quads; conforms: True**.)* Project the eight m018
       backtest/GUARD views into one append-only graph per completed run. → `PLAN.md` Work item 4,
       step 7.
-- [ ] **T-208** *(PR-C2, from T-206/T-207; now Work item 27)* Project the remaining Contract v18
+- [x] **T-208** *(done 2026-11-04 in Work item 27: `src/projection/reference.py`, policy
+      `src/projection/project_reference.py`, CLI `cli/project_reference.py`; ticker-history
+      snapshots at `urn:graph:derived:ticker-history:{label}:{snapshot_date}`, one orchestrator
+      graph per run; the gate accepts both; 21 ticker rows / 198 triples / 17 exact + 4 same-CIK
+      links / 0 unlinked in the P1/P2/P3 dry runs, 0 orchestrator rows and nothing to write; no
+      schema change. See `CHANGELOG.md` Work item 27.)* Project the remaining Contract v18
       views `v_ticker_history`, `v_orchestrator_run` and `v_orchestrator_step`, and settle their
       graph placement; no projector exists for them yet, and T-207 deliberately reads only the
       eight m018 views. A `feat/` PR. → `PLAN.md` Work item 27.
@@ -1134,42 +1139,6 @@ name and every individual IRI. See `PLAN.md` Work item 20. Task IDs T-230–T-23
       (`urn:graph:derived:backtest:{window_id}:{run}`); the loader leaves removed graphs in place,
       and the gate no longer accepts those names. → `PLAN.md` Work item 20.
 
-## Work item 27 — Project ticker history and the orchestrator views (T-350–T-369)
-
-Design: `PLAN.md` Work item 27. This work item closes T-208.
-
-- [ ] **T-350** *(design first; commit before any code)* Record the read-only measurements (21
-      ticker rows, 8 NULL `valid_to`, 0 orchestrator rows, 17 exact + 4 unique-CIK links, 0
-      unlinked) and the graph/IRI/nullability/asset-link design in `PLAN.md` Work item 27.
-      → step 1.
-- [ ] **T-351** Add the shared asset-link rule (exact symbol, else exactly one `:Asset` under the
-      same CIK, else unlinked and counted) with hermetic tests, including `FBIN`→`:FBHS` and
-      `GAP`→`:GPS`. Reuse it in the new projector and document it for Work item 26. → step 2.
-- [ ] **T-352** Project `v_ticker_history` into
-      `urn:graph:derived:ticker-history:{label}:{snapshot_date}`, with snapshot-qualified IRIs,
-      the inclusive `validFrom`/`validTo` interval, optional evidence, and the latest-symbol check.
-      → step 2.
-- [ ] **T-353** Project `v_orchestrator_run`/`v_orchestrator_step` into one
-      `urn:graph:derived:orchestrator:{label}:{run_id}` per run, natural keys only, and make the
-      empty case say there is nothing to write. → step 2.
-- [ ] **T-354** Add `cli/project_reference.py` (logic in `src/projection/project_reference.py`)
-      following `cli/project_backtest.py`: repeatable `--db LABEL=PATH`, `--as-of`, dry run by
-      default, `--write`, `--to-production`, exit codes 0/1/2. → step 3.
-- [ ] **T-355** Extend `kg_store.gate.check_target` with the ticker-history and orchestrator
-      append-only patterns and add accepted/refused cases to `tests/test_kg_gate.py`. → step 3.
-- [ ] **T-356** Hermetic fixtures and tests for the projector, the link rule, the empty
-      orchestrator case, the CLI and the new catalog query. → step 4.
-- [ ] **T-357** Add an opt-in real-database test (`REFERENCE_DB`, `integration` marker) and run
-      the real dry runs; record rows, individuals, triples, exact/CIK/unlinked links, SHACL and
-      timings. → step 5.
-- [ ] **T-358** Update `docs/06`, `docs/07`, `docs/08`, `docs/graphdb-setup.md` and
-      `docs/backtest-load-runbook.md`. → step 6.
-- [ ] **T-359** Add the tagged, tested "which symbol did company X use on date D" query to
-      `docs/reports-agent-query-catalog.md`, move the rename question from `After T-208` to
-      `Today`, and keep both sides when merging `origin/master` (#120/#122). → step 6.
-- [ ] **T-360** Mark T-208 and Work item 27 done, move the task block to `CHANGELOG.md`, update
-      the asserted counts and run `pytest`, `mypy` and the pinned pre-commit hooks. → step 7.
-
 ## Status
 
 Closed Work items 1, 2, 3, 5, 7 (superseded/decided by T-007), 9, 10, 11 and 14 are in
@@ -1198,6 +1167,9 @@ CIK for a pure rename, and the shared loader/projector resolver; see `CHANGELOG.
 Work item 24 (T-280–T-283): closed 2026-11-04 — the read-only backtest verifier
 (`cli/verify_backtest.py`), its hermetic tests, the final-load runbook and the re-measured dry-run
 numbers; see `CHANGELOG.md` and `docs/backtest-load-runbook.md`.
+Work item 27 (T-350–T-360): closed 2026-11-04 — the ticker-history and orchestrator projector,
+CLI, gate patterns, tests, real dry runs and the `ticker-history-on-date` query; see
+`CHANGELOG.md` and `PLAN.md` Work item 27.
 T-163 (function done, PR #68) closes with T-031, whose first slice (PR #72) calls it on the real read and re-reads the late keys for `v_score_snapshot`; T-164 done (PR #69).
 Work item 8 (T-070–T-071) is independent but needs a human at a Protégé
 session, not a coding session.
