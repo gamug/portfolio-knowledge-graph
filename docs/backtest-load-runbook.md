@@ -32,9 +32,23 @@ views (`v_cycle_run`, `v_weight_scheme`, `v_weight_component`, `v_cycle_ranking`
 `:cycleRunId` on a TOPN `BookRebalance` in the m018 graph has its `SelectionCycle` in the
 selection graph; `MARKOWITZ_BASE` has none.
 
+The same database also carries the three remaining Contract v18 views. They are projected
+separately by `cli/project_reference.py` into:
+
+```text
+urn:graph:derived:ticker-history:{label}:{snapshot_date}   # one complete snapshot
+urn:graph:derived:orchestrator:{label}:{run_id}            # one graph per run
+```
+
+A ticker-history snapshot is labelled and dated, and every IRI carries both, so a later refresh is
+a new graph with new individuals, never a re-declaration. An orchestrator run is immutable; a
+later run is a new id and a new graph. Both are append-only like the backtest graph.
+
 ## 1. One-command flow (recommended)
 
-`cli/load_run.py` runs the whole procedure in order and stops at the first failure:
+`cli/load_run.py` runs the backtest procedure in order and stops at the first failure. The
+reference/process graphs (`cli/project_reference.py`, §5a) are a separate stream and are not part
+of this command:
 
 1. optional view-contract check (`--contract`);
 2. dry run of both projectors (rows, triples, unlinked counts);
@@ -151,14 +165,14 @@ store was contacted):
 ```text
 graph                                                              triples  checks
 urn:graph:derived:backtest:rule:P1:1                                  209,886  not verified (dry run)
-urn:graph:derived:backtest:selection:rule:P1:1                        321,281  not verified (dry run)
+urn:graph:derived:backtest:selection:rule:P1:1                        321,324  not verified (dry run)
 ```
 
 A write run repeats the dry-run counts, writes both graphs for every database, then runs the
 verifier for every graph and prints its `PASS`/`FAIL` lines and a table with the stored triple
 count and the number of checks passed. Exit 0 means every stage passed. A verification failure
 stops the run and prints the exact one-graph `DROP GRAPH <iri>` commands for the graphs this run
-wrote (see §7); the command itself never drops anything.
+wrote (see §9); the command itself never drops anything.
 
 ## 2. Manual fallback: check the pinned view contract
 
@@ -218,7 +232,7 @@ uv run python cli/project_selection.py \
 Expect exit 0 and one `graph: urn:graph:derived:backtest:{...}: <triples> triples` line per
 database in each run, plus `SHACL-valid, not written`. Read the `rows:` lines and the
 `asset link omitted: ...` lines; record both. A non-empty asset-link count is expected when the
-catalog lacks a ticker (see §9). Stop on `STOPPED`, `rejected`, or a missing view.
+catalog lacks a ticker (see §1b). Stop on `STOPPED`, `rejected`, or a missing view.
 
 ## 5. Manual fallback: write (only after the dry runs are clean)
 
@@ -261,8 +275,62 @@ family. The gate also refuses an existing graph, so a second write can never mut
 all m018 graphs before the selection graphs so a selection verification can always find its m018
 sibling.
 
-## 6. Manual fallback: verify every graph
+## 5a. Ticker history and orchestrator runs
 
+The three remaining v18 views are projected by the reference/process CLI. The default is a dry run;
+it reads the same database, runs the boundary, builds each graph and SHACL-validates it beside the
+loaded asset catalog, and contacts no store:
+
+```bash
+SQL_UNIVERSE_DB=/workspaces/thesis/data/universe_history_gics.db \
+uv run python cli/project_reference.py \
+  --db rule=data/backtests/rule_P1.db --as-of 2026-11-04
+```
+
+Read the `rows: v_ticker_history`, `rows: v_orchestrator_run` and
+`rows: v_orchestrator_step` lines, the `asset links:` line (exact, by CIK) and any
+`asset link omitted:` line. A canonical symbol the catalog does not know is linked to the one
+loaded `:Asset` with the same CIK (`FBIN` → `:FBHS`, `GAP` → `:GPS`); with no safe link it is left
+unset and counted, never invented. A ticker-history snapshot is complete and immutable: a later
+refresh uses a new `--as-of` date (or a new label), not a rewrite of the existing graph.
+
+When both orchestrator views are empty, the run exits 0 and prints
+`v_orchestrator_run: 0 rows, v_orchestrator_step: 0 rows: nothing to write`; that is the expected
+result for the completed P1/P2/P3 databases, not a failure.
+
+Write after a clean dry run, with the same production guard as the backtest projector:
+
+```bash
+SQL_UNIVERSE_DB=/workspaces/thesis/data/universe_history_gics.db \
+uv run python cli/project_reference.py \
+  --db rule=data/backtests/rule_P1.db --as-of 2026-11-04 --write
+```
+
+`written: <graph>: <n> triples` is the record. `already in the store: <graph>` means the graph was
+left untouched; use a new snapshot date/label for ticker history, or a new run id for an
+orchestrator run. The production repository additionally needs `--to-production`.
+
+## 5b. Selection side
+
+The selection projector writes the sibling graph for the same run:
+
+```bash
+SQL_UNIVERSE_DB=/workspaces/thesis/data/universe_history_gics.db \
+uv run python cli/project_selection.py --db rule=data/backtests/rule_P1.db
+```
+
+The dry run reads `v_cycle_run`, `v_weight_scheme`, `v_weight_component`, `v_cycle_ranking`,
+`v_cycle_ranking_component`, `v_veto` and `v_ticker_history`, builds the selection graph and
+SHACL-validates it beside `rules.ttl` and the universe assets. A ranking or veto ticker links by
+exact `:Asset` symbol first, else to the one loaded `:Asset` with the same CIK from
+`v_ticker_history` (`FBIN` → `:FBHS`, `GAP` → `:GPS`); otherwise it keeps its literal and is
+counted. The 2026-11-04 dry runs report 0 unlinked ranking/veto rows (before: 34/0/2 and 9/2/3),
+321,324 / 309,728 / 342,934 triples for P1/P2/P3, and each graph is SHACL-conformant.
+
+Write after a clean dry run with `--write`; the production repository also needs
+`--to-production`, and an existing graph is reported and skipped rather than appended to.
+
+## 6. Manual fallback: verify every graph
 Run once per graph. The verifier reads only `SELECT` queries, so it is safe against any repository,
 including production. It prints the repository and graph first, then one `PASS`/`FAIL` line per
 check:
@@ -308,12 +376,12 @@ contacted). Time and peak RSS are for the whole one-command dry run:
 
 | Database | `v_book_weight_daily` rows | m018 triples | Selection rows | Selection triples | Time | Peak RSS |
 |---|---|---|---|---|---|---|
-| `rule_P1.db` | 15,615 | 209,886 | 42,700 | 321,281 | 114.6 s | 1.16 GB |
-| `rule_P2.db` | 15,641 | 196,840 | 41,259 | 309,726 | 98.6 s | 1.08 GB |
-| `rule_P3.db` | 18,025 | 222,449 | 45,440 | 342,929 | 113.0 s | 1.23 GB |
+| `rule_P1.db` | 15,615 | 209,886 | 42,700 | 321,324 | 93.2 s | 1.16 GB |
+| `rule_P2.db` | 15,641 | 196,840 | 41,259 | 309,728 | 90.2 s | 1.10 GB |
+| `rule_P3.db` | 18,025 | 222,449 | 45,440 | 342,934 | 101.0 s | 1.22 GB |
 
-Unlinked tickers (expected, not a failure): P1 ranking 34 / veto 9; P2 ranking 0 / veto 2; P3
-ranking 2 / veto 3. A final load with different data will differ; record what you measured.
+Unlinked tickers: 0 ranking and 0 veto in every database after the shared CIK-aware link rule. A
+final load with different data will differ; record what you measured.
 
 ## 8. Record the numbers
 
@@ -326,6 +394,14 @@ a new "Live load record" section) with:
 - the selection row/triple counts and the two verifier results (all checks passed, or the failure
   lines);
 - any `asset link omitted` counts and why (ticker absent from the catalog).
+
+The 2026-11-04 reference dry runs, for comparison: P1 15,615 `v_book_weight_daily` rows and
+209,886 triples; P2 15,641 and 196,840; P3 18,025 and 222,449; 0.66–0.73 GB peak RSS and 44–48 s
+per database. The reference/process dry run over the same P1 database reads 21 `v_ticker_history`
+rows, 0 orchestrator runs and 0 steps; it builds one snapshot graph and reports 17 exact + 4 same-CIK
+asset links (0 unlinked). The selection dry runs after the same-CIK rule build 321,324 / 309,728 /
+342,934 triples for P1/P2/P3 with 0 unlinked ranking/veto rows (before: 34/0/2 and 9/2/3). A final
+load with different data will differ; record what you measured.
 
 ## 9. Roll back exactly one graph
 
@@ -374,3 +450,7 @@ side) and re-project that database; never patch triples inside it.
 | The verifier header names the wrong repository | `KG_REPOSITORY` (or `.env`) points elsewhere. Shell environment wins over `.env`; fix it and re-run the read-only verifier. If a graph was written to the wrong repository, drop only that one graph there (§9), never production. |
 | `DRIFT` from `cli/check_view_contract.py` or `--contract` | The pin and the new database disagree. Stop and re-pin (T-157/T-173); do not project. |
 | A `FAIL` after `load_run.py --write` | The command prints the exact `DROP GRAPH` commands for the graphs it wrote. Read the failing check, decide the loss is acceptable, then drop only those graphs (§9) and re-project from the same copied database. |
+| `v_orchestrator_run: 0 rows, v_orchestrator_step: 0 rows: nothing to write` | Expected for the completed P1/P2/P3 databases: the two m015 views are empty. The ticker-history snapshot is still built and validated; there is no orchestrator graph to write. |
+| `canonical_symbol '...' is not the latest symbol` from `cli/project_reference.py` | The ticker-history view and the catalog disagree about a CIK line. Stop and report the CIK; do not edit the database or guess an asset. |
+| `asset link omitted: v_ticker_history: N` | No exact symbol and no unique same-CIK asset. The history row is kept, the property is unset, and the row is counted; never add an `:Asset` by hand. |
+| `already in the store: urn:graph:derived:ticker-history:...` | The snapshot date/label was used before. Choose a new `--as-of` date (or label); do not drop and rewrite the old snapshot. |

@@ -30,6 +30,7 @@ from projection.boundary import (
     BoundaryReport,
     Failure,
     check_backtest_source,
+    check_schema_floor,
     check_source,
     load_late_keys,
     mark_written,
@@ -123,6 +124,14 @@ def test_source_check_names_a_stale_schema_and_a_replay_run() -> None:
     # the live source kinds fail here and pass in the test above
     assert {f.check for f in failures} == {"schema_version", "forbidden_cycle_type"}
     assert "2 run(s) of type REPLAY" in failures[1].detail
+
+
+def test_schema_floor_check_ignores_replay_runs() -> None:
+    # T-352/T-353: reference/process views are not cycle output, so a completed backtest database
+    # (all v_cycle_run rows REPLAY) is still a valid source.
+    floor = load_source().schema_version_floor
+    assert check_schema_floor(floor, load_source()) == []
+    assert check_schema_floor(floor - 1, load_source())[0].check == "schema_version"
 
 
 def test_backtest_source_check_accepts_a_completed_run() -> None:

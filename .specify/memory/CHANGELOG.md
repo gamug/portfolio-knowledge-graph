@@ -1096,6 +1096,61 @@ force". See `PLAN.md` Work item 26. Task IDs T-320–T-349.*
       `PLAN.md` Work item 26: all disagreements are HARD rules represented only by the `HARD`
       marker, 0 extra.)* Close T-209 and record the rule-resolution convention.
 
+**Follow-up 2026-11-04 (T-351).** The selection projector now uses the shared
+`projection.asset_link` rule: exact ticker, else the one loaded `:Asset` with the same CIK from
+`v_ticker_history` of the same source database, else unlinked and counted. The old unlinked rows
+(ranking 34/0/2 and veto 9/2/3 across P1/P2/P3) are 0. The new dry runs are P1 **321,324** triples
+(56.45 s, 1,214,004 KB), P2 **309,728** (53.94 s, 1,155,632 KB) and P3 **342,934** (58.35 s,
+1,285,948 KB), all SHACL-valid; the +43/+2/+5 triples are exactly the recovered links. The m018
+projector and `universe_assets` are unchanged.
+
+## Work item 27 — Project ticker history and the orchestrator views (2026-11-04)
+
+Design: `PLAN.md` Work item 27. This work item closes T-208.
+
+**Validation.** `uv run pytest -q`: **1225 passed, 58 deselected, 3639 warnings in 818.67 s**.
+`uv run mypy --config-file=.code_quality/mypy.ini`: success, 96 source files. `uv run pre-commit
+run --all-files`: all hooks passed. Real read-only dry runs over `rule_P1/P2/P3.db`: 21
+`v_ticker_history` rows, 198 triples and 21 individuals per database, 17 exact + 4 same-CIK asset
+links, 0 unlinked, 4 multi-date evidence cells omitted, 0 orchestrator rows and no graph written;
+`pyshacl` conforms in 1.25–1.42 s at ~73 MB peak RSS. `tests/test_reference_real.py` passes with
+`REFERENCE_DB=rule_P1.db` and the real universe catalog. The selection dry runs after the same link
+rule are P1 321,324 / P2 309,728 / P3 342,934 triples with 0 unlinked ranking/veto rows (before:
+34/0/2 and 9/2/3). No GraphDB write or reload was made; the pilot `financial.db` and the task's
+`base.db`/`scored_rule.db` paths are not v18 sources in this checkout.
+
+- [x] **T-350** *(design first; commit before any code)* Record the read-only measurements (21
+      ticker rows, 8 NULL `valid_to`, 0 orchestrator rows, 17 exact + 4 unique-CIK links, 0
+      unlinked) and the graph/IRI/nullability/asset-link design in `PLAN.md` Work item 27.
+      → step 1.
+- [x] **T-351** Add the shared asset-link rule (exact symbol, else exactly one `:Asset` under the
+      same CIK, else unlinked and counted) with hermetic tests, including `FBIN`→`:FBHS` and
+      `GAP`→`:GPS`. Applied in this projector and in Work item 26's selection projector (the
+      latter's unlinked ranking/veto rows went from 34/0/2 and 9/2/3 to 0). → step 2.
+- [x] **T-352** Project `v_ticker_history` into
+      `urn:graph:derived:ticker-history:{label}:{snapshot_date}`, with snapshot-qualified IRIs,
+      the inclusive `validFrom`/`validTo` interval, optional evidence, and the latest-symbol check.
+      → step 2.
+- [x] **T-353** Project `v_orchestrator_run`/`v_orchestrator_step` into one
+      `urn:graph:derived:orchestrator:{label}:{run_id}` per run, natural keys only, and make the
+      empty case say there is nothing to write. → step 2.
+- [x] **T-354** Add `cli/project_reference.py` (logic in `src/projection/project_reference.py`)
+      following `cli/project_backtest.py`: repeatable `--db LABEL=PATH`, `--as-of`, dry run by
+      default, `--write`, `--to-production`, exit codes 0/1/2. → step 3.
+- [x] **T-355** Extend `kg_store.gate.check_target` with the ticker-history and orchestrator
+      append-only patterns and add accepted/refused cases to `tests/test_kg_gate.py`. → step 3.
+- [x] **T-356** Hermetic fixtures and tests for the projector, the link rule, the empty
+      orchestrator case, the CLI and the new catalog query. → step 4.
+- [x] **T-357** Add an opt-in real-database test (`REFERENCE_DB`, `integration` marker) and run
+      the real dry runs; record rows, individuals, triples, exact/CIK/unlinked links, SHACL and
+      timings. → step 5.
+- [x] **T-358** Update `docs/06`, `docs/07`, `docs/08`, `docs/graphdb-setup.md` and
+      `docs/backtest-load-runbook.md`. → step 6.
+- [x] **T-359** Add the tagged, tested "which symbol did company X use on date D" query to
+      `docs/reports-agent-query-catalog.md`, move the rename question from `After T-208` to
+      `Today`, and keep both sides when merging `origin/master` (#120/#122). → step 6.
+- [x] **T-360** Mark T-208 and Work item 27 done, move the task block to `CHANGELOG.md`, update
+      the asserted counts and run `pytest`, `mypy` and the pinned pre-commit hooks. → step 7.
 
 ## Work item 29 — Prove the whole final load in one run
 
@@ -1132,10 +1187,10 @@ sequence. See `PLAN.md` Work item 29. Task IDs T-390–T-419 (T-390–T-398 used
       contract, a synthetic dry run, `--dir` discovery and the production guard.)* Add the loader
       sequence and CLI tests.
 - [x] **T-397** *(done 2026-11-04, read-only: the real `rule_P1.db` m018 and selection projections
-      in an in-memory Dataset pass 21/21 checks over 209,886 triples and 15/15 over 321,281
-      triples; `cli/load_run.py` dry runs measured P1 114.6 s / 1.16 GB, P2 98.6 s / 1.08 GB and P3
-      113.0 s / 1.23 GB; selection rows 42,700 / 41,259 / 45,440 and triples 321,281 / 309,726 /
-      342,929; no store contacted.)* Verify the real P1 projections in memory and re-measure the
+      in an in-memory Dataset pass 21/21 checks over 209,886 triples and 15/15 over 321,324
+      triples; `cli/load_run.py` dry runs measured P1 93.2 s / 1.16 GB, P2 90.2 s / 1.10 GB and P3
+      101.0 s / 1.22 GB; selection rows 42,700 / 41,259 / 45,440 and triples 321,324 / 309,728 /
+      342,934; no store contacted.)* Verify the real P1 projections in memory and re-measure the
       three dry runs.
 - [x] **T-398** *(done 2026-11-04: `docs/backtest-load-runbook.md` rewritten around the
       one-command flow with the manual fallback, both graph names in naming/verification/rollback

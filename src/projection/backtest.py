@@ -46,6 +46,7 @@ from rdflib.term import Node
 from etl.asset_master import read_stints, resolve_assets
 from kg_store import gate
 from kg_store.graphdb import GraphDB, GraphDBError
+from projection.asset_link import resolve_asset, ticker_cik_map
 from projection.boundary import (
     BoundaryReport,
     Failure,
@@ -89,6 +90,8 @@ ORDER: dict[str, tuple[str, ...]] = {
     "v_cycle_ranking": ("cycle_run_id", "asset_id"),
     "v_cycle_ranking_component": ("cycle_run_id", "asset_id", "score_type"),
     "v_veto": ("id",),
+    # The selection side reads this reference view only for its symbol -> CIK map (T-351).
+    "v_ticker_history": ("cik", "symbol", "valid_from"),
 }
 
 #: The six selection-side views (Work item 26): the cycle run log, the configured scheme, the
@@ -778,6 +781,28 @@ def _link_asset(  # noqa: PLR0913, PLR0917 -- the call sites read better with th
         out.asset_unlinked[view] += 1
 
 
+def _link_selection_asset(  # noqa: PLR0913, PLR0917 -- the call site reads better with the names
+    builder: GraphBuilder,
+    subject: rdflib.URIRef,
+    predicate: rdflib.URIRef,
+    ticker: str,
+    ciks: Mapping[str, str],
+    assets: Mapping[str, AssetInfo],
+    view: str,
+    out: Projection,
+) -> None:
+    """Link a selection ticker by exact symbol, else its unique same-CIK asset; count the rest.
+
+    ``ciks`` is the ``v_ticker_history`` symbol -> CIK map of the same source database. The m018
+    projector keeps its own exact-ticker rule; this is the selection side's Work item 26 rule.
+    """
+    link = resolve_asset(ticker, ciks.get(ticker), assets)
+    if link.iri is None:
+        out.asset_unlinked[view] += 1
+    else:
+        builder.add(subject, predicate, KG[link.iri])
+
+
 def _day_key(day: str) -> str:
     """``YYYY-MM-DD`` -> ``YYYYMMDD``: a local name with no character a Python identifier dislikes."""
     return day.replace("-", "")
@@ -1359,6 +1384,7 @@ def _rankings(  # noqa: PLR0913, PLR0917 -- the call site reads better with the 
     context: _SelectionContext,
     cycles: Mapping[int, _Cycle],
     schemes: Mapping[int, _Scheme],
+    ciks: Mapping[str, str],
     assets: Mapping[str, AssetInfo],
     out: Projection,
 ) -> dict[tuple[int, int], rdflib.URIRef]:
@@ -1389,11 +1415,12 @@ def _rankings(  # noqa: PLR0913, PLR0917 -- the call site reads better with the 
         builder.add(iri, KG.runLabel, rdflib.Literal(context.label))
         builder.add(iri, KG.windowId, rdflib.Literal(context.window))
         builder.add(iri, KG.rankingTicker, rdflib.Literal(ticker))
-        _link_asset(
+        _link_selection_asset(
             builder,
             iri,
             KG.attractivenessOfAsset,
             ticker,
+            ciks,
             assets,
             "v_cycle_ranking",
             out,
@@ -1486,6 +1513,7 @@ def _vetoes(  # noqa: PLR0913, PLR0917 -- the call site reads better with the na
     rows: Sequence[Row],
     context: _SelectionContext,
     cycles: Mapping[int, _Cycle],
+    ciks: Mapping[str, str],
     assets: Mapping[str, AssetInfo],
     catalog: SelectionRuleCatalog,
     out: Projection,
@@ -1504,7 +1532,7 @@ def _vetoes(  # noqa: PLR0913, PLR0917 -- the call site reads better with the na
         run_id = _int_row(row, "run_id", "v_veto", "id")
         builder = out.individual(context.graph, iri, "Veto")
         builder.add(iri, KG.vetoTicker, rdflib.Literal(ticker))
-        _link_asset(builder, iri, KG.vetoOfAsset, ticker, assets, "v_veto", out)
+        _link_selection_asset(builder, iri, KG.vetoOfAsset, ticker, ciks, assets, "v_veto", out)
         builder.add(iri, KG.appliesRule, rule)
         builder.add(iri, KG.primaryRule, rule)
         builder.add(iri, KG.vetoSeverity, rdflib.Literal(str(_required(row, "severity", where))))
@@ -1545,6 +1573,7 @@ def project_selection(
     assets: Mapping[str, AssetInfo],
     catalog: SelectionRuleCatalog,
     label: str,
+    ciks: Mapping[str, str] | None = None,
 ) -> Projection:
     """Turn the validated selection rows into one deterministic batch per backtest run.
 
@@ -1555,15 +1584,18 @@ def project_selection(
     if not _RUN_LABEL.fullmatch(label):
         raise ProjectionError(f"run label {label!r} does not match {RUN_LABEL_PATTERN}")
     context = _selection_context(rows.get("v_book", ()), label)
+    ticker_ciks = ciks or {}
     out = Projection()
     for view in SELECTION_VIEWS:
         out.rows[view] = len(rows.get(view, ()))
     cycles = _cycles(rows.get("v_cycle_run", ()), context, out)
     schemes = _schemes(rows.get("v_weight_scheme", ()), context, cycles, out)
     _configured_components(rows.get("v_weight_component", ()), context, schemes, out)
-    rankings = _rankings(rows.get("v_cycle_ranking", ()), context, cycles, schemes, assets, out)
+    rankings = _rankings(
+        rows.get("v_cycle_ranking", ()), context, cycles, schemes, ticker_ciks, assets, out
+    )
     _effective_components(rows.get("v_cycle_ranking_component", ()), context, rankings, out)
-    _vetoes(rows.get("v_veto", ()), context, cycles, assets, catalog, out)
+    _vetoes(rows.get("v_veto", ()), context, cycles, ticker_ciks, assets, catalog, out)
     return out
 
 
@@ -1717,20 +1749,24 @@ def project_selection_source(
 
     The selection-side twin of :func:`project_source`: no store and no SHACL, so a dry run, a
     write and the verifier all rebuild the same deterministic batch (Work item 29). ``v_book``
-    supplies the one backtest run and its knowledge date; the source check is the m018 one (the
-    backtest run must be ``completed``).
+    supplies the one backtest run and its knowledge date; ``v_ticker_history`` supplies the CIKs
+    for the shared exact-or-same-CIK asset link; the source check is the m018 one (the backtest run
+    must be ``completed``).
     """
     books = read_view(source, "v_book")
     source_failures = check_backtest_source(source.schema_version, books, load_source())
     rows = {"v_book": books}
     rows.update({view: read_view(source, view) for view in SELECTION_VIEWS})
+    ticker_ciks = ticker_cik_map(read_view(source, "v_ticker_history"))
     expectations = load_expectations()
     result = validate(
         {view: rows[view] for view in SELECTION_VIEWS},
         {view: expectations[view] for view in SELECTION_VIEWS},
         source_failures=source_failures,
     )
-    projection = project_selection({**result.rows, "v_book": books}, assets, catalog, label)
+    projection = project_selection(
+        {**result.rows, "v_book": books}, assets, catalog, label, ticker_ciks
+    )
     return SourceProjection(result.report, result.rows, projection)
 
 

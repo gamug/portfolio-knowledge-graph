@@ -54,6 +54,8 @@ unscoped pattern.
 | `urn:graph:reference:fibo` | the FIBO 2026Q2 glossary slice (54 entries) | `GRAPH <urn:graph:reference:fibo> { ... }` |
 | `urn:graph:rules:catalog` | every `:RuleDefinition`, selection and GUARD | `GRAPH <urn:graph:rules:catalog> { ... }` |
 | `urn:graph:derived:backtest:*` | one append-only graph per completed run family and window: the m018 book/GUARD graph and the selection-side sibling (`...:selection:...`) | `GRAPH ?g { ... } FILTER (STRSTARTS(STR(?g), "urn:graph:derived:backtest:"))` |
+| `urn:graph:derived:ticker-history:*` | one append-only ticker-history snapshot per label and date | `GRAPH ?g { ... } FILTER (STRSTARTS(STR(?g), "urn:graph:derived:ticker-history:"))` |
+| `urn:graph:derived:orchestrator:*` | one append-only graph per orchestrator run | `GRAPH ?g { ... } FILTER (STRSTARTS(STR(?g), "urn:graph:derived:orchestrator:"))` |
 
 The backtest graph's full name is
 `urn:graph:derived:backtest:{label}:{window}:{run_id}`.
@@ -301,6 +303,53 @@ WHERE {
 }
 ORDER BY ?ticker
 ```
+
+### 4.2 Which symbol did a company use on a date
+
+`v_ticker_history` is projected as a dated snapshot per source label. The query picks the latest
+snapshot (`urn:graph:derived:ticker-history:*`) and reads the **inclusive** interval
+`validFrom <= D <= validTo`, so `D = 2022-06-08` is still the FB stint and the META stint starts
+the next day. The example binds the former ticker `"FB"`; change `?symbol` for another symbol or
+drop that `VALUES` and bind `?cik` instead. `?canonical` is the company's current symbol and
+`?asset` is the loaded `:Asset` the row links to. A canonical symbol the catalog does not know is
+resolved through the unique same-CIK asset (`FBIN` → `:FBHS`, `GAP` → `:GPS`) by the projector;
+if no safe link exists `?asset` is unbound, never invented.
+
+<!-- q:ticker-history-on-date expect:1 -->
+
+```sparql
+PREFIX :   <https://thesis.local/kg/portfolio#>
+PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+
+SELECT ?snapshot ?cik ?symbol ?canonical ?asset
+WHERE {
+  {
+    SELECT (MAX(?candidate) AS ?snapshot)
+    WHERE {
+      GRAPH ?candidate { ?history a :TickerHistory }
+      FILTER (STRSTARTS(STR(?candidate), "urn:graph:derived:ticker-history:"))
+    }
+  }
+  GRAPH ?snapshot {
+    ?history a :TickerHistory ;
+             :tickerHistoryCik ?cik ;
+             :historicalSymbol ?symbol ;
+             :canonicalSymbol ?canonical ;
+             :validFrom ?from .
+    OPTIONAL { ?history :validTo ?to }
+    OPTIONAL { ?history :tickerHistoryAsset ?asset }
+  }
+  # The company's former ticker; D is the last valid day of the FB stint (inclusive).
+  VALUES ?symbol { "FB" }
+  VALUES ?date { "2022-06-08"^^xsd:date }
+  FILTER (?from <= ?date)
+  FILTER (!BOUND(?to) || ?to >= ?date)
+}
+```
+
+The result is one row: `FB`, canonical `META`, asset `:META`. A bare symbol lookup without the
+date would also find the later META stint, so bind D; the interval predicate is the answer, not a
+string comparison.
 
 ## 5. The backtest battery
 
@@ -632,6 +681,8 @@ One row per asset in the selected cycle, in rank order. `:rankPosition` is upstr
 `:selectedForBook` its selection flag, `:targetWeight` its book weight (absent when not selected)
 and `:vetoRulesJson` upstream's rule ids/markers verbatim. A row with no `:hasEffectiveWeight`
 entry is the UNSCORED/UNPRICED placeholder (score 0.0), as in `selection-why-not-top30`.
+`:vetoRulesJson` does **not** name HARD rules: it carries only the marker `"HARD"` for them; see
+§5.13 for the join that recovers the HARD rule ids.
 
 <!-- q:selection-ranking-at-rebalance expect:5 -->
 
@@ -694,6 +745,12 @@ ORDER BY ?ticker ?ruleId
 The row for `BRK.B` on the synthetic rebalance: rank 5, not selected, `vetoedAtRanking` true,
 `vetoRulesJson` `["UNSCORED"]`, score 0.0 and zero effective-weight components. That absence is
 the placeholder marker, not a missing projection.
+
+**HARD vetoes are not named in `:vetoRulesJson`.** Measured read-only on `rule_P1/P2/P3.db`:
+upstream's `veto_rules_json` carries only the marker `"HARD"`, not the rule id; every rule missing
+from the JSON is a HARD rule, and no JSON rule is ever extra. Therefore `:vetoRulesJson` alone
+does not name the HARD rule that excluded an asset: join it with the `Veto` stints in force
+(`selection-vetoes-in-force`) for the rule ids.
 
 <!-- q:selection-why-not-top30 expect:1 -->
 
@@ -1077,8 +1134,10 @@ The status column is one of:
   vetoes that explain an asset's exit at a rebalance, and
   `selection-ranking-at-rebalance` answers the rank/selection side. The label
   is kept here only for the record.
-- **After T-208** — the ticker-history and orchestrator-view projectors.
-  Without them the graph cannot resolve a historical symbol or a run/step.
+- **Today (ticker history)** — the ticker-history projector and
+  `ticker-history-on-date` resolve a historical symbol and its asset. The
+  orchestrator projector also exists, but the completed databases' two
+  orchestrator views hold 0 rows, so there is no run/step data to query yet.
 - **Never by design** — the source masks the data or the design excludes it.
   Per-asset daily returns and drifted weights are masked at the source under
   the Tiingo non-redistribution rule; weights are exposed only on decision and
@@ -1119,6 +1178,7 @@ text and the statuses.
 | B6 | ¿Qué fechas de conocimiento tienen los libros? | Today | `book-knowledge-dates` |
 | B7 | ¿Qué propiedades exponen `BookWeightDaily` y `BookDailyPerformance`? | Today (and it shows what is absent) | `book-weight-daily-properties` |
 | B8 | ¿Cuántos pesos hay por ventana y brazo? | Today | `weight-scale` |
+| B9 | ¿Qué símbolo usaba la empresa X en la fecha D y a qué activo corresponde? | Today (`FB` → `META`) | `ticker-history-on-date` |
 
 ### 7.3 The boundary in one paragraph
 
@@ -1154,6 +1214,9 @@ with or without the FIBO slice.
    backtest scenario, projected with `projection.backtest.project`, and a
    dedicated composition dataset with a classified holding, a catalog asset
    without `:classifiedAs` and an unlinked ticker;
+2a. adds one synthetic ticker-history snapshot projected with
+   `projection.reference.project`, so `ticker-history-on-date` runs through the real
+   `FB`→`META` data rather than a hand-written graph;
 3. runs every query and checks its expectation: an exact row count, a
    non-empty result, or a named rule (`expect:rule=...`);
 4. checks the no-FIBO rows in `A1` (`:Asset`, `:Universe`,
@@ -1162,8 +1225,8 @@ with or without the FIBO slice.
    property named like a drifted weight or a per-asset daily return appears
    on `BookWeightDaily`/`BookDailyPerformance`;
 5. checks that the limits table still lists the eleven evaluation questions
-   verbatim and the eight backtest questions, and that the statuses use the
-   six labels above;
+   verbatim and the nine backtest questions, and that the statuses use the
+   five labels above;
 6. runs the performance, GUARD, NAV and sector queries once per label and
    proves the `"rule"` and `"champ_v1"` results do not mix when the label
    filter is applied, and that `runs-available` lists both labels and both

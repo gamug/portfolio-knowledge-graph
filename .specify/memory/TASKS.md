@@ -602,10 +602,15 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       `CHANGELOG.md`. Bundle unchanged: **4178 quads; conforms: True**.)* Project the eight m018
       backtest/GUARD views into one append-only graph per completed run. → `PLAN.md` Work item 4,
       step 7.
-- [ ] **T-208** *(PR-C2, from T-206/T-207)* Project the remaining Contract v18 views
-      `v_ticker_history`, `v_orchestrator_run` and `v_orchestrator_step`, and settle their
+- [x] **T-208** *(done 2026-11-04 in Work item 27: `src/projection/reference.py`, policy
+      `src/projection/project_reference.py`, CLI `cli/project_reference.py`; ticker-history
+      snapshots at `urn:graph:derived:ticker-history:{label}:{snapshot_date}`, one orchestrator
+      graph per run; the gate accepts both; 21 ticker rows / 198 triples / 17 exact + 4 same-CIK
+      links / 0 unlinked in the P1/P2/P3 dry runs, 0 orchestrator rows and nothing to write; no
+      schema change. See `CHANGELOG.md` Work item 27.)* Project the remaining Contract v18
+      views `v_ticker_history`, `v_orchestrator_run` and `v_orchestrator_step`, and settle their
       graph placement; no projector exists for them yet, and T-207 deliberately reads only the
-      eight m018 views. A `feat/` PR. → `PLAN.md` Work item 4.
+      eight m018 views. A `feat/` PR. → `PLAN.md` Work item 27.
 - [x] **T-209** *(done 2026-11-04 in Work item 26: `load_selection_catalog`/`resolve_rule` in
       `src/projection/backtest.py` resolve every backtest veto's `:ruleId` on the run's
       `knowledge_date` (2026-10-31); `LIQUIDITY_DISTRESS` resolves to
@@ -1174,6 +1179,9 @@ Work item 26 (T-320–T-328): closed 2026-11-04 — the backtest selection side 
 `urn:graph:derived:backtest:selection:{label}:{P<n>}:{run}`, the three new report queries are
 tested, T-209's rule resolution is fixed on the run date, and the real dry runs are recorded;
 see `CHANGELOG.md`.
+Work item 27 (T-350–T-360): closed 2026-11-04 — the ticker-history and orchestrator projector,
+CLI, gate patterns, tests, real dry runs and the `ticker-history-on-date` query; see
+`CHANGELOG.md` and `PLAN.md` Work item 27.
 Work item 29 (T-390–T-398): closed 2026-11-04 — the verifier covers the selection graph and the
 m018 cross-graph cycle link, and `cli/load_run.py` runs the contract check, both dry runs, both
 writes and every verification in one command; see `CHANGELOG.md`.
