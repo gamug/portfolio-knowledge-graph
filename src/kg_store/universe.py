@@ -21,10 +21,10 @@ so those ``:Asset`` individuals are neither re-declared nor changed (a second de
 clash with ``cikNumber``'s functional-property contract, as in the ETL).
 
 ``--since`` keeps the stints that were still open on or after that date (``valid_to`` absent, or
-``valid_to >= since``); the default ``2019-01-02`` drops a ticker's earlier company when upstream
-reused the symbol (``CEG``, ``DELL``, ``Q``), so the one ``:Asset`` per symbol describes the
-company the backtest windows and the live index contain. The dropped stints are counted, never
-silently omitted.
+``valid_to >= since``; ``validTo`` is inclusive, its last day of membership); the default
+``2019-01-02`` drops a ticker's earlier company when upstream reused the symbol (``CEG``,
+``DELL``, ``Q``), so the one ``:Asset`` per symbol describes the company the backtest windows and
+the live index contain. The dropped stints are counted, never silently omitted.
 
 A dry run (the default) contacts no store: it reads ``universe.db``, builds the batch and runs the
 gate's store-free checks plus ``shapes.ttl`` with the local ``schema/reference.ttl`` standing in
@@ -112,7 +112,7 @@ def graph_name(as_of: str) -> str:
 
 
 def keep_stints(stints: Sequence[asset_master.Stint], since: str) -> list[asset_master.Stint]:
-    """The stints still open on or after ``since`` (``validTo`` is exclusive)."""
+    """The stints still open on or after ``since`` (``validTo`` is inclusive)."""
     return [s for s in stints if s.valid_to is None or s.valid_to >= since]
 
 

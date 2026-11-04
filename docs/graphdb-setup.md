@@ -82,7 +82,10 @@ It reads `SQL_UNIVERSE_DB` (`portfolio-data-mining`'s point-in-time `universe.db
 through `portfolio_common.db`) and reuses `etl.asset_master`: the `:SP500Index` `:Universe`
 (with its FIBO `rdfs:seeAlso`), one `:Asset` per symbol and one `:UniverseMembership` per stint.
 The five `:Asset`s `schema/reference.ttl` already declares get memberships but are not re-declared
-(the gate's check 6 refuses a second declaration, and `cikNumber` is functional).
+(the gate's check 6 refuses a second declaration, and `cikNumber` is functional). A membership's
+`validTo` is inclusive: it is the last day of membership, and a point-in-time read on D is
+`validFrom <= D AND (no validTo OR validTo >= D)`, so a member on its last day is still in and a
+one-day stint is kept.
 
 | Option | Meaning |
 |---|---|
@@ -109,6 +112,18 @@ reported SHACL conforms in 1.3 s. Every ticker in `v_book_weight_daily` (CASH ex
 `v_guard_alert` and `v_guard_action` of `rule_P1/P2/P3.db` is in the loaded set (P1 100, P2 123,
 P3 115; 0 missing). The known overlap with the worked example's `2026-Q3` memberships is recorded
 in `docs/07`.
+
+A second dry run, 2026-11-04 over
+`/workspaces/thesis/data/universe_history_gics.db` after T-260 made `validTo` inclusive (still
+read-only; no write was made), kept 658 of 894 stints over 654 symbols and dropped 236 stints of
+230 symbols (215 not loaded at all, 15 with a later stint kept), wrote 649 `:Asset`s plus the five
+already in `reference.ttl`, 658 memberships (503 open, 155 closed), and built 6567 triples;
+`gate.validate` reported SHACL conforms in 1.2 s. The three one-day stints (`PHIN` on 2023-07-05,
+and `HNG`/`AYE` on 1976-06-30) are now kept by the reader; `--since` then drops the two 1976 ones.
+70 written `:Asset`s carry no `:classifiedAs` because their latest GICS sub-industry has no rollup
+entry (six distinct values). Every ticker in `v_book_weight_daily` (CASH excluded),
+`v_guard_alert` and `v_guard_action` of `rule_P1/P2/P3.db` remains in the loaded set (P1 100,
+P2 123, P3 115; 0 missing).
 
 ## Ingest gate (T-023)
 

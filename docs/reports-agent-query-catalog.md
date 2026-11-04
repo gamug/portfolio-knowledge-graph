@@ -259,6 +259,39 @@ The result is 5 `FINANCIAL` rules (`LEVERAGE_EXTREME`, `NEGATIVE_FCF`,
 `DATA_QUALITY` rule, 4 `MARKET` rules (`PRICE_CRASH`, `VOLATILITY_SHOCK`,
 `CRASH_Z_SCORE`, `BREAK_TREND_200`) and the 5 `GUARD` rules.
 
+### 4.1 Who was in the S&P 500 on a date
+
+`validTo` is **inclusive**: it is the last day of membership, not the first
+day after it. A point-in-time read binds D in one place and keeps a membership
+with `validFrom <= D AND (no validTo OR validTo >= D)`. The date below is the
+last day of the old `FB` stint; the `META` stint starts the next day, so an
+exclusive `validTo > D` predicate would return no row. The asset is already the
+one `:Asset` for the company (`:META`), because the rename chain shares a CIK.
+The `:Universe` graph is one of the quarter graphs written by
+`cli/load_universe.py`; the query does not hardcode its quarter.
+
+<!-- q:universe-members-on-date expect:1 -->
+
+```sparql
+PREFIX :   <https://thesis.local/kg/portfolio#>
+PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+
+SELECT ?asset ?ticker ?from ?to
+WHERE {
+  GRAPH ?g {
+    ?membership a :UniverseMembership ;
+                :membershipAsset ?asset ;
+                :validFrom ?from .
+    OPTIONAL { ?membership :validTo ?to }
+    ?asset :tickerSymbol ?ticker .
+  }
+  FILTER (STRSTARTS(STR(?g), "urn:graph:universe:"))
+  FILTER (?from <= "2022-06-08"^^xsd:date)
+  FILTER (!BOUND(?to) || ?to >= "2022-06-08"^^xsd:date)
+}
+ORDER BY ?ticker
+```
+
 ## 5. The backtest battery
 
 Every query in this section binds the graph with `GRAPH ?g` and filters it

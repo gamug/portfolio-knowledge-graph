@@ -252,8 +252,10 @@
     # did not type :SP500Index.
     sh:property [ sh:path :membershipAsset ; sh:class :Asset ; sh:minCount 1 ; sh:maxCount 1 ] ;
     sh:property [ sh:path :membershipUniverse ; sh:class :Universe ; sh:minCount 1 ; sh:maxCount 1 ] ;
-    sh:property [ sh:path :validFrom ; sh:datatype xsd:date ; sh:minCount 1 ; sh:maxCount 1 ; sh:lessThan :validTo ] ;
-    # T-100: validTo is exclusive, so a stint with validTo <= validFrom would hold on no date.
+    sh:property [ sh:path :validFrom ; sh:datatype xsd:date ; sh:minCount 1 ; sh:maxCount 1 ; sh:lessThanOrEquals :validTo ] ;
+    # T-260: validTo is INCLUSIVE and is the last day of membership (upstream's
+    # valid_from <= D AND (valid_to IS NULL OR valid_to >= D)). A one-day stint
+    # (validFrom == validTo) conforms; validTo < validFrom still fails.
     sh:property [ sh:path :validTo ; sh:datatype xsd:date ; sh:maxCount 1 ] .
 
 :PortfolioPositionShape

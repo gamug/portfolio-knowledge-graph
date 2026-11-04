@@ -1129,6 +1129,62 @@ name and every individual IRI. See `PLAN.md` Work item 20. Task IDs T-230–T-23
       backtest graph written to a scratch repository under the retired unlabelled name**
       (`urn:graph:derived:backtest:{window_id}:{run}`); the loader leaves removed graphs in place,
       and the gate no longer accepts those names. → `PLAN.md` Work item 20.
+
+## Work item 23 — Inclusive membership end dates and one asset per CIK
+
+*See `PLAN.md` Work item 23. Task IDs T-260–T-279. Two commits on one branch: T-260–T-263 are
+Commit 1 (the inclusive `validTo`); T-264–T-271 are Commit 2 (the CIK fold). No GraphDB write or
+schema reload in either.*
+
+- [x] **T-260** *(done 2026-11-04)* Make `:UniverseMembership`'s `validTo` inclusive:
+      `read_stints` keeps `valid_to == valid_from` and skips only `valid_to < valid_from`;
+      `UniverseMembershipShape` uses `sh:lessThanOrEquals`; the gate's `CLOSABLE` entry treats a
+      membership as inclusive (a same-day closure is a one-day stint). Do not change another
+      class's `validTo` semantics. → `PLAN.md` Work item 23, Commit 1.
+- [x] **T-261** *(done 2026-11-04)* Tests: a one-day stint is kept and SHACL-conforms;
+      `validTo < validFrom` still fails; a membership on its last day is in the catalog query; a
+      same-day membership closure is accepted and a closure before its opening day is refused.
+      → Commit 1.
+- [x] **T-262** *(done 2026-11-04)* Update every statement and query that said exclusive for
+      memberships: `schema/tbox.ttl`, `schema/shapes.ttl`, `schema/README.md`, `docs/06`, `docs/07`,
+      `src/etl/README.md`, `docs/graphdb-setup.md`, SPEC FR-004/FR-008/D1 and
+      `docs/reports-agent-query-catalog.md` (+ `tests/test_query_catalog.py`). The predicate is
+      `validFrom <= D AND (no validTo OR validTo >= D)`. → Commit 1.
+- [x] **T-263** *(done 2026-11-04, read-only)* Real-data verification on
+      `/workspaces/thesis/data/universe_history_gics.db`: before 657 stints over 653 symbols, 648
+      `:Asset`s plus five in `reference.ttl`, 657 memberships (503 open, 154 closed), 6557 triples;
+      after 658 stints over 654 symbols (236 dropped over 230; 215 not loaded, 15 with a later
+      stint kept), 649 `:Asset`s plus five, 658 memberships (503 open, 155 closed), 6567 triples,
+      70 written assets without `:classifiedAs` (six unmapped sub-industry values), SHACL
+      conforms. → `PLAN.md` Work item 23, Commit 1.
+- [ ] **T-264** Add one shared CIK-aware resolver to `etl.asset_master`: a pure succession (one
+      CIK, symbols' inclusive stints non-overlapping) becomes one `:Asset` named by the latest
+      stint's symbol with every stint as a membership; concurrent share classes stay one `:Asset`
+      per symbol; a mixed CIK stays as today; a CIK-less stint stays grouped by symbol. Keep the
+      `:TICKER` IRI scheme and do not add a property or class. → Commit 2.
+- [ ] **T-265** Use the resolver in `build_assets`/`cli/load_universe.py`; keep `--since` and
+      ticker reuse (`CEG`, `DELL`, `Q`); two kept CIKs claiming the same latest ticker stop the run
+      with a report; report the multi-symbol CIK classification. → Commit 2.
+- [ ] **T-266** Use the same resolver in `projection.backtest.universe_assets` (no second
+      grouping); prove loader and projector return the same asset set. → Commit 2.
+- [ ] **T-267** Hermetic tests: `FB`→`META` rename chain (one `:META`, two memberships, no
+      `:FB`), concurrent classes stay separate, mixed CIK untouched, CIK-less stint by symbol,
+      ticker reuse, projector/loader agreement. → Commit 2.
+- [ ] **T-268** *(read-only)* Real-data verification on `universe_history_gics.db` at `--since`
+      default: after counts (assets written, memberships, closed stints, triples, assets without
+      `:classifiedAs`) and a table of every CIK with more than one symbol classified as
+      succession, concurrent or mixed. → Commit 2.
+- [ ] **T-269** *(read-only)* Dry-run `cli/project_backtest.py` for `rule_P1`, `rule_P2` and
+      `rule_P3` (`--db rule=<path>`); the unlinked-asset counts must not increase: every ticker in
+      `v_book_weight_daily` (CASH excluded), `v_guard_alert` and `v_guard_action` still links
+      (P1 100, P2 123, P3 115 distinct; 0 missing). → Commit 2.
+- [ ] **T-270** Update SPEC FR-004/FR-008, `docs/07`, `src/etl/README.md`, `schema/README.md` and
+      every asserted count for the CIK fold; keep `:Asset` per company vs per share class explicit.
+      → Commit 2.
+- [ ] **T-271** Final gates and reconciliation: `uv run pytest`, `uv run mypy
+      --config-file=.code_quality/mypy.ini`, the pinned `uv run pre-commit run --all-files`;
+      move Work item 23 to `CHANGELOG.md` when every task is done. → Commit 2.
+
 ## Status
 
 Closed Work items 1, 2, 3, 5, 7 (superseded/decided by T-007), 9, 10, 11 and 14 are in
@@ -1149,6 +1205,8 @@ Work item 20 (T-230–T-237): T-230–T-236 done (2026-11-03); T-237 (the live s
 Work item 18 (T-204): done 2026-10-16 — re-pinned `portfolio-common` to `v1.2.2`, a real bug fix here (`news_to_rdf`'s `attach()`-based read of `urls.db`), not just a consistency bump; proved by a new regression test that fails against the old pin and passes against the new one.
 Work item 19 (T-220–T-229): T-220–T-224 done 2026-11-03 (the loader, the `sh:class :Asset` triple, tests, the real dry-run verification and the docs); T-225 (worked-example overlap) and T-226 (first real `--write`, maintainer go-ahead) open; T-227 (`sh:class :Universe`) done 2026-11-03.
 Work item 21 (T-240–T-243): closed 2026-11-03 — the reports-agent query catalog (the brief's 11 questions verbatim) and its executable hermetic test; adapted to the labelled backtest graphs and the asset catalog loader on 2026-11-04; see `CHANGELOG.md`.
+Work item 23 (T-260–T-271): Commit 1 (inclusive membership `validTo`) done 2026-11-04; Commit 2
+(one `:Asset` per CIK for renames) open.
 T-163 (function done, PR #68) closes with T-031, whose first slice (PR #72) calls it on the real read and re-reads the late keys for `v_score_snapshot`; T-164 done (PR #69).
 Work item 8 (T-070–T-071) is independent but needs a human at a Protégé
 session, not a coding session.

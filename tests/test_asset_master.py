@@ -63,16 +63,17 @@ def universe_db(tmp_path: Path) -> Path:
         ("BAD SYM", "Junk", None, None, None, "2000-01-01", None),  # not a ticker: skipped
         ("brk", "lowercase", None, None, None, "2000-01-01", None),  # skipped
         ("TOOLONGX", "Too long", None, None, None, "2000-01-01", None),  # skipped
-        ("EMPT", "Empty stint", None, None, None, "2020-01-01", "2020-01-01"),  # skipped
-        ("EMPT", "Empty stint", None, None, None, "2020-01-01", "2019-01-01"),  # skipped
+        ("EMPT", "One-day stint", None, None, None, "2020-01-01", "2020-01-01"),  # kept
+        ("BADIN", "Reversed stint", None, None, None, "2020-01-01", "2019-01-01"),  # skipped
     ]  # fmt: skip
     return _make_universe_db(tmp_path / "universe.db", rows)
 
 
 def test_read_stints_keeps_plain_tickers_and_cleans_stray_pipe(universe_db: Path) -> None:
     stints = asset_master.read_stints(universe_db)
-    assert [s.symbol for s in stints] == ["AAPL", "BRK.B", "JCP"]
-    assert stints[2].valid_to == "2015-01-01"
+    assert [s.symbol for s in stints] == ["AAPL", "BRK.B", "EMPT", "JCP"]
+    assert stints[2].valid_from == stints[2].valid_to == "2020-01-01"
+    assert stints[3].valid_to == "2015-01-01"
     assert stints[0].cik == "0000320193"
     # Fixture sub-industries are real gics_rollup keys, so a later test reusing them maps.
     assert all(gics_rollup.lookup(s.sub_industry) for s in stints if s.sub_industry)
@@ -85,7 +86,9 @@ def test_read_stints_reports_each_filter_in_warnings(universe_db: Path) -> None:
     assert "carried a stray '|'" in text and "'JCP |'->'JCP'" in text
     assert "3 universe.db symbol(s) are not plain tickers" in text
     assert "'BAD SYM'" in text and "'brk'" in text and "'TOOLONGX'" in text
-    assert "2 universe.db stint(s) end on or before they start" in text
+    assert "1 universe.db stint(s) end before they start" in text
+    assert "BADIN (2020-01-01..2019-01-01)" in text
+    assert "EMPT" not in text
 
 
 def test_read_stints_is_quiet_for_clean_data(tmp_path: Path) -> None:

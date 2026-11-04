@@ -63,7 +63,7 @@ for them and for the glossary slice); they were empty in Phase 1 and are filled 
 | `:SP500Index` (the `:Universe` individual the ETL emits) | `IND/MarketIndices/BasketIndices/EquityIndex` | same | yes (ETL output) | |
 | `:Asset` | none (nearest: `ListedShare`, `PubliclyHeldCompany`) | differs | **no** | See the note below. The broken `.../LegalPersons/LegalPerson` link is removed and not replaced. |
 | `:Universe` | none (nearest: `EquityIndex`, defined as a benchmark) | differs | no | The pool the system selects from: the S&P 500 members valid on each date. It is not the yardstick that performance is measured against. |
-| `:UniverseMembership` | none (nearest: `FND/DatesAndTimes/FinancialDates/DatedCollectionConstituent`, one date) | differs | no | Membership over an interval `[validFrom, validTo)`. With no `validTo`, it is still current. |
+| `:UniverseMembership` | none (nearest: `FND/DatesAndTimes/FinancialDates/DatedCollectionConstituent`, one date) | differs | no | Membership over the inclusive interval `[validFrom, validTo]`; `validTo` is the last day, so a one-day stint is valid. With no `validTo`, it is still current. |
 | `:PriceObservation` | none (nearest: `ClosingPrice`, `AdjustedClosingPrice`) | differs | no | See the note below. |
 | `:Executive` | none (nearest: `CorporateOfficer`, `BoardMember`) | differs | no | A director or an officer named in a proxy statement (DEF 14A). FIBO's `Executive` manages the organization, which excludes non-executive directors. |
 | The 17 explanation-layer classes | none | ours | no | Their own definitions. |
@@ -434,6 +434,7 @@ first-class class with its own IRI. `UniverseMembership` and `PortfolioPosition`
     :membershipUniverse :SP500Watchlist_2026Q3 ;
     :validFrom "2026-07-01"^^xsd:date .
     # validTo absent -> still active, mirrors v1's fecha_fin = NULL exactly
+    # a present validTo is inclusive: it is the last day of membership
 ```
 
 This is a direct, faithful translation of v1's own pattern — not a redesign — into RDF's
@@ -559,7 +560,7 @@ attractiveness-ranking feature, see §1.8, plus `VetoShape` added 2026-10-03 for
 | `RuleDefinitionShape` | `validFrom` required; exactly one `hasClause`; `priorityRank` ∈ `[1,9]`; `penaltyPoints` at least 0, and none on a HARD rule; `ruleSeverity` ∈ `{HARD, SOFT}`, required unless the rule is closed with `validTo` (T-103) | Critique #6 — a rule can't be persisted without being properly temporal and ranked. |
 | `RuleClauseShape` | `clauseType` ∈ `{AND, OR}`; both operands required | Structural half of the critique #1 fix — a clause literally cannot be built with a missing operand or an unrecognized operator. |
 | `ThresholdComparisonShape` / `CategoricalComparisonShape` / `GraphPredicateShape` | Each leaf kind's required fields (`metricName`/`operator`/`thresholdValue`; `attributeName`/`expectedValue`; `predicateName`) | Completes the structural half of the critique #1 fix across all rule leaf kinds, not just numeric ones (the 7 original rules; upstream's six single-leaf rules reuse the same shapes, T-103). |
-| `UniverseMembershipShape` | both endpoints + `validFrom` required; `validTo` optional, at most one, strictly after `validFrom` (exclusive end, T-100) | Keeps §1.4's n-ary relation pattern from degrading into a dangling record. |
+| `UniverseMembershipShape` | both endpoints + `validFrom` required; `validTo` optional, at most one, never before `validFrom` (inclusive end, T-260; a one-day stint conforms) | Keeps §1.4's n-ary relation pattern from degrading into a dangling record. |
 | `AssetShape` | `tickerSymbol` required; `cikNumber` at most one, and required unless the asset has at least one `UniverseMembership` and every one has a `validTo` (T-100) | Upstream's `universe.db` has no CIK for a company that has left the index; inventing one would put false data in the graph, while a current member without a CIK still fails. |
 | `DataQualityIssueShape` | gate code, severity, `quarantined`, `dqRaisedOn` and asset required; filing, metric name, `gatedValue`, `provenanceId` optional | Evidence for the `DATA_QUALITY` veto (T-104): an upstream `data_quality_issue` row, an `EvidenceSource` leaf. |
 | `AssetCoOccurrenceShape` | exactly two assets; kind (`SHARED_EXECUTIVE_CANDIDATE`), method and weight required; `coOccurrenceComputedOn` and T-106 run provenance optional | Keeps news candidates carrying their method/weight (T-107) |
@@ -801,8 +802,9 @@ and no `:holdingAsset`; it never needs an `:Asset` node.
 **TickerHistory's interval is inclusive.** `v_ticker_history.valid_to` is the symbol's **last valid
 date** (handoff §3.1), and the point-in-time lookup is `date BETWEEN valid_from AND
 COALESCE(valid_to, '9999-12-31')`, so the model is `validFrom <= d <= validTo` and a one-day symbol
-has `validFrom == validTo`. `TickerHistoryShape` uses `sh:lessThanOrEquals`; the shared `:validTo`
-property stays exclusive on `RuleDefinition` (T-187), `UniverseMembership`, `PortfolioPosition` and
+has `validFrom == validTo`. `TickerHistoryShape` uses `sh:lessThanOrEquals`; so does
+`UniverseMembershipShape` since T-260 (upstream's `valid_to` is also the last day of membership).
+The shared `:validTo` property stays exclusive on `RuleDefinition` (T-187), `PortfolioPosition` and
 `AttractivenessWeightScheme`.
 
 **Data over the handoff's DDL comments.** Measured on the completed `rule_P1/P2/P3.db` (identical in

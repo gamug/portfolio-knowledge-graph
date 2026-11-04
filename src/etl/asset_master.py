@@ -8,10 +8,13 @@ Reads ``portfolio-data-mining``'s point-in-time ``universe.db`` (SCD-2
 * one ``:UniverseMembership`` per stint, in the single ``:SP500Index``
   ``:Universe``, with ``validFrom`` and (for a closed stint) ``validTo``.
 
-``validTo`` is exclusive, matching upstream's own predicate
-``valid_from <= D AND (valid_to IS NULL OR valid_to > D)``. ``valid_from`` is
-written as upstream has it: ``1976-07-01`` on a current member means "in the
-index before upstream's records begin", not a literal join date.
+``validTo`` is INCLUSIVE, matching upstream's own predicate
+``valid_from <= D AND (valid_to IS NULL OR valid_to >= D)``: it is the last day
+of membership, so a one-day stint (``valid_from == valid_to``) is real. The
+source dates are kept exactly as upstream has them; this module never adds a
+day. ``valid_from`` is written as upstream has it: ``1976-07-01`` on a current
+member means "in the index before upstream's records begin", not a literal join
+date.
 
 This is the "canonical population" step, not a replacement for
 ``reference.ttl`` (which still owns the GICS Sector/Industry taxonomy these
@@ -62,8 +65,8 @@ _TICKER_RE = re.compile(r"[A-Z0-9]{1,6}(\.[A-Z])?")
 
 @dataclass(frozen=True, slots=True)
 class Stint:
-    """One ``universe_membership`` row: ``symbol`` was in the index over
-    ``[valid_from, valid_to)``; ``valid_to`` is ``None`` while it still is."""
+    """One ``universe_membership`` row: ``symbol`` was in the index over the
+    INCLUSIVE interval ``[valid_from, valid_to]``; ``valid_to`` is ``None`` while it still is."""
 
     symbol: str
     security: str
@@ -119,8 +122,9 @@ def read_stints(db_path: str | Path, warnings: list[str] | None = None) -> list[
 
     A symbol that is still not a plain ticker after :func:`_clean_symbol` is
     skipped (it cannot be a Turtle local name) and reported in ``warnings``. So
-    is a stint with ``valid_to <= valid_from``: ``validTo`` is exclusive, so it
-    holds on no date.
+    is a stint with ``valid_to < valid_from``: that interval holds on no date.
+    A one-day stint (``valid_to == valid_from``) is kept: ``validTo`` is
+    inclusive, so it is a real one-day membership.
     """
     stints: list[Stint] = []
     cleaned: set[str] = set()
@@ -133,7 +137,7 @@ def read_stints(db_path: str | Path, warnings: list[str] | None = None) -> list[
             if not _TICKER_RE.fullmatch(symbol):
                 skipped.add(row["symbol"])
                 continue
-            if row["valid_to"] is not None and row["valid_to"] <= row["valid_from"]:
+            if row["valid_to"] is not None and row["valid_to"] < row["valid_from"]:
                 empty.add(f"{symbol} ({row['valid_from']}..{row['valid_to']})")
                 continue
             if symbol != row["symbol"]:
@@ -164,8 +168,8 @@ def read_stints(db_path: str | Path, warnings: list[str] | None = None) -> list[
             )
         if empty:
             warnings.append(
-                f"asset_master: {len(empty)} universe.db stint(s) end on or before they start "
-                f"(validTo is exclusive, so they hold on no date) and were skipped: "
+                f"asset_master: {len(empty)} universe.db stint(s) end before they start "
+                f"(so the inclusive interval holds on no date) and were skipped: "
                 + ", ".join(sorted(empty))
             )
     return sorted(stints, key=lambda st: (st.symbol, st.valid_from))
@@ -234,7 +238,9 @@ def build_assets(
     out_fh.write("# Section A: Asset / Sector-Industry classification / UniverseMembership\n")
     out_fh.write("# Source: portfolio-data-mining's universe.db (point-in-time, read-only).\n")
     out_fh.write("# One :Asset per symbol ever in the index, one :UniverseMembership per\n")
-    out_fh.write("# stint (validTo exclusive). :Sector/:Industry individuals (:Sec_*/:Ind_*)\n")
+    out_fh.write(
+        "# stint (validTo inclusive: its last day of membership). :Sector/:Industry individuals (:Sec_*/:Ind_*)\n"
+    )
     out_fh.write("# referenced below are declared in reference.ttl, NOT redeclared here --\n")
     out_fh.write("# load reference.ttl first. Tickers already defined as :Asset in\n")
     out_fh.write("# reference.ttl get memberships but are not re-emitted as :Asset.\n")

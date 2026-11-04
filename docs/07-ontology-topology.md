@@ -71,9 +71,11 @@ individuals written there would disappear on the next schema edit, and the loade
 to it (the gate refuses an existing graph for every append-only target). The quarter graph is the
 placement this table already assigns to the universe and the gate already accepts; the catalog is
 the membership boundary of that quarter. `--since` (default 2019-01-02) keeps a stint with no
-`validTo` or `validTo >= since`, so a ticker reused by another company (`CEG`, `DELL`, `Q`) is one
-`:Asset` described by the era the backtests and the live index can see; nothing is invented for the
-dropped stints. The five `:Asset`s `reference.ttl` already declares get memberships but are never
+`validTo` or `validTo >= since`; `validTo` is inclusive (the last day of membership), so a one-day
+stint is kept. A point-in-time read on day D is `validFrom <= D AND (no validTo OR validTo >= D)`;
+on its last day a membership is still in. A ticker reused by another company (`CEG`, `DELL`, `Q`) is
+one `:Asset` described by the era the backtests and the live index can see; nothing is invented for
+the dropped stints. The five `:Asset`s `reference.ttl` already declares get memberships but are never
 re-declared, and a CIK-less asset is accepted only when all its memberships are closed
 (`AssetShape`).
 

@@ -56,8 +56,33 @@ def test_since_drops_a_tickers_old_era_and_keeps_the_open_one(db: Path) -> None:
     assert (KG.CEG, KG.cikNumber, rdflib.Literal("0001868275")) in graph
 
 
+def test_a_one_day_stint_is_kept_and_conforms(tmp_path: Path) -> None:
+    """validTo is inclusive: PHIN's valid_from = valid_to = 2023-07-05 is a real stint."""
+    rows: list[Row] = [
+        *ROWS,
+        (
+            "PHIN",
+            "PHINIA",
+            "Consumer Discretionary",
+            "Automotive Parts & Equipment",
+            "0001968915",
+            "2023-07-05",
+            "2023-07-05",
+        ),
+    ]
+    db = universe_db(tmp_path / "universe.db", rows)
+    batch = universe.plan(db, as_of=AS_OF)
+    assert ("PHIN", "2023-07-05", "2023-07-05") in {
+        (s.symbol, s.valid_from, s.valid_to) for s in batch.kept
+    }
+    graph = _graph(batch)
+    assert (KG.PHIN, RDF.type, KG.Asset) in graph
+    assert (KG["UM_PHIN_2023-07-05"], KG.validTo, None) in graph
+    universe.check(batch, SCHEMA)
+
+
 def test_since_is_inclusive_on_a_closed_stint(db: Path) -> None:
-    """``validTo`` is exclusive, so a stint closed on the date itself is still kept."""
+    """``validTo`` is inclusive, so a stint closed on the date itself is still kept."""
     batch = universe.plan(db, since="2018-12-31", as_of=AS_OF)
     assert ("OLDT", "2005-01-03", "2018-12-31") in {
         (s.symbol, s.valid_from, s.valid_to) for s in batch.kept

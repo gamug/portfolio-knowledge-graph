@@ -137,7 +137,8 @@ calibration change.
 and writes the `:SP500Index` `:Universe`, one `:Asset` per symbol and one
 `:UniverseMembership` per stint. As-of questions ("who was in the index on D")
 are answered in the graph by `validFrom <= D` and (no `validTo` or
-`validTo > D`), the same predicate upstream uses; `validTo` is exclusive.
+`validTo >= D`), the same predicate upstream uses; `validTo` is **inclusive** and
+is the last day of membership (a one-day stint has `validFrom == validTo`).
 
 - **Freshness.** Upstream refreshes `universe.db` by hand. Every run prints the
   latest `valid_from` in the file (the latest recorded index *change*) and the
@@ -155,7 +156,11 @@ are answered in the graph by `validFrom <= D` and (no `validTo` or
   its latest stint.
 - **Dirty symbols.** Two rows carry a stray `|` (`JCP |`, `ITT |`) from upstream's
   change-log scrape; the ETL strips it and reports it as a warning.
-- **Empty stints.** Two rows (`HNG`, `AYE`) have `valid_from = valid_to = 1976-06-30`; `validTo` is exclusive, so they hold on no date. The ETL skips them with a warning, and `UniverseMembershipShape` rejects `validTo <= validFrom`.
+- **One-day stints.** `validTo` is inclusive, so a row with
+  `valid_from = valid_to` (for example `PHIN` on 2023-07-05) is a real one-day
+  membership and is kept. A row whose `valid_to` is *before* its `valid_from`
+  holds on no date: the ETL skips it with a warning, and
+  `UniverseMembershipShape` rejects `validTo < validFrom`.
 - **News tickers `universe.db` lacks** (`EQR` today) stay unresolved
   (`scoreSnapshotOfAsset` unset) and are counted in the run's warning.
 
