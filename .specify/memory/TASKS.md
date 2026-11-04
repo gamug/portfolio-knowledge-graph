@@ -1144,6 +1144,56 @@ name and every individual IRI. See `PLAN.md` Work item 20. Task IDs T-230–T-23
       (`urn:graph:derived:backtest:{window_id}:{run}`); the loader leaves removed graphs in place,
       and the gate no longer accepts those names. → `PLAN.md` Work item 20.
 
+## Work item 28 — Incremental asset-catalog deltas
+
+*The catalog was one-time per repository, so a new ticker or a later index change forced a fresh
+repository. See `PLAN.md` Work item 28, SPEC FR-008 and `docs/backtest-load-runbook.md` §1b.*
+
+- [x] **T-370** *(done 2026-11-04)* Record the delta design in `PLAN.md` Work item 28 before any
+      code: the read-only source/store phase, the four categories, the drift policy, the delta graph
+      rule and the CLI contract. → `PLAN.md` Work item 28.
+- [x] **T-371** *(done 2026-11-04)* Add `read_store` (assets and `:SP500Index` memberships, `SELECT`
+      only against the explicit graph) and `delta_graph_name` (next free
+      `urn:graph:universe:{year}-Q{n}:delta:{n}`); refuse a store with no membership catalog or a
+      missing `reference.ttl` asset. → `PLAN.md` Work item 28.
+- [x] **T-372** *(done 2026-11-04)* Implement `_classify`: new assets, new memberships of stored
+      assets, closures and drift (name/CIK/`:classifiedAs`, membership dates/asset, source-absent
+      rows); reference assets keep their declarations and are not compared. Drift is never applied.
+      → `PLAN.md` Work item 28.
+- [x] **T-373** *(done 2026-11-04)* Render the deterministic delta Turtle (only the selected asset
+      and membership blocks, links and closing `:validTo` triples), validate the dry run through
+      `gate.validate` with `gate.fetch_context`, and write through `gate.ingest` only when the
+      actionable delta is non-empty. → `PLAN.md` Work item 28.
+- [x] **T-374** *(done 2026-11-04)* Add `--delta` to `cli/load_universe.py`/`kg_store.universe`:
+      dry run by default (reads the store read-only), `--write`, the production guard, empty-delta
+      no-write and idempotency. → `PLAN.md` Work item 28.
+- [x] **T-375** *(done 2026-11-04)* Extend `gate.check_target` with
+      `urn:graph:universe:{year}-Q{n}:delta:{n}` (positive sequence, separate branch); every other
+      graph pattern is unchanged. `tests/test_kg_gate.py` covers the accepted names and the
+      malformed ones. → `PLAN.md` Work item 28.
+- [x] **T-376** *(done 2026-11-04)* Add `tests/test_universe_delta.py` with an in-memory
+      `rdflib.Dataset` store/write adapter: new ticker, rename joining a stored asset, closure,
+      re-entry, drift (changed sector/name/CIK), stored membership absent from the source, empty
+      delta, graph sequence, fresh-store refusal, gate check 2/6/7 refusals and the CLI contract.
+      16 tests pass. → `PLAN.md` Work item 28.
+- [x] **T-377** *(done 2026-11-04, read-only)* `portfolio_test` with
+      `SQL_UNIVERSE_DB=/workspaces/thesis/data/universe_history_gics.db` and `--as-of 2026-11-04`
+      reported source/store 648 assets and 658 memberships and an **empty delta** (0/0/0/0). A
+      temporary copy of that database with `ZZTEST` added and `DIS`'s open stint closed reported
+      exactly 1 new asset, 1 new membership, 1 closure and 0 drift, SHACL conforms. No GraphDB
+      write was made. → `PLAN.md` Work item 28.
+- [x] **T-378** *(done 2026-11-04)* Docs: `docs/backtest-load-runbook.md` §1b (the supported
+      incremental procedure), `docs/graphdb-setup.md` (options, delta target, measured runs),
+      `docs/07` (delta graph row and drift policy), `schema/README.md`, `README.md`, SPEC FR-008
+      and this task list. → `PLAN.md` Work item 28.
+- [x] **T-379** *(done 2026-11-04)* Checks: `uv run pytest -q` = **1252 passed, 58 deselected in
+      871.88 s**; `mypy` = success, 97 source files; the pinned pre-commit hooks pass on the 15
+      changed files. → `PLAN.md` Work item 28.
+- [ ] **T-380** *(maintainer; the agent never writes GraphDB)* First real
+      `cli/load_universe.py --delta --write` on a scratch repository whose catalog is known, then a
+      second run to observe the empty delta; production only with `--to-production`. → `PLAN.md`
+      Work item 28.
+
 ## Status
 
 Closed Work items 1, 2, 3, 5, 7 (superseded/decided by T-007), 9, 10, 11 and 14 are in
@@ -1182,6 +1232,11 @@ see `CHANGELOG.md`.
 Work item 27 (T-350–T-360): closed 2026-11-04 — the ticker-history and orchestrator projector,
 CLI, gate patterns, tests, real dry runs and the `ticker-history-on-date` query; see
 `CHANGELOG.md` and `PLAN.md` Work item 27.
+Work item 28 (T-370–T-389): T-370–T-379 done 2026-11-04 — the incremental asset-catalog delta
+(`--delta`, four categories, drift reported never applied, the
+`urn:graph:universe:{year}-Q{n}:delta:{n}` target), its hermetic tests and the read-only
+`portfolio_test` verification; T-380 (the first real `--write`) is the maintainer's and keeps the
+work item open.
 T-163 (function done, PR #68) closes with T-031, whose first slice (PR #72) calls it on the real read and re-reads the late keys for `v_score_snapshot`; T-164 done (PR #69).
 Work item 8 (T-070–T-071) is independent but needs a human at a Protégé
 session, not a coding session.
