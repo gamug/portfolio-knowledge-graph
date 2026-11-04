@@ -1529,11 +1529,12 @@ T-208.
 ### Measurements (read-only, 2026-11-04)
 
 The completed v18 databases available in this checkout are
-`/workspaces/thesis/scratch/final/runs/rule_P1.db`, `rule_P2.db`, `rule_P3.db` and
-`/workspaces/thesis/pilot_a3/financial.db`. The paths named in the task brief
-(`scratch/final/base.db`, `scored_rule.db`, `scratch/bt/integ`) are not present here; the three
-completed backtest databases and the pilot database carry the same three views and give identical
-answers below, so the design is measured on them.
+`/workspaces/thesis/scratch/final/runs/rule_P1.db`, `rule_P2.db` and `rule_P3.db`. The pilot
+`/workspaces/thesis/pilot_a3/financial.db` carries the same three views for a read-only row/null
+measurement, but it has no `schema_version` row (it reads 0 and is below the v18 floor), so it is
+not a valid projection source. The paths named in the task brief (`scratch/final/base.db`,
+`scored_rule.db`, `scratch/bt/integ`) are not present here; the three completed backtest databases
+give identical answers below, so the design is measured on them.
 
 | View | P1 / P2 / P3 / pilot rows | NULL columns measured |
 |---|---|---|
@@ -1601,7 +1602,7 @@ not a different company. The selection projector's reported unlinked rows (ranki
    only required properties (`orchestratorRunId`; `stepOfOrchestratorRun` + `ordinal`); handle,
    kind, as-of, status, timestamps, settings, surface, step name, argv, exit code, reason and
    output tail are optional. Both orchestrator views are empty today: a dry run with 0 rows
-   builds no graph and prints `v_orchestrator_run: 0 rows; v_orchestrator_step: 0 rows: nothing to
+   builds no graph and prints `v_orchestrator_run: 0 rows, v_orchestrator_step: 0 rows: nothing to
    write` rather than a silent success.
 
 5. **Asset link rule (also the rule Work item 26 should reuse).** Link
