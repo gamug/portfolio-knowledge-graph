@@ -12,9 +12,66 @@ import subprocess
 import sys
 from pathlib import Path
 
-from fixtures.universe_rows import universe_db
+from fixtures.universe_rows import Row, universe_db
 
 CLI = Path(__file__).resolve().parent.parent / "cli" / "load_universe.py"
+
+_HISTORICAL_ROWS: list[Row] = [
+    (
+        "LUMN",
+        "Lumen Technologies",
+        "Communication Services",
+        "Alternative Carriers",
+        "0000018926",
+        "1976-07-01",
+        None,
+    ),
+    (
+        "WBA",
+        "Walgreens Boots Alliance",
+        "Consumer Staples",
+        "Drug Retail",
+        "0001618921",
+        "1976-07-01",
+        None,
+    ),
+    (
+        "MHK",
+        "Mohawk Industries",
+        "Consumer Discretionary",
+        "Home Furnishings",
+        "0000851968",
+        "2013-12-23",
+        None,
+    ),
+    (
+        "WHR",
+        "Whirlpool Corporation",
+        "Consumer Discretionary",
+        "Household Appliances",
+        "0000106640",
+        "1976-07-01",
+        None,
+    ),
+    (
+        "NWL",
+        "Newell Brands",
+        "Consumer Discretionary",
+        "Housewares & Specialties",
+        "0000814453",
+        "1976-07-01",
+        None,
+    ),
+    (
+        "PBCT",
+        "People's United Financial",
+        "Financials",
+        "Thrifts & Mortgage Finance",
+        "0001378946",
+        "1976-07-01",
+        None,
+    ),
+]
 
 
 def _run(
@@ -52,6 +109,24 @@ def test_a_dry_run_reports_the_catalog_and_writes_nothing(tmp_path: Path) -> Non
     assert "triples: 37" in result.stdout
     assert "SHACL: conforms" in result.stdout
     assert "dry run, nothing written" in result.stdout
+
+
+def test_a_dry_run_maps_the_historical_sub_industries_without_a_warning(
+    tmp_path: Path,
+) -> None:
+    db = universe_db(tmp_path / "universe.db", _HISTORICAL_ROWS)
+    result = _run(tmp_path, "--as-of", "2026-11-03", db=db)
+    assert result.returncode == 0, result.stderr
+    assert "had no rollup entry" not in result.stdout
+    for name in (
+        "Alternative Carriers",
+        "Drug Retail",
+        "Home Furnishings",
+        "Household Appliances",
+        "Housewares & Specialties",
+        "Thrifts & Mortgage Finance",
+    ):
+        assert name not in result.stdout
 
 
 def test_as_of_names_the_quarter_graph(tmp_path: Path) -> None:

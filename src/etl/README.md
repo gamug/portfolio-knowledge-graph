@@ -159,6 +159,34 @@ are answered in the graph by `validFrom <= D` and (no `validTo` or
 - **News tickers `universe.db` lacks** (`EQR` today) stay unresolved
   (`scoreSnapshotOfAsset` unset) and are counted in the run's warning.
 
+## GICS rollup and historical sub-industry names
+
+`common/gics_rollup.py` maps each Sub-Industry string `universe.db` carries to one
+of `schema/reference.ttl`'s 26 `:Ind_*` industry groups (Gap G5). It is a closed
+table: `lookup()` returns `None` for any other value rather than guessing an
+industry group, and `asset_master.build_assets` logs it and writes that `:Asset`
+without `:classifiedAs`. `classifiedAs` is not SHACL-required, so one unmapped
+value degrades one asset instead of failing the whole batch.
+
+Six strings in `universe_history_gics.db` occur only on closed stints, so no
+current constituent carries them. They are historical GICS names: five remain
+valid sub-industries with no current S&P 500 member, while `Thrifts & Mortgage
+Finance` was itself discontinued (into `Commercial & Residential Mortgage
+Finance`) by the March 2023 reclassification. Each rolls up to the reference
+group that covered it at the time:
+
+| Historical Sub-Industry | Reference Industry Group |
+|---|---|
+| Alternative Carriers | Telecommunication Services |
+| Drug Retail | Consumer Staples Distribution & Retail (then Food & Staples Retailing) |
+| Home Furnishings | Consumer Durables & Apparel |
+| Household Appliances | Consumer Durables & Apparel |
+| Housewares & Specialties | Consumer Durables & Apparel |
+| Thrifts & Mortgage Finance | Banks |
+
+The reference taxonomy is GICS-inspired, so these are rollups to its existing
+groups, not new concepts: `schema/reference.ttl` is unchanged.
+
 ## Sentiment snapshots carry `rawValue` only (resolved, T-081)
 
 The Sentiment snapshots emitted here carry only `rawValue` (the scale v1's `-0.50` /
