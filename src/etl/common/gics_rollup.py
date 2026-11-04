@@ -180,12 +180,12 @@ SUB_INDUSTRY_TO_INDUSTRY = {
     # --- Real Estate: Real Estate Management & Development ---
     "Real Estate Services": "Ind_RealEstateMgmtDev",
     # --- Historical GICS Sub-Industry names ---
-    # These six strings date from before the March 2023 GICS reclassification and
-    # no current constituent carries them in universe_history_gics.db. Not all were
-    # retired by that reclassification: only "Thrifts & Mortgage Finance" was
-    # discontinued (into Commercial & Residential Mortgage Finance); the other
-    # five remain valid GICS sub-industries with no current S&P 500 member here.
-    # Each maps to the reference industry group that covered it at the time.
+    # These six strings occur only on closed stints in universe_history_gics.db,
+    # so no current constituent carries them. Only "Thrifts & Mortgage Finance"
+    # was discontinued by the March 2023 GICS reclassification (into Commercial &
+    # Residential Mortgage Finance); the other five remain valid GICS sub-industries
+    # with no current S&P 500 member here. Each maps to the reference industry group
+    # that covered it at the time.
     "Alternative Carriers": "Ind_TelecomServices",
     "Drug Retail": "Ind_ConsumerStaplesRetail",
     "Home Furnishings": "Ind_ConsumerDurables",

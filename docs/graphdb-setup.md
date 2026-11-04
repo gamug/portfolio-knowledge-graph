@@ -108,7 +108,8 @@ not loaded at all, 15 with a later stint kept), wrote 648 `:Asset`s plus the fiv
 reported SHACL conforms in 1.2 s. The six historical GICS sub-industry strings that file carries
 (`Alternative Carriers`, `Drug Retail`, `Home Furnishings`, `Household Appliances`, `Housewares &
 Specialties`, `Thrifts & Mortgage Finance`) now roll up to existing `reference.ttl` groups, so the
-run leaves no asset unmapped for them (6476 triples before those six mappings). Every ticker in
+run leaves no asset unmapped for them (6557 triples before those six mappings; 6476 was the
+earlier `universe_history.db` run). Every ticker in
 `v_book_weight_daily` (CASH excluded), `v_guard_alert` and `v_guard_action` of
 `rule_P1/P2/P3.db` is in the loaded set (P1 100, P2 123, P3 115; 0 missing). The known overlap
 with the worked example's `2026-Q3` memberships is recorded in `docs/07`.

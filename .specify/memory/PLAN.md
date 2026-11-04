@@ -1167,11 +1167,11 @@ Asset a membership batch points at (T-221). T-227 added the `sh:class :Universe`
 
 **Acceptance criteria**:
 
-- ✅ A dry run over the full `universe_history.db` / `universe_history_gics.db` reports what
-  `--since` kept and dropped (657 of 891 stints over 653 symbols kept; 234 stints of 229 symbols
-  dropped), the `:Asset` and `:UniverseMembership` counts, 6563 triples (6476 before Work item 22
-  mapped six historical sub-industries) and a passing `gate.validate`; no asset is left without a
-  CIK and with an open membership.
+- ✅ A dry run over the full `universe_history_gics.db` reports what `--since` kept and dropped
+  (657 of 891 stints over 653 symbols kept; 234 stints of 229 symbols dropped), the `:Asset` and
+  `:UniverseMembership` counts, 6563 triples (6557 before Work item 22 mapped six historical
+  sub-industries; 6476 was the earlier count over `universe_history.db`) and a passing
+  `gate.validate`; no asset is left without a CIK and with an open membership.
 - ✅ Every ticker in `v_book_weight_daily` (CASH excluded), `v_guard_alert` and `v_guard_action` of
   `rule_P1/P2/P3.db` is in the loaded symbol set (P1 100, P2 123, P3 115; 0 missing).
 - ✅ Hermetic tests: a ticker's two eras, a CIK-less closed asset, `BRK.B`, the quarter name,

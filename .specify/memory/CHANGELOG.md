@@ -829,8 +829,8 @@ loader were untouched.*
       `docs/graphdb-setup.md` to the 2026-11-04 run over
       `universe_history_gics.db`, 6563 triples and no unmapped warning. → step 5.
 - [x] **T-257** *(done 2026-11-04)* Update SPEC FR-008's acceptance count and
-      the Work item 19 plan count to 6563 (recording 6476 as the before value);
-      no schema count changed. → step 5.
+      the Work item 19 plan count to 6563 (recording 6557 as the before value;
+      6476 was the earlier `universe_history.db` run); no schema count changed. → step 5.
 - [x] **T-258** *(done 2026-11-04)* Record Work item 22 in `PLAN.md`, move its
       task block here, and add the closed-work-item pointer to `TASKS.md`. → step 5.
 - [x] **T-259** *(done 2026-11-04)* Verify: `uv run pytest -q` = 1052 passed,
