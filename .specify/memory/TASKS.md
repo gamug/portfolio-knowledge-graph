@@ -1159,6 +1159,9 @@ up to existing `reference.ttl` groups, and the full dry run reports 6563 triples
 unmapped-value warning; see `CHANGELOG.md`.
 Work item 23 (T-260–T-271): closed 2026-11-04 — inclusive membership `validTo`, one `:Asset` per
 CIK for a pure rename, and the shared loader/projector resolver; see `CHANGELOG.md`.
+Work item 24 (T-280–T-283): closed 2026-11-04 — the read-only backtest verifier
+(`cli/verify_backtest.py`), its hermetic tests, the final-load runbook and the re-measured dry-run
+numbers; see `CHANGELOG.md` and `docs/backtest-load-runbook.md`.
 T-163 (function done, PR #68) closes with T-031, whose first slice (PR #72) calls it on the real read and re-reads the late keys for `v_score_snapshot`; T-164 done (PR #69).
 Work item 8 (T-070–T-071) is independent but needs a human at a Protégé
 session, not a coding session.

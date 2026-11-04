@@ -1394,6 +1394,63 @@ every backtest ticker still links (P1 100, P2 123, P3 115 distinct, 0 missing); 
 
 **Blocked on**: nothing.
 
+## Work item 24 — Verify a loaded backtest against its source (T-280–T-299)
+
+**Status: closed 2026-11-04.**
+
+**Why**: when the final backtest arrives (same strategy and schema, possibly different data),
+loading it through `cli/project_backtest.py` and checking it by eye is not enough. The operator
+must be able to prove that the named graph in the selected repository holds exactly what the
+deterministic projector builds from that source database, and to do it without writing to the
+store. The verifier is the read-only half of the load; the runbook is the copy-pasteable
+procedure around both halves.
+
+**What was built**:
+
+1. `cli/verify_backtest.py` (logic in `src/projection/verify_backtest.py`) takes an explicit
+   `--graph`, `--db` and `--label`, reads the repository from the same environment as the other
+   store CLIs, re-projects the source in memory through `projection.backtest.project_source`
+   (the projector, not a second implementation), and prints one `PASS`/`FAIL` line per check
+   plus the repository and graph it checked. It issues only SPARQL `SELECT` queries, so it cannot
+   write to any repository; exit 0 only when every check passes.
+2. Checks: the graph exists and its name plus its stored `:runLabel`/`:windowId`/
+   `:backtestRunId` agree with the label, window and run id; total triples equal the
+   re-projection; the eight classes (`StrategyBook`, `BookRebalance`, `GuardAlert`, `GuardAction`,
+   `BookWeightDaily`, `BookDailyPerformance`, `PortfolioPeriodSummary`, `BacktestTest`) have one
+   individual per source row; distinct `:holdingAsset`/`:guardAsset` tickers equal the source's
+   linked set, and the unlinked row count is not above the projector's; GuardAlert groups by
+   rule/layer/state, GuardAction by status, last NAV per arm and CASH rows equal the source; and
+   every individual carries `:runLabel` directly or through its book (where the model has that
+   link) and `:knowledgeDate` where the model has it.
+3. `docs/backtest-load-runbook.md`: prerequisites, contract check, label choice, dry run, write
+   and production guard, verification, recording the numbers, single-graph rollback, a new
+   label/run, the asset catalog's real one-time limit, and the common failure messages.
+4. Reference dry runs (2026-11-04, read-only): `rule_P1.db` 15,615 `v_book_weight_daily` rows and
+   **209,886 triples**; `rule_P2.db` 15,641 and **196,840**; `rule_P3.db` 18,025 and **222,449**;
+   peak RSS 0.66–0.73 GB and 44–48 s per database. These are in `docs/graphdb-setup.md` and the
+   runbook.
+5. Hermetic tests use an in-memory `rdflib.Dataset` as the store and cover a passing graph, a
+   missing class, an altered individual count, a missing link, a wrong label and a wrong graph
+   name; the CLI is also run as a subprocess for its argument contract.
+
+**Acceptance criteria** (all verified):
+
+- ✅ `uv run python cli/verify_backtest.py --graph … --db … --label …` prints the repository and
+  graph, one PASS/FAIL line per check, and exits 0 only when all pass; a live run is read-only by
+  construction (only `SELECT` queries).
+- ✅ The verifier and runbook use the real projector and the real graph/IRI naming, and the
+  dry-run numbers above are measured, not copied.
+- ✅ `tests/test_verify_backtest.py` passes all six required cases plus the check-name and
+  repository-printing cases; `tests/test_cli_verify_backtest.py` covers the argument contract.
+- ✅ The runbook states the asset catalog's actual limit (one catalog per repository; a later
+  quarter or a new ticker is refused by gate check 6) and the safe procedure.
+- ✅ `uv run pytest`, `mypy` and the pinned pre-commit hooks pass; docs and counts are consistent;
+  no schema count changed.
+- **Residual risk:** no live GraphDB read or write was made in this change. The verifier passed
+  21/21 checks over an in-memory Dataset holding `rule_P1.db`'s 209,886-triple projection, but its
+  store-side SPARQL has not yet run against GraphDB. The first live run is the operator's step in
+  `docs/backtest-load-runbook.md`.
+
 ## Sequencing
 
 ```
@@ -1432,8 +1489,11 @@ Work item 20 (backtest run labels, open window vocabulary) — T-230–T-236 don
   stale unlabelled graphs from scratch repositories) is the maintainer's
 Work item 21 (reports-agent query catalog) — closed 2026-11-03 (T-240–T-243); adapted to the labelled
   backtest graphs and the asset catalog loader on 2026-11-04; see `CHANGELOG.md`
+Work item 22 (retired GICS names) — closed 2026-11-04 (T-250–T-259); see `CHANGELOG.md`
 Work item 23 (inclusive membership end, one `:Asset` per CIK) — closed 2026-11-04 (T-260–T-271);
   the inclusive `validTo`, the shared loader/projector resolver and the real-data counts are in
+  `CHANGELOG.md`
+Work item 24 (backtest verifier and load runbook) — closed 2026-11-04 (T-280–T-283); see
   `CHANGELOG.md`
 ```
 
