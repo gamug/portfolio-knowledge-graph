@@ -696,7 +696,11 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       `AttractivenessWeightScheme`, `ThresholdComparison`, `GraphPredicate`, `BenchmarkObservation`,
       `WeightComponent`) become short conceptual definitions plus a scope note.
       → `PLAN.md` Work item 4, step 7.
-- [ ] **T-215** *(from T-207; needs the maintainer's explicit go-ahead)* First real `--write` of a
+- [x] **T-215** *(done 2026-11-04: first real backtest write in `portfolio_test`, label `rule`; the
+      m018 graphs hold P1 209,886 / P2 196,840 / P3 222,449 triples and `cli/verify_backtest.py`
+      passed 21/21 checks each. The selection side is Work item 26's; the full record is in
+      `docs/graphdb-setup.md`, "Live load record, portfolio_test, 2026-11-04", and Work item 32.
+      The text below is the original task)* First real `--write` of a
       backtest run (`cli/project_backtest.py`) into a scratch repository, never production by
       default; needs the schema reloaded there and the FULL universe in `SQL_UNIVERSE_DB`, because
       backtest graphs are append-only and with the 20-symbol pilot universe the asset links are
@@ -1070,7 +1074,12 @@ with asset links is refused. See `PLAN.md` Work item 19 and SPEC FR-008.*
       clean it (drop or stop loading the worked-example universe memberships) when the worked
       example stops being loaded into the real store. Do not remove or re-declare anything before
       then. → `PLAN.md` Work item 19.
-- [ ] **T-226** *(from T-220; needs the maintainer's explicit go-ahead)* First real
+- [x] **T-226** *(done 2026-11-04: first real `--write` of `cli/load_universe.py` in
+      `portfolio_test`, after the schema reload from master following PR #123 (`verify_store` 6/6
+      PASS). `urn:graph:universe:2026-Q4` holds 643 `:Asset` written plus the 5 in `reference.ttl`,
+      658 memberships (503 open, 155 closed) and 6548 triples; 59 assets are without `:classifiedAs`
+      on purpose. See `docs/graphdb-setup.md`, "Live load record, portfolio_test, 2026-11-04", and
+      Work item 32. The text below is the original task)* First real
       `--write` of `cli/load_universe.py` into a scratch repository, never production by default;
       needs the schema reloaded there (the merged 4204-quad bundle, 4481 asserted triples) and the
       full universe in `SQL_UNIVERSE_DB`. Then a real `cli/project_backtest.py --write` can link assets.
@@ -1137,7 +1146,10 @@ name and every individual IRI. See `PLAN.md` Work item 20. Task IDs T-230–T-23
       `urn:graph:derived:backtest:rule:P1:1`; `pyshacl` reports conforms: True. The task's
       193,929 figure is T-207's pre-label count; the 9 extra triples are the required label.)*
       Verify the labelled dry run against the real `rule_P1.db` and record the counts. → step 6.
-- [ ] **T-237** *(for the maintainer; no GraphDB write was made in this change)* Reload the schema
+- [ ] **T-237** *(for the maintainer; the schema reload half is done 2026-11-04 — master after PR
+      #123, `verify_store` 6/6 PASS, Work item 32; open only for dropping the retired unlabelled
+      backtest graphs, if the scratch repository holds any. The text below is the original task)*
+      Reload the schema
       after T-233/T-234 (the store's `shapes.ttl` does not require `:runLabel` yet; a labelled
       projection's batch would still validate, but the store's copy is stale) and **drop every
       backtest graph written to a scratch repository under the retired unlabelled name**
@@ -1191,8 +1203,9 @@ repository. See `PLAN.md` Work item 28, SPEC FR-008 and `docs/backtest-load-runb
       changed files. → `PLAN.md` Work item 28.
 - [ ] **T-380** *(maintainer; the agent never writes GraphDB)* First real
       `cli/load_universe.py --delta --write` on a scratch repository whose catalog is known, then a
-      second run to observe the empty delta; production only with `--to-production`. → `PLAN.md`
-      Work item 28.
+      second run to observe the empty delta; production only with `--to-production`. The
+      `portfolio_test` catalog `urn:graph:universe:2026-Q4` is known after the 2026-11-04 full load
+      (Work item 32). → `PLAN.md` Work item 28.
 
 ## Status
 
@@ -1210,9 +1223,9 @@ T-144 (views), T-145 (ids), T-074 (flags) and, after their T-100, their T-082 an
 Work item 15, from the sixth reply: T-182 (the analysis run's year bounds read as filing years) is done; T-183 (the decisions on version 11's content) is done, with T-187 (the rules and `penaltyPoints`), T-188 (`expiresOn`), T-189 (the penalty identity) and T-190 (the three-component scheme) filed, T-190 done 2026-10-12 and T-189 done 2026-10-14 (PR #106); T-184 (the next letter to upstream) was sent on 2026-10-11 and answered the same day (the seventh reply, recorded by T-191 asks (1) to (5), T-187 and T-188 unblocked; ask (6) is still to ask).
 Work item 16 (T-160–T-165, T-192): T-160 done (plain checks, quarantine-with-cap), T-161 closed with it (no dependency) and T-162 done (JSON files per view, strict loader);
 Work item 17 (T-196–T-200): open; replaces the cancelled T-195.
-Work item 20 (T-230–T-237): T-230–T-236 done (2026-11-03); T-237 (the live schema reload and dropping stale unlabelled backtest graphs from scratch repositories) is open, the maintainer's.
+Work item 20 (T-230–T-237): T-230–T-236 done (2026-11-03); T-237 (the live schema reload and dropping stale unlabelled backtest graphs from scratch repositories) is open, the maintainer's; the reload half is done 2026-11-04 (Work item 32), the retired-graph drop remains.
 Work item 18 (T-204): done 2026-10-16 — re-pinned `portfolio-common` to `v1.2.2`, a real bug fix here (`news_to_rdf`'s `attach()`-based read of `urls.db`), not just a consistency bump; proved by a new regression test that fails against the old pin and passes against the new one.
-Work item 19 (T-220–T-229): T-220–T-224 done 2026-11-03 (the loader, the `sh:class :Asset` triple, tests, the real dry-run verification and the docs); T-225 (worked-example overlap) and T-226 (first real `--write`, maintainer go-ahead) open; T-227 (`sh:class :Universe`) done 2026-11-03.
+Work item 19 (T-220–T-229): T-220–T-224 done 2026-11-03 (the loader, the `sh:class :Asset` triple, tests, the real dry-run verification and the docs); T-225 (worked-example overlap) remains open and T-226 (first real `--write`, maintainer go-ahead) is done 2026-11-04 (Work item 32); T-227 (`sh:class :Universe`) done 2026-11-03.
 Work item 21 (T-240–T-243): closed 2026-11-03 — the reports-agent query catalog (the brief's 11 questions verbatim) and its executable hermetic test; adapted to the labelled backtest graphs and the asset catalog loader on 2026-11-04; see `CHANGELOG.md`.
 Work item 22 (T-250–T-259): closed 2026-11-04 — the six historical GICS sub-industry names now roll
 up to existing `reference.ttl` groups, and the full dry run reports 6563 triples with no
@@ -1235,7 +1248,7 @@ CLI, gate patterns, tests, real dry runs and the `ticker-history-on-date` query;
 Work item 28 (T-370–T-389): T-370–T-379 done 2026-11-04 — the incremental asset-catalog delta
 (`--delta`, four categories, drift reported never applied, the
 `urn:graph:universe:{year}-Q{n}:delta:{n}` target), its hermetic tests and the read-only
-`portfolio_test` verification; T-380 (the first real `--write`) is the maintainer's and keeps the
+`portfolio_test` verification; T-380 (the first real delta `--write`) is the maintainer's and keeps the
 work item open.
 Work item 29 (T-390–T-398): closed 2026-11-04 — the verifier covers the selection graph and the
 m018 cross-graph cycle link, and `cli/load_run.py` runs the contract check, both dry runs, both
@@ -1245,6 +1258,9 @@ Work item 30 (T-420–T-425): closed 2026-11-04 — the gate context falls back 
 TBox range, the real-fetch regression tests cover the selection batch, and `--check-store` was
 accepted read-only against `portfolio_test` for the six backtest graphs and the ticker-history
 snapshot; see `CHANGELOG.md` and `PLAN.md` Work item 30.
+Work item 32 (T-460–T-469): closed 2026-11-04 — the `portfolio_test` live load record (schema
+reload, asset catalog, m018 and selection graphs, ticker history), the lessons, the free-disk
+runbook prerequisite, and the closure of T-215/T-226; see `CHANGELOG.md` and `PLAN.md` Work item 32.
 T-163 (function done, PR #68) closes with T-031, whose first slice (PR #72) calls it on the real read and re-reads the late keys for `v_score_snapshot`; T-164 done (PR #69).
 Work item 8 (T-070–T-071) is independent but needs a human at a Protégé
 session, not a coding session.

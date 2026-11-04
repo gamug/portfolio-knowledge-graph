@@ -83,6 +83,17 @@ uv run python cli/verify_store.py
 `verify_store` must exit 0. If it reports `urn:graph:tbox: expected N, store has M`, stop and reload
 the schema; do not load a backtest against a stale store.
 
+Check free disk space on the mounted data directory before a write. GraphDB refuses every write
+when the data disk has less than 5% free (HTTP 500, "Critically low disk space"), so keep several GB
+beyond the 5% line:
+
+```bash
+df -h /workspaces/thesis
+```
+
+If the directory is backed by a Docker Desktop virtual disk, trim and compact it as
+`docs/graphdb-setup.md` records before retrying.
+
 ### 1b. Load the asset catalog once, then extend it with deltas
 
 Before any backtest that links `:Asset` nodes, and **before the first backtest write** (replace
@@ -469,6 +480,9 @@ a new "Live load record" section) with:
 - the selection row/triple counts and the two verifier results (all checks passed, or the failure
   lines);
 - any `asset link omitted` counts and why (ticker absent from the catalog).
+
+The 2026-11-04 `portfolio_test` load is recorded under "Live load record, portfolio_test,
+2026-11-04" in `graphdb-setup.md`.
 
 The 2026-11-04 reference dry runs, for comparison: P1 15,615 `v_book_weight_daily` rows and
 209,886 triples; P2 15,641 and 196,840; P3 18,025 and 222,449; 0.66–0.73 GB peak RSS and 44–48 s
