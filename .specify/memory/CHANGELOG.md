@@ -1228,3 +1228,33 @@ Task IDs T-420–T-439.*
 - [x] **T-425** *(done 2026-11-04: `uv run pytest -q` = 1264 passed, 58 deselected in 775.75 s;
       `mypy` = success, 99 files; pinned pre-commit and FR-001 pass; the real check-store results
       above.)* Run the checks and record them.
+
+## Work item 32 — Record the portfolio_test live load
+
+*From the first real catalog and backtest writes in `portfolio_test`, 2026-11-04. See `PLAN.md`
+Work item 32 and `docs/graphdb-setup.md`, "Live load record, portfolio_test, 2026-11-04".
+Task IDs T-460–T-469.*
+
+- [x] **T-460** *(done 2026-11-04: `docs/graphdb-setup.md` records the schema reload, the catalog,
+      the m018 and selection graphs and the ticker-history snapshot with the measured numbers.)*
+      Record the live load.
+- [x] **T-461** *(done 2026-11-04: the same section records Lesson 1 (the gate's context fetch and
+      Work item 30's `rdfs:range` fallback/`--check-store`) and Lesson 2 (GraphDB's 5% floor and the
+      trim/compact procedure).)* Record the lessons.
+- [x] **T-462** *(done 2026-11-04: `docs/backtest-load-runbook.md` §1a adds the `df -h` free-space
+      check on the mounted data directory, keeping several GB beyond the 5% line.)* Add the
+      free-disk prerequisite.
+- [x] **T-463** *(done 2026-11-04: `SPEC.md` FR-008 and FR-009 carry the live `portfolio_test`
+      results, and FR-010 records the context refusal that preceded Work item 30.)* Update SPEC.
+- [x] **T-464** *(done 2026-11-04: T-215 and T-226 are checked with their evidence; `PLAN.md` Work
+      items 4 and 19 point at this work item.)* Close the first-write tasks.
+- [x] **T-465** *(done 2026-11-04: `PLAN.md` Work item 32 and the status summary.)* Record the work
+      item.
+- [x] **T-466** *(done 2026-11-04: this section cut from `TASKS.md`; the status line points here.)*
+      Move the closed tasks.
+- [x] **T-467** *(done 2026-11-04: the runbook and graphdb-setup references to the first write and
+      the verifier now point at the live record.)* Reconcile the cross-references.
+- [x] **T-468** *(done 2026-11-04: `uv run pytest -q`, `mypy` and the pinned pre-commit hooks pass;
+      no schema file changed.)* Run the checks.
+- [x] **T-469** *(done 2026-11-04: T-380 (first real delta `--write`) remains the maintainer's; no
+      production write was made.)* Report the residual work.
