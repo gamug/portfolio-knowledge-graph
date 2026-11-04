@@ -4,7 +4,7 @@ Copy-pasteable procedure for the final backtest: load each completed database in
 append-only graphs (m018 and selection) and prove that the store matches the source. The
 one-command path is `cli/load_run.py`; the older step-by-step commands remain as the manual
 fallback. Everything here is read-only except the explicitly marked write steps
-(`cli/load_universe.py --write`, `cli/project_backtest.py --write`,
+(`cli/load_universe.py --write` or `--delta --write`, `cli/project_backtest.py --write`,
 `cli/project_selection.py --write` and `cli/load_run.py --write`); the verifier never writes.
 
 The verifier's checks are in `SPEC.md` FR-009, the one-command load is FR-010, the graph naming
@@ -83,34 +83,66 @@ uv run python cli/verify_store.py
 `verify_store` must exit 0. If it reports `urn:graph:tbox: expected N, store has M`, stop and reload
 the schema; do not load a backtest against a stale store.
 
-### 1b. The asset catalog is loaded once per repository
+### 1b. Load the asset catalog once, then extend it with deltas
 
 Before any backtest that links `:Asset` nodes, and **before the first backtest write** (replace
-`2026-11-04` with the day of your load; it is the date of the reference run):
+`2026-11-04` with the day of your load; it is the date of the reference run), write the whole
+catalog once:
 
 ```bash
 # dry run first: reads SQL_UNIVERSE_DB, builds and SHACL-validates, contacts no store
 uv run python cli/load_universe.py --as-of 2026-11-04
-# then the one write:
+# then the one full write:
 uv run python cli/load_universe.py --as-of 2026-11-04 --write
 # production also needs the explicit opt-in:
 uv run python cli/load_universe.py --as-of 2026-11-04 --write --to-production
 ```
 
-The loader writes the whole catalog (all `:Asset`, `:Universe` and `:UniverseMembership`
-individuals) into `urn:graph:universe:{year}-Q{n}`. It is not an incremental loader. The real limit:
+The full loader writes all `:Asset`, `:Universe` and `:UniverseMembership` individuals into
+`urn:graph:universe:{year}-Q{n}`. That graph is the catalog's one-time boundary and is never
+appended to again: a second full load into the same quarter is refused because the graph exists
+(gate check 2), and a full load into a later quarter re-declares the same `:Asset`/`:Universe`
+typed individuals and is refused by check 6 even if no value changed. A new quarter alone does not
+make a reload possible.
 
-- a second load into the same quarter is refused because the graph already exists (gate check 2);
-- a load into a later quarter re-declares the same `:Asset`/`:Universe` typed individuals and is
-  refused by gate check 6, even if no value changed;
-- therefore a **new ticker cannot be added** to a repository that already has the catalog with
-  `cli/load_universe.py`, and a **new quarter alone does not make a reload possible**.
+**After the first load, use `--delta` for every catalog refresh.** It reads the source with the
+loader's own `--since` and `resolve_assets` and the store with `SELECT` only, then writes just the
+four-category difference:
 
-The supported safe procedure is a fresh repository: load `schema/`, load the catalog once, then
-write the backtests there. If you truly need new tickers in an existing repository, stop and open a
-task for an incremental membership batch (only new `:Asset`/`:UniverseMembership` individuals plus
-`:validTo` closures of stored memberships, through `cli/ingest.py` into a new quarter graph); do not
-drop the universe graph, rewrite its individuals, or bypass the gate.
+```bash
+# dry run: reports the categories, the drift list and the target graph; SHACL-validates
+uv run python cli/load_universe.py --delta --as-of 2026-11-04
+# write the actionable delta (empty delta = no write):
+uv run python cli/load_universe.py --delta --as-of 2026-11-04 --write
+# production also needs the explicit opt-in:
+uv run python cli/load_universe.py --delta --as-of 2026-11-04 --write --to-production
+```
+
+The categories are: **new assets** (with their stints), **new memberships of a stored asset** (a
+re-entry, or a symbol of a renamed company that still folds into the stored asset by CIK),
+**closures** (only the closing `:validTo` triple of a stored open membership), and **drift**
+(reported, never applied). Drift covers a changed company name, CIK or `:classifiedAs` (the store's
+only sector/sub-industry fact), a stored membership with other dates or `membershipAsset`, a stored
+closed membership whose source stint is open, and a stored membership or non-reference asset absent
+from the source. Nothing is deleted, no stored value is rewritten, and the existing catalog graph
+is never dropped. The reference dry run (2026-11-04, read-only) over `portfolio_test` with the
+catalog's own `/workspaces/thesis/data/universe_history_gics.db` printed 0 new assets, 0 new
+memberships, 0 closures and 0 drift; a temporary copy with one new symbol and one closed open stint
+printed exactly 1/1/1/0. Use the empty result as the sanity check that the store and the source are
+in sync before a backtest write.
+
+The delta goes into `urn:graph:universe:{year}-Q{n}:delta:{n}`, where `{n}` is the next free
+positive sequence for that quarter; each later delta gets the next number. It re-declares no stored
+typed individual, so gate check 6 does not fire, and a closure is only the untyped `:validTo` path
+(check 7). The run is idempotent: right after a `--write`, a second run prints an empty delta and
+writes nothing. A store with no `:SP500Index` membership catalog is refused with a pointer to the
+full load, and a `reference.ttl` asset missing from the store is refused with a pointer to the
+schema load. If the store's catalog came from the same `universe.db`, the delta is empty by
+definition; a non-empty result means either the source moved or the store carries drift.
+
+Do not drop or rewrite the universe graph, hand-edit an `:Asset`, or bypass the gate. If drift
+needs a real correction (not just a new membership), stop and open a task for a new graph/version;
+the append-only store keeps both values.
 
 ### 1c. Copy the databases
 
@@ -437,12 +469,14 @@ side) and re-project that database; never patch triples inside it.
 | `--write to the production repository needs --to-production` (exit 2) | You are writing to `KG_REPOSITORY=portfolio`; the maintainer must approve, then add `--to-production`. |
 | `window_id 'Q1' does not match P[0-9]+` / gate refuses the graph | The source's window is not a `P<number>`. This is a bad input, not a label problem; do not edit the database. |
 | `graph ... already exists` / `already in the store: ...` | Append-only: the graph was written before. Nothing was appended. Use a new label (§3); do not drop the old graph to reuse its name. |
-| `asset link omitted: v_cycle_ranking: N` or `unlinked v_cycle_ranking: N stored, M reported` | The store or catalog lacks a ticker. The projector keeps `:rankingTicker`/`:vetoTicker` and counts it. For the supported path, use a fresh repository whose catalog includes the ticker; the current loader cannot extend an existing catalog (§1b). Do not add an `:Asset` by hand to the backtest graph. |
+| `asset link omitted: v_cycle_ranking: N` or `unlinked v_cycle_ranking: N stored, M reported` | The store or catalog lacks a ticker. The projector keeps `:rankingTicker`/`:vetoTicker` and counts it. For the supported path, extend the catalog with `cli/load_universe.py --delta` (§1b), write the delta, then re-run the projection; a first catalog still needs the full load. Do not add an `:Asset` by hand to the backtest graph. |
 | `attractiveness links: X stored, Y expected` / `veto links: ...` | The store's linked tickers differ from the source. Check that the catalog graph is the one you loaded and that `SQL_UNIVERSE_DB` is the same file used for the dry run. |
-| `individuals <Class>: X stored, Y expected` | A class count differs. Check `--label` and the graph name first; if they match, the graph was not built from this database. Re-project under a new label rather than editing the graph. |
 | `UNSCORED/UNPRICED placeholders` fails | A ranking row without effective weights is missing its `:vetoRulesJson` marker, or the placeholder count differs. Re-run the dry run; if it differs, the wrong graph or a stale source is being verified. |
 | `vetoes by resolved rule` fails | The stored vetoes resolve to different rule IRIs than the source on the run's knowledge date. Check `schema/rules.ttl` and the graph's source database. |
 | `cross-graph SelectionCycle` fails (`missing SelectionCycle for cycle N`, `MARKOWITZ_BASE has ...`, or `no BookRebalance`) | The m018 sibling is missing, was written from another source, or its TOPN rebalances point at a cycle the selection graph does not hold. Verify both graphs from the same database; write m018 first (§5). |
+| `asset link omitted: v_book_weight_daily: N` or `unlinked v_book_weight_daily: N stored, M reported` | The store or catalog lacks a ticker. The projector keeps `:holdingKey`/`:guardTicker` and counts it. Extend the catalog with `cli/load_universe.py --delta` (§1b), write the delta, then re-run the projection; a first catalog still needs the full load. Do not add an `:Asset` by hand to the backtest graph. |
+| `holding links: X stored, Y expected` / `guard links: ...` | The store's linked tickers differ from the source. Check that the catalog graph is the one you loaded and that `SQL_UNIVERSE_DB` is the same file used for the dry run. |
+| `individuals <Class>: X stored, Y source rows` | A class count differs. Check `--label` and the graph name first; if they match, the graph was not built from this database. Re-project under a new label rather than editing the graph. |
 | `last NAV per arm` / `GuardAlert by rule, layer and state` / `GuardAction by status` / `CASH rows` fails | The graph holds different values/groups from the source. Re-run the dry run against the same copied database; if it differs, the wrong graph or a stale source is being verified. |
 | `source error: ...` (exit 1) | `--db` is missing, is not a completed backtest database, or lacks the views. Check the path and the contract check (§2). |
 | `STOPPED ... schema_version` / `not 'completed'` | The source is below the v18 floor or its run is not completed. Use the final completed database; do not lower the floor. |

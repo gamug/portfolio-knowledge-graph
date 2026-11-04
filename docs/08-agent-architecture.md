@@ -175,7 +175,8 @@ trade-off, stated in `docs/06` §1.10, is that SHACL no longer catches a mistype
 The arm list stays closed.
 
 The full asset master makes those links resolve. Load it once per repository with
-`uv run python cli/load_universe.py --write` (`docs/graphdb-setup.md`), then run the projector with
+`uv run python cli/load_universe.py --write` (`docs/graphdb-setup.md`), then extend it with
+`cli/load_universe.py --delta` when `universe.db` moves, then run the projector with
 `SQL_UNIVERSE_DB=/workspaces/thesis/data/universe_history.db`: every ticker the P1/P2/P3
 `v_book_weight_daily` (CASH excluded), `v_guard_alert` and `v_guard_action` rows name is then in
 the loaded set (P1 100, P2 123, P3 115; 0 missing in the 2026-11-03 dry run). A real `--write`
