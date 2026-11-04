@@ -134,10 +134,12 @@ calibration change.
 ## The asset master and its limits (`SPEC.md` FR-004, §2.6 D1)
 
 `asset_master.py` reads every stint of `universe.db`'s `universe_membership`
-and writes the `:SP500Index` `:Universe`, one `:Asset` per symbol and one
-`:UniverseMembership` per stint. As-of questions ("who was in the index on D")
+and writes the `:SP500Index` `:Universe`, one `:Asset` per company line for a
+pure ticker succession (or per symbol for concurrent classes, a mixed CIK or a
+CIK-less stint) and one `:UniverseMembership` per stint. As-of questions ("who was in the index on D")
 are answered in the graph by `validFrom <= D` and (no `validTo` or
-`validTo > D`), the same predicate upstream uses; `validTo` is exclusive.
+`validTo >= D`), the same predicate upstream uses; `validTo` is **inclusive** and
+is the last day of membership (a one-day stint has `validFrom == validTo`).
 
 - **Freshness.** Upstream refreshes `universe.db` by hand. Every run prints the
   latest `valid_from` in the file (the latest recorded index *change*) and the
@@ -149,13 +151,23 @@ are answered in the graph by `validFrom <= D` and (no `validTo` or
   or sub-industry for a company that has left the index, so its `:Asset` has
   `tickerSymbol` and `companyName` only. `AssetShape` accepts a missing
   `cikNumber` only when every membership of the asset is closed.
-- **One `:Asset` per symbol.** Nine symbols (`BMS`, `CEG`, `DELL`, `DOW`, `JBL`,
-  `MXIM`, `PCG`, `Q`, `SNDK`) carry different company names across stints; some
-  are renames, some are different companies. Each is one `:Asset`, described by
-  its latest stint.
+- **One `:Asset` per company line for a pure rename.** `resolve_assets` groups
+  by CIK: a non-overlapping succession (`FB`→`META`, `WLTW`→`WTW`, `RE`→`EG`,
+  `FLT`→`CPAY`, `SATS`→`ECHO`, `CDAY`→`DAY`) becomes one `:Asset`, named by the
+  latest symbol, carrying every stint with its dates unchanged and the latest
+  stint's `:classifiedAs`. Concurrent classes (`GOOG`/`GOOGL`, `UA`/`UAA`) stay
+  one `:Asset` per symbol; a mixed CIK (`DISCA`/`DISCK`/`WBD`) is not guessed
+  and stays per symbol. A CIK-less stint stays grouped by symbol. `CEG`, `DELL`
+  and `Q` keep the ticker-reuse behaviour through `--since`; two kept CIKs that
+  claim the same latest ticker stop the build. Former tickers are not stored
+  here (a later work item projects `v_ticker_history`).
 - **Dirty symbols.** Two rows carry a stray `|` (`JCP |`, `ITT |`) from upstream's
   change-log scrape; the ETL strips it and reports it as a warning.
-- **Empty stints.** Two rows (`HNG`, `AYE`) have `valid_from = valid_to = 1976-06-30`; `validTo` is exclusive, so they hold on no date. The ETL skips them with a warning, and `UniverseMembershipShape` rejects `validTo <= validFrom`.
+- **One-day stints.** `validTo` is inclusive, so a row with
+  `valid_from = valid_to` (for example `PHIN` on 2023-07-05) is a real one-day
+  membership and is kept. A row whose `valid_to` is *before* its `valid_from`
+  holds on no date: the ETL skips it with a warning, and
+  `UniverseMembershipShape` rejects `validTo < validFrom`.
 - **News tickers `universe.db` lacks** (`EQR` today) stay unresolved
   (`scoreSnapshotOfAsset` unset) and are counted in the run's warning.
 

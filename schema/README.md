@@ -344,10 +344,11 @@ what the store *enforces*.
    - **TickerHistory's interval is inclusive.** `v_ticker_history.valid_to` is the symbol's last
      valid date (handoff §3.1), and the lookup is `date BETWEEN valid_from AND
      COALESCE(valid_to, '9999-12-31')`, so `TickerHistoryShape` uses `sh:lessThanOrEquals` and a
-     one-day symbol (`validFrom == validTo`) conforms. The shared `:validTo` stays exclusive on
-     `RuleDefinition` (T-187), `UniverseMembership`, `PortfolioPosition` and
-     `AttractivenessWeightScheme`; the gate's `CLOSABLE` entry carries an `inclusive` flag for
-     `TickerHistory` only.
+     one-day symbol (`validFrom == validTo`) conforms. `UniverseMembershipShape` is inclusive too
+     since T-260 (upstream's `valid_to` is the last day of membership), so `validFrom == validTo`
+     is a real one-day stint. The shared `:validTo` stays exclusive on `RuleDefinition` (T-187),
+     `PortfolioPosition` and `AttractivenessWeightScheme`; the gate's `CLOSABLE` entry carries an
+     `inclusive` flag for `TickerHistory` and `UniverseMembership`.
    - **Nullable columns.** `sh:minCount` is 1 only where the m015/m016/m018 DDL or handoff §3.3
      guarantees a value. Never required: `v_book_rebalance.cycle_run_id`, `v_guard_alert`
      asset/ticker/value, `v_guard_action` asset/ticker/weight_before/weight_after,
@@ -404,8 +405,9 @@ what the store *enforces*.
      triple and class counts, links, key aggregates, `:runLabel` and `:knowledgeDate`. No schema
      file changed, so the bundle stayed **4178 quads at that revision; conforms: True**.
    - **Not done here:** no change to the v18 pin, no ingest-gate pattern change beyond the
-     schema-driven `CLOSABLE` entry, its `inclusive` flag for `TickerHistory` (a one-day symbol must
-     not be refused) and T-207's/T-231's backtest graph name, no GraphDB write/reload, and
+     schema-driven `CLOSABLE` entry, its `inclusive` flag for `TickerHistory` and
+     `UniverseMembership` (a one-day symbol or stint must not be refused) and T-207's/T-231's
+     backtest graph name, no GraphDB write/reload, and
      `protege-view.ttl` is not regenerated (generated file; T-070/T-071).
 
 ## Validation
@@ -461,14 +463,15 @@ conforms: True.** The `urn:graph:tbox` graph (which holds `shapes.ttl`) grows by
 
 **T-111 (D14, 2026-10-05: `scoreMethod` discriminator).** `ScoreSnapshot` gains an optional, functional `:scoreMethod` (xsd:string, **open vocabulary**, no `sh:in`). Why: upstream's boundary note (`semantic-score-boundary.md` W11, rollout step 4) wants a discriminator on `score_snapshot[SEMANTIC]` so that two producers of the same `(agentOrigin, metricType)` can coexist through the cut-over without a reader double-counting. Our per-article FinBERT `Sentiment` snapshots from `src/etl/` now carry `ARTICLE_SENTIMENT`; the future per-`(asset, day)` aggregate that `portfolio-financial-analysis` materializes will carry whatever value upstream settles on, which is why the vocabulary is not enumerated. The five worked per-`(asset, day)` SEMANTIC snapshots in `instances.trig` carry `ASSET_DAY_AGGREGATE`, an **illustrative placeholder** to be replaced by upstream's value. Convention: every SEMANTIC snapshot carries `scoreMethod`; one without it is the only method of its `agentOrigin` (all non-SEMANTIC today). It is not upstream's `score_snapshot.model` (a method label defaulting to `'deterministic'`). Reader rule: a query for SEMANTIC scores should filter or group on `scoreMethod`, never mix an article-level and an asset-day row in one average. The "remove the SEMANTIC write path" half of upstream's step 4 needs no code here (the ETL only ever wrote Turtle); the stale attribution sits in upstream's `README.md`/`docs/README.md`/`docs/kg_schema.md`. `protege-view.ttl` is not regenerated (T-071). **2366 quads; conforms: True.**
 
-**T-100 (D1, 2026-10-05: `universe.db` is the asset master).** Maintainer decision: the ETL reads `portfolio-data-mining`'s point-in-time `universe.db` instead of Wikipedia's live table, so every membership stint becomes a `:UniverseMembership` (`validFrom`, and `validTo` while closed, exclusive like upstream's predicate) in one `:Universe` (`:SP500Index`, emitted by the ETL into `data.ttl`, not stored here). One shape change: `AssetShape`'s `cikNumber` is no longer unconditionally required. It is now `sh:maxCount 1` plus a `sh:or`: either the asset has a `cikNumber`, or it has at least one `:UniverseMembership` and every one of them has a `validTo`. Why: upstream records no CIK for a company that has left the index (all closed stints lack it), and inventing one would put false data in the graph; a current member without a CIK still fails. `UniverseMembershipShape` also declares `validTo` (`xsd:date`, at most one) and requires `validFrom` before it, since an exclusive `validTo` at or before `validFrom` holds on no date (upstream has two such stints, `HNG` and `AYE`, which the ETL skips). Checked with five cases (closed-only without CIK passes; open without CIK, closed-plus-open without CIK, and no membership without CIK fail; CIK without membership passes). No new class or property; `AllDisjointClasses` is unchanged. **2383 quads; conforms: True.**
+**T-100 (D1, 2026-10-05: `universe.db` is the asset master).** Maintainer decision: the ETL reads `portfolio-data-mining`'s point-in-time `universe.db` instead of Wikipedia's live table, so every membership stint becomes a `:UniverseMembership` (`validFrom`, and `validTo` while closed; `validTo` is inclusive, the last day of membership, corrected by T-260) in one `:Universe` (`:SP500Index`, emitted by the ETL into `data.ttl`, not stored here). One shape change: `AssetShape`'s `cikNumber` is no longer unconditionally required. It is now `sh:maxCount 1` plus a `sh:or`: either the asset has a `cikNumber`, or it has at least one `:UniverseMembership` and every one of them has a `validTo`. Why: upstream records no CIK for a company that has left the index (all closed stints lack it), and inventing one would put false data in the graph; a current member without a CIK still fails. `UniverseMembershipShape` also declares `validTo` (`xsd:date`, at most one) and requires `validFrom` not after it, so a one-day stint conforms; a `validTo` before `validFrom` holds on no date and is rejected (upstream's two one-day 1976 stints, `HNG` and `AYE`, are kept by the reader and dropped by `--since`). Checked with five cases (closed-only without CIK passes; open without CIK, closed-plus-open without CIK, and no membership without CIK fail; CIK without membership passes). No new class or property; `AllDisjointClasses` is unchanged. **2383 quads; conforms: True.**
 
 **T-206 (Contract v18 ontology, 2026-11-01).** The 11 new classes, their properties and 11 shapes are in `tbox.ttl`/`shapes.ttl` (refinement 7 above), and `rules.ttl` now has the 10 selection rules plus the 5 GUARD rules. `TickerHistory`'s interval is inclusive (`validFrom <= d <= validTo`; a one-day symbol is valid), and the Orchestrator shapes require only their natural keys (`orchestratorRunId`; `stepOfOrchestratorRun` + `ordinal`) because handoff §3.1 gives no base-table nullability and both views have 0 rows. The bundle parses clean and `pyshacl` conforms: **4178 quads at that revision; conforms: True.** The canonical command is the same as above (`tbox.ttl` + `shapes.ttl` + `reference.ttl` + `rules.ttl` + `instances.trig`); the test suite also validates the flat union with `rules.ttl` included. No GraphDB write or reload was made in that change; the store was reloaded with T-212 on 2026-11-02 (`docs/graphdb-setup.md`), and `verify_store` passes. `schema/protege-view.ttl` is generated and was not regenerated (T-070/T-071).
 
 **T-210 (FIBO Phase 1, 2026-11-03).** FIBO is a reference vocabulary, not a dependency: six
 `rdfs:seeAlso` links, no `owl:imports`/`owl:equivalentClass`/`rdfs:subClassOf`, no FIBO axioms in
 reasoning. `tbox.ttl` loses the two broken `https://www.omg.org/spec/EDMC-FIBO/` links (`:Asset`'s
-`LegalPerson`, with no replacement because `:Asset` is one node per ticker; `:SECFiling`'s
+`LegalPerson`, with no replacement because `:Asset` is one node per company line for a pure rename
+(T-264) and FIBO has no matching term; `:SECFiling`'s
 `Filing`, replaced by `Report`) and gains the six links in `fibo_terms.csv`: `:Portfolio`,
 `:PortfolioPosition`, `:tickerSymbol`, `:Sector`, `:Industry` and `:SECFiling`. `kg_target_schema.ttl`
 gets the same removals and four of the six links (it does not declare `:Sector` or `:Industry`; it
@@ -541,6 +544,19 @@ fresh load is 20 graphs and 4481 asserted triples (4513 + 2 − 34).
 `kg_target_schema.ttl` carries the same property and shapes. No GraphDB load was made; the
 maintainer must reload the schema and drop any backtest graph written under the retired unlabelled
 name (`urn:graph:derived:backtest:{window_id}:{run}`) before projecting with labels.
+
+**T-260/T-264 (inclusive membership end and the CIK fold, 2026-11-04).** `UniverseMembershipShape`
+switches `sh:lessThan` to `sh:lessThanOrEquals`, so a one-day stint (`validFrom == validTo`) is
+valid and only a `validTo` before `validFrom` fails; `gate.CLOSABLE` also treats a membership as
+inclusive. The asset catalog is resolved by CIK in `etl.asset_master.resolve_assets`: a pure ticker
+succession is one `:Asset` named by its latest symbol, while concurrent classes, a mixed CIK and a
+CIK-less symbol stay per symbol. `projection.backtest.universe_assets` and
+`projection.score_snapshots.universe_symbols` use the same resolver. No class or property changes,
+so the FR-001 bundle is still **4204 quads; conforms: True**. No GraphDB write or reload was made.
+On `universe_history_gics.db` at the default `--since`, the final dry run wrote 643 `:Asset`s plus
+five in `reference.ttl` (648 assets from 654 symbols; six successions folded), 658 memberships,
+6548 triples; 59 written assets lack `:classifiedAs` and the P1/P2/P3 dry runs leave 0 tickers
+unlinked.
 
 "Active at cutoff" is the general predicate; the **T-1 lag is the same query with `?cutoff` bound to
 the previous cycle date**. It needs the store to query the union of the named graphs (GraphDB does

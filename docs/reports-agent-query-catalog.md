@@ -81,10 +81,11 @@ is the template.
 `:UniverseMembership`, `:PriceObservation` and `:Executive`. Five of them have
 a FIBO link (`:Portfolio`, `:PortfolioPosition`, `:Sector`, `:Industry` and
 `:SECFiling`); the other five come back with every `?fibo*` variable unbound.
-`:Asset` is deliberately one of the unbound ones: one `:Asset` is one ticker
-symbol, not one company, so FIBO's `LegalPerson`/`PubliclyHeldCompany` would
-misstate multi-class companies and reused tickers (its own definition names
-GOOGL and GOOG). `:Universe` and `:UniverseMembership`, `:PriceObservation`
+`:Asset` is deliberately one of the unbound ones: since T-264 it is one node
+per company line for a pure ticker succession (`FB`→`META`), but still one
+node per symbol for concurrent share classes (its own definition names GOOGL
+and GOOG) and for a mixed CIK, so FIBO's `LegalPerson`/`PubliclyHeldCompany`
+would misstate those classes and a reused ticker. `:Universe` and `:UniverseMembership`, `:PriceObservation`
 and `:Executive` have no FIBO link for the reasons `docs/06` §1.1 gives. The
 rows are not dropped, and they do not cross-join the glossary.
 
@@ -267,6 +268,39 @@ The result is 5 `FINANCIAL` rules (`LEVERAGE_EXTREME`, `NEGATIVE_FCF`,
 `LIQUIDITY_DISTRESS`, `EARNINGS_MISSING`, `UTILITY_CASH_COVERAGE`), 1
 `DATA_QUALITY` rule, 4 `MARKET` rules (`PRICE_CRASH`, `VOLATILITY_SHOCK`,
 `CRASH_Z_SCORE`, `BREAK_TREND_200`) and the 5 `GUARD` rules.
+
+### 4.1 Who was in the S&P 500 on a date
+
+`validTo` is **inclusive**: it is the last day of membership, not the first
+day after it. A point-in-time read binds D in one place and keeps a membership
+with `validFrom <= D AND (no validTo OR validTo >= D)`. The date below is the
+last day of the old `FB` stint; the `META` stint starts the next day, so an
+exclusive `validTo > D` predicate would return no row. The asset is already the
+one `:Asset` for the company (`:META`), because the rename chain shares a CIK.
+The `:Universe` graph is one of the quarter graphs written by
+`cli/load_universe.py`; the query does not hardcode its quarter.
+
+<!-- q:universe-members-on-date expect:1 -->
+
+```sparql
+PREFIX :   <https://thesis.local/kg/portfolio#>
+PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+
+SELECT ?asset ?ticker ?from ?to
+WHERE {
+  GRAPH ?g {
+    ?membership a :UniverseMembership ;
+                :membershipAsset ?asset ;
+                :validFrom ?from .
+    OPTIONAL { ?membership :validTo ?to }
+    ?asset :tickerSymbol ?ticker .
+  }
+  FILTER (STRSTARTS(STR(?g), "urn:graph:universe:"))
+  FILTER (?from <= "2022-06-08"^^xsd:date)
+  FILTER (!BOUND(?to) || ?to >= "2022-06-08"^^xsd:date)
+}
+ORDER BY ?ticker
+```
 
 ## 5. The backtest battery
 
@@ -922,9 +956,11 @@ WHERE {
   sector either.
 - GICS is a reference taxonomy rolled up by `src/etl/common/gics_rollup.py`;
   the catalog never invents a classification for an unmapped string.
-- `validTo` semantics and asset identity (renamed tickers) belong to Work item
-  23. This catalog does not restate them, and the sector queries above do not
-  depend on either being resolved.
+- `validTo` is inclusive: it is the last day of membership. A pure ticker
+  rename is one `:Asset` named by its latest symbol (Work item 23).
+- 59 assets stay without `:classifiedAs` on purpose: the 56 closed stints of
+  2019–2021 with no GICS source (above), plus the temporary members MBC, FTRE
+  and PHIN.
 
 ## 7. Limits: what this graph can and cannot answer
 
@@ -1013,11 +1049,13 @@ with or without the FIBO slice.
    (`urn:graph:reference`), plus a synthetic `urn:graph:universe:2026-Q4`
    that reproduces the real split: `:Asset` and `:classifiedAs` in the quarter
    graph, the `:Industry`/`:Sector` taxonomy in `urn:graph:reference`, and one
-   asset (`AAPL`) in both graphs for the T-225 overlap; plus two run labels
-   (`rule`, `champ_v1`) across two windows of the synthetic backtest scenario,
-   projected with `projection.backtest.project`, and a dedicated composition
-   dataset with a classified holding, a catalog asset without `:classifiedAs`
-   and an unlinked ticker;
+   asset (`AAPL`) in both graphs for the T-225 overlap; the same universe graph
+   holds one rename chain (the `FB` stint ends on 2022-06-08, inclusive, and
+   the `META` stint starts on 2022-06-09 on the one `:META` asset); plus two
+   run labels (`rule`, `champ_v1`) across two windows of the synthetic
+   backtest scenario, projected with `projection.backtest.project`, and a
+   dedicated composition dataset with a classified holding, a catalog asset
+   without `:classifiedAs` and an unlinked ticker;
 3. runs every query and checks its expectation: an exact row count, a
    non-empty result, or a named rule (`expect:rule=...`);
 4. checks the no-FIBO rows in `A1` (`:Asset`, `:Universe`,

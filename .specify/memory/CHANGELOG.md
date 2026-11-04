@@ -839,6 +839,74 @@ loader were untouched.*
       all hooks (the standalone `uv run ruff check .` still reports the
       pre-existing repo-wide 0.16.x/config mismatch, not these files). → step 5.
 
+## Work item 23 — Inclusive membership end dates and one asset per CIK (2026-11-04)
+
+*Closed 2026-11-04. Plan: `PLAN.md` Work item 23. Two work commits on
+`feat/universe-inclusive-validto-cik-fold`: T-260–T-263 are Commit 1 (the inclusive `validTo`);
+T-264–T-271 are Commit 2 (the CIK fold); `origin/master` was merged after PR #119, keeping both
+sides of the append-only logs. No GraphDB write or schema reload was made.*
+
+- [x] **T-260** *(done 2026-11-04)* Make `:UniverseMembership`'s `validTo` inclusive:
+      `read_stints` keeps `valid_to == valid_from` and skips only `valid_to < valid_from`;
+      `UniverseMembershipShape` uses `sh:lessThanOrEquals`; the gate's `CLOSABLE` entry treats a
+      membership as inclusive (a same-day closure is a one-day stint). Do not change another
+      class's `validTo` semantics. → `PLAN.md` Work item 23, Commit 1.
+- [x] **T-261** *(done 2026-11-04)* Tests: a one-day stint is kept and SHACL-conforms;
+      `validTo < validFrom` still fails; a membership on its last day is in the catalog query; a
+      same-day membership closure is accepted and a closure before its opening day is refused.
+      → Commit 1.
+- [x] **T-262** *(done 2026-11-04)* Update every statement and query that said exclusive for
+      memberships: `schema/tbox.ttl`, `schema/shapes.ttl`, `schema/README.md`, `docs/06`, `docs/07`,
+      `src/etl/README.md`, `docs/graphdb-setup.md`, SPEC FR-004/FR-008/D1 and
+      `docs/reports-agent-query-catalog.md` (+ `tests/test_query_catalog.py`). The predicate is
+      `validFrom <= D AND (no validTo OR validTo >= D)`. → Commit 1.
+- [x] **T-263** *(done 2026-11-04, read-only)* Real-data verification on
+      `/workspaces/thesis/data/universe_history_gics.db`: before 657 stints over 653 symbols, 648
+      `:Asset`s plus five in `reference.ttl`, 657 memberships (503 open, 154 closed), 6563 triples,
+      63 written assets without `:classifiedAs`; after 658 stints over 654 symbols (236 dropped over
+      230; 215 not loaded, 15 with a later stint kept), 649 `:Asset`s plus five, 658 memberships
+      (503 open, 155 closed), 6573 triples, 64 written assets without `:classifiedAs` (their latest
+      stint has no GICS sub-industry; Work item 22's six values are mapped), SHACL conforms.
+      → `PLAN.md` Work item 23, Commit 1.
+- [x] **T-264** *(done 2026-11-04)* Added one shared CIK-aware resolver
+      (`etl.asset_master.resolve_assets`, with `classify_ciks` and `AssetResolutionError`): a pure
+      succession (one CIK, symbols' inclusive stints non-overlapping) becomes one `:Asset` named
+      by the latest stint's symbol with every stint as a membership; concurrent share classes stay
+      one `:Asset` per symbol; a mixed CIK stays as today; a CIK-less stint stays grouped by
+      symbol. The `:TICKER` IRI scheme is unchanged and no property or class was added. → Commit 2.
+- [x] **T-265** *(done 2026-11-04)* `build_assets`/`cli/load_universe.py` use the resolver;
+      `--since` and ticker reuse (`CEG`, `DELL`, `Q`) keep their behaviour; two kept CIKs claiming
+      the same latest ticker stop the run with both CIKs named (`STOPPED`, exit 1); the resolver
+      exposes the multi-symbol CIK classification. → Commit 2.
+- [x] **T-266** *(done 2026-11-04)* `projection.backtest.universe_assets` uses the same resolver
+      (no second grouping), and `projection.score_snapshots.universe_symbols` does too, so a
+      former ticker is never offered as an asset;
+      `test_the_loader_and_the_backtest_projector_share_the_asset_set` proves the sets are equal.
+      → Commit 2.
+- [x] **T-267** *(done 2026-11-04)* Hermetic tests in `tests/test_asset_master.py` and
+      `tests/test_universe_load.py`: the `FB`→`META` chain is one `:META` with two memberships and
+      no `:FB`; concurrent classes stay separate; the mixed `DISCA`/`DISCK`/`WBD` stays per
+      symbol; a CIK-less stint stays by symbol; two kept CIKs on one ticker stop; loader and
+      projector agree. → Commit 2.
+- [x] **T-268** *(done 2026-11-04, read-only)* Real-data verification on
+      `universe_history_gics.db` at `--since` 2019-01-02: before 658 stints over 654 symbols, 649
+      `:Asset`s plus five, 658 memberships (503 open, 155 closed), 6573 triples, 64 without
+      `:classifiedAs`; after 643 `:Asset`s plus five (648 assets from 654 symbols; six successions
+      folded), 658 memberships (503 open, 155 closed), 6548 triples, 59 without `:classifiedAs`,
+      SHACL conforms. Every multi-symbol CIK is classified: six successions, four concurrent, one
+      mixed. → Commit 2.
+- [x] **T-269** *(done 2026-11-04, read-only)* Dry runs of `cli/project_backtest.py` for
+      `rule_P1`, `rule_P2` and `rule_P3` (`--db rule=<path>`): the graphs are SHACL-valid and not
+      written, with 0 unlinked assets; every ticker in `v_book_weight_daily` (CASH excluded),
+      `v_guard_alert` and `v_guard_action` links (P1 100, P2 123, P3 115 distinct; 0 missing).
+      → Commit 2.
+- [x] **T-270** *(done 2026-11-04)* Updated SPEC FR-004/FR-008/D1, `docs/06`, `docs/07`,
+      `src/etl/README.md`, `schema/README.md` and `docs/graphdb-setup.md` for the CIK fold and
+      every asserted count, keeping `:Asset` per company vs per share class explicit. → Commit 2.
+- [x] **T-271** *(done 2026-11-04)* Final gates and reconciliation: `uv run pytest`, `uv run mypy
+      --config-file=.code_quality/mypy.ini`, the pinned `uv run pre-commit run --all-files`; Work
+      item 23 moved to `CHANGELOG.md`. → Commit 2.
+
 ## Work item 24 — Verify a loaded backtest against its source (2026-11-04)
 
 *Closed 2026-11-04. Plan: `PLAN.md` Work item 24. Code, tests and the runbook; no

@@ -36,7 +36,7 @@
     a owl:Class ;
     rdfs:label "Asset" ;
     rdfs:label "activo"@es ;
-    skos:definition "Línea cotizada del S&P 500 que sigue el sistema, identificada por su símbolo bursátil. Una empresa con varias clases de acciones en el índice tiene un nodo por clase (GOOGL y GOOG, FOXA y FOX, NWSA y NWS); un símbolo reutilizado por otra empresa es un solo nodo, descrito por su uso más reciente (por ejemplo, CEG)."@es ;
+    skos:definition "Línea cotizada del S&P 500 que sigue el sistema, identificada por su símbolo más reciente. Una empresa que cambia de símbolo es un solo nodo con todas sus pertenencias (por ejemplo, FB→META); una empresa con varias clases de acciones en el índice tiene un nodo por clase (GOOGL y GOOG, FOXA y FOX, NWSA y NWS). Un símbolo reutilizado por otra empresa conserva el nodo de la era que se carga; si dos CIK cargados reclaman el mismo símbolo más reciente, la carga se detiene."@es ;
     rdfs:comment "A publicly traded S&P 500 constituent tracked by the system (v1 §2A, §3A)." .
 
 :Sector
@@ -68,8 +68,8 @@
     a owl:Class ;
     rdfs:label "Universe Membership" ;
     rdfs:label "pertenencia al universo"@es ;
-    skos:definition "Pertenencia de un activo al universo durante un intervalo [validFrom, validTo); sin validTo, sigue vigente."@es ;
-    rdfs:comment "N-ary relation reifying v1's (Asset)-[PERTENECE_A_UNIVERSO{fecha_inicio,fecha_fin}]->(Universe) edge as a first-class individual. validTo absent/unbound == still active (mirrors v1's fecha_fin=NULL)." .
+    skos:definition "Pertenencia de un activo al universo durante el intervalo inclusivo [validFrom, validTo]; validTo es el último día de pertenencia y, si falta, sigue vigente."@es ;
+    rdfs:comment "N-ary relation reifying v1's (Asset)-[PERTENECE_A_UNIVERSO{fecha_inicio,fecha_fin}]->(Universe) edge as a first-class individual. validTo is INCLUSIVE (the last day of membership, upstream's valid_to); a one-day stint has validFrom == validTo. validTo absent/unbound == still active (mirrors v1's fecha_fin=NULL)." .
 
 :ScoreSnapshot
     a owl:Class ;
@@ -630,7 +630,7 @@
 :validFrom a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:range xsd:date ;
     rdfs:comment "Valid-time start (06-ontology-definition.md §1.4)." .
 :validTo   a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:range xsd:date ;
-    rdfs:comment "Valid-time end. Absent/unbound == currently active. On a RuleDefinition (T-187) it is exclusive: the rule is valid on d when validFrom <= d < validTo, and a successor with the same :ruleId starts on that day (the superseded LIQUIDITY_DISTRESS ends 2026-10-10, its redefinition starts then). On a TickerHistory (T-206) it is INCLUSIVE: the symbol is valid on d when validFrom <= d <= validTo, because v_ticker_history.valid_to is the symbol's last valid date (handoff §3.1), and TickerHistoryShape uses sh:lessThanOrEquals. UniverseMembership, PortfolioPosition and AttractivenessWeightScheme keep the exclusive reading." .
+    rdfs:comment "Valid-time end. Absent/unbound == currently active. On a RuleDefinition (T-187) it is exclusive: the rule is valid on d when validFrom <= d < validTo, and a successor with the same :ruleId starts on that day (the superseded LIQUIDITY_DISTRESS ends 2026-10-10, its redefinition starts then). On a TickerHistory (T-206) and a UniverseMembership (T-260) it is INCLUSIVE: the symbol or membership is valid on d when validFrom <= d <= validTo, because v_ticker_history.valid_to and universe_membership.valid_to are the last valid date (handoff §3.1; T-260), and both shapes use sh:lessThanOrEquals. PortfolioPosition and AttractivenessWeightScheme keep the exclusive reading." .
 
 # --- ScoreSnapshot / SectorAggregateSnapshot (via ObservationSnapshot union) ---
 :normalizedScore a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :ObservationSnapshot ; rdfs:range xsd:decimal ;

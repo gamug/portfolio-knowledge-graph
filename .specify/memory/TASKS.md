@@ -1133,6 +1133,7 @@ name and every individual IRI. See `PLAN.md` Work item 20. Task IDs T-230–T-23
       backtest graph written to a scratch repository under the retired unlabelled name**
       (`urn:graph:derived:backtest:{window_id}:{run}`); the loader leaves removed graphs in place,
       and the gate no longer accepts those names. → `PLAN.md` Work item 20.
+
 ## Status
 
 Closed Work items 1, 2, 3, 5, 7 (superseded/decided by T-007), 9, 10, 11 and 14 are in
@@ -1156,6 +1157,8 @@ Work item 21 (T-240–T-243): closed 2026-11-03 — the reports-agent query cata
 Work item 22 (T-250–T-259): closed 2026-11-04 — the six historical GICS sub-industry names now roll
 up to existing `reference.ttl` groups, and the full dry run reports 6563 triples with no
 unmapped-value warning; see `CHANGELOG.md`.
+Work item 23 (T-260–T-271): closed 2026-11-04 — inclusive membership `validTo`, one `:Asset` per
+CIK for a pure rename, and the shared loader/projector resolver; see `CHANGELOG.md`.
 Work item 24 (T-280–T-283): closed 2026-11-04 — the read-only backtest verifier
 (`cli/verify_backtest.py`), its hermetic tests, the final-load runbook and the re-measured dry-run
 numbers; see `CHANGELOG.md` and `docs/backtest-load-runbook.md`.
