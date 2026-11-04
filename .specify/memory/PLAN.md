@@ -1650,7 +1650,7 @@ not a different company. The selection projector's reported unlinked rows (ranki
   GraphDB write is made.
 
 **Validation (2026-11-04):** `uv run pytest -q` = **1162 passed, 57 deselected, 3049 warnings in
-647.86 s**; `uv run mypy --config-file=.code_quality/mypy.ini` = success, 90 source files;
+651.49 s**; `uv run mypy --config-file=.code_quality/mypy.ini` = success, 90 source files;
 `uv run pre-commit run --all-files` = all hooks passed. `tests/test_reference_real.py` passes with
 `REFERENCE_DB=rule_P1.db` and `SQL_UNIVERSE_DB=universe_history_gics.db`. No GraphDB write or
 reload; the pilot `financial.db` has no `schema_version` (reads 0, below the v18 floor), and the

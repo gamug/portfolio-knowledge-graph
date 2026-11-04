@@ -1049,7 +1049,7 @@ test changed; no `src/`, `schema/` or gate change.*
 
 Design: `PLAN.md` Work item 27. This work item closes T-208.
 
-**Validation.** `uv run pytest -q`: **1162 passed, 57 deselected, 3049 warnings in 647.86 s**.
+**Validation.** `uv run pytest -q`: **1162 passed, 57 deselected, 3049 warnings in 651.49 s**.
 `uv run mypy --config-file=.code_quality/mypy.ini`: success, 90 source files. `uv run pre-commit
 run --all-files`: all hooks passed. Real read-only dry runs over `rule_P1/P2/P3.db`: 21
 `v_ticker_history` rows, 198 triples and 21 individuals per database, 17 exact + 4 same-CIK asset
