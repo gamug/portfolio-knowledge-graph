@@ -53,7 +53,7 @@ unscoped pattern.
 | `urn:graph:universe:{year}-Q{n}` | the asset catalog: `:Asset`, `:classifiedAs`, `:UniverseMembership` | `GRAPH ?g { ... } FILTER (STRSTARTS(STR(?g), "urn:graph:universe:"))`, or the §6 sub-select |
 | `urn:graph:reference:fibo` | the FIBO 2026Q2 glossary slice (54 entries) | `GRAPH <urn:graph:reference:fibo> { ... }` |
 | `urn:graph:rules:catalog` | every `:RuleDefinition`, selection and GUARD | `GRAPH <urn:graph:rules:catalog> { ... }` |
-| `urn:graph:derived:backtest:*` | one append-only graph per completed run family and window | `GRAPH ?g { ... } FILTER (STRSTARTS(STR(?g), "urn:graph:derived:backtest:"))` |
+| `urn:graph:derived:backtest:*` | one append-only graph per completed run family and window: the m018 book/GUARD graph and the selection-side sibling (`...:selection:...`) | `GRAPH ?g { ... } FILTER (STRSTARTS(STR(?g), "urn:graph:derived:backtest:"))` |
 
 The backtest graph's full name is
 `urn:graph:derived:backtest:{label}:{window}:{run_id}`.
@@ -623,8 +623,102 @@ ORDER BY ?window ?arm
 One row per label × window, with the number of `:StrategyBook`s the store holds
 for that run. This is the query to run first: it tells the agent which
 `FILTER (?label = "...")` values and which `:windowId` values exist. It
-intentionally spans every label; the per-run queries in §5.1–§5.9 (except the
+intentionally spans every label; the per-run queries in §5.1–§5.13 (except the
 property inventory in §5.7) select one.
+
+### 5.11 The ranking at a rebalance
+
+One row per asset in the selected cycle, in rank order. `:rankPosition` is upstream's rank,
+`:selectedForBook` its selection flag, `:targetWeight` its book weight (absent when not selected)
+and `:vetoRulesJson` upstream's rule ids/markers verbatim. A row with no `:hasEffectiveWeight`
+entry is the UNSCORED/UNPRICED placeholder (score 0.0), as in `selection-why-not-top30`.
+
+<!-- q:selection-ranking-at-rebalance expect:5 -->
+
+```sparql
+PREFIX :   <https://thesis.local/kg/portfolio#>
+PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+
+SELECT ?rank ?ticker ?score ?selected ?target ?vetoed ?rules
+WHERE {
+  GRAPH ?g {
+    ?snap a :AttractivenessSnapshot ; :runLabel ?label ; :windowId ?window ;
+      :rankingOfCycle ?cycle ; :rankPosition ?rank ; :rankingTicker ?ticker ;
+      :attractivenessScore ?score ; :selectedForBook ?selected ;
+      :vetoedAtRanking ?vetoed .
+    ?cycle :runAsOf ?date .
+    OPTIONAL { ?snap :targetWeight ?target }
+    OPTIONAL { ?snap :vetoRulesJson ?rules }
+  }
+  FILTER (STRSTARTS(STR(?g), "urn:graph:derived:backtest:"))
+  # Optional run-label parameter: change "rule" to another label.
+  FILTER (?label = "rule")
+  FILTER (?window = "P1" && ?date = "2022-01-05"^^xsd:date)
+}
+ORDER BY ?rank
+```
+
+### 5.12 The selection vetoes in force at a cutoff
+
+A veto is in force at `C` iff `raisedOn <= C` and it has no `clearedOn` on or before `C`; the
+T-1 lag is that read-time predicate, not a stored flag. The synthetic run has two such stints on
+2022-01-05 (`CCC` DATA_QUALITY and `ZZZ` LIQUIDITY_DISTRESS); the BBB liquidity stint cleared on
+2021-12-15 and is excluded.
+
+<!-- q:selection-vetoes-in-force expect:2 -->
+
+```sparql
+PREFIX :   <https://thesis.local/kg/portfolio#>
+PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+
+SELECT ?ticker ?ruleId ?severity ?raised ?cleared
+WHERE {
+  GRAPH ?g {
+    ?veto a :Veto ; :runLabel ?label ; :windowId ?window ; :vetoTicker ?ticker ;
+      :raisedOn ?raised ; :appliesRule ?rule .
+    OPTIONAL { ?veto :clearedOn ?cleared }
+    FILTER NOT EXISTS { ?veto :clearedOn ?closed FILTER (?closed <= "2022-01-05"^^xsd:date) }
+    FILTER (?raised <= "2022-01-05"^^xsd:date)
+  }
+  GRAPH <urn:graph:rules:catalog> { ?rule :ruleId ?ruleId }
+  FILTER (STRSTARTS(STR(?g), "urn:graph:derived:backtest:"))
+  # Optional run-label parameter: change "rule" to another label.
+  FILTER (?label = "rule")
+  FILTER (?window = "P1")
+}
+ORDER BY ?ticker ?ruleId
+```
+
+### 5.13 Why one asset did not make the Top-30
+
+The row for `BRK.B` on the synthetic rebalance: rank 5, not selected, `vetoedAtRanking` true,
+`vetoRulesJson` `["UNSCORED"]`, score 0.0 and zero effective-weight components. That absence is
+the placeholder marker, not a missing projection.
+
+<!-- q:selection-why-not-top30 expect:1 -->
+
+```sparql
+PREFIX :   <https://thesis.local/kg/portfolio#>
+PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+
+SELECT ?ticker ?rank ?selected ?vetoed ?rules ?score (COUNT(?component) AS ?components)
+WHERE {
+  GRAPH ?g {
+    ?snap a :AttractivenessSnapshot ; :runLabel ?label ; :windowId ?window ;
+      :rankingOfCycle ?cycle ; :rankingTicker ?ticker ; :rankPosition ?rank ;
+      :selectedForBook ?selected ; :vetoedAtRanking ?vetoed ;
+      :attractivenessScore ?score .
+    ?cycle :runAsOf ?date .
+    OPTIONAL { ?snap :vetoRulesJson ?rules }
+    OPTIONAL { ?snap :hasEffectiveWeight ?component }
+  }
+  FILTER (STRSTARTS(STR(?g), "urn:graph:derived:backtest:"))
+  # Optional run-label parameter: change "rule" to another label.
+  FILTER (?label = "rule")
+  FILTER (?window = "P1" && ?date = "2022-01-05"^^xsd:date && ?ticker = "BRK.B")
+}
+GROUP BY ?ticker ?rank ?selected ?vetoed ?rules ?score
+```
 
 <!-- q:runs-available expect:4 -->
 
@@ -978,9 +1072,11 @@ The status column is one of:
   `reference.ttl` assets are additional). The sector questions (Q5 and Q11) are
   therefore **Today**. The label stays for the rows whose own live check has
   not been recorded.
-- **After T-209** — the backtest veto projector. Without it the graph knows
-  GUARD cuts but not the selection vetoes that explain an asset's exit at a
-  rebalance.
+- **After T-209 (retired 2026-11-04, Work item 26)** — the backtest veto
+  projector. It now exists: `selection-vetoes-in-force` answers the selection
+  vetoes that explain an asset's exit at a rebalance, and
+  `selection-ranking-at-rebalance` answers the rank/selection side. The label
+  is kept here only for the record.
 - **After T-208** — the ticker-history and orchestrator-view projectors.
   Without them the graph cannot resolve a historical symbol or a run/step.
 - **Never by design** — the source masks the data or the design excludes it.
@@ -1007,7 +1103,7 @@ text and the statuses.
 | Q6 | ¿Qué es un informe 10-K y quién lo recibe? | Today | A1-terms (:SECFiling) plus A2 for "comisión de bolsa y valores de ee. uu. (sec)" |
 | Q7 | ¿Qué papel tiene X en la empresa Y? | Not projected yet (needs :Executive individuals from DEF 14A; no projector exists or is scheduled) | A1-terms for the class :Executive only |
 | Q8 | ¿Qué es la volatilidad y cómo la usa el sistema? | Today (A2 for "volatilidad" plus the VOLATILITY_SHOCK and BREAK_TREND_200 rules in the rule-catalog query) | A2-volatilidad; the rule catalog query |
-| Q9 | (control) ¿Por qué salió X del portafolio? | GUARD cuts: Today; selection vetoes at a rebalance: After T-209 | cut-explanation |
+| Q9 | (control) ¿Por qué salió X del portafolio? | Today: GUARD cuts via `cut-explanation`; selection vetoes at a rebalance via `selection-vetoes-in-force` | `cut-explanation`; `selection-vetoes-in-force` |
 | Q10 | (control) ¿Cuántas posiciones tiene el portafolio actual? | Not projected yet for the live portfolio (v_portfolio_position has no projector); for a backtest book, the number of equities per day is :nEquity on BookDailyPerformance (Today) and must NOT be presented as the live portfolio | n-equity-per-arm-on-last-day (new query) |
 | Q11 | (control) ¿Qué empresas del portafolio son bancos o aseguradoras? | Today (industries Banks and Insurance come from the GICS classification of the assets, never from FIBO); the brief states the answer must not change with the FIBO slice | `held-tickers-by-window-industry` (change its `VALUES` for other industries) |
 
@@ -1019,7 +1115,7 @@ text and the statuses.
 | B2 | ¿Qué alertas GUARD se dispararon por ventana, mes y regla? | Today | `guard-alerts-window-month-rule` |
 | B3 | ¿Cuál fue el NAV más reciente de cada brazo conocido en la fecha D? | Today | `latest-nav-known-on-date` |
 | B4 | ¿Qué tickers cortó más veces la capa 1? | Today | `layer1-cut-tickers` |
-| B5 | ¿Por qué se cortó un activo? | Today for GUARD cuts; after T-209 for selection/veto exits | `cut-explanation` |
+| B5 | ¿Por qué se cortó un activo? | Today: GUARD cuts via `cut-explanation`; selection/veto exits via `selection-vetoes-in-force` | `cut-explanation`; `selection-vetoes-in-force` |
 | B6 | ¿Qué fechas de conocimiento tienen los libros? | Today | `book-knowledge-dates` |
 | B7 | ¿Qué propiedades exponen `BookWeightDaily` y `BookDailyPerformance`? | Today (and it shows what is absent) | `book-weight-daily-properties` |
 | B8 | ¿Cuántos pesos hay por ventana y brazo? | Today | `weight-scale` |
@@ -1029,8 +1125,8 @@ text and the statuses.
 A term query answers *what a thing means*; it never answers *why this asset
 was in or out of a portfolio*. The reason is a `:Veto` (selection), a
 `:GuardAlert`/`:GuardAction` pair (protection) or a `:BookRebalance` record,
-and it is answered by the data queries in §5 or, for selection vetoes, after
-T-209. Asking `A1` for `:Veto` and reading the FIBO definition does not tell
+and it is answered by the data queries in §5: `cut-explanation` for GUARD
+cuts and `selection-vetoes-in-force` for selection vetoes. Asking `A1` for `:Veto` and reading the FIBO definition does not tell
 the agent why a specific asset was excluded; asking `cut-explanation` does not
 tell it what a stop loss means. The two surfaces are complementary and must
 not be substituted for each other.
