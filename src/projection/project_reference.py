@@ -146,6 +146,7 @@ def project(args: argparse.Namespace) -> list[tuple[Database, ReferenceRunResult
 
 def main(argv: Sequence[str] | None = None) -> int:
     args = parse_args(argv)
+    args.as_of = args.as_of or today()
     try:
         results = project(args)
     except (BoundaryError, ProjectionError) as exc:
@@ -175,7 +176,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     failed = False
     for database, result in results:
         print(f"\n{database.label}: {database.path}")
-        print(f"snapshot: {args.as_of or today()}")
+        print(f"snapshot: {args.as_of}")
         print(result.summary())
         failed = failed or bool(result.rejected) or result.report.stopped
     return 1 if failed else 0
