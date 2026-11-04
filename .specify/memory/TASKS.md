@@ -1167,6 +1167,9 @@ CIK for a pure rename, and the shared loader/projector resolver; see `CHANGELOG.
 Work item 24 (T-280–T-283): closed 2026-11-04 — the read-only backtest verifier
 (`cli/verify_backtest.py`), its hermetic tests, the final-load runbook and the re-measured dry-run
 numbers; see `CHANGELOG.md` and `docs/backtest-load-runbook.md`.
+Work item 25 (T-300–T-308): closed 2026-11-04 — the catalog's sector/industry section, its
+cross-graph rule and six executable queries, the real-layout synthetic store and the negative
+single-graph test; see `CHANGELOG.md`.
 Work item 27 (T-350–T-360): closed 2026-11-04 — the ticker-history and orchestrator projector,
 CLI, gate patterns, tests, real dry runs and the `ticker-history-on-date` query; see
 `CHANGELOG.md` and `PLAN.md` Work item 27.
