@@ -838,3 +838,60 @@ loader were untouched.*
       = success, 77 files; `uv run pre-commit run --files <changed files>` passes
       all hooks (the standalone `uv run ruff check .` still reports the
       pre-existing repo-wide 0.16.x/config mismatch, not these files). → step 5.
+
+## Work item 24 — Verify a loaded backtest against its source (2026-11-04)
+
+*Closed 2026-11-04. Plan: `PLAN.md` Work item 24. Code, tests and the runbook; no
+schema file, no GraphDB write or reload.*
+
+- [x] **T-280** *(done 2026-11-04)* Add `src/projection/verify_backtest.py` and its thin entry point
+      `cli/verify_backtest.py`: `--graph` (required), `--db` and `--label`. The store comes from
+      `GraphDB.from_env()` and the verifier issues only SPARQL `SELECT` queries. It re-projects the
+      source in memory through a new `projection.backtest.project_source` (the same boundary,
+      projector and deterministic Turtle the write path uses), prints the repository and graph it
+      checked, one `PASS`/`FAIL` line per check, and exits 0 only when every check passes. The
+      checks cover the graph name and stored `:runLabel`/`:windowId`/`:backtestRunId`, total
+      triples, the eight class counts, distinct `:holdingAsset`/`:guardAsset` tickers and the
+      unlinked-row ceiling, GuardAlert groups by rule/layer/state, GuardAction by status, last NAV
+      per arm, CASH rows, `:runLabel` through the book and `:knowledgeDate`. `project_source` is
+      also now what `backtest.run` calls, so the verifier cannot drift from the writer. →
+      `PLAN.md` Work item 24, item 1.
+- [x] **T-281** *(done 2026-11-04)* Add `docs/backtest-load-runbook.md`: schema reload and
+      `verify_store`, the one-time asset-catalog load, copying the databases, the pinned contract
+      check, the label rule, the dry run, `--write` and the `--to-production` guard, the
+      per-graph verifier, recording the numbers, dropping exactly one graph, a new label/run, and
+      the common failure messages. The catalog section states the real limit read from the code and
+      gate: the loader writes the whole catalog, a second same-quarter load is refused because the
+      graph exists, a later quarter re-declares the same typed individuals and is refused by check
+      6, so a new ticker needs a fresh repository (or a new incremental membership task); dropping
+      the universe graph or writing around the gate is never the procedure. → item 2.
+- [x] **T-282** *(done 2026-11-04, read-only)* Re-measure the three completed databases:
+      `rule_P1.db` 15,615 `v_book_weight_daily` rows and 209,886 triples in
+      `urn:graph:derived:backtest:rule:P1:1`; `rule_P2.db` 15,641 and 196,840; `rule_P3.db` 18,025
+      and 222,449. Peak RSS 0.66–0.73 GB and 44–48 s per database; all three dry runs exit 0 with
+      `SHACL-valid, not written`. Recorded in `docs/graphdb-setup.md` and the runbook. → item 3.
+- [x] **T-283** *(done 2026-11-04)* Tests: `tests/test_verify_backtest.py` uses an in-memory
+      `rdflib.Dataset` as the store and covers a passing graph, a missing class, an altered
+      individual count, a missing link, a wrong label and a wrong graph name, plus the repository/
+      graph header and the check names; `tests/test_cli_verify_backtest.py` runs the real entry
+      point as a subprocess for its argument contract. The verifier was also exercised against an
+      in-memory Dataset holding `rule_P1.db`'s projection: 21 of 21 checks passed over 209,886
+      triples (100 linked holding tickers, 46 linked guard tickers, 588 CASH rows), so the checks
+      are proven on real source data as well as the fixture. Docs: `PLAN.md` Work item 24, `TASKS.md`
+      pointer, this entry, `SPEC.md` FR-009 and §2.1, `README.md`, `schema/README.md`,
+      `docs/graphdb-setup.md`, and the runbook. No schema count changed. → item 5.
+
+**Files.** `src/projection/verify_backtest.py`, `cli/verify_backtest.py`,
+`src/projection/backtest.py` (`project_source` extraction), `tests/test_verify_backtest.py`,
+`tests/test_cli_verify_backtest.py`, `docs/backtest-load-runbook.md`,
+`docs/graphdb-setup.md`, `README.md`, `schema/README.md`, `SPEC.md`, `PLAN.md`, `TASKS.md`,
+`CHANGELOG.md`.
+
+**Validation.** `uv run pytest -q`: **1071 passed, 56 deselected, 1507 warnings in 864.99 s
+(0:14:24)**, exit 0 (19 of the tests are this work item's new files; the run overlapped other
+sessions on the same host, so the wall time is higher than T-259's 665 s baseline). `uv run
+mypy --config-file=.code_quality/mypy.ini`: success, 81 source files. Pinned `pre-commit` on every
+changed file: all hooks passed (`ruff-check`, `ruff-format`, `mypy`, the file/secret checks). The
+verifier also ran against an in-memory Dataset holding `rule_P1.db`'s projection: 21 of 21 checks
+passed over 209,886 triples. No GraphDB write or reload was made; the verifier has never run
+against a live repository, so that first live run remains the operator's step in the runbook.

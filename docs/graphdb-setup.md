@@ -97,9 +97,17 @@ drops and rewrites every graph `schema/` owns on each reload, so ABox individual
 would disappear, and an existing graph is never appended to. The load is append-only and one-time
 per repository: a second run into the same quarter is refused because the graph exists, and a run
 into another quarter re-declares the same `:Asset`/`:Universe` individuals and is refused by check
-6. A later quarter's changed memberships are a separate batch of new individuals; a new automation
-gets its own repository (Work item 17). Exit status: 0 on success, 1 if the source, the shapes, the
-gate or the store stop the run, 2 on a bad argument or the production guard.
+6. **This is the real limit:** the current loader has no incremental mode, so once a repository
+holds the catalog, a new quarter alone does not let it add new memberships (the whole catalog is
+re-declared and refused), and a new ticker cannot be added at all: a fresh repository (schema,
+catalog and backtests together) is the only supported safe path today. The manual alternative is a
+new quarter graph batch containing only new typed individuals (`:Asset`, `:UniverseMembership`) and
+`:validTo` closures of stored memberships, submitted through `cli/ingest.py`; no CLI renders that
+batch, so treat it as a new task, never as a reload or a gate bypass. A new automation gets its own
+repository (Work item 17). Exit status: 0 on success, 1 if the source, the shapes, the gate or the
+store stop the run, 2 on a bad argument or the production guard. The runbook
+([`backtest-load-runbook.md`](backtest-load-runbook.md)) carries the procedure and the failure
+messages.
 
 A dry run of 2026-11-04 over `/workspaces/thesis/data/universe_history_gics.db` (read-only; no
 write was made) kept 657 of 891 stints over 653 symbols and dropped 234 stints of 229 symbols (214
@@ -226,6 +234,41 @@ When `ingest` raises `WriteInDoubt` (the batch was sent and the store's answer w
 the store before sending it again: if it landed, checks 6, 7 and 8 refuse the second attempt (a closure
 says "already closed", with a note when the stored date is the batch's own; a restatement is refused
 by check 6, since its new section already exists, and by check 8, "already superseded by …").
+
+## Verifying a loaded backtest (T-280)
+
+Once a run is written (or before writing, against a scratch repository), prove that the named graph
+holds what the deterministic projector builds from its source database:
+
+```bash
+uv run python cli/verify_backtest.py \
+  --graph urn:graph:derived:backtest:rule:P1:1 \
+  --db data/backtests/rule_P1.db --label rule
+```
+
+It reads the repository from `KG_HOST`/`KG_REPOSITORY` (the same environment as `project_backtest`
+and `verify_store`), prints the repository and graph it checked, re-projects the source in memory
+through `projection.backtest.project_source`, and prints one `PASS`/`FAIL` line per check. It only
+issues SPARQL `SELECT` queries, so it is safe against any repository, including production; exit 0
+means every check passed. The checks and their details are in `SPEC.md` FR-009; the full load
+procedure is [`backtest-load-runbook.md`](backtest-load-runbook.md).
+
+Read-only dry runs on 2026-11-04 over the completed databases in
+`/workspaces/thesis/scratch/final/runs/` (no store was contacted):
+
+| Database | `v_book_weight_daily` rows | Re-projected graph triples | Peak RSS |
+|---|---|---|---|
+| `rule_P1.db` | 15,615 | 209,886 | 0.70 GB |
+| `rule_P2.db` | 15,641 | 196,840 | 0.66 GB |
+| `rule_P3.db` | 18,025 | 222,449 | 0.73 GB |
+
+The three runs took 44–48 s each (all eight views read, boundary run, every graph built and
+`pyshacl`-validated). The verifier's in-memory re-projection skips the SHACL pass, so it is faster
+per graph, but it still reads the whole database and builds every graph of that database before
+comparing one. On 2026-11-04 the verifier also ran against an in-memory `rdflib.Dataset` holding
+`rule_P1.db`'s projection: 21 of 21 checks passed over 209,886 triples. It has **not** yet been run
+against a live GraphDB repository (this change made no GraphDB read or write); that first live run
+is the operator's step in the runbook.
 
 ## Acceptance check (T-025)
 
