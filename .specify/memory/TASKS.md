@@ -611,7 +611,12 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       views `v_ticker_history`, `v_orchestrator_run` and `v_orchestrator_step`, and settle their
       graph placement; no projector exists for them yet, and T-207 deliberately reads only the
       eight m018 views. A `feat/` PR. → `PLAN.md` Work item 27.
-- [ ] **T-209** *(from T-201/T-207)* Project backtest vetoes (`v_veto`) once a veto projector
+- [x] **T-209** *(done 2026-11-04 in Work item 26: `load_selection_catalog`/`resolve_rule` in
+      `src/projection/backtest.py` resolve every backtest veto's `:ruleId` on the run's
+      `knowledge_date` (2026-10-31); `LIQUIDITY_DISTRESS` resolves to
+      `:Rule_LIQUIDITY_DISTRESS_v11`, an unknown id stops with the id and the date, and the
+      synthetic + real tests pin it. The projector, CLI, schema and docs are Work item 26's
+      T-320–T-328; see `CHANGELOG.md`.)* Project backtest vetoes (`v_veto`) once a veto projector
       exists: resolve a backtest veto's rule by `:ruleId` against the definition in force on the
       backtest run's date (2026-10-31), not by `raisedOn`, because the 2022–2025 stints predate
       every active rule's `validFrom`. T-207 does not read `v_veto`; the rule-resolution
@@ -1170,6 +1175,10 @@ numbers; see `CHANGELOG.md` and `docs/backtest-load-runbook.md`.
 Work item 25 (T-300–T-308): closed 2026-11-04 — the catalog's sector/industry section, its
 cross-graph rule and six executable queries, the real-layout synthetic store and the negative
 single-graph test; see `CHANGELOG.md`.
+Work item 26 (T-320–T-328): closed 2026-11-04 — the backtest selection side is projected into
+`urn:graph:derived:backtest:selection:{label}:{P<n>}:{run}`, the three new report queries are
+tested, T-209's rule resolution is fixed on the run date, and the real dry runs are recorded;
+see `CHANGELOG.md`.
 Work item 27 (T-350–T-360): closed 2026-11-04 — the ticker-history and orchestrator projector,
 CLI, gate patterns, tests, real dry runs and the `ticker-history-on-date` query; see
 `CHANGELOG.md` and `PLAN.md` Work item 27.

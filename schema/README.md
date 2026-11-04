@@ -9,8 +9,8 @@ actually building it (each flagged inline in the file that surfaced it, and summ
 
 | File | Format | Loads into | Contents |
 |---|---|---|---|
-| `tbox.ttl` | Turtle | `urn:graph:tbox` | 51 classes (38 mutually disjoint leaf/domain classes + a 13-class `rdfs:subClassOf` taxonomic backbone), properties, OWL cardinality restrictions. |
-| `shapes.ttl` | Turtle | `urn:graph:tbox` | 31 SHACL node shapes (data-quality shapes kept as a separate file/concern from `tbox.ttl` — OWL semantics vs. SHACL validation, see below). |
+| `tbox.ttl` | Turtle | `urn:graph:tbox` | 52 classes (39 mutually disjoint leaf/domain classes + a 13-class `rdfs:subClassOf` taxonomic backbone), properties, OWL cardinality restrictions. |
+| `shapes.ttl` | Turtle | `urn:graph:tbox` | 34 SHACL node shapes (data-quality shapes kept as a separate file/concern from `tbox.ttl` — OWL semantics vs. SHACL validation, see below). |
 | `reference.ttl` | Turtle | `urn:graph:reference` | GICS sector/industry taxonomy + asset master data (5 worked-example tickers). |
 | `fibo.ttl` | Turtle | `urn:graph:reference:fibo` | The 25-term FIBO 2026Q2 glossary slice (54 entries, 277 statements) plus the authors' Spanish `@es` layer; built by `cli/build_fibo_slice.py`, never hand-edited. |
 | `rules.ttl` | Turtle | `urn:graph:rules:catalog` | The active catalog: 10 selection rules (upstream's 9 plus `UTILITY_CASH_COVERAGE` from T-071, T-206) as `RuleDefinition`s, 5 GUARD protection rules (`L1_STOP_LOSS`, `L1_REENTRY`, `L2_NEWS`, `L3_VOL`, `L4_DD`) in their own section, the 7 original tree rules plus the pre-2026-10-10 `LIQUIDITY_DISTRESS` kept closed as design history, and the `AttractivenessWeightScheme`. |
@@ -410,6 +410,24 @@ what the store *enforces*.
      backtest graph name, no GraphDB write/reload, and
      `protege-view.ttl` is not regenerated (generated file; T-070/T-071).
 
+8. **Backtest selection side (Work item 26, 2026-11-04).** `v_cycle_run` now has a
+   `:SelectionCycle` class (an `Observation`, like the other run-log classes), and the ranking side
+   adds the T-155 properties `:rankPosition`, `:selectedForBook`, `:vetoedAtRanking`,
+   `:targetWeight`, `:hasEffectiveWeight` and `:componentValue`; `:rankingOfCycle`,
+   `:rankingTicker`, `:vetoTicker`, `:vetoRulesJson` and `:cycleType` carry the rest. `:cycleRunId`
+   loses its `BookRebalance`-only `rdfs:domain` and is shared by `BookRebalance`, `SelectionCycle`
+   and `AttractivenessWeightScheme`, the `:runId` pattern. A ranking snapshot keeps
+   `:attractivenessOfAsset` optional and requires an asset link **or** `:rankingTicker`, because the
+   shared universe database does not know every backtest ticker; a no-component row stays visible
+   as upstream's placeholder (score 0.0, `vetoRulesJson` `["UNSCORED"]`/`["UNPRICED"]`, no
+   `:hasEffectiveWeight`). `v_veto.evidence_json` is not projected (price-derived values under the
+   Tiingo rule). The selection graph is the sibling
+   `urn:graph:derived:backtest:selection:{run_label}:{P<number>}:{run_id}`, accepted by the gate.
+   `tbox.ttl` is now **52 classes (39 disjoint leaves, 13 backbone)** and `shapes.ttl` **34 named
+   shapes** (the three new ones are `SelectionCycleShape`, `BacktestRankingShape` and
+   `EffectiveWeightComponentShape`); `kg_target_schema.ttl` mirrors the new terms. **4431 quads;
+   conforms: True.** No GraphDB write or reload was made.
+
 ## Validation
 
 Parsed and checked with `rdflib` (Turtle + TriG) and validated end-to-end with `pyshacl` —
@@ -538,9 +556,9 @@ fourth window or a new sub-period needs no schema edit. **Trade-off:** a typo in
 no longer caught by SHACL (`P4` for `P1` is a well-formed window); the arm list stays closed. Five
 window lists and two segment lists become one triple each (−50) and `:runLabel` adds 16 (a
 property with its comment in `tbox.ttl`, and a required `sh:property` with five constraints in each
-of the two shapes), so after merging with T-220 the bundle is **4204 quads; conforms: True**
+of the two shapes), so after merging with T-220 the bundle is **4431 quads; conforms: True**
 (4236 + 2 − 50 + 16, the +2 being T-220's `sh:class :Asset` and T-227's `sh:class :Universe`) and a
-fresh load is 20 graphs and 4481 asserted triples (4513 + 2 − 34).
+fresh load is 20 graphs and 4708 asserted triples (4513 + 2 − 34).
 `kg_target_schema.ttl` carries the same property and shapes. No GraphDB load was made; the
 maintainer must reload the schema and drop any backtest graph written under the retired unlabelled
 name (`urn:graph:derived:backtest:{window_id}:{run}`) before projecting with labels.

@@ -34,6 +34,14 @@ A ticker-history snapshot is labelled and dated, and every IRI carries both, so 
 a new graph with new individuals, never a re-declaration. An orchestrator run is immutable; a
 later run is a new id and a new graph. Both are append-only like the backtest graph.
 
+The selection side of the same run is a separate sibling graph:
+
+```text
+urn:graph:derived:backtest:selection:{label}:{window_id}:{backtest_run_id}
+```
+
+It is written by `cli/project_selection.py`; the m018 graph is neither a target nor rewritten.
+
 ## 1. Prerequisites
 
 Run from the repository root, with `uv sync` already done and `.env` present (never commit it).
@@ -222,6 +230,26 @@ uv run python cli/project_reference.py \
 left untouched; use a new snapshot date/label for ticker history, or a new run id for an
 orchestrator run. The production repository additionally needs `--to-production`.
 
+## 5b. Selection side
+
+The selection projector writes the sibling graph for the same run:
+
+```bash
+SQL_UNIVERSE_DB=/workspaces/thesis/data/universe_history_gics.db \
+uv run python cli/project_selection.py --db rule=data/backtests/rule_P1.db
+```
+
+The dry run reads `v_cycle_run`, `v_weight_scheme`, `v_weight_component`, `v_cycle_ranking`,
+`v_cycle_ranking_component`, `v_veto` and `v_ticker_history`, builds the selection graph and
+SHACL-validates it beside `rules.ttl` and the universe assets. A ranking or veto ticker links by
+exact `:Asset` symbol first, else to the one loaded `:Asset` with the same CIK from
+`v_ticker_history` (`FBIN` → `:FBHS`, `GAP` → `:GPS`); otherwise it keeps its literal and is
+counted. The 2026-11-04 dry runs report 0 unlinked ranking/veto rows (before: 34/0/2 and 9/2/3),
+321,324 / 309,728 / 342,934 triples for P1/P2/P3, and each graph is SHACL-conformant.
+
+Write after a clean dry run with `--write`; the production repository also needs
+`--to-production`, and an existing graph is reported and skipped rather than appended to.
+
 ## 6. Verify the store against the source
 
 Run once per graph. The verifier reads only `SELECT` queries, so it is safe against any repository,
@@ -263,7 +291,9 @@ The 2026-11-04 reference dry runs, for comparison: P1 15,615 `v_book_weight_dail
 209,886 triples; P2 15,641 and 196,840; P3 18,025 and 222,449; 0.66–0.73 GB peak RSS and 44–48 s
 per database. The reference/process dry run over the same P1 database reads 21 `v_ticker_history`
 rows, 0 orchestrator runs and 0 steps; it builds one snapshot graph and reports 17 exact + 4 same-CIK
-asset links (0 unlinked). A final load with different data will differ; record what you measured.
+asset links (0 unlinked). The selection dry runs after the same-CIK rule build 321,324 / 309,728 /
+342,934 triples for P1/P2/P3 with 0 unlinked ranking/veto rows (before: 34/0/2 and 9/2/3). A final
+load with different data will differ; record what you measured.
 
 ## 8. Roll back exactly one graph
 

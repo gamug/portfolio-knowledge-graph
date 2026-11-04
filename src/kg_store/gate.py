@@ -6,6 +6,7 @@ A batch is Turtle destined for one named graph. It is written only if
    (``urn:graph:ingest:{agent}:{date}``, ``urn:graph:derived:entity-resolution:{date}``,
    ``urn:graph:derived:quant:{date}``,
    ``urn:graph:derived:backtest:{run_label}:{P<number>}:{run}``,
+   ``urn:graph:derived:backtest:selection:{run_label}:{P<number>}:{run}``,
    ``urn:graph:derived:ticker-history:{run_label}:{date}``,
    ``urn:graph:derived:orchestrator:{run_label}:{run}``,
    ``urn:graph:universe:{year}-Q{n}``, or ``urn:graph:portfolio:current``); the TBox,
@@ -113,6 +114,11 @@ _TICKER_HISTORY_TARGET = re.compile(
 _ORCHESTRATOR_TARGET = re.compile(
     r"urn:graph:derived:orchestrator:([a-z][a-z0-9_]{1,31}):([1-9][0-9]*)"
 )
+#: The selection side of one backtest run (Work item 26) lives beside the m018 graph, not inside
+#: it: the m018 graph is append-only and may already be written. Same label/window vocabulary.
+_BACKTEST_SELECTION_TARGET = re.compile(
+    r"urn:graph:derived:backtest:selection:([a-z][a-z0-9_]{1,31}):(P[0-9]+):([1-9][0-9]*)"
+)
 #: Append-only graph names (``07``): agents write a dated graph; FUNDAMENTAL writes per
 #: quarter; EDGAR and entity resolution take a date or a quarter; universes are quarterly.
 APPEND_ONLY_PATTERNS = (
@@ -124,6 +130,7 @@ APPEND_ONLY_PATTERNS = (
     re.compile(rf"urn:graph:derived:entity-resolution:({_DATE}|{_QUARTER})"),
     re.compile(rf"urn:graph:derived:quant:({_DATE})"),
     _BACKTEST_TARGET,
+    _BACKTEST_SELECTION_TARGET,
     _TICKER_HISTORY_TARGET,
     _ORCHESTRATOR_TARGET,
     re.compile(rf"urn:graph:universe:({_QUARTER})"),
@@ -162,7 +169,11 @@ def check_target(graph: str) -> bool:
     for pattern in APPEND_ONLY_PATTERNS:
         m = pattern.fullmatch(graph)
         if m:
-            if pattern is _BACKTEST_TARGET or pattern is _ORCHESTRATOR_TARGET:
+            if pattern in (
+                _BACKTEST_TARGET,
+                _BACKTEST_SELECTION_TARGET,
+                _ORCHESTRATOR_TARGET,
+            ):
                 # The patterns already pin the label and the positive id (the backtest window
                 # too), so _date_ok would refuse every valid name.
                 return True
@@ -175,6 +186,7 @@ def check_target(graph: str) -> bool:
         "urn:graph:ingest:FUNDAMENTAL:YYYY-Qn, urn:graph:ingest:EDGAR:{date|quarter}, "
         "urn:graph:derived:entity-resolution:{date|quarter}, urn:graph:derived:quant:YYYY-MM-DD, "
         "urn:graph:derived:backtest:{run label}:{P<number>}:{positive integer}, "
+        "urn:graph:derived:backtest:selection:{run label}:{P<number>}:{positive integer}, "
         "urn:graph:derived:ticker-history:{run label}:YYYY-MM-DD, "
         "urn:graph:derived:orchestrator:{run label}:{positive integer}, "
         "urn:graph:universe:YYYY-Qn, "

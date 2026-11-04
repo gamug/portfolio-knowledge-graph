@@ -186,16 +186,16 @@ NEW_CLASSES: dict[rdflib.URIRef, tuple[rdflib.URIRef, str, str]] = {
 }
 
 
-def test_the_bundle_has_51_classes_and_38_disjoint_leaves(
+def test_the_bundle_has_52_classes_and_39_disjoint_leaves(
     bundle: rdflib.Dataset,
 ) -> None:
     g = _flat(bundle)
-    assert len(set(g.subjects(RDF.type, OWL.Class))) == 51
+    assert len(set(g.subjects(RDF.type, OWL.Class))) == 52
     members = set()
     for disjoint in g.subjects(RDF.type, OWL.AllDisjointClasses):
         for collection in g.objects(disjoint, OWL.members):
             members |= set(rdflib.collection.Collection(g, collection))
-    assert len(members) == 38
+    assert len(members) == 39
     assert set(NEW_CLASSES) <= members
 
 
@@ -421,9 +421,9 @@ def test_shared_properties_have_no_domain(tbox: rdflib.Graph) -> None:
         assert (KG[name], RDFS.domain, None) not in tbox, name
 
 
-def test_the_new_shapes_are_31_named_shapes(shapes: rdflib.Graph) -> None:
+def test_the_new_shapes_are_34_named_shapes(shapes: rdflib.Graph) -> None:
     named = {s for s in shapes.subjects(RDF.type, SH.NodeShape) if isinstance(s, rdflib.URIRef)}
-    assert len(named) == 31
+    assert len(named) == 34
     assert {
         KG.TickerHistoryShape,
         KG.OrchestratorRunShape,
@@ -1080,3 +1080,109 @@ def test_the_guard_rules_are_not_in_the_selection_catalog() -> None:
         assert (rule, KG.ruleSeverity, None) not in g
         assert (rule, KG.penaltyPoints, None) not in g
         assert (rule, KG.priorityRank, None) not in g
+
+
+# --- Work item 26: the backtest selection side --------------------------------------------------
+
+CYCLE = KG.Cycle_test_P1_7
+SCHEME = KG.Scheme_test_P1_7
+CONFIGURED = KG.Weight_test_P1_7_ScoreTecnico
+SNAP = KG.Snap_test_P1_7_1
+EFFECTIVE = KG.RankComp_test_P1_7_1_ScoreFinanciero
+
+
+def _add_selection(g: rdflib.Graph) -> None:
+    g.add((CYCLE, RDF.type, KG.SelectionCycle))
+    g.add((CYCLE, KG.cycleRunId, _int(7)))
+    g.add((CYCLE, KG.cycleType, rdflib.Literal("REPLAY")))
+    g.add((CYCLE, KG.runAsOf, _date("2022-01-05")))
+    g.add((CYCLE, KG.runId, rdflib.Literal("cycle_run:7")))
+    g.add((CYCLE, KG.status, rdflib.Literal("completed")))
+    g.add((CYCLE, KG.runLabel, rdflib.Literal("rule")))
+    g.add((CYCLE, KG.windowId, rdflib.Literal("P1")))
+    g.add((CYCLE, KG.backtestRunId, _int(1)))
+
+    g.add((SCHEME, RDF.type, KG.AttractivenessWeightScheme))
+    g.add((SCHEME, KG.schemeId, rdflib.Literal("cycle_run:7")))
+    g.add((SCHEME, KG.cycleDate, _date("2022-01-05")))
+    g.add((SCHEME, KG.cycleRunId, _int(7)))
+    g.add((SCHEME, KG.hasWeightComponent, CONFIGURED))
+    g.add((CONFIGURED, RDF.type, KG.WeightComponent))
+    g.add((CONFIGURED, KG.weightMetricName, rdflib.Literal("ScoreTecnico")))
+    g.add((CONFIGURED, KG.weightValue, _dec("1")))
+
+    g.add((SNAP, RDF.type, KG.AttractivenessSnapshot))
+    g.add((SNAP, KG.attractivenessOfAsset, KG.AAPL))
+    g.add((SNAP, KG.rankingTicker, rdflib.Literal("AAPL")))
+    g.add((SNAP, KG.attractivenessScore, _dec("0.55")))
+    g.add(
+        (
+            SNAP,
+            KG.computedAt,
+            rdflib.Literal("2022-01-05T18:30:00Z", datatype=XSD.dateTime),
+        )
+    )
+    g.add((SNAP, KG.computedWithScheme, SCHEME))
+    g.add((SNAP, KG.rankingOfCycle, CYCLE))
+    g.add((SNAP, KG.rankPosition, _int(1)))
+    g.add((SNAP, KG.selectedForBook, rdflib.Literal("true", datatype=XSD.boolean)))
+    g.add((SNAP, KG.vetoedAtRanking, rdflib.Literal("false", datatype=XSD.boolean)))
+    g.add((SNAP, KG.vetoRulesJson, rdflib.Literal("[]")))
+    g.add((SNAP, KG.hasEffectiveWeight, EFFECTIVE))
+    g.add((EFFECTIVE, RDF.type, KG.WeightComponent))
+    g.add((EFFECTIVE, KG.weightMetricName, rdflib.Literal("ScoreFinanciero")))
+    g.add((EFFECTIVE, KG.weightValue, _dec("1")))
+    g.add((EFFECTIVE, KG.componentValue, _dec("60")))
+
+
+def test_the_backtest_selection_set_conforms(bundle: rdflib.Dataset, shapes: rdflib.Graph) -> None:
+    g = _flat(bundle)
+    _add_selection(g)
+    assert _violations(g, shapes) == set()
+
+
+def test_a_ranking_snapshot_with_only_a_ticker_conforms(
+    bundle: rdflib.Dataset, shapes: rdflib.Graph
+) -> None:
+    g = _flat(bundle)
+    _add_selection(g)
+    g.remove((SNAP, KG.attractivenessOfAsset, None))
+    assert _violations(g, shapes) == set()
+
+
+def test_a_ranking_snapshot_without_asset_or_ticker_is_caught(
+    bundle: rdflib.Dataset, shapes: rdflib.Graph
+) -> None:
+    g = _flat(bundle)
+    _add_selection(g)
+    g.remove((SNAP, KG.attractivenessOfAsset, None))
+    g.remove((SNAP, KG.rankingTicker, None))
+    assert any(focus == SNAP for focus, _ in _violations(g, shapes))
+
+
+def test_a_ranking_snapshot_without_a_rank_is_caught(
+    bundle: rdflib.Dataset, shapes: rdflib.Graph
+) -> None:
+    g = _flat(bundle)
+    _add_selection(g)
+    g.remove((SNAP, KG.rankPosition, None))
+    assert _violations(g, shapes) == {(SNAP, KG.rankPosition)}
+
+
+def test_an_effective_component_without_component_value_is_caught(
+    bundle: rdflib.Dataset, shapes: rdflib.Graph
+) -> None:
+    g = _flat(bundle)
+    _add_selection(g)
+    g.remove((EFFECTIVE, KG.componentValue, None))
+    assert _violations(g, shapes) == {(EFFECTIVE, KG.componentValue)}
+
+
+def test_a_selection_cycle_with_a_bad_type_is_caught(
+    bundle: rdflib.Dataset, shapes: rdflib.Graph
+) -> None:
+    g = _flat(bundle)
+    _add_selection(g)
+    g.remove((CYCLE, KG.cycleType, None))
+    g.add((CYCLE, KG.cycleType, rdflib.Literal("BOGUS")))
+    assert _violations(g, shapes) == {(CYCLE, KG.cycleType)}

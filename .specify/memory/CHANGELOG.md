@@ -1045,19 +1045,79 @@ test changed; no `src/`, `schema/` or gate change.*
       GraphDB write or reload. → step 4.
 
 
+## Work item 26 — Project the backtest selection side
+
+*From T-209 and the report questions "why did X (not) make the Top-30" / "which vetoes were in
+force". See `PLAN.md` Work item 26. Task IDs T-320–T-349.*
+
+- [x] **T-320** *(done 2026-11-04: `SELECTION_VIEWS`, `project_selection` and `run_selection` in
+      `src/projection/backtest.py`; `SelectionCycle`, schemes, configured/effective
+      `WeightComponent`s, `AttractivenessSnapshot`s and `Veto`s; `load_selection_catalog`/
+      `resolve_rule`; `universe_assets` unchanged; unlinked rows counted per view.)* Implement the
+      selection projector over `v_cycle_run`, `v_weight_scheme`, `v_weight_component`,
+      `v_cycle_ranking`, `v_cycle_ranking_component` and `v_veto`.
+- [x] **T-321** *(done 2026-11-04: `urn:graph:derived:backtest:selection:{label}:{P<n>}:{run}` and
+      `_BACKTEST_SELECTION_TARGET` in `src/kg_store/gate.py`; the m018 target is unchanged;
+      `tests/test_kg_gate.py` and `tests/test_backtest_selection.py` cover the accepted and
+      malformed names.)* Add the sibling graph name and the gate's target branch.
+- [x] **T-322** *(done 2026-11-04: `:SelectionCycle`, `:cycleType`, `:rankingTicker`, `:vetoTicker`,
+      `:vetoRulesJson`, `:rankingOfCycle`, `:hasEffectiveWeight`, `:rankPosition`,
+      `:selectedForBook`, `:vetoedAtRanking`, `:targetWeight` and `:componentValue`; the
+      `SelectionCycleShape`, `BacktestRankingShape` and `EffectiveWeightComponentShape`; tbox 52
+      classes / 39 leaves, shapes 34, FR-001 **4431 quads**, load plan **4708**. `kg_target_schema`
+      mirrors the new terms; synthetic positive/negative cases in `tests/test_ontology_v18.py`.)*
+      Add the minimum schema, shapes and counts.
+- [x] **T-323** *(done 2026-11-04: `src/projection/project_selection.py` and
+      `cli/project_selection.py`, `database_argument` shared with the m018 CLI; dry run by default,
+      `--write`, `--to-production`, duplicate-graph guard; `tests/test_project_selection.py` and
+      `tests/test_cli_project_selection.py`.)* Add the sibling CLI and its command-policy tests.
+- [x] **T-324** *(done 2026-11-04: the fixture now has the six upstream views and seven synthetic
+      cycles; `tests/test_backtest_selection.py` covers the LIQUIDITY_DISTRESS `_v11` resolution,
+      an unknown rule id, the BRK.B UNSCORED placeholder, unlinked FBIN/GAP-style tickers,
+      non-completed runs, the m018/selection sibling names and SHACL.)* Add hermetic fixtures and
+      tests for every nullable case.
+- [x] **T-325** *(done 2026-11-04: `tests/test_selection_real.py`, opt-in under `BACKTEST_DB` and
+      `-m integration`; P1/P2/P3 row and individual counts, unlinked counts and the SHACL-valid
+      graph.)* Add the opt-in real-database row-count test.
+- [x] **T-326** *(done 2026-11-04, read-only dry runs: P1 42,700 rows/individuals, 321,281 triples,
+      86.25 s, 1,213,756 KB peak RSS; P2 41,259, 309,726, 81.64 s, 1,153,048 KB; P3 45,440,
+      342,929, 90.11 s, 1,282,204 KB; each `pyshacl` conforms; no store write/reload.)* Run the real
+      dry runs and record rows, individuals, triples, timing and peak RSS.
+- [x] **T-327** *(done 2026-11-04: `docs/06` §1.11, `docs/07`, `docs/08`,
+      `docs/graphdb-setup.md`, `schema/README.md`, `README.md`, `SPEC.md`; the query catalog adds
+      `selection-ranking-at-rebalance`, `selection-vetoes-in-force` and
+      `selection-why-not-top30`, and Q9/B5 are `Today`.)* Update docs and the query catalog.
+- [x] **T-328** *(done 2026-11-04: T-209 closed, this section cut to `CHANGELOG.md`, Work item 26
+      closed in `PLAN.md`. Verification after merging PR #120/#122: `uv run pytest -q` = 1164
+      passed, 57 deselected in 841.85 s; `uv run mypy --config-file=.code_quality/mypy.ini` =
+      success, 87 files; the pinned pre-commit hooks pass on every changed file; FR-001 parse =
+      4431 quads and `pyshacl` conforms; the opt-in real-database test passes for P1, P2 and P3;
+      the dry-run triple counts are unchanged. The veto-in-force reconciliation is recorded in
+      `PLAN.md` Work item 26: all disagreements are HARD rules represented only by the `HARD`
+      marker, 0 extra.)* Close T-209 and record the rule-resolution convention.
+
+**Follow-up 2026-11-04 (T-351).** The selection projector now uses the shared
+`projection.asset_link` rule: exact ticker, else the one loaded `:Asset` with the same CIK from
+`v_ticker_history` of the same source database, else unlinked and counted. The old unlinked rows
+(ranking 34/0/2 and veto 9/2/3 across P1/P2/P3) are 0. The new dry runs are P1 **321,324** triples
+(56.45 s, 1,214,004 KB), P2 **309,728** (53.94 s, 1,155,632 KB) and P3 **342,934** (58.35 s,
+1,285,948 KB), all SHACL-valid; the +43/+2/+5 triples are exactly the recovered links. The m018
+projector and `universe_assets` are unchanged.
+
 ## Work item 27 — Project ticker history and the orchestrator views (2026-11-04)
 
 Design: `PLAN.md` Work item 27. This work item closes T-208.
 
-**Validation.** `uv run pytest -q`: **1162 passed, 57 deselected, 3049 warnings in 651.49 s**.
-`uv run mypy --config-file=.code_quality/mypy.ini`: success, 90 source files. `uv run pre-commit
+**Validation.** `uv run pytest -q`: **1225 passed, 58 deselected, 3639 warnings in 818.67 s**.
+`uv run mypy --config-file=.code_quality/mypy.ini`: success, 96 source files. `uv run pre-commit
 run --all-files`: all hooks passed. Real read-only dry runs over `rule_P1/P2/P3.db`: 21
 `v_ticker_history` rows, 198 triples and 21 individuals per database, 17 exact + 4 same-CIK asset
 links, 0 unlinked, 4 multi-date evidence cells omitted, 0 orchestrator rows and no graph written;
 `pyshacl` conforms in 1.25–1.42 s at ~73 MB peak RSS. `tests/test_reference_real.py` passes with
-`REFERENCE_DB=rule_P1.db` and the real universe catalog. No GraphDB write or reload was made; the
-pilot `financial.db` and the task's `base.db`/`scored_rule.db` paths are not v18 sources in this
-checkout.
+`REFERENCE_DB=rule_P1.db` and the real universe catalog. The selection dry runs after the same link
+rule are P1 321,324 / P2 309,728 / P3 342,934 triples with 0 unlinked ranking/veto rows (before:
+34/0/2 and 9/2/3). No GraphDB write or reload was made; the pilot `financial.db` and the task's
+`base.db`/`scored_rule.db` paths are not v18 sources in this checkout.
 
 - [x] **T-350** *(design first; commit before any code)* Record the read-only measurements (21
       ticker rows, 8 NULL `valid_to`, 0 orchestrator rows, 17 exact + 4 unique-CIK links, 0
@@ -1065,7 +1125,8 @@ checkout.
       → step 1.
 - [x] **T-351** Add the shared asset-link rule (exact symbol, else exactly one `:Asset` under the
       same CIK, else unlinked and counted) with hermetic tests, including `FBIN`→`:FBHS` and
-      `GAP`→`:GPS`. Reuse it in the new projector and document it for Work item 26. → step 2.
+      `GAP`→`:GPS`. Applied in this projector and in Work item 26's selection projector (the
+      latter's unlinked ranking/veto rows went from 34/0/2 and 9/2/3 to 0). → step 2.
 - [x] **T-352** Project `v_ticker_history` into
       `urn:graph:derived:ticker-history:{label}:{snapshot_date}`, with snapshot-qualified IRIs,
       the inclusive `validFrom`/`validTo` interval, optional evidence, and the latest-symbol check.

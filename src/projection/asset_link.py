@@ -19,11 +19,12 @@ This module is shared with the selection projector (Work item 26), which hit the
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
-from typing import Literal
+from typing import TYPE_CHECKING, Any, Literal
 
-from projection.backtest import AssetInfo
+if TYPE_CHECKING:
+    from projection.backtest import AssetInfo
 
 #: How a link was resolved: the exact symbol, the unique same-CIK fallback, or no safe link.
 LinkKind = Literal["symbol", "cik", "none"]
@@ -46,3 +47,31 @@ def resolve_asset(symbol: str, cik: str | None, assets: Mapping[str, AssetInfo])
         if len(matches) == 1:
             return AssetLink(matches[0], "cik")
     return AssetLink(None, "none")
+
+
+def ticker_cik_map(rows: Iterable[Mapping[str, Any]]) -> dict[str, str]:
+    """A symbol -> CIK map from ``v_ticker_history`` rows, omitting an ambiguous symbol.
+
+    Both the historical ``symbol`` and the row's ``canonical_symbol`` are keys, because a view
+    row's ticker can be either (``FBHS`` and ``FBIN`` both point at CIK ``0001519751``). A symbol
+    carried by two different CIKs over time is removed rather than guessed; the caller then treats
+    it as having no CIK and the asset link stays unset unless the exact symbol is loaded.
+    """
+    ciks: dict[str, str] = {}
+    conflicts: set[str] = set()
+    for row in rows:
+        cik = row.get("cik")
+        if not isinstance(cik, str) or not cik:
+            continue
+        for column in ("symbol", "canonical_symbol"):
+            symbol = row.get(column)
+            if not isinstance(symbol, str) or not symbol:
+                continue
+            previous = ciks.get(symbol)
+            if previous is not None and previous != cik:
+                conflicts.add(symbol)
+            else:
+                ciks[symbol] = cik
+    for symbol in conflicts:
+        ciks.pop(symbol, None)
+    return ciks

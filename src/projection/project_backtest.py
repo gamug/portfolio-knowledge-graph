@@ -58,7 +58,7 @@ class Database:
     path: Path
 
 
-def _database(text: str) -> Database:
+def database_argument(text: str) -> Database:
     """``LABEL=PATH`` -> :class:`Database`; a missing or malformed label is an argument error."""
     label, separator, raw_path = text.partition("=")
     if not separator:
@@ -78,7 +78,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         "--db",
         action="append",
         required=True,
-        type=_database,
+        type=database_argument,
         metavar="LABEL=PATH",
         help="a completed backtest database and the label naming its run family; repeat to "
         "project several in one run",

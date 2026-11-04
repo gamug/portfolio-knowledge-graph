@@ -1,7 +1,7 @@
 # Ontology Definition — Portfolio Knowledge Graph (v2)
 
 **Implementation:** [`schema/`](../schema/) — the formal OWL/SHACL/TriG implementation of
-everything described below, split into `tbox.ttl` (classes/properties, **51 classes total** as of
+everything described below, split into `tbox.ttl` (classes/properties, **52 classes total** as of
 this revision — 38 mutually-disjoint leaf/domain classes plus a 13-class `rdfs:subClassOf`
 taxonomic backbone, see §1.2), `shapes.ttl` (SHACL, 31 shapes), `reference.ttl` (GICS taxonomy +
 asset master data + the new `MetricType` controlled vocabulary, §1.9), `rules.ttl` (the ten active
@@ -154,7 +154,7 @@ For a linked row, the Spanish definition in `fibo.ttl` is FIBO's meaning, never 
 Spanish definitions live in `tbox.ttl` (S2), where the six "differs" classes state why FIBO does
 not define every instance of ours. The 27 pre-existing leaf classes now carry one `@es` label and
 one `@es` definition each; the 11 v18 classes' handoff §6.2 texts are unchanged. Those 54 new
-triples take the FR-001 bundle to **4204 quads at this revision; conforms: True** (4236 before
+triples take the FR-001 bundle to **4431 quads at this revision; conforms: True** (4236 before
 T-220's `sh:class :Asset` and T-227's `sh:class :Universe` +2 and T-233/T-234: the five `sh:in` window lists and two segment lists
 become one `sh:pattern` each, −50 quads, and `:runLabel` adds 16), `fibo.ttl` is a separate
 277-statement graph. `:SP500Index` gets its `rdfs:seeAlso` in the ETL output, where the universe
@@ -213,7 +213,7 @@ two-label, two-window backtest.
 
 ## 1.2 Class taxonomy
 
-Replaces the earlier flat, disjointness-only inventory. The 38 leaf/domain classes are organized
+Replaces the earlier flat, disjointness-only inventory. The 39 leaf/domain classes are organized
 under 6 broad categories and, in 4 cases, an intervening mid-level category — placement was decided
 by **shared property shape**, a structural criterion, not by theme (e.g. `AttractivenessSnapshot`
 sits under `Observation Snapshot`, not next to `Veto`, because it shares `ScoreSnapshot`'s
@@ -304,6 +304,7 @@ Portfolio Knowledge Graph
 | `BookDailyPerformance` | Observation | T-206 (`v_book_daily_performance`, m018) | A book's portfolio-level daily series (gross/net return, turnover, cost, NAV, drawdown, cash weight, equity count, benchmark return). |
 | `PortfolioPeriodSummary` | Observation | T-206 (`v_portfolio_period_summary`, m018) | Consolidated statistics of one book over one segment (`P1`, `P2`, `P2a`, `P2b`, `P3`). |
 | `BacktestTest` | Observation | T-206 (`v_backtest_test`, m018) | A paired hypothesis test between two arms in one segment (`memmel_jk`, `ledoit_wolf`, `hac_mean_diff`): statistic, p-value, observations. |
+| `SelectionCycle` | Observation | Work item 26 (`v_cycle_run`, m018) | A cycle-engine run: cycle id/type, as-of date, status and timestamps; joins a `BookRebalance` and a scheme by `cycleRunId`. |
 
 ### 1.2.1 Taxonomic backbone, formally
 
@@ -570,6 +571,7 @@ attractiveness-ranking feature, see §1.8, plus `VetoShape` added 2026-10-03 for
 | `BenchmarkObservationShape` (+ `QuantSubjectShape`) | portfolio, metric (free text) and value required; `quantPortfolio` must be a BENCHMARK or the LIVE book; `quantAsset`, `quantUnit`, `quantAsOf`, `quantBenchmark` and T-106 run provenance optional; a LIVE subject may only carry the four performance metrics | Carries upstream's finished quant numbers without interpreting them (T-108); upstream's columns, units and the `live_book` handling were pinned in T-109. |
 | `VetoShape` | `raisedOn` required; `clearedOn`/`lastSeenOn` optional, never before `raisedOn`; no `lastSeenOn` after `clearedOn` (T-185, same day passes); `vetoSeverity` ∈ {HARD, SOFT}; optional, multi-valued `expiresOn` (T-188, like `lastSeenOn`: upstream moves it, current = MAX), each value not before `raisedOn` (the same day passes); it never closes a stint, only `clearedOn` does; since T-206 a GUARD-category rule is refused as `appliesRule`/`primaryRule` | Veto stints (T-102): a stint is closed by `clearedOn`, never deleted. |
 | The 11 Contract v18 shapes (`TickerHistoryShape`, `OrchestratorRunShape`, `OrchestratorStepShape`, `StrategyBookShape`, `BookRebalanceShape`, `GuardAlertShape`, `GuardActionShape`, `BookWeightDailyShape`, `BookDailyPerformanceShape`, `PortfolioPeriodSummaryShape`, `BacktestTestShape`) | Required only what the view guarantees non-null; the handoff §3.3 nullable columns stay optional (cycle_run_id on MARKOWITZ_BASE, layer-1 alert value, layer-3/4 asset/ticker, action weights, CASH asset/name/targets, book guard_layers, ticker valid_to/evidence). `sh:pattern` for window_id (`^P[0-9]+$`) and segment (`^P[0-9]+[a-z]?$`) since T-234; `sh:in` for arm_code, GUARD rule ids, alert state, action status and test name; `:runLabel` required on StrategyBook/BacktestTest (T-233); no sign/range on drawdown, cost_return or max_drawdown. Sourcery review: `bookId` required on BookRebalance/GuardAction; `pValue` ∈ [0,1] and `nObs` ≥ 1 on BacktestTest; `sh:equals` for the six row-date/`knowledgeDate` pairs; a CASH row must have no `holdingAsset` | Carries the m015/m016/m018 views into the ontology (T-206, §1.10); a CASH row never needs an Asset node. |
+| `SelectionCycleShape`, `BacktestRankingShape`, `EffectiveWeightComponentShape` (Work item 26) | `SelectionCycle` requires its run id/type/as-of/status plus the projector's label/window/backtest-run context; a ranking snapshot reached by `:rankingOfCycle` requires rank, selection, vetoed flag and ticker (asset link or `:rankingTicker`); an effective-weight `WeightComponent` requires `:componentValue`. No shape requires a component for the 0.0 UNSCORED/UNPRICED placeholder. `:targetWeight`, `:vetoRulesJson` and the effective components stay optional. | Carries the six selection views into the ontology and keeps the reports agent's exclusion reasons visible (§1.11). |
 
 Validated end-to-end with `pyshacl` against the full worked dataset below: **conforms = True**.
 
@@ -753,8 +755,8 @@ The 11 views added between v12 and v18 (`SPEC.md` §2.6, T-205) now have ontolog
 per view: `TickerHistory` (`v_ticker_history`, m016), `OrchestratorRun`/`OrchestratorStep`
 (`v_orchestrator_run`/`v_orchestrator_step`, m015) and the eight m018 backtest/GUARD classes
 `StrategyBook` (`v_book`), `BookRebalance`, `GuardAlert`, `GuardAction`, `BookWeightDaily`,
-`BookDailyPerformance`, `PortfolioPeriodSummary` and `BacktestTest`. `tbox.ttl` is now 51 classes
-(38 disjoint leaves) and `shapes.ttl` 31 named shapes; `AllDisjointClasses` gains the 11 leaves.
+`BookDailyPerformance`, `PortfolioPeriodSummary` and `BacktestTest`. `tbox.ttl` is now 52 classes
+(39 disjoint leaves) and `shapes.ttl` 34 named shapes; `AllDisjointClasses` gains the 11 leaves.
 
 **Placement is by property shape, not theme** (the rule in §1.2 and the constitution's Project
 structure #2). `TickerHistory` and `BookRebalance` are dated n-ary relations carrying data, so
@@ -839,6 +841,47 @@ only the operator's label, the source database and the run's date range tell the
 arm list stays closed: it is a small, stable vocabulary the shapes can still police, so a
 mistyped arm remains a SHACL failure.
 
+## 1.11 Backtest selection side (Work item 26, 2026-11-04)
+
+The m018 graphs carry the books, GUARD alerts/actions, weights, performance and tests. The
+selection side is the *other* half of the same frozen run: `v_cycle_run`, `v_weight_scheme`,
+`v_weight_component`, `v_cycle_ranking`, `v_cycle_ranking_component` and `v_veto`. It is projected
+into a sibling graph, `urn:graph:derived:backtest:selection:{label}:{P<n>}:{run_id}`, by
+`src/projection/backtest.py` through `cli/project_selection.py`; the m018 graph is never rewritten
+or extended, because both are append-only and the m018 one may already exist.
+
+**Classes.** `AttractivenessSnapshot` is reused for one asset's ranking in one cycle, with
+`:rankPosition`, `:selectedForBook`, `:vetoedAtRanking`, `:targetWeight` and `:vetoRulesJson` added
+for the backtest; `AttractivenessWeightScheme`/`WeightComponent` are reused for the run's
+configured blend and for each asset's effective weights (`:hasEffectiveWeight`, `weightValue` =
+`effective_weight`, `componentValue` = `component_value`). `Veto` is reused for each upstream stint
+(`raisedOn`..`clearedOn`, `vetoTicker`/`vetoOfAsset`, `appliesRule`/`primaryRule`). The new
+`SelectionCycle` class carries the cycle run log and is the object of `:rankingOfCycle`; it joins a
+rebalance through `:cycleRunId`.
+
+**Rule resolution.** A backtest veto's `v_veto.rule_id` is resolved against the `RuleDefinition`
+in force on the **backtest run's knowledge date** (2026-10-31), never `:raisedOn`: every stint was
+raised in 2020–2024, before every active rule's `validFrom`. `LIQUIDITY_DISTRESS` therefore resolves
+to `:Rule_LIQUIDITY_DISTRESS_v11`, not the closed 2026-10-02 definition; an unknown id stops the
+run with a message naming the id and the date. The convention is recorded in `TASKS.md`/`PLAN.md`
+Work item 26 and closes T-209.
+
+**Nullability and masking.** `clearedOn`, `expiresOn`, `targetWeight`, `maxNameWeight` and
+`maxSectorWeight` are optional. A ranking row with no component row is kept as upstream's
+placeholder (score 0.0, `vetoRulesJson` `["UNSCORED"]`/`["UNPRICED"]`, no `:hasEffectiveWeight`),
+so the reports agent can explain why the asset was excluded; no shape requires a component for it.
+`v_veto.evidence_json` is not projected: it carries price-derived values (`close`, `vol_5d`,
+`vol_60d_base`) that the Tiingo non-redistribution rule keeps out of the graph. A ticker the shared
+universe database does not know keeps `:rankingTicker`/`:vetoTicker` and is counted; the asset link
+is omitted, never invented.
+
+**Graph and CLI.** The selection graph is accepted by the ingest gate as
+`urn:graph:derived:backtest:selection:{run label}:{P<number>}:{positive integer}`. Run
+`uv run python cli/project_selection.py --db rule=rule_P1.db` for a dry run and add `--write` to
+append; `--to-production` is required for `KG_REPOSITORY=portfolio`. The command reads only the six
+views, validates through the same boundary, and validates each batch beside `rules.ttl` and the
+universe assets.
+
 **Rule catalog.** `UTILITY_CASH_COVERAGE` (HARD, `rule_input.utility_cash_coverage_3y < 0.05`, rank
 10, valid from **2026-10-14**) joins the nine selection rules. T-216 set that date from the
 maintainer: T-071 part 2a (PR #167, merge commit `7ae8ba8`) reached upstream master on 2026-10-14
@@ -862,7 +905,7 @@ not a veto rule:** it carries no `:ruleSeverity`, `:penaltyPoints` or `:priority
 `VetoShape` refuses it as the object of `:appliesRule`/`:primaryRule`. `RuleDefinitionShape` adds one
 `sh:or` branch for `:category "GUARD"`, keeps the severity requirement for every other active rule,
 makes `:priorityRank` mandatory for non-GUARD rules, and widens the rank range to `[1,10]` for
-`UTILITY_CASH_COVERAGE`. The bundle is **4204 quads; conforms: True** (the FR-001 gate; T-220 and
+`UTILITY_CASH_COVERAGE`. The bundle is **4431 quads; conforms: True** (the FR-001 gate; T-220 and
 T-227 add the two `UniverseMembershipShape` `sh:class` triples, T-233/T-234 contribute the net −34).
 
 **Projection of the three remaining v18 views (T-208, T-352/T-353).** `TickerHistory`,

@@ -29,7 +29,16 @@ from fixtures.reference_rows import reference_db
 from rdflib.query import ResultRow
 from rdflib.term import URIRef
 
-from projection.backtest import VIEWS, AssetInfo, Projection, project, read_view
+from projection.backtest import (
+    SELECTION_VIEWS,
+    VIEWS,
+    AssetInfo,
+    Projection,
+    load_selection_catalog,
+    project,
+    project_selection,
+    read_view,
+)
 from projection.reference import VIEWS as REFERENCE_VIEWS
 from projection.reference import project as project_reference
 from projection.reference import read_view as read_reference_view
@@ -80,6 +89,9 @@ EXPECTED_NAMES = frozenset(
         "weight-scale",
         "n-equity-per-arm-on-last-day",
         "runs-available",
+        "selection-ranking-at-rebalance",
+        "selection-vetoes-in-force",
+        "selection-why-not-top30",
         "layer1-cuts-by-window-sector",
         "sector-composition-on-rebalance",
         "held-tickers-by-window-industry",
@@ -102,6 +114,9 @@ BACKTEST_NAMES = frozenset(
         "weight-scale",
         "n-equity-per-arm-on-last-day",
         "runs-available",
+        "selection-ranking-at-rebalance",
+        "selection-vetoes-in-force",
+        "selection-why-not-top30",
         "layer1-cuts-by-window-sector",
         "sector-composition-on-rebalance",
         "held-tickers-by-window-industry",
@@ -161,14 +176,18 @@ def _query(name: str) -> str:
     raise AssertionError(f"{name}: no tagged query in {CATALOG}")
 
 
-def _projection(tmp_path: Path, window: str, label: str) -> Projection:
-    """The synthetic scenario of one window, read through its views and projected."""
+def _projections(tmp_path: Path, window: str, label: str) -> list[Projection]:
+    """The synthetic scenario of one window, projected on both the m018 and selection sides."""
     source = FinancialSource.open(backtest_db(tmp_path, window=window))
     try:
         rows = {view: read_view(source, view) for view in VIEWS}
+        selection = {view: read_view(source, view) for view in ("v_book", *SELECTION_VIEWS)}
     finally:
         source.close()
-    return project(rows, ASSETS, load_catalog(), label)
+    return [
+        project(rows, ASSETS, load_catalog(), label),
+        project_selection(selection, ASSETS, load_selection_catalog(SCHEMA / "rules.ttl"), label),
+    ]
 
 
 def _rows(dataset: rdflib.Dataset, query: str) -> list[ResultRow]:
@@ -285,11 +304,13 @@ def catalog_dataset(tmp_path_factory: pytest.TempPathFactory) -> rdflib.Dataset:
 
     for label in ("rule", "champ_v1"):
         for window in ("P1", "P2"):
-            projection = _projection(tmp_path_factory.mktemp(f"{label}-{window}"), window, label)
-            for name, builder in projection.graphs.items():
-                graph = dataset.graph(URIRef(name))
-                for triple in builder.triples:
-                    graph.add(triple)
+            for projection in _projections(
+                tmp_path_factory.mktemp(f"{label}-{window}"), window, label
+            ):
+                for name, builder in projection.graphs.items():
+                    graph = dataset.graph(URIRef(name))
+                    for triple in builder.triples:
+                        graph.add(triple)
     return dataset
 
 
@@ -397,6 +418,15 @@ def test_the_boundary_rule_is_stated() -> None:
     assert "questions 9 to 11 must not change with or without the FIBO slice" in text
     for status in STATUSES:
         assert status in text
+
+
+def test_the_hard_veto_marker_note_is_stated() -> None:
+    text = " ".join(_document().replace("`", "").split())
+    assert 'only the marker "HARD"' in text
+    assert "every rule missing from the JSON is a HARD rule" in text
+    assert "no JSON rule is ever extra" in text
+    assert "join it with the Veto stints in force" in text
+    assert "selection-vetoes-in-force" in text
 
 
 def test_backtest_queries_do_not_name_a_graph_or_a_run() -> None:

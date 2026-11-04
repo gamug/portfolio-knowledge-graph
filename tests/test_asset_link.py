@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from projection.asset_link import resolve_asset
+from projection.asset_link import resolve_asset, ticker_cik_map
 from projection.backtest import AssetInfo
 
 ASSETS = {
@@ -44,3 +44,29 @@ def test_several_same_cik_assets_are_not_guessed() -> None:
     assert link.iri == "GOOGL"  # exact symbol still wins
     link = resolve_asset("GOOGX", "0001652044", ASSETS)
     assert (link.iri, link.how) == (None, "none")
+
+
+def test_the_ticker_cik_map_uses_both_symbols() -> None:
+    rows = [
+        {"cik": "0001519751", "symbol": "FBHS", "canonical_symbol": "FBIN"},
+        {"cik": "0000039911", "symbol": "GPS", "canonical_symbol": "GAP"},
+    ]
+    assert ticker_cik_map(rows) == {
+        "FBHS": "0001519751",
+        "FBIN": "0001519751",
+        "GPS": "0000039911",
+        "GAP": "0000039911",
+    }
+
+
+def test_the_ticker_cik_map_drops_an_ambiguous_symbol() -> None:
+    rows = [
+        {"cik": "0000000001", "symbol": "XYZ", "canonical_symbol": "XYZ"},
+        {"cik": "0000000002", "symbol": "XYZ", "canonical_symbol": "XYZ"},
+    ]
+    assert ticker_cik_map(rows) == {}
+
+
+def test_the_ticker_cik_map_skips_a_missing_cik() -> None:
+    rows = [{"cik": None, "symbol": "XYZ", "canonical_symbol": "XYZ"}]
+    assert ticker_cik_map(rows) == {}
