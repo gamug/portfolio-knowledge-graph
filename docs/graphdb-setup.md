@@ -80,8 +80,9 @@ uv run python cli/load_universe.py --as-of 2026-11-03 --write
 
 It reads `SQL_UNIVERSE_DB` (`portfolio-data-mining`'s point-in-time `universe.db`, read-only
 through `portfolio_common.db`) and reuses `etl.asset_master`: the `:SP500Index` `:Universe`
-(with its FIBO `rdfs:seeAlso`), one `:Asset` per symbol and one `:UniverseMembership` per stint.
-The five `:Asset`s `schema/reference.ttl` already declares get memberships but are not re-declared
+(with its FIBO `rdfs:seeAlso`), one `:Asset` per company line for a pure ticker succession (or per
+symbol for concurrent classes, a mixed CIK or a CIK-less stint) and one `:UniverseMembership` per
+stint. The five `:Asset`s `schema/reference.ttl` already declares get memberships but are not re-declared
 (the gate's check 6 refuses a second declaration, and `cikNumber` is functional). A membership's
 `validTo` is inclusive: it is the last day of membership, and a point-in-time read on D is
 `validFrom <= D AND (no validTo OR validTo >= D)`, so a member on its last day is still in and a
@@ -124,6 +125,19 @@ and `HNG`/`AYE` on 1976-06-30) are now kept by the reader; `--since` then drops 
 entry (six distinct values). Every ticker in `v_book_weight_daily` (CASH excluded),
 `v_guard_alert` and `v_guard_action` of `rule_P1/P2/P3.db` remains in the loaded set (P1 100,
 P2 123, P3 115; 0 missing).
+
+A third dry run, 2026-11-04 after T-264 folded pure ticker successions into one `:Asset` (again
+read-only; no write was made), kept the same 658 stints over 654 symbols, wrote 643 `:Asset`s plus
+the five already in `reference.ttl` (648 assets from 654 symbols; six successions folded), 658
+memberships (503 open, 155 closed), and built 6542 triples; SHACL conforms. 65 written assets have
+no `:classifiedAs` (the same six unmapped sub-industry values; the fold removes five old symbols
+that also lacked one). Of the 11 CIKs with more than one symbol, six are pure successions (`EG/RE`,
+`WTW/WLTW`, `CPAY/FLT`, `META/FB`, `ECHO/SATS`, `DAY/CDAY`), four are concurrent classes
+(`UA/UAA`, `NWS/NWSA`, `GOOG/GOOGL`, `FOX/FOXA`) and one is mixed (`DISCA`/`DISCK`/`WBD`) and
+stays per symbol. The three real backtest dry runs (`cli/project_backtest.py --db rule=…` for P1,
+P2 and P3) link every ticker in `v_book_weight_daily` (CASH excluded), `v_guard_alert` and
+`v_guard_action`: 100, 123 and 115 distinct, 0 unlinked; the three graphs are SHACL-valid and were
+not written.
 
 ## Ingest gate (T-023)
 

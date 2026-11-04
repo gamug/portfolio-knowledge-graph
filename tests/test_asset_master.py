@@ -162,6 +162,91 @@ def test_build_assets_emits_the_sp500_fibo_link_once_and_the_slice_has_it() -> N
     assert (FIBO_EQUITY_INDEX, None, None) in slice_graph
 
 
+# --- CIK-aware asset resolution (T-264) -------------------------------------------------
+def test_a_pure_cik_rename_chain_is_one_asset_with_every_stint() -> None:
+    """FB -> META is one company: one :META asset, two memberships, no :FB asset."""
+    cik = "0001326801"
+    stints = [
+        replace(
+            _stint("FB"),
+            cik=cik,
+            valid_from="2013-12-23",
+            valid_to="2022-06-08",
+        ),
+        replace(_stint("META"), cik=cik, valid_from="2022-06-09"),
+    ]
+    out = io.StringIO()
+    summary = asset_master.build_assets(stints, out, [])
+    ttl = out.getvalue()
+    assert ":META\n    a :Asset" in ttl
+    assert ":FB\n    a :Asset" not in ttl
+    assert ttl.count(":membershipAsset :META") == 2
+    assert "UM_FB_2013-12-23" in ttl and "UM_META_2022-06-09" in ttl
+    assert summary.tickers == {"META"}
+    assert (summary.assets_written, summary.memberships) == (1, 2)
+
+
+def test_concurrent_share_classes_stay_one_asset_per_symbol() -> None:
+    cik = "0001652044"
+    stints = [
+        replace(_stint("GOOGL"), cik=cik, valid_from="2006-04-03"),
+        replace(_stint("GOOG"), cik=cik, valid_from="2014-04-03"),
+    ]
+    out = io.StringIO()
+    summary = asset_master.build_assets(stints, out, [])
+    ttl = out.getvalue()
+    assert ":GOOGL\n    a :Asset" in ttl and ":GOOG\n    a :Asset" in ttl
+    assert summary.tickers == {"GOOG", "GOOGL"}
+    assert (summary.assets_written, summary.memberships) == (2, 2)
+
+
+def test_a_mixed_cik_is_not_guessed_and_stays_per_symbol() -> None:
+    """DISCA/DISCK overlap; WBD follows. The resolver keeps the three symbols separate."""
+    cik = "0001437107"
+    stints = [
+        replace(_stint("DISCA"), cik=cik, valid_from="1976-07-01", valid_to="2022-04-10"),
+        replace(_stint("DISCK"), cik=cik, valid_from="2014-08-06", valid_to="2022-04-10"),
+        replace(_stint("WBD"), cik=cik, valid_from="2022-04-11", valid_to="2026-10-05"),
+    ]
+    assert asset_master.classify_ciks(stints) == {cik: "mixed"}
+    out = io.StringIO()
+    summary = asset_master.build_assets(stints, out, [])
+    assert summary.tickers == {"DISCA", "DISCK", "WBD"}
+    assert (summary.assets_written, summary.memberships) == (3, 3)
+
+
+def test_a_wrong_order_cik_is_a_succession_and_a_tied_start_is_concurrent() -> None:
+    assert asset_master.classify_ciks(
+        [
+            replace(_stint("OLD"), cik="0000000001", valid_to="2020-01-01"),
+            replace(_stint("NEW"), cik="0000000001", valid_from="2020-01-02"),
+        ]
+    ) == {"0000000001": "succession"}
+    # Inclusive intervals: both hold on the shared day, so this is not a succession.
+    assert asset_master.classify_ciks(
+        [
+            replace(_stint("LEFT"), cik="0000000002", valid_to="2020-01-01"),
+            replace(_stint("RIGHT"), cik="0000000002", valid_from="2020-01-01"),
+        ]
+    ) == {"0000000002": "concurrent"}
+
+
+def test_a_cik_less_stint_stays_grouped_by_symbol() -> None:
+    out = io.StringIO()
+    summary = asset_master.build_assets([_stint("GONE")], out, [])
+    assert ":GONE\n    a :Asset" in out.getvalue()
+    assert summary.tickers == {"GONE"}
+
+
+def test_two_kept_ciks_claiming_the_same_ticker_stop_the_build() -> None:
+    stints = [
+        replace(_stint("CEG"), cik="0000000001", valid_from="1990-01-01", valid_to="2012-03-12"),
+        replace(_stint("CEG"), cik="0000000002", valid_from="2022-02-02"),
+    ]
+    with pytest.raises(asset_master.AssetResolutionError, match=r"latest ticker"):
+        asset_master.build_assets(stints, io.StringIO(), [])
+
+
 # --- build_assets: GICS rollup warnings -------------------------------------------------
 def test_build_assets_warns_on_unmapped_sub_industry_and_omits_classified_as() -> None:
     out = io.StringIO()

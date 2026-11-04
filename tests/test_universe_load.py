@@ -19,7 +19,10 @@ import rdflib
 from fixtures.universe_rows import ROWS, Row, universe_db
 from rdflib.namespace import RDF, RDFS, SH
 
+from etl import asset_master
 from kg_store import gate, universe
+from projection.backtest import universe_assets
+from projection.score_snapshots import universe_symbols
 
 if TYPE_CHECKING:
     from conftest import FakeGraphDB
@@ -79,6 +82,102 @@ def test_a_one_day_stint_is_kept_and_conforms(tmp_path: Path) -> None:
     assert (KG.PHIN, RDF.type, KG.Asset) in graph
     assert (KG["UM_PHIN_2023-07-05"], KG.validTo, None) in graph
     universe.check(batch, SCHEMA)
+
+
+def test_a_pure_rename_chain_is_one_asset_in_the_loader_batch(tmp_path: Path) -> None:
+    rows: list[Row] = [
+        (
+            "FB",
+            "Facebook",
+            "Communication Services",
+            "Interactive Media & Services",
+            "0001326801",
+            "2013-12-23",
+            "2022-06-08",
+        ),
+        (
+            "META",
+            "Meta Platforms",
+            "Communication Services",
+            "Interactive Media & Services",
+            "0001326801",
+            "2022-06-09",
+            None,
+        ),
+    ]
+    db = universe_db(tmp_path / "universe.db", rows)
+    batch = universe.plan(db, as_of=AS_OF)
+    graph = _graph(batch)
+    assert (KG.META, RDF.type, KG.Asset) in graph
+    assert (KG.FB, RDF.type, KG.Asset) not in graph
+    assert (KG.META, KG.tickerSymbol, rdflib.Literal("META")) in graph
+    assert (KG.META, KG.hasUniverseMembership, KG["UM_FB_2013-12-23"]) in graph
+    assert (KG.META, KG.hasUniverseMembership, KG["UM_META_2022-06-09"]) in graph
+    assert (KG["UM_FB_2013-12-23"], KG.validTo, None) in graph
+    assert batch.summary.tickers == {"META"}
+
+
+def test_the_loader_and_the_backtest_projector_share_the_asset_set(tmp_path: Path) -> None:
+    rows: list[Row] = [
+        (
+            "FB",
+            "Facebook",
+            "Communication Services",
+            "Interactive Media & Services",
+            "0001326801",
+            "2013-12-23",
+            "2022-06-08",
+        ),
+        (
+            "META",
+            "Meta Platforms",
+            "Communication Services",
+            "Interactive Media & Services",
+            "0001326801",
+            "2022-06-09",
+            None,
+        ),
+        (
+            "GOOGL",
+            "Alphabet Inc. (Class A)",
+            "Communication Services",
+            "Interactive Media & Services",
+            "0001652044",
+            "2006-04-03",
+            None,
+        ),
+        (
+            "GOOG",
+            "Alphabet Inc. (Class C)",
+            "Communication Services",
+            "Interactive Media & Services",
+            "0001652044",
+            "2014-04-03",
+            None,
+        ),
+        ("GONE", "Gone Corp", None, None, None, "2020-01-02", "2021-06-01"),
+    ]
+    db = universe_db(tmp_path / "universe.db", rows)
+    loader_assets = universe.plan(db, as_of=AS_OF).summary.tickers
+    projector_assets = set(universe_assets(db))
+    assert loader_assets == projector_assets == {"META", "GOOG", "GOOGL", "GONE"}
+    # The score projector resolves the same set: a former ticker is not an asset.
+    assert universe_symbols(db) == loader_assets
+
+
+def test_since_keeps_one_era_of_a_ticker_reused_by_two_ciks(tmp_path: Path) -> None:
+    """Without --since the two kept CIKs stop the build; with it only the current era remains."""
+    rows: list[Row] = [
+        ("CEG", "Constellation Energy Group", None, None, "0000000001", "1990-01-01", "2012-03-12"),
+        ("CEG", "Constellation Energy", "Utilities", "Electric Utilities", "0000000002",
+         "2022-02-02", None),
+    ]  # fmt: skip
+    db = universe_db(tmp_path / "universe.db", rows)
+    with pytest.raises(asset_master.AssetResolutionError, match="latest ticker"):
+        universe.plan(db, since="1900-01-01", as_of=AS_OF)
+    batch = universe.plan(db, since="2019-01-02", as_of=AS_OF)
+    assert batch.summary.tickers == {"CEG"}
+    assert {s.symbol for s in batch.kept} == {"CEG"}
 
 
 def test_since_is_inclusive_on_a_closed_stint(db: Path) -> None:

@@ -2,8 +2,9 @@
 
 Every fenced ``sparql`` block in ``docs/reports-agent-query-catalog.md`` carries an HTML comment
 ``<!-- q:NAME expect:... -->``. This test parses those tags, builds one in-memory
-:class:`rdflib.Dataset` from the schema graphs and the two-label, two-window synthetic backtest scenario of
-``tests/fixtures/backtest_rows.py``, and runs every query against it. A query added to the doc
+:class:`rdflib.Dataset` from the schema graphs, a small universe graph (one rename chain) and the
+two-label, two-window synthetic backtest scenario of ``tests/fixtures/backtest_rows.py``, and runs
+every query against it. A query added to the doc
 without a tag, a tag without its block, or a result that no longer matches its expectation fails.
 
 The dataset is hermetic: committed ``.ttl`` files and synthetic rows only, never a live GraphDB

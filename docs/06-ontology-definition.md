@@ -74,13 +74,15 @@ The 17 explanation-layer classes are `ScoreSnapshot`, `SectorAggregateSnapshot`,
 `ThresholdComparison`, `CategoricalComparison`, `GraphPredicate`, `AttractivenessWeightScheme` and
 `WeightComponent`.
 
-**Why `:Asset` has no FIBO link.** `:Asset` is one node per ticker symbol
-(`src/etl/asset_master.py`), not one per company. A company with several share classes in the
-index has one node per class (GOOGL/GOOG, FOXA/FOX, NWSA/NWS); upstream, 503 assets map to 500
-CIKs. A ticker reused by another company is one node (Q, CEG, DELL). FIBO's `LegalPerson` is a
-company, so the old link misstated every multi-class company and every reused ticker. There is no
-replacement: `ListedShare` is one listing and `PubliclyHeldCompany` is the issuer, neither of which
-is our per-ticker node.
+**Why `:Asset` has no FIBO link.** `:Asset` is one node per company line (CIK) when its symbols
+are a pure ticker succession (`src/etl/asset_master.py`, T-264): `FB`→`META` is one `:META`, named
+by the latest symbol. A company with concurrent share classes in the index still has one node per
+class (GOOGL/GOOG, FOXA/FOX, NWSA/NWS), and a mixed CIK (`DISCA`/`DISCK`/`WBD`) is kept the same
+way rather than guessed. A CIK-less stint is one node per symbol. A ticker reused by different
+kept companies is not merged: two CIKs claiming the same latest ticker stop the load. FIBO's
+`LegalPerson` is a company, so the old link misstated every multi-class company and every reused
+ticker. There is no replacement: `ListedShare` is one listing and `PubliclyHeldCompany` is the
+issuer, neither of which is our `:Asset` node.
 
 **Why `:PriceObservation` has no FIBO link.** It is a derived daily summary (close, return,
 volatility, ATR, momentum), not a traded price. Its close is split-adjusted as of download and not

@@ -1,11 +1,12 @@
 """Load the asset master (``:Universe``, ``:Asset``, ``:UniverseMembership``) into the store.
 
 ``portfolio-data-mining``'s point-in-time ``universe.db`` is the asset master (D1, T-100):
-:mod:`etl.asset_master` already turns it into one ``:Asset`` per symbol and one
-``:UniverseMembership`` per stint in the single ``:SP500Index`` ``:Universe``. That module writes
-flat Turtle for ``cli/build_data_ttl.py``; this one puts the same individuals into a GraphDB named
-graph **through the ingest gate**, so a backtest or a score batch that links ``:Asset`` nodes finds
-them in the store instead of being refused (T-220).
+:mod:`etl.asset_master` already turns it into one ``:Asset`` per company line (a pure ticker
+succession folds into one, named by the latest symbol) or per symbol (concurrent classes, a mixed
+CIK, a CIK-less stint) and one ``:UniverseMembership`` per stint in the single ``:SP500Index``
+``:Universe``. That module writes flat Turtle for ``cli/build_data_ttl.py``; this one puts the same
+individuals into a GraphDB named graph **through the ingest gate**, so a backtest or a score batch
+that links ``:Asset`` nodes finds them in the store instead of being refused (T-220, T-264).
 
     uv run python cli/load_universe.py                  # dry run: read, build, SHACL-validate
     uv run python cli/load_universe.py --write          # append through the gate
@@ -23,8 +24,10 @@ clash with ``cikNumber``'s functional-property contract, as in the ETL).
 ``--since`` keeps the stints that were still open on or after that date (``valid_to`` absent, or
 ``valid_to >= since``; ``validTo`` is inclusive, its last day of membership); the default
 ``2019-01-02`` drops a ticker's earlier company when upstream reused the symbol (``CEG``,
-``DELL``, ``Q``), so the one ``:Asset`` per symbol describes the company the backtest windows and
-the live index contain. The dropped stints are counted, never silently omitted.
+``DELL``, ``Q``), so the resolved ``:Asset`` describes the company the backtest windows and the
+live index contain. The dropped stints are counted, never silently omitted. A ticker whose kept
+stints would belong to two different CIKs stops the run with both CIKs named, rather than silently
+picking one (T-265).
 
 A dry run (the default) contacts no store: it reads ``universe.db``, builds the batch and runs the
 gate's store-free checks plus ``shapes.ttl`` with the local ``schema/reference.ttl`` standing in
@@ -117,19 +120,16 @@ def keep_stints(stints: Sequence[asset_master.Stint], since: str) -> list[asset_
 
 
 def cik_less_open(stints: Sequence[asset_master.Stint]) -> list[str]:
-    """Symbols whose loaded ``:Asset`` has no CIK but keeps an open membership.
+    """Assets with no CIK that keep an open membership.
 
-    ``build_assets`` describes an ``:Asset`` with its latest stint, so a missing CIK there and an
-    open stint anywhere is exactly what ``AssetShape``'s CIK-or-closed rule refuses.
+    ``build_assets`` describes a resolved ``:Asset`` with its latest stint, so a missing CIK there
+    and an open stint anywhere is exactly what ``AssetShape``'s CIK-or-closed rule refuses. The
+    resolution is the loader's own (a CIK succession folds into one asset), not a second grouping.
     """
-    by_symbol: dict[str, list[asset_master.Stint]] = {}
-    for stint in stints:
-        by_symbol.setdefault(stint.symbol, []).append(stint)
     return sorted(
-        symbol
-        for symbol, symbol_stints in by_symbol.items()
-        if any(s.valid_to is None for s in symbol_stints)
-        and not max(symbol_stints, key=lambda s: s.valid_from).cik
+        asset.symbol
+        for asset in asset_master.resolve_assets(list(stints))
+        if any(stint.valid_to is None for stint in asset.stints) and not asset.cik
     )
 
 
@@ -230,7 +230,7 @@ def report(batch: UniverseBatch, db_path: Path) -> list[str]:
         f"({len(gone)} symbol(s) not loaded at all, {len(later)} with a later stint kept)",
         f"Assets: {batch.summary.assets_written} written"
         + (f", {reused} already in reference.ttl" if reused else "")
-        + f" ({len(batch.summary.tickers)} symbol(s) loaded)",
+        + f" ({len(kept_symbols)} symbol(s) -> {len(batch.summary.tickers)} asset(s))",
         f"Memberships: {batch.summary.memberships} "
         f"({batch.summary.open_memberships} open, {batch.summary.closed_memberships} closed)",
         f"target graph: {batch.graph}",
@@ -307,6 +307,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         else:
             written = write(batch, store)
             print(f"written: {written} triples to {batch.graph}")
+    except asset_master.AssetResolutionError as exc:
+        print(f"STOPPED: {exc}", file=sys.stderr)
+        return 1
     except gate.IngestRejected as exc:
         print(f"REJECTED: {exc}", file=sys.stderr)
         return 1

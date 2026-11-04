@@ -12,7 +12,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from fixtures.universe_rows import universe_db
+from fixtures.universe_rows import Row, universe_db
 
 CLI = Path(__file__).resolve().parent.parent / "cli" / "load_universe.py"
 
@@ -46,7 +46,9 @@ def test_a_dry_run_reports_the_catalog_and_writes_nothing(tmp_path: Path) -> Non
     assert result.returncode == 0, result.stderr
     assert "kept 4 of 6 stint(s) over 4 symbol(s)" in result.stdout
     assert "dropped 2 stint(s) over 2 symbol(s)" in result.stdout
-    assert "Assets: 3 written, 1 already in reference.ttl (4 symbol(s) loaded)" in result.stdout
+    assert (
+        "Assets: 3 written, 1 already in reference.ttl (4 symbol(s) -> 4 asset(s))" in result.stdout
+    )
     assert "Memberships: 4 (3 open, 1 closed)" in result.stdout
     assert "urn:graph:universe:2026-Q4" in result.stdout
     assert "triples: 37" in result.stdout
@@ -80,6 +82,21 @@ def test_a_production_write_without_the_opt_in_exits_2(tmp_path: Path) -> None:
     result = _run(tmp_path, "--write", db=db, repository="portfolio")
     assert result.returncode == 2
     assert "needs --to-production" in result.stderr
+
+
+def test_two_kept_ciks_claiming_one_ticker_stop_the_run(tmp_path: Path) -> None:
+    rows: list[Row] = [
+        ("CEG", "Constellation Energy Group", None, None, "0000000001", "1990-01-01",
+         "2012-03-12"),
+        ("CEG", "Constellation Energy", "Utilities", "Electric Utilities", "0000000002",
+         "2022-02-02", None),
+    ]  # fmt: skip
+    db = universe_db(tmp_path / "universe.db", rows=rows)
+    result = _run(tmp_path, "--since", "1900-01-01", db=db)
+    assert result.returncode == 1
+    assert "STOPPED" in result.stderr
+    assert "latest ticker" in result.stderr
+    assert "0000000001" in result.stderr and "0000000002" in result.stderr
 
 
 def test_a_missing_database_exits_1(tmp_path: Path) -> None:

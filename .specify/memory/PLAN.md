@@ -1284,7 +1284,8 @@ check passes.
 
 ## Work item 23 — Inclusive membership end dates and one asset per CIK (T-260–T-279)
 
-**Status: in progress (Commit 1 done 2026-11-04; Commit 2 open).** Task IDs T-260–T-279.
+**Status: closed 2026-11-04** (two commits on `feat/universe-inclusive-validto-cik-fold`). Task
+IDs T-260–T-271.
 
 **Why**: two upstream facts, confirmed read-only, were modelled wrong. First,
 `portfolio-data-mining`'s `universe_membership.valid_to` is **inclusive**: it is the last day of
@@ -1314,7 +1315,7 @@ exist (`GOOG`/`GOOGL`, `UA`/`UAA`, `DISCA`/`DISCK`/`WBD`).
    membership on its last day is in in the catalog query; a same-day membership closure is
    accepted by the gate while a closure before its opening day is not.
 
-**What Commit 2 builds** (T-264–T-271): one `:Asset` per company (CIK) for a pure rename
+**What Commit 2 built** (T-264–T-271): one `:Asset` per company (CIK) for a pure rename
 succession, keeping the `:TICKER` IRI scheme. A CIK whose symbols have non-overlapping inclusive
 stints gets one `:Asset` named by the symbol of its latest stint, all stints as memberships with
 their dates unchanged, and sector/industry from the latest stint. Concurrent share classes stay
@@ -1332,8 +1333,16 @@ over 654 symbols (236 dropped over 230; 215 not loaded, 15 with a later stint ke
 written plus five in `reference.ttl`, 658 memberships (503 open, 155 closed), 6567 triples, 70
 written assets without `:classifiedAs` (six unmapped sub-industry values), SHACL conforms. Before
 Commit 1 the same file gave 657 stints over 653 symbols, 648 `:Asset`s plus five, 657 memberships
-(503 open, 154 closed), 6557 triples, 69 without `:classifiedAs`. Commit 2's after counts and the
-multi-symbol-CIK table are recorded in `TASKS.md`/`CHANGELOG.md` when it lands.
+(503 open, 154 closed), 6557 triples, 69 without `:classifiedAs`.
+
+Commit 2, same file and `--since`, AFTER: 658 stints over 654 symbols (unchanged), 643 `:Asset`s
+written plus five in `reference.ttl` — 648 assets from 654 symbols, because six pure successions
+folded — 658 memberships (503 open, 155 closed), 6542 triples, 65 written assets without
+`:classifiedAs`, SHACL conforms. The 11 CIKs with more than one symbol are six successions
+(`EG/RE`, `WTW/WLTW`, `CPAY/FLT`, `META/FB`, `ECHO/SATS`, `DAY/CDAY`), four concurrent classes
+(`UA/UAA`, `NWS/NWSA`, `GOOG/GOOGL`, `FOX/FOXA`) and one mixed (`DISCA`/`DISCK`/`WBD`), which
+stays per symbol. The three real backtest dry runs link every ticker: P1 100, P2 123, P3 115
+distinct, 0 unlinked.
 
 **Acceptance**: the point-in-time predicate is inclusive in every document and query; one-day
 stints are loaded and conform; a pure rename chain is one `:Asset` with all its memberships and no
@@ -1382,6 +1391,9 @@ Work item 20 (backtest run labels, open window vocabulary) — T-230–T-236 don
   stale unlabelled graphs from scratch repositories) is the maintainer's
 Work item 21 (reports-agent query catalog) — closed 2026-11-03 (T-240–T-243); adapted to the labelled
   backtest graphs and the asset catalog loader on 2026-11-04; see `CHANGELOG.md`
+Work item 23 (inclusive membership end, one `:Asset` per CIK) — closed 2026-11-04 (T-260–T-271);
+  the inclusive `validTo`, the shared loader/projector resolver and the real-data counts are in
+  `CHANGELOG.md`
 ```
 
 Work items 1, 2, and 9 have no dependencies and no blockers — they can land

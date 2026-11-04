@@ -466,7 +466,8 @@ conforms: True.** The `urn:graph:tbox` graph (which holds `shapes.ttl`) grows by
 **T-210 (FIBO Phase 1, 2026-11-03).** FIBO is a reference vocabulary, not a dependency: six
 `rdfs:seeAlso` links, no `owl:imports`/`owl:equivalentClass`/`rdfs:subClassOf`, no FIBO axioms in
 reasoning. `tbox.ttl` loses the two broken `https://www.omg.org/spec/EDMC-FIBO/` links (`:Asset`'s
-`LegalPerson`, with no replacement because `:Asset` is one node per ticker; `:SECFiling`'s
+`LegalPerson`, with no replacement because `:Asset` is one node per company line for a pure rename
+(T-264) and FIBO has no matching term; `:SECFiling`'s
 `Filing`, replaced by `Report`) and gains the six links in `fibo_terms.csv`: `:Portfolio`,
 `:PortfolioPosition`, `:tickerSymbol`, `:Sector`, `:Industry` and `:SECFiling`. `kg_target_schema.ttl`
 gets the same removals and four of the six links (it does not declare `:Sector` or `:Industry`; it
@@ -539,6 +540,19 @@ fresh load is 20 graphs and 4481 asserted triples (4513 + 2 − 34).
 `kg_target_schema.ttl` carries the same property and shapes. No GraphDB load was made; the
 maintainer must reload the schema and drop any backtest graph written under the retired unlabelled
 name (`urn:graph:derived:backtest:{window_id}:{run}`) before projecting with labels.
+
+**T-260/T-264 (inclusive membership end and the CIK fold, 2026-11-04).** `UniverseMembershipShape`
+switches `sh:lessThan` to `sh:lessThanOrEquals`, so a one-day stint (`validFrom == validTo`) is
+valid and only a `validTo` before `validFrom` fails; `gate.CLOSABLE` also treats a membership as
+inclusive. The asset catalog is resolved by CIK in `etl.asset_master.resolve_assets`: a pure ticker
+succession is one `:Asset` named by its latest symbol, while concurrent classes, a mixed CIK and a
+CIK-less symbol stay per symbol. `projection.backtest.universe_assets` and
+`projection.score_snapshots.universe_symbols` use the same resolver. No class or property changes,
+so the FR-001 bundle is still **4204 quads; conforms: True**. No GraphDB write or reload was made.
+On `universe_history_gics.db` at the default `--since`, the final dry run wrote 643 `:Asset`s plus
+five in `reference.ttl` (648 assets from 654 symbols; six successions folded), 658 memberships,
+6542 triples; 65 written assets lack `:classifiedAs` and the P1/P2/P3 dry runs leave 0 tickers
+unlinked.
 
 "Active at cutoff" is the general predicate; the **T-1 lag is the same query with `?cutoff` bound to
 the previous cycle date**. It needs the store to query the union of the named graphs (GraphDB does

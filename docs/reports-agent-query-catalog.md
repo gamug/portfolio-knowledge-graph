@@ -72,10 +72,11 @@ is the template.
 `:UniverseMembership`, `:PriceObservation` and `:Executive`. Five of them have
 a FIBO link (`:Portfolio`, `:PortfolioPosition`, `:Sector`, `:Industry` and
 `:SECFiling`); the other five come back with every `?fibo*` variable unbound.
-`:Asset` is deliberately one of the unbound ones: one `:Asset` is one ticker
-symbol, not one company, so FIBO's `LegalPerson`/`PubliclyHeldCompany` would
-misstate multi-class companies and reused tickers (its own definition names
-GOOGL and GOOG). `:Universe` and `:UniverseMembership`, `:PriceObservation`
+`:Asset` is deliberately one of the unbound ones: since T-264 it is one node
+per company line for a pure ticker succession (`FB`→`META`), but still one
+node per symbol for concurrent share classes (its own definition names GOOGL
+and GOOG) and for a mixed CIK, so FIBO's `LegalPerson`/`PubliclyHeldCompany`
+would misstate those classes and a reused ticker. `:Universe` and `:UniverseMembership`, `:PriceObservation`
 and `:Executive` have no FIBO link for the reasons `docs/06` §1.1 gives. The
 rows are not dropped, and they do not cross-join the glossary.
 
@@ -715,9 +716,9 @@ with or without the FIBO slice.
 2. builds one in-memory `rdflib.Dataset` from `schema/tbox.ttl`
    (`urn:graph:tbox`), `schema/fibo.ttl` (`urn:graph:reference:fibo`),
    `schema/rules.ttl` (`urn:graph:rules:catalog`) and `schema/reference.ttl`
-   (`urn:graph:reference`), plus two run labels (`rule`, `champ_v1`) across
-   two windows of the synthetic backtest scenario, projected with
-   `projection.backtest.project`;
+   (`urn:graph:reference`), a small `urn:graph:universe:` graph with one
+   rename chain, plus two run labels (`rule`, `champ_v1`) across two windows of
+   the synthetic backtest scenario, projected with `projection.backtest.project`;
 3. runs every query and checks its expectation: an exact row count, a
    non-empty result, or a named rule (`expect:rule=...`);
 4. checks the no-FIBO rows in `A1` (`:Asset`, `:Universe`,
