@@ -1730,3 +1730,149 @@ real-database test passes for P1/P2/P3. No GraphDB write or reload was made; the
 performs both.
 
 **Blocked on**: nothing.
+
+## Work item 28 — Incremental asset-catalog deltas (T-370–T-389)
+
+**Why**: `cli/load_universe.py` writes the whole catalog into
+`urn:graph:universe:{year}-Q{n}` once per repository. A second load into the same quarter is
+refused because the graph exists (gate check 2), and a load into a later quarter re-declares the
+same `:Asset`/`:Universe` typed individuals and is refused (gate check 6). A final backtest that
+holds a ticker the catalog does not know, or an index change after the first load (a new member, a
+stint that has closed), therefore forces a fresh repository. `docs/backtest-load-runbook.md` §1b
+states that limit. This work item builds the safe incremental path: a read-only diff of the source
+`universe.db` against the stored catalog, rendered as an append-only **delta batch** through the
+same gate.
+
+**Step 0 (read before designing).** `src/kg_store/universe.py` (the loader's `--since`,
+`resolve_assets` reuse, quarter name, dry-run/reference context and write path);
+`src/etl/asset_master.py` (`read_stints`, `keep_stints`, `resolve_assets`, the CIK fold and the
+`UM_{symbol}_{valid_from}` membership IRI); `src/kg_store/gate.py` (check 2 refuses an existing
+append-only graph, check 6 refuses a typed individual already stored, check 7 accepts an untyped
+`:validTo` closure of a stored open record and treats a `UniverseMembership` interval as
+inclusive); and `docs/07` (the universe graph is append-only; history is closed by `validTo`, never
+deleted).
+
+**Read-only phase.** The delta reads the source exactly as the full loader does: `read_stints`,
+the same `--since` filter and the same `resolve_assets`, so the loader and the delta cannot
+disagree about an asset. It reads the store with `SELECT` only, against
+`<http://www.ontotext.com/explicit>` (no inferred statements):
+
+* every stored `:Asset` IRI and its `:tickerSymbol`, `:companyName`, `:cikNumber` and
+  `:classifiedAs`;
+* every stored `:UniverseMembership` with `:membershipAsset`, `:validFrom` and optional
+  `:validTo`;
+* the names of the stored delta graphs for the target quarter, to choose the next sequence number.
+
+It never reads a graph body, never uses `CONSTRUCT`/`DESCRIBE`, and never writes during the dry
+run.
+
+**The delta has four categories.**
+
+- **(a) New assets.** A resolved `:Asset` IRI the store does not hold, with all its stints. The
+  batch declares the asset block (unless the ticker is one of `reference.ttl`'s five, which are
+  never re-declared) and a membership block for every stint whose membership IRI is not stored.
+- **(b) New memberships of a stored asset.** A source stint whose membership IRI is not stored,
+  while its resolved asset IRI is stored. This covers a re-entry (same ticker, new
+  `valid_from`) and an older/newer symbol of a renamed company that still resolves to the stored
+  asset by CIK. The batch carries the membership block plus the `:ASSET :hasUniverseMembership`
+  link; the stored asset is not typed again.
+- **(c) Closures.** A stored **open** membership whose source stint now has a `valid_to` and whose
+  other stored values match. The batch carries **only** `:UM_... :validTo "YYYY-MM-DD"^^xsd:date`.
+  The subject is untyped, which is the gate's sanctioned closing path (check 4/check 7); the
+  interval is inclusive, so a one-day stint is legal.
+- **(d) Drift.** Everything else that differs: a stored asset's company name, CIK or
+  `:classifiedAs` (the stored projection of the sector/sub-industry), a stored membership whose
+  `membershipAsset`/`validFrom`/`validTo` differs, a stored closed membership whose source stint is
+  open or has other dates, a stored membership absent from the source, and a stored non-reference
+  asset absent from the source. Drift is **reported and never applied**: the store is append-only,
+  so the old value is not rewritten, the membership is not deleted and no graph is dropped. The
+  `reference.ttl` assets are excluded from the "absent from source" drift because they are the
+  schema's own worked-example baseline, not catalog rows.
+
+**Graph naming.** The smallest safe rule is a sequence-qualified delta suffix on the same quarter:
+
+```text
+urn:graph:universe:{year}-Q{n}:delta:{positive integer}
+```
+
+The integer is the next free one for that quarter (`1 + max` of the stored graphs already matching
+the prefix; no graph names are guessed). The base quarter graph is unchanged and keeps its
+one-time catalog meaning; every other graph rule is untouched. The gate gains one append-only
+pattern, `_UNIVERSE_DELTA_TARGET`, handled on the same separate branch as the backtest ids so a
+positive sequence is not passed to `_date_ok`; the existing `urn:graph:universe:YYYY-Qn` pattern,
+the backtest patterns and `portfolio:current` are untouched. A delta graph is never appended to:
+a later change gets the next sequence.
+
+**Batch and validation.** The batch contains only the new asset blocks (non-reference tickers), the
+new membership blocks and links, and the closure triples. It never declares `:SP500Index` or any
+stored `:Asset`/`:UniverseMembership`; the `:SP500Index` and the referenced stored assets are
+fetched as gate context. The dry run builds the batch, prints the four counts, the drift list and
+the target graph, and validates it through `gate.validate` with `gate.fetch_context` from the
+store; `--write` sends the same bytes through `gate.ingest`. Nothing is written when the actionable
+delta (a + b + c) is empty, even if drift remains.
+
+**CLI.** `cli/load_universe.py --delta` (the logic in `src/kg_store/universe.py`) shares the
+existing `--since`, `--as-of`, `--write` and `--to-production` options. Unlike the full-load dry
+run, `--delta` always opens the store read-only to compute the diff; `--write` appends through the
+gate and the production repository still needs `--to-production`. A store with no stored
+`:UniverseMembership` is refused with a pointer to the full load (a delta cannot create
+`:SP500Index`), and a `reference.ttl` asset missing from the store is refused with a pointer to
+`schema/` loading. Exit status: 0 on success, 1 on a source/shape/gate/store stop, 2 on a bad
+argument or the production guard.
+
+**Idempotency.** After a successful write, the next run reads the new assets, memberships and
+`validTo` closures from the store. Category (a) no longer fires (the asset IRI is stored), (b) no
+longer fires (the membership IRI is stored), and (c) compares equal stored/source `validTo` values
+so it is not a closure. The actionable delta is empty, the CLI prints zero counts and writes
+nothing. Any drift reported before the write is still reported (it was never applied), by design.
+
+**Limits.** Drift is not repairable in place; a genuine correction needs a new work item and a
+new graph, not an edit. The stored `:classifiedAs` is the only sector/sub-industry fact in the
+store, so a source sub-industry change that rolls up to the same industry IRI is not observable as
+drift. The gate's read-then-write window applies to closures as it does elsewhere; GraphDB writes
+are still only made by the user.
+
+**Tasks**:
+
+- **T-370** Record this design in `PLAN.md` before any code; commit it first.
+- **T-371** Read the stored catalog (assets, memberships, delta graph names) with `SELECT` only and
+  expose a `StoreState` snapshot; refuse a store without the baseline catalog.
+- **T-372** Implement the four-category delta classifier (`new_assets`, `new_memberships`,
+  `closures`, `drift`) with the loader's `--since`/`resolve_assets`, including the reference-asset
+  rule and the "drift is never applied" policy.
+- **T-373** Render the delta batch, compute the next delta graph, run the dry run through
+  `gate.validate` with store context, and write only the actionable batch through `gate.ingest`.
+- **T-374** Add `--delta` to `cli/load_universe.py` with the production guard, empty-delta
+  behaviour, exit statuses and idempotency.
+- **T-375** Extend the gate target check with `urn:graph:universe:{year}-Q{n}:delta:{n}` and its
+  positive tests/refusals; keep every existing graph rule unchanged.
+- **T-376** Hermetic tests with an in-memory `rdflib.Dataset` store: a new ticker, a rename joining
+  a stored asset, a closure, a re-entry, drift (changed sector/name/CIK), a stored membership
+  absent from the source, the empty delta, the fresh-store refusal and the gate refusals.
+- **T-377** Real read-only verification: `portfolio_test` with
+  `SQL_UNIVERSE_DB=/workspaces/thesis/data/universe_history_gics.db` must report an empty delta;
+  then a temporary copy of that database (never the original, never committed) with one new symbol
+  and one closed open stint must show exactly that delta.
+- **T-378** Docs and counts: `docs/backtest-load-runbook.md` §1b, `docs/graphdb-setup.md`,
+  `docs/07`, `schema/README.md`, `README.md`, SPEC FR-008, and the measured numbers in TASKS/PLAN.
+- **T-379** Run the repository checks (`pytest`, `mypy`, the pinned pre-commit hooks on changed
+  files) and record counts/timings.
+- **T-380** First real `--write` of a delta into a scratch repository (maintainer; the agent never
+  writes GraphDB).
+
+**Acceptance criteria**:
+
+- A delta dry run against a store loaded from the same `universe.db` is empty and writes nothing;
+  a store never sees a re-declared `:Asset`/`:Universe` or a changed stored value.
+- A temporary source copy with one new symbol and one closed open stint yields exactly one new
+  asset (or new membership, as applicable) and one closing `:validTo`, with no drift; the original
+  database and every graph are untouched.
+- The delta graph name is gate-accepted as append-only and every other graph name keeps its
+  previous accept/refuse result.
+- A second run immediately after a write prints an empty delta and performs no write.
+- New asset/membership blocks, closures, drift and the empty delta are covered hermetically with
+  the in-memory `Dataset` store, including gate check 2/6/7 refusals.
+- `uv run pytest`, `mypy` and the pinned pre-commit hooks pass; docs and asserted counts are
+  consistent (NR-001); the first real write remains the maintainer's step.
+
+**Blocked on**: nothing.
