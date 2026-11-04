@@ -1156,6 +1156,9 @@ Work item 21 (T-240–T-243): closed 2026-11-03 — the reports-agent query cata
 Work item 22 (T-250–T-259): closed 2026-11-04 — the six historical GICS sub-industry names now roll
 up to existing `reference.ttl` groups, and the full dry run reports 6563 triples with no
 unmapped-value warning; see `CHANGELOG.md`.
+Work item 24 (T-280–T-283): closed 2026-11-04 — the read-only backtest verifier
+(`cli/verify_backtest.py`), its hermetic tests, the final-load runbook and the re-measured dry-run
+numbers; see `CHANGELOG.md` and `docs/backtest-load-runbook.md`.
 Work item 25 (T-300–T-307): closed 2026-11-04 — the catalog's sector/industry section, its
 cross-graph rule and six executable queries, the real-layout synthetic store and the negative
 single-graph test; see `CHANGELOG.md`.
