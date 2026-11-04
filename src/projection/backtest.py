@@ -43,7 +43,7 @@ import rdflib
 from rdflib.namespace import RDF, XSD
 from rdflib.term import Node
 
-from etl.asset_master import Stint, read_stints
+from etl.asset_master import read_stints, resolve_assets
 from kg_store import gate
 from kg_store.graphdb import GraphDB, GraphDBError
 from projection.boundary import (
@@ -173,17 +173,19 @@ class AssetInfo:
 
 
 def universe_assets(path: str | Path) -> dict[str, AssetInfo]:
-    """The universe database's assets, read the way :func:`projection.score_snapshots.universe_symbols` is."""
-    grouped: defaultdict[str, list[Stint]] = defaultdict(list)
-    for stint in read_stints(path):
-        grouped[stint.symbol].append(stint)
+    """The universe database's assets, through the loader's own CIK-aware resolver (T-264/T-266).
+
+    The key is the ``:Asset`` IRI local name (a rename chain's latest symbol), not every historical
+    symbol: the backtest's ``holding_key`` is the current ticker, so ``:META`` is what P1 links even
+    though its FB stint starts before the rename. ``validation_context`` uses the same keys and the
+    full stint list, so a dry run validates exactly the memberships the loader would store.
+    """
     assets: dict[str, AssetInfo] = {}
-    for symbol, stints in sorted(grouped.items()):
-        stints.sort(key=lambda stint: stint.valid_from)
-        assets[symbol] = AssetInfo(
-            symbol,
-            next((stint.cik for stint in stints if stint.cik), None),
-            tuple((stint.valid_from, stint.valid_to) for stint in stints),
+    for asset in resolve_assets(read_stints(path)):
+        assets[asset.symbol] = AssetInfo(
+            asset.symbol,
+            asset.cik,
+            tuple((stint.valid_from, stint.valid_to) for stint in asset.stints),
         )
     return assets
 

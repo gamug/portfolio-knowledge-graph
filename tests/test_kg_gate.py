@@ -805,23 +805,23 @@ def test_a_per_run_weight_scheme_is_never_closed(make_db: MakeDB) -> None:
     assert gate.ingest(design.db, batch, GRAPH) == 1
 
 
-@pytest.mark.parametrize(
-    ("batch", "subject", "rdf_type", "opened"),
-    [
-        (CLOSE_MEMBERSHIP, ":m", "UniverseMembership", "validFrom"),
-        (CLOSE_VETO, ":v", "Veto", "raisedOn"),
-    ],
-)
-def test_a_closure_not_after_the_opening_date_is_refused(
-    batch: bytes, subject: str, rdf_type: str, opened: str, make_db: MakeDB
-) -> None:
-    for began in ("2026-03-31", "2026-04-15"):  # the same day, and a later one
-        fake = _holding(make_db, subject, rdf_type, **{opened: began})
+def test_a_closure_not_after_the_opening_date_is_refused(make_db: MakeDB) -> None:
+    """A Veto's clearedOn is strict: the same day and a later opening day are both refused."""
+    for began in ("2026-03-31", "2026-04-15"):
+        fake = _holding(make_db, ":v", "Veto", raisedOn=began)
         with pytest.raises(gate.IngestRejected, match="not after the date it opened on"):
-            gate.ingest(fake.db, batch, GRAPH)
+            gate.ingest(fake.db, CLOSE_VETO, GRAPH)
         assert fake.added == []
-    ok = _holding(make_db, subject, rdf_type, **{opened: "2026-01-01"})
-    assert gate.ingest(ok.db, batch, GRAPH) == 1
+    ok = _holding(make_db, ":v", "Veto", raisedOn="2026-01-01")
+    assert gate.ingest(ok.db, CLOSE_VETO, GRAPH) == 1
+
+
+def test_a_membership_closure_before_it_opened_is_refused(make_db: MakeDB) -> None:
+    """T-260 made the same-day closure legal; a closing date before the opening one is not."""
+    fake = _holding(make_db, ":m", "UniverseMembership", validFrom="2026-04-15")
+    with pytest.raises(gate.IngestRejected, match="not after the date it opened on"):
+        gate.ingest(fake.db, CLOSE_MEMBERSHIP, GRAPH)
+    assert fake.added == []
 
 
 @pytest.mark.parametrize(
@@ -1193,8 +1193,8 @@ def test_a_one_day_ticker_history_closure_is_not_refused(make_db: MakeDB) -> Non
     assert gate.refused_closures(batch, state) == []
 
 
-def test_a_same_day_membership_closure_is_still_refused(make_db: MakeDB) -> None:
-    """The inclusive exception is TickerHistory-only; every other valid-time class stays strict."""
+def test_a_one_day_membership_closure_is_not_refused(make_db: MakeDB) -> None:
+    """T-260: a membership's interval is inclusive too, so validFrom == validTo is one day."""
     batch = gate.parse_batch(PREFIXES + f':m :validTo "2026-01-01"{DATE} .'.encode())
     rows = [
         {"s": str(KG.m), "p": str(rdflib.RDF.type), "o": str(KG.UniverseMembership)},
@@ -1202,9 +1202,7 @@ def test_a_same_day_membership_closure_is_still_refused(make_db: MakeDB) -> None
     ]
     fake = make_db(rows=rows)
     state = gate.fetch_closing_state(fake.db, {KG.m})
-    problems = gate.refused_closures(batch, state)
-    assert len(problems) == 1
-    assert "not after the date it opened" in problems[0]
+    assert gate.refused_closures(batch, state) == []
 
 
 def test_fetch_closing_state_queries_in_chunks_of_200(make_db: MakeDB) -> None:

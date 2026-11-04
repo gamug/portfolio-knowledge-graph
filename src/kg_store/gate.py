@@ -31,9 +31,10 @@ A batch is Turtle destined for one named graph. It is written only if
    re-declared with a second value; and
 7. every closing triple (point 4) closes a stored individual of a class that is closed by that
    property (``CLOSABLE``: ``validTo``: a membership, position, rule, design-history weight scheme or
-   ticker-history row; ``clearedOn``: a Veto) which is not closed yet, on a date after it opened (for a
-   TickerHistory, not before it: its interval is inclusive, so a one-day record may close on its opening
-   date; and, for a Veto, not before the latest ``lastSeenOn``, T-185), and closes it once (T-180). A
+   ticker-history or membership record; ``clearedOn``: a Veto) which is not closed yet, on a date after
+   it opened (for a TickerHistory or UniverseMembership, not before it: both intervals are inclusive, so
+   a one-day record may close on its opening date; and, for a Veto, not before the latest
+   ``lastSeenOn``, T-185), and closes it once (T-180). A
    ``lastSeenOn`` appended to a stored Veto (``APPENDABLE``, T-194) must be a Veto that is not cleared,
    on a date not before it was raised, after its latest ``lastSeenOn`` (an equal date is a replay) and
    not after the ``clearedOn`` the same batch gives it. Read, then written, not atomic: see the limit below; and
@@ -279,9 +280,10 @@ def closing_values(batch: rdflib.Graph) -> dict[tuple[rdflib.term.Node, rdflib.U
 
 
 #: Per closing property: the classes whose records it closes, the property holding the date the record
-#: opened (the closing date must be later: the shapes' ``sh:lessThan``, which the stored record is never
-#: validated against here), the classes whose interval is inclusive (a closing date equal to the opening
-#: date is allowed; T-206's TickerHistory), and, for a Veto, the ``lastSeenOn`` it may not precede.
+#: opened (the closing date must be later: the shapes' ``sh:lessThanOrEquals``, which the stored record is
+#: never validated against here), the classes whose interval is inclusive (a closing date equal to the
+#: opening date is allowed; T-206's TickerHistory and T-260's UniverseMembership), and, for a Veto, the
+#: ``lastSeenOn`` it may not precede.
 #: Explicit, not read from the shapes: a class is closable because its design says so (``07``), and
 #: ``PortfolioPositionShape`` does not mention ``validTo``.
 class Closable(NamedTuple):
@@ -307,10 +309,13 @@ CLOSABLE: Mapping[rdflib.URIRef, Closable] = MappingProxyType(
                     # T-206: a TickerHistory row is an INCLUSIVE valid-time interval
                     # [validFrom, validTo]; validFrom == validTo is a one-day symbol.
                     _PORTFOLIO.TickerHistory,
+                    # T-260: a UniverseMembership row is inclusive too; its validTo is the last
+                    # day of membership, so validFrom == validTo is a real one-day stint.
+                    _PORTFOLIO.UniverseMembership,
                 }
             ),
             _PORTFOLIO.validFrom,
-            inclusive=frozenset({_PORTFOLIO.TickerHistory}),
+            inclusive=frozenset({_PORTFOLIO.TickerHistory, _PORTFOLIO.UniverseMembership}),
         ),
         # A cycle that still saw the stint raised (``lastSeenOn``, one per cycle) is not undone by a
         # later clearing dated before it (T-185).
@@ -388,9 +393,9 @@ def _date_order(
 ) -> str | None:
     """Why a closing date is refused against the stored opening date(s), or None.
 
-    ``inclusive`` is true only for a class whose interval is inclusive (T-206's TickerHistory): a
-    closing date equal to the opening date is then a one-day record, not an error. Every other
-    valid-time class keeps the strict "after it opened" rule.
+    ``inclusive`` is true only for a class whose interval is inclusive (T-206's TickerHistory and
+    T-260's UniverseMembership): a closing date equal to the opening date is then a one-day record,
+    not an error. Every other valid-time class keeps the strict "after it opened" rule.
     """
     if len(began) > 1:
         name = opened.rpartition("#")[2]
@@ -499,8 +504,8 @@ def _before_last_seen(
 
 def refused_closures(batch: rdflib.Graph, state: ClosingState) -> list[str]:
     """Closing and sighting triples that do not close a stored, still open record, on a date after it
-    opened (or, for a TickerHistory, on or after it opened), add a sighting the record may not take, or
-    give one subject two dates."""
+    opened (or, for a TickerHistory or UniverseMembership, on or after it opened), add a sighting the
+    record may not take, or give one subject two dates."""
     nm = batch.namespace_manager
     problems: list[str] = []
     values = closing_values(batch)

@@ -78,7 +78,7 @@ from pathlib import Path
 
 import rdflib
 
-from etl.asset_master import read_stints
+from etl.asset_master import read_stints, resolve_assets
 from kg_store import gate
 from kg_store.graphdb import GraphDB, GraphDBError
 from projection.boundary import (
@@ -419,8 +419,12 @@ def read_runs(db: FinancialSource) -> list[Row]:
 
 
 def universe_symbols(path: str | Path) -> set[str]:
-    """Every symbol of the universe database: the assets a snapshot can point at."""
-    return {stint.symbol for stint in read_stints(path)}
+    """The ``:Asset`` IRIs of the universe database: what a snapshot can point at (T-264).
+
+    Uses the loader's resolver, so a rename chain's former ticker is not offered
+    as an asset: the snapshot's ticker must be the company's current symbol.
+    """
+    return {asset.symbol for asset in resolve_assets(read_stints(path))}
 
 
 @dataclass

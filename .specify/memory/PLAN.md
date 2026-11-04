@@ -1321,6 +1321,77 @@ Finance -> `Ind_Banks`.
   NWL and PBCT each gain their expected `:classifiedAs`.
 - `uv run pytest`, `mypy` and the pinned pre-commit hooks pass; docs and counts are consistent.
 
+## Work item 23 — Inclusive membership end dates and one asset per CIK (T-260–T-279)
+
+**Status: closed 2026-11-04** (two work commits on
+`feat/universe-inclusive-validto-cik-fold`, plus the merge of `origin/master` after PR #119). The
+reserved decade T-260–T-279 uses T-260–T-271.
+
+**Why**: two upstream facts, confirmed read-only, were modelled wrong. First,
+`portfolio-data-mining`'s `universe_membership.valid_to` is **inclusive**: it is the last day of
+membership (NULL = still a member), and upstream fixed its own `valid_to > D` predicate on
+2026-10-14. One-day stints (`valid_from = valid_to`, `PHIN` on 2023-07-05) are real. This repo's
+loader, `UniverseMembershipShape` and docs still described and enforced an exclusive end, so they
+dropped real stints and answered "left the index" one day early. Second, the backtest's
+`holding_key` is `assets.ticker`, i.e. one asset per CIK carrying the **current** symbol (META for
+the whole of P1, even before 2022-06-09). This catalog wrote one `:Asset` per symbol, so a renamed
+company was split (`:FB` until 2022-06-08, `:META` from 2022-06-09) and the earlier stint could
+not link to the backtest's single holding. Confirmed same-CIK renames: `WLTW`→`WTW`, `FB`→`META`,
+`RE`→`EG`, `FLT`→`CPAY`, `SATS`→`ECHO`, `CDAY`→`DAY`. Concurrent share classes under one CIK also
+exist (`GOOG`/`GOOGL`, `UA`/`UAA`, `DISCA`/`DISCK`/`WBD`).
+
+**What Commit 1 built** (T-260–T-263):
+
+1. `read_stints` keeps a one-day stint and skips only `valid_to < valid_from`;
+   `UniverseMembershipShape` uses `sh:lessThanOrEquals`; the gate's `CLOSABLE` entry treats a
+   membership as inclusive too. `RuleDefinition`, `PortfolioPosition` and
+   `AttractivenessWeightScheme` stay exclusive; `TickerHistory` was already inclusive.
+2. The point-in-time predicate is `validFrom <= D AND (no validTo OR validTo >= D)` everywhere
+   the membership is described: `tbox.ttl`, `schema/README.md`, `docs/06`, `docs/07`,
+   `src/etl/README.md`, `docs/graphdb-setup.md`, SPEC FR-004/FR-008/D1, `PLAN`/`TASKS`, and the
+   reports-agent catalog, which gains a `universe-members-on-date` query that returns the member
+   on its last day.
+3. Tests: the one-day `PHIN` stint is kept and conforms; `validTo < validFrom` still fails; a
+   membership on its last day is in in the catalog query; a same-day membership closure is
+   accepted by the gate while a closure before its opening day is not.
+
+**What Commit 2 built** (T-264–T-271): one `:Asset` per company (CIK) for a pure rename
+succession, keeping the `:TICKER` IRI scheme. A CIK whose symbols have non-overlapping inclusive
+stints gets one `:Asset` named by the symbol of its latest stint, all stints as memberships with
+their dates unchanged, and sector/industry from the latest stint. Concurrent share classes stay
+one `:Asset` per symbol; a mixed pattern (overlap plus a later non-overlapping symbol, e.g.
+`DISCA`/`DISCK`/`WBD`) is not guessed and stays as today. A CIK-less stint stays grouped by
+symbol. Ticker reuse (`CEG`, `DELL`, `Q`: different companies, same symbol) and `--since` keep
+their behaviour; two kept CIKs that would claim the same latest ticker stop the run. Former
+tickers are NOT stored in this change. `etl.asset_master` owns one shared resolver used by both
+`cli/load_universe.py` and `projection.backtest.universe_assets`, so the loader and the projector
+cannot disagree on the asset set.
+
+**Measured on the real database (read-only).** Commit 1, over
+`/workspaces/thesis/data/universe_history_gics.db` at `--since` 2019-01-02: 658 of 894 stints kept
+over 654 symbols (236 dropped over 230; 215 not loaded, 15 with a later stint kept), 649 `:Asset`s
+written plus five in `reference.ttl`, 658 memberships (503 open, 155 closed), 6573 triples, 64
+written assets without `:classifiedAs` (their latest stint has no GICS sub-industry; Work item 22's
+six historical values are already mapped), SHACL conforms. Before Commit 1 the same file gave 657
+stints over 653 symbols, 648 `:Asset`s plus five, 657 memberships (503 open, 154 closed), 6563
+triples, 63 without `:classifiedAs`.
+
+Commit 2, same file and `--since`, AFTER: 658 stints over 654 symbols (unchanged), 643 `:Asset`s
+written plus five in `reference.ttl` — 648 assets from 654 symbols, because six pure successions
+folded — 658 memberships (503 open, 155 closed), 6548 triples, 59 written assets without
+`:classifiedAs`, SHACL conforms. The 11 CIKs with more than one symbol are six successions
+(`EG/RE`, `WTW/WLTW`, `CPAY/FLT`, `META/FB`, `ECHO/SATS`, `DAY/CDAY`), four concurrent classes
+(`UA/UAA`, `NWS/NWSA`, `GOOG/GOOGL`, `FOX/FOXA`) and one mixed (`DISCA`/`DISCK`/`WBD`), which
+stays per symbol. The three real backtest dry runs link every ticker: P1 100, P2 123, P3 115
+distinct, 0 unlinked.
+
+**Acceptance**: the point-in-time predicate is inclusive in every document and query; one-day
+stints are loaded and conform; a pure rename chain is one `:Asset` with all its memberships and no
+former ticker; concurrent and mixed CIKs are unchanged; CIK-less stints and ticker reuse keep
+their behaviour; the loader and `projection.backtest.universe_assets` return the same asset set;
+every backtest ticker still links (P1 100, P2 123, P3 115 distinct, 0 missing); `uv run pytest`,
+`mypy` and the pinned `pre-commit` hooks pass. No GraphDB write or reload in this work item.
+
 **Blocked on**: nothing.
 
 ## Work item 24 — Verify a loaded backtest against its source (T-280–T-299)
@@ -1379,6 +1450,68 @@ procedure around both halves.
   21/21 checks over an in-memory Dataset holding `rule_P1.db`'s 209,886-triple projection, but its
   store-side SPARQL has not yet run against GraphDB. The first live run is the operator's step in
   `docs/backtest-load-runbook.md`.
+## Work item 25 — Reports-agent sector and industry queries (T-300–T-308)
+
+**Status: closed 2026-11-04.**
+
+**Why**: a sector question written with the asset classification and the GICS taxonomy in one
+`GRAPH` block silently returns almost nothing. In the real store `:Asset :classifiedAs :Ind_*`
+lives in the asset-catalog graph `urn:graph:universe:{year}-Q{n}`, while `:Industry`, `:Sector`,
+`:memberOfSector` and their `skos:prefLabel`s live in `urn:graph:reference`; only the five
+worked-example assets in `reference.ttl` satisfy a single-graph pattern. Those five also appear in
+the universe graph for their memberships (T-225), so a naive union join can count them twice.
+
+**What was built**:
+
+1. `docs/reports-agent-query-catalog.md` gains §6, the cross-graph rule and six executable queries:
+   layer-1 GUARD cuts by window and sector (with an `unclassified` bucket so the P1 total equals the
+   layer-1 ENTER alert count), sector composition of a book on a rebalance date (the sector weights
+   plus the `unclassified` bucket plus CASH sum to 1), distinct held tickers by window and industry
+   (Banks and Insurance, count and `GROUP_CONCAT` list), sector coverage of held assets (held,
+   asset-linked, sector-classified), unclassified assets by year of `:validTo`, and `sector-of-asset`
+   for Q5 (ticker, company, industry, sector and the optional Spanish sector note). The
+   asset-to-sector part is a `SELECT DISTINCT` sub-select outside `GRAPH ?g`; the backtest part stays
+   inside the `urn:graph:derived:backtest:` filter with the run label.
+2. `tests/test_query_catalog.py` now builds the synthetic store in the real layout: `:Asset` and
+   `:classifiedAs` in `urn:graph:universe:2026-Q4`, the taxonomy in `urn:graph:reference`, and
+   `AAPL` in both graphs (T-225). The dataset enables GraphDB's default union for the documented
+   sub-select. A negative test proves the single-graph form returns fewer rows (0 in the universe
+   graph, 5 in the reference graph) than the correct cross-graph form (8), and that a naive union
+   counts the overlapping `AAPL` twice.
+3. The limits table marks the sector questions Q5 and Q11 **Today**; §6.7 records the known limits of
+   the asset catalog (the 2019–2021 leavers' 56 closed stints have no source classification, the
+   spin-offs MBC/FTRE/PHIN have none either, and GICS is rolled up by
+   `src/etl/common/gics_rollup.py`).
+
+**Acceptance criteria**:
+
+- Every new query is tagged and executes against the synthetic real-layout store; the sector tests
+  pin the cut total, the composition sum, the Banks/Insurance ticker lists, the coverage split and
+  the unclassified years.
+- Read-only verification against `portfolio_test` on 2026-11-04: layer-1 cuts 157 (P1), 56 (P2) and
+  29 (P3), the P1 total equal to its 157 ENTER alerts; the P1 `MARKOWITZ_BASE` composition (decision
+  2021-12-31, execution 2022-01-03) is 9 sector rows summing to `0.999999548…` with CASH
+  `0.000000451…`; Banks/Insurance returns 5 rows; coverage is 100/100/100, 123/123/123 and
+  115/115/115; the 2019–2021 unclassified closed stints total 56.
+- `uv run pytest`, `mypy` and the pinned pre-commit hooks pass; docs and counts are consistent.
+
+**Follow-up (2026-11-04, PR #120 review).** The composition query's optional sector sub-select
+was evaluated before the backtest block, so a held ticker with no `:classifiedAs` or no
+`:holdingAsset` disappeared instead of joining the `unclassified` bucket. T-305 moves the holding
+and CASH patterns into `GRAPH ?g` with `OPTIONAL { ?row :holdingAsset ?asset }`, then uses the
+sentinel/`COALESCE` pattern; a dedicated fixture now holds AAA (Financials) 0.60, QQQ (catalog asset
+without a sector) 0.30, ZZZ (no `:holdingAsset`) 0.05 and CASH 0.05, and asserts Financials 0.60,
+`unclassified` 0.35 and 0.60 + 0.35 + 0.05 = 1. T-306 adds `sector-of-asset` for Q5 (ticker
+parameter; company, industry, sector and the optional Spanish sector note), proves one row for
+`AAPL` even though it is in both graphs, and documents that an unclassified ticker returns no row.
+T-307 re-runs the checks and records the counts.
+
+**Coordination**: Work item 23 (inclusive `validTo`, one `:Asset` per CIK for renames) owns the
+`validTo` semantics and asset-identity statements and will edit the same catalog for membership
+queries. When it lands, merge `origin/master` and keep both sides; this work item deliberately does
+not restate or change those decisions.
+
+**Blocked on**: nothing.
 
 ## Sequencing
 
@@ -1419,7 +1552,11 @@ Work item 20 (backtest run labels, open window vocabulary) — T-230–T-236 don
 Work item 21 (reports-agent query catalog) — closed 2026-11-03 (T-240–T-243); adapted to the labelled
   backtest graphs and the asset catalog loader on 2026-11-04; see `CHANGELOG.md`
 Work item 22 (retired GICS names) — closed 2026-11-04 (T-250–T-259); see `CHANGELOG.md`
+Work item 23 (inclusive membership end, one `:Asset` per CIK) — closed 2026-11-04 (T-260–T-271);
+  the inclusive `validTo`, the shared loader/projector resolver and the real-data counts are in
+  `CHANGELOG.md`
 Work item 24 (backtest verifier and load runbook) — closed 2026-11-04 (T-280–T-283); see
+Work item 25 (reports-agent sector and industry queries) — closed 2026-11-04 (T-300–T-307); see
   `CHANGELOG.md`
 Work item 26 (backtest selection side) — closed 2026-11-04 (T-320–T-328); see `CHANGELOG.md`
 ```
@@ -1467,6 +1604,29 @@ Rule ids in `v_veto` are `BREAK_TREND_200`, `CRASH_Z_SCORE`, `DATA_QUALITY`, `EA
 `schema/rules.ttl`; `LIQUIDITY_DISTRESS` resolves to `:Rule_LIQUIDITY_DISTRESS_v11`, because the
 2026-10-02 definition closed on 2026-10-10. Resolving by `:raisedOn` would fail: every stint was
 raised between 2020-12-31 and 2024-07-30, before every active rule's `validFrom`.
+
+**Veto-in-force reconciliation (2026-11-04, read-only).** For every ranking row, the predicate
+`raised_on <= C AND (cleared_on IS NULL OR cleared_on > C)` was evaluated on `v_veto` at the
+cycle's `as_of` `C`, and its rule ids were compared with the rule ids in
+`v_cycle_ranking.veto_rules_json` (`HARD`, `SOFT`, `UNSCORED`, `UNPRICED` and `NO_RISK_MODEL` are
+markers, not rules). Result: no extra rule ever appears in the JSON; the only differences are
+HARD rules that upstream represents solely by the `HARD` marker. Every missing triple belongs to
+a row that carries that marker, and no missing triple comes from a row without a marker. The
+convention is therefore unchanged.
+
+| DB | ranking rows | rows equal | rows differ | expected rule triples | JSON rule triples | agree | missing | extra |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| P1 | 10,484 | 9,092 | 1,392 | 5,180 | 3,506 | 3,506 | 1,674 | 0 |
+| P2 | 10,060 | 8,805 | 1,255 | 4,347 | 2,943 | 2,943 | 1,404 | 0 |
+| P3 | 11,066 | 9,453 | 1,613 | 5,412 | 3,563 | 3,563 | 1,849 | 0 |
+
+Missing triples by HARD rule — P1: `LEVERAGE_EXTREME` 958, `NEGATIVE_FCF` 438, `DATA_QUALITY`
+96, `VOLATILITY_SHOCK` 96, `CRASH_Z_SCORE` 78, `UTILITY_CASH_COVERAGE` 8; P2:
+`LEVERAGE_EXTREME` 741, `NEGATIVE_FCF` 398, `VOLATILITY_SHOCK` 134, `DATA_QUALITY` 68,
+`CRASH_Z_SCORE` 63; P3: `LEVERAGE_EXTREME` 961, `NEGATIVE_FCF` 539, `VOLATILITY_SHOCK` 183,
+`CRASH_Z_SCORE` 89, `DATA_QUALITY` 73, `UTILITY_CASH_COVERAGE` 4. This is upstream's JSON
+shape, not a projection error: the `Veto` stints carry the rule id and the ranking carries the
+HARD/SOFT distinction.
 
 **Graph placement.** The m018 graph `urn:graph:derived:backtest:{label}:{P<n>}:{run_id}` is
 append-only and may already be written, so the selection side gets a sibling graph:
@@ -1558,12 +1718,15 @@ existing graph is reported and skipped. Run labels and windows are the same patt
 
 **Verified 2026-11-04 (read-only dry runs, `pyshacl` conforms in all three):** P1 42,700
 rows/individuals and 321,281 triples in 86.25 s at 1,213,756 KB peak RSS; P2 41,259 and 309,726
-in 81.64 s at 1,153,048 KB; P3 45,440 and 342,929 in 90.11 s at 1,282,204 KB. The synthetic tests
-cover the LIQUIDITY_DISTRESS `_v11` resolution, an unknown rule id, the UNSCORED placeholder,
-unlinked tickers and a non-completed cycle run. Schema: 52 classes / 39 leaves / 34 shapes;
-FR-001 **4431 quads**, fresh load **4708** asserted triples. The three report queries are in the
-catalog; Q9 and B5 are `Today`. `uv run pytest -q` = 1127 passed, 57 deselected in 794.79 s (after merging
-origin/master); `mypy` = success, 87 files; the pinned pre-commit hooks pass; the opt-in real-database test passes
-for P1/P2/P3. No GraphDB write or reload was made; the maintainer performs both.
+in 81.64 s at 1,153,048 KB; P3 45,440 and 342,929 in 90.11 s at 1,282,204 KB. A re-run after
+merging PR #120/#122 produced the **same three triple counts** (P1 321,281 / P2 309,726 / P3
+342,929; 63.93 / 59.01 / 63.93 s; 1,213,152 / 1,155,156 / 1,282,896 KB), all SHACL-valid. The
+synthetic tests cover the LIQUIDITY_DISTRESS `_v11` resolution, an unknown rule id, the UNSCORED
+placeholder, unlinked tickers and a non-completed cycle run. Schema: 52 classes / 39 leaves / 34
+shapes; FR-001 **4431 quads**, fresh load **4708** asserted triples. The three report queries are
+in the catalog; Q9 and B5 are `Today`. `uv run pytest -q` = 1164 passed, 57 deselected in 841.85 s
+(after the second merge); `mypy` = success, 87 files; the pinned pre-commit hooks pass; the opt-in
+real-database test passes for P1/P2/P3. No GraphDB write or reload was made; the maintainer
+performs both.
 
 **Blocked on**: nothing.

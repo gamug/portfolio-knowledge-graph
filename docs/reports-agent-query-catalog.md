@@ -26,22 +26,31 @@ rebalance record, and it is answered by the data queries below, not by
 
 ## 1. How to scope every query
 
-**Always name a `GRAPH`; never rely on the default union.** GraphDB's default
-graph is the union of every named graph, so an unscoped query mixes the
-ontology (`urn:graph:tbox`), the reference data (`urn:graph:reference`), the
-FIBO slice (`urn:graph:reference:fibo`), the rule catalog
-(`urn:graph:rules:catalog`) and every projected backtest. The symptom is
-subtle: `?s a :Asset` returns the `:Asset` **class** from the TBox beside the
-asset **individuals** from the reference graph, and a `?term rdfs:seeAlso
-?fibo` pattern cross-joins the whole glossary unless the link and the FIBO
-lookup sit in the same `OPTIONAL`. A query that works in the Workbench because
-of the union returns nothing in the hermetic test, where the default graph is
-empty. Scoping is therefore part of the query, not a Workbench setting.
+**Name a `GRAPH` for every pattern that belongs to one graph; never rely on
+the default union by accident.** GraphDB's default graph is the union of every
+named graph, so an unscoped query mixes the ontology (`urn:graph:tbox`), the
+reference data (`urn:graph:reference`), the FIBO slice
+(`urn:graph:reference:fibo`), the rule catalog (`urn:graph:rules:catalog`) and
+every projected backtest. The symptom is subtle: `?s a :Asset` returns the
+`:Asset` **class** from the TBox beside the asset **individuals** from the
+reference graph, and a `?term rdfs:seeAlso ?fibo` pattern cross-joins the whole
+glossary unless the link and the FIBO lookup sit in the same `OPTIONAL`.
+
+The one deliberate exception is the asset-to-sector sub-select in §6: the
+asset classification lives in `urn:graph:universe:*` and the taxonomy in
+`urn:graph:reference`, so that sub-select runs outside `GRAPH` and uses the
+union on purpose. It is a `SELECT DISTINCT`, and it is the only unscoped
+pattern in this catalog. The hermetic test builds its dataset with the same
+default union, so the exception is exercised; every other query still has to
+name its graph. Outside that sub-select, a query that needs the union is a bug:
+it mixes graphs, and enabling the union for the test does not license a second
+unscoped pattern.
 
 | Graph | What it holds | How to name it |
 |---|---|---|
 | `urn:graph:tbox` | classes, properties, Spanish labels and definitions | `GRAPH <urn:graph:tbox> { ... }` |
 | `urn:graph:reference` | GICS sectors/industries and the worked-example `:Asset`s | `GRAPH <urn:graph:reference> { ... }` |
+| `urn:graph:universe:{year}-Q{n}` | the asset catalog: `:Asset`, `:classifiedAs`, `:UniverseMembership` | `GRAPH ?g { ... } FILTER (STRSTARTS(STR(?g), "urn:graph:universe:"))`, or the §6 sub-select |
 | `urn:graph:reference:fibo` | the FIBO 2026Q2 glossary slice (54 entries) | `GRAPH <urn:graph:reference:fibo> { ... }` |
 | `urn:graph:rules:catalog` | every `:RuleDefinition`, selection and GUARD | `GRAPH <urn:graph:rules:catalog> { ... }` |
 | `urn:graph:derived:backtest:*` | one append-only graph per completed run family and window: the m018 book/GUARD graph and the selection-side sibling (`...:selection:...`) | `GRAPH ?g { ... } FILTER (STRSTARTS(STR(?g), "urn:graph:derived:backtest:"))` |
@@ -72,10 +81,11 @@ is the template.
 `:UniverseMembership`, `:PriceObservation` and `:Executive`. Five of them have
 a FIBO link (`:Portfolio`, `:PortfolioPosition`, `:Sector`, `:Industry` and
 `:SECFiling`); the other five come back with every `?fibo*` variable unbound.
-`:Asset` is deliberately one of the unbound ones: one `:Asset` is one ticker
-symbol, not one company, so FIBO's `LegalPerson`/`PubliclyHeldCompany` would
-misstate multi-class companies and reused tickers (its own definition names
-GOOGL and GOOG). `:Universe` and `:UniverseMembership`, `:PriceObservation`
+`:Asset` is deliberately one of the unbound ones: since T-264 it is one node
+per company line for a pure ticker succession (`FB`→`META`), but still one
+node per symbol for concurrent share classes (its own definition names GOOGL
+and GOOG) and for a mixed CIK, so FIBO's `LegalPerson`/`PubliclyHeldCompany`
+would misstate those classes and a reused ticker. `:Universe` and `:UniverseMembership`, `:PriceObservation`
 and `:Executive` have no FIBO link for the reasons `docs/06` §1.1 gives. The
 rows are not dropped, and they do not cross-join the glossary.
 
@@ -258,6 +268,39 @@ The result is 5 `FINANCIAL` rules (`LEVERAGE_EXTREME`, `NEGATIVE_FCF`,
 `LIQUIDITY_DISTRESS`, `EARNINGS_MISSING`, `UTILITY_CASH_COVERAGE`), 1
 `DATA_QUALITY` rule, 4 `MARKET` rules (`PRICE_CRASH`, `VOLATILITY_SHOCK`,
 `CRASH_Z_SCORE`, `BREAK_TREND_200`) and the 5 `GUARD` rules.
+
+### 4.1 Who was in the S&P 500 on a date
+
+`validTo` is **inclusive**: it is the last day of membership, not the first
+day after it. A point-in-time read binds D in one place and keeps a membership
+with `validFrom <= D AND (no validTo OR validTo >= D)`. The date below is the
+last day of the old `FB` stint; the `META` stint starts the next day, so an
+exclusive `validTo > D` predicate would return no row. The asset is already the
+one `:Asset` for the company (`:META`), because the rename chain shares a CIK.
+The `:Universe` graph is one of the quarter graphs written by
+`cli/load_universe.py`; the query does not hardcode its quarter.
+
+<!-- q:universe-members-on-date expect:1 -->
+
+```sparql
+PREFIX :   <https://thesis.local/kg/portfolio#>
+PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+
+SELECT ?asset ?ticker ?from ?to
+WHERE {
+  GRAPH ?g {
+    ?membership a :UniverseMembership ;
+                :membershipAsset ?asset ;
+                :validFrom ?from .
+    OPTIONAL { ?membership :validTo ?to }
+    ?asset :tickerSymbol ?ticker .
+  }
+  FILTER (STRSTARTS(STR(?g), "urn:graph:universe:"))
+  FILTER (?from <= "2022-06-08"^^xsd:date)
+  FILTER (!BOUND(?to) || ?to >= "2022-06-08"^^xsd:date)
+}
+ORDER BY ?ticker
+```
 
 ## 5. The backtest battery
 
@@ -693,7 +736,328 @@ GROUP BY ?label ?window
 ORDER BY ?label ?window
 ```
 
-## 6. Limits: what this graph can and cannot answer
+## 6. Sector and industry questions
+
+The sector of an asset is split across two graph families. In `portfolio_test`
+on 2026-11-04, `:Asset` and `:classifiedAs` live in
+`urn:graph:universe:2026-Q4` (643 assets, 584 with a classification; the five
+worked-example assets are declared separately in `reference.ttl`), while
+`:Industry`, `:Sector`, `:memberOfSector` and their `skos:prefLabel`s live in
+`urn:graph:reference`. Only the five worked-example assets that
+`schema/reference.ttl` declares satisfy a pattern that holds the classification
+and the taxonomy in one graph. A query with both in a single `GRAPH` block
+therefore returns those five rows, or none if the block names the universe
+graph, not the catalog.
+
+The cross-graph rule is:
+
+- keep the backtest part inside `GRAPH ?g` filtered to
+  `urn:graph:derived:backtest:`, with the run label on `:StrategyBook`;
+- take the asset-to-sector part from a de-duplicated sub-select **outside** it:
+
+  ```text
+  { SELECT DISTINCT ?asset ?sector WHERE {
+      ?asset :classifiedAs ?industry .
+      ?industry :memberOfSector ?sector .
+      ?sector skos:prefLabel ?sectorLabel .
+  } }
+  ```
+
+The default graph of GraphDB is the union of every named graph, so that
+sub-select can see the classification in the universe graph and the taxonomy in
+the reference graph at once. The `DISTINCT` is load-bearing: the five
+worked-example assets also appear in the universe graph for their memberships
+(T-225), so without it the same asset-to-sector pair is counted twice. Do not
+put the backtest triples in that union sub-select; they belong to one run graph
+and are scoped by `GRAPH ?g`.
+
+### 6.1 GUARD layer-1 cuts by window and sector
+
+A layer-1 cut is an `:GuardAction` with status `"APPLIED"` whose
+`:actionAlert` is a layer-1 rule and whose alert state is `"ENTER"`. An
+`"EXIT"` alert is the re-entry, not a cut; `ARM_DISABLED` actions are the
+no-guard arm's counterfactuals. The sector comes from `:guardAsset`; an action
+whose ticker is not linked to an asset is reported as `unclassified` instead of
+being silently dropped. On 2026-11-04 the query returned 157 cuts for P1, 56 for
+P2 and 29 for P3, and the P1 total equalled the 157 layer-1 ENTER alerts.
+
+<!-- q:layer1-cuts-by-window-sector expect:2 -->
+
+```sparql
+PREFIX :    <https://thesis.local/kg/portfolio#>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+
+SELECT ?label ?window ?sector (COUNT(DISTINCT ?action) AS ?cuts)
+WHERE {
+  GRAPH ?g {
+    ?action a :GuardAction ; :status "APPLIED" ;
+      :actionAlert ?alert ; :actionOfBook ?book .
+    ?book :runLabel ?label ; :windowId ?window .
+    ?alert :alertState "ENTER" ; :alertRule ?rule .
+    OPTIONAL { ?action :guardAsset ?asset . }
+  }
+  GRAPH <urn:graph:rules:catalog> { ?rule :guardLayer 1 . }
+  FILTER (STRSTARTS(STR(?g), "urn:graph:derived:backtest:"))
+  # Optional run-label parameter: change "rule" to another label.
+  FILTER (?label = "rule")
+  # The classification is in urn:graph:universe:* and the taxonomy in
+  # urn:graph:reference; this DISTINCT sub-select is the documented union exception.
+  # The sentinel keeps an action without :guardAsset out of a cross-join.
+  BIND (COALESCE(?asset, <urn:thesis:no-asset>) AS ?lookupAsset)
+  OPTIONAL {
+    SELECT DISTINCT ?lookupAsset ?sectorLabel WHERE {
+      ?lookupAsset :classifiedAs ?industry .
+      ?industry :memberOfSector ?sector .
+      ?sector skos:prefLabel ?sectorLabel .
+    }
+  }
+  BIND (COALESCE(?sectorLabel, "unclassified") AS ?sector)
+}
+GROUP BY ?label ?window ?sector
+ORDER BY ?window DESC(?cuts) ?sector
+```
+
+### 6.2 Sector composition of a book on a rebalance date
+
+`:finalTargetWeight` exists only on a rebalance's decision and execution
+dates. `:BookWeightDaily` rows exist on every day, but an ordinary session has
+no target weight: the view masks it, and the property is absent rather than
+zero. The query selects the execution-date row of the rebalance decided on `D`
+(`?weightDate = ?execution`); change that filter to `?decision` to read the
+decision-date row when the run carries one. The sector weights plus the
+`unclassified` bucket sum to **1 minus the CASH weight**; CASH is not an asset
+and has no sector, so it is read as its own `:finalTargetWeight`. A holding
+whose asset has no `:classifiedAs` and a holding with no `:holdingAsset` at all
+both land in `unclassified`, so neither is silently dropped.
+
+The example uses the synthetic scenario's decision of 2022-01-03 (execution
+2022-01-04). In `portfolio_test` the same P1 `MARKOWITZ_BASE` book decides on
+2021-12-31 and executes on 2022-01-03; the date filter is the parameter.
+
+<!-- q:sector-composition-on-rebalance expect:1 -->
+
+```sparql
+PREFIX :    <https://thesis.local/kg/portfolio#>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+PREFIX xsd:  <http://www.w3.org/2001/XMLSchema#>
+
+SELECT ?label ?window ?arm ?decision ?weightDate ?sector
+       (SUM(?weightValue) AS ?weight) ?cash
+WHERE {
+  GRAPH ?g {
+    ?rebalance a :BookRebalance ; :rebalanceOfBook ?book ;
+      :decisionDate ?decision ; :executionDate ?execution .
+    ?book :runLabel ?label ; :windowId ?window ; :armCode ?arm .
+    ?row a :BookWeightDaily ; :weightOfBook ?book ; :weightDate ?weightDate ;
+      :holdingKey ?ticker ; :finalTargetWeight ?weightValue .
+    ?cashRow a :BookWeightDaily ; :weightOfBook ?book ; :weightDate ?weightDate ;
+      :holdingKey "CASH" ; :finalTargetWeight ?cash .
+    FILTER (?ticker != "CASH")
+    OPTIONAL { ?row :holdingAsset ?asset . }
+  }
+  FILTER (STRSTARTS(STR(?g), "urn:graph:derived:backtest:"))
+  # Optional run-label parameter: change "rule" to another label.
+  FILTER (?label = "rule")
+  FILTER (?window = "P1")
+  FILTER (?arm = "MARKOWITZ_BASE")
+  # D: the rebalance decision. Change this date together with the book and window above.
+  FILTER (?decision = "2022-01-03"^^xsd:date)
+  FILTER (?weightDate = ?execution)
+  # The sentinel keeps a holding without :holdingAsset out of the catalog join.
+  BIND (COALESCE(?asset, <urn:thesis:no-asset>) AS ?lookupAsset)
+  OPTIONAL {
+    SELECT DISTINCT ?lookupAsset ?sectorLabel WHERE {
+      ?lookupAsset :classifiedAs ?industry .
+      ?industry :memberOfSector ?sector .
+      ?sector skos:prefLabel ?sectorLabel .
+    }
+  }
+  BIND (COALESCE(?sectorLabel, "unclassified") AS ?sector)
+}
+GROUP BY ?label ?window ?arm ?decision ?weightDate ?sector ?cash
+ORDER BY DESC(?weight) ?sector
+```
+
+### 6.3 Distinct held tickers by window and industry
+
+This is the Q11 answer for banks and insurers. The `VALUES` line is the
+parameter: add or replace industry labels to ask about other GICS industries.
+A ticker held by several books of the same label and window counts once, and
+`GROUP_CONCAT` returns the ticker list. The list's order is not defined; treat
+it as a set.
+
+<!-- q:held-tickers-by-window-industry expect:4 -->
+
+```sparql
+PREFIX :    <https://thesis.local/kg/portfolio#>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+
+SELECT ?label ?window ?industry
+       (COUNT(DISTINCT ?ticker) AS ?tickers)
+       (GROUP_CONCAT(DISTINCT ?ticker; SEPARATOR=", ") AS ?tickerList)
+WHERE {
+  {
+    SELECT DISTINCT ?asset ?industry WHERE {
+      ?asset :classifiedAs ?i .
+      ?i skos:prefLabel ?industry .
+    }
+  }
+  GRAPH ?g {
+    ?row a :BookWeightDaily ; :holdingKey ?ticker ; :holdingAsset ?asset ;
+      :weightOfBook ?book .
+    ?book :runLabel ?label ; :windowId ?window .
+    FILTER (?ticker != "CASH")
+  }
+  FILTER (STRSTARTS(STR(?g), "urn:graph:derived:backtest:"))
+  # Optional run-label parameter: change "rule" to another label.
+  FILTER (?label = "rule")
+  VALUES ?industry { "Banks" "Insurance" }
+}
+GROUP BY ?label ?window ?industry
+ORDER BY ?window ?industry
+```
+
+### 6.4 Sector coverage of held assets
+
+One row per label and window: the distinct tickers held (CASH excluded), how
+many have a `:holdingAsset` link, and how many of those resolve to a sector.
+On 2026-11-04 the real store returned 100/100/100 for P1, 123/123/123 for P2
+and 115/115/115 for P3. A missing link means the ticker is not in the loaded
+catalog; a missing sector means the source has no classification for it (see
+§6.7). Neither is a query error.
+
+<!-- q:sector-coverage-of-held-assets expect:2 -->
+
+```sparql
+PREFIX :    <https://thesis.local/kg/portfolio#>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+
+SELECT ?label ?window
+       (COUNT(DISTINCT ?ticker) AS ?heldTickers)
+       (COUNT(DISTINCT ?asset) AS ?withAsset)
+       (COUNT(DISTINCT ?sectorAsset) AS ?withSector)
+WHERE {
+  GRAPH ?g {
+    ?row a :BookWeightDaily ; :holdingKey ?ticker ; :weightOfBook ?book .
+    ?book :runLabel ?label ; :windowId ?window .
+    FILTER (?ticker != "CASH")
+    OPTIONAL { ?row :holdingAsset ?asset . }
+  }
+  FILTER (STRSTARTS(STR(?g), "urn:graph:derived:backtest:"))
+  # Optional run-label parameter: change "rule" to another label.
+  FILTER (?label = "rule")
+  # Sentinel keeps an unlinked ticker from cross-joining the whole catalog.
+  BIND (COALESCE(?asset, <urn:thesis:no-asset>) AS ?lookupAsset)
+  OPTIONAL {
+    {
+      SELECT DISTINCT ?lookupAsset ?sectorLabel WHERE {
+        ?lookupAsset :classifiedAs ?industry .
+        ?industry :memberOfSector ?sector .
+        ?sector skos:prefLabel ?sectorLabel .
+      }
+    }
+    BIND (?lookupAsset AS ?sectorAsset)
+  }
+}
+GROUP BY ?label ?window
+ORDER BY ?window
+```
+
+### 6.5 Unclassified assets by year of `validTo`
+
+An asset is unclassified when no graph carries a `:classifiedAs` triple for it.
+The query counts distinct assets, not membership stints, by the calendar year
+of the closed membership's `:validTo`. A missing classification is a source
+gap, not a malformed catalog: the note below records which stints the source
+cannot classify and why.
+
+<!-- q:unclassified-assets-by-validto-year expect:2 -->
+
+```sparql
+PREFIX : <https://thesis.local/kg/portfolio#>
+
+SELECT ?year (COUNT(DISTINCT ?asset) AS ?unclassifiedAssets)
+WHERE {
+  GRAPH ?g {
+    ?asset a :Asset ; :hasUniverseMembership ?membership .
+    ?membership :validTo ?validTo .
+  }
+  FILTER (STRSTARTS(STR(?g), "urn:graph:universe:"))
+  FILTER NOT EXISTS {
+    GRAPH ?classifiedGraph { ?asset :classifiedAs ?industry . }
+  }
+  BIND (YEAR(?validTo) AS ?year)
+}
+GROUP BY ?year
+ORDER BY ?year
+```
+
+### 6.6 The sector of one asset
+
+This is the Q5 data answer. `VALUES ?ticker { "AAA" }` is the parameter; change
+the literal for another ticker. The asset-to-sector part is the same cross-graph
+`SELECT DISTINCT` sub-select as §6.1. The five worked-example assets are
+declared in `reference.ttl` and appear again in the universe graph for their
+memberships (T-225), so the `DISTINCT` is what makes `AAPL` return exactly one
+row. A ticker with no `:classifiedAs` returns no row: that is the source gap
+described in §6.7, not a query error. The optional `?sectorDefinition` is the
+sector individual's Spanish `rdfs:comment` or `skos:definition`; the shipped
+`reference.ttl` carries none, so it is normally unbound.
+
+<!-- q:sector-of-asset expect:1 -->
+
+```sparql
+PREFIX :    <https://thesis.local/kg/portfolio#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+
+SELECT DISTINCT ?ticker ?companyName ?industryLabel ?sectorLabel ?sectorDefinition
+WHERE {
+  VALUES ?ticker { "AAA" }
+  {
+    SELECT DISTINCT ?asset ?ticker ?companyName ?industryLabel ?sectorLabel ?sectorDefinition
+    WHERE {
+      ?asset :tickerSymbol ?ticker .
+      ?asset :classifiedAs ?industry .
+      ?industry skos:prefLabel ?industryLabel .
+      ?industry :memberOfSector ?sector .
+      ?sector skos:prefLabel ?sectorLabel .
+      OPTIONAL { ?asset :companyName ?companyName . }
+      OPTIONAL {
+        {
+          SELECT ?sector (SAMPLE(?definition) AS ?sectorDefinition)
+          WHERE {
+            { ?sector rdfs:comment ?definition . }
+            UNION
+            { ?sector skos:definition ?definition . }
+            FILTER (lang(?definition) = "es")
+          }
+          GROUP BY ?sector
+        }
+      }
+    }
+  }
+}
+```
+
+### 6.7 Known limits of the asset catalog
+
+- GICS for a leaver comes from the last Wikipedia revision that lists the
+  company, and those revisions stop at 2022-01-01. The 2019–2021 leavers
+  therefore have no sector in the source: 56 closed stints (one unclassified
+  asset each), reported as "no classification in the source", not as an error.
+- The temporary spin-off members MBC (inference, no source), FTRE and PHIN
+  (S&P DJI release of 2023-06-28, cited in `universe_patches.py`) have no
+  sector either.
+- GICS is a reference taxonomy rolled up by `src/etl/common/gics_rollup.py`;
+  the catalog never invents a classification for an unmapped string.
+- `validTo` is inclusive: it is the last day of membership. A pure ticker
+  rename is one `:Asset` named by its latest symbol (Work item 23).
+- 59 assets stay without `:classifiedAs` on purpose: the 56 closed stints of
+  2019–2021 with no GICS source (above), plus the temporary members MBC, FTRE
+  and PHIN.
+
+## 7. Limits: what this graph can and cannot answer
 
 The status column is one of:
 
@@ -702,11 +1066,12 @@ The status column is one of:
 - **After the asset catalog** — the graph has the term, but not the
   per-company master data: company names, sector/industry classification,
   S&P 500 membership and the `:UniverseMembership` relation. **Loader note
-  (2026-11-03, PR #117):** the loader exists as `cli/load_universe.py` (logic
-  in `src/kg_store/universe.py`) and writes `:Asset`, `:UniverseMembership`
-  and `:SP500Index`. The statuses above do not change yet: the store has not
-  been loaded. They become **Today** once the maintainer has run the loader
-  and the live check passes.
+  (2026-11-04):** `cli/load_universe.py` (logic in `src/kg_store/universe.py`)
+  has run in `portfolio_test`; `urn:graph:universe:2026-Q4` holds the catalog
+  (643 `:Asset` individuals, 584 with `:classifiedAs`; the five
+  `reference.ttl` assets are additional). The sector questions (Q5 and Q11) are
+  therefore **Today**. The label stays for the rows whose own live check has
+  not been recorded.
 - **After T-209 (retired 2026-11-04, Work item 26)** — the backtest veto
   projector. It now exists: `selection-vetoes-in-force` answers the selection
   vetoes that explain an asset's exit at a rebalance, and
@@ -721,7 +1086,7 @@ The status column is one of:
 - **Not projected yet** — the graph has the term but no data of that kind and
   no projector is scheduled: executives of a company, the live portfolio.
 
-### 6.1 The brief's eleven evaluation questions
+### 7.1 The brief's eleven evaluation questions
 
 The integration brief is an external, untracked document (`docs/fibo_kg/` is
 gitignored); the eleven questions below are reproduced verbatim from its §6,
@@ -734,15 +1099,15 @@ text and the statuses.
 | Q2 | ¿Por qué GOOGL y GOOG aparecen como dos activos? | Today | A1-terms (:Asset's own definition names these share classes; no FIBO link by design) |
 | Q3 | ¿Qué es el S&P 500 y cómo se relaciona con el universo de activos? | Today for the definitions (:Universe, :UniverseMembership); After the asset catalog for the :SP500Index individual and its FIBO EquityIndex link, which the asset loader writes | A1-terms and A2 by Spanish label "índice bursátil de renta variable" |
 | Q4 | ¿Qué precio de cierre usa el sistema? ¿Está ajustado por dividendos? | Today | A1-terms (:PriceObservation says: split-adjusted close, not dividend-adjusted, price-only return) plus A2 for "precio de cierre" and "precio de cierre ajustado" (FIBO terms with no link, because FIBO's adjusted close includes dividends) |
-| Q5 | ¿A qué sector GICS pertenece X y qué significa? | The meaning: Today (A1-terms :Sector). The sector of a given company: After the asset catalog | A1-terms; asset catalog |
+| Q5 | ¿A qué sector GICS pertenece X y qué significa? | Today: the meaning from A1-terms, and the sector of a given asset from `sector-of-asset` | A1-terms; `sector-of-asset` |
 | Q6 | ¿Qué es un informe 10-K y quién lo recibe? | Today | A1-terms (:SECFiling) plus A2 for "comisión de bolsa y valores de ee. uu. (sec)" |
 | Q7 | ¿Qué papel tiene X en la empresa Y? | Not projected yet (needs :Executive individuals from DEF 14A; no projector exists or is scheduled) | A1-terms for the class :Executive only |
 | Q8 | ¿Qué es la volatilidad y cómo la usa el sistema? | Today (A2 for "volatilidad" plus the VOLATILITY_SHOCK and BREAK_TREND_200 rules in the rule-catalog query) | A2-volatilidad; the rule catalog query |
 | Q9 | (control) ¿Por qué salió X del portafolio? | Today: GUARD cuts via `cut-explanation`; selection vetoes at a rebalance via `selection-vetoes-in-force` | `cut-explanation`; `selection-vetoes-in-force` |
 | Q10 | (control) ¿Cuántas posiciones tiene el portafolio actual? | Not projected yet for the live portfolio (v_portfolio_position has no projector); for a backtest book, the number of equities per day is :nEquity on BookDailyPerformance (Today) and must NOT be presented as the live portfolio | n-equity-per-arm-on-last-day (new query) |
-| Q11 | (control) ¿Qué empresas del portafolio son bancos o aseguradoras? | After the asset catalog (industries Banks and Insurance come from the GICS classification of the assets, never from FIBO); the brief states the answer must not change with the FIBO slice | note only; no query yet |
+| Q11 | (control) ¿Qué empresas del portafolio son bancos o aseguradoras? | Today (industries Banks and Insurance come from the GICS classification of the assets, never from FIBO); the brief states the answer must not change with the FIBO slice | `held-tickers-by-window-industry` (change its `VALUES` for other industries) |
 
-### 6.2 The backtest questions
+### 7.2 The backtest questions
 
 | # | Question (Spanish) | Status | Where |
 |---|---|---|---|
@@ -755,7 +1120,7 @@ text and the statuses.
 | B7 | ¿Qué propiedades exponen `BookWeightDaily` y `BookDailyPerformance`? | Today (and it shows what is absent) | `book-weight-daily-properties` |
 | B8 | ¿Cuántos pesos hay por ventana y brazo? | Today | `weight-scale` |
 
-### 6.3 The boundary in one paragraph
+### 7.3 The boundary in one paragraph
 
 A term query answers *what a thing means*; it never answers *why this asset
 was in or out of a portfolio*. The reason is a `:Veto` (selection), a
@@ -769,18 +1134,26 @@ not be substituted for each other.
 The brief's control rule: the answers to questions 9 to 11 must not change
 with or without the FIBO slice.
 
-## 7. Keeping the catalog true
+## 8. Keeping the catalog true
 
 `tests/test_query_catalog.py`:
 
 1. parses every `<!-- q:NAME expect:... -->` tag and the `sparql` block that
    follows it, and fails if a `sparql` block has no tag or a tag has no block;
-2. builds one in-memory `rdflib.Dataset` from `schema/tbox.ttl`
-   (`urn:graph:tbox`), `schema/fibo.ttl` (`urn:graph:reference:fibo`),
-   `schema/rules.ttl` (`urn:graph:rules:catalog`) and `schema/reference.ttl`
-   (`urn:graph:reference`), plus two run labels (`rule`, `champ_v1`) across
-   two windows of the synthetic backtest scenario, projected with
-   `projection.backtest.project`;
+2. builds one in-memory `rdflib.Dataset` with GraphDB's default union from
+   `schema/tbox.ttl` (`urn:graph:tbox`), `schema/fibo.ttl`
+   (`urn:graph:reference:fibo`), `schema/rules.ttl`
+   (`urn:graph:rules:catalog`) and `schema/reference.ttl`
+   (`urn:graph:reference`), plus a synthetic `urn:graph:universe:2026-Q4`
+   that reproduces the real split: `:Asset` and `:classifiedAs` in the quarter
+   graph, the `:Industry`/`:Sector` taxonomy in `urn:graph:reference`, and one
+   asset (`AAPL`) in both graphs for the T-225 overlap; the same universe graph
+   holds one rename chain (the `FB` stint ends on 2022-06-08, inclusive, and
+   the `META` stint starts on 2022-06-09 on the one `:META` asset); plus two
+   run labels (`rule`, `champ_v1`) across two windows of the synthetic
+   backtest scenario, projected with `projection.backtest.project`, and a
+   dedicated composition dataset with a classified holding, a catalog asset
+   without `:classifiedAs` and an unlinked ticker;
 3. runs every query and checks its expectation: an exact row count, a
    non-empty result, or a named rule (`expect:rule=...`);
 4. checks the no-FIBO rows in `A1` (`:Asset`, `:Universe`,
@@ -791,9 +1164,21 @@ with or without the FIBO slice.
 5. checks that the limits table still lists the eleven evaluation questions
    verbatim and the eight backtest questions, and that the statuses use the
    six labels above;
-6. runs the performance, GUARD and NAV queries once per label and proves the
-   `"rule"` and `"champ_v1"` results do not mix when the label filter is
-   applied, and that `runs-available` lists both labels and both windows.
+6. runs the performance, GUARD, NAV and sector queries once per label and
+   proves the `"rule"` and `"champ_v1"` results do not mix when the label
+   filter is applied, and that `runs-available` lists both labels and both
+   windows;
+7. checks the sector promises: the P1 layer-1 cuts equal the layer-1 `"ENTER"`
+   alert count; the composition weights plus CASH sum to 1, including an
+   `unclassified` bucket for both an asset without `:classifiedAs` and a ticker
+   without `:holdingAsset`; the Banks/Insurance query lists the expected
+   tickers; the coverage counts separate held, linked and classified tickers;
+   the unclassified query groups the closed memberships by year; and
+   `sector-of-asset` returns one row for a catalog asset and for `AAPL`, the
+   Spanish sector note when present, and no row for an unclassified asset;
+8. has a negative test for the single-graph trap: the correct cross-graph
+   `SELECT DISTINCT` returns more rows than the same pattern in either one
+   graph, and the un-deduplicated union returns `AAPL` twice.
 
 The test is hermetic: it reads the committed `.ttl` files and the synthetic
 fixture, never a live GraphDB repository and never a real backtest database.
