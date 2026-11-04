@@ -1321,6 +1321,77 @@ Finance -> `Ind_Banks`.
   NWL and PBCT each gain their expected `:classifiedAs`.
 - `uv run pytest`, `mypy` and the pinned pre-commit hooks pass; docs and counts are consistent.
 
+## Work item 23 — Inclusive membership end dates and one asset per CIK (T-260–T-279)
+
+**Status: closed 2026-11-04** (two work commits on
+`feat/universe-inclusive-validto-cik-fold`, plus the merge of `origin/master` after PR #119). The
+reserved decade T-260–T-279 uses T-260–T-271.
+
+**Why**: two upstream facts, confirmed read-only, were modelled wrong. First,
+`portfolio-data-mining`'s `universe_membership.valid_to` is **inclusive**: it is the last day of
+membership (NULL = still a member), and upstream fixed its own `valid_to > D` predicate on
+2026-10-14. One-day stints (`valid_from = valid_to`, `PHIN` on 2023-07-05) are real. This repo's
+loader, `UniverseMembershipShape` and docs still described and enforced an exclusive end, so they
+dropped real stints and answered "left the index" one day early. Second, the backtest's
+`holding_key` is `assets.ticker`, i.e. one asset per CIK carrying the **current** symbol (META for
+the whole of P1, even before 2022-06-09). This catalog wrote one `:Asset` per symbol, so a renamed
+company was split (`:FB` until 2022-06-08, `:META` from 2022-06-09) and the earlier stint could
+not link to the backtest's single holding. Confirmed same-CIK renames: `WLTW`→`WTW`, `FB`→`META`,
+`RE`→`EG`, `FLT`→`CPAY`, `SATS`→`ECHO`, `CDAY`→`DAY`. Concurrent share classes under one CIK also
+exist (`GOOG`/`GOOGL`, `UA`/`UAA`, `DISCA`/`DISCK`/`WBD`).
+
+**What Commit 1 built** (T-260–T-263):
+
+1. `read_stints` keeps a one-day stint and skips only `valid_to < valid_from`;
+   `UniverseMembershipShape` uses `sh:lessThanOrEquals`; the gate's `CLOSABLE` entry treats a
+   membership as inclusive too. `RuleDefinition`, `PortfolioPosition` and
+   `AttractivenessWeightScheme` stay exclusive; `TickerHistory` was already inclusive.
+2. The point-in-time predicate is `validFrom <= D AND (no validTo OR validTo >= D)` everywhere
+   the membership is described: `tbox.ttl`, `schema/README.md`, `docs/06`, `docs/07`,
+   `src/etl/README.md`, `docs/graphdb-setup.md`, SPEC FR-004/FR-008/D1, `PLAN`/`TASKS`, and the
+   reports-agent catalog, which gains a `universe-members-on-date` query that returns the member
+   on its last day.
+3. Tests: the one-day `PHIN` stint is kept and conforms; `validTo < validFrom` still fails; a
+   membership on its last day is in in the catalog query; a same-day membership closure is
+   accepted by the gate while a closure before its opening day is not.
+
+**What Commit 2 built** (T-264–T-271): one `:Asset` per company (CIK) for a pure rename
+succession, keeping the `:TICKER` IRI scheme. A CIK whose symbols have non-overlapping inclusive
+stints gets one `:Asset` named by the symbol of its latest stint, all stints as memberships with
+their dates unchanged, and sector/industry from the latest stint. Concurrent share classes stay
+one `:Asset` per symbol; a mixed pattern (overlap plus a later non-overlapping symbol, e.g.
+`DISCA`/`DISCK`/`WBD`) is not guessed and stays as today. A CIK-less stint stays grouped by
+symbol. Ticker reuse (`CEG`, `DELL`, `Q`: different companies, same symbol) and `--since` keep
+their behaviour; two kept CIKs that would claim the same latest ticker stop the run. Former
+tickers are NOT stored in this change. `etl.asset_master` owns one shared resolver used by both
+`cli/load_universe.py` and `projection.backtest.universe_assets`, so the loader and the projector
+cannot disagree on the asset set.
+
+**Measured on the real database (read-only).** Commit 1, over
+`/workspaces/thesis/data/universe_history_gics.db` at `--since` 2019-01-02: 658 of 894 stints kept
+over 654 symbols (236 dropped over 230; 215 not loaded, 15 with a later stint kept), 649 `:Asset`s
+written plus five in `reference.ttl`, 658 memberships (503 open, 155 closed), 6573 triples, 64
+written assets without `:classifiedAs` (their latest stint has no GICS sub-industry; Work item 22's
+six historical values are already mapped), SHACL conforms. Before Commit 1 the same file gave 657
+stints over 653 symbols, 648 `:Asset`s plus five, 657 memberships (503 open, 154 closed), 6563
+triples, 63 without `:classifiedAs`.
+
+Commit 2, same file and `--since`, AFTER: 658 stints over 654 symbols (unchanged), 643 `:Asset`s
+written plus five in `reference.ttl` — 648 assets from 654 symbols, because six pure successions
+folded — 658 memberships (503 open, 155 closed), 6548 triples, 59 written assets without
+`:classifiedAs`, SHACL conforms. The 11 CIKs with more than one symbol are six successions
+(`EG/RE`, `WTW/WLTW`, `CPAY/FLT`, `META/FB`, `ECHO/SATS`, `DAY/CDAY`), four concurrent classes
+(`UA/UAA`, `NWS/NWSA`, `GOOG/GOOGL`, `FOX/FOXA`) and one mixed (`DISCA`/`DISCK`/`WBD`), which
+stays per symbol. The three real backtest dry runs link every ticker: P1 100, P2 123, P3 115
+distinct, 0 unlinked.
+
+**Acceptance**: the point-in-time predicate is inclusive in every document and query; one-day
+stints are loaded and conform; a pure rename chain is one `:Asset` with all its memberships and no
+former ticker; concurrent and mixed CIKs are unchanged; CIK-less stints and ticker reuse keep
+their behaviour; the loader and `projection.backtest.universe_assets` return the same asset set;
+every backtest ticker still links (P1 100, P2 123, P3 115 distinct, 0 missing); `uv run pytest`,
+`mypy` and the pinned `pre-commit` hooks pass. No GraphDB write or reload in this work item.
+
 **Blocked on**: nothing.
 
 ## Work item 24 — Verify a loaded backtest against its source (T-280–T-299)
@@ -1419,6 +1490,9 @@ Work item 20 (backtest run labels, open window vocabulary) — T-230–T-236 don
 Work item 21 (reports-agent query catalog) — closed 2026-11-03 (T-240–T-243); adapted to the labelled
   backtest graphs and the asset catalog loader on 2026-11-04; see `CHANGELOG.md`
 Work item 22 (retired GICS names) — closed 2026-11-04 (T-250–T-259); see `CHANGELOG.md`
+Work item 23 (inclusive membership end, one `:Asset` per CIK) — closed 2026-11-04 (T-260–T-271);
+  the inclusive `validTo`, the shared loader/projector resolver and the real-data counts are in
+  `CHANGELOG.md`
 Work item 24 (backtest verifier and load runbook) — closed 2026-11-04 (T-280–T-283); see
   `CHANGELOG.md`
 ```

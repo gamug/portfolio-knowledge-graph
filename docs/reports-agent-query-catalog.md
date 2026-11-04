@@ -72,10 +72,11 @@ is the template.
 `:UniverseMembership`, `:PriceObservation` and `:Executive`. Five of them have
 a FIBO link (`:Portfolio`, `:PortfolioPosition`, `:Sector`, `:Industry` and
 `:SECFiling`); the other five come back with every `?fibo*` variable unbound.
-`:Asset` is deliberately one of the unbound ones: one `:Asset` is one ticker
-symbol, not one company, so FIBO's `LegalPerson`/`PubliclyHeldCompany` would
-misstate multi-class companies and reused tickers (its own definition names
-GOOGL and GOOG). `:Universe` and `:UniverseMembership`, `:PriceObservation`
+`:Asset` is deliberately one of the unbound ones: since T-264 it is one node
+per company line for a pure ticker succession (`FB`→`META`), but still one
+node per symbol for concurrent share classes (its own definition names GOOGL
+and GOOG) and for a mixed CIK, so FIBO's `LegalPerson`/`PubliclyHeldCompany`
+would misstate those classes and a reused ticker. `:Universe` and `:UniverseMembership`, `:PriceObservation`
 and `:Executive` have no FIBO link for the reasons `docs/06` §1.1 gives. The
 rows are not dropped, and they do not cross-join the glossary.
 
@@ -258,6 +259,39 @@ The result is 5 `FINANCIAL` rules (`LEVERAGE_EXTREME`, `NEGATIVE_FCF`,
 `LIQUIDITY_DISTRESS`, `EARNINGS_MISSING`, `UTILITY_CASH_COVERAGE`), 1
 `DATA_QUALITY` rule, 4 `MARKET` rules (`PRICE_CRASH`, `VOLATILITY_SHOCK`,
 `CRASH_Z_SCORE`, `BREAK_TREND_200`) and the 5 `GUARD` rules.
+
+### 4.1 Who was in the S&P 500 on a date
+
+`validTo` is **inclusive**: it is the last day of membership, not the first
+day after it. A point-in-time read binds D in one place and keeps a membership
+with `validFrom <= D AND (no validTo OR validTo >= D)`. The date below is the
+last day of the old `FB` stint; the `META` stint starts the next day, so an
+exclusive `validTo > D` predicate would return no row. The asset is already the
+one `:Asset` for the company (`:META`), because the rename chain shares a CIK.
+The `:Universe` graph is one of the quarter graphs written by
+`cli/load_universe.py`; the query does not hardcode its quarter.
+
+<!-- q:universe-members-on-date expect:1 -->
+
+```sparql
+PREFIX :   <https://thesis.local/kg/portfolio#>
+PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+
+SELECT ?asset ?ticker ?from ?to
+WHERE {
+  GRAPH ?g {
+    ?membership a :UniverseMembership ;
+                :membershipAsset ?asset ;
+                :validFrom ?from .
+    OPTIONAL { ?membership :validTo ?to }
+    ?asset :tickerSymbol ?ticker .
+  }
+  FILTER (STRSTARTS(STR(?g), "urn:graph:universe:"))
+  FILTER (?from <= "2022-06-08"^^xsd:date)
+  FILTER (!BOUND(?to) || ?to >= "2022-06-08"^^xsd:date)
+}
+ORDER BY ?ticker
+```
 
 ## 5. The backtest battery
 
@@ -682,9 +716,9 @@ with or without the FIBO slice.
 2. builds one in-memory `rdflib.Dataset` from `schema/tbox.ttl`
    (`urn:graph:tbox`), `schema/fibo.ttl` (`urn:graph:reference:fibo`),
    `schema/rules.ttl` (`urn:graph:rules:catalog`) and `schema/reference.ttl`
-   (`urn:graph:reference`), plus two run labels (`rule`, `champ_v1`) across
-   two windows of the synthetic backtest scenario, projected with
-   `projection.backtest.project`;
+   (`urn:graph:reference`), a small `urn:graph:universe:` graph with one
+   rename chain, plus two run labels (`rule`, `champ_v1`) across two windows of
+   the synthetic backtest scenario, projected with `projection.backtest.project`;
 3. runs every query and checks its expectation: an exact row count, a
    non-empty result, or a named rule (`expect:rule=...`);
 4. checks the no-FIBO rows in `A1` (`:Asset`, `:Universe`,

@@ -2,8 +2,9 @@
 
 Every fenced ``sparql`` block in ``docs/reports-agent-query-catalog.md`` carries an HTML comment
 ``<!-- q:NAME expect:... -->``. This test parses those tags, builds one in-memory
-:class:`rdflib.Dataset` from the schema graphs and the two-label, two-window synthetic backtest scenario of
-``tests/fixtures/backtest_rows.py``, and runs every query against it. A query added to the doc
+:class:`rdflib.Dataset` from the schema graphs, a small universe graph (one rename chain) and the
+two-label, two-window synthetic backtest scenario of ``tests/fixtures/backtest_rows.py``, and runs
+every query against it. A query added to the doc
 without a tag, a tag without its block, or a result that no longer matches its expectation fails.
 
 The dataset is hermetic: committed ``.ttl`` files and synthetic rows only, never a live GraphDB
@@ -20,6 +21,7 @@ from pathlib import Path
 import pytest
 import rdflib
 from fixtures.backtest_rows import ASSETS, backtest_db, load_catalog
+from rdflib.namespace import RDF, XSD
 from rdflib.query import ResultRow
 from rdflib.term import URIRef
 
@@ -31,6 +33,7 @@ SCHEMA = REPO / "schema"
 CATALOG = REPO / "docs" / "reports-agent-query-catalog.md"
 
 NS = "https://thesis.local/kg/portfolio#"
+KG = rdflib.Namespace(NS)
 
 #: ``<!-- q:NAME expect:... -->`` immediately followed by its fenced block.
 TAGGED_QUERY = re.compile(
@@ -53,6 +56,7 @@ EXPECTED_NAMES = frozenset(
         "A2-sec",
         "fibo-missing-sharpe",
         "active-rules",
+        "universe-members-on-date",
         "performance-window-arm-segment",
         "guard-alerts-window-month-rule",
         "latest-nav-known-on-date",
@@ -162,6 +166,23 @@ def catalog_dataset(tmp_path_factory: pytest.TempPathFactory) -> rdflib.Dataset:
         (SCHEMA / "reference.ttl", "urn:graph:reference"),
     ):
         dataset.graph(URIRef(graph_iri)).parse(path, format="turtle")
+
+    # One rename chain as the asset loader writes it: the FB stint ends on 2022-06-08
+    # (inclusive) and the META stint starts on 2022-06-09, both on the same :META asset
+    # (one CIK, one company).
+    universe = dataset.graph(URIRef("urn:graph:universe:2026-Q4"))
+    universe.add((KG.UM_FB, RDF.type, KG.UniverseMembership))
+    universe.add((KG.UM_FB, KG.membershipAsset, KG.META))
+    universe.add((KG.UM_FB, KG.membershipUniverse, KG.SP500Index))
+    universe.add((KG.UM_FB, KG.validFrom, rdflib.Literal("2013-12-23", datatype=XSD.date)))
+    universe.add((KG.UM_FB, KG.validTo, rdflib.Literal("2022-06-08", datatype=XSD.date)))
+    universe.add((KG.UM_META, RDF.type, KG.UniverseMembership))
+    universe.add((KG.UM_META, KG.membershipAsset, KG.META))
+    universe.add((KG.UM_META, KG.membershipUniverse, KG.SP500Index))
+    universe.add((KG.UM_META, KG.validFrom, rdflib.Literal("2022-06-09", datatype=XSD.date)))
+    universe.add((KG.META, RDF.type, KG.Asset))
+    universe.add((KG.META, KG.tickerSymbol, rdflib.Literal("META")))
+    universe.add((KG.SP500Index, RDF.type, KG.Universe))
 
     for label in ("rule", "champ_v1"):
         for window in ("P1", "P2"):
@@ -300,6 +321,13 @@ def test_active_rules_are_ten_selection_and_five_guard(
     counts = Counter(str(row["category"]) for row in rows)
     assert counts == {"FINANCIAL": 5, "DATA_QUALITY": 1, "MARKET": 4, "GUARD": 5}
     assert sum(counts.values()) == 15
+
+
+def test_a_membership_on_its_last_day_is_still_in(catalog_dataset: rdflib.Dataset) -> None:
+    """validTo is inclusive: the FB stint ends 2022-06-08 and META starts 2022-06-09."""
+    rows = _rows(catalog_dataset, _query("universe-members-on-date"))
+    assert [str(row["ticker"]) for row in rows] == ["META"]
+    assert str(rows[0]["to"]) == "2022-06-08"
 
 
 def test_the_weight_classes_expose_no_per_asset_return_or_drifted_weight(

@@ -104,6 +104,47 @@ def test_a_missing_ticker_is_caught(bundle: rdflib.Dataset, shapes: rdflib.Graph
     assert _violations(g, shapes) == set()
 
 
+def _membership(bundle: rdflib.Dataset, valid_from: str, valid_to: str | None) -> rdflib.Graph:
+    """A minimal conforming membership for :UniverseMembershipShape's date cases."""
+    g = _flat(bundle)
+    g.add((KG.TESTASSET, rdflib.RDF.type, KG.Asset))
+    g.add((KG.TESTASSET, KG.tickerSymbol, rdflib.Literal("TEST")))
+    g.add((KG.TESTASSET, KG.cikNumber, rdflib.Literal("0000000001")))
+    g.add((KG.SP500Index, rdflib.RDF.type, KG.Universe))
+    g.add((KG.UM_TEST, rdflib.RDF.type, KG.UniverseMembership))
+    g.add((KG.UM_TEST, KG.membershipAsset, KG.TESTASSET))
+    g.add((KG.UM_TEST, KG.membershipUniverse, KG.SP500Index))
+    g.add(
+        (
+            KG.UM_TEST,
+            KG.validFrom,
+            rdflib.Literal(valid_from, datatype=rdflib.XSD.date),
+        )
+    )
+    if valid_to is not None:
+        g.add(
+            (
+                KG.UM_TEST,
+                KG.validTo,
+                rdflib.Literal(valid_to, datatype=rdflib.XSD.date),
+            )
+        )
+    return g
+
+
+def test_a_one_day_membership_conforms(bundle: rdflib.Dataset, shapes: rdflib.Graph) -> None:
+    """validTo is inclusive, so validFrom == validTo is a real one-day stint (T-260)."""
+    assert _violations(_membership(bundle, "2023-07-05", "2023-07-05"), shapes) == set()
+
+
+def test_a_membership_ending_before_it_starts_fails(
+    bundle: rdflib.Dataset, shapes: rdflib.Graph
+) -> None:
+    assert _violations(_membership(bundle, "2023-07-05", "2023-07-04"), shapes) == {
+        (KG.UM_TEST, KG.validFrom)
+    }
+
+
 def test_quad_count_matches_spec(bundle: rdflib.Dataset, spec_text: str) -> None:
     """NR-001: every quad count SPEC.md states is the real one."""
     stated = {int(a or b) for a, b in re.findall(r"(\d+) quads|quads: (\d+)", spec_text)}
