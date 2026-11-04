@@ -7,7 +7,9 @@ Every fenced ``sparql`` block in ``docs/reports-agent-query-catalog.md`` carries
 without a tag, a tag without its block, or a result that no longer matches its expectation fails.
 
 The dataset is hermetic: committed ``.ttl`` files and synthetic rows only, never a live GraphDB
-repository and never a real backtest database.
+repository and never a real backtest database. It reproduces the real split between the asset
+catalog's quarter graph and the reference taxonomy, and enables GraphDB's default union for the
+one documented cross-graph sub-select.
 """
 
 from __future__ import annotations
@@ -15,6 +17,7 @@ from __future__ import annotations
 import re
 from collections import Counter
 from dataclasses import dataclass
+from decimal import Decimal
 from pathlib import Path
 
 import pytest
@@ -31,6 +34,10 @@ SCHEMA = REPO / "schema"
 CATALOG = REPO / "docs" / "reports-agent-query-catalog.md"
 
 NS = "https://thesis.local/kg/portfolio#"
+KG = rdflib.Namespace(NS)
+RDF = rdflib.RDF
+XSD = rdflib.XSD
+UNIVERSE_GRAPH = "urn:graph:universe:2026-Q4"
 
 #: ``<!-- q:NAME expect:... -->`` immediately followed by its fenced block.
 TAGGED_QUERY = re.compile(
@@ -63,6 +70,11 @@ EXPECTED_NAMES = frozenset(
         "weight-scale",
         "n-equity-per-arm-on-last-day",
         "runs-available",
+        "layer1-cuts-by-window-sector",
+        "sector-composition-on-rebalance",
+        "held-tickers-by-window-industry",
+        "sector-coverage-of-held-assets",
+        "unclassified-assets-by-validto-year",
     }
 )
 
@@ -79,6 +91,10 @@ BACKTEST_NAMES = frozenset(
         "weight-scale",
         "n-equity-per-arm-on-last-day",
         "runs-available",
+        "layer1-cuts-by-window-sector",
+        "sector-composition-on-rebalance",
+        "held-tickers-by-window-industry",
+        "sector-coverage-of-held-assets",
     }
 )
 
@@ -151,10 +167,51 @@ def _rows(dataset: rdflib.Dataset, query: str) -> list[ResultRow]:
     return [row for row in result if isinstance(row, ResultRow)]
 
 
+def _add_universe_catalog(dataset: rdflib.Dataset) -> None:
+    """The real layout of the asset catalog in ``urn:graph:universe:2026-Q4``.
+
+    ``:Asset`` and ``:classifiedAs`` live in the quarter graph; the ``:Industry`` and ``:Sector``
+    taxonomy stays in ``urn:graph:reference``. ``AAPL`` is deliberately in both graphs: the five
+    worked-example assets also appear in the universe graph (T-225), so a union join without
+    ``SELECT DISTINCT`` would count them twice. The ``OLD*`` assets have closed memberships and no
+    classification, as the 2019-2021 leavers do.
+    """
+    universe = dataset.graph(URIRef(UNIVERSE_GRAPH))
+    universe.add((KG.SP500Index, RDF.type, KG.Universe))
+    for ticker, industry in (
+        ("AAA", "Ind_Banks"),
+        ("BBB", "Ind_Insurance"),
+        ("BRK.B", "Ind_FinancialServices"),
+        ("AAPL", "Ind_TechHardwareEquip"),  # the same asset is declared in reference.ttl
+    ):
+        asset = KG[ticker]
+        universe.add((asset, RDF.type, KG.Asset))
+        universe.add((asset, KG.tickerSymbol, rdflib.Literal(ticker)))
+        universe.add((asset, KG.classifiedAs, KG[industry]))
+
+    for ticker, valid_from, valid_to in (
+        ("OLD2019", "2010-01-01", "2019-06-30"),
+        ("OLD2021A", "2010-01-01", "2021-03-31"),
+        ("OLD2021B", "2010-01-01", "2021-12-31"),
+    ):
+        asset = KG[ticker]
+        membership = KG[f"UM_{ticker}_{valid_from}"]
+        universe.add((asset, RDF.type, KG.Asset))
+        universe.add((asset, KG.tickerSymbol, rdflib.Literal(ticker)))
+        universe.add((asset, KG.hasUniverseMembership, membership))
+        universe.add((membership, RDF.type, KG.UniverseMembership))
+        universe.add((membership, KG.membershipAsset, asset))
+        universe.add((membership, KG.membershipUniverse, KG.SP500Index))
+        universe.add((membership, KG.validFrom, rdflib.Literal(valid_from, datatype=XSD.date)))
+        universe.add((membership, KG.validTo, rdflib.Literal(valid_to, datatype=XSD.date)))
+
+
 @pytest.fixture(scope="module")
 def catalog_dataset(tmp_path_factory: pytest.TempPathFactory) -> rdflib.Dataset:
-    """The four schema graphs plus two labels across both synthetic backtest windows."""
-    dataset = rdflib.Dataset()
+    """The four schema graphs, the real-layout universe graph, and two synthetic run labels."""
+    # GraphDB's default graph is the union of every named graph; the sector sub-select in §6
+    # depends on that union, so the hermetic dataset reproduces it.
+    dataset = rdflib.Dataset(default_union=True)
     for path, graph_iri in (
         (SCHEMA / "tbox.ttl", "urn:graph:tbox"),
         (SCHEMA / "fibo.ttl", "urn:graph:reference:fibo"),
@@ -162,6 +219,7 @@ def catalog_dataset(tmp_path_factory: pytest.TempPathFactory) -> rdflib.Dataset:
         (SCHEMA / "reference.ttl", "urn:graph:reference"),
     ):
         dataset.graph(URIRef(graph_iri)).parse(path, format="turtle")
+    _add_universe_catalog(dataset)
 
     for label in ("rule", "champ_v1"):
         for window in ("P1", "P2"):
@@ -193,6 +251,20 @@ def test_the_limits_table_lists_eleven_questions() -> None:
         assert any(label in status for label in STATUSES), status
     assert "Not projected yet" in rows[6][2]  # Q7, executives
     assert "Not projected yet" in rows[9][2]  # Q10, live portfolio
+    assert "Today" in rows[4][2]  # Q5, the sector of an asset
+    assert "Today" in rows[10][2]  # Q11, banks and insurers
+
+
+def test_the_asset_catalog_limits_are_stated() -> None:
+    text = " ".join(_document().split())
+    assert "Known limits of the asset catalog" in text
+    assert "56 closed stints" in text
+    assert "no classification in the source" in text
+    assert "src/etl/common/gics_rollup.py" in text
+    assert "universe_patches.py" in text
+    for ticker in ("MBC", "FTRE", "PHIN"):
+        assert ticker in text
+    assert "Work item 23" in text
 
 
 def test_the_backtest_table_lists_the_battery() -> None:
@@ -341,12 +413,152 @@ def test_runs_available_lists_both_labels_and_windows(
     }
 
 
+def test_the_fixture_uses_the_real_asset_catalog_split(
+    catalog_dataset: rdflib.Dataset,
+) -> None:
+    universe = catalog_dataset.graph(URIRef(UNIVERSE_GRAPH))
+    reference = catalog_dataset.graph(URIRef("urn:graph:reference"))
+    assert (KG.AAA, RDF.type, KG.Asset) in universe
+    assert (KG.AAA, KG.classifiedAs, KG.Ind_Banks) in universe
+    assert (KG.AAPL, RDF.type, KG.Asset) in universe
+    assert (KG.AAPL, RDF.type, KG.Asset) in reference
+    assert (KG.Ind_Banks, KG.memberOfSector, KG.Sec_Financials) in reference
+    assert (KG.Ind_Banks, KG.memberOfSector, None) not in universe
+
+
+def test_the_layer1_cut_total_matches_the_enter_alerts(
+    catalog_dataset: rdflib.Dataset,
+) -> None:
+    rows = _rows(catalog_dataset, _query("layer1-cuts-by-window-sector"))
+    p1_cuts = sum(int(str(row["cuts"])) for row in rows if str(row["window"]) == "P1")
+    alerts = _rows(
+        catalog_dataset,
+        """
+PREFIX : <https://thesis.local/kg/portfolio#>
+
+SELECT (COUNT(DISTINCT ?alert) AS ?alerts)
+WHERE {
+  GRAPH ?g {
+    ?action a :GuardAction ; :actionAlert ?alert ; :actionOfBook ?book .
+    ?book :runLabel "rule" ; :windowId "P1" .
+    ?alert :alertState "ENTER" ; :alertRule ?rule .
+  }
+  GRAPH <urn:graph:rules:catalog> { ?rule :guardLayer 1 . }
+  FILTER (STRSTARTS(STR(?g), "urn:graph:derived:backtest:"))
+}
+""",
+    )
+    assert p1_cuts == 1
+    assert p1_cuts == int(str(alerts[0]["alerts"]))
+
+
+def test_the_sector_composition_sums_to_one_minus_cash(
+    catalog_dataset: rdflib.Dataset,
+) -> None:
+    rows = _rows(catalog_dataset, _query("sector-composition-on-rebalance"))
+    assert len(rows) == 1
+    total = sum(Decimal(str(row["weight"])) for row in rows)
+    cash = Decimal(str(rows[0]["cash"]))
+    assert total + cash == Decimal(1)
+    assert str(rows[0]["sector"]) == "Financials"  # AAA -> Banks -> Financials
+
+
+def test_banks_and_insurers_are_listed_by_window(
+    catalog_dataset: rdflib.Dataset,
+) -> None:
+    rows = _rows(catalog_dataset, _query("held-tickers-by-window-industry"))
+    by_key = {(str(row["window"]), str(row["industry"])): row for row in rows}
+    assert set(by_key) == {
+        ("P1", "Banks"),
+        ("P1", "Insurance"),
+        ("P2", "Banks"),
+        ("P2", "Insurance"),
+    }
+    assert int(str(by_key[("P1", "Banks")]["tickers"])) == 1
+    assert "AAA" in str(by_key[("P1", "Banks")]["tickerList"])
+    assert "BBB" in str(by_key[("P1", "Insurance")]["tickerList"])
+
+
+def test_sector_coverage_separates_held_linked_and_classified(
+    catalog_dataset: rdflib.Dataset,
+) -> None:
+    rows = _rows(catalog_dataset, _query("sector-coverage-of-held-assets"))
+    assert {str(row["window"]) for row in rows} == {"P1", "P2"}
+    for row in rows:
+        # AAA, BBB and BRK.B are linked and classified; ZZZ is held but not in the catalog.
+        assert int(str(row["heldTickers"])) == 4
+        assert int(str(row["withAsset"])) == 3
+        assert int(str(row["withSector"])) == 3
+
+
+def test_unclassified_assets_are_counted_by_validto_year(
+    catalog_dataset: rdflib.Dataset,
+) -> None:
+    rows = _rows(catalog_dataset, _query("unclassified-assets-by-validto-year"))
+    assert [(int(str(row["year"])), int(str(row["unclassifiedAssets"]))) for row in rows] == [
+        (2019, 1),
+        (2021, 2),
+    ]
+
+
+def test_the_single_graph_sector_pattern_loses_the_catalog(
+    catalog_dataset: rdflib.Dataset,
+) -> None:
+    """The documented trap: the classification and the taxonomy are in different graphs."""
+    prefix = (
+        "PREFIX :    <https://thesis.local/kg/portfolio#>\n"
+        "PREFIX skos: <http://www.w3.org/2004/02/skos/core#>\n"
+    )
+    path = (
+        "?asset :classifiedAs ?industry . "
+        "?industry :memberOfSector ?sector . "
+        "?sector skos:prefLabel ?sectorLabel ."
+    )
+    correct = prefix + f"SELECT DISTINCT ?asset ?sectorLabel WHERE {{ {path} }}"
+    in_universe = prefix + (
+        f"SELECT DISTINCT ?asset ?sectorLabel WHERE {{ GRAPH <{UNIVERSE_GRAPH}> {{ {path} }} }}"
+    )
+    in_reference = prefix + (
+        f"SELECT DISTINCT ?asset ?sectorLabel WHERE {{ GRAPH <urn:graph:reference> {{ {path} }} }}"
+    )
+    # A naive union of the two classification branches, then the taxonomy: AAPL is
+    # a solution in both branches, so the T-225 overlap counts it twice.
+    union = prefix + (
+        "SELECT ?asset ?sectorLabel WHERE { "
+        f"{{ GRAPH <{UNIVERSE_GRAPH}> {{ ?asset :classifiedAs ?industry . }} }} "
+        f"UNION {{ GRAPH <urn:graph:reference> {{ ?asset :classifiedAs ?industry . }} }} "
+        "?industry :memberOfSector ?sector . "
+        "?sector skos:prefLabel ?sectorLabel . }"
+    )
+    correct_rows = _rows(catalog_dataset, correct)
+    universe_rows = _rows(catalog_dataset, in_universe)
+    reference_rows = _rows(catalog_dataset, in_reference)
+    union_rows = _rows(catalog_dataset, union)
+
+    assert len(correct_rows) == 8
+    # The universe graph has the assets and their :classifiedAs, but no taxonomy.
+    assert len(universe_rows) == 0
+    # The reference graph has the taxonomy and only the five worked-example assets.
+    assert len(reference_rows) == 5
+    assert len(universe_rows) < len(correct_rows)
+    assert len(reference_rows) < len(correct_rows)
+    # Without DISTINCT the T-225 overlap counts AAPL twice.
+    assert len(union_rows) == 9
+    aapl = str(KG.AAPL)
+    assert sum(1 for row in correct_rows if str(row["asset"]) == aapl) == 1
+    assert sum(1 for row in union_rows if str(row["asset"]) == aapl) == 2
+
+
 @pytest.mark.parametrize(
     "name",
     [
         "performance-window-arm-segment",
         "guard-alerts-window-month-rule",
         "latest-nav-known-on-date",
+        "layer1-cuts-by-window-sector",
+        "sector-composition-on-rebalance",
+        "held-tickers-by-window-industry",
+        "sector-coverage-of-held-assets",
     ],
 )
 def test_two_labels_in_one_window_do_not_mix(catalog_dataset: rdflib.Dataset, name: str) -> None:
