@@ -370,7 +370,8 @@ def _asset_triples(latest: Stint, industry_local: str | None) -> list[str]:
     return triples
 
 
-def _membership_iri(stint: Stint) -> str:
+def membership_iri(stint: Stint) -> str:
+    """The ``:UniverseMembership`` local name for ``stint`` (T-220, shared with the delta)."""
     return f":UM_{stint.symbol}_{stint.valid_from}"
 
 
@@ -381,7 +382,7 @@ def _write_membership(out_fh: TextIO, asset_symbol: str, stint: Stint) -> None:
     single ``:META`` asset: the membership's identity and dates do not change
     when the company is folded.
     """
-    iri = _membership_iri(stint)
+    iri = membership_iri(stint)
     lines = [
         f"{iri}\n    a :UniverseMembership ;\n",
         f"    :membershipAsset :{asset_symbol} ;\n",

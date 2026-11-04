@@ -104,6 +104,38 @@ def test_the_existing_graph_patterns_are_unchanged(name: str) -> None:
 @pytest.mark.parametrize(
     "name",
     [
+        "urn:graph:universe:2026-Q4:delta:1",
+        "urn:graph:universe:2026-Q1:delta:42",
+        "urn:graph:universe:2027-Q1:delta:999999",
+    ],
+)
+def test_a_universe_delta_graph_is_append_only_and_accepted(name: str) -> None:
+    # T-371: the last capture group is a positive sequence, not a date, so check_target handles
+    # the suffix on a separate branch; the base quarter graph keeps its own pattern.
+    assert gate.check_target(name) is True
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        "urn:graph:universe:2026-Q4:delta:0",  # not positive
+        "urn:graph:universe:2026-Q4:delta:01",  # leading zero
+        "urn:graph:universe:2026-Q4:delta:-1",
+        "urn:graph:universe:2026-Q4:delta:abc",
+        "urn:graph:universe:2026-Q4:delta",  # no sequence
+        "urn:graph:universe:2026-Q4:delta:1/extra",
+        "urn:graph:universe:2026-Q5:delta:1",  # not a quarter
+        "urn:graph:universe:2026-08-05:delta:1",  # not a quarter
+    ],
+)
+def test_a_malformed_universe_delta_graph_is_refused(name: str) -> None:
+    with pytest.raises(gate.IngestRejected, match="not an ingest target"):
+        gate.check_target(name)
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
         "urn:graph:tbox",
         "urn:graph:derived:quant:2026-Q3",  # quant is dated, never quarterly (docs/07)
         "urn:graph:derived:quant:",
