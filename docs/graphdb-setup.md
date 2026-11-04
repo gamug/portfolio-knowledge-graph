@@ -101,14 +101,18 @@ into another quarter re-declares the same `:Asset`/`:Universe` individuals and i
 gets its own repository (Work item 17). Exit status: 0 on success, 1 if the source, the shapes, the
 gate or the store stop the run, 2 on a bad argument or the production guard.
 
-A dry run of 2026-11-03 over `/workspaces/thesis/data/universe_history.db` (read-only; no write was
-made) kept 657 of 891 stints over 653 symbols and dropped 234 stints of 229 symbols (214 not
-loaded at all, 15 with a later stint kept), wrote 648 `:Asset`s plus the five already in
-`reference.ttl`, 657 memberships (503 open, 154 closed), and built 6476 triples; `gate.validate`
-reported SHACL conforms in 1.3 s. Every ticker in `v_book_weight_daily` (CASH excluded),
-`v_guard_alert` and `v_guard_action` of `rule_P1/P2/P3.db` is in the loaded set (P1 100, P2 123,
-P3 115; 0 missing). The known overlap with the worked example's `2026-Q3` memberships is recorded
-in `docs/07`.
+A dry run of 2026-11-04 over `/workspaces/thesis/data/universe_history_gics.db` (read-only; no
+write was made) kept 657 of 891 stints over 653 symbols and dropped 234 stints of 229 symbols (214
+not loaded at all, 15 with a later stint kept), wrote 648 `:Asset`s plus the five already in
+`reference.ttl`, 657 memberships (503 open, 154 closed), and built 6563 triples; `gate.validate`
+reported SHACL conforms in 1.2 s. The six historical GICS sub-industry strings that file carries
+(`Alternative Carriers`, `Drug Retail`, `Home Furnishings`, `Household Appliances`, `Housewares &
+Specialties`, `Thrifts & Mortgage Finance`) now roll up to existing `reference.ttl` groups, so the
+run leaves no asset unmapped for them (6557 triples before those six mappings; 6476 was the
+earlier `universe_history.db` run). Every ticker in
+`v_book_weight_daily` (CASH excluded), `v_guard_alert` and `v_guard_action` of
+`rule_P1/P2/P3.db` is in the loaded set (P1 100, P2 123, P3 115; 0 missing). The known overlap
+with the worked example's `2026-Q3` memberships is recorded in `docs/07`.
 
 ## Ingest gate (T-023)
 

@@ -1039,7 +1039,9 @@ with asset links is refused. See `PLAN.md` Work item 19 and SPEC FR-008.*
       `/workspaces/thesis/data/universe_history.db`: 657 of 891 stints kept over 653 symbols;
       234 stints of 229 symbols dropped (214 symbols not loaded, 15 with a later stint kept);
       648 `:Asset`s written + 5 in `reference.ttl`; 657 memberships (503 open, 154 closed);
-      6476 triples; SHACL conforms in 1.3 s; no CIK-less asset with an open membership. Every
+      6476 triples (the earlier `universe_history.db` run; `universe_history_gics.db` is 6557
+      before Work item 22's six historical mappings and 6563 after); SHACL conforms in 1.3 s; no
+      CIK-less asset with an open membership. Every
       ticker in `v_book_weight_daily` (CASH excluded), `v_guard_alert` and `v_guard_action` of
       `rule_P1/P2/P3.db` is in the loaded set (P1 100, P2 123, P3 115; 0 missing). Recorded in
       `docs/graphdb-setup.md`. → `PLAN.md` Work item 19.
@@ -1048,7 +1050,9 @@ with asset links is refused. See `PLAN.md` Work item 19 and SPEC FR-008.*
       run the loader, its limits and the real dry run), `schema/README.md` (the `sh:class :Asset`
       triple and the loader), `docs/08` + `schema/README.md` (after the loader runs,
       `SQL_UNIVERSE_DB=/workspaces/thesis/data/universe_history.db` makes the backtest projector
-      link assets), SPEC FR-008 and all pinned quad/load counts. → `PLAN.md` Work item 19.
+      link assets), SPEC FR-008 and all pinned quad/load counts. The GICS-database count was later
+      reconciled in Work item 22: 6557 triples before its six mappings and 6563 after; 6476 was
+      the earlier `universe_history.db` run. → `PLAN.md` Work item 19.
 - [ ] **T-225** *(from T-220; known overlap, no code now)* `schema/instances.trig` holds its own
       `2026-Q3` memberships for the five `reference.ttl` assets in `urn:graph:universe:2026-Q3`,
       against `:SP500Watchlist_2026Q3`; the loader adds a second set for those five in its own
@@ -1149,6 +1153,9 @@ Work item 20 (T-230–T-237): T-230–T-236 done (2026-11-03); T-237 (the live s
 Work item 18 (T-204): done 2026-10-16 — re-pinned `portfolio-common` to `v1.2.2`, a real bug fix here (`news_to_rdf`'s `attach()`-based read of `urls.db`), not just a consistency bump; proved by a new regression test that fails against the old pin and passes against the new one.
 Work item 19 (T-220–T-229): T-220–T-224 done 2026-11-03 (the loader, the `sh:class :Asset` triple, tests, the real dry-run verification and the docs); T-225 (worked-example overlap) and T-226 (first real `--write`, maintainer go-ahead) open; T-227 (`sh:class :Universe`) done 2026-11-03.
 Work item 21 (T-240–T-243): closed 2026-11-03 — the reports-agent query catalog (the brief's 11 questions verbatim) and its executable hermetic test; adapted to the labelled backtest graphs and the asset catalog loader on 2026-11-04; see `CHANGELOG.md`.
+Work item 22 (T-250–T-259): closed 2026-11-04 — the six historical GICS sub-industry names now roll
+up to existing `reference.ttl` groups, and the full dry run reports 6563 triples with no
+unmapped-value warning; see `CHANGELOG.md`.
 T-163 (function done, PR #68) closes with T-031, whose first slice (PR #72) calls it on the real read and re-reads the late keys for `v_score_snapshot`; T-164 done (PR #69).
 Work item 8 (T-070–T-071) is independent but needs a human at a Protégé
 session, not a coding session.

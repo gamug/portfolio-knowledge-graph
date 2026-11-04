@@ -102,6 +102,25 @@ def test_lookup_known_and_unknown_sub_industry() -> None:
     assert gics_rollup.lookup("Not A Sub-Industry") is None
 
 
+@pytest.mark.parametrize(
+    ("sub_industry", "industry", "sector"),
+    [
+        ("Alternative Carriers", "Ind_TelecomServices", "Communication Services"),
+        ("Drug Retail", "Ind_ConsumerStaplesRetail", "Consumer Staples"),
+        ("Home Furnishings", "Ind_ConsumerDurables", "Consumer Discretionary"),
+        ("Household Appliances", "Ind_ConsumerDurables", "Consumer Discretionary"),
+        ("Housewares & Specialties", "Ind_ConsumerDurables", "Consumer Discretionary"),
+        ("Thrifts & Mortgage Finance", "Ind_Banks", "Financials"),
+    ],
+)
+def test_historical_gics_sub_industries_map_to_their_period_industry_group(
+    sub_industry: str, industry: str, sector: str
+) -> None:
+    """Each pre-2023-era name rolls up to the group the GICS hierarchy then assigned."""
+    assert gics_rollup.lookup(sub_industry) == industry
+    assert gics_rollup.sector_matches(industry, sector)
+
+
 def test_every_rolled_up_industry_has_a_sector() -> None:
     industries = set(gics_rollup.SUB_INDUSTRY_TO_INDUSTRY.values())
     assert industries <= set(gics_rollup.INDUSTRY_TO_SECTOR)
