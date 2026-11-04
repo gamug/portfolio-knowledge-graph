@@ -1707,6 +1707,33 @@ def run(
     return out
 
 
+def project_selection_source(
+    source: FinancialSource,
+    assets: Mapping[str, AssetInfo],
+    catalog: SelectionRuleCatalog,
+    label: str,
+) -> SourceProjection:
+    """Read the six selection views plus ``v_book``, run the boundary and project them.
+
+    The selection-side twin of :func:`project_source`: no store and no SHACL, so a dry run, a
+    write and the verifier all rebuild the same deterministic batch (Work item 29). ``v_book``
+    supplies the one backtest run and its knowledge date; the source check is the m018 one (the
+    backtest run must be ``completed``).
+    """
+    books = read_view(source, "v_book")
+    source_failures = check_backtest_source(source.schema_version, books, load_source())
+    rows = {"v_book": books}
+    rows.update({view: read_view(source, view) for view in SELECTION_VIEWS})
+    expectations = load_expectations()
+    result = validate(
+        {view: rows[view] for view in SELECTION_VIEWS},
+        {view: expectations[view] for view in SELECTION_VIEWS},
+        source_failures=source_failures,
+    )
+    projection = project_selection({**result.rows, "v_book": books}, assets, catalog, label)
+    return SourceProjection(result.report, result.rows, projection)
+
+
 def run_selection(
     source: FinancialSource,
     assets: Mapping[str, AssetInfo],
@@ -1722,19 +1749,10 @@ def run_selection(
     projector is writing a frozen backtest artifact, not a live ingest graph. A ranking row whose
     cycle run is not ``completed`` is counted as skipped; its components are counted too.
     """
-    books = read_view(source, "v_book")
-    source_failures = check_backtest_source(source.schema_version, books, load_source())
-    rows = {"v_book": books}
-    rows.update({view: read_view(source, view) for view in SELECTION_VIEWS})
-    expectations = load_expectations()
-    result = validate(
-        {view: rows[view] for view in SELECTION_VIEWS},
-        {view: expectations[view] for view in SELECTION_VIEWS},
-        source_failures=source_failures,
-    )
-    projection = project_selection({**result.rows, "v_book": books}, assets, catalog, label)
+    source_projection = project_selection_source(source, assets, catalog, label)
+    projection = source_projection.projection
     out = RunResult(
-        result.report,
+        source_projection.report,
         projection.rows,
         projection.individuals,
         triples_by_class=projection.triples_by_class(),
@@ -1797,6 +1815,7 @@ __all__ = [
     "load_selection_catalog",
     "project",
     "project_selection",
+    "project_selection_source",
     "project_source",
     "read_view",
     "resolve_rule",

@@ -13,15 +13,22 @@ import os
 from pathlib import Path
 
 import pytest
+import rdflib
+from fixtures.dataset_store import DatasetStore
+from rdflib.term import URIRef
 
 from etl import config
 from projection.backtest import (
     SELECTION_VIEWS,
+    load_guard_catalog,
     load_selection_catalog,
+    project_selection_source,
+    project_source,
     run_selection,
     universe_assets,
 )
 from projection.source import FinancialSource
+from projection.verify_backtest import verify
 
 ENV_VAR = "BACKTEST_DB"
 
@@ -119,3 +126,62 @@ def test_the_real_database_projects_every_selection_row_once() -> None:
     )
     print(f"  individuals: {dict(result.individuals)}")
     print(f"  asset links omitted: {dict(result.asset_unlinked)}")
+
+
+@pytest.mark.integration
+def test_the_real_p1_projection_verifies_both_graphs_in_memory() -> None:
+    """The verifier over the real P1 m018 and selection projections, with no live store."""
+    path = _database()
+    universe = config.universe_db_path()
+    if not universe.is_file():
+        pytest.skip(f"SQL_UNIVERSE_DB={universe} is not a file")
+    assets = universe_assets(universe)
+    guard_catalog = load_guard_catalog(config.schema_dir() / "rules.ttl")
+    selection_catalog = load_selection_catalog(config.schema_dir() / "rules.ttl")
+    source = FinancialSource.open(path)
+    try:
+        window = str(source.execute("SELECT window_id FROM v_book LIMIT 1").fetchone()[0])
+        backtest = project_source(source, assets, guard_catalog, "rule")
+        selection = project_selection_source(source, assets, selection_catalog, "rule")
+    finally:
+        source.close()
+    if window != "P1":
+        pytest.skip(f"BACKTEST_DB={path} is window {window}, not the pinned P1")
+
+    dataset = rdflib.Dataset()
+    for projection in (backtest, selection):
+        for name, builder in projection.projection.graphs.items():
+            graph = dataset.graph(URIRef(name))
+            for triple in builder.triples:
+                graph.add(triple)
+    store = DatasetStore(dataset)
+    m018 = "urn:graph:derived:backtest:rule:P1:1"
+    selection_graph = "urn:graph:derived:backtest:selection:rule:P1:1"
+    m018_result = verify(
+        store,
+        m018,
+        path,
+        "rule",
+        assets=assets,
+        catalog=guard_catalog,
+        repository=store.repository,
+        host=store.host,
+    )
+    selection_result = verify(
+        store,
+        selection_graph,
+        path,
+        "rule",
+        assets=assets,
+        selection_catalog=selection_catalog,
+        repository=store.repository,
+        host=store.host,
+    )
+    assert m018_result.ok, m018_result.summary()
+    assert selection_result.ok, selection_result.summary()
+    assert m018_result.triples == 209_886
+    assert selection_result.triples == 321_281
+    print(
+        f"\n{path.name}: m018 {m018_result.triples:,} triples, "
+        f"selection {selection_result.triples:,} triples; both verified"
+    )

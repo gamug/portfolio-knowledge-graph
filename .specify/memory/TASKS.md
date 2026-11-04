@@ -1174,6 +1174,9 @@ Work item 26 (T-320–T-328): closed 2026-11-04 — the backtest selection side 
 `urn:graph:derived:backtest:selection:{label}:{P<n>}:{run}`, the three new report queries are
 tested, T-209's rule resolution is fixed on the run date, and the real dry runs are recorded;
 see `CHANGELOG.md`.
+Work item 29 (T-390–T-398): closed 2026-11-04 — the verifier covers the selection graph and the
+m018 cross-graph cycle link, and `cli/load_run.py` runs the contract check, both dry runs, both
+writes and every verification in one command; see `CHANGELOG.md`.
 T-163 (function done, PR #68) closes with T-031, whose first slice (PR #72) calls it on the real read and re-reads the late keys for `v_score_snapshot`; T-164 done (PR #69).
 Work item 8 (T-070–T-071) is independent but needs a human at a Protégé
 session, not a coding session.

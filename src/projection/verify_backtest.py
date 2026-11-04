@@ -1,6 +1,9 @@
-"""Verify one stored backtest graph against a fresh in-memory projection of its source (T-280).
+"""Verify one stored backtest graph against a fresh in-memory projection of its source.
 
     uv run python cli/verify_backtest.py --graph urn:graph:derived:backtest:rule:P1:1 \\
+        --db /path/to/rule_P1.db --label rule
+    uv run python cli/verify_backtest.py \\
+        --graph urn:graph:derived:backtest:selection:rule:P1:1 \\
         --db /path/to/rule_P1.db --label rule
 
 The verifier is read-only: it issues SPARQL ``SELECT`` queries only, never an update, a graph
@@ -10,13 +13,22 @@ the repository selected by the environment (``KG_HOST``/``KG_REPOSITORY``, as ev
 CLI). One ``PASS``/``FAIL`` line is printed per check; the exit status is 0 only when every check
 passes, 1 when a check fails or the source/store cannot be read, 2 on a bad argument.
 
-Checks: the graph's name and its stored ``:runLabel``/``:windowId``/``:backtestRunId`` agree with
-the label, window and run id; its triple count equals the re-projection; each of the eight m018
-classes has one individual per source row; ``:holdingAsset``/``:guardAsset`` link the tickers the
-source can link, and no more rows are unlinked than the projector reports; the GuardAlert
-rule/layer/state groups, GuardAction statuses, last NAV per arm and CASH rows equal the source; and
-every individual carries ``:runLabel`` through its book (where the model has that link) and
-``:knowledgeDate``.
+The graph name selects the side: an m018 graph checks the eight backtest/GUARD views, and a
+selection graph (Work item 29) checks the six selection views plus the cross-graph link from the
+m018 graph's TOPN ``BookRebalance`` rows to its ``SelectionCycle`` rows. The m018 checks are
+unchanged: the graph's name and its stored ``:runLabel``/``:windowId``/``:backtestRunId`` agree with
+the label, window and run id; its triple count equals the re-projection; each class has one
+individual per source row; ``:holdingAsset``/``:guardAsset`` link the tickers the source can link,
+and no more rows are unlinked than the projector reports; the GuardAlert rule/layer/state groups,
+GuardAction statuses, last NAV per arm and CASH rows equal the source; and every individual carries
+``:runLabel`` through its book (where the model has that link) and ``:knowledgeDate``.
+
+Selection checks: graph identity, total triples, one individual per projected source row for
+``SelectionCycle``, ``AttractivenessSnapshot``, ``AttractivenessWeightScheme``, ``Veto`` and the
+configured/effective ``WeightComponent`` links; the UNSCORED/UNPRICED placeholder count;
+``:attractivenessOfAsset``/``:vetoOfAsset`` links and the unlinked-ticker ceiling; vetoes grouped
+by resolved rule; and every ``:cycleRunId`` of a TOPN ``BookRebalance`` in the m018 graph having
+its ``SelectionCycle`` in the selection graph (``MARKOWITZ_BASE`` has none).
 """
 
 from __future__ import annotations
@@ -32,17 +44,25 @@ from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any, Protocol
 
+import rdflib
+
 from etl import config
 from kg_store.graphdb import EXPLICIT_GRAPH, GraphDB, GraphDBError
 from projection.backtest import (
     GRAPH_PREFIX,
     RUN_LABEL_PATTERN,
+    SELECTION_GRAPH_PREFIX,
     WINDOW_PATTERN,
     AssetInfo,
+    GraphBuilder,
     GuardCatalog,
     Projection,
     ProjectionError,
+    SelectionRuleCatalog,
+    graph_name,
     load_guard_catalog,
+    load_selection_catalog,
+    project_selection_source,
     project_source,
     universe_assets,
 )
@@ -69,7 +89,12 @@ _GRAPH = re.compile(
     rf"{re.escape(GRAPH_PREFIX)}"
     rf"(?P<label>{RUN_LABEL_PATTERN}):(?P<window>{WINDOW_PATTERN}):(?P<run>[1-9][0-9]*)"
 )
+_SELECTION_GRAPH = re.compile(
+    rf"{re.escape(SELECTION_GRAPH_PREFIX)}"
+    rf"(?P<label>{RUN_LABEL_PATTERN}):(?P<window>{WINDOW_PATTERN}):(?P<run>[1-9][0-9]*)"
+)
 _CASH = "CASH"
+_KG = rdflib.Namespace("https://thesis.local/kg/portfolio#")
 
 
 class VerificationError(ValueError):
@@ -110,6 +135,7 @@ class Verification:
     label: str
     database: Path
     checks: list[Check]
+    triples: int = 0
 
     @property
     def ok(self) -> bool:
@@ -143,6 +169,14 @@ class Verification:
 def graph_identity(graph: str) -> GraphIdentity | None:
     """The identity a backtest graph name carries, or ``None`` for any other name."""
     match = _GRAPH.fullmatch(graph)
+    if match is None:
+        return None
+    return GraphIdentity(match.group("label"), match.group("window"), int(match.group("run")))
+
+
+def selection_graph_identity(graph: str) -> GraphIdentity | None:
+    """The identity a selection graph name carries, or ``None`` for any other name."""
+    match = _SELECTION_GRAPH.fullmatch(graph)
     if match is None:
         return None
     return GraphIdentity(match.group("label"), match.group("window"), int(match.group("run")))
@@ -330,6 +364,79 @@ def _store_last_nav(store: ReadableStore, graph: str) -> dict[str, tuple[str, De
     return last
 
 
+# --- selection-side expectations ----------------------------------------------------------------
+
+
+def _subjects_of_type(builder: GraphBuilder, class_name: str) -> set[rdflib.URIRef]:
+    wanted = _KG[class_name]
+    return {
+        subject
+        for subject, predicate, value in builder.triples
+        if predicate == rdflib.RDF.type and value == wanted and isinstance(subject, rdflib.URIRef)
+    }
+
+
+def _linked_objects(builder: GraphBuilder, predicate: rdflib.URIRef) -> set[rdflib.URIRef]:
+    return {
+        value
+        for _, stored, value in builder.triples
+        if stored == predicate and isinstance(value, rdflib.URIRef)
+    }
+
+
+def _expected_placeholders(builder: GraphBuilder) -> int:
+    """Snapshots the projector leaves without an effective weight (the 0.0 placeholders)."""
+    snapshots = _subjects_of_type(builder, "AttractivenessSnapshot")
+    weighted = {
+        subject for subject, predicate, _ in builder.triples if predicate == _KG.hasEffectiveWeight
+    }
+    return len(snapshots - weighted)
+
+
+def _expected_veto_groups(builder: GraphBuilder) -> Counter[str]:
+    """Vetoes grouped by the resolved rule IRI the projector wrote."""
+    vetoes = _subjects_of_type(builder, "Veto")
+    groups: Counter[str] = Counter()
+    for subject, predicate, value in builder.triples:
+        if subject in vetoes and predicate == _KG.appliesRule:
+            groups[str(value)] += 1
+    return groups
+
+
+def _store_selection_identities(store: ReadableStore, graph: str) -> set[tuple[str, str, str]]:
+    rows = _select(
+        store,
+        graph,
+        "DISTINCT ?label ?window ?run",
+        "?s a :SelectionCycle ; :runLabel ?label ; :windowId ?window ; :backtestRunId ?run .",
+    )
+    return {
+        (row["label"], row["window"], row["run"])
+        for row in rows
+        if {"label", "window", "run"} <= row.keys()
+    }
+
+
+def _store_veto_groups(store: ReadableStore, graph: str) -> Counter[str]:
+    rows = _select(
+        store,
+        graph,
+        "?rule (COUNT(DISTINCT ?s) AS ?n)",
+        "?s a :Veto ; :appliesRule ?rule .",
+        "?rule",
+    )
+    return Counter({row["rule"]: int(row["n"]) for row in rows})
+
+
+def _cycle_ids(rows: Sequence[Mapping[str, str]]) -> set[str]:
+    """The canonical text of each ``?cycle`` value (a stored ``xsd:integer`` or a literal)."""
+    return {str(int(row["cycle"])) for row in rows if row.get("cycle")}
+
+
+def _store_cycle_ids(store: ReadableStore, graph: str, pattern: str) -> set[str]:
+    return _cycle_ids(_select(store, graph, "DISTINCT ?cycle", pattern))
+
+
 # --- the verifier -------------------------------------------------------------------------------
 
 
@@ -351,7 +458,7 @@ def _describe_difference(expected: Mapping[Any, Any], actual: Mapping[Any, Any])
     return "; ".join(parts)
 
 
-def verify(  # noqa: PLR0913, PLR0915 -- the one public verifier; every check is explicit
+def verify(  # noqa: C901, PLR0913, PLR0915 -- the one public verifier
     store: ReadableStore,
     graph: str,
     db_path: str | Path,
@@ -359,18 +466,31 @@ def verify(  # noqa: PLR0913, PLR0915 -- the one public verifier; every check is
     *,
     assets: Mapping[str, AssetInfo] | None = None,
     catalog: GuardCatalog | None = None,
+    selection_catalog: SelectionRuleCatalog | None = None,
     repository: str = "",
     host: str = "",
 ) -> Verification:
     """Re-project ``db_path`` in memory and compare it with ``graph`` in ``store``.
 
-    ``assets`` and ``catalog`` default to the configured universe database and
-    ``schema/rules.ttl``, exactly as ``cli/project_backtest.py`` reads them; tests pass fixtures.
-    The source is opened read-only by :class:`projection.source.FinancialSource`; the store is
-    only asked ``SELECT`` queries.
+    ``assets``, ``catalog`` and ``selection_catalog`` default to the configured universe database
+    and ``schema/rules.ttl``, exactly as the projectors read them; tests pass fixtures. The source
+    is opened read-only by :class:`projection.source.FinancialSource`; the store is only asked
+    ``SELECT`` queries. A selection graph dispatches to :func:`verify_selection`; every other name
+    follows the m018 path unchanged.
     """
     if not re.fullmatch(RUN_LABEL_PATTERN, label):
         raise VerificationError(f"run label {label!r} does not match {RUN_LABEL_PATTERN}")
+    if graph.startswith(SELECTION_GRAPH_PREFIX):
+        return verify_selection(
+            store,
+            graph,
+            db_path,
+            label,
+            assets=assets,
+            catalog=selection_catalog,
+            repository=repository,
+            host=host,
+        )
     identity = graph_identity(graph)
     if identity is None:
         return Verification(
@@ -605,6 +725,278 @@ def verify(  # noqa: PLR0913, PLR0915 -- the one public verifier; every check is
         label=label,
         database=Path(db_path),
         checks=checks,
+        triples=stored_triples,
+    )
+
+
+# --- the selection-side verifier ----------------------------------------------------------------
+
+
+def verify_selection(  # noqa: C901, PLR0912, PLR0913, PLR0915 -- the one selection verifier
+    store: ReadableStore,
+    graph: str,
+    db_path: str | Path,
+    label: str,
+    *,
+    assets: Mapping[str, AssetInfo] | None = None,
+    catalog: SelectionRuleCatalog | None = None,
+    repository: str = "",
+    host: str = "",
+) -> Verification:
+    """Re-project the selection views and compare them with one selection graph.
+
+    The source's exact projector (:func:`projection.backtest.project_selection_source`) supplies
+    every expected count, link and group. The m018 sibling is derived from the selection graph's
+    own label/window/run id; the cross-graph check fails when it is absent, because then the
+    proof that each TOPN rebalance points at a projected cycle cannot be made.
+    """
+    identity = selection_graph_identity(graph)
+    if identity is None:
+        return Verification(
+            repository=repository,
+            host=host,
+            graph=graph,
+            label=label,
+            database=Path(db_path),
+            checks=[
+                Check(
+                    "graph",
+                    False,
+                    f"{graph!r} is not a selection graph name "
+                    f"({SELECTION_GRAPH_PREFIX}{{label}}:{{P<number>}}:{{run id}})",
+                )
+            ],
+        )
+
+    assets = universe_assets(config.universe_db_path()) if assets is None else assets
+    catalog = (
+        load_selection_catalog(config.schema_dir() / "rules.ttl") if catalog is None else catalog
+    )
+    source = FinancialSource.open(db_path)
+    try:
+        source_projection = project_selection_source(source, assets, catalog, label)
+    finally:
+        source.close()
+
+    rows = source_projection.rows
+    projection = source_projection.projection
+    expected_graphs = set(projection.graphs)
+    builder = projection.graphs.get(graph)
+    expected_triples = len(builder.triples) if builder is not None else None
+    stored_triples = _scalar(store, graph, "COUNT(*)", "?s ?p ?o")
+    identities = _store_selection_identities(store, graph)
+    wanted_identity = {(label, identity.window, str(identity.run_id))}
+
+    checks: list[Check] = []
+    name_problems: list[str] = []
+    if identity.label != label:
+        name_problems.append(f"the graph's label is {identity.label!r}, not {label!r}")
+    if graph not in expected_graphs:
+        name_problems.append(
+            "the source projects " + (", ".join(sorted(expected_graphs)) or "no selection graph")
+        )
+    if stored_triples == 0:
+        name_problems.append("the graph does not exist in the store")
+    if identities != wanted_identity:
+        name_problems.append(
+            f"stored cycle metadata {sorted(identities)} is not {sorted(wanted_identity)}"
+        )
+    checks.append(
+        Check(
+            "graph",
+            not name_problems,
+            (
+                f"{graph} exists with {stored_triples:,} triples; label, window "
+                f"{identity.window} and run {identity.run_id} agree"
+                if not name_problems
+                else "; ".join(name_problems)
+            ),
+        )
+    )
+
+    if expected_triples is None:
+        checks.append(
+            Check(
+                "triples",
+                False,
+                f"the source does not project {graph}; it projects "
+                + (", ".join(sorted(expected_graphs)) or "nothing"),
+            )
+        )
+    else:
+        checks.append(
+            Check(
+                "triples",
+                stored_triples == expected_triples,
+                f"{graph}: {stored_triples:,} stored, {expected_triples:,} re-projected",
+            )
+        )
+
+    def count_check(
+        name: str,
+        expected: int,
+        pattern: str,
+        detail: str,
+        expression: str = "COUNT(DISTINCT ?s)",
+    ) -> None:
+        stored = _scalar(store, graph, expression, pattern)
+        checks.append(
+            Check(name, stored == expected, f"{detail}: {stored:,} stored, {expected:,} expected")
+        )
+
+    count_check(
+        "individuals SelectionCycle",
+        len(rows.get("v_cycle_run", ())),
+        "?s a :SelectionCycle .",
+        "v_cycle_run",
+    )
+    count_check(
+        "individuals AttractivenessSnapshot",
+        projection.individuals["AttractivenessSnapshot"],
+        "?s a :AttractivenessSnapshot .",
+        "v_cycle_ranking projected",
+    )
+    count_check(
+        "individuals AttractivenessWeightScheme",
+        len(rows.get("v_weight_scheme", ())),
+        "?s a :AttractivenessWeightScheme .",
+        "v_weight_scheme",
+    )
+    count_check(
+        "individuals Veto",
+        len(rows.get("v_veto", ())),
+        "?s a :Veto .",
+        "v_veto",
+    )
+    if builder is not None:
+        expected_effective = len(_linked_objects(builder, _KG.hasEffectiveWeight))
+        expected_configured = len(_linked_objects(builder, _KG.hasWeightComponent))
+        expected_attractiveness_links = len(_linked_objects(builder, _KG.attractivenessOfAsset))
+        expected_veto_links = len(_linked_objects(builder, _KG.vetoOfAsset))
+        expected_placeholders = _expected_placeholders(builder)
+    else:
+        expected_effective = expected_configured = 0
+        expected_attractiveness_links = expected_veto_links = 0
+        expected_placeholders = 0
+
+    count_check(
+        "effective WeightComponent",
+        expected_effective,
+        "?snapshot :hasEffectiveWeight ?component .",
+        "v_cycle_ranking_component",
+        "COUNT(DISTINCT ?component)",
+    )
+    count_check(
+        "configured WeightComponent",
+        expected_configured,
+        "?scheme :hasWeightComponent ?component .",
+        "v_weight_component",
+        "COUNT(DISTINCT ?component)",
+    )
+    count_check(
+        "UNSCORED/UNPRICED placeholders",
+        expected_placeholders,
+        "?s a :AttractivenessSnapshot ; :vetoRulesJson ?rules . "
+        "FILTER NOT EXISTS { ?s :hasEffectiveWeight ?component } "
+        'FILTER (CONTAINS(STR(?rules), "UNSCORED") || CONTAINS(STR(?rules), "UNPRICED"))',
+        "snapshots without :hasEffectiveWeight",
+    )
+    count_check(
+        "attractiveness links",
+        expected_attractiveness_links,
+        "?s :attractivenessOfAsset ?asset .",
+        "distinct tickers with :attractivenessOfAsset",
+        "COUNT(DISTINCT ?asset)",
+    )
+    count_check(
+        "veto links",
+        expected_veto_links,
+        "?s :vetoOfAsset ?asset .",
+        "distinct tickers with :vetoOfAsset",
+        "COUNT(DISTINCT ?asset)",
+    )
+
+    for view, expected, pattern in (
+        (
+            "v_cycle_ranking",
+            projection.asset_unlinked["v_cycle_ranking"],
+            (
+                "?s a :AttractivenessSnapshot ; :rankingTicker ?ticker . "
+                "FILTER NOT EXISTS { ?s :attractivenessOfAsset ?asset }"
+            ),
+        ),
+        (
+            "v_veto",
+            projection.asset_unlinked["v_veto"],
+            ("?s a :Veto ; :vetoTicker ?ticker . FILTER NOT EXISTS { ?s :vetoOfAsset ?asset }"),
+        ),
+    ):
+        stored = _count(store, graph, pattern)
+        checks.append(
+            Check(
+                f"unlinked {view}",
+                stored <= expected,
+                f"{stored:,} stored, {expected:,} reported by the projector"
+                + ("" if stored <= expected else " (more unlinked rows than the source allows)"),
+            )
+        )
+
+    expected_groups = _expected_veto_groups(builder) if builder is not None else Counter[str]()
+    stored_groups = _store_veto_groups(store, graph)
+    checks.append(
+        Check(
+            "vetoes by resolved rule",
+            stored_groups == expected_groups,
+            _describe_difference(expected_groups, stored_groups),
+        )
+    )
+
+    m018_graph = graph_name(identity.label, identity.window, identity.run_id)
+    rebalances = _select(
+        store,
+        m018_graph,
+        "DISTINCT ?arm ?cycle",
+        "?r a :BookRebalance ; :cycleRunId ?cycle ; :rebalanceOfBook ?book . "
+        "?book a :StrategyBook ; :armCode ?arm .",
+    )
+    markowitz = [row for row in rebalances if row.get("arm") == "MARKOWITZ_BASE"]
+    topn_cycles = _cycle_ids([row for row in rebalances if row.get("arm") != "MARKOWITZ_BASE"])
+    selection_cycles = _store_cycle_ids(
+        store,
+        graph,
+        "?s a :SelectionCycle ; :cycleRunId ?cycle .",
+    )
+    missing_cycles = topn_cycles - selection_cycles
+    cross_problems: list[str] = []
+    if not rebalances:
+        cross_problems.append(f"{m018_graph} has no BookRebalance with a :cycleRunId")
+    if markowitz:
+        cross_problems.append(f"MARKOWITZ_BASE has {len(markowitz)} cycle link(s)")
+    if missing_cycles:
+        cross_problems.append(
+            "missing SelectionCycle for cycle " + ", ".join(sorted(missing_cycles, key=int))
+        )
+    checks.append(
+        Check(
+            "cross-graph SelectionCycle",
+            not cross_problems,
+            (
+                f"{len(topn_cycles)} TOPN cycle id(s) from {m018_graph} are in this graph; "
+                "MARKOWITZ_BASE has 0"
+                if not cross_problems
+                else "; ".join(cross_problems)
+            ),
+        )
+    )
+
+    return Verification(
+        repository=repository,
+        host=host,
+        graph=graph,
+        label=label,
+        database=Path(db_path),
+        checks=checks,
+        triples=stored_triples,
     )
 
 
