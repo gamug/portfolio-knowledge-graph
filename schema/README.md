@@ -394,11 +394,15 @@ what the store *enforces*.
      A dry run is the default and SHACL-validates each graph; `--write` appends through the gate
      and production also needs `--to-production`. The writer keeps every masked/NULL column out of
      the Turtle, links an asset only when the universe database has the ticker (point
-     `SQL_UNIVERSE_DB` at `/workspaces/thesis/data/universe_history.db` and load it with
+     `SQL_UNIVERSE_DB` at `/workspaces/thesis/data/universe_history_gics.db` and load it with
      `cli/load_universe.py` first, or a real write is refused for want of the stored `:Asset`
-     individuals), resolves
-     `:alertRule` to `:Rule_{rule_id}` and refuses an unknown rule or a layer disagreement. No
-     schema file changed, so the bundle stayed **4178 quads at that revision; conforms: True**.
+     individuals; that loader is one-time per repository, so a new ticker needs a fresh repository
+     or an incremental membership batch, see `docs/backtest-load-runbook.md`), resolves
+     `:alertRule` to `:Rule_{rule_id}` and refuses an unknown rule or a layer disagreement.
+     `cli/verify_backtest.py` (logic in `src/projection/verify_backtest.py`, T-280) re-projects the
+     source read-only and prints one `PASS`/`FAIL` line per check, including the run identity,
+     triple and class counts, links, key aggregates, `:runLabel` and `:knowledgeDate`. No schema
+     file changed, so the bundle stayed **4178 quads at that revision; conforms: True**.
    - **Not done here:** no change to the v18 pin, no ingest-gate pattern change beyond the
      schema-driven `CLOSABLE` entry, its `inclusive` flag for `TickerHistory` (a one-day symbol must
      not be refused) and T-207's/T-231's backtest graph name, no GraphDB write/reload, and

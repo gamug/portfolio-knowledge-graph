@@ -1615,22 +1615,33 @@ class RunResult:
         return "\n".join(lines)
 
 
-def run(
+@dataclass
+class SourceProjection:
+    """One source database after the boundary and the projector, before any store is touched.
+
+    ``rows`` is the rows that passed the boundary, keyed by view; ``projection`` is the
+    deterministic batch built from them. A dry run and a write share this exactly, so a verifier
+    can rebuild the expected graph without writing it (T-280).
+    """
+
+    report: BoundaryReport
+    rows: dict[str, list[Row]]
+    projection: Projection
+
+
+def project_source(
     source: FinancialSource,
     assets: Mapping[str, AssetInfo],
     catalog: GuardCatalog,
     label: str,
-    store: GraphDB | None = None,
-) -> RunResult:
-    """Read, check, project and (when ``store`` is given) write the eight m018 views.
+) -> SourceProjection:
+    """Read the eight views, run the boundary and project them; no store and no SHACL.
 
     ``label`` is the operator's name for this run family (``--db LABEL=PATH``): the views expose
     no run identity, so it is what keeps two families' graphs and individuals apart. The source
     check runs before the other seven views are read: a database whose backtest run is not
     ``completed`` is refused, never projected partially. The boundary then checks every view
-    against its shipped expectation file. A dry run validates each graph beside the rules and
-    assets from ``schema/``/the universe database; a write hands the batches to the ingest gate,
-    which fetches that context from the store.
+    against its shipped expectation file.
     """
     books = read_view(source, "v_book")
     source_failures = check_backtest_source(source.schema_version, books, load_source())
@@ -1642,9 +1653,28 @@ def run(
         {view: expectations[view] for view in VIEWS},
         source_failures=source_failures,
     )
-    projection = project(result.rows, assets, catalog, label)
+    return SourceProjection(
+        result.report, result.rows, project(result.rows, assets, catalog, label)
+    )
+
+
+def run(
+    source: FinancialSource,
+    assets: Mapping[str, AssetInfo],
+    catalog: GuardCatalog,
+    label: str,
+    store: GraphDB | None = None,
+) -> RunResult:
+    """Read, check, project and (when ``store`` is given) write the eight m018 views.
+
+    A dry run validates each graph beside the rules and assets from ``schema/``/the universe
+    database; a write hands the batches to the ingest gate, which fetches that context from the
+    store.
+    """
+    source_projection = project_source(source, assets, catalog, label)
+    projection = source_projection.projection
     out = RunResult(
-        result.report,
+        source_projection.report,
         projection.rows,
         projection.individuals,
         triples_by_class=projection.triples_by_class(),
@@ -1758,12 +1788,14 @@ __all__ = [
     "RunResult",
     "SelectionRule",
     "SelectionRuleCatalog",
+    "SourceProjection",
     "StoreInterrupted",
     "graph_name",
     "load_guard_catalog",
     "load_selection_catalog",
     "project",
     "project_selection",
+    "project_source",
     "read_view",
     "resolve_rule",
     "run",

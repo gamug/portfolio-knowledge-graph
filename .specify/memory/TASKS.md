@@ -1161,6 +1161,9 @@ Work item 21 (T-240–T-243): closed 2026-11-03 — the reports-agent query cata
 Work item 22 (T-250–T-259): closed 2026-11-04 — the six historical GICS sub-industry names now roll
 up to existing `reference.ttl` groups, and the full dry run reports 6563 triples with no
 unmapped-value warning; see `CHANGELOG.md`.
+Work item 24 (T-280–T-283): closed 2026-11-04 — the read-only backtest verifier
+(`cli/verify_backtest.py`), its hermetic tests, the final-load runbook and the re-measured dry-run
+numbers; see `CHANGELOG.md` and `docs/backtest-load-runbook.md`.
 Work item 26 (T-320–T-328): closed 2026-11-04 — the backtest selection side is projected into
 `urn:graph:derived:backtest:selection:{label}:{P<n>}:{run}`, the three new report queries are
 tested, T-209's rule resolution is fixed on the run date, and the real dry runs are recorded;
