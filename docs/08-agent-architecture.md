@@ -244,7 +244,9 @@ prints `v_orchestrator_run: 0 rows, v_orchestrator_step: 0 rows: nothing to writ
    a mixed CIK).
 
 Work item 26's selection projector should reuse `projection.asset_link.resolve_asset` for the same
-`FBIN`/`GAP` rows it currently leaves unlinked.
+`FBIN`/`GAP` rows it currently leaves unlinked (its reported counts are ranking 34/0/2 and veto
+9/2/3 across P1/P2/P3; the catalog holds `FBHS`/`GPS` under the same CIKs, so the unique-CIK
+fallback links them safely).
 
 An optional `v_ticker_history.evidence_date` is written only when it is one ISO date; the four
 completed rows that carry `"date ; date"` (DISCA, DISCK, WBD and PSKY) omit the property and are

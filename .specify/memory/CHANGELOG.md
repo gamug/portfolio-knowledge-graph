@@ -1049,6 +1049,16 @@ test changed; no `src/`, `schema/` or gate change.*
 
 Design: `PLAN.md` Work item 27. This work item closes T-208.
 
+**Validation.** `uv run pytest -q`: **1162 passed, 57 deselected, 3049 warnings in 647.86 s**.
+`uv run mypy --config-file=.code_quality/mypy.ini`: success, 90 source files. `uv run pre-commit
+run --all-files`: all hooks passed. Real read-only dry runs over `rule_P1/P2/P3.db`: 21
+`v_ticker_history` rows, 198 triples and 21 individuals per database, 17 exact + 4 same-CIK asset
+links, 0 unlinked, 4 multi-date evidence cells omitted, 0 orchestrator rows and no graph written;
+`pyshacl` conforms in 1.25–1.42 s at ~73 MB peak RSS. `tests/test_reference_real.py` passes with
+`REFERENCE_DB=rule_P1.db` and the real universe catalog. No GraphDB write or reload was made; the
+pilot `financial.db` and the task's `base.db`/`scored_rule.db` paths are not v18 sources in this
+checkout.
+
 - [x] **T-350** *(design first; commit before any code)* Record the read-only measurements (21
       ticker rows, 8 NULL `valid_to`, 0 orchestrator rows, 17 exact + 4 unique-CIK links, 0
       unlinked) and the graph/IRI/nullability/asset-link design in `PLAN.md` Work item 27.
