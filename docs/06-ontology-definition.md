@@ -152,7 +152,9 @@ For a linked row, the Spanish definition in `fibo.ttl` is FIBO's meaning, never 
 Spanish definitions live in `tbox.ttl` (S2), where the six "differs" classes state why FIBO does
 not define every instance of ours. The 27 pre-existing leaf classes now carry one `@es` label and
 one `@es` definition each; the 11 v18 classes' handoff §6.2 texts are unchanged. Those 54 new
-triples take the FR-001 bundle to **4236 quads; conforms: True**; `fibo.ttl` is a separate
+triples take the FR-001 bundle to **4204 quads at this revision; conforms: True** (4236 before
+T-220's `sh:class :Asset` and T-227's `sh:class :Universe` +2 and T-233/T-234: the five `sh:in` window lists and two segment lists
+become one `sh:pattern` each, −50 quads, and `:runLabel` adds 16), `fibo.ttl` is a separate
 277-statement graph. `:SP500Index` gets its `rdfs:seeAlso` in the ETL output, where the universe
 individual is emitted (S3), not in `urn:graph:tbox`.
 
@@ -205,7 +207,7 @@ The executable forms of these two lookups, together with the backtest battery an
 what the graph can answer (including the not-projected-yet cases), live in
 [`reports-agent-query-catalog.md`](reports-agent-query-catalog.md);
 `tests/test_query_catalog.py` runs every query there against the schema bundle and the synthetic
-two-window backtest.
+two-label, two-window backtest.
 
 ## 1.2 Class taxonomy
 
@@ -530,6 +532,17 @@ excluded from typing, upgraded to an ordinary superclass in this revision) so
 exercising all three leaf kinds, was independently re-evaluated in Python against the ontology's
 own tree structure and reproduced the intended firings exactly — see `schema/README.md`.
 
+**Addendum (T-216, 2026-11-03) — `UTILITY_CASH_COVERAGE`'s real `validFrom`.** The upstream
+maintainer supplied T-071's integration date: part 2a (PR #167, merge commit `7ae8ba8`, "Merge pull
+request #167 from gamug/feat/t071b-vetoes") reached upstream master on 2026-10-14 20:51:47 -0500
+(already 2026-10-15 in UTC). The rule's `validFrom` is therefore 2026-10-14, not the 2026-10-31
+last-safe date T-206 used while the date was unconfirmed. It is not backdated to 2019/2020:
+valid-time means when a definition was in force in production, not that a backtest applies a rule
+retroactively — the P1 backtest replays history with today's catalog and raised this rule's veto on
+2022-03-03, which is why backtest vetoes cannot resolve their rule by `raisedOn` (T-209). The
+bundle was at 4236 quads at that revision (4204 after T-220/T-227's `sh:class` triples and
+T-233/T-234).
+
 ## 1.6 SHACL shapes for data-quality enforcement
 
 SHACL (Shapes Constraint Language) is RDF's declarative validator — the world-view equivalent of
@@ -553,7 +566,7 @@ attractiveness-ranking feature, see §1.8, plus `VetoShape` added 2026-10-03 for
 | `PortfolioShape` | name and `portfolioKind` ∈ {LIVE, BENCHMARK} required; `benchmarkObjective` and `benchmarkKind` optional (`benchmarkKind` may never be `live_book`, enforced by SHACL, T-109) | Lets benchmark books share `Portfolio` with the live book (T-108). |
 | `BenchmarkObservationShape` (+ `QuantSubjectShape`) | portfolio, metric (free text) and value required; `quantPortfolio` must be a BENCHMARK or the LIVE book; `quantAsset`, `quantUnit`, `quantAsOf`, `quantBenchmark` and T-106 run provenance optional; a LIVE subject may only carry the four performance metrics | Carries upstream's finished quant numbers without interpreting them (T-108); upstream's columns, units and the `live_book` handling were pinned in T-109. |
 | `VetoShape` | `raisedOn` required; `clearedOn`/`lastSeenOn` optional, never before `raisedOn`; no `lastSeenOn` after `clearedOn` (T-185, same day passes); `vetoSeverity` ∈ {HARD, SOFT}; optional, multi-valued `expiresOn` (T-188, like `lastSeenOn`: upstream moves it, current = MAX), each value not before `raisedOn` (the same day passes); it never closes a stint, only `clearedOn` does; since T-206 a GUARD-category rule is refused as `appliesRule`/`primaryRule` | Veto stints (T-102): a stint is closed by `clearedOn`, never deleted. |
-| The 11 Contract v18 shapes (`TickerHistoryShape`, `OrchestratorRunShape`, `OrchestratorStepShape`, `StrategyBookShape`, `BookRebalanceShape`, `GuardAlertShape`, `GuardActionShape`, `BookWeightDailyShape`, `BookDailyPerformanceShape`, `PortfolioPeriodSummaryShape`, `BacktestTestShape`) | Required only what the view guarantees non-null; the handoff §3.3 nullable columns stay optional (cycle_run_id on MARKOWITZ_BASE, layer-1 alert value, layer-3/4 asset/ticker, action weights, CASH asset/name/targets, book guard_layers, ticker valid_to/evidence). `sh:in` for window_id, segment, arm_code, GUARD rule ids, alert state, action status and test name; no sign/range on drawdown, cost_return or max_drawdown. Sourcery review: `bookId` required on BookRebalance/GuardAction; `pValue` ∈ [0,1] and `nObs` ≥ 1 on BacktestTest; `sh:equals` for the six row-date/`knowledgeDate` pairs; a CASH row must have no `holdingAsset` | Carries the m015/m016/m018 views into the ontology (T-206, §1.10); a CASH row never needs an Asset node. |
+| The 11 Contract v18 shapes (`TickerHistoryShape`, `OrchestratorRunShape`, `OrchestratorStepShape`, `StrategyBookShape`, `BookRebalanceShape`, `GuardAlertShape`, `GuardActionShape`, `BookWeightDailyShape`, `BookDailyPerformanceShape`, `PortfolioPeriodSummaryShape`, `BacktestTestShape`) | Required only what the view guarantees non-null; the handoff §3.3 nullable columns stay optional (cycle_run_id on MARKOWITZ_BASE, layer-1 alert value, layer-3/4 asset/ticker, action weights, CASH asset/name/targets, book guard_layers, ticker valid_to/evidence). `sh:pattern` for window_id (`^P[0-9]+$`) and segment (`^P[0-9]+[a-z]?$`) since T-234; `sh:in` for arm_code, GUARD rule ids, alert state, action status and test name; `:runLabel` required on StrategyBook/BacktestTest (T-233); no sign/range on drawdown, cost_return or max_drawdown. Sourcery review: `bookId` required on BookRebalance/GuardAction; `pValue` ∈ [0,1] and `nObs` ≥ 1 on BacktestTest; `sh:equals` for the six row-date/`knowledgeDate` pairs; a CASH row must have no `holdingAsset` | Carries the m015/m016/m018 views into the ontology (T-206, §1.10); a CASH row never needs an Asset node. |
 
 Validated end-to-end with `pyshacl` against the full worked dataset below: **conforms = True**.
 
@@ -758,7 +771,8 @@ turnover, costs or paired statistical tests. The FIBO alignment for the pre-exis
 Phase 1 of the FIBO brief (T-210, §1.1); these 11 classes still have no FIBO link because FIBO has
 no class for them.
 
-**Properties.** Every column of the 11 views has a property. The columns shared across classes
+**Properties.** Every column of the 11 views has a property, and `:runLabel` (T-233) is the one
+non-view property the projection adds. The columns shared across classes
 (`bookId`, `backtestRunId`, `armCode`, `windowId`, `knowledgeDate`, `status`, `decisionDate`,
 `guardTicker`, `guardLayer`, `segment`, `handle`, `startedAt`, `finishedAt`, `runKind`) are declared
 **without `rdfs:domain`**, the `:runId` pattern (T-106): a domain would RDFS-entail one new class on
@@ -804,14 +818,33 @@ shapes stay as they are: `guard_layers` is optional and `exclude_hard_vetoed` is
 magnitudes in the data, but the handoff states no sign convention, so no sign or range constraint is
 placed on them.
 
+**Run labels and an open window vocabulary (T-233/T-234).** A completed backtest run's views expose
+no identifier for the run itself (no input hash, no parameters), so two result families built from
+the same window — `rule` and `champ_v1`, say — would otherwise project the same graph name and the
+same individuals, and the gate's "a new individual only" check would refuse the second. The
+operator therefore supplies a `:runLabel` (`[a-z][a-z0-9_]{1,31}`, `--db LABEL=PATH`). It is
+required by `StrategyBookShape` and `BacktestTestShape`, the two m018 classes with no book link
+(every other class reaches its book, and so its label, through it), it is asserted as the literal
+`:runLabel` on those two classes, and it is part of the graph name and of every individual IRI
+stem (`Book_{label}_{window}_{arm}`, `BookWeight_{label}_{window}_{arm}_{date}_{holdingKey}`, …),
+so two labels can share a window without colliding. `windowId` and `segment` also stopped being
+closed `sh:in` lists: they are now `^P[0-9]+$` and `^P[0-9]+[a-z]?$`, so a fourth window (`P4`) or
+a new sub-period (`P2c`) is projectable without a schema edit. **Trade-off:** a typo in a window
+id is no longer caught by SHACL — `P4` where `P1` was meant is itself a well-formed window, and
+only the operator's label, the source database and the run's date range tell the two apart. The
+arm list stays closed: it is a small, stable vocabulary the shapes can still police, so a
+mistyped arm remains a SHACL failure.
+
 **Rule catalog.** `UTILITY_CASH_COVERAGE` (HARD, `rule_input.utility_cash_coverage_3y < 0.05`, rank
-10, valid from **2026-10-31**) joins the nine selection rules; the date is the last safe one: the
-rule was already in upstream's catalog in the completed backtest runs (`rule_P1/P2/P3.db`, runs of
-2026-10-31) and raised a real veto in P1 on 2022-03-03, so a later date is impossible. It is not
-backdated to 2019/2020: valid-time here means when a definition was in force in production (T-187,
-T-201), not that a backtest applies a rule retroactively. Upstream's `v_rule_catalog.created_at`
-(2026-10-31T19:37:32) is a technical persistence timestamp, not the adoption date; the true T-071
-merge date is still to confirm with upstream. The `LEVERAGE_EXTREME`, `NEGATIVE_FCF` and
+10, valid from **2026-10-14**) joins the nine selection rules. T-216 set that date from the
+maintainer: T-071 part 2a (PR #167, merge commit `7ae8ba8`) reached upstream master on 2026-10-14
+20:51:47 -0500 (already 2026-10-15 in UTC); it was 2026-10-31, the last safe date, until T-216. It
+is not backdated to 2019/2020: valid-time here means when a definition was in force in production
+(T-187, T-201), not that a backtest applies a rule retroactively — the P1 backtest replays history
+with today's catalog and raised this rule's veto on 2022-03-03, which is why backtest vetoes cannot
+resolve their rule by `raisedOn` (T-209). Upstream's `v_rule_catalog.created_at`
+(2026-10-31T19:37:32) is a technical persistence timestamp, not the adoption date. The
+`LEVERAGE_EXTREME`, `NEGATIVE_FCF` and
 `LIQUIDITY_DISTRESS` comments record the APP-00 profile exemptions (financial firms; regulated
 utilities; equity REITs) without changing any threshold, severity or clause. The five GUARD rules
 (`L1_STOP_LOSS`, `L1_REENTRY`, `L2_NEWS`, `L3_VOL`, `L4_DD`) are `RuleDefinition` individuals in a
@@ -825,7 +858,8 @@ not a veto rule:** it carries no `:ruleSeverity`, `:penaltyPoints` or `:priority
 `VetoShape` refuses it as the object of `:appliesRule`/`:primaryRule`. `RuleDefinitionShape` adds one
 `sh:or` branch for `:category "GUARD"`, keeps the severity requirement for every other active rule,
 makes `:priorityRank` mandatory for non-GUARD rules, and widens the rank range to `[1,10]` for
-`UTILITY_CASH_COVERAGE`. The bundle is **4236 quads; conforms: True** (the FR-001 gate).
+`UTILITY_CASH_COVERAGE`. The bundle is **4204 quads; conforms: True** (the FR-001 gate; T-220 and
+T-227 add the two `UniverseMembershipShape` `sh:class` triples, T-233/T-234 contribute the net −34).
 
 ---
 

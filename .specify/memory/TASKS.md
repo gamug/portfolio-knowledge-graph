@@ -553,11 +553,13 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       handoff §3.1 gives no base-table nullability and both views have 0 rows. `schema/shapes.ttl`
       gains 11 shapes (31 total), with the handoff §3.3 nullable columns optional, `sh:in` for the
       enumerated vocabularies, no sign/range on drawdown/cost/max-drawdown, and a CASH weight row
-      that needs no Asset node. `rules.ttl` gains `UTILITY_CASH_COVERAGE` (HARD, 0.05, rank 10, valid from
-      2026-10-31 — the last safe date: the rule was already in upstream's catalog in the completed
-      backtest runs and raised a real veto in P1 on 2022-03-03, so a later date is impossible; not
-      backdated to 2019/2020, and upstream's `v_rule_catalog.created_at` (2026-10-31T19:37:32) is a
-      technical persistence timestamp, not the adoption date), records the APP-00 exemptions in comments, and
+      that needs no Asset node. `rules.ttl` gains `UTILITY_CASH_COVERAGE` (HARD, 0.05, rank 10;
+      valid from 2026-10-14 since T-216 (2026-11-03), the real T-071 part 2a merge (PR #167,
+      `7ae8ba8`, 2026-10-14 20:51:47 -0500); it was 2026-10-31, the last safe date, until T-216 —
+      used because the rule was already in upstream's catalog in the completed backtest runs and
+      raised a real veto in P1 on 2022-03-03 — and is not backdated to 2019/2020; upstream's
+      `v_rule_catalog.created_at` (2026-10-31T19:37:32) is a technical persistence timestamp, not
+      the adoption date), records the APP-00 exemptions in comments, and
       adds the five GUARD rules in their own section (`:category "GUARD"`, `:guardLayer`,
       `GraphPredicate` leaves, parameters only in comments, `L2_NEWS` disabled). `RuleDefinitionShape`
       gets a GUARD `sh:or` branch, keeps the severity requirement for other active rules and makes
@@ -577,7 +579,8 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       `v_book`, `v_book_rebalance`, `v_guard_alert`, `v_guard_action`, `v_book_weight_daily`,
       `v_book_daily_performance`, `v_portfolio_period_summary` and `v_backtest_test` only, runs
       the eight shipped boundary expectation files, and writes one append-only graph per run,
-      `urn:graph:derived:backtest:{window_id}:{backtest_run_id}`; the window qualifies the name
+      `urn:graph:derived:backtest:{window_id}:{backtest_run_id}` (the graph name is
+      `{run_label}:{window_id}:{run}` since T-231); the window qualifies the name
       because P1/P2/P3 each start their ids at 1. The separate source check requires
       `schema_version >= 18` and `v_book.run_status = 'completed'` and never reads `v_cycle_run`.
       Every individual carries `:knowledgeDate` as the view gives it; masked/NULL columns are
@@ -650,8 +653,11 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       `verified: 20 graphs, 4513 asserted triples match the local parse`, and `cli/verify_store.py`
       passes all six checks. `urn:graph:reference:fibo` holds the 277 statements of the slice; that
       follows only as the arithmetic 4513 − 4236 (the FR-001 bundle without it), not from a separate
-      per-graph count, which was not measured. Recorded in `docs/graphdb-setup.md`. The text below is
-      the original task)* Reload the live store with
+      per-graph count, which was not measured. Recorded in `docs/graphdb-setup.md`. Since T-216
+      (2026-11-03) `rules.ttl` carries `UTILITY_CASH_COVERAGE`'s corrected `validFrom` 2026-10-14, so
+      the live store still holds 2026-10-31 until the next `cli/load_schema.py`, which the maintainer
+      will run later together with other schema changes; this entry is that reload note, no separate
+      task. The text below is the original task)* Reload the live store with
       `schema/fibo.ttl` in the load plan (after `reference.ttl`) and verify
       `urn:graph:reference:fibo` has 277 asserted triples and the fresh load reports 20 graphs /
       4513 asserted triples; run `cli/load_schema.py` then `cli/verify_store.py`. No write was made
@@ -685,9 +691,17 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       default; needs the schema reloaded there and the FULL universe in `SQL_UNIVERSE_DB`, because
       backtest graphs are append-only and with the 20-symbol pilot universe the asset links are
       omitted for good. → `PLAN.md` Work item 4.
-- [ ] **T-216** *(for the maintainer)* Ask upstream the real merge date of T-071
-      (`UTILITY_CASH_COVERAGE` `validFrom` is 2026-10-31, the last safe date). → `PLAN.md` Work
-      item 15.
+- [x] **T-216** *(done 2026-11-03: the maintainer supplied T-071's real merge date. `rules.ttl`
+      sets `UTILITY_CASH_COVERAGE`'s `validFrom` to 2026-10-14, the day T-071 part 2a (PR #167, merge
+      commit `7ae8ba8`, "Merge pull request #167 from gamug/feat/t071b-vetoes") reached upstream
+      master at 2026-10-14 20:51:47 -0500 (already 2026-10-15 in UTC); it was 2026-10-31, the last
+      safe date, until then. The comment, `docs/06`, `schema/README.md`, `SPEC.md`, `PLAN.md` and the
+      test now carry the real date; the bundle is unchanged at 4236 quads, `pyshacl` conforms. No store was
+      written or reloaded: the live store (and the scratch store, if any) still holds the old
+      2026-10-31 `validFrom` until the next `cli/load_schema.py`, which the maintainer will run later
+      together with other schema changes (see T-212); T-215's scratch reload will pick up the
+      corrected date. → `PLAN.md` Work item 15. The original task: ask upstream T-071's real merge
+      date.)*
 - [ ] **T-158** Replace the `ASSET_DAY_AGGREGATE` placeholder with upstream's SEMANTIC
       `score_method` value once they give it (D14; with their Work item 4, after their T-100).
       **First, raise the ownership disagreement (unblocked now; ask before their T-141 ships its
@@ -996,6 +1010,125 @@ See `PLAN.md` Work item 16.*
       not a service); if yes, amend the constitution first. **Done when** the maintainer has decided and,
       if yes, the amendment has landed; a "no" closes it. → step 5.
 
+## Work item 19 — Load the asset master into the store through the ingest gate
+
+*The store holds only `reference.ttl`'s five worked-example assets, so a real backtest `--write`
+with asset links is refused. See `PLAN.md` Work item 19 and SPEC FR-008.*
+
+- [x] **T-220** *(done 2026-11-03)* Implement the loader: `src/kg_store/universe.py` (reuse
+      `etl.asset_master.read_stints`/`build_assets`, `--since` filter, `urn:graph:universe:{year}-Q{n}`
+      from `--as-of`, dry run through `gate.validate`, write through `gate.ingest`, production guard)
+      and the thin entry point `cli/load_universe.py`. It reads `SQL_UNIVERSE_DB`; the five
+      `reference.ttl` assets get memberships but are not re-declared. → `PLAN.md` Work item 19.
+- [x] **T-221** *(done 2026-11-03; scope exception granted for this hunk only)* Add
+      `sh:class :Asset` to `:membershipAsset` in `UniverseMembershipShape`, so the gate's context
+      read follows a stored Asset a membership batch points at. Without it
+      `gate.context_predicates` fetched only `rdf:type`, and `AssetShape` failed on
+      `:tickerSymbol`/`:cikNumber` for AAPL/JPM/XOM/JNJ/PG. FR-001 bundle 4237 quads at that revision (was 4236; 4204 after
+      T-227 and T-233/T-234), `pyshacl` conforms; a fresh `load_schema` load was 4514 (was 4513;
+      4481 after T-227 and T-233/T-234). No store was reloaded. Gate
+      unchanged. The `sh:class :Universe` half is T-227 (done 2026-11-03, after the projector's
+      context was typed). → `PLAN.md` Work item 19.
+- [x] **T-222** *(done 2026-11-03)* Hermetic tests in `tests/test_universe_load.py`,
+      `tests/test_cli_load_universe.py`, `tests/fixtures/universe_rows.py` and two gate cases in
+      `tests/test_kg_gate.py`: a ticker's two eras (old closed stint dropped, open one kept), a
+      CIK-less closed asset, `BRK.B`, quarter naming, deterministic output, gate acceptance, the
+      production guard and a fake-store `--write`; a membership pointing at an asset the fake store
+      holds (accepted) and one it does not (refused). → `PLAN.md` Work item 19.
+- [x] **T-223** *(done 2026-11-03, read-only dry run)* Verify on
+      `/workspaces/thesis/data/universe_history.db`: 657 of 891 stints kept over 653 symbols;
+      234 stints of 229 symbols dropped (214 symbols not loaded, 15 with a later stint kept);
+      648 `:Asset`s written + 5 in `reference.ttl`; 657 memberships (503 open, 154 closed);
+      6476 triples; SHACL conforms in 1.3 s; no CIK-less asset with an open membership. Every
+      ticker in `v_book_weight_daily` (CASH excluded), `v_guard_alert` and `v_guard_action` of
+      `rule_P1/P2/P3.db` is in the loaded set (P1 100, P2 123, P3 115; 0 missing). Recorded in
+      `docs/graphdb-setup.md`. → `PLAN.md` Work item 19.
+- [x] **T-224** *(done 2026-11-03)* Docs: `docs/07` (asset master lives in the quarter graph and
+      why not `urn:graph:reference`; the worked-example overlap), `docs/graphdb-setup.md` (how to
+      run the loader, its limits and the real dry run), `schema/README.md` (the `sh:class :Asset`
+      triple and the loader), `docs/08` + `schema/README.md` (after the loader runs,
+      `SQL_UNIVERSE_DB=/workspaces/thesis/data/universe_history.db` makes the backtest projector
+      link assets), SPEC FR-008 and all pinned quad/load counts. → `PLAN.md` Work item 19.
+- [ ] **T-225** *(from T-220; known overlap, no code now)* `schema/instances.trig` holds its own
+      `2026-Q3` memberships for the five `reference.ttl` assets in `urn:graph:universe:2026-Q3`,
+      against `:SP500Watchlist_2026Q3`; the loader adds a second set for those five in its own
+      quarter graph against `:SP500Index`. Accepted for now and documented in `docs/07`/`TASKS.md`;
+      clean it (drop or stop loading the worked-example universe memberships) when the worked
+      example stops being loaded into the real store. Do not remove or re-declare anything before
+      then. → `PLAN.md` Work item 19.
+- [ ] **T-226** *(from T-220; needs the maintainer's explicit go-ahead)* First real
+      `--write` of `cli/load_universe.py` into a scratch repository, never production by default;
+      needs the schema reloaded there (the merged 4204-quad bundle, 4481 asserted triples) and the
+      full universe in `SQL_UNIVERSE_DB`. Then a real `cli/project_backtest.py --write` can link assets.
+      → `PLAN.md` Work item 19.
+- [x] **T-227** *(done 2026-11-03: `validation_context` in `src/projection/backtest.py` types
+      `:SP500Index a :Universe`, `UniverseMembershipShape` gains `sh:class :Universe` on
+      `:membershipUniverse`, and the five backtest dry-run cases plus the whole suite pass; the
+      merged bundle is 4204 quads and a fresh load is 4481, not the 4238/4515 the pre-merge note
+      expected. `kg_target_schema.ttl` has no `UniverseMembershipShape` to mirror, so nothing to
+      change there; the text below is the original task)* Add `sh:class :Universe` to
+      `:membershipUniverse` once `src/projection/backtest.py`'s `validation_context` types
+      `:SP500Index a :Universe`. T-220 tried the second triple and five backtest dry-run tests failed
+      (`Membership_*` uses `:SP500Index` with no type); that file is outside T-220's scope, so only
+      `:membershipAsset`'s `sh:class :Asset` landed. → `PLAN.md` Work item 19.
+
+## Work item 20 — Label backtest runs and open the window vocabulary
+
+*From T-207: the m018 views expose no run identity, so two runs of one window collided in the graph
+name and every individual IRI. See `PLAN.md` Work item 20. Task IDs T-230–T-239.*
+
+- [x] **T-230** *(done 2026-11-03: `--db LABEL=PATH`, `Database` in `src/projection/project_backtest.py`,
+      `_database` raising `argparse.ArgumentTypeError`; the path-repeated and same-graph guards stay;
+      `tests/test_project_backtest.py` and `tests/test_cli_project_backtest.py` cover a missing label,
+      a malformed one (`Rule`, `r`, `rule-1`, …) and a label with no path, all exit 2.)* Replace
+      `--db PATH` with repeatable `--db LABEL=PATH`; refuse a missing or malformed label
+      (`[a-z][a-z0-9_]{1,31}`) with exit 2. Keep the duplicate-graph guard (two databases that
+      would write the same labelled graph still exit 2). → step 1.
+- [x] **T-231** *(done 2026-11-03: `graph_name(label, window, run_id)` in
+      `src/projection/backtest.py`, `_BACKTEST_TARGET` in `src/kg_store/gate.py` now
+      `([a-z][a-z0-9_]{1,31}):(P[0-9]+):([1-9][0-9]*)`; `tests/test_kg_gate.py` refuses the retired
+      unlabelled names and accepts `rule:P1:1` / `champ_v1:P2:42`; no real data used the old
+      names.)* Name the graph `urn:graph:derived:backtest:{label}:{window}:{run_id}` and update the
+      gate's backtest pattern and its tests; the unlabelled names are retired. → step 2.
+- [x] **T-232** *(done 2026-11-03: every stem is `{Stem}_{label}_{window}_…`
+      (`Book`, `Rebalance`, `GuardAlert`, `GuardAction`, `BookWeight`, `BookPerf`,
+      `PeriodSummary`, `BacktestTest`); `tests/test_backtest.py` projects two labels on P1 and
+      asserts two graphs and disjoint IRIs, plus the label on the graph name.)* Put the label after
+      each IRI stem's prefix and prove uniqueness across labels and windows with a two-label,
+      one-window test. → step 3.
+- [x] **T-233** *(done 2026-11-03: `:runLabel` in `schema/tbox.ttl` (no `rdfs:domain`, functional,
+      `xsd:string`), `sh:pattern` + `minCount 1` on `StrategyBookShape`/`BacktestTestShape` in
+      `schema/shapes.ttl` and `kg_target_schema.ttl`; `tests/test_ontology_v18.py` adds the label
+      to its m018 set, to the shared/no-domain list and to the missing-property and invalid-value
+      cases. The label is written by the projector on books and tests.)* Add `:runLabel`
+      (xsd:string, required on `StrategyBook` and `BacktestTest`, the classes with no book link),
+      enforce the CLI pattern in SHACL, and update the target schema. → step 4.
+- [x] **T-234** *(done 2026-11-03: `RUN_LABEL_PATTERN`, `WINDOW_PATTERN` and `SEGMENT_PATTERN` in
+      `src/projection/backtest.py`, `_window`/`_segment` checks in the projector, `sh:pattern` in
+      five window and two segment shape properties, `P[0-9]+` in the gate; `P4`/`P2c` conform and
+      `Q1`/`P2A` do not; the trade-off is stated in `docs/06` §1.10.)* Replace the closed
+      `P1|P2|P3` and `P1|P2|P2a|P2b|P3` lists with `P[0-9]+` and `P[0-9]+[a-z]?` in the shapes,
+      the projector and the gate pattern; keep the arm list closed; explain in `docs/06` that a
+      mistyped window number is no longer caught by SHACL. → step 5.
+- [x] **T-235** *(done 2026-11-03: `docs/06` §1.10, `docs/07`, `docs/08`, `docs/10`,
+      `docs/graphdb-setup.md`, `schema/README.md`, `README.md`, `SPEC.md` §2.1/§2.6 and `PLAN.md`
+      Work items 4/20 updated; the FR-001 bundle count is 4204 in every place SPEC states it
+      (4236 + 2 for T-220/T-227's `sh:class` triples − 50 for the five window and two segment RDF
+      lists + 16 for `:runLabel`), and the load-plan count is 4481
+      (`tests/test_kg_load_schema.py`, 4513 + 2 − 34).)* Update the
+      docs and every asserted count (NR-001) in the same change. → step 6.
+- [x] **T-236** *(done 2026-11-03, read-only: `rule_P1.db` with label `rule` and an empty universe
+      database gives 18,062 rows and 18,062 individuals, the same as T-207, and 193,938 triples
+      (193,929 plus one `:runLabel` on each of the 3 books and 6 tests), graph
+      `urn:graph:derived:backtest:rule:P1:1`; `pyshacl` reports conforms: True. The task's
+      193,929 figure is T-207's pre-label count; the 9 extra triples are the required label.)*
+      Verify the labelled dry run against the real `rule_P1.db` and record the counts. → step 6.
+- [ ] **T-237** *(for the maintainer; no GraphDB write was made in this change)* Reload the schema
+      after T-233/T-234 (the store's `shapes.ttl` does not require `:runLabel` yet; a labelled
+      projection's batch would still validate, but the store's copy is stale) and **drop every
+      backtest graph written to a scratch repository under the retired unlabelled name**
+      (`urn:graph:derived:backtest:{window_id}:{run}`); the loader leaves removed graphs in place,
+      and the gate no longer accepts those names. → `PLAN.md` Work item 20.
 ## Status
 
 Closed Work items 1, 2, 3, 5, 7 (superseded/decided by T-007), 9, 10, 11 and 14 are in
@@ -1012,8 +1145,10 @@ T-144 (views), T-145 (ids), T-074 (flags) and, after their T-100, their T-082 an
 Work item 15, from the sixth reply: T-182 (the analysis run's year bounds read as filing years) is done; T-183 (the decisions on version 11's content) is done, with T-187 (the rules and `penaltyPoints`), T-188 (`expiresOn`), T-189 (the penalty identity) and T-190 (the three-component scheme) filed, T-190 done 2026-10-12 and T-189 done 2026-10-14 (PR #106); T-184 (the next letter to upstream) was sent on 2026-10-11 and answered the same day (the seventh reply, recorded by T-191 asks (1) to (5), T-187 and T-188 unblocked; ask (6) is still to ask).
 Work item 16 (T-160–T-165, T-192): T-160 done (plain checks, quarantine-with-cap), T-161 closed with it (no dependency) and T-162 done (JSON files per view, strict loader);
 Work item 17 (T-196–T-200): open; replaces the cancelled T-195.
+Work item 20 (T-230–T-237): T-230–T-236 done (2026-11-03); T-237 (the live schema reload and dropping stale unlabelled backtest graphs from scratch repositories) is open, the maintainer's.
 Work item 18 (T-204): done 2026-10-16 — re-pinned `portfolio-common` to `v1.2.2`, a real bug fix here (`news_to_rdf`'s `attach()`-based read of `urls.db`), not just a consistency bump; proved by a new regression test that fails against the old pin and passes against the new one.
-Work item 19 (T-240–T-243): closed 2026-11-03 — the reports-agent query catalog (the brief's 11 questions verbatim) and its executable hermetic test; see `CHANGELOG.md`.
+Work item 19 (T-220–T-229): T-220–T-224 done 2026-11-03 (the loader, the `sh:class :Asset` triple, tests, the real dry-run verification and the docs); T-225 (worked-example overlap) and T-226 (first real `--write`, maintainer go-ahead) open; T-227 (`sh:class :Universe`) done 2026-11-03.
+Work item 21 (T-240–T-243): closed 2026-11-03 — the reports-agent query catalog (the brief's 11 questions verbatim) and its executable hermetic test; adapted to the labelled backtest graphs and the asset catalog loader on 2026-11-04; see `CHANGELOG.md`.
 T-163 (function done, PR #68) closes with T-031, whose first slice (PR #72) calls it on the real read and re-reads the late keys for `v_score_snapshot`; T-164 done (PR #69).
 Work item 8 (T-070–T-071) is independent but needs a human at a Protégé
 session, not a coding session.

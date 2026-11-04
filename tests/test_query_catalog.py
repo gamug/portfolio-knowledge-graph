@@ -2,7 +2,7 @@
 
 Every fenced ``sparql`` block in ``docs/reports-agent-query-catalog.md`` carries an HTML comment
 ``<!-- q:NAME expect:... -->``. This test parses those tags, builds one in-memory
-:class:`rdflib.Dataset` from the schema graphs and the two-window synthetic backtest scenario of
+:class:`rdflib.Dataset` from the schema graphs and the two-label, two-window synthetic backtest scenario of
 ``tests/fixtures/backtest_rows.py``, and runs every query against it. A query added to the doc
 without a tag, a tag without its block, or a result that no longer matches its expectation fails.
 
@@ -62,10 +62,11 @@ EXPECTED_NAMES = frozenset(
         "book-weight-daily-properties",
         "weight-scale",
         "n-equity-per-arm-on-last-day",
+        "runs-available",
     }
 )
 
-#: The backtest queries. They must not hardcode a graph name or a run id.
+#: The backtest queries. They must not hardcode a graph name, a run label or a run id.
 BACKTEST_NAMES = frozenset(
     {
         "performance-window-arm-segment",
@@ -77,6 +78,7 @@ BACKTEST_NAMES = frozenset(
         "book-weight-daily-properties",
         "weight-scale",
         "n-equity-per-arm-on-last-day",
+        "runs-available",
     }
 )
 
@@ -133,14 +135,14 @@ def _query(name: str) -> str:
     raise AssertionError(f"{name}: no tagged query in {CATALOG}")
 
 
-def _projection(tmp_path: Path, window: str) -> Projection:
+def _projection(tmp_path: Path, window: str, label: str) -> Projection:
     """The synthetic scenario of one window, read through its views and projected."""
     source = FinancialSource.open(backtest_db(tmp_path, window=window))
     try:
         rows = {view: read_view(source, view) for view in VIEWS}
     finally:
         source.close()
-    return project(rows, ASSETS, load_catalog())
+    return project(rows, ASSETS, load_catalog(), label)
 
 
 def _rows(dataset: rdflib.Dataset, query: str) -> list[ResultRow]:
@@ -151,7 +153,7 @@ def _rows(dataset: rdflib.Dataset, query: str) -> list[ResultRow]:
 
 @pytest.fixture(scope="module")
 def catalog_dataset(tmp_path_factory: pytest.TempPathFactory) -> rdflib.Dataset:
-    """The four schema graphs plus both synthetic backtest windows, in one in-memory dataset."""
+    """The four schema graphs plus two labels across both synthetic backtest windows."""
     dataset = rdflib.Dataset()
     for path, graph_iri in (
         (SCHEMA / "tbox.ttl", "urn:graph:tbox"),
@@ -161,12 +163,13 @@ def catalog_dataset(tmp_path_factory: pytest.TempPathFactory) -> rdflib.Dataset:
     ):
         dataset.graph(URIRef(graph_iri)).parse(path, format="turtle")
 
-    for window in ("P1", "P2"):
-        projection = _projection(tmp_path_factory.mktemp(window), window)
-        for name, builder in projection.graphs.items():
-            graph = dataset.graph(URIRef(name))
-            for triple in builder.triples:
-                graph.add(triple)
+    for label in ("rule", "champ_v1"):
+        for window in ("P1", "P2"):
+            projection = _projection(tmp_path_factory.mktemp(f"{label}-{window}"), window, label)
+            for name, builder in projection.graphs.items():
+                graph = dataset.graph(URIRef(name))
+                for triple in builder.triples:
+                    graph.add(triple)
     return dataset
 
 
@@ -210,11 +213,13 @@ def test_backtest_queries_do_not_name_a_graph_or_a_run() -> None:
         assert "GRAPH ?g" in query, name
         assert 'STRSTARTS(STR(?g), "urn:graph:derived:backtest:")' in query, name
         assert not re.search(r"urn:graph:derived:backtest:[A-Za-z0-9{]", query), name
-        # The property list deliberately spans both windows: it inventories the classes, it does
-        # not answer a per-window question. Every other query selects a window, directly or through
-        # the book (`:weightOfBook` -> `:windowId`).
-        if name != "book-weight-daily-properties":
+        # The property list and runs-available deliberately span labels; every other query selects
+        # one label (`:runLabel`) and one window, directly or through the book.
+        if name not in {"book-weight-daily-properties", "runs-available"}:
+            assert 'FILTER (?label = "rule")' in query, name
             assert ":windowId" in query or ":weightOfBook" in query, name
+        else:
+            assert "FILTER (?label" not in query, name
 
 
 # --- every tagged query runs and matches its expectation ----------------------------------------
@@ -322,3 +327,37 @@ def test_n_equity_is_the_latest_performance_row(catalog_dataset: rdflib.Dataset)
     no_guard = by_key[("P2", "TOPN_MV_NOGUARD")]
     assert str(no_guard["date"]) == "2022-01-06"
     assert int(str(no_guard["nEquity"])) == 1
+
+
+def test_runs_available_lists_both_labels_and_windows(
+    catalog_dataset: rdflib.Dataset,
+) -> None:
+    rows: list[ResultRow] = _rows(catalog_dataset, _query("runs-available"))
+    assert {(str(row["label"]), str(row["window"]), int(str(row["books"]))) for row in rows} == {
+        ("rule", "P1", 3),
+        ("rule", "P2", 3),
+        ("champ_v1", "P1", 3),
+        ("champ_v1", "P2", 3),
+    }
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        "performance-window-arm-segment",
+        "guard-alerts-window-month-rule",
+        "latest-nav-known-on-date",
+    ],
+)
+def test_two_labels_in_one_window_do_not_mix(catalog_dataset: rdflib.Dataset, name: str) -> None:
+    rule_query = _query(name)
+    champ_query = rule_query.replace('FILTER (?label = "rule")', 'FILTER (?label = "champ_v1")')
+    rule_rows = _rows(catalog_dataset, rule_query)
+    champ_rows = _rows(catalog_dataset, champ_query)
+    assert {str(row["label"]) for row in rule_rows} == {"rule"}
+    assert {str(row["label"]) for row in champ_rows} == {"champ_v1"}
+    assert rule_rows and champ_rows
+    if name == "performance-window-arm-segment":
+        assert {str(row["summary"]) for row in rule_rows}.isdisjoint(
+            {str(row["summary"]) for row in champ_rows}
+        )

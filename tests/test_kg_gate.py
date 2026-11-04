@@ -47,28 +47,34 @@ def test_the_mutable_graph_is_not_append_only() -> None:
 @pytest.mark.parametrize(
     "name",
     [
-        "urn:graph:derived:backtest:P1:1",
-        "urn:graph:derived:backtest:P2:42",
-        "urn:graph:derived:backtest:P3:999999",
+        "urn:graph:derived:backtest:rule:P1:1",
+        "urn:graph:derived:backtest:champ_v1:P2:42",
+        "urn:graph:derived:backtest:rule_v2:P12:999999",
     ],
 )
 def test_a_backtest_graph_is_append_only_and_accepted(name: str) -> None:
     # T-207: the last capture group is a positive id, not a date, so check_target validates it
-    # on its own branch instead of passing it through _date_ok.
+    # on its own branch instead of passing it through _date_ok. T-231/T-234 added the run label
+    # and opened the window to P<number>.
     assert gate.check_target(name) is True
 
 
 @pytest.mark.parametrize(
     "name",
     [
-        "urn:graph:derived:backtest:P4:1",  # not a Contract v18 window
-        "urn:graph:derived:backtest:P1:0",  # id is not positive
-        "urn:graph:derived:backtest:P1:-1",
-        "urn:graph:derived:backtest:P1:abc",
-        "urn:graph:derived:backtest:P1:01",  # leading zero, not the canonical integer
-        "urn:graph:derived:backtest:P1",
-        "urn:graph:derived:backtest:P1:1/extra",
-        "urn:graph:derived:backtest::1",
+        "urn:graph:derived:backtest:P1:1",  # retired: a run label is required
+        "urn:graph:derived:backtest:Rule:P1:1",  # label is lowercase
+        "urn:graph:derived:backtest:r:P1:1",  # label is 2-32 characters
+        "urn:graph:derived:backtest:rule:P1a:1",  # window has no suffix
+        "urn:graph:derived:backtest:rule:Q1:1",  # not P<number>
+        "urn:graph:derived:backtest:rule:P1:0",  # id is not positive
+        "urn:graph:derived:backtest:rule:P1:-1",
+        "urn:graph:derived:backtest:rule:P1:abc",
+        "urn:graph:derived:backtest:rule:P1:01",  # leading zero, not the canonical integer
+        "urn:graph:derived:backtest:rule:P1",
+        "urn:graph:derived:backtest:rule:P1:1/extra",
+        "urn:graph:derived:backtest:rule::1",
+        "urn:graph:derived:backtest::P1:1",
     ],
 )
 def test_a_malformed_backtest_graph_is_refused(name: str) -> None:
@@ -77,7 +83,7 @@ def test_a_malformed_backtest_graph_is_refused(name: str) -> None:
 
 
 def test_the_refusal_lists_the_backtest_graph() -> None:
-    with pytest.raises(gate.IngestRejected, match=r"derived:backtest:\{P1\|P2\|P3\}"):
+    with pytest.raises(gate.IngestRejected, match=r"derived:backtest:\{run label\}:\{P<number>\}"):
         gate.check_target("urn:graph:nope")
 
 
@@ -352,6 +358,49 @@ def test_fetch_context_also_reads_the_memberships_of_a_referenced_asset(
     gate.fetch_context(fake.db, {KG.GONE}, schema, batch)
     assert "VALUES ?r {" in fake.queries[0]
     assert f"?r <{KG.hasUniverseMembership}> ?s" in fake.queries[0]
+
+
+def _membership_batch() -> rdflib.Graph:
+    """One membership for a stored ``:AAPL``, which the batch does not declare (T-220)."""
+    return gate.parse_batch(
+        PREFIXES + b":UM a :UniverseMembership ; :membershipAsset :AAPL ;"
+        b" :membershipUniverse :SP500Index ;"
+        b' :validFrom "2026-10-01"^^<http://www.w3.org/2001/XMLSchema#date> .'
+        b" :SP500Index a :Universe ."
+    )
+
+
+def test_a_membership_batch_reads_the_stored_asset_it_points_at(
+    make_db: MakeDB, schema: gate.GateSchema
+) -> None:
+    """T-220: ``:membershipAsset`` carries ``sh:class :Asset``, so the context read follows the
+    AssetShape for a stored asset the batch does not declare. Without it only ``rdf:type`` was
+    fetched, and AssetShape then failed on ``:tickerSymbol``/``:cikNumber``."""
+    batch = _membership_batch()
+    refs = gate.references(batch, schema)
+    paths = gate.context_predicates(batch, refs, schema)
+    assert {KG.tickerSymbol, KG.cikNumber, KG.hasUniverseMembership} <= paths
+    stored = [
+        {"s": KG.AAPL, "p": rdflib.RDF.type, "o": KG.Asset},
+        {"s": KG.AAPL, "p": KG.tickerSymbol, "o": rdflib.Literal("AAPL")},
+        {"s": KG.AAPL, "p": KG.cikNumber, "o": rdflib.Literal("0000320193")},
+    ]
+    context = gate.fetch_context(make_db(terms=stored).db, refs, schema, batch)
+    gate.validate(batch, context=context)
+
+
+def test_a_membership_batch_naming_an_asset_the_store_does_not_hold_is_refused(
+    make_db: MakeDB, schema: gate.GateSchema
+) -> None:
+    batch = _membership_batch()
+    refs = gate.references(batch, schema)
+    context = gate.fetch_context(make_db().db, refs, schema, batch)
+    with pytest.raises(gate.ShaclRejected) as info:
+        gate.validate(batch, context=context)
+    components = {
+        c for c in info.value.results.objects(None, rdflib.namespace.SH.sourceConstraintComponent)
+    }
+    assert components == {rdflib.namespace.SH.ClassConstraintComponent}
 
 
 def test_the_context_reads_only_what_the_shapes_of_the_references_read(

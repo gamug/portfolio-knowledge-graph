@@ -5,7 +5,7 @@ queries that answer the questions the agent receives, the questions the graph
 cannot answer, and the limits of what a term definition can prove. The
 catalog is executable: every fenced `sparql` block below is tagged with
 `<!-- q:NAME expect:... -->` and is run by `tests/test_query_catalog.py`
-against the schema bundle and the synthetic two-window backtest of
+against the schema bundle and the synthetic two-label, two-window backtest of
 `tests/fixtures/backtest_rows.py`. Adding, renaming or deleting a query
 without updating its tag and its expectation fails that test.
 
@@ -44,16 +44,18 @@ empty. Scoping is therefore part of the query, not a Workbench setting.
 | `urn:graph:reference` | GICS sectors/industries and the worked-example `:Asset`s | `GRAPH <urn:graph:reference> { ... }` |
 | `urn:graph:reference:fibo` | the FIBO 2026Q2 glossary slice (54 entries) | `GRAPH <urn:graph:reference:fibo> { ... }` |
 | `urn:graph:rules:catalog` | every `:RuleDefinition`, selection and GUARD | `GRAPH <urn:graph:rules:catalog> { ... }` |
-| `urn:graph:derived:backtest:*` | one append-only graph per completed run | `GRAPH ?g { ... } FILTER (STRSTARTS(STR(?g), "urn:graph:derived:backtest:"))` |
+| `urn:graph:derived:backtest:*` | one append-only graph per completed run family and window | `GRAPH ?g { ... } FILTER (STRSTARTS(STR(?g), "urn:graph:derived:backtest:"))` |
 
 The backtest graph's full name is
-`urn:graph:derived:backtest:{window_id}:{backtest_run_id}`. **Do not hardcode
-the run id.** Bind the graph with `GRAPH ?g` and the prefix filter above, and
-select the window with `:windowId`, not with a substring of the graph name. A
-later change to the graph naming then changes the filter in one place, not
-every query. The synthetic test projects two windows whose run and book ids
-collide (`P1:1` and `P2:1`), so a query that confuses the window with the graph
-name fails there.
+`urn:graph:derived:backtest:{label}:{window}:{run_id}`.
+**Do not hardcode the run label or the run id.** Bind the graph with
+`GRAPH ?g` and the prefix filter above, select the run family with
+`FILTER (?label = "rule")` from `:runLabel` on its `:StrategyBook`, and select
+the window with `:windowId`, not with a substring of the graph name. A later
+change to the graph naming then changes the filter in one place, not every
+query. The synthetic test projects two labels in one window as well as two
+windows (`rule:P1:1`, `rule:P2:1`, `champ_v1:P1:1`, `champ_v1:P2:1`), so a
+query that confuses the label or the window with the graph name fails there.
 
 Inside a `GRAPH`, `OPTIONAL` is scoped to that graph. An `OPTIONAL` that must
 add a FIBO definition to a term has to hold **both** the `:term rdfs:seeAlso
@@ -260,33 +262,43 @@ The result is 5 `FINANCIAL` rules (`LEVERAGE_EXTREME`, `NEGATIVE_FCF`,
 ## 5. The backtest battery
 
 Every query in this section binds the graph with `GRAPH ?g` and filters it
-with `STRSTARTS(STR(?g), "urn:graph:derived:backtest:")`. Every query that
-answers a per-window question selects the window with `:windowId` (directly,
-or through the action's book or the weight's book); the property inventory in
-§5.7 deliberately spans both windows. None names a run id or a graph suffix.
+with `STRSTARTS(STR(?g), "urn:graph:derived:backtest:")`. Every per-run query
+also selects the run family with `FILTER (?label = "rule")`, read from
+`:runLabel` on the run's `:StrategyBook` (an alert or an action reaches it
+through its book), and the window with `:windowId`. `"rule"` is a parameter:
+change it to another label for another result family. The property inventory
+in §5.7 and `runs-available` in §5.10 deliberately span labels. None names a
+run label, window or run id in the graph name.
 
 ### 5.1 Performance per window, arm and segment
 
-One row per `:PortfolioPeriodSummary`. The fixture has a summary for
-`MARKOWITZ_BASE` and `TOPN_MV_GUARD_NO_NLP` in each of the two windows; the
-no-guard arm has none in the synthetic scenario, which is why the query returns
-four rows rather than six.
+One row per `:PortfolioPeriodSummary` for the selected label. The fixture has
+a summary for `MARKOWITZ_BASE` and `TOPN_MV_GUARD_NO_NLP` in each of the two
+windows; the no-guard arm has none in the synthetic scenario, which is why the
+query returns four rows rather than six. The `:summaryOfBook` → `:runLabel`
+join is what keeps two labels of the same window apart; a query without the
+filter would return both.
 
 <!-- q:performance-window-arm-segment expect:4 -->
 
 ```sparql
 PREFIX : <https://thesis.local/kg/portfolio#>
 
-SELECT ?window ?arm ?segment ?cumulativeReturn ?annualizedReturn ?exPostSharpe
+SELECT ?label ?window ?arm ?segment ?summary
+       ?cumulativeReturn ?annualizedReturn ?exPostSharpe
 WHERE {
   GRAPH ?g {
     ?summary a :PortfolioPeriodSummary ;
+      :summaryOfBook ?book ;
       :windowId ?window ; :armCode ?arm ; :segment ?segment ;
       :cumulativeReturn ?cumulativeReturn ;
       :annualizedReturn ?annualizedReturn ;
       :exPostSharpe ?exPostSharpe .
+    ?book :runLabel ?label .
   }
   FILTER (STRSTARTS(STR(?g), "urn:graph:derived:backtest:"))
+  # Optional run-label parameter: change "rule" to another label.
+  FILTER (?label = "rule")
 }
 ORDER BY ?window ?arm
 ```
@@ -296,26 +308,35 @@ ORDER BY ?window ?arm
 The month is derived from `:alertDate`; the window is the `:windowId` filter.
 The example keeps `P1` and February 2022. Change both filters for another
 window or month; the join to the rule catalog is what turns an alert into a
-rule id.
+rule id. The label filter goes from the alert through its action to the
+action's book, so an alert that no book ever evaluated (no action) has no
+label and is omitted when the filter is applied — in the synthetic scenario
+those are `L1_REENTRY` and `L2_NEWS`. Remove the filter to see them, but then
+labels mix.
 
-<!-- q:guard-alerts-window-month-rule expect:5 -->
+<!-- q:guard-alerts-window-month-rule expect:3 -->
 
 ```sparql
 PREFIX : <https://thesis.local/kg/portfolio#>
 
-SELECT ?window ?month ?ruleId (COUNT(?alert) AS ?alerts)
+SELECT ?label ?window ?month ?ruleId (COUNT(DISTINCT ?alert) AS ?alerts)
 WHERE {
   GRAPH ?g {
     ?alert a :GuardAlert ; :windowId ?window ; :alertDate ?date ; :alertRule ?rule .
+    ?alert :alertHasGuardAction ?action .
+    ?action :actionOfBook ?book .
+    ?book :runLabel ?label .
   }
   GRAPH <urn:graph:rules:catalog> { ?rule :ruleId ?ruleId . }
   FILTER (STRSTARTS(STR(?g), "urn:graph:derived:backtest:"))
+  # Optional run-label parameter: change "rule" to another label.
+  FILTER (?label = "rule")
   FILTER (?window = "P1")
   BIND (SUBSTR(STR(?date), 1, 7) AS ?month)
   # February 2022 is the synthetic scenario's whole alert window.
   FILTER (?month = "2022-02")
 }
-GROUP BY ?window ?month ?ruleId
+GROUP BY ?label ?window ?month ?ruleId
 ORDER BY ?ruleId
 ```
 
@@ -325,7 +346,8 @@ The knowledge date is `:knowledgeDate`, not the performance date. A row whose
 `:knowledgeDate` is after `D` did not exist for the agent on `D` and must not
 be used, even if its `:performanceDate` is earlier. Change the two occurrences
 of `D` together; the inner `NOT EXISTS` picks the latest performance date among
-the rows known by `D`.
+the rows known by `D`, and its `:runLabel` join keeps that comparison inside
+the selected label.
 
 <!-- q:latest-nav-known-on-date expect:3 -->
 
@@ -333,20 +355,26 @@ the rows known by `D`.
 PREFIX :   <https://thesis.local/kg/portfolio#>
 PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
 
-SELECT ?arm ?date ?nav
+SELECT ?label ?arm ?date ?nav
 WHERE {
   GRAPH ?g {
     ?perf a :BookDailyPerformance ; :windowId ?window ; :armCode ?arm ;
-      :performanceDate ?date ; :nav ?nav ; :knowledgeDate ?known .
+      :performanceDate ?date ; :nav ?nav ; :knowledgeDate ?known ;
+      :performanceOfBook ?book .
+    ?book :runLabel ?label .
   }
   FILTER (STRSTARTS(STR(?g), "urn:graph:derived:backtest:"))
+  # Optional run-label parameter: change "rule" to another label.
+  FILTER (?label = "rule")
   FILTER (?window = "P1")
   # D = 2022-01-06
   FILTER (?known <= "2022-01-06"^^xsd:date)
   FILTER NOT EXISTS {
     GRAPH ?g2 {
       ?later a :BookDailyPerformance ; :windowId ?window ; :armCode ?arm ;
-        :performanceDate ?laterDate ; :knowledgeDate ?laterKnown .
+        :performanceDate ?laterDate ; :knowledgeDate ?laterKnown ;
+        :performanceOfBook ?laterBook .
+      ?laterBook :runLabel ?label .
     }
     FILTER (STRSTARTS(STR(?g2), "urn:graph:derived:backtest:"))
     FILTER (?laterKnown <= "2022-01-06"^^xsd:date)
@@ -362,27 +390,29 @@ A layer-1 cut is a `:GuardAction` with status `"APPLIED"` whose alert's rule
 is on `:guardLayer 1`. The action carries `:guardTicker` as a plain string, so
 this query works even when the asset catalog was not loaded and no
 `:guardAsset` link exists. `ARM_DISABLED` actions are the no-guard arm's
-counterfactuals, not cuts, and are excluded. The count is grouped by window
-(the window comes from the action's book), so the same ticker cut once in
-each window appears once per window rather than as a single count of 2.
+counterfactuals, not cuts, and are excluded. The count is grouped by label and
+window (both come from the action's book), so the same ticker cut once in
+each window appears once per window, and two labels never mix.
 
 <!-- q:layer1-cut-tickers expect:2 -->
 
 ```sparql
 PREFIX : <https://thesis.local/kg/portfolio#>
 
-SELECT ?window ?ticker (COUNT(?action) AS ?cuts)
+SELECT ?label ?window ?ticker (COUNT(?action) AS ?cuts)
 WHERE {
   GRAPH ?g {
     ?action a :GuardAction ; :actionAlert ?alert ; :guardTicker ?ticker ;
       :status "APPLIED" ; :actionOfBook ?book .
-    ?book :windowId ?window .
+    ?book :runLabel ?label ; :windowId ?window .
     ?alert :alertRule ?rule .
   }
   GRAPH <urn:graph:rules:catalog> { ?rule :guardLayer 1 . }
   FILTER (STRSTARTS(STR(?g), "urn:graph:derived:backtest:"))
+  # Optional run-label parameter: change "rule" to another label.
+  FILTER (?label = "rule")
 }
-GROUP BY ?window ?ticker
+GROUP BY ?label ?window ?ticker
 ORDER BY ?window DESC(?cuts) ?ticker
 ```
 
@@ -390,9 +420,10 @@ ORDER BY ?window DESC(?cuts) ?ticker
 
 This is the report's "why was AAA cut?" answer: the alert, its rule id and the
 rule's own note, and the action status per arm. The alert has no direct book
-link; the action is the bridge. In the synthetic scenario alert 1 is a
-layer-1 stop loss on `AAA`, applied on `MARKOWITZ_BASE` and registered as
-`ARM_DISABLED` on `TOPN_MV_NOGUARD`.
+link; the action is the bridge, and that action's book is also where the
+`:runLabel` filter comes from. In the synthetic scenario alert 1 is a layer-1
+stop loss on `AAA`, applied on `MARKOWITZ_BASE` and registered as
+`ARM_DISABLED` on `TOPN_MV_NOGUARD`, in the label selected by the filter.
 
 <!-- q:cut-explanation expect:rule=L1_STOP_LOSS -->
 
@@ -400,7 +431,7 @@ layer-1 stop loss on `AAA`, applied on `MARKOWITZ_BASE` and registered as
 PREFIX :    <https://thesis.local/kg/portfolio#>
 PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
 
-SELECT ?window ?alert ?ruleId ?ruleNote ?arm ?status
+SELECT ?label ?window ?alert ?ruleId ?ruleNote ?arm ?status
 WHERE {
   GRAPH ?g {
     ?alert a :GuardAlert ; :alertId 1 ; :windowId ?window ; :alertRule ?rule .
@@ -410,11 +441,15 @@ WHERE {
   }
   OPTIONAL {
     GRAPH ?g2 {
-      ?action a :GuardAction ; :actionAlert ?alert ; :armCode ?arm ; :status ?status .
+      ?action a :GuardAction ; :actionAlert ?alert ; :armCode ?arm ; :status ?status ;
+        :actionOfBook ?book .
+      ?book :runLabel ?label .
     }
     FILTER (STRSTARTS(STR(?g2), "urn:graph:derived:backtest:"))
   }
   FILTER (STRSTARTS(STR(?g), "urn:graph:derived:backtest:"))
+  # Optional run-label parameter: change "rule" to another label.
+  FILTER (?label = "rule")
   FILTER (?window = "P1")
 }
 ORDER BY ?arm ?status
@@ -422,31 +457,35 @@ ORDER BY ?arm ?status
 
 ### 5.6 The knowledge dates of the books
 
-One row per book (window × arm), with the first and last `:knowledgeDate`.
-This is the transaction-time answer to "what did the agent know when?"; it is
-not a valid-time interval.
+One row per book (label × window × arm), with the first and last
+`:knowledgeDate`. This is the transaction-time answer to "what did the agent
+know when?"; it is not a valid-time interval.
 
 <!-- q:book-knowledge-dates expect:6 -->
 
 ```sparql
 PREFIX : <https://thesis.local/kg/portfolio#>
 
-SELECT ?window ?arm (MIN(?known) AS ?firstKnown) (MAX(?known) AS ?lastKnown)
+SELECT ?label ?window ?arm (MIN(?known) AS ?firstKnown) (MAX(?known) AS ?lastKnown)
 WHERE {
   GRAPH ?g {
-    ?book a :StrategyBook ; :windowId ?window ; :armCode ?arm ;
+    ?book a :StrategyBook ; :runLabel ?label ; :windowId ?window ; :armCode ?arm ;
       :knowledgeDate ?known .
   }
   FILTER (STRSTARTS(STR(?g), "urn:graph:derived:backtest:"))
+  # Optional run-label parameter: change "rule" to another label.
+  FILTER (?label = "rule")
 }
-GROUP BY ?window ?arm
+GROUP BY ?label ?window ?arm
 ORDER BY ?window ?arm
 ```
 
 ### 5.7 The full property list of `BookWeightDaily` and `BookDailyPerformance`
 
 This query lists every predicate actually present on the two classes, with a
-count. It is the evidence that the graph has **no** per-asset daily return and
+count, across every label. It is an inventory of the classes, not a per-run
+answer, which is why it intentionally has no `:runLabel` filter. It is the
+evidence that the graph has **no** per-asset daily return and
 **no** drifted weight: the only numeric weight properties are the decision
 and execution targets (`:markowitzTargetWeight`, `:finalTargetWeight`), and the
 daily performance is portfolio-level only (`:grossReturn`, `:netReturn`,
@@ -476,31 +515,33 @@ ORDER BY ?class ?property
 
 ### 5.8 Scale: weights per window and arm
 
-The Workbench timing query. `:BookWeightDaily` has no `:windowId` of its own;
-the window comes from `:weightOfBook` → `:StrategyBook :windowId`. The result
-is one row per window × arm, with the count of weight rows the window's graph
-holds.
+The Workbench timing query. `:BookWeightDaily` has no `:windowId` or
+`:runLabel` of its own; both come from `:weightOfBook` → `:StrategyBook`.
+The result is one row per label × window × arm, with the count of weight rows
+the selected run's graph holds.
 
 <!-- q:weight-scale expect:6 -->
 
 ```sparql
 PREFIX : <https://thesis.local/kg/portfolio#>
 
-SELECT ?window ?arm (COUNT(?weight) AS ?weights)
+SELECT ?label ?window ?arm (COUNT(?weight) AS ?weights)
 WHERE {
   GRAPH ?g {
     ?weight a :BookWeightDaily ; :armCode ?arm ; :weightOfBook ?book .
-    ?book :windowId ?window .
+    ?book :runLabel ?label ; :windowId ?window .
   }
   FILTER (STRSTARTS(STR(?g), "urn:graph:derived:backtest:"))
+  # Optional run-label parameter: change "rule" to another label.
+  FILTER (?label = "rule")
 }
-GROUP BY ?window ?arm
+GROUP BY ?label ?window ?arm
 ORDER BY ?window ?arm
 ```
 
 ### 5.9 Equities per arm on the last performance day
 
-One row per window and arm with the `:nEquity` of the latest
+One row per label, window and arm with the `:nEquity` of the latest
 `:performanceDate`. This is a **backtest book**, not the live portfolio: the
 live portfolio is not projected yet (`v_portfolio_position` has no projector),
 so this number must never be presented as the number of positions in the live
@@ -511,23 +552,51 @@ portfolio.
 ```sparql
 PREFIX : <https://thesis.local/kg/portfolio#>
 
-SELECT ?window ?arm ?date ?nEquity
+SELECT ?label ?window ?arm ?date ?nEquity
 WHERE {
   GRAPH ?g {
     ?perf a :BookDailyPerformance ; :windowId ?window ; :armCode ?arm ;
-      :performanceDate ?date ; :nEquity ?nEquity .
+      :performanceDate ?date ; :nEquity ?nEquity ; :performanceOfBook ?book .
+    ?book :runLabel ?label .
   }
   FILTER (STRSTARTS(STR(?g), "urn:graph:derived:backtest:"))
+  # Optional run-label parameter: change "rule" to another label.
+  FILTER (?label = "rule")
   FILTER NOT EXISTS {
     GRAPH ?g2 {
       ?later a :BookDailyPerformance ; :windowId ?window ; :armCode ?arm ;
-        :performanceDate ?laterDate .
+        :performanceDate ?laterDate ; :performanceOfBook ?laterBook .
+      ?laterBook :runLabel ?label .
     }
     FILTER (STRSTARTS(STR(?g2), "urn:graph:derived:backtest:"))
     FILTER (?laterDate > ?date)
   }
 }
 ORDER BY ?window ?arm
+```
+
+### 5.10 The runs available in the store
+
+One row per label × window, with the number of `:StrategyBook`s the store holds
+for that run. This is the query to run first: it tells the agent which
+`FILTER (?label = "...")` values and which `:windowId` values exist. It
+intentionally spans every label; the per-run queries in §5.1–§5.9 (except the
+property inventory in §5.7) select one.
+
+<!-- q:runs-available expect:4 -->
+
+```sparql
+PREFIX : <https://thesis.local/kg/portfolio#>
+
+SELECT ?label ?window (COUNT(DISTINCT ?book) AS ?books)
+WHERE {
+  GRAPH ?g {
+    ?book a :StrategyBook ; :runLabel ?label ; :windowId ?window .
+  }
+  FILTER (STRSTARTS(STR(?g), "urn:graph:derived:backtest:"))
+}
+GROUP BY ?label ?window
+ORDER BY ?label ?window
 ```
 
 ## 6. Limits: what this graph can and cannot answer
@@ -538,7 +607,12 @@ The status column is one of:
   and a projected backtest.
 - **After the asset catalog** — the graph has the term, but not the
   per-company master data: company names, sector/industry classification,
-  S&P 500 membership and the `:UniverseMembership` relation.
+  S&P 500 membership and the `:UniverseMembership` relation. **Loader note
+  (2026-11-03, PR #117):** the loader exists as `cli/load_universe.py` (logic
+  in `src/kg_store/universe.py`) and writes `:Asset`, `:UniverseMembership`
+  and `:SP500Index`. The statuses above do not change yet: the store has not
+  been loaded. They become **Today** once the maintainer has run the loader
+  and the live check passes.
 - **After T-209** — the backtest veto projector. Without it the graph knows
   GUARD cuts but not the selection vetoes that explain an asset's exit at a
   rebalance.
@@ -608,8 +682,9 @@ with or without the FIBO slice.
 2. builds one in-memory `rdflib.Dataset` from `schema/tbox.ttl`
    (`urn:graph:tbox`), `schema/fibo.ttl` (`urn:graph:reference:fibo`),
    `schema/rules.ttl` (`urn:graph:rules:catalog`) and `schema/reference.ttl`
-   (`urn:graph:reference`), plus the two windows of the synthetic backtest
-   scenario, projected with `projection.backtest.project`;
+   (`urn:graph:reference`), plus two run labels (`rule`, `champ_v1`) across
+   two windows of the synthetic backtest scenario, projected with
+   `projection.backtest.project`;
 3. runs every query and checks its expectation: an exact row count, a
    non-empty result, or a named rule (`expect:rule=...`);
 4. checks the no-FIBO rows in `A1` (`:Asset`, `:Universe`,
@@ -619,7 +694,10 @@ with or without the FIBO slice.
    on `BookWeightDaily`/`BookDailyPerformance`;
 5. checks that the limits table still lists the eleven evaluation questions
    verbatim and the eight backtest questions, and that the statuses use the
-   six labels above.
+   six labels above;
+6. runs the performance, GUARD and NAV queries once per label and proves the
+   `"rule"` and `"champ_v1"` results do not mix when the label filter is
+   applied, and that `runs-available` lists both labels and both windows.
 
 The test is hermetic: it reads the committed `.ttl` files and the synthetic
 fixture, never a live GraphDB repository and never a real backtest database.

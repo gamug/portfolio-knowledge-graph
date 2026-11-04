@@ -533,7 +533,8 @@ reused.*
   10, valid from 2026-10-31 — the last safe date: the rule was already in upstream's catalog in the
   completed backtest runs and raised a real veto in P1 on 2022-03-03, so a later date is impossible;
   not backdated to 2019/2020, and upstream's `v_rule_catalog.created_at` (2026-10-31T19:37:32) is a
-  technical persistence timestamp, not the adoption date) as the tenth selection rule; the `LEVERAGE_EXTREME`/`NEGATIVE_FCF`/
+  technical persistence timestamp, not the adoption date; superseded 2026-11-03 by T-216, which set
+  the real 2026-10-14 date — see its entry at the end of this file) as the tenth selection rule; the `LEVERAGE_EXTREME`/`NEGATIVE_FCF`/
   `LIQUIDITY_DISTRESS` comments record the APP-00 profile exemptions (financial firms; regulated
   utilities; equity REITs) without changing thresholds, severities or clauses. The five GUARD rules
   (`L1_STOP_LOSS`, `L1_REENTRY`, `L2_NEWS`, `L3_VOL`, `L4_DD`) are `:category "GUARD"`
@@ -705,13 +706,32 @@ Documentation only; no code, schema, shape or test logic changed.
 - **T-187/T-188** no longer wait for the reload: `verify_store` passes. T-187 stays open only for
   the maintainer's local, untracked `CLAUDE.md` ("six rules").
 - **Follow-ups.** T-215 (first real backtest `--write` into a scratch repository, needs the full
-  universe) and T-216 (ask upstream T-071's real merge date) are open. The generated
-  `protege-view.ttl`/`.txt` remain stale (T-070/T-071); no backtest graph was written. The FR-001
-  bundle is unchanged at 4236 quads.
+  universe) and T-216 (ask upstream T-071's real merge date) were open then (T-216 closed
+  2026-11-03; see its entry below). The generated `protege-view.ttl`/`.txt` remain stale
+  (T-070/T-071); no backtest graph was written. The FR-001 bundle is unchanged at 4236 quads.
 
-## Work item 19 — Reports-agent query catalog and its executable test (2026-11-03)
+## UTILITY_CASH_COVERAGE validFrom correction (2026-11-03, T-216)
 
-*Closed 2026-11-03. Plan: `PLAN.md` Work item 19. The catalog is a document plus a hermetic test;
+- The upstream maintainer supplied T-071's real integration date: part 2a (PR #167, merge commit
+  `7ae8ba8`, "Merge pull request #167 from gamug/feat/t071b-vetoes") reached upstream master on
+  2026-10-14 20:51:47 -0500 (already 2026-10-15 in UTC). `schema/rules.ttl` now sets
+  `:Rule_UTILITY_CASH_COVERAGE`'s `:validFrom` to `2026-10-14`; it was `2026-10-31`, the last safe
+  date, until this change. The block comment and `rdfs:comment` explain that valid-time means when
+  the definition was in force in production, not that a backtest applies it retroactively: the P1
+  backtest replays history with today's catalog, so it raised this rule's veto on 2022-03-03, which
+  is why backtest vetoes cannot resolve their rule by `raisedOn` (T-209).
+- `tests/test_ontology_v18.py` pins `2026-10-14` and asserts it is not later than the 2026-10-31
+  backtest run date, so T-209's convention still resolves the rule. Docs updated: `docs/06` §1.5
+  (new T-216 addendum) and §1.10, `schema/README.md` refinement 7, `SPEC.md`, `PLAN.md`, and
+  `TASKS.md` (T-206 history, the T-212/T-216 reload note, T-216 closed). The bundle is unchanged at
+  **4236 quads; conforms: True**.
+- No GraphDB write or reload: the live store (and the scratch store, if any) keeps `2026-10-31` for
+  this rule until the next `cli/load_schema.py`, which the maintainer will run later together with
+  other schema changes (T-212/T-216).
+
+## Work item 21 — Reports-agent query catalog and its executable test (2026-11-03)
+
+*Closed 2026-11-03. Plan: `PLAN.md` Work item 21. The catalog is a document plus a hermetic test;
 no `src/`, `schema/` or gate change.*
 
 - [x] **T-240** *(done 2026-11-03)* Write `docs/reports-agent-query-catalog.md`: the scope rule
@@ -721,12 +741,13 @@ no `src/`, `schema/` or gate change.*
       `@es` definition containing "sharpe": `PortfolioPeriodSummary` and `BacktestTest`), the
       active rules by category (10 selection + 5 GUARD, active = no `validTo`), and the backtest
       battery (including `n-equity-per-arm-on-last-day`). Every `sparql` block is preceded by
-      `<!-- q:NAME expect:... -->`. → `PLAN.md` Work item 19, step 1.
+      `<!-- q:NAME expect:... -->`. → `PLAN.md` Work item 21, step 1.
 - [x] **T-241** *(done 2026-11-03)* Add `tests/test_query_catalog.py`: parse every tagged query,
       build one in-memory `rdflib.Dataset` from `schema/tbox.ttl` (`urn:graph:tbox`),
       `schema/fibo.ttl` (`urn:graph:reference:fibo`), `schema/rules.ttl`
-      (`urn:graph:rules:catalog`) and `schema/reference.ttl` (`urn:graph:reference`), plus the
-      two synthetic backtest windows (`P1`, `P2`) projected with `projection.backtest.project`;
+      (`urn:graph:rules:catalog`) and `schema/reference.ttl` (`urn:graph:reference`), plus two
+      run labels (`rule`, `champ_v1`) across two windows (`P1`, `P2`) projected with
+      `projection.backtest.project`;
       run every query and check its exact row count or named rule. The test also pins the A1
       no-FIBO rows (`:Asset`, `:Universe`, `:UniverseMembership`, `:PriceObservation`,
       `:Executive`), the exact eleven questions, the six status labels, the two Sharpe-less
@@ -748,3 +769,11 @@ no `src/`, `schema/` or gate change.*
       `:UniverseMembership`, `:PriceObservation` and `:Executive`, and add the equity-index,
       closing-price and SEC A2 labels. The test now pins the exact question text and the six
       labels. No new task ID; this completes the same work item.
+- [x] **Follow-up (2026-11-04, merge of PR #117 and PR #118).** Merge `origin/master` and keep
+      both sides of the append-only logs; renumber this work item from 19 to 21 because master
+      already has Work item 19 (asset loader) and Work item 20 (run labels). The catalog now uses
+      `urn:graph:derived:backtest:{label}:{window}:{run_id}`, adds `runs-available`, and every
+      per-run backtest query takes the optional `FILTER (?label = "rule")` parameter. The test
+      projects two labels in the same window as well as two windows and proves the labels do not
+      mix; the §6 legend notes that the asset loader exists as `cli/load_universe.py` but the
+      statuses stay until the maintainer runs it and the live check passes.
