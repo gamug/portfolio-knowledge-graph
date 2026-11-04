@@ -287,7 +287,7 @@ architecture, and not partitioned for the bitemporal audit trail
    `--write` behind the ingest gate; the source check reads `v_book.run_status` rather than
    `v_cycle_run`; no store was reloaded then, and the reload landed with T-212 on 2026-11-02. The
    m015/m016 views (`v_ticker_history`,
-   `v_orchestrator_run`, `v_orchestrator_step`) remain PR-C2 (T-208).
+   `v_orchestrator_run`, `v_orchestrator_step`) landed in Work item 27 (T-208, 2026-11-04).
    FIBO Phase 1 (T-210, 2026-11-03) is in too: six `rdfs:seeAlso` links from
    `schema/fibo_terms.csv` in `tbox.ttl` and (for the four terms it declares)
    `kg_target_schema.ttl`, the two broken `https://www.omg.org/spec/EDMC-FIBO/` links removed, and
@@ -1513,6 +1513,152 @@ not restate or change those decisions.
 
 **Blocked on**: nothing.
 
+## Work item 27 — Project ticker history and the orchestrator views (T-350–T-369)
+
+**Status: closed 2026-11-04 (closes T-208).**
+
+**Why**: Contract v18 added three views that still have no projector: `v_ticker_history` (m016) and
+`v_orchestrator_run`/`v_orchestrator_step` (m015). The eight m018 backtest/GUARD views are already
+projected by Work item 4/20. Without the ticker-history projector the graph cannot answer which
+symbol a company used on a date (the `FB`→`META` rename, or `FBHS`→`FBIN` and `GPS`→`GAP` in the
+catalog). The selection projector used to leave the current tickers `FBIN`/`GAP` unlinked when the
+loaded catalog still names the company by its older symbol; T-351 applies the same shared link rule
+there (before: ranking 34/0/2, veto 9/2/3; after: 0). Without the orchestrator projector the graph
+cannot carry a run/step process record. This work item settles both placements and closes T-208.
+
+### Measurements (read-only, 2026-11-04)
+
+The completed v18 databases available in this checkout are
+`/workspaces/thesis/scratch/final/runs/rule_P1.db`, `rule_P2.db` and `rule_P3.db`. The pilot
+`/workspaces/thesis/pilot_a3/financial.db` carries the same three views for a read-only row/null
+measurement, but it has no `schema_version` row (it reads 0 and is below the v18 floor), so it is
+not a valid projection source. The paths named in the task brief (`scratch/final/base.db`,
+`scored_rule.db`, `scratch/bt/integ`) are not present here; the three completed backtest databases
+give identical answers below, so the design is measured on them.
+
+| View | P1 / P2 / P3 / pilot rows | NULL columns measured |
+|---|---|---|
+| `v_ticker_history` | 21 / 21 / 21 / 21 | `valid_to` 8; every other column 0 (`cik`, `symbol`, `valid_from`, `canonical_symbol`, `asset_id`, `evidence_url`, `evidence_date`, `rules`) |
+| `v_orchestrator_run` | 0 / 0 / 0 / 0 | none (no rows) |
+| `v_orchestrator_step` | 0 / 0 / 0 / 0 | none (no rows) |
+
+`v_ticker_history` has 21 rows over 10 CIKs. Every CIK's `canonical_symbol` equals the symbol of
+its latest `valid_from` row: **0 mismatches**. The six pure rename chains the asset loader folds are
+`FB`→`META`, `WLTW`→`WTW`, `RE`→`EG`, `FLT`→`CPAY`, `CDAY`→`DAY` and `SATS`→`ECHO`; their
+canonical symbols `META`, `WTW`, `EG`, `CPAY`, `DAY`, `ECHO` are exactly the loaded `:Asset` IRIs.
+The other rows are `DISCK`/`DISCA`→`WBD`, `PSKY`→`SKYD`, `FBHS`→`FBIN` and `GPS`→`GAP`.
+
+Four `v_ticker_history` rows carry a **multi-date** `evidence_date` (`DISCA`, `DISCK` and `WBD`
+share `"2022-04-07 ; 2022-04-10"`; `PSKY` carries `"2025-08-07 ; 2026-10-06"`); the
+`:evidenceDate` shape is one `xsd:date`, so the projector omits that property on those rows and
+counts the omission. Their `evidence_url` also joins two URLs with `" ; "`; it is kept verbatim as
+`xsd:anyURI` evidence text.
+
+### The `FBIN`/`FBHS`/`GAP`/`GPS` case
+
+| Symbol | In the loaded catalog (`universe_history_gics.db`) | CIK | `v_ticker_history` | Canonical |
+|---|---|---|---|---|
+| `FBIN` | **no** `:FBIN` | `0001519751` | `FBHS` 2016-06-22 … 2022-12-14; `FBIN` 2022-12-15 … open | `FBIN` |
+| `FBHS` | **yes**, `:FBHS` (2016-06-22 … 2022-12-18) | `0001519751` | as above | `FBIN` |
+| `GAP` | **no** `:GAP` | `0000039911` | `GPS` 1976-07-01 … 2024-08-21; `GAP` 2024-08-22 … open | `GAP` |
+| `GPS` | **yes**, `:GPS` (1976-07-01 … 2022-02-02) | `0000039911` | as above | `GAP` |
+
+The catalog's latest kept stint ends before the rename, so it names the company by the older
+symbol. `v_ticker_history` says the same CIK continued under `FBIN`/`GAP`; the current ticker is
+not a different company. The selection projector's old unlinked rows (ranking 34/0/2, veto 9/2/3)
+were exactly this case: it looked up the current ticker while the catalog held the older one.
+T-351 now uses the unique same-CIK fallback there too, and all six counts are 0 in the P1/P2/P3
+dry runs.
+
+### Design
+
+1. **Classes reused, no schema change.** `TickerHistory`, `OrchestratorRun` and
+   `OrchestratorStep` already exist in `schema/tbox.ttl` with shapes in `schema/shapes.ttl`. This
+   work item adds no class, property, shape or rule, so the FR-001 bundle count is unchanged.
+
+2. **Ticker-history graph: a labelled, dated snapshot.**
+   `urn:graph:derived:ticker-history:{label}:{snapshot_date}` (label matches the existing run-label
+   `[a-z][a-z0-9_]{1,31}`; `snapshot_date` is `--as-of`, default today in UTC). The snapshot is
+   reference-like and append-only. Later refreshes write a **new** graph; the old one stays for
+   audit. Because the gate also refuses a typed individual that already exists in any graph
+   (check 6), every `TickerHistory` IRI is snapshot-qualified:
+   `TickerHistory_{label}_{YYYYMMDD}_{cik}_{symbol}_{validFrom}`. A stable IRI would make the
+   second snapshot impossible even though its graph name is new. The natural key remains
+   `(cik, symbol, valid_from)`; the snapshot identity is part of the node only so a complete
+   refresh can be written without rewriting the previous one. Readers pick the latest
+   `urn:graph:derived:ticker-history:` snapshot (the query in the catalog does this).
+
+3. **Orchestrator graphs: one graph per run.**
+   `urn:graph:derived:orchestrator:{label}:{run_id}`, with
+   `OrchestratorRun_{label}_{run_id}` and `OrchestratorStep_{label}_{run_id}_{ordinal}`. A run is
+   an immutable process record; a later run has a new id and a new graph, never an append to the
+   previous one. The label separates source families (the same `run_id` can exist in two
+   databases). A step points at its run by `:stepOfOrchestratorRun`; the step's own `run_id`
+   (an integer in the view) is written as the string `"{run_kind}:{run_id}"` (or `"{run_id}"` when
+   `run_kind` is NULL), matching the ontology's documented `:runId` shape.
+
+4. **Nullability and masking.** Every required shape property is written; every optional view
+   column is omitted when NULL, never filled. `:evidenceDate` is written only when the cell is one
+   ISO date; a multi-date cell is omitted and counted. `:evidenceUrl` is copied verbatim as
+   `xsd:anyURI` because it is evidence text, not a parsed link. Orchestrator natural keys are the
+   only required properties (`orchestratorRunId`; `stepOfOrchestratorRun` + `ordinal`); handle,
+   kind, as-of, status, timestamps, settings, surface, step name, argv, exit code, reason and
+   output tail are optional. Both orchestrator views are empty today: a dry run with 0 rows
+   builds no graph and prints `v_orchestrator_run: 0 rows, v_orchestrator_step: 0 rows: nothing to
+   write` rather than a silent success.
+
+5. **Asset link rule (now also used by Work item 26's selection projector).** Link
+   `:tickerHistoryAsset` in this order:
+   1. **exact symbol**: `canonical_symbol` is a loaded `:Asset` IRI → link to it;
+   2. **unique same-CIK fallback**: otherwise, if exactly one loaded `:Asset` has the row's `cik`,
+      link to that asset. This is the `FBIN`→`:FBHS` and `GAP`→`:GPS` case: same CIK, older symbol
+      in the catalog, no invention;
+   3. **otherwise unlinked**: no match or more than one asset under the same CIK (concurrent
+      classes, a mixed CIK) → leave `:tickerHistoryAsset` unset and count it under the view.
+   The projector never creates an `:Asset`, never links a different CIK, and never guesses among
+   several same-CIK assets. On the 21 real rows this gives 17 exact links + 4 unique-CIK links
+   (`FBIN`→`:FBHS` twice, `GAP`→`:GPS` twice) = 21 linked, 0 unlinked. Exact-only would leave 4
+   unlinked. The projector also refuses a latest row whose `canonical_symbol` is not one of its
+   CIK line's latest `valid_from` symbols, because then the history and the catalog disagree about
+   the company line. Older rows may keep another canonical symbol on purpose: in the mixed CIK
+   `DISCA`/`DISCK`/`WBD` the concurrent `DISCK` row says `DISCK` while the later `WBD` row says
+   `WBD`; the invariant is checked on the latest row(s), not on every historical row.
+
+6. **CLI.** `cli/project_reference.py` follows `cli/project_backtest.py`: repeatable
+   `--db LABEL=PATH`, dry run by default, `--as-of YYYY-MM-DD` for the ticker snapshot, `--write`
+   and the `--to-production` guard, exit 0/1/2. A dry run reads the three views, runs the boundary,
+   builds each graph and SHACL-validates it; nothing contacts the store. A write appends each new
+   graph through the gate and reports an existing graph instead of appending to it.
+
+7. **Gate and documentation.** `kg_store.gate.check_target` gains the two append-only patterns
+   `urn:graph:derived:ticker-history:{label}:{YYYY-MM-DD}` and
+   `urn:graph:derived:orchestrator:{label}:{positive run id}`; `docs/07` gets both table rows and
+   loses the "placement left to PR-C2" note; `docs/08`, `docs/06`, `docs/graphdb-setup.md` and
+   `docs/backtest-load-runbook.md` describe the projector, the snapshot/IRI rule, the asset-link
+   rule and the empty-orchestrator case.
+
+### Acceptance criteria
+
+- ✅ The ticker-history and orchestrator views have a projector and CLI with the same dry-run /
+  write / production-guard / exit-code policy as the backtest projector.
+- ✅ The real dry run reads 21 ticker-history rows, builds one 198-triple snapshot graph, reports
+  17 exact + 4 unique-CIK links and 0 unlinked, and prints SHACL conformance, individuals,
+  triples and timings (1.25–1.42 s, ~73 MB peak RSS per database); 4 multi-date evidence cells
+  are omitted and counted; the orchestrator views report 0 rows and nothing to write.
+- ✅ The gate accepts the two new graph names and refuses malformed labels/dates/run ids; hermetic
+  tests cover the projection, the link rule, the empty case, the CLI and the query.
+- ✅ The reports-agent catalog answers the rename question with a tagged, tested query and moves
+  it from `After T-208` to `Today`; the `FBIN`/`GAP` rule is applied in Work item 26.
+- ✅ No schema file changes; `uv run pytest`, `mypy` and the pinned pre-commit hooks pass; no
+  GraphDB write is made.
+
+**Validation (2026-11-04):** `uv run pytest -q` = **1225 passed, 58 deselected, 3639 warnings in
+818.67 s**; `uv run mypy --config-file=.code_quality/mypy.ini` = success, 96 source files;
+`uv run pre-commit run --all-files` = all hooks passed. `tests/test_reference_real.py` passes with
+`REFERENCE_DB=rule_P1.db` and `SQL_UNIVERSE_DB=universe_history_gics.db`. No GraphDB write or
+reload; the pilot `financial.db` has no `schema_version` (reads 0, below the v18 floor), and the
+task's `base.db`/`scored_rule.db`/`scratch/bt/integ` paths are absent from this checkout.
+
 ## Sequencing
 
 ```
@@ -1556,9 +1702,12 @@ Work item 23 (inclusive membership end, one `:Asset` per CIK) — closed 2026-11
   the inclusive `validTo`, the shared loader/projector resolver and the real-data counts are in
   `CHANGELOG.md`
 Work item 24 (backtest verifier and load runbook) — closed 2026-11-04 (T-280–T-283); see
+  `CHANGELOG.md`
 Work item 25 (reports-agent sector and industry queries) — closed 2026-11-04 (T-300–T-307); see
   `CHANGELOG.md`
 Work item 26 (backtest selection side) — closed 2026-11-04 (T-320–T-328); see `CHANGELOG.md`
+Work item 27 (ticker history and orchestrator projectors) — closed 2026-11-04 (T-350–T-360,
+  T-208); see `CHANGELOG.md`
 ```
 
 Work items 1, 2, and 9 have no dependencies and no blockers — they can land
@@ -1668,11 +1817,15 @@ non-redistribution rule), it carries values such as `close`, `vol_5d` and `vol_6
 from price rows, including the private Tiingo lines. No raw price, return or Tiingo-marked series is
 read; the projector reads only the six selection views above.
 
-**Asset linking.** Every ticker goes through the existing
-`projection.backtest.universe_assets` resolution, unchanged (Work item 23 is rewriting it). A
-missing asset keeps its `:rankingTicker`/`:vetoTicker` and is counted in
-`asset_unlinked[view]`, as the m018 projector counts `:guardTicker`/`:holdingKey`; the row is never
-dropped. Measured unlinked rows: ranking 34/0/2, veto 9/2/3 (distinct `FBIN` and `GAP`).
+**Asset linking.** `universe_assets` is unchanged. The selection side resolves a ticker with
+`projection.asset_link.resolve_asset`: an exact loaded `:Asset` symbol first, else the one loaded
+`:Asset` carrying the same CIK, where the CIK comes from `v_ticker_history` of the same source
+database (`projection.asset_link.ticker_cik_map`). If neither is safe the row keeps its
+`:rankingTicker`/`:vetoTicker`, adds no asset property and is counted in `asset_unlinked[view]`, as
+the m018 projector counts `:guardTicker`/`:holdingKey`; the row is never dropped. The m018
+projector keeps its own exact-ticker rule. Before this rule the real unlinked rows were ranking
+34/0/2 and veto 9/2/3 across P1/P2/P3 (the `FBIN`/`GAP` current tickers against the catalog's
+`:FBHS`/`:GPS`); after it they are 0 in every database.
 
 **CLI.** A sibling `cli/project_selection.py --db LABEL=PATH [--write] [--to-production]`, sharing
 the m018 policy: dry run by default, no store contact, SHACL validation beside `rules.ttl` and the
@@ -1703,8 +1856,9 @@ existing graph is reported and skipped. Run labels and windows are the same patt
 **Acceptance criteria**:
 
 - A dry run over each real database projects every selection view row exactly once (or reports the
-  documented skip), produces one sibling graph per run, links every known ticker through
-  `universe_assets`, counts the unknown ones, and is `pyshacl`-conformant.
+  documented skip), produces one sibling graph per run, links every ticker through the exact-symbol
+  or unique-same-CIK rule (`universe_assets` plus `v_ticker_history`), counts the genuinely unknown
+  ones, and is `pyshacl`-conformant.
 - A backtest veto's rule is resolved by `:ruleId` against the definition in force on the run date
   (2026-10-31); `LIQUIDITY_DISTRESS` resolves to `_v11`; an unknown rule id stops with a message
   naming the id and the date. `raisedOn` is never the resolver.
@@ -1716,17 +1870,18 @@ existing graph is reported and skipped. Run labels and windows are the same patt
 - `uv run pytest`, `mypy`, and the pinned pre-commit hooks pass; the FR-001 bundle and every asserted
   count are updated in the same change.
 
-**Verified 2026-11-04 (read-only dry runs, `pyshacl` conforms in all three):** P1 42,700
-rows/individuals and 321,281 triples in 86.25 s at 1,213,756 KB peak RSS; P2 41,259 and 309,726
-in 81.64 s at 1,153,048 KB; P3 45,440 and 342,929 in 90.11 s at 1,282,204 KB. A re-run after
-merging PR #120/#122 produced the **same three triple counts** (P1 321,281 / P2 309,726 / P3
-342,929; 63.93 / 59.01 / 63.93 s; 1,213,152 / 1,155,156 / 1,282,896 KB), all SHACL-valid. The
-synthetic tests cover the LIQUIDITY_DISTRESS `_v11` resolution, an unknown rule id, the UNSCORED
-placeholder, unlinked tickers and a non-completed cycle run. Schema: 52 classes / 39 leaves / 34
-shapes; FR-001 **4431 quads**, fresh load **4708** asserted triples. The three report queries are
-in the catalog; Q9 and B5 are `Today`. `uv run pytest -q` = 1164 passed, 57 deselected in 841.85 s
-(after the second merge); `mypy` = success, 87 files; the pinned pre-commit hooks pass; the opt-in
-real-database test passes for P1/P2/P3. No GraphDB write or reload was made; the maintainer
-performs both.
+**Verified 2026-11-04 (read-only dry runs, `pyshacl` conforms in all three).** After the shared
+asset-link rule (T-351): P1 42,700 rows/individuals and **321,324** triples in 56.45 s at
+1,214,004 KB peak RSS; P2 41,259 and **309,728** in 53.94 s at 1,155,632 KB; P3 45,440 and
+**342,934** in 58.35 s at 1,285,948 KB. The triple counts are +43/+2/+5 over the exact-only runs
+(321,281 / 309,726 / 342,929), exactly the recovered asset links; unlinked rows went from ranking
+34/0/2 and veto 9/2/3 to 0 in every database. All three graphs are SHACL-valid. The synthetic tests
+cover the LIQUIDITY_DISTRESS `_v11` resolution, an unknown rule id, the UNSCORED placeholder, an
+exact link, a same-CIK fallback, an ambiguous CIK and a no-CIK row, and a non-completed cycle run.
+Schema: 52 classes / 39 leaves / 34 shapes; FR-001 **4431 quads**, fresh load **4708** asserted
+triples. The three report queries are in the catalog; Q9 and B5 are `Today`. `uv run pytest -q` =
+1164 passed, 57 deselected in 841.85 s (after the second merge); `mypy` = success, 87 files; the
+pinned pre-commit hooks pass; the opt-in real-database test passes for P1/P2/P3. No GraphDB write
+or reload was made; the maintainer performs both.
 
 **Blocked on**: nothing.

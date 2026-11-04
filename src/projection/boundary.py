@@ -201,19 +201,28 @@ class BoundaryResult:
 # --- the source check --------------------------------------------------------------------------
 
 
-def check_source(db: Source, expected: SourceExpectation) -> list[Failure]:
-    """The aggregate check on the database itself: the ``schema_version`` floor, no forbidden run."""
-    failures: list[Failure] = []
-    version = db.schema_version
+def check_schema_floor(version: int, expected: SourceExpectation) -> list[Failure]:
+    """The one check a reference/process view needs: the database is at or above the v18 floor.
+
+    ``check_source`` also refuses forbidden cycle types, but a reference or orchestrator view is
+    not a cycle output: a completed backtest database is a valid source even though every
+    ``v_cycle_run`` row in it is ``REPLAY`` (T-352/T-353).
+    """
     if version < expected.schema_version_floor:
-        failures.append(
+        return [
             Failure(
                 "source",
                 "schema_version",
                 None,
                 f"{version} is below the floor {expected.schema_version_floor}",
             )
-        )
+        ]
+    return []
+
+
+def check_source(db: Source, expected: SourceExpectation) -> list[Failure]:
+    """The aggregate check on the database itself: the ``schema_version`` floor, no forbidden run."""
+    failures = check_schema_floor(db.schema_version, expected)
     marks = ", ".join("?" for _ in expected.forbidden_cycle_types)
     found = db.execute(
         f"SELECT cycle_type, COUNT(*) FROM v_cycle_run WHERE cycle_type IN ({marks}) "  # noqa: S608 -- only "?" placeholders are interpolated

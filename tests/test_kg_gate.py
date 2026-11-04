@@ -82,6 +82,45 @@ def test_a_malformed_backtest_graph_is_refused(name: str) -> None:
         gate.check_target(name)
 
 
+@pytest.mark.parametrize(
+    "name",
+    [
+        "urn:graph:derived:ticker-history:live:2026-11-04",
+        "urn:graph:derived:ticker-history:rule_20261105:2026-12-31",
+        "urn:graph:derived:orchestrator:live:1",
+        "urn:graph:derived:orchestrator:rule:42",
+    ],
+)
+def test_a_ticker_history_or_orchestrator_graph_is_append_only_and_accepted(
+    name: str,
+) -> None:
+    # T-352/T-353: a ticker-history snapshot is label+date; a run graph is label+positive id.
+    assert gate.check_target(name) is True
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        "urn:graph:derived:ticker-history:2026-11-04",  # label required
+        "urn:graph:derived:ticker-history:Live:2026-11-04",
+        "urn:graph:derived:ticker-history:l:2026-11-04",  # label is 2-32 chars
+        "urn:graph:derived:ticker-history:live:20261104",
+        "urn:graph:derived:ticker-history:live",
+        "urn:graph:derived:orchestrator:1",  # label required
+        "urn:graph:derived:orchestrator:Live:1",
+        "urn:graph:derived:orchestrator:l:1",
+        "urn:graph:derived:orchestrator:live:0",
+        "urn:graph:derived:orchestrator:live:-1",
+        "urn:graph:derived:orchestrator:live:abc",
+        "urn:graph:derived:orchestrator:live:01",
+        "urn:graph:derived:orchestrator:live:1/extra",
+    ],
+)
+def test_a_malformed_ticker_history_or_orchestrator_graph_is_refused(name: str) -> None:
+    with pytest.raises(gate.IngestRejected, match="not an ingest target"):
+        gate.check_target(name)
+
+
 def test_the_refusal_lists_the_backtest_graph() -> None:
     with pytest.raises(gate.IngestRejected, match=r"derived:backtest:\{run label\}:\{P<number>\}"):
         gate.check_target("urn:graph:nope")
@@ -119,9 +158,17 @@ def test_other_graph_names_are_refused(name: str) -> None:
         gate.check_target(name)
 
 
-def test_an_impossible_date_is_refused() -> None:
+@pytest.mark.parametrize(
+    "name",
+    [
+        "urn:graph:derived:quant:2026-02-30",
+        "urn:graph:derived:ticker-history:live:2026-13-01",
+        "urn:graph:derived:ticker-history:live:2026-02-30",
+    ],
+)
+def test_an_impossible_date_is_refused(name: str) -> None:
     with pytest.raises(gate.IngestRejected, match="impossible date"):
-        gate.check_target("urn:graph:derived:quant:2026-02-30")
+        gate.check_target(name)
 
 
 def test_the_refusal_lists_the_quant_graph() -> None:

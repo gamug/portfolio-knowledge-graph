@@ -75,7 +75,20 @@ CREATE TABLE veto (
 CREATE TABLE assets (
     id INTEGER PRIMARY KEY,
     ticker TEXT,
-    company_name TEXT
+    company_name TEXT,
+    cik TEXT
+);
+
+CREATE TABLE ticker_history (
+    cik              TEXT NOT NULL,
+    symbol           TEXT NOT NULL,
+    valid_from       TEXT NOT NULL,
+    valid_to         TEXT,
+    canonical_symbol TEXT NOT NULL,
+    evidence_url     TEXT NOT NULL,
+    evidence_date    TEXT NOT NULL,
+    rules            TEXT,
+    PRIMARY KEY (cik, symbol, valid_from)
 );
 
 CREATE TABLE backtest_run (
@@ -197,6 +210,12 @@ CREATE TABLE backtest_test (
 """
 
 _VIEWS = """
+CREATE VIEW v_ticker_history AS
+SELECT t.cik, t.symbol, t.valid_from, t.valid_to, t.canonical_symbol,
+       a.id AS asset_id, t.evidence_url, t.evidence_date, t.rules
+FROM ticker_history t
+LEFT JOIN assets a ON a.cik = t.cik AND a.ticker = t.canonical_symbol;
+
 CREATE VIEW v_book AS
 SELECT b.id AS book_id, b.backtest_run_id, r.window_id, r.d_start, r.d_end,
        r.formation_date, r.status AS run_status, b.arm_code, b.objective,
@@ -913,13 +932,26 @@ def backtest_db(  # noqa: PLR0913 -- a test builder's keyword-only knobs are cle
     conn.executescript(_DDL)
     conn.executescript(_VIEWS)
     conn.executemany(
-        "INSERT INTO assets VALUES (?, ?, ?)",
+        "INSERT INTO assets VALUES (?, ?, ?, ?)",
         [
-            (1, "AAA", "AAA Inc."),
-            (2, "BBB", "BBB Inc."),
-            (3, "BRK.B", "Berkshire Hathaway"),
-            (4, "ZZZ", "ZZZ Corp"),
-            (5, "CCC", "CCC Inc."),
+            (1, "AAA", "AAA Inc.", "0000000001"),
+            (2, "BBB", "BBB Inc.", "0000000002"),
+            (3, "BRK.B", "Berkshire Hathaway", "0000000003"),
+            (4, "ZZZ", "ZZZ Corp", "0000000005"),
+            (5, "CCC", "CCC Inc.", "0000000004"),
+        ],
+    )
+    conn.executemany(
+        "INSERT INTO ticker_history VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        [
+            (cik, ticker, "2000-01-01", None, ticker, "https://example.test", "2000-01-01", "test")
+            for ticker, cik in (
+                ("AAA", "0000000001"),
+                ("BBB", "0000000002"),
+                ("BRK.B", "0000000003"),
+                ("ZZZ", "0000000005"),
+                ("CCC", "0000000004"),
+            )
         ],
     )
     if cycle_types:

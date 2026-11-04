@@ -15,8 +15,10 @@ import rdflib
 from fixtures.backtest_rows import ASSETS, backtest_db
 
 from kg_store import gate
+from projection.asset_link import ticker_cik_map
 from projection.backtest import (
     SELECTION_VIEWS,
+    AssetInfo,
     Projection,
     ProjectionError,
     load_selection_catalog,
@@ -38,13 +40,21 @@ def _rows(tmp_path: Path, window: str = "P1") -> dict[str, list[dict[str, Any]]]
     source = FinancialSource.open(backtest_db(tmp_path, window=window))
     try:
         rows = {view: read_view(source, view) for view in ("v_book", *SELECTION_VIEWS)}
+        rows["v_ticker_history"] = read_view(source, "v_ticker_history")
     finally:
         source.close()
     return cast(dict[str, list[dict[str, Any]]], rows)
 
 
 def _projection(tmp_path: Path, label: str = "rule", window: str = "P1") -> Projection:
-    return project_selection(_rows(tmp_path, window), ASSETS, CATALOG, label)
+    rows = _rows(tmp_path, window)
+    return project_selection(
+        rows,
+        ASSETS,
+        CATALOG,
+        label,
+        ticker_cik_map(rows["v_ticker_history"]),
+    )
 
 
 def _graph(projection: Projection, label: str = "rule", window: str = "P1") -> rdflib.Graph:
@@ -173,6 +183,44 @@ def test_an_unlinked_ticker_keeps_its_literal_and_is_counted(tmp_path: Path) -> 
     assert (snap, KG.attractivenessOfAsset, None) not in graph
     assert projection.asset_unlinked["v_cycle_ranking"] == 1
     assert projection.asset_unlinked["v_veto"] == 1
+
+
+def test_a_selection_ticker_uses_the_unique_same_cik_asset(tmp_path: Path) -> None:
+    rows = _rows(tmp_path)
+    rows["v_cycle_ranking"][0]["ticker"] = "FBIN"
+    assets = {**ASSETS, "FBHS": AssetInfo("FBHS", "0001519751")}
+    projection = project_selection(rows, assets, CATALOG, "rule", {"FBIN": "0001519751"})
+    graph = _graph(projection)
+    snap = KG["Snap_rule_P1_7_1"]
+    assert (snap, KG.attractivenessOfAsset, KG.FBHS) in graph
+    assert (snap, KG.rankingTicker, rdflib.Literal("FBIN")) in graph
+
+
+def test_a_selection_ticker_with_an_ambiguous_cik_stays_unlinked(tmp_path: Path) -> None:
+    rows = _rows(tmp_path)
+    rows["v_cycle_ranking"][0]["ticker"] = "GOOGX"
+    assets = {
+        **ASSETS,
+        "GOOG": AssetInfo("GOOG", "0001652044"),
+        "GOOGL": AssetInfo("GOOGL", "0001652044"),
+    }
+    projection = project_selection(rows, assets, CATALOG, "rule", {"GOOGX": "0001652044"})
+    graph = _graph(projection)
+    snap = KG["Snap_rule_P1_7_1"]
+    assert (snap, KG.attractivenessOfAsset, None) not in graph
+    assert projection.asset_unlinked["v_cycle_ranking"] == 2  # GOOGX + ZZZ
+
+
+def test_a_selection_ticker_with_no_cik_and_no_exact_asset_stays_unlinked(
+    tmp_path: Path,
+) -> None:
+    rows = _rows(tmp_path)
+    rows["v_cycle_ranking"][0]["ticker"] = "NEW"
+    projection = project_selection(rows, ASSETS, CATALOG, "rule", {})
+    graph = _graph(projection)
+    snap = KG["Snap_rule_P1_7_1"]
+    assert (snap, KG.attractivenessOfAsset, None) not in graph
+    assert projection.asset_unlinked["v_cycle_ranking"] == 2  # NEW + ZZZ
 
 
 def test_a_no_component_row_stays_a_visible_placeholder(tmp_path: Path) -> None:

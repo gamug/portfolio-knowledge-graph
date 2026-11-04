@@ -24,6 +24,8 @@ from pathlib import Path
 import pytest
 import rdflib
 from fixtures.backtest_rows import ASSETS, backtest_db, load_catalog, scenario_rows
+from fixtures.reference_rows import ASSETS as REFERENCE_ASSETS
+from fixtures.reference_rows import reference_db
 from rdflib.query import ResultRow
 from rdflib.term import URIRef
 
@@ -37,6 +39,9 @@ from projection.backtest import (
     project_selection,
     read_view,
 )
+from projection.reference import VIEWS as REFERENCE_VIEWS
+from projection.reference import project as project_reference
+from projection.reference import read_view as read_reference_view
 from projection.source import FinancialSource
 
 REPO = Path(__file__).resolve().parent.parent
@@ -73,6 +78,7 @@ EXPECTED_NAMES = frozenset(
         "fibo-missing-sharpe",
         "active-rules",
         "universe-members-on-date",
+        "ticker-history-on-date",
         "performance-window-arm-segment",
         "guard-alerts-window-month-rule",
         "latest-nav-known-on-date",
@@ -133,12 +139,11 @@ EXPECTED_QUESTIONS = (
     "(control) ¿Qué empresas del portafolio son bancos o aseguradoras?",
 )
 
-#: The six status labels of the limits table (brief §6 plus "Not projected yet").
+#: The five status labels of the limits table (brief §6 plus "Not projected yet").
 STATUSES = (
     "Today",
     "After the asset catalog",
     "After T-209",
-    "After T-208",
     "Never by design",
     "Not projected yet",
 )
@@ -282,6 +287,21 @@ def catalog_dataset(tmp_path_factory: pytest.TempPathFactory) -> rdflib.Dataset:
     universe.add((KG.META, KG.tickerSymbol, rdflib.Literal("META")))
     universe.add((KG.SP500Index, RDF.type, KG.Universe))
 
+    # One ticker-history snapshot, projected through the real reference projector. The rename
+    # query reads only this graph; it does not depend on the universe graph above.
+    reference_source = FinancialSource.open(reference_db(tmp_path_factory.mktemp("reference")))
+    try:
+        reference_rows = {
+            view: read_reference_view(reference_source, view) for view in REFERENCE_VIEWS
+        }
+    finally:
+        reference_source.close()
+    reference_projection = project_reference(reference_rows, REFERENCE_ASSETS, "rule", "2026-11-04")
+    for name, builder in reference_projection.graphs.items():
+        graph = dataset.graph(URIRef(name))
+        for triple in builder.triples:
+            graph.add(triple)
+
     for label in ("rule", "champ_v1"):
         for window in ("P1", "P2"):
             for projection in _projections(
@@ -389,7 +409,7 @@ def test_the_asset_catalog_limits_are_stated() -> None:
 
 
 def test_the_backtest_table_lists_the_battery() -> None:
-    assert BACKTEST_ROW.findall(_document()) == [f"B{number}" for number in range(1, 9)]
+    assert BACKTEST_ROW.findall(_document()) == [f"B{number}" for number in range(1, 10)]
 
 
 def test_the_boundary_rule_is_stated() -> None:
@@ -398,6 +418,15 @@ def test_the_boundary_rule_is_stated() -> None:
     assert "questions 9 to 11 must not change with or without the FIBO slice" in text
     for status in STATUSES:
         assert status in text
+
+
+def test_the_hard_veto_marker_note_is_stated() -> None:
+    text = " ".join(_document().replace("`", "").split())
+    assert 'only the marker "HARD"' in text
+    assert "every rule missing from the JSON is a HARD rule" in text
+    assert "no JSON rule is ever extra" in text
+    assert "join it with the Veto stints in force" in text
+    assert "selection-vetoes-in-force" in text
 
 
 def test_backtest_queries_do_not_name_a_graph_or_a_run() -> None:
@@ -500,6 +529,20 @@ def test_a_membership_on_its_last_day_is_still_in(catalog_dataset: rdflib.Datase
     rows = _rows(catalog_dataset, _query("universe-members-on-date"))
     assert [str(row["ticker"]) for row in rows] == ["META"]
     assert str(rows[0]["to"]) == "2022-06-08"
+
+
+def test_ticker_history_resolves_a_former_symbol_to_its_asset(
+    catalog_dataset: rdflib.Dataset,
+) -> None:
+    """FB on 2022-06-08 is the last day of its stint; the canonical symbol is META."""
+    rows = _rows(catalog_dataset, _query("ticker-history-on-date"))
+    assert len(rows) == 1
+    row = rows[0]
+    assert str(row["symbol"]) == "FB"
+    assert str(row["canonical"]) == "META"
+    assert str(row["cik"]) == "0001326801"
+    assert str(row["asset"]) == f"{NS}META"
+    assert str(row["snapshot"]).startswith("urn:graph:derived:ticker-history:")
 
 
 def test_the_weight_classes_expose_no_per_asset_return_or_drifted_weight(

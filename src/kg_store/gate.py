@@ -7,6 +7,8 @@ A batch is Turtle destined for one named graph. It is written only if
    ``urn:graph:derived:quant:{date}``,
    ``urn:graph:derived:backtest:{run_label}:{P<number>}:{run}``,
    ``urn:graph:derived:backtest:selection:{run_label}:{P<number>}:{run}``,
+   ``urn:graph:derived:ticker-history:{run_label}:{date}``,
+   ``urn:graph:derived:orchestrator:{run_label}:{run}``,
    ``urn:graph:universe:{year}-Q{n}``, or ``urn:graph:portfolio:current``); the TBox,
    reference and rule-catalog graphs are loaded by ``cli/load_schema.py``;
 2. the graph is new, for the append-only ones (an ingest graph is never edited after
@@ -102,6 +104,16 @@ _QUARTER = r"\d{4}-Q[1-4]"
 _BACKTEST_TARGET = re.compile(
     r"urn:graph:derived:backtest:([a-z][a-z0-9_]{1,31}):(P[0-9]+):([1-9][0-9]*)"
 )
+#: A ticker-history snapshot is labelled and dated: a later refresh writes a new graph, never an
+#: edit to the existing one (T-352). The date is the snapshot date (``--as-of``).
+_TICKER_HISTORY_TARGET = re.compile(
+    rf"urn:graph:derived:ticker-history:([a-z][a-z0-9_]{{1,31}}):({_DATE})"
+)
+#: One orchestrator run per graph, labelled and identified by its positive run id (T-353). The id
+#: is not a date, so :func:`check_target` validates it on its own branch like the backtest id.
+_ORCHESTRATOR_TARGET = re.compile(
+    r"urn:graph:derived:orchestrator:([a-z][a-z0-9_]{1,31}):([1-9][0-9]*)"
+)
 #: The selection side of one backtest run (Work item 26) lives beside the m018 graph, not inside
 #: it: the m018 graph is append-only and may already be written. Same label/window vocabulary.
 _BACKTEST_SELECTION_TARGET = re.compile(
@@ -119,6 +131,8 @@ APPEND_ONLY_PATTERNS = (
     re.compile(rf"urn:graph:derived:quant:({_DATE})"),
     _BACKTEST_TARGET,
     _BACKTEST_SELECTION_TARGET,
+    _TICKER_HISTORY_TARGET,
+    _ORCHESTRATOR_TARGET,
     re.compile(rf"urn:graph:universe:({_QUARTER})"),
 )
 
@@ -155,9 +169,13 @@ def check_target(graph: str) -> bool:
     for pattern in APPEND_ONLY_PATTERNS:
         m = pattern.fullmatch(graph)
         if m:
-            if pattern in (_BACKTEST_TARGET, _BACKTEST_SELECTION_TARGET):
-                # The patterns already pin the label and window, and the last capture group is a
-                # positive id, so _date_ok would refuse every valid name.
+            if pattern in (
+                _BACKTEST_TARGET,
+                _BACKTEST_SELECTION_TARGET,
+                _ORCHESTRATOR_TARGET,
+            ):
+                # The patterns already pin the label and the positive id (the backtest window
+                # too), so _date_ok would refuse every valid name.
                 return True
             if not _date_ok(m.group(m.lastindex or 0)):
                 raise IngestRejected(f"{graph} has an impossible date")
@@ -169,6 +187,8 @@ def check_target(graph: str) -> bool:
         "urn:graph:derived:entity-resolution:{date|quarter}, urn:graph:derived:quant:YYYY-MM-DD, "
         "urn:graph:derived:backtest:{run label}:{P<number>}:{positive integer}, "
         "urn:graph:derived:backtest:selection:{run label}:{P<number>}:{positive integer}, "
+        "urn:graph:derived:ticker-history:{run label}:YYYY-MM-DD, "
+        "urn:graph:derived:orchestrator:{run label}:{positive integer}, "
         "urn:graph:universe:YYYY-Qn, "
         f"{', '.join(MUTABLE_GRAPHS)}"
     )
