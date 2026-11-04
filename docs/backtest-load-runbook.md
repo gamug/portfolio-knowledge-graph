@@ -198,6 +198,37 @@ per database, plus `SHACL-valid, not written`. Read the `rows:` lines and the
 `asset link omitted: ...` lines; record both. A non-empty asset-link count is expected when the
 catalog lacks a ticker (see §9). Stop on `STOPPED`, `rejected`, or a missing view.
 
+## 4a. Check the live store context (read-only)
+
+The dry run validates beside the full local `rules.ttl` and the universe database; the write uses
+the gate's narrower `fetch_context` from the live store. `--check-store` performs that same fetch
+with `SELECT` queries only, runs the gate's validation and prints `would be accepted` or
+`would be refused` for each graph. It writes nothing, so it needs neither `--write` nor
+`--to-production`; those flags are refused with it.
+
+Run it for both backtest sides and the reference snapshot:
+
+```bash
+SQL_UNIVERSE_DB=/workspaces/thesis/data/universe_history_gics.db \
+uv run python cli/project_backtest.py \
+  --db rule=data/backtests/rule_P1.db --db rule=data/backtests/rule_P2.db \
+  --db rule=data/backtests/rule_P3.db --check-store
+
+SQL_UNIVERSE_DB=/workspaces/thesis/data/universe_history_gics.db \
+uv run python cli/project_selection.py \
+  --db rule=data/backtests/rule_P1.db --db rule=data/backtests/rule_P2.db \
+  --db rule=data/backtests/rule_P3.db --check-store
+
+SQL_UNIVERSE_DB=/workspaces/thesis/data/universe_history_gics.db \
+uv run python cli/project_reference.py \
+  --db rule=data/backtests/rule_P1.db --as-of 2026-11-04 --check-store
+```
+
+A `would be refused` line is the same failure the write would hit: stop and fix the gate/context
+before writing. The 2026-11-04 read-only run against `portfolio_test` accepted all seven graphs
+(six backtest graphs and the ticker-history snapshot). This step is exactly what catches a relation
+whose context fetch is too narrow; the local dry run cannot see it.
+
 ## 5. Write (only after the dry run is clean)
 
 For a scratch repository, or for production after the maintainer's decision:

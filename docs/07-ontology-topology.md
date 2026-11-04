@@ -78,6 +78,19 @@ selection link); a ranking snapshot reaches its cycle by `:rankingOfCycle` and i
 m018 one, and a `--write` that finds it already present reports and skips it. The selection graph
 does not contain a `StrategyBook`, so `runs-available` still reads the m018 graph.
 
+**Context-fetch rule (Work item 30).** On a write the ingest gate does not validate a batch beside
+the whole store. It fetches, for each individual the batch points at, only the properties the
+shapes read: the target class comes from the relation's `sh:class` first and, when the relation
+declares none, from its `rdfs:range` in the TBox (`gate.context_predicates`). This is why
+`:appliesRule`/`:primaryRule` (no `sh:class`, deliberately, so the canonical pyshacl command can
+validate `instances.trig` without `rules.ttl`) and `:attractivenessOfAsset`/`:vetoOfAsset` (no
+property shape) still fetch `:ruleId`/`:category`/`:ruleSeverity` and
+`:cikNumber`/`:hasUniverseMembership`; fetching only `rdf:type` made `AssetShape` and
+`RuleDefinitionShape` fail on the first real selection write (2026-11-04, `portfolio_test`). The
+dry run validates beside the full local rules/asset graphs and cannot see this difference, so the
+projection CLIs offer a read-only `--check-store`: it runs the same `fetch_context` against the live
+store with `SELECT` only and then `gate.validate`, writing nothing.
+
 **Asset master load (T-220).** The real asset master (`portfolio-data-mining`'s point-in-time
 `universe.db`, D1) is written by `cli/load_universe.py` (logic in `src/kg_store/universe.py`) into
 the quarter graph of its `--as-of`, through the ingest gate, reusing `etl.asset_master`. It does

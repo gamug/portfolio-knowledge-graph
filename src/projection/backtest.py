@@ -1739,6 +1739,39 @@ def run(
     return out
 
 
+@dataclass
+class SelectionSourceProjection:
+    """One selection database after the boundary and the projector, before any store is touched."""
+
+    report: BoundaryReport
+    rows: dict[str, list[Row]]
+    projection: Projection
+
+
+def project_selection_source(
+    source: FinancialSource,
+    assets: Mapping[str, AssetInfo],
+    catalog: SelectionRuleCatalog,
+    label: str,
+) -> SelectionSourceProjection:
+    """Read the six selection views, run the boundary and project them; no store and no SHACL."""
+    books = read_view(source, "v_book")
+    source_failures = check_backtest_source(source.schema_version, books, load_source())
+    rows = {"v_book": books}
+    rows.update({view: read_view(source, view) for view in SELECTION_VIEWS})
+    ticker_ciks = ticker_cik_map(read_view(source, "v_ticker_history"))
+    expectations = load_expectations()
+    result = validate(
+        {view: rows[view] for view in SELECTION_VIEWS},
+        {view: expectations[view] for view in SELECTION_VIEWS},
+        source_failures=source_failures,
+    )
+    projection = project_selection(
+        {**result.rows, "v_book": books}, assets, catalog, label, ticker_ciks
+    )
+    return SelectionSourceProjection(result.report, result.rows, projection)
+
+
 def run_selection(
     source: FinancialSource,
     assets: Mapping[str, AssetInfo],
@@ -1754,22 +1787,11 @@ def run_selection(
     projector is writing a frozen backtest artifact, not a live ingest graph. A ranking row whose
     cycle run is not ``completed`` is counted as skipped; its components are counted too.
     """
-    books = read_view(source, "v_book")
-    source_failures = check_backtest_source(source.schema_version, books, load_source())
-    rows = {"v_book": books}
-    rows.update({view: read_view(source, view) for view in SELECTION_VIEWS})
-    ticker_ciks = ticker_cik_map(read_view(source, "v_ticker_history"))
-    expectations = load_expectations()
-    result = validate(
-        {view: rows[view] for view in SELECTION_VIEWS},
-        {view: expectations[view] for view in SELECTION_VIEWS},
-        source_failures=source_failures,
-    )
-    projection = project_selection(
-        {**result.rows, "v_book": books}, assets, catalog, label, ticker_ciks
-    )
+    source_projection = project_selection_source(source, assets, catalog, label)
+    result = source_projection.report
+    projection = source_projection.projection
     out = RunResult(
-        result.report,
+        result,
         projection.rows,
         projection.individuals,
         triples_by_class=projection.triples_by_class(),
@@ -1825,6 +1847,7 @@ __all__ = [
     "RunResult",
     "SelectionRule",
     "SelectionRuleCatalog",
+    "SelectionSourceProjection",
     "SourceProjection",
     "StoreInterrupted",
     "graph_name",
@@ -1832,6 +1855,7 @@ __all__ = [
     "load_selection_catalog",
     "project",
     "project_selection",
+    "project_selection_source",
     "project_source",
     "read_view",
     "resolve_rule",
