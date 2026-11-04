@@ -1885,3 +1885,62 @@ pinned pre-commit hooks pass; the opt-in real-database test passes for P1/P2/P3.
 or reload was made; the maintainer performs both.
 
 **Blocked on**: nothing.
+
+## Work item 30 — Gate context falls back to the relation range (T-420–T-439)
+
+**Status: closed 2026-11-04.**
+
+**Why**: the first real selection write (`portfolio_test`, 2026-11-04) was refused by SHACL
+violations that were not in the batch: `AssetShape` (CIK-or-closed-membership) for every linked
+asset and `RuleDefinitionShape` (validTo/ruleSeverity/category/priorityRank) for every referenced
+rule. The local dry run passed because it validates beside the complete `rules.ttl` and universe
+catalog.
+
+**Root cause**: `gate.context_predicates` took the properties to fetch from the shapes that target
+the relation's `sh:class`. `:attractivenessOfAsset`, `:vetoOfAsset`, `:appliesRule` and
+`:primaryRule` declare no `sh:class` (`appliesRule`/`primaryRule` deliberately, so the canonical
+`pyshacl` command can validate `instances.trig` without `rules.ttl`; `:vetoOfAsset` has no property
+shape). The fetched context was therefore only `rdf:type`, and pyshacl validated those typed
+context nodes against the class shapes. m018's `:holdingAsset`, `:guardAsset`, `:alertRule` and
+`:tickerHistoryAsset` declare `sh:class`, which is why those writes worked. The hermetic tests used
+`FakeGraphDB` with canned `terms` and never exercised the real fetch.
+
+**Fix**:
+
+1. In `context_predicates`, keep the `sh:class` rule first; for a used relation with no `sh:class`,
+   add the relation's `rdfs:range` from the TBox. A relation with neither still fetches only
+   `rdf:type`. The docstring and `docs/07` state the rule.
+2. Regression tests use an in-memory `rdflib.Dataset` as the store, strip
+   `FROM <http://www.ontotext.com/explicit> ` from the real `fetch_context` SPARQL, and hold
+   `rules.ttl` plus an asset catalog (open memberships with CIK, one closed CIK-less asset). The
+   selection batch's context now carries the shape-read predicates and conforms; a veto pointing
+   at a GUARD rule is refused because `sh:not category GUARD` can finally see the category.
+   `:tickerHistoryAsset`, `:holdingAsset` and `:guardAsset` have their own context predicates
+   assertions so a future relation without `sh:class` fails a test instead of a live write.
+3. `--check-store` in `cli/project_selection.py`, `cli/project_backtest.py` and
+   `cli/project_reference.py`: build every graph, fetch the context from the live store with
+   `SELECT` only, run `gate.validate` (new `gate.validate_against_store`), report
+   `would be accepted`/`would be refused`, and write nothing. It refuses `--write` and
+   `--to-production`. The runbook documents it as the step between the dry run and the write.
+
+**Real verification (2026-11-04, read-only against `portfolio_test`, no write/reload)**:
+
+| CLI | DB(s) | Result |
+|---|---|---|
+| `project_selection.py --check-store` | rule_P1/P2/P3 | accepted `...selection:rule:P1:1`, `:P2:1`, `:P3:1` |
+| `project_backtest.py --check-store` | rule_P1/P2/P3 | accepted `...backtest:rule:P1:1`, `:P2:1`, `:P3:1` |
+| `project_reference.py --check-store` | rule_P1/P2/P3 at `--as-of 2026-11-04` | accepted `...ticker-history:rule:2026-11-04` |
+
+**Acceptance criteria**:
+
+- The real fetch returns the shape-read predicates for the selection batch, and the batch conforms;
+  the GUARD-rule mutation is refused.
+- `--check-store` never writes, needs no production flag, and reports each graph; the real
+  `portfolio_test` run accepts the six backtest graphs and the ticker-history snapshot.
+- `uv run pytest`, `mypy` and the pinned pre-commit hooks pass; docs and counts are consistent.
+
+**Blocked on**: nothing. The user performs every write.
+
+**Verified 2026-11-04**: `uv run pytest -q` = **1237 passed, 58 deselected in 795.30 s**;
+`mypy` = success, **98 files**; pinned pre-commit hooks pass on every changed file; FR-001 remains
+**4431 quads; conforms: True**. No GraphDB write or reload was made.

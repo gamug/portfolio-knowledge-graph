@@ -1182,6 +1182,10 @@ see `CHANGELOG.md`.
 Work item 27 (T-350–T-360): closed 2026-11-04 — the ticker-history and orchestrator projector,
 CLI, gate patterns, tests, real dry runs and the `ticker-history-on-date` query; see
 `CHANGELOG.md` and `PLAN.md` Work item 27.
+Work item 30 (T-420–T-425): closed 2026-11-04 — the gate context falls back to the relation's
+TBox range, the real-fetch regression tests cover the selection batch, and `--check-store` was
+accepted read-only against `portfolio_test` for the six backtest graphs and the ticker-history
+snapshot; see `CHANGELOG.md` and `PLAN.md` Work item 30.
 T-163 (function done, PR #68) closes with T-031, whose first slice (PR #72) calls it on the real read and re-reads the late keys for `v_score_snapshot`; T-164 done (PR #69).
 Work item 8 (T-070–T-071) is independent but needs a human at a Protégé
 session, not a coding session.

@@ -716,19 +716,35 @@ def context_predicates(
     batch: rdflib.Graph, refs: set[rdflib.URIRef], schema: GateSchema
 ) -> set[rdflib.URIRef]:
     """The properties of ``refs`` that a shape reads: ``rdf:type`` and the ``sh:path``s of the shapes
-    that target the class required where the batch points at a reference (the ``sh:class`` of the
-    relation it uses), or a subclass of it.
+    that target the class required where the batch points at a reference.
+
+    The class comes from the relation's ``sh:class`` first. Some relations do not declare one
+    (``:appliesRule``/``:primaryRule`` deliberately, so the canonical pyshacl command can validate
+    ``instances.trig`` without ``rules.ttl``; ``:attractivenessOfAsset`` and ``:vetoOfAsset`` for
+    historical reasons). For those, the relation's ``rdfs:range`` in the TBox is the fallback: the
+    referenced individual is still validated against its class shape, so the context must carry
+    that shape's predicates (``:cikNumber``/``:hasUniverseMembership`` for an Asset, ``:category``/
+    ``:ruleSeverity`` for a RuleDefinition), not only ``rdf:type``.
 
     A referenced Asset also has a link per snapshot per day and more; none of them is read, so
-    none is fetched (the context would otherwise grow with the store's history). A relation with no
-    ``sh:class`` requires nothing of its target, so only ``rdf:type`` is fetched for it.
+    none is fetched (the context would otherwise grow with the store's history). A relation with
+    neither ``sh:class`` nor ``rdfs:range`` still fetches only ``rdf:type``.
     """
     sh = rdflib.namespace.SH
     used = {p for _, p, o in batch if o in refs}
     classes: set[rdflib.term.Node] = set()
+    classed: set[rdflib.term.Node] = set()
     for prop in schema.shapes.subjects(sh.path, None):
-        if schema.shapes.value(prop, sh.path) in used:
-            classes.update(schema.shapes.objects(prop, sh["class"]))
+        path = schema.shapes.value(prop, sh.path)
+        if path in used:
+            found = set(schema.shapes.objects(prop, sh["class"]))
+            if found:
+                classes.update(found)
+                classed.add(path)
+    # Work item 30: no sh:class on a relation is not "nothing is required of the target". Fall
+    # back to the TBox range so the class shape that validates the referenced node is fetched.
+    for path in used - classed:
+        classes.update(schema.tbox.objects(path, RDFS.range))
     wanted = {sub for c in classes for sub in schema.tbox.transitive_subjects(RDFS.subClassOf, c)}
     targets = [
         shape
@@ -848,6 +864,21 @@ def validate(
     if not conforms:
         # pyshacl returns the results as a Graph unless asked for another serialization.
         raise ShaclRejected(str(report), cast(rdflib.Graph, results))
+
+
+def validate_against_store(db: GraphDB, batch: rdflib.Graph, directory: Path | None = None) -> None:
+    """Run the gate's validation with the context the live store holds about ``batch``'s refs.
+
+    Read-only: it issues only the ``SELECT`` queries of :func:`fetch_context` and never writes.
+    This is the check ``--check-store`` runs to catch a context fetch that a dry run cannot see.
+    """
+    schema = load_gate_schema((directory or schema_dir()).resolve())
+    refs = references(batch, schema)
+    validate(
+        batch,
+        directory,
+        (lambda: fetch_context(db, refs, schema, batch)) if refs else None,
+    )
 
 
 def existing_subjects(db: GraphDB, batch: rdflib.Graph) -> list[str]:

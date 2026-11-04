@@ -1151,3 +1151,27 @@ rule are P1 321,324 / P2 309,728 / P3 342,934 triples with 0 unlinked ranking/ve
       `Today`, and keep both sides when merging `origin/master` (#120/#122). → step 6.
 - [x] **T-360** Mark T-208 and Work item 27 done, move the task block to `CHANGELOG.md`, update
       the asserted counts and run `pytest`, `mypy` and the pinned pre-commit hooks. → step 7.
+
+## Work item 30 — Gate context falls back to the relation range
+
+*From the first real selection write (portfolio_test, 2026-11-04). See `PLAN.md` Work item 30.
+Task IDs T-420–T-439.*
+
+- [x] **T-420** *(done 2026-11-04: `context_predicates` keeps the `sh:class` rule first and falls
+      back to the used relation's `rdfs:range` from the TBox; no `sh:class` and no range still
+      fetches only `rdf:type`. Docstring updated.)* Implement the fallback.
+- [x] **T-421** *(done 2026-11-04: `tests/test_gate_context_fallback.py` uses an in-memory Dataset
+      as the store and the real `fetch_context`; the selection batch conforms, the GUARD mutation
+      is refused, and `tickerHistoryAsset`/`holdingAsset`/`guardAsset` keep their AssetShape
+      predicates.)* Add the real-fetch regression tests.
+- [x] **T-422** *(done 2026-11-04: `--check-store` in the three projection CLIs, shared
+      `projection.store_check`, `gate.validate_against_store`; it reads with SELECT only, writes
+      nothing and refuses `--write`/`--to-production`.)* Add the read-only store check.
+- [x] **T-423** *(done 2026-11-04, read-only against `portfolio_test`: selection P1/P2/P3, m018
+      P1/P2/P3 and ticker-history P1/P2/P3 all `would be accepted`; no write/reload.)* Verify
+      against the live test repository.
+- [x] **T-424** *(done 2026-11-04: `PLAN.md` Work item 30, `SPEC.md` FR-010, `docs/07` context rule,
+      `docs/backtest-load-runbook.md` §4a, `CHANGELOG.md`.)* Update the docs.
+- [x] **T-425** *(done 2026-11-04: `uv run pytest -q` = 1237 passed, 58 deselected in 795.30 s;
+      `mypy` = success, 98 files; pinned pre-commit and FR-001 pass; the real check-store results
+      above.)* Run the checks and record them.

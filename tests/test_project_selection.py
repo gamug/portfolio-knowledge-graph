@@ -186,3 +186,21 @@ def test_a_store_failure_partway_reports_what_was_written(
 def test_a_missing_database_exits_1(capsys: pytest.CaptureFixture[str], tmp_path: Path) -> None:
     assert cli.main(["--db", f"rule={tmp_path / 'no.db'}"]) == 1
     assert "source error:" in capsys.readouterr().err
+
+
+def test_check_store_and_write_are_mutually_exclusive(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    with pytest.raises(SystemExit) as stop:
+        cli.parse_args(["--db", f"rule={tmp_path / 'x.db'}", "--check-store", "--write"])
+    assert stop.value.code == 2
+    assert "--check-store only reads" in capsys.readouterr().err
+
+
+def test_check_store_needs_no_production_flag(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    with pytest.raises(SystemExit) as stop:
+        cli.parse_args(["--db", f"rule={tmp_path / 'x.db'}", "--check-store", "--to-production"])
+    assert stop.value.code == 2
+    assert "drop --to-production" in capsys.readouterr().err
