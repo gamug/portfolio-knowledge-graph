@@ -1726,11 +1726,16 @@ def run(
             gate.validate(batch, context=context)
             out.checked.append(graph)
             continue
-        if _graph_exists(store, graph):
+        try:
+            plan = gate.plan(store, data, graph)
+        except gate.IngestRejected as exc:
+            out.rejected[graph] = str(exc)
+            continue
+        if plan.status is gate.IngestPlanStatus.ALREADY_IN_STORE:
             out.already_in_store.append(graph)
             continue
         try:
-            out.written[graph] = gate.ingest(store, data, graph)
+            out.written[graph] = gate.write(store, plan)
         except gate.WriteInDoubt as exc:
             out.in_doubt = graph
             raise StoreInterrupted(out, exc) from exc
@@ -1739,12 +1744,21 @@ def run(
     return out
 
 
+@dataclass
+class SelectionSourceProjection:
+    """One selection database after the boundary and the projector, before any store is touched."""
+
+    report: BoundaryReport
+    rows: dict[str, list[Row]]
+    projection: Projection
+
+
 def project_selection_source(
     source: FinancialSource,
     assets: Mapping[str, AssetInfo],
     catalog: SelectionRuleCatalog,
     label: str,
-) -> SourceProjection:
+) -> SelectionSourceProjection:
     """Read the six selection views plus ``v_book``, run the boundary and project them.
 
     The selection-side twin of :func:`project_source`: no store and no SHACL, so a dry run, a
@@ -1767,7 +1781,7 @@ def project_selection_source(
     projection = project_selection(
         {**result.rows, "v_book": books}, assets, catalog, label, ticker_ciks
     )
-    return SourceProjection(result.report, result.rows, projection)
+    return SelectionSourceProjection(result.report, result.rows, projection)
 
 
 def run_selection(
@@ -1805,22 +1819,22 @@ def run_selection(
             gate.validate(batch, context=context)
             out.checked.append(graph)
             continue
-        if _graph_exists(store, graph):
+        try:
+            plan = gate.plan(store, data, graph)
+        except gate.IngestRejected as exc:
+            out.rejected[graph] = str(exc)
+            continue
+        if plan.status is gate.IngestPlanStatus.ALREADY_IN_STORE:
             out.already_in_store.append(graph)
             continue
         try:
-            out.written[graph] = gate.ingest(store, data, graph)
+            out.written[graph] = gate.write(store, plan)
         except gate.WriteInDoubt as exc:
             out.in_doubt = graph
             raise StoreInterrupted(out, exc) from exc
         except gate.IngestRejected as exc:
             out.rejected[graph] = str(exc)
     return out
-
-
-def _graph_exists(store: GraphDB, graph: str) -> bool:
-    """Whether ``graph`` holds any statement: the gate's own test for an append-only graph."""
-    return bool(store.select(f"SELECT * WHERE {{ GRAPH <{graph}> {{ ?s ?p ?o }} }} LIMIT 1"))
 
 
 #: A ``Failure`` import keeps the module's public report types together for callers/tests.
@@ -1844,6 +1858,7 @@ __all__ = [
     "RunResult",
     "SelectionRule",
     "SelectionRuleCatalog",
+    "SelectionSourceProjection",
     "SourceProjection",
     "StoreInterrupted",
     "graph_name",

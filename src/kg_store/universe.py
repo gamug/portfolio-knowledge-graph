@@ -591,23 +591,25 @@ def plan_delta(
     )
 
 
-def check_delta(batch: DeltaBatch, store: GraphDB, directory: Path | None = None) -> None:
-    """Dry-run validation: ``gate.validate`` beside what the store holds about the references."""
+def check_delta(
+    batch: DeltaBatch, store: GraphDB, directory: Path | None = None
+) -> gate.IngestPlan | None:
+    """Run the real gate plan for the actionable delta; read-only, ``None`` for an empty delta.
+
+    This is every store-dependent check the write runs: the target graph's existence (check 2),
+    the typed individuals already stored (check 6) and the closing state (check 7), after the
+    same shape validation. It returns the plan so the caller can report its status.
+    """
     if not batch.actionable:
-        return
-    directory = (directory or schema_dir()).resolve()
-    data = gate.parse_batch(batch.data)
-    schema = gate.load_gate_schema(directory)
-    refs = gate.references(data, schema)
-    context = gate.fetch_context(store, refs, schema, data) if refs else None
-    gate.validate(data, directory, context)
+        return None
+    return gate.plan(store, batch.data, batch.graph, directory)
 
 
 def write_delta(batch: DeltaBatch, store: GraphDB, directory: Path | None = None) -> int:
-    """Append the actionable delta through the gate; an empty delta writes nothing."""
+    """Plan and append the actionable delta through the gate; an empty delta writes nothing."""
     if not batch.actionable:
         return 0
-    return gate.ingest(store, batch.data, batch.graph, directory)
+    return gate.write(store, gate.plan(store, batch.data, batch.graph, directory))
 
 
 def report_delta(batch: DeltaBatch, db_path: Path) -> list[str]:
@@ -796,8 +798,14 @@ def _run_delta(args: argparse.Namespace, db_path: Path, store: GraphDB) -> None:
     if not delta.actionable:
         print("done: empty delta, nothing written")
     elif not args.write:
-        check_delta(delta, store)
-        print("SHACL: conforms (gate.validate; dry run, nothing written)")
+        plan = check_delta(delta, store)
+        assert plan is not None  # only an actionable delta reaches this branch
+        if plan.status is gate.IngestPlanStatus.ALREADY_IN_STORE:
+            print(
+                f"pre-flight: already-in-the-store (skipped): {plan.graph} (dry run, nothing written)"
+            )
+        else:
+            print(f"pre-flight: {plan.status.value}: {plan.graph} (dry run, nothing written)")
     else:
         written = write_delta(delta, store)
         print(f"written: {written} triples to {delta.graph}")

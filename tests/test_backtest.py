@@ -444,11 +444,16 @@ def test_a_write_hands_the_graph_to_the_gate(
     store = make_db()
     written: list[str] = []
 
-    def ingest(_store: Any, data: bytes, graph: str) -> int:
-        written.append(graph)
-        return len(gate.parse_batch(data))
+    def plan(_store: Any, data: bytes, graph: str, *_args: Any) -> gate.IngestPlan:
+        batch = gate.parse_batch(data)
+        return gate.IngestPlan(graph, batch, gate.IngestPlanStatus.WOULD_WRITE, len(batch))
 
-    monkeypatch.setattr("projection.backtest.gate.ingest", ingest)
+    def write(_store: Any, plan: gate.IngestPlan) -> int:
+        written.append(plan.graph)
+        return plan.triples
+
+    monkeypatch.setattr("projection.backtest.gate.plan", plan)
+    monkeypatch.setattr("projection.backtest.gate.write", write)
     result = _run(backtest_db(tmp_path), store=store.db)
     assert written == ["urn:graph:derived:backtest:rule:P1:1"]
     assert result.written == {
@@ -463,8 +468,18 @@ def test_a_graph_that_already_exists_is_not_written_again(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, make_db: Any
 ) -> None:
     store = make_db(rows=[{"s": "x", "p": "x", "o": "x"}])
+
+    def plan(_store: Any, data: bytes, graph: str, *_args: Any) -> gate.IngestPlan:
+        return gate.IngestPlan(
+            graph,
+            gate.parse_batch(data),
+            gate.IngestPlanStatus.ALREADY_IN_STORE,
+            0,
+        )
+
+    monkeypatch.setattr("projection.backtest.gate.plan", plan)
     monkeypatch.setattr(
-        "projection.backtest.gate.ingest",
+        "projection.backtest.gate.write",
         lambda *_args, **_kwargs: pytest.fail("a graph that exists must not be written"),
     )
     result = _run(backtest_db(tmp_path), store=store.db)

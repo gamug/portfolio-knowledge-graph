@@ -1195,5 +1195,36 @@ sequence. See `PLAN.md` Work item 29. Task IDs T-390–T-419 (T-390–T-398 used
 - [x] **T-398** *(done 2026-11-04: `docs/backtest-load-runbook.md` rewritten around the
       one-command flow with the manual fallback, both graph names in naming/verification/rollback
       and the failure table; `README.md` command table, `docs/graphdb-setup.md`, `SPEC.md`
-      FR-009/FR-010, `PLAN.md` Work item 29 and this section updated; this section cut to
+      FR-009/FR-011, `PLAN.md` Work item 29 and this section updated; this section cut to
       `CHANGELOG.md`.)* Update the docs and close Work item 29.
+- [x] **T-399** *(done 2026-11-04, follow-up to the merged Work item 30: `gate.ingest` is now
+      `gate.write(db, gate.plan(...))`; `--check-store` and the `--delta` dry run use the same
+      plan, which runs the shape/context validation plus checks 2, 6 and 7; they report
+      `would-be-written`, `already-in-the-store` (skipped) or `refused`. `tests/test_kg_gate.py`
+      covers a skip, an existing individual and a closing-state refusal; `tests/test_store_check.py`
+      covers all three reported outcomes.)* Make the pre-flight run every store-dependent gate
+      check.
+
+## Work item 30 — Gate context falls back to the relation range
+
+*From the first real selection write (portfolio_test, 2026-11-04). See `PLAN.md` Work item 30.
+Task IDs T-420–T-439.*
+
+- [x] **T-420** *(done 2026-11-04: `context_predicates` keeps the `sh:class` rule first and falls
+      back to the used relation's `rdfs:range` from the TBox; no `sh:class` and no range still
+      fetches only `rdf:type`. Docstring updated.)* Implement the fallback.
+- [x] **T-421** *(done 2026-11-04: `tests/test_gate_context_fallback.py` uses an in-memory Dataset
+      as the store and the real `fetch_context`; the selection batch conforms, the GUARD mutation
+      is refused, and `tickerHistoryAsset`/`holdingAsset`/`guardAsset` keep their AssetShape
+      predicates.)* Add the real-fetch regression tests.
+- [x] **T-422** *(done 2026-11-04: `--check-store` in the three projection CLIs, shared
+      `projection.store_check`, `gate.validate_against_store`; it reads with SELECT only, writes
+      nothing and refuses `--write`/`--to-production`.)* Add the read-only store check.
+- [x] **T-423** *(done 2026-11-04, read-only against `portfolio_test`: selection P1/P2/P3, m018
+      P1/P2/P3 and ticker-history P1/P2/P3 all `would be accepted`; no write/reload.)* Verify
+      against the live test repository.
+- [x] **T-424** *(done 2026-11-04: `PLAN.md` Work item 30, `SPEC.md` FR-010, `docs/07` context rule,
+      `docs/backtest-load-runbook.md` §4a, `CHANGELOG.md`.)* Update the docs.
+- [x] **T-425** *(done 2026-11-04: `uv run pytest -q` = 1264 passed, 58 deselected in 775.75 s;
+      `mypy` = success, 99 files; pinned pre-commit and FR-001 pass; the real check-store results
+      above.)* Run the checks and record them.

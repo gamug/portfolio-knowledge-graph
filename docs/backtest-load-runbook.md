@@ -7,7 +7,7 @@ fallback. Everything here is read-only except the explicitly marked write steps
 (`cli/load_universe.py --write` or `--delta --write`, `cli/project_backtest.py --write`,
 `cli/project_selection.py --write` and `cli/load_run.py --write`); the verifier never writes.
 
-The verifier's checks are in `SPEC.md` FR-009, the one-command load is FR-010, the graph naming
+The verifier's checks are in `SPEC.md` FR-009, the one-command load is FR-011, the graph naming
 and projectors are in `SPEC.md` §2.6 and `docs/07-ontology-topology.md`, and the measured
 reference numbers are in [`graphdb-setup.md`](graphdb-setup.md). Work item 24 built the first
 verifier and this runbook; Work item 29 extended both to the selection side.
@@ -110,7 +110,7 @@ loader's own `--since` and `resolve_assets` and the store with `SELECT` only, th
 four-category difference:
 
 ```bash
-# dry run: reports the categories, the drift list and the target graph; SHACL-validates
+# dry run: reports the categories, the drift list, the target graph and the full gate pre-flight
 uv run python cli/load_universe.py --delta --as-of 2026-11-04
 # write the actionable delta (empty delta = no write):
 uv run python cli/load_universe.py --delta --as-of 2026-11-04 --write
@@ -129,7 +129,10 @@ is never dropped. The reference dry run (2026-11-04, read-only) over `portfolio_
 catalog's own `/workspaces/thesis/data/universe_history_gics.db` printed 0 new assets, 0 new
 memberships, 0 closures and 0 drift; a temporary copy with one new symbol and one closed open stint
 printed exactly 1/1/1/0. Use the empty result as the sanity check that the store and the source are
-in sync before a backtest write.
+in sync before a backtest write. A non-empty dry run also runs `gate.plan` -- the same graph
+existence (check 2), stored-individual (check 6) and closing-state (check 7) checks the write runs
+-- and prints `pre-flight: would-be-written` or `pre-flight: already-in-the-store (skipped)`; a
+refusal stops before writing.
 
 The delta goes into `urn:graph:universe:{year}-Q{n}:delta:{n}`, where `{n}` is the next free
 positive sequence for that quarter; each later delta gets the next number. It re-declares no stored
@@ -265,6 +268,46 @@ Expect exit 0 and one `graph: urn:graph:derived:backtest:{...}: <triples> triple
 database in each run, plus `SHACL-valid, not written`. Read the `rows:` lines and the
 `asset link omitted: ...` lines; record both. A non-empty asset-link count is expected when the
 catalog lacks a ticker (see §1b). Stop on `STOPPED`, `rejected`, or a missing view.
+
+## 4a. Check the live store (read-only pre-flight)
+
+The local dry run cannot see the store. `--check-store` runs the **same `gate.plan` the real write
+uses**, with `SELECT` queries only: the shape/context validation, the append-only target's
+existence (gate check 2), the typed individuals already stored (check 6) and the closing-state
+checks (check 7). It prints one of three results for each graph:
+
+- `would-be-written`: the graph is new and every gate check passed;
+- `already-in-the-store`: the append-only graph exists, so the write skips it;
+- `refused`: the same rejection the write would hit; stop and fix it before writing.
+
+It writes nothing, so it needs neither `--write` nor `--to-production`; those flags are refused
+with it.
+
+Run it for both backtest sides and the reference snapshot:
+
+```bash
+SQL_UNIVERSE_DB=/workspaces/thesis/data/universe_history_gics.db \
+uv run python cli/project_backtest.py \
+  --db rule=data/backtests/rule_P1.db --db rule=data/backtests/rule_P2.db \
+  --db rule=data/backtests/rule_P3.db --check-store
+
+SQL_UNIVERSE_DB=/workspaces/thesis/data/universe_history_gics.db \
+uv run python cli/project_selection.py \
+  --db rule=data/backtests/rule_P1.db --db rule=data/backtests/rule_P2.db \
+  --db rule=data/backtests/rule_P3.db --check-store
+
+SQL_UNIVERSE_DB=/workspaces/thesis/data/universe_history_gics.db \
+uv run python cli/project_reference.py \
+  --db rule=data/backtests/rule_P1.db --as-of 2026-11-04 --check-store
+```
+
+A `refused` line is the same failure the write would hit: stop and fix the gate/context before
+writing. The 2026-11-04 read-only run against `portfolio_test` accepted all seven graphs (six
+backtest graphs and the ticker-history snapshot); with this pre-flight they report
+`would-be-written`, or `already-in-the-store` when the graph was written earlier. This step is
+exactly what catches a relation whose context fetch is too narrow, a target graph that already
+exists, an individual that is already stored or a closing triple the store cannot take; the local
+dry run cannot see any of them.
 
 ## 5. Manual fallback: write (only after the dry runs are clean)
 
@@ -483,6 +526,8 @@ side) and re-project that database; never patch triples inside it.
 | `store error: cannot reach GraphDB ...` | `KG_HOST` is wrong. From the dev container use `http://host.docker.internal:7200`; `localhost` is the container. |
 | The verifier header names the wrong repository | `KG_REPOSITORY` (or `.env`) points elsewhere. Shell environment wins over `.env`; fix it and re-run the read-only verifier. If a graph was written to the wrong repository, drop only that one graph there (§9), never production. |
 | `DRIFT` from `cli/check_view_contract.py` or `--contract` | The pin and the new database disagree. Stop and re-pin (T-157/T-173); do not project. |
+| `refused: <graph>` from `--check-store` | The pre-flight's `gate.plan` hit the same rejection the write would: an existing individual (check 6), a closing state the store cannot take (check 7) or a shape/context failure. Fix the source or gate; do not bypass it. |
+| `already-in-the-store: <graph>` from `--check-store` | Append-only: the graph exists, so the write will skip it. Use a new label/date/run id if this should be a new artifact. |
 | A `FAIL` after `load_run.py --write` | The command prints the exact `DROP GRAPH` commands for the graphs it wrote. Read the failing check, decide the loss is acceptable, then drop only those graphs (§9) and re-project from the same copied database. |
 | `v_orchestrator_run: 0 rows, v_orchestrator_step: 0 rows: nothing to write` | Expected for the completed P1/P2/P3 databases: the two m015 views are empty. The ticker-history snapshot is still built and validated; there is no orchestrator graph to write. |
 | `canonical_symbol '...' is not the latest symbol` from `cli/project_reference.py` | The ticker-history view and the catalog disagree about a CIK line. Stop and report the CIK; do not edit the database or guess an asset. |

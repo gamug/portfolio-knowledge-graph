@@ -425,7 +425,7 @@ def test_the_delta_cli_dry_run_reports_the_categories_and_writes_nothing(
     assert "delta: 0 new asset(s), 0 new membership(s), 1 closure(s), 0 drift item(s)" in out
     assert "target graph: urn:graph:universe:2026-Q4:delta:1" in out
     assert "closures: :UM_CEG_2022-02-02 validTo 2026-01-15" in out
-    assert "SHACL: conforms" in out
+    assert "pre-flight: would-be-written" in out
     assert "dry run, nothing written" in out
     assert store.added == []
 

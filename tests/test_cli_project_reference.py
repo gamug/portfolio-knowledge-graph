@@ -125,3 +125,27 @@ def test_a_missing_database_exits_1(tmp_path: Path) -> None:
     result = _run(tmp_path, "--db", f"fixture={tmp_path / 'no.db'}")
     assert result.returncode == 1
     assert "source error:" in result.stderr
+
+
+def test_check_store_and_write_are_mutually_exclusive(tmp_path: Path) -> None:
+    result = _run(
+        tmp_path,
+        "--db",
+        f"fixture={reference_db(tmp_path)}",
+        "--check-store",
+        "--write",
+    )
+    assert result.returncode == 2
+    assert "--check-store only reads" in result.stderr
+
+
+def test_check_store_needs_no_production_flag(tmp_path: Path) -> None:
+    result = _run(
+        tmp_path,
+        "--db",
+        f"fixture={reference_db(tmp_path)}",
+        "--check-store",
+        "--to-production",
+    )
+    assert result.returncode == 2
+    assert "drop --to-production" in result.stderr

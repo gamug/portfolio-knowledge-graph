@@ -20,6 +20,7 @@ from rdflib.term import URIRef
 from projection import verify_backtest as cli
 from projection.backtest import (
     SelectionRuleCatalog,
+    SelectionSourceProjection,
     SourceProjection,
     load_selection_catalog,
     project_selection_source,
@@ -62,7 +63,9 @@ def _catalog() -> SelectionRuleCatalog:
     return load_selection_catalog(SCHEMA / "rules.ttl")
 
 
-def _built(tmp_path: Path, label: str = "rule") -> tuple[Path, SourceProjection, SourceProjection]:
+def _built(
+    tmp_path: Path, label: str = "rule"
+) -> tuple[Path, SourceProjection, SelectionSourceProjection]:
     path = backtest_db(tmp_path)
     source = FinancialSource.open(path)
     try:
@@ -73,7 +76,9 @@ def _built(tmp_path: Path, label: str = "rule") -> tuple[Path, SourceProjection,
     return path, backtest, selection
 
 
-def _dataset(backtest: SourceProjection, selection: SourceProjection) -> rdflib.Dataset:
+def _dataset(
+    backtest: SourceProjection, selection: SourceProjection | SelectionSourceProjection
+) -> rdflib.Dataset:
     dataset = rdflib.Dataset()
     for projection in (backtest, selection):
         for name, builder in projection.projection.graphs.items():

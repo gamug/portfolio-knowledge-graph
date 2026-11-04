@@ -74,6 +74,7 @@ import functools
 import re
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
+from enum import StrEnum
 from pathlib import Path
 from types import MappingProxyType
 from typing import NamedTuple, cast
@@ -165,6 +166,26 @@ class ShaclRejected(IngestRejected):
     def __init__(self, report: str, results: rdflib.Graph) -> None:
         super().__init__("SHACL validation failed:\n" + report)
         self.results = results
+
+
+class IngestPlanStatus(StrEnum):
+    """What a pre-flight plan says a real write would do."""
+
+    WOULD_WRITE = "would-be-written"
+    ALREADY_IN_STORE = "already-in-the-store"
+
+
+@dataclass(frozen=True)
+class IngestPlan:
+    """A validated batch plus what the store-dependent checks decided about it.
+
+    ``plan`` runs every check a write runs; ``write`` applies a plan and cannot skip or add one.
+    """
+
+    graph: str
+    batch: rdflib.Graph
+    status: IngestPlanStatus
+    triples: int
 
 
 def check_target(graph: str) -> bool:
@@ -722,19 +743,35 @@ def context_predicates(
     batch: rdflib.Graph, refs: set[rdflib.URIRef], schema: GateSchema
 ) -> set[rdflib.URIRef]:
     """The properties of ``refs`` that a shape reads: ``rdf:type`` and the ``sh:path``s of the shapes
-    that target the class required where the batch points at a reference (the ``sh:class`` of the
-    relation it uses), or a subclass of it.
+    that target the class required where the batch points at a reference.
+
+    The class comes from the relation's ``sh:class`` first. Some relations do not declare one
+    (``:appliesRule``/``:primaryRule`` deliberately, so the canonical pyshacl command can validate
+    ``instances.trig`` without ``rules.ttl``; ``:attractivenessOfAsset`` and ``:vetoOfAsset`` for
+    historical reasons). For those, the relation's ``rdfs:range`` in the TBox is the fallback: the
+    referenced individual is still validated against its class shape, so the context must carry
+    that shape's predicates (``:cikNumber``/``:hasUniverseMembership`` for an Asset, ``:category``/
+    ``:ruleSeverity`` for a RuleDefinition), not only ``rdf:type``.
 
     A referenced Asset also has a link per snapshot per day and more; none of them is read, so
-    none is fetched (the context would otherwise grow with the store's history). A relation with no
-    ``sh:class`` requires nothing of its target, so only ``rdf:type`` is fetched for it.
+    none is fetched (the context would otherwise grow with the store's history). A relation with
+    neither ``sh:class`` nor ``rdfs:range`` still fetches only ``rdf:type``.
     """
     sh = rdflib.namespace.SH
     used = {p for _, p, o in batch if o in refs}
     classes: set[rdflib.term.Node] = set()
+    classed: set[rdflib.term.Node] = set()
     for prop in schema.shapes.subjects(sh.path, None):
-        if schema.shapes.value(prop, sh.path) in used:
-            classes.update(schema.shapes.objects(prop, sh["class"]))
+        path = schema.shapes.value(prop, sh.path)
+        if path in used:
+            found = set(schema.shapes.objects(prop, sh["class"]))
+            if found:
+                classes.update(found)
+                classed.add(path)
+    # Work item 30: no sh:class on a relation is not "nothing is required of the target". Fall
+    # back to the TBox range so the class shape that validates the referenced node is fetched.
+    for path in used - classed:
+        classes.update(schema.tbox.objects(path, RDFS.range))
     wanted = {sub for c in classes for sub in schema.tbox.transitive_subjects(RDFS.subClassOf, c)}
     targets = [
         shape
@@ -856,6 +893,22 @@ def validate(
         raise ShaclRejected(str(report), cast(rdflib.Graph, results))
 
 
+def validate_against_store(db: GraphDB, batch: rdflib.Graph, directory: Path | None = None) -> None:
+    """Run the gate's validation with the context the live store holds about ``batch``'s refs.
+
+    Read-only: it issues only the ``SELECT`` queries of :func:`fetch_context` and never writes.
+    It is the shape/context half of the gate, kept for callers that only need that; the
+    ``--check-store`` pre-flight uses :func:`plan`, which runs every store-dependent check.
+    """
+    schema = load_gate_schema((directory or schema_dir()).resolve())
+    refs = references(batch, schema)
+    validate(
+        batch,
+        directory,
+        (lambda: fetch_context(db, refs, schema, batch)) if refs else None,
+    )
+
+
 def existing_subjects(db: GraphDB, batch: rdflib.Graph) -> list[str]:
     """Typed IRI subjects of ``batch`` that already have statements in the store."""
     iris = sorted({str(s) for s in batch.subjects(RDF.type, None) if isinstance(s, rdflib.URIRef)})
@@ -871,12 +924,15 @@ def existing_subjects(db: GraphDB, batch: rdflib.Graph) -> list[str]:
     return found
 
 
-def ingest(db: GraphDB, data: bytes, graph: str, directory: Path | None = None) -> int:
-    """Validate a Turtle batch and, only if it passes, append it to ``graph``. Returns triples written.
+def plan(db: GraphDB, data: bytes, graph: str, directory: Path | None = None) -> IngestPlan:
+    """Run every check :func:`ingest` runs, without writing; return the plan.
 
-    The store is read for the individuals the batch points at, whether the graph exists (append-only
-    ones), the closing triples' subjects and the stored sections it restates, and the typed individuals
-    it declares, in that order, each only after the checks before it passed."""
+    The store is read for the individuals the batch points at, whether the graph exists
+    (append-only ones), the closing triples' subjects and the stored sections it restates, and the
+    typed individuals it declares, in that order, each only after the checks before it passed.
+    ``ALREADY_IN_STORE`` means the target append-only graph exists, so a writer skips it;
+    :func:`write` keeps the historical refusal for a real ``ingest`` call.
+    """
     append_only = check_target(graph)
     batch = parse_batch(data)
     schema = load_gate_schema((directory or schema_dir()).resolve())
@@ -885,7 +941,7 @@ def ingest(db: GraphDB, data: bytes, graph: str, directory: Path | None = None) 
     # the context is fetched lazily, and the two checks below it run on a batch that passed.
     validate(batch, directory, (lambda: fetch_context(db, refs, schema, batch)) if refs else None)
     if append_only and db.select(f"SELECT * WHERE {{ GRAPH <{graph}> {{ ?s ?p ?o }} }} LIMIT 1"):
-        raise IngestRejected(f"{graph} already exists and is append-only; write a new dated graph")
+        return IngestPlan(graph, batch, IngestPlanStatus.ALREADY_IN_STORE, len(batch))
     closing = {s for s, _ in closing_values(batch)}
     restated = superseded_sections(batch)
     if closing or restated:
@@ -907,8 +963,30 @@ def ingest(db: GraphDB, data: bytes, graph: str, directory: Path | None = None) 
             "individuals that already exist in the store (observations are immutable; use a "
             "new IRI, or :validTo / :clearedOn to close one): " + ", ".join(taken)
         )
+    return IngestPlan(graph, batch, IngestPlanStatus.WOULD_WRITE, len(batch))
+
+
+def write(db: GraphDB, plan: IngestPlan) -> int:
+    """Apply a plan from :func:`plan`. Returns the triples written.
+
+    An existing append-only graph is still refused here, as ``ingest`` always did; a caller that
+    wants to skip it checks ``plan.status`` first. ``AnswerLost`` becomes ``WriteInDoubt``.
+    """
+    if plan.status is IngestPlanStatus.ALREADY_IN_STORE:
+        raise IngestRejected(
+            f"{plan.graph} already exists and is append-only; write a new dated graph"
+        )
     try:
-        db.add(batch.serialize(format="nt").encode(), "application/n-triples", graph)
+        db.add(plan.batch.serialize(format="nt").encode(), "application/n-triples", plan.graph)
     except AnswerLost as exc:
         raise WriteInDoubt(str(exc)) from exc
-    return len(batch)
+    return plan.triples
+
+
+def ingest(db: GraphDB, data: bytes, graph: str, directory: Path | None = None) -> int:
+    """Plan every check and, only if it passes, append the batch to ``graph``.
+
+    Returns the triples written. Kept as the one-call API for callers that do not need the plan;
+    it is exactly ``write(db, plan(db, data, graph, directory))``.
+    """
+    return write(db, plan(db, data, graph, directory))

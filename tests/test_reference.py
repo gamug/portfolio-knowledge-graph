@@ -268,11 +268,16 @@ def test_a_write_hands_each_graph_to_the_gate(
     store = make_db()
     written: list[str] = []
 
-    def ingest(_store: Any, data: bytes, graph: str) -> int:
-        written.append(graph)
-        return len(gate.parse_batch(data))
+    def plan(_store: Any, data: bytes, graph: str, *_args: Any) -> gate.IngestPlan:
+        batch = gate.parse_batch(data)
+        return gate.IngestPlan(graph, batch, gate.IngestPlanStatus.WOULD_WRITE, len(batch))
 
-    monkeypatch.setattr("projection.reference.gate.ingest", ingest)
+    def write(_store: Any, plan: gate.IngestPlan) -> int:
+        written.append(plan.graph)
+        return plan.triples
+
+    monkeypatch.setattr("projection.reference.gate.plan", plan)
+    monkeypatch.setattr("projection.reference.gate.write", write)
     source = FinancialSource.open(reference_db(tmp_path))
     try:
         result = run(source, ASSETS, LABEL, SNAPSHOT, store=store.db)
@@ -287,8 +292,18 @@ def test_a_graph_that_already_exists_is_not_written_again(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, make_db: Any
 ) -> None:
     store = make_db(rows=[{"s": "x", "p": "x", "o": "x"}])
+
+    def plan(_store: Any, data: bytes, graph: str, *_args: Any) -> gate.IngestPlan:
+        return gate.IngestPlan(
+            graph,
+            gate.parse_batch(data),
+            gate.IngestPlanStatus.ALREADY_IN_STORE,
+            0,
+        )
+
+    monkeypatch.setattr("projection.reference.gate.plan", plan)
     monkeypatch.setattr(
-        "projection.reference.gate.ingest",
+        "projection.reference.gate.write",
         lambda *_args, **_kwargs: pytest.fail("a graph that exists must not be written"),
     )
     source = FinancialSource.open(reference_db(tmp_path))

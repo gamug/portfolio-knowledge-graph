@@ -5,12 +5,15 @@ the snapshot date, the production guard and the exit status. ``cli/project_refer
 thin entry point (constitution Project structure #10); :mod:`projection.reference` does the work.
 
     uv run python cli/project_reference.py --db live=base.db --as-of 2026-11-04
+    uv run python cli/project_reference.py --db live=base.db --as-of 2026-11-04 --check-store
     uv run python cli/project_reference.py --db live=base.db --write
 
 ``--db`` takes ``LABEL=PATH``. The label names the source family and is part of the ticker-history
 graph and every individual IRI, so two databases never collide. A dry run (the default) reads the
 database, runs the boundary, builds every graph and validates it against ``shapes.ttl``; it never
-contacts the store and writes nothing. ``--write`` appends each graph through the ingest gate, but
+contacts the store and writes nothing. ``--check-store`` builds the same graphs and runs the full
+gate plan against the live store with ``SELECT`` only, reporting each graph as would-be-written,
+already-in-the-store (skipped) or refused; it never writes. ``--write`` appends each graph through the ingest gate, but
 writing to the production repository (``KG_REPOSITORY=portfolio``) also needs
 ``--to-production``; without it the run exits 2 before any graph is built or written. A graph that
 already exists is never appended to; it is reported and skipped.
@@ -33,13 +36,15 @@ import sys
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 from etl import config
 from kg_store.graphdb import PRODUCTION_REPOSITORY, GraphDB, GraphDBError
 from projection.backtest import RUN_LABEL_PATTERN, ProjectionError, universe_assets
 from projection.boundary import BoundaryError
-from projection.reference import ReferenceRunResult, StoreInterrupted, run
+from projection.reference import ReferenceRunResult, StoreInterrupted, project_source, run
 from projection.source import FinancialSource
+from projection.store_check import check_graphs
 
 
 @dataclass(frozen=True)
@@ -96,11 +101,20 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument("--write", action="store_true", help="append the graphs to the store")
     parser.add_argument(
+        "--check-store",
+        action="store_true",
+        help="read the live store, validate the same batches beside its context, write nothing",
+    )
+    parser.add_argument(
         "--to-production",
         action="store_true",
         help="with --write: allow the production repository (a maintainer decision)",
     )
     args = parser.parse_args(argv)
+    if args.check_store and args.write:
+        parser.error("--check-store only reads; do not combine it with --write")
+    if args.check_store and args.to_production:
+        parser.error("--check-store never writes; drop --to-production")
     if args.to_production and not args.write:
         parser.error("--to-production only matters with --write")
     paths = [database.path for database in args.db]
@@ -129,6 +143,33 @@ def open_store(args: argparse.Namespace) -> GraphDB | None:
     return store
 
 
+def check_store(args: argparse.Namespace) -> bool:
+    """Build each graph and validate it beside the live store's context; write nothing."""
+    snapshot = args.as_of or today()
+    store = GraphDB.from_env()
+    assets = universe_assets(config.universe_db_path())
+    failed = False
+    for database in args.db:
+        source = FinancialSource.open(database.path)
+        try:
+            projection = project_source(source, assets, database.label, snapshot)
+        finally:
+            source.close()
+        graphs = {
+            graph: projection.projection.turtle(graph) for graph in projection.projection.graphs
+        }
+        failed = (
+            check_graphs(
+                store,
+                graphs,
+                config.schema_dir(),
+                label=f"{database.label}: {database.path}",
+            )
+            or failed
+        )
+    return failed
+
+
 def project(args: argparse.Namespace) -> list[tuple[Database, ReferenceRunResult]]:
     """Read, validate and (when asked) write every database's graphs."""
     snapshot = args.as_of or today()
@@ -144,11 +185,16 @@ def project(args: argparse.Namespace) -> list[tuple[Database, ReferenceRunResult
     return results
 
 
-def main(argv: Sequence[str] | None = None) -> int:
+def main(argv: Sequence[str] | None = None) -> int:  # noqa: PLR0911 -- one per failure kind
     args = parse_args(argv)
     args.as_of = args.as_of or today()
+    check_failed = False
+    results: list[tuple[Database, Any]] = []
     try:
-        results = project(args)
+        if args.check_store:
+            check_failed = check_store(args)
+        else:
+            results = project(args)
     except (BoundaryError, ProjectionError) as exc:
         print(f"STOPPED\n{exc}", file=sys.stderr)
         return 1
@@ -173,6 +219,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     except OSError as exc:
         print(f"file error: {exc}", file=sys.stderr)
         return 1
+    if args.check_store:
+        return 1 if check_failed else 0
     failed = False
     for database, result in results:
         print(f"\n{database.label}: {database.path}")
