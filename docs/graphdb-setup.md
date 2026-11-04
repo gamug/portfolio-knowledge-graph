@@ -105,32 +105,37 @@ into another quarter re-declares the same `:Asset`/`:Universe` individuals and i
 gets its own repository (Work item 17). Exit status: 0 on success, 1 if the source, the shapes, the
 gate or the store stop the run, 2 on a bad argument or the production guard.
 
-A dry run of 2026-11-03 over `/workspaces/thesis/data/universe_history.db` (read-only; no write was
-made) kept 657 of 891 stints over 653 symbols and dropped 234 stints of 229 symbols (214 not
-loaded at all, 15 with a later stint kept), wrote 648 `:Asset`s plus the five already in
-`reference.ttl`, 657 memberships (503 open, 154 closed), and built 6476 triples; `gate.validate`
-reported SHACL conforms in 1.3 s. Every ticker in `v_book_weight_daily` (CASH excluded),
-`v_guard_alert` and `v_guard_action` of `rule_P1/P2/P3.db` is in the loaded set (P1 100, P2 123,
-P3 115; 0 missing). The known overlap with the worked example's `2026-Q3` memberships is recorded
-in `docs/07`.
+A dry run of 2026-11-04 over `/workspaces/thesis/data/universe_history_gics.db` (read-only; no
+write was made) kept 657 of 891 stints over 653 symbols and dropped 234 stints of 229 symbols (214
+not loaded at all, 15 with a later stint kept), wrote 648 `:Asset`s plus the five already in
+`reference.ttl`, 657 memberships (503 open, 154 closed), and built 6563 triples; `gate.validate`
+reported SHACL conforms in 1.2 s. The six historical GICS sub-industry strings that file carries
+(`Alternative Carriers`, `Drug Retail`, `Home Furnishings`, `Household Appliances`, `Housewares &
+Specialties`, `Thrifts & Mortgage Finance`) now roll up to existing `reference.ttl` groups, so the
+run leaves no asset unmapped for them (6557 triples before those six mappings; 6476 was the
+earlier `universe_history.db` run). Every ticker in
+`v_book_weight_daily` (CASH excluded), `v_guard_alert` and `v_guard_action` of
+`rule_P1/P2/P3.db` is in the loaded set (P1 100, P2 123, P3 115; 0 missing). The known overlap
+with the worked example's `2026-Q3` memberships is recorded in `docs/07`.
 
 A second dry run, 2026-11-04 over
 `/workspaces/thesis/data/universe_history_gics.db` after T-260 made `validTo` inclusive (still
 read-only; no write was made), kept 658 of 894 stints over 654 symbols and dropped 236 stints of
 230 symbols (215 not loaded at all, 15 with a later stint kept), wrote 649 `:Asset`s plus the five
-already in `reference.ttl`, 658 memberships (503 open, 155 closed), and built 6567 triples;
+already in `reference.ttl`, 658 memberships (503 open, 155 closed), and built 6573 triples;
 `gate.validate` reported SHACL conforms in 1.2 s. The three one-day stints (`PHIN` on 2023-07-05,
 and `HNG`/`AYE` on 1976-06-30) are now kept by the reader; `--since` then drops the two 1976 ones.
-70 written `:Asset`s carry no `:classifiedAs` because their latest GICS sub-industry has no rollup
-entry (six distinct values). Every ticker in `v_book_weight_daily` (CASH excluded),
+64 written `:Asset`s carry no `:classifiedAs`: their latest stint has no GICS sub-industry at all
+(the six historical values Work item 22 mapped are no longer among them). Every ticker in
+`v_book_weight_daily` (CASH excluded),
 `v_guard_alert` and `v_guard_action` of `rule_P1/P2/P3.db` remains in the loaded set (P1 100,
 P2 123, P3 115; 0 missing).
 
 A third dry run, 2026-11-04 after T-264 folded pure ticker successions into one `:Asset` (again
 read-only; no write was made), kept the same 658 stints over 654 symbols, wrote 643 `:Asset`s plus
 the five already in `reference.ttl` (648 assets from 654 symbols; six successions folded), 658
-memberships (503 open, 155 closed), and built 6542 triples; SHACL conforms. 65 written assets have
-no `:classifiedAs` (the same six unmapped sub-industry values; the fold removes five old symbols
+memberships (503 open, 155 closed), and built 6548 triples; SHACL conforms. 59 written assets have
+no `:classifiedAs` (their latest stint has no GICS sub-industry; the fold removes five old symbols
 that also lacked one). Of the 11 CIKs with more than one symbol, six are pure successions (`EG/RE`,
 `WTW/WLTW`, `CPAY/FLT`, `META/FB`, `ECHO/SATS`, `DAY/CDAY`), four are concurrent classes
 (`UA/UAA`, `NWS/NWSA`, `GOOG/GOOGL`, `FOX/FOXA`) and one is mixed (`DISCA`/`DISCK`/`WBD`) and
@@ -178,9 +183,11 @@ nothing written:
    value is refused. Closing a record is the untyped `:validTo` path (check 4); and
 7. every closing triple closes a stored individual that is still open (T-180): the store must hold
    it, of a class the property closes (`gate.CLOSABLE`; `:validTo`: a membership, a position, a rule,
-   a ticker-history row or a design-history weight scheme, never a per-run one; `:clearedOn`: a Veto), with no value for it
-   yet, and the batch gives it one date, later than the one it opened on (`:validFrom` /
-   `:raisedOn`). A closure of an unknown subject, of an observation, of a record already closed or
+   a ticker-history or membership row or a design-history weight scheme, never a per-run one;
+   `:clearedOn`: a Veto), with no value for it yet, and the batch gives it one date, later than the
+   one it opened on (`:validFrom` / `:raisedOn`). For a TickerHistory or a UniverseMembership the
+   interval is inclusive, so a closing date equal to the opening date is a one-day record and is
+   accepted; a closure of an unknown subject, of an observation, of a record already closed or
    closed before it opened is refused. The store is read in any graph, so a new quarter's graph can
    close the previous quarter's memberships. The check reads, then writes: two batches closing the
    same record at once can both pass it. A Veto cleared before the latest `:lastSeenOn` is refused too

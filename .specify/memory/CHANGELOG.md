@@ -778,11 +778,73 @@ no `src/`, `schema/` or gate change.*
       mix; the §6 legend notes that the asset loader exists as `cli/load_universe.py` but the
       statuses stay until the maintainer runs it and the live check passes.
 
+## Work item 22 — Map the six retired GICS sub-industry names (2026-11-04)
+
+*Closed 2026-11-04. Plan: `PLAN.md` Work item 22. Only the rollup table, its
+tests and docs changed; `schema/reference.ttl`, the shapes, the tbox and the
+loader were untouched.*
+
+- [x] **T-250** *(done 2026-11-04, read-only)* Audit
+      `file:/workspaces/thesis/data/universe_history_gics.db?mode=ro` under the
+      loader's `--since 2019-01-02` kept set. Each of the six names occurs on
+      exactly one kept stint, one symbol: Alternative Carriers (LUMN,
+      1976-07-01..2023-03-19, Communication Services); Drug Retail (WBA,
+      1976-07-01..2025-08-27, Consumer Staples); Home Furnishings (MHK,
+      2013-12-23..2025-12-21, Consumer Discretionary); Household Appliances
+      (WHR, 1976-07-01..2024-03-17, Consumer Discretionary); Housewares &
+      Specialties (NWL, 1976-07-01..2023-09-17, Consumer Discretionary);
+      Thrifts & Mortgage Finance (PBCT, 1976-07-01..2022-04-03, Financials).
+      All six had an unambiguous existing reference group, so no mapping needed
+      to stop for a decision. → step 1.
+- [x] **T-251** *(done 2026-11-04)* Add the six entries to
+      `SUB_INDUSTRY_TO_INDUSTRY` in `src/etl/common/gics_rollup.py`: Alternative
+      Carriers -> `Ind_TelecomServices`; Drug Retail ->
+      `Ind_ConsumerStaplesRetail`; Home Furnishings, Household Appliances and
+      Housewares & Specialties -> `Ind_ConsumerDurables`; Thrifts & Mortgage
+      Finance -> `Ind_Banks`. The comment beside them marks them historical,
+      notes that only Thrifts & Mortgage Finance was itself discontinued by the
+      March 2023 reclassification (into Commercial & Residential Mortgage
+      Finance), and leaves `lookup()` returning `None` for every other unmapped
+      name. → step 2.
+- [x] **T-252** *(done 2026-11-04)* Add one parametrized case per name in
+      `tests/test_etl_common.py`, asserting the target group and the period
+      sector cross-check (`sector_matches`); the existing unknown-name case
+      still fixes `lookup("Not A Sub-Industry") is None`. → step 3.
+- [x] **T-253** *(done 2026-11-04)* Add
+      `test_a_dry_run_maps_the_historical_sub_industries_without_a_warning` in
+      `tests/test_cli_load_universe.py`: a six-row fixture through
+      `cli/load_universe.py` exits 0, reports no "no rollup entry" warning and
+      names none of the six strings. → step 3.
+- [x] **T-254** *(done 2026-11-04, read-only)* Full dry run over
+      `universe_history_gics.db`: 657 of 891 stints kept over 653 symbols, 648
+      assets written plus the five in `reference.ttl`, 657 memberships (503
+      open, 154 closed), **6563 triples** (6557 before), no rollup warning and
+      SHACL conforms. LUMN, WBA, MHK, WHR, NWL and PBCT each gained the expected
+      `:classifiedAs`; the only remaining warnings are the pre-existing stray
+      `|` and empty-stint reports. → step 4.
+- [x] **T-255** *(done 2026-11-04)* Document the rollup and the six historical
+      names in `src/etl/README.md`, including the mapping table and the
+      retained-vs-retired distinction. → step 5.
+- [x] **T-256** *(done 2026-11-04)* Update the real dry-run record in
+      `docs/graphdb-setup.md` to the 2026-11-04 run over
+      `universe_history_gics.db`, 6563 triples and no unmapped warning. → step 5.
+- [x] **T-257** *(done 2026-11-04)* Update SPEC FR-008's acceptance count and
+      the Work item 19 plan count to 6563 (recording 6557 as the before value;
+      6476 was the earlier `universe_history.db` run); no schema count changed. → step 5.
+- [x] **T-258** *(done 2026-11-04)* Record Work item 22 in `PLAN.md`, move its
+      task block here, and add the closed-work-item pointer to `TASKS.md`. → step 5.
+- [x] **T-259** *(done 2026-11-04)* Verify: `uv run pytest -q` = 1052 passed,
+      56 deselected in 665.18 s; `uv run mypy --config-file=.code_quality/mypy.ini`
+      = success, 77 files; `uv run pre-commit run --files <changed files>` passes
+      all hooks (the standalone `uv run ruff check .` still reports the
+      pre-existing repo-wide 0.16.x/config mismatch, not these files). → step 5.
+
 ## Work item 23 — Inclusive membership end dates and one asset per CIK (2026-11-04)
 
-*Closed 2026-11-04. Plan: `PLAN.md` Work item 23. Two commits on
+*Closed 2026-11-04. Plan: `PLAN.md` Work item 23. Two work commits on
 `feat/universe-inclusive-validto-cik-fold`: T-260–T-263 are Commit 1 (the inclusive `validTo`);
-T-264–T-271 are Commit 2 (the CIK fold). No GraphDB write or schema reload in either.*
+T-264–T-271 are Commit 2 (the CIK fold); `origin/master` was merged after PR #119, keeping both
+sides of the append-only logs. No GraphDB write or schema reload was made.*
 
 - [x] **T-260** *(done 2026-11-04)* Make `:UniverseMembership`'s `validTo` inclusive:
       `read_stints` keeps `valid_to == valid_from` and skips only `valid_to < valid_from`;
@@ -800,12 +862,12 @@ T-264–T-271 are Commit 2 (the CIK fold). No GraphDB write or schema reload in 
       `validFrom <= D AND (no validTo OR validTo >= D)`. → Commit 1.
 - [x] **T-263** *(done 2026-11-04, read-only)* Real-data verification on
       `/workspaces/thesis/data/universe_history_gics.db`: before 657 stints over 653 symbols, 648
-      `:Asset`s plus five in `reference.ttl`, 657 memberships (503 open, 154 closed), 6557 triples,
-      69 written assets without `:classifiedAs`; after 658 stints over 654 symbols (236 dropped over
-      230; 215 not loaded, 15 with a later
-      stint kept), 649 `:Asset`s plus five, 658 memberships (503 open, 155 closed), 6567 triples,
-      70 written assets without `:classifiedAs` (six unmapped sub-industry values), SHACL
-      conforms. → `PLAN.md` Work item 23, Commit 1.
+      `:Asset`s plus five in `reference.ttl`, 657 memberships (503 open, 154 closed), 6563 triples,
+      63 written assets without `:classifiedAs`; after 658 stints over 654 symbols (236 dropped over
+      230; 215 not loaded, 15 with a later stint kept), 649 `:Asset`s plus five, 658 memberships
+      (503 open, 155 closed), 6573 triples, 64 written assets without `:classifiedAs` (their latest
+      stint has no GICS sub-industry; Work item 22's six values are mapped), SHACL conforms.
+      → `PLAN.md` Work item 23, Commit 1.
 - [x] **T-264** *(done 2026-11-04)* Added one shared CIK-aware resolver
       (`etl.asset_master.resolve_assets`, with `classify_ciks` and `AssetResolutionError`): a pure
       succession (one CIK, symbols' inclusive stints non-overlapping) becomes one `:Asset` named
@@ -828,9 +890,9 @@ T-264–T-271 are Commit 2 (the CIK fold). No GraphDB write or schema reload in 
       projector agree. → Commit 2.
 - [x] **T-268** *(done 2026-11-04, read-only)* Real-data verification on
       `universe_history_gics.db` at `--since` 2019-01-02: before 658 stints over 654 symbols, 649
-      `:Asset`s plus five, 658 memberships (503 open, 155 closed), 6567 triples, 70 without
+      `:Asset`s plus five, 658 memberships (503 open, 155 closed), 6573 triples, 64 without
       `:classifiedAs`; after 643 `:Asset`s plus five (648 assets from 654 symbols; six successions
-      folded), 658 memberships (503 open, 155 closed), 6542 triples, 65 without `:classifiedAs`,
+      folded), 658 memberships (503 open, 155 closed), 6548 triples, 59 without `:classifiedAs`,
       SHACL conforms. Every multi-symbol CIK is classified: six successions, four concurrent, one
       mixed. → Commit 2.
 - [x] **T-269** *(done 2026-11-04, read-only)* Dry runs of `cli/project_backtest.py` for

@@ -179,6 +179,19 @@ SUB_INDUSTRY_TO_INDUSTRY = {
     "Other Specialized REITs": "Ind_EquityREITs",
     # --- Real Estate: Real Estate Management & Development ---
     "Real Estate Services": "Ind_RealEstateMgmtDev",
+    # --- Historical GICS Sub-Industry names ---
+    # These six strings occur only on closed stints in universe_history_gics.db,
+    # so no current constituent carries them. Only "Thrifts & Mortgage Finance"
+    # was discontinued by the March 2023 GICS reclassification (into Commercial &
+    # Residential Mortgage Finance); the other five remain valid GICS sub-industries
+    # with no current S&P 500 member here. Each maps to the reference industry group
+    # that covered it at the time.
+    "Alternative Carriers": "Ind_TelecomServices",
+    "Drug Retail": "Ind_ConsumerStaplesRetail",
+    "Home Furnishings": "Ind_ConsumerDurables",
+    "Household Appliances": "Ind_ConsumerDurables",
+    "Housewares & Specialties": "Ind_ConsumerDurables",
+    "Thrifts & Mortgage Finance": "Ind_Banks",
 }
 
 # reference.ttl :Ind_* local name -> reference.ttl :Sec_* local name, used

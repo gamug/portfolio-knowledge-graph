@@ -1167,10 +1167,11 @@ Asset a membership batch points at (T-221). T-227 added the `sh:class :Universe`
 
 **Acceptance criteria**:
 
-- ✅ A dry run over the full `universe_history.db` reports what `--since` kept and dropped (657 of
-  891 stints over 653 symbols kept; 234 stints of 229 symbols dropped), the `:Asset` and
-  `:UniverseMembership` counts, 6476 triples and a passing `gate.validate`; no asset is left
-  without a CIK and with an open membership.
+- ✅ A dry run over the full `universe_history_gics.db` reports what `--since` kept and dropped
+  (657 of 891 stints over 653 symbols kept; 234 stints of 229 symbols dropped), the `:Asset` and
+  `:UniverseMembership` counts, 6563 triples (6557 before Work item 22 mapped six historical
+  sub-industries; 6476 was the earlier count over `universe_history.db`) and a passing
+  `gate.validate`; no asset is left without a CIK and with an open membership.
 - ✅ Every ticker in `v_book_weight_daily` (CASH excluded), `v_guard_alert` and `v_guard_action` of
   `rule_P1/P2/P3.db` is in the loaded symbol set (P1 100, P2 123, P3 115; 0 missing).
 - ✅ Hermetic tests: a ticker's two eras, a CIK-less closed asset, `BRK.B`, the quarter name,
@@ -1282,10 +1283,49 @@ check passes.
 
 **Blocked on**: nothing.
 
+## Work item 22 — Map the six retired GICS sub-industry names (T-250–T-259)
+
+**Status: closed 2026-11-04.**
+
+**Why**: a read-only dry run of `cli/load_universe.py` over
+`/workspaces/thesis/data/universe_history_gics.db` warned that six GICS Sub-Industry strings had no
+rollup entry, so those `:Asset`s were written without `:classifiedAs`. They are historical strings
+in that file (each occurs only on a closed stint, so no current constituent carries it), but the
+real GICS hierarchy of their period still assigns each to an existing reference industry group.
+`lookup()` must keep returning `None` for every other unmapped name.
+
+**Approach**:
+
+1. Audit the six strings in the GICS database read-only (`file:...?mode=ro`) under the loader's
+   `--since 2019-01-02` kept set; record the carrying symbol(s) and dates.
+2. Add the six mappings to `SUB_INDUSTRY_TO_INDUSTRY` in `src/etl/common/gics_rollup.py`, beside a
+   comment marking them historical and naming the one (`Thrifts & Mortgage Finance`) the March 2023
+   reclassification discontinued. Use only existing `:Ind_*` individuals; no schema/loader edit.
+3. Add one mapping test per name (target group plus the period sector cross-check) and a CLI dry-run
+   test over a tiny six-row fixture that no longer reports them as unmapped.
+4. Verify read-only against the full database: no rollup warning, the six assets now carry
+   `:classifiedAs`, and the batch grows from 6557 to 6563 triples.
+5. Update the ETL README, `docs/graphdb-setup.md`, SPEC FR-008 and every asserted count.
+
+**Mappings**: Alternative Carriers -> `Ind_TelecomServices`; Drug Retail ->
+`Ind_ConsumerStaplesRetail` (Food & Staples Retailing before its 2023 rename); Home Furnishings,
+Household Appliances and Housewares & Specialties -> `Ind_ConsumerDurables`; Thrifts & Mortgage
+Finance -> `Ind_Banks`.
+
+**Acceptance criteria**:
+
+- Each of the six names resolves to an existing `reference.ttl` group and `sector_matches` agrees
+  with the row's own GICS Sector; any other unmapped name still returns `None`.
+- The full read-only dry run reports no "no rollup entry" warning, 648 assets written, 657
+  memberships, **6563 triples** (6557 before the change) and SHACL conforms; LUMN, WBA, MHK, WHR,
+  NWL and PBCT each gain their expected `:classifiedAs`.
+- `uv run pytest`, `mypy` and the pinned pre-commit hooks pass; docs and counts are consistent.
+
 ## Work item 23 — Inclusive membership end dates and one asset per CIK (T-260–T-279)
 
-**Status: closed 2026-11-04** (two commits on `feat/universe-inclusive-validto-cik-fold`). Task
-IDs T-260–T-271.
+**Status: closed 2026-11-04** (two work commits on
+`feat/universe-inclusive-validto-cik-fold`, plus the merge of `origin/master` after PR #119). The
+reserved decade T-260–T-279 uses T-260–T-271.
 
 **Why**: two upstream facts, confirmed read-only, were modelled wrong. First,
 `portfolio-data-mining`'s `universe_membership.valid_to` is **inclusive**: it is the last day of
@@ -1330,14 +1370,15 @@ cannot disagree on the asset set.
 **Measured on the real database (read-only).** Commit 1, over
 `/workspaces/thesis/data/universe_history_gics.db` at `--since` 2019-01-02: 658 of 894 stints kept
 over 654 symbols (236 dropped over 230; 215 not loaded, 15 with a later stint kept), 649 `:Asset`s
-written plus five in `reference.ttl`, 658 memberships (503 open, 155 closed), 6567 triples, 70
-written assets without `:classifiedAs` (six unmapped sub-industry values), SHACL conforms. Before
-Commit 1 the same file gave 657 stints over 653 symbols, 648 `:Asset`s plus five, 657 memberships
-(503 open, 154 closed), 6557 triples, 69 without `:classifiedAs`.
+written plus five in `reference.ttl`, 658 memberships (503 open, 155 closed), 6573 triples, 64
+written assets without `:classifiedAs` (their latest stint has no GICS sub-industry; Work item 22's
+six historical values are already mapped), SHACL conforms. Before Commit 1 the same file gave 657
+stints over 653 symbols, 648 `:Asset`s plus five, 657 memberships (503 open, 154 closed), 6563
+triples, 63 without `:classifiedAs`.
 
 Commit 2, same file and `--since`, AFTER: 658 stints over 654 symbols (unchanged), 643 `:Asset`s
 written plus five in `reference.ttl` — 648 assets from 654 symbols, because six pure successions
-folded — 658 memberships (503 open, 155 closed), 6542 triples, 65 written assets without
+folded — 658 memberships (503 open, 155 closed), 6548 triples, 59 written assets without
 `:classifiedAs`, SHACL conforms. The 11 CIKs with more than one symbol are six successions
 (`EG/RE`, `WTW/WLTW`, `CPAY/FLT`, `META/FB`, `ECHO/SATS`, `DAY/CDAY`), four concurrent classes
 (`UA/UAA`, `NWS/NWSA`, `GOOG/GOOGL`, `FOX/FOXA`) and one mixed (`DISCA`/`DISCK`/`WBD`), which
