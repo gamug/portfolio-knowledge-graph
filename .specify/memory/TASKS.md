@@ -1148,6 +1148,7 @@ Work item 17 (T-196–T-200): open; replaces the cancelled T-195.
 Work item 20 (T-230–T-237): T-230–T-236 done (2026-11-03); T-237 (the live schema reload and dropping stale unlabelled backtest graphs from scratch repositories) is open, the maintainer's.
 Work item 18 (T-204): done 2026-10-16 — re-pinned `portfolio-common` to `v1.2.2`, a real bug fix here (`news_to_rdf`'s `attach()`-based read of `urls.db`), not just a consistency bump; proved by a new regression test that fails against the old pin and passes against the new one.
 Work item 19 (T-220–T-229): T-220–T-224 done 2026-11-03 (the loader, the `sh:class :Asset` triple, tests, the real dry-run verification and the docs); T-225 (worked-example overlap) and T-226 (first real `--write`, maintainer go-ahead) open; T-227 (`sh:class :Universe`) done 2026-11-03.
+Work item 21 (T-240–T-243): closed 2026-11-03 — the reports-agent query catalog (the brief's 11 questions verbatim) and its executable hermetic test; adapted to the labelled backtest graphs and the asset catalog loader on 2026-11-04; see `CHANGELOG.md`.
 T-163 (function done, PR #68) closes with T-031, whose first slice (PR #72) calls it on the real read and re-reads the late keys for `v_score_snapshot`; T-164 done (PR #69).
 Work item 8 (T-070–T-071) is independent but needs a human at a Protégé
 session, not a coding session.

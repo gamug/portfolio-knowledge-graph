@@ -86,7 +86,9 @@ only `portfolio-nlp`'s already-published RESULTS rows, read-only, never
 `portfolio-nlp`'s SOURCE text or its own model inference; it stands up the
 triple store and its SHACL ingest gate (Work item 3, roadmap step 1) but does
 not (yet) verify the OWL RL reasoning or offer a query surface beyond the
-store's raw SPARQL endpoint (Work item 6), and it builds neither of the two
+store's raw SPARQL endpoint (Work item 6); the reports-agent query catalog
+(T-240–T-243) documents scoped queries but does not stand up an endpoint, and
+it builds neither of the two
 LangGraph agent cycles meant to read all of the above
 (`08-agent-architecture.md`, design reference only — roadmap steps 3–8 are
 built upstream); it makes no portfolio or trading decision and renders no report
@@ -109,6 +111,13 @@ built upstream); it makes no portfolio or trading decision and renders no report
 - The five numbered architecture/spec docs (`06`–`10`) plus
   `critique-and-evolution.md` as the traceability anchor every class/
   property/graph-placement decision elsewhere cites back to.
+- The reports-agent query catalog (`docs/reports-agent-query-catalog.md`,
+  T-240–T-243): the scoped SPARQL for the Appendix A term lookups and the
+  backtest battery, the limits of what the graph can answer (the brief's 11
+  evaluation questions, including the not-projected-yet cases), and the
+  hermetic test `tests/test_query_catalog.py` that runs every tagged query.
+  It is a document, not a service: no endpoint, no new package and no
+  computation.
 - The step-2 ETL (`src/etl/`, entry `cli/build_data_ttl.py`):
   `portfolio-data-mining`'s `universe.db` → `:Asset`/`:classifiedAs` (every
   symbol ever in the index, minus tickers `reference.ttl` already declares) and

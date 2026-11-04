@@ -728,3 +728,52 @@ Documentation only; no code, schema, shape or test logic changed.
 - No GraphDB write or reload: the live store (and the scratch store, if any) keeps `2026-10-31` for
   this rule until the next `cli/load_schema.py`, which the maintainer will run later together with
   other schema changes (T-212/T-216).
+
+## Work item 21 — Reports-agent query catalog and its executable test (2026-11-03)
+
+*Closed 2026-11-03. Plan: `PLAN.md` Work item 21. The catalog is a document plus a hermetic test;
+no `src/`, `schema/` or gate change.*
+
+- [x] **T-240** *(done 2026-11-03)* Write `docs/reports-agent-query-catalog.md`: the scope rule
+      (always `GRAPH`, never the default union), the Appendix A lookups (`A1` for ten of our
+      terms at once with the FIBO link in the same `OPTIONAL`; `A2` by Spanish label, the
+      volatility, equity-index, closing-price and SEC terms), the terms FIBO does not define (a
+      `@es` definition containing "sharpe": `PortfolioPeriodSummary` and `BacktestTest`), the
+      active rules by category (10 selection + 5 GUARD, active = no `validTo`), and the backtest
+      battery (including `n-equity-per-arm-on-last-day`). Every `sparql` block is preceded by
+      `<!-- q:NAME expect:... -->`. → `PLAN.md` Work item 21, step 1.
+- [x] **T-241** *(done 2026-11-03)* Add `tests/test_query_catalog.py`: parse every tagged query,
+      build one in-memory `rdflib.Dataset` from `schema/tbox.ttl` (`urn:graph:tbox`),
+      `schema/fibo.ttl` (`urn:graph:reference:fibo`), `schema/rules.ttl`
+      (`urn:graph:rules:catalog`) and `schema/reference.ttl` (`urn:graph:reference`), plus two
+      run labels (`rule`, `champ_v1`) across two windows (`P1`, `P2`) projected with
+      `projection.backtest.project`;
+      run every query and check its exact row count or named rule. The test also pins the A1
+      no-FIBO rows (`:Asset`, `:Universe`, `:UniverseMembership`, `:PriceObservation`,
+      `:Executive`), the exact eleven questions, the six status labels, the two Sharpe-less
+      terms, the 5/1/4/5 active-rule split, and the absence of a drifted weight or a per-asset
+      daily return on `BookWeightDaily` and `BookDailyPerformance`. → step 2.
+- [x] **T-242** *(done 2026-11-03)* Write the limits section: the brief's 11 evaluation
+      questions and the backtest questions mapped to today / after the asset catalog / after
+      T-209 / after T-208 / never by design / not projected yet; state the §5 boundary rule and
+      the control rule that the answers to questions 9 to 11 must not change with or without the
+      FIBO slice. The exact questions and the six labels are pinned by the test, and the table
+      has exactly 11 `Q` rows. → step 3.
+- [x] **T-243** *(done 2026-11-03)* Verify and reconcile: `uv run pytest -q`,
+      `uv run mypy --config-file=.code_quality/mypy.ini`, `uv run pre-commit run --all-files`;
+      update `README.md`, `docs/06` §1.1, `SPEC.md`, `PLAN.md`, `TASKS.md` and this file. No
+      schema count changed, so `schema/README.md` and the FR-001 bundle are untouched. → step 4.
+- [x] **Follow-up (2026-11-03, PR #116 review).** Replace the reconstructed §6 table with the
+      brief's 11 questions verbatim; add the `Not projected yet` status, the §5 control rule and
+      the `n-equity-per-arm-on-last-day` query; extend `A1` to `:Universe`,
+      `:UniverseMembership`, `:PriceObservation` and `:Executive`, and add the equity-index,
+      closing-price and SEC A2 labels. The test now pins the exact question text and the six
+      labels. No new task ID; this completes the same work item.
+- [x] **Follow-up (2026-11-04, merge of PR #117 and PR #118).** Merge `origin/master` and keep
+      both sides of the append-only logs; renumber this work item from 19 to 21 because master
+      already has Work item 19 (asset loader) and Work item 20 (run labels). The catalog now uses
+      `urn:graph:derived:backtest:{label}:{window}:{run_id}`, adds `runs-available`, and every
+      per-run backtest query takes the optional `FILTER (?label = "rule")` parameter. The test
+      projects two labels in the same window as well as two windows and proves the labels do not
+      mix; the §6 legend notes that the asset loader exists as `cli/load_universe.py` but the
+      statuses stay until the maintainer runs it and the live check passes.

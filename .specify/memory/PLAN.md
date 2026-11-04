@@ -1226,6 +1226,62 @@ repository. The window and segment vocabularies were also closed `sh:in` lists (
 
 **Blocked on**: nothing. The live-store reload and the drop of stale unlabelled backtest graphs
 from scratch repositories are the maintainer's (T-237).
+
+## Work item 21 — Reports-agent query catalog and its executable test (T-240–T-243)
+
+**Status: closed 2026-11-03.**
+
+**Why**: `portfolio-reports` receives questions about what a term means, how a backtest arm
+performed and why an asset was cut or excluded. The graph answers them, but the queries were
+spread between `docs/06`'s Appendix A and the store notes, and a query could silently drift from
+the schema or from the backtest graph naming. The FIBO slice adds a second way to answer "what is
+X", so the boundary between a definition and a reason has to be written down: **FIBO explains what
+terms mean, never why an asset was in or out of a portfolio** (brief §5).
+
+**What was built**:
+
+1. `docs/reports-agent-query-catalog.md`: the scope rule (always `GRAPH`, never the default
+   union), A1 for ten of our terms at once with the FIBO link in the same `OPTIONAL`, A2 by
+   Spanish label (volatility, the equity index, the two closing prices, the SEC), the terms FIBO
+   does not define (Sharpe), the active rules by category, the backtest battery (performance,
+   GUARD alerts, latest NAV known on D, layer-1 cuts, one end-to-end cut explanation, book
+   knowledge dates, the full `BookWeightDaily`/`BookDailyPerformance` property list, the weight
+   scale, `n-equity-per-arm-on-last-day`, and `runs-available`) and the limits table with the
+   brief's 11 evaluation questions verbatim and the backtest questions, mapped to today / after
+   the asset catalog / after T-209 / after T-208 / never by design / not projected yet.
+2. `tests/test_query_catalog.py`: parses every tagged query, builds one in-memory
+   `rdflib.Dataset` from `tbox.ttl`, `fibo.ttl`, `rules.ttl` and `reference.ttl` plus two run
+   labels (`rule`, `champ_v1`) across two windows (`P1`, `P2`) projected with
+   `projection.backtest.project`, runs every query and checks its exact row count or named rule,
+   and pins the A1 no-FIBO rows, the two Sharpe-less terms, the 10+5 active-rule split, the exact
+   eleven questions and six status labels, and the absence of per-asset daily returns and drifted
+   weights.
+
+**Follow-up (2026-11-03, PR #116 review).** The first commit reconstructed §6 from the task
+summary because the brief was not in the container; the review supplied the real questions. This
+follow-up replaces the table verbatim, adds the `Not projected yet` status (executives of a
+company, the live portfolio), the §5 control rule (questions 9 to 11 must not change with or
+without the FIBO slice), the `n-equity-per-arm-on-last-day` query, and the extra A2 labels; it
+extends `A1` to `:Universe`, `:UniverseMembership`, `:PriceObservation` and `:Executive`, and
+pins the exact question text in the test.
+
+**Follow-up (2026-11-04, merge of PR #117 and PR #118).** The branch merged `origin/master`, which
+renumbered this work item from 19 to 21 (master already has Work item 19, the asset loader, and
+Work item 20, the run labels). The catalog now uses
+`urn:graph:derived:backtest:{label}:{window}:{run_id}`; every per-run backtest query takes the
+optional `FILTER (?label = "rule")` parameter, read from `:runLabel` on the run's
+`:StrategyBook`, and `runs-available` lists the labels/windows/books. The test projects two labels
+in the same window and proves they do not mix. The §6 legend notes that the asset loader exists
+as `cli/load_universe.py`, but the statuses do not change until the maintainer runs it and the live
+check passes.
+
+**Acceptance**: every `sparql` block in the catalog is tagged and tested; the test is hermetic
+(`uv run pytest -q`); no `src/`, `schema/` or gate change from this branch; `uv run mypy
+--config-file=.code_quality/mypy.ini` and `uv run pre-commit run --all-files` pass. Verified
+2026-11-03, re-verified 2026-11-04 after the merge.
+
+**Blocked on**: nothing.
+
 ## Sequencing
 
 ```
@@ -1262,6 +1318,8 @@ Work item 19 (asset master through the ingest gate) — T-220–T-224 done; T-22
   overlap) and T-226 (first real --write) open
 Work item 20 (backtest run labels, open window vocabulary) — T-230–T-236 done; T-237 (live reload and dropping
   stale unlabelled graphs from scratch repositories) is the maintainer's
+Work item 21 (reports-agent query catalog) — closed 2026-11-03 (T-240–T-243); adapted to the labelled
+  backtest graphs and the asset catalog loader on 2026-11-04; see `CHANGELOG.md`
 ```
 
 Work items 1, 2, and 9 have no dependencies and no blockers — they can land
