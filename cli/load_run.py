@@ -1,11 +1,12 @@
 #!/usr/bin/env python
-"""Entry point: load one labelled backtest family and prove it in one command (Work item 29).
+"""Entry point: load one labelled backtest family and prove it in one command (Work items 29, 31).
 
-    uv run python cli/load_run.py --label rule --dir /path/to/runs [--write] [--to-production]
+    uv run python cli/load_run.py --label rule --dir /path/to/runs [--check-store] [--write]
+        [--to-production]
 
 Thin wrapper around :func:`projection.load_run.main` (puts ``src/`` on ``sys.path``, like
-``cli/project_backtest.py``); its docstring documents the ordered stages, the final table, the
-one-graph rollback commands and the exit status.
+``cli/project_backtest.py``); its docstring documents the ordered stages, the read-only pre-flight,
+the final table, the one-graph rollback commands and the exit status.
 """
 
 from __future__ import annotations

@@ -1,21 +1,29 @@
-"""Load one labelled backtest family in one command (Work item 29).
+"""Load one labelled backtest family in one command (Work item 29, pre-flight in Work item 31).
 
     uv run python cli/load_run.py --label rule --db rule_P1.db --db rule_P2.db --db rule_P3.db
+    uv run python cli/load_run.py --label rule --dir /path/to/runs --check-store
     uv run python cli/load_run.py --label rule --dir /path/to/runs --write
     uv run python cli/load_run.py --label rule --dir /path/to/runs --write --to-production
 
 The command is the orchestration the runbook used to spell out by hand: check the view contract
-(optional), dry-run both projectors, optionally write the m018 and selection graphs, then verify
-every graph with the read-only verifier. It reuses ``projection.backtest.run`` /
-``run_selection``, the ingest gate they call, and ``projection.verify_backtest.verify``; there is
-no second projector, gate or verifier here.
+(optional), dry-run both projectors, pre-flight every graph through the ingest gate, optionally
+write the m018 and selection graphs, then verify every graph with the read-only verifier. It
+reuses ``projection.backtest.run`` / ``run_selection``, the gate they call, and
+``projection.verify_backtest.verify``; there is no second projector, gate or verifier here.
 
-Each step stops at the first failure. A dry run (the default) contacts no store and prints the
-graphs, rows, triples and unlinked counts each projector built. ``--write`` appends the m018 graphs
-first and then their selection siblings; an existing graph is skipped, never appended to. When a
-write has happened, every graph is verified and the final table records its stored triple count and
-``PASS``/``FAIL`` checks. A verification failure never drops anything: the command prints the exact
-one-graph ``DROP GRAPH <iri>`` commands for the graphs this run wrote, for the operator to run.
+A dry run (the default) contacts no store and prints the graphs, rows, triples and unlinked counts
+each projector built. ``--check-store`` runs only the read-only pre-flight: it builds every graph,
+calls the same ``gate.plan`` a write uses for every one of them with the store's real context
+(``SELECT`` only), and reports each graph as would-be-written, already-in-the-store (skipped) or
+refused. It writes nothing and refuses ``--write`` and ``--to-production``.
+
+With ``--write`` the pre-flight runs before anything is written. If any graph is refused, the
+command stops with nothing written and lists every refusal with its graph name and the gate's
+message. A graph already in the store is reported and skipped. Only after every graph is accepted
+does it apply the plans the pre-flight already computed with ``gate.write`` (it never plans twice),
+then verify every graph as before. A write failure after the pre-flight names the graphs written,
+the graph in doubt (if any) and prints the exact one-graph ``DROP GRAPH <iri>`` commands for the
+graphs this run wrote; it never drops anything itself.
 
 ``--contract TARGET`` runs the same view-contract check as ``cli/check_view_contract.py`` first
 (a ``portfolio-financial-analysis`` checkout path or its API URL). ``--dir DIR`` accepts every
@@ -34,7 +42,7 @@ import re
 import sqlite3
 import sys
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from etl import config
@@ -46,14 +54,18 @@ from projection.backtest import (
     AssetInfo,
     GuardCatalog,
     ProjectionError,
+    RunPlan,
     RunResult,
     SelectionRuleCatalog,
     StoreInterrupted,
     load_guard_catalog,
     load_selection_catalog,
+    plan_run,
+    plan_selection,
     run,
     run_selection,
     universe_assets,
+    write_run,
 )
 from projection.boundary import BoundaryError
 from projection.contract_check import (
@@ -70,6 +82,14 @@ from projection.verify_backtest import Verification, VerificationError, verify
 #: A final-run file name: a family, its window and the ``.db`` suffix (``rule_P1.db``).
 _DB_FILE = re.compile(r"[a-z][a-z0-9_]*_P[0-9]+\.db")
 
+#: The statuses a graph can carry in the pre-flight and the final table.
+WOULD_WRITE = "would-be-written"
+ALREADY_IN_STORE = "already-in-the-store"
+REFUSED = "refused"
+WRITTEN = "written"
+IN_DOUBT = "in doubt"
+DRY_RUN = "not checked (dry run)"
+
 
 class LoadError(ValueError):
     """A load step failed; the message names the step and the source."""
@@ -81,12 +101,27 @@ class InputError(ValueError):
 
 @dataclass
 class TableRow:
-    """One line of the final table: the graph, its stored triples and the verifier result."""
+    """One line of the final table: the graph, its stored triples, status and verifier result."""
 
     graph: str
     triples: int | None
+    status: str
     passed: int | None = None
     total: int | None = None
+
+
+@dataclass
+class Preflight:
+    """Every planned run and the status each graph got from the real gate.
+
+    Each ``RunPlan`` holds only its would-be-written graphs. No graph is written until every
+    database's m018 and selection graphs have been planned, so a refusal in a later graph cannot
+    leave an earlier one in the store.
+    """
+
+    runs: list[tuple[Database, RunPlan, RunPlan]] = field(default_factory=list)
+    statuses: dict[str, str] = field(default_factory=dict)
+    refusals: dict[str, str] = field(default_factory=dict)
 
 
 def _label(text: str) -> str:
@@ -128,6 +163,11 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument("--write", action="store_true", help="append the graphs to the store")
     parser.add_argument(
+        "--check-store",
+        action="store_true",
+        help="run the read-only pre-flight against the live store; write nothing",
+    )
+    parser.add_argument(
         "--to-production",
         action="store_true",
         help="with --write: allow the production repository (a maintainer decision)",
@@ -139,6 +179,10 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         "its API URL",
     )
     args = parser.parse_args(argv)
+    if args.check_store and args.write:
+        parser.error("--check-store only reads; do not combine it with --write")
+    if args.check_store and args.to_production:
+        parser.error("--check-store never writes; drop --to-production")
     if args.to_production and not args.write:
         parser.error("--to-production only matters with --write")
     if not args.db and not args.dir:
@@ -228,6 +272,15 @@ def _failed(result: RunResult) -> str | None:
     return None
 
 
+def _projection_problem(result: RunResult) -> str | None:
+    """A problem before any gate status exists (a boundary stop or an empty projection)."""
+    if result.report.stopped:
+        return "boundary stopped: " + "; ".join(result.report.stop_reasons or ["no reason given"])
+    if not result.graphs:
+        return "the source projected no graph"
+    return None
+
+
 def _dry_run(
     database: Database,
     assets: Mapping[str, AssetInfo],
@@ -253,48 +306,100 @@ def _dry_run(
     return backtest, selection
 
 
-def _write_m018(
-    database: Database,
+def _graph_status(planned: RunPlan) -> dict[str, str]:
+    """The status of every graph in one planned run, from the gate's own outcome."""
+    statuses: dict[str, str] = {}
+    for graph in sorted(planned.result.graphs):
+        if graph in planned.result.rejected:
+            statuses[graph] = REFUSED
+        elif graph in planned.result.already_in_store:
+            statuses[graph] = ALREADY_IN_STORE
+        else:
+            statuses[graph] = WOULD_WRITE
+    return statuses
+
+
+def _preflight(
+    databases: Sequence[Database],
     assets: Mapping[str, AssetInfo],
     guard_catalog: GuardCatalog,
-    store: GraphDB,
-) -> RunResult:
-    source = FinancialSource.open(database.path)
-    try:
-        result = run(source, assets, guard_catalog, database.label, store)
-    finally:
-        source.close()
-    print(f"\nwrite m018: {database.path}")
-    print(result.summary())
-    problem = _failed(result)
-    if problem is not None:
-        raise LoadError(f"m018 write, {database.path}: {problem}")
-    return result
-
-
-def _write_selection(
-    database: Database,
-    assets: Mapping[str, AssetInfo],
     selection_catalog: SelectionRuleCatalog,
     store: GraphDB,
-) -> RunResult:
-    source = FinancialSource.open(database.path)
-    try:
-        result = run_selection(source, assets, selection_catalog, database.label, store)
-    finally:
-        source.close()
-    print(f"\nwrite selection: {database.path}")
-    print(result.summary())
-    problem = _failed(result)
-    if problem is not None:
-        raise LoadError(f"selection write, {database.path}: {problem}")
-    return result
+) -> Preflight:
+    """Plan every m018 and selection graph against the store before writing any of them."""
+    print(
+        "\npre-flight: gate.plan for every graph with the store's context (SELECT only); "
+        "nothing is written"
+    )
+    preflight = Preflight()
+    for database in databases:
+        source = FinancialSource.open(database.path)
+        try:
+            backtest = plan_run(source, assets, guard_catalog, database.label, store)
+            selection = plan_selection(source, assets, selection_catalog, database.label, store)
+        finally:
+            source.close()
+        for kind, planned in (("m018", backtest), ("selection", selection)):
+            print(f"\npre-flight {kind}: {database.path}")
+            print(planned.result.summary())
+            problem = _projection_problem(planned.result)
+            if problem is not None:
+                raise LoadError(f"{kind} pre-flight, {database.path}: {problem}")
+            for graph, status in _graph_status(planned).items():
+                preflight.statuses[graph] = status
+                print(f"  pre-flight {status}: {graph}")
+                if status == REFUSED:
+                    why = planned.result.rejected[graph]
+                    preflight.refusals[graph] = why
+                    print(f"    {why}")
+        preflight.runs.append((database, backtest, selection))
+    return preflight
 
 
-def _verify_graph(
+def _preflight_rows(preflight: Preflight) -> list[TableRow]:
+    rows: list[TableRow] = []
+    for _, backtest, selection in preflight.runs:
+        for planned in (backtest, selection):
+            for graph in sorted(planned.result.graphs):
+                rows.append(
+                    TableRow(
+                        graph,
+                        planned.result.graphs[graph],
+                        preflight.statuses.get(graph, WOULD_WRITE),
+                    )
+                )
+    return rows
+
+
+def _report_preflight_refusals(preflight: Preflight) -> None:
+    print(
+        f"\npre-flight refused {len(preflight.refusals)} graph(s); nothing was written: "
+        + ", ".join(sorted(preflight.refusals)),
+        file=sys.stderr,
+    )
+
+
+def _write_all(preflight: Preflight, store: GraphDB, written: list[str]) -> None:
+    """Apply the already-computed plans: every m018 graph first, then every selection sibling."""
+    for kind, position in (("m018", 0), ("selection", 1)):
+        for database, backtest, selection in preflight.runs:
+            planned = (backtest, selection)[position]
+            print(f"\nwrite {kind}: {database.path}")
+            write_run(planned, store)
+            print(planned.result.summary())
+            written.extend(planned.result.written)
+            for graph in planned.result.written:
+                preflight.statuses[graph] = WRITTEN
+            problem = _failed(planned.result)
+            if problem is not None:
+                raise LoadError(f"{kind} write, {database.path}: {problem}")
+
+
+def _verify_graph(  # noqa: PLR0913, PLR0917 -- the verifier's inputs are explicit
     graph: str,
     database: Database,
     store: GraphDB,
+    assets: Mapping[str, AssetInfo],
     guard_catalog: GuardCatalog,
     selection_catalog: SelectionRuleCatalog,
 ) -> Verification:
@@ -304,6 +409,7 @@ def _verify_graph(
             graph,
             database.path,
             database.label,
+            assets=assets,
             selection_catalog=selection_catalog,
             repository=store.repository,
             host=store.host,
@@ -313,18 +419,22 @@ def _verify_graph(
         graph,
         database.path,
         database.label,
+        assets=assets,
         catalog=guard_catalog,
         repository=store.repository,
         host=store.host,
     )
 
 
-def _print_table(rows: Sequence[TableRow]) -> None:
-    print("\ngraph                                                              triples  checks")
+def _print_table(rows: Sequence[TableRow], *, note: str = "not verified (dry run)") -> None:
+    print(
+        "\ngraph                                                              triples  "
+        "status                  checks"
+    )
     for row in rows:
         triples = "-" if row.triples is None else f"{row.triples:,}"
-        checks = "not verified (dry run)" if row.total is None else f"{row.passed}/{row.total}"
-        print(f"{row.graph:<66} {triples:>10}  {checks}")
+        checks = note if row.total is None else f"{row.passed}/{row.total}"
+        print(f"{row.graph:<66} {triples:>10}  {row.status:<22}  {checks}")
 
 
 def _print_drops(written: Sequence[str]) -> None:
@@ -338,6 +448,25 @@ def _print_drops(written: Sequence[str]) -> None:
     )
 
 
+def _inputs(
+    args: argparse.Namespace,
+) -> tuple[
+    list[Database],
+    Mapping[str, AssetInfo],
+    GuardCatalog,
+    SelectionRuleCatalog,
+]:
+    """Plan the inputs, check the optional contract and load the catalogs; no database is read."""
+    databases = plan(args)
+    _check_duplicate_graphs(databases)
+    if args.contract:
+        _view_contract(args.contract)
+    assets = universe_assets(config.universe_db_path())
+    guard_catalog = load_guard_catalog(config.schema_dir() / "rules.ttl")
+    selection_catalog = load_selection_catalog(config.schema_dir() / "rules.ttl")
+    return databases, assets, guard_catalog, selection_catalog
+
+
 def _prepare(
     args: argparse.Namespace,
 ) -> tuple[
@@ -348,60 +477,45 @@ def _prepare(
     dict[Path, tuple[RunResult, RunResult]],
 ]:
     """Plan, check the optional contract, load the catalogs and dry-run every database."""
-    databases = plan(args)
-    _check_duplicate_graphs(databases)
-    if args.contract:
-        _view_contract(args.contract)
-    assets = universe_assets(config.universe_db_path())
-    guard_catalog = load_guard_catalog(config.schema_dir() / "rules.ttl")
-    selection_catalog = load_selection_catalog(config.schema_dir() / "rules.ttl")
+    databases, assets, guard_catalog, selection_catalog = _inputs(args)
     dry: dict[Path, tuple[RunResult, RunResult]] = {}
     for database in databases:
         dry[database.path] = _dry_run(database, assets, guard_catalog, selection_catalog)
     return databases, assets, guard_catalog, selection_catalog, dry
 
 
-def _write_all(  # noqa: PLR0913, PLR0917 -- the stage's inputs are explicit
-    databases: Sequence[Database],
-    assets: Mapping[str, AssetInfo],
-    guard_catalog: GuardCatalog,
-    selection_catalog: SelectionRuleCatalog,
-    store: GraphDB,
-    written: list[str],
-) -> None:
-    """Write every m018 graph first, then every selection sibling."""
-    for database in databases:
-        result = _write_m018(database, assets, guard_catalog, store)
-        written.extend(result.written)
-    for database in databases:
-        result = _write_selection(database, assets, selection_catalog, store)
-        written.extend(result.written)
+def _open_check_store() -> GraphDB:
+    """The read-only pre-flight's store; production is readable without the write opt-in."""
+    return GraphDB.from_env()
 
 
 def _verify_all(
-    databases: Sequence[Database],
-    dry: Mapping[Path, tuple[RunResult, RunResult]],
+    preflight: Preflight,
     store: GraphDB,
+    assets: Mapping[str, AssetInfo],
     guard_catalog: GuardCatalog,
     selection_catalog: SelectionRuleCatalog,
 ) -> tuple[list[TableRow], bool]:
     """Verify every graph in turn and stop at the first failed check."""
     rows: list[TableRow] = []
-    for database in databases:
-        backtest, selection = dry[database.path]
-        for graph in (*sorted(backtest.graphs), *sorted(selection.graphs)):
-            verification = _verify_graph(graph, database, store, guard_catalog, selection_catalog)
-            print(verification.summary())
-            rows.append(
-                TableRow(
-                    graph,
-                    verification.triples,
-                    sum(check.passed for check in verification.checks),
-                    len(verification.checks),
+    for database, backtest, selection in preflight.runs:
+        for planned in (backtest, selection):
+            for graph in sorted(planned.result.graphs):
+                verification = _verify_graph(
+                    graph, database, store, assets, guard_catalog, selection_catalog
                 )
-            )
-            if not verification.ok:
-                return rows, True
+                print(verification.summary())
+                rows.append(
+                    TableRow(
+                        graph,
+                        verification.triples,
+                        preflight.statuses.get(graph, WRITTEN),
+                        sum(check.passed for check in verification.checks),
+                        len(verification.checks),
+                    )
+                )
+                if not verification.ok:
+                    return rows, True
     return rows, False
 
 
@@ -423,6 +537,32 @@ def _report_failure(exc: BaseException, written: Sequence[str]) -> int:
     return 1
 
 
+def _report_interrupted(
+    exc: StoreInterrupted, preflight: Preflight, written: Sequence[str]
+) -> None:
+    """Name what was written, what is in doubt and the one-graph drops; never drop anything."""
+    written = sorted(set(written))
+    print(exc.result.summary())
+    for graph in written:
+        preflight.statuses[graph] = WRITTEN
+    if exc.result.in_doubt:
+        preflight.statuses[exc.result.in_doubt] = IN_DOUBT
+    print(
+        f"\nstore error after the pre-flight: {exc}\n"
+        + ("Graphs written: " + ", ".join(written) + "." if written else "No graph was written.")
+        + (
+            f"\nIn doubt: {exc.result.in_doubt} was sent but the store's answer was lost; it may "
+            "have been written."
+            if exc.result.in_doubt
+            else "\nNo graph is in doubt: the store answered with an error before the graph was "
+            "written."
+        ),
+        file=sys.stderr,
+    )
+    _print_drops(written)
+    _print_table(_preflight_rows(preflight), note="not verified (write stopped)")
+
+
 _FAILURES = (
     InputError,
     LoadError,
@@ -437,15 +577,34 @@ _FAILURES = (
 )
 
 
-def main(argv: Sequence[str] | None = None) -> int:
+def main(argv: Sequence[str] | None = None) -> int:  # noqa: PLR0911 -- one per failure kind
     args = parse_args(argv)
     written: list[str] = []
+    preflight: Preflight | None = None
     try:
+        if args.check_store:
+            databases, assets, guard_catalog, selection_catalog = _inputs(args)
+            preflight = _preflight(
+                databases,
+                assets,
+                guard_catalog,
+                selection_catalog,
+                _open_check_store(),
+            )
+            _print_table(_preflight_rows(preflight), note="not verified (pre-flight)")
+            if preflight.refusals:
+                _report_preflight_refusals(preflight)
+                return 1
+            print(
+                "\npre-flight passed; nothing was written (--check-store)",
+                file=sys.stderr,
+            )
+            return 0
         databases, assets, guard_catalog, selection_catalog, dry = _prepare(args)
         if not args.write:
             _print_table(
                 [
-                    TableRow(graph, result.graphs[graph])
+                    TableRow(graph, result.graphs[graph], DRY_RUN)
                     for _, (backtest, selection) in dry.items()
                     for result in (backtest, selection)
                     for graph in sorted(result.graphs)
@@ -454,21 +613,17 @@ def main(argv: Sequence[str] | None = None) -> int:
             return 0
         store = open_store(args)
         assert store is not None  # open_store only returns None without --write
-        _write_all(databases, assets, guard_catalog, selection_catalog, store, written)
-        rows, failed = _verify_all(databases, dry, store, guard_catalog, selection_catalog)
+        preflight = _preflight(databases, assets, guard_catalog, selection_catalog, store)
+        if preflight.refusals:
+            _print_table(_preflight_rows(preflight), note="not verified (pre-flight)")
+            _report_preflight_refusals(preflight)
+            return 1
+        _write_all(preflight, store, written)
+        rows, failed = _verify_all(preflight, store, assets, guard_catalog, selection_catalog)
     except StoreInterrupted as exc:
         written.extend(exc.result.written)
-        print(exc.result.summary())
-        print(
-            f"store error, the run stopped partway: {exc}\n"
-            + (
-                "The graphs listed as written above were written; the one in doubt may be too."
-                if exc.result.in_doubt
-                else "Only the graphs listed as written above were written."
-            ),
-            file=sys.stderr,
-        )
-        _print_drops(written)
+        assert preflight is not None  # a write only happens after the pre-flight
+        _report_interrupted(exc, preflight, written)
         return 1
     except _FAILURES as exc:
         return _report_failure(exc, written)

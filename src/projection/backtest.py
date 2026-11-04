@@ -1650,6 +1650,19 @@ class RunResult:
 
 
 @dataclass
+class RunPlan:
+    """One projected run after the gate's pre-flight; ``plans`` are ready to write.
+
+    ``result`` carries the same counts a write reports, plus ``already_in_store`` and
+    ``rejected``. ``plans`` holds only the graphs whose status is ``WOULD_WRITE``, so a caller can
+    pre-flight every graph before applying any plan and never plan the same batch twice.
+    """
+
+    result: RunResult
+    plans: dict[str, gate.IngestPlan] = field(default_factory=dict)
+
+
+@dataclass
 class SourceProjection:
     """One source database after the boundary and the projector, before any store is touched.
 
@@ -1692,6 +1705,71 @@ def project_source(
     )
 
 
+def _result_from_projection(
+    source_projection: SourceProjection | SelectionSourceProjection, *, store_consulted: bool
+) -> RunResult:
+    """The report a dry run, a pre-flight or a write shares, before any graph status is added."""
+    projection = source_projection.projection
+    return RunResult(
+        source_projection.report,
+        projection.rows,
+        projection.individuals,
+        triples_by_class=projection.triples_by_class(),
+        graphs={graph: len(builder) for graph, builder in projection.graphs.items()},
+        skipped=projection.skipped,
+        asset_unlinked=projection.asset_unlinked,
+        cash_rows=projection.cash_rows,
+        store_consulted=store_consulted,
+    )
+
+
+def _plan_projection(
+    source_projection: SourceProjection | SelectionSourceProjection, store: GraphDB
+) -> RunPlan:
+    """Run ``gate.plan`` for every graph of one projection; no graph is written."""
+    out = _result_from_projection(source_projection, store_consulted=True)
+    plans: dict[str, gate.IngestPlan] = {}
+    for graph in sorted(source_projection.projection.graphs):
+        data = source_projection.projection.turtle(graph)
+        try:
+            plan = gate.plan(store, data, graph)
+        except gate.IngestRejected as exc:
+            out.rejected[graph] = str(exc)
+            continue
+        if plan.status is gate.IngestPlanStatus.ALREADY_IN_STORE:
+            out.already_in_store.append(graph)
+            continue
+        plans[graph] = plan
+    return RunPlan(out, plans)
+
+
+def plan_run(
+    source: FinancialSource,
+    assets: Mapping[str, AssetInfo],
+    catalog: GuardCatalog,
+    label: str,
+    store: GraphDB,
+) -> RunPlan:
+    """Read, check, project and pre-flight the eight m018 views; write nothing."""
+    return _plan_projection(project_source(source, assets, catalog, label), store)
+
+
+def write_run(planned: RunPlan, store: GraphDB) -> RunResult:
+    """Apply the plans a pre-flight already computed, in graph order; never plan again."""
+    out = planned.result
+    for graph in sorted(planned.plans):
+        try:
+            out.written[graph] = gate.write(store, planned.plans[graph])
+        except gate.WriteInDoubt as exc:
+            out.in_doubt = graph
+            raise StoreInterrupted(out, exc) from exc
+        except gate.IngestRejected as exc:
+            out.rejected[graph] = str(exc)
+        except GraphDBError as exc:
+            raise StoreInterrupted(out, exc) from exc
+    return out
+
+
 def run(
     source: FinancialSource,
     assets: Mapping[str, AssetInfo],
@@ -1707,17 +1785,7 @@ def run(
     """
     source_projection = project_source(source, assets, catalog, label)
     projection = source_projection.projection
-    out = RunResult(
-        source_projection.report,
-        projection.rows,
-        projection.individuals,
-        triples_by_class=projection.triples_by_class(),
-        graphs={graph: len(builder) for graph, builder in projection.graphs.items()},
-        skipped=projection.skipped,
-        asset_unlinked=projection.asset_unlinked,
-        cash_rows=projection.cash_rows,
-        store_consulted=store is not None,
-    )
+    out = _result_from_projection(source_projection, store_consulted=store is not None)
     context = validation_context(assets, catalog) if store is None else None
     for graph in sorted(projection.graphs):
         data = projection.turtle(graph)
@@ -1784,6 +1852,17 @@ def project_selection_source(
     return SelectionSourceProjection(result.report, result.rows, projection)
 
 
+def plan_selection(
+    source: FinancialSource,
+    assets: Mapping[str, AssetInfo],
+    catalog: SelectionRuleCatalog,
+    label: str,
+    store: GraphDB,
+) -> RunPlan:
+    """Read, check, project and pre-flight the six selection views; write nothing."""
+    return _plan_projection(project_selection_source(source, assets, catalog, label), store)
+
+
 def run_selection(
     source: FinancialSource,
     assets: Mapping[str, AssetInfo],
@@ -1801,16 +1880,7 @@ def run_selection(
     """
     source_projection = project_selection_source(source, assets, catalog, label)
     projection = source_projection.projection
-    out = RunResult(
-        source_projection.report,
-        projection.rows,
-        projection.individuals,
-        triples_by_class=projection.triples_by_class(),
-        graphs={graph: len(builder) for graph, builder in projection.graphs.items()},
-        skipped=projection.skipped,
-        asset_unlinked=projection.asset_unlinked,
-        store_consulted=store is not None,
-    )
+    out = _result_from_projection(source_projection, store_consulted=store is not None)
     context = validation_context(assets, catalog) if store is None else None
     for graph in sorted(projection.graphs):
         data = projection.turtle(graph)
@@ -1855,6 +1925,7 @@ __all__ = [
     "GuardRule",
     "Projection",
     "ProjectionError",
+    "RunPlan",
     "RunResult",
     "SelectionRule",
     "SelectionRuleCatalog",
@@ -1864,6 +1935,8 @@ __all__ = [
     "graph_name",
     "load_guard_catalog",
     "load_selection_catalog",
+    "plan_run",
+    "plan_selection",
     "project",
     "project_selection",
     "project_selection_source",
@@ -1875,4 +1948,5 @@ __all__ = [
     "selection_graph_name",
     "universe_assets",
     "validation_context",
+    "write_run",
 ]

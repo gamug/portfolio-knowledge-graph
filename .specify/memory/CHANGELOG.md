@@ -1229,6 +1229,39 @@ Task IDs T-420–T-439.*
       `mypy` = success, 99 files; pinned pre-commit and FR-001 pass; the real check-store results
       above.)* Run the checks and record them.
 
+## Work item 31 — Pre-flight every graph before `load_run` writes
+
+*From the first real backtest load (`portfolio_test`, 2026-11-04). See `PLAN.md` Work item 31.
+Task IDs T-440–T-459 (T-440–T-446 used).*
+
+- [x] **T-440** *(done 2026-11-04: the design is in `PLAN.md` Work item 31 before the code.)*
+      Record the pre-flight design and the no-partial-write rule.
+- [x] **T-441** *(done 2026-11-04: `RunPlan`, `plan_run`, `plan_selection` and `write_run` in
+      `src/projection/backtest.py`; the plan functions call `gate.plan` and write nothing,
+      `write_run` applies those plans with `gate.write` and never plans twice.)* Split planning from
+      writing.
+- [x] **T-442** *(done 2026-11-04: `src/projection/load_run.py` plans every m018 and selection graph
+      of every database before any write; a refusal stops with nothing written and lists every
+      graph and gate message; `already-in-the-store` is skipped; the final table has a status
+      column; `--check-store` runs only the pre-flight and refuses `--write`/`--to-production`.)*
+      Add the pre-flight and `--check-store`.
+- [x] **T-443** *(done 2026-11-04: `tests/fixtures/dataset_store.py` implements `select_terms` and
+      `add`, so `tests/test_load_run.py` runs the real `gate.plan`/`gate.write` path with typed
+      assets and `schema/rules.ttl`; it covers the accepted-write-and-verify case, a later refusal
+      with no earlier write, an already-stored skip, `--check-store` writing nothing, and a write
+      failure after the pre-flight with the written/in-doubt report and drops.)* Add the real-gate
+      tests.
+- [x] **T-444** *(done 2026-11-04: `docs/backtest-load-runbook.md` gained the pre-flight,
+      `--check-store`, status table, write-failure report and free-disk prerequisite; `README.md`
+      command table, `SPEC.md` FR-010/FR-011 and `PLAN.md` updated.)* Update the docs.
+- [x] **T-445** *(done 2026-11-04, read-only against `portfolio_test`: the three `rule_P*.db` files
+      reported all six m018/selection graphs as `already-in-the-store`, exit 0, 273.193 s; the dry
+      run over the same files took 280.967 s and reported 209,886/196,840/222,449 m018 and
+      321,324/309,728/342,934 selection triples. No GraphDB write or reload.)* Verify read-only.
+- [x] **T-446** *(done 2026-11-04: `uv run pytest -q` = 1307 passed, 59 deselected, 5114 warnings
+      in 812.16 s (13:32); `mypy` = success, 106 source files; pinned pre-commit hooks pass on the
+      changed files; FR-001 remains 4431 quads and conforms.)* Run the checks and record them.
+
 ## Work item 32 — Record the portfolio_test live load
 
 *From the first real catalog and backtest writes in `portfolio_test`, 2026-11-04. See `PLAN.md`
