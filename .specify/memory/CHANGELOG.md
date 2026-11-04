@@ -963,3 +963,83 @@ changed file: all hooks passed (`ruff-check`, `ruff-format`, `mypy`, the file/se
 verifier also ran against an in-memory Dataset holding `rule_P1.db`'s projection: 21 of 21 checks
 passed over 209,886 triples. No GraphDB write or reload was made; the verifier has never run
 against a live repository, so that first live run remains the operator's step in the runbook.
+## Work item 25 — Reports-agent sector and industry queries (2026-11-04)
+
+*Closed 2026-11-04. Plan: `PLAN.md` Work item 25. The catalog and its hermetic
+test changed; no `src/`, `schema/` or gate change.*
+
+- [x] **T-300** *(done 2026-11-04)* Add §6 to
+      `docs/reports-agent-query-catalog.md`: the cross-graph rule (backtest
+      triples inside `GRAPH ?g` filtered to `urn:graph:derived:backtest:`, the
+      asset-to-sector part in a `SELECT DISTINCT` sub-select outside it) and
+      five tagged queries — `layer1-cuts-by-window-sector`,
+      `sector-composition-on-rebalance`, `held-tickers-by-window-industry`,
+      `sector-coverage-of-held-assets` and
+      `unclassified-assets-by-validto-year`. State that `:finalTargetWeight`
+      exists only on decision and execution dates and that the sector weights
+      plus CASH sum to 1. → step 1.
+- [x] **T-301** *(done 2026-11-04)* Rework `tests/test_query_catalog.py` to the
+      real layout: `:Asset` and `:classifiedAs` in
+      `urn:graph:universe:2026-Q4`, the taxonomy in `urn:graph:reference`, and
+      `AAPL` in both graphs (T-225); enable GraphDB's default union for the
+      documented sub-select. Add the sector assertions (P1 cuts = layer-1 ENTER
+      alerts, composition = 1 − CASH, Banks/Insurance lists, coverage split,
+      unclassified years) and the negative test: the single-graph form returns
+      0 rows in the universe graph and 5 in the reference graph against 8 for
+      the correct cross-graph form; a naive union counts AAPL twice. → step 2.
+- [x] **T-302** *(done 2026-11-04)* Update the limits table: Q5 and Q11 become
+      **Today**, Q11 points at `held-tickers-by-window-industry`, and the loader
+      note records the `portfolio_test` catalog (648 assets, 579 classified).
+      Add §6.7 "Known limits of the asset catalog": the 2019–2021 leavers'
+      **56 closed stints** have no source classification ("no classification in
+      the source", not an error), MBC (inference, no source), FTRE and PHIN
+      (S&P DJI release of 2023-06-28, cited in `universe_patches.py`) have none
+      either, and GICS is rolled up by `src/etl/common/gics_rollup.py`. Leave
+      `validTo` semantics and asset identity to Work item 23 and refer to it by
+      name. → step 3.
+- [x] **T-303** *(done 2026-11-04, read-only)* Verify the five queries against
+      `portfolio_test`: layer-1 cuts 157 (P1), 56 (P2), 29 (P3), with P1 equal
+      to its 157 ENTER alerts; the P1 `MARKOWITZ_BASE` composition (decision
+      2021-12-31, execution 2022-01-03) has 9 sector rows summing to
+      `0.999999548278…` with CASH `0.000000451721…`, i.e. exactly 1; the
+      Banks/Insurance query returns 5 rows; coverage is 100/100/100,
+      123/123/123 and 115/115/115; the 2019–2021 unclassified closed stints
+      total 56. No GraphDB write or reload. → step 4.
+- [x] **T-304** *(done 2026-11-04)* Verify and reconcile: `uv run pytest -q` =
+      **1069 passed, 56 deselected in 955.22 s**; `tests/test_query_catalog.py`
+      = 50 passed in 4.14 s; `uv run mypy --config-file=.code_quality/mypy.ini`
+      = success, 77 files; `uv run pre-commit run --files <changed files>`
+      passes all hooks. Update `PLAN.md`, `TASKS.md` and this file; no schema
+      count changed. → step 5.
+- [x] **T-305** *(done 2026-11-04, PR #120 review)* Fix
+      `sector-composition-on-rebalance`: the sector sub-select ran before
+      `GRAPH ?g`, so a holding without `:classifiedAs` or without
+      `:holdingAsset` disappeared instead of joining `unclassified`. The
+      holding and CASH patterns now stay inside `GRAPH ?g` with
+      `OPTIONAL { ?row :holdingAsset ?asset }`, followed by the
+      `COALESCE` sentinel, the `SELECT DISTINCT` sector sub-select and the
+      `unclassified` bucket. A dedicated fixture uses AAA 0.60, QQQ 0.30 (a
+      catalog asset without a sector), ZZZ 0.05 (no `:holdingAsset`) and CASH
+      0.05, and asserts Financials 0.60, `unclassified` 0.35 and
+      0.60 + 0.35 + 0.05 = 1. → step 1.
+- [x] **T-306** *(done 2026-11-04, PR #120 review)* Add the tagged
+      `sector-of-asset` query for Q5: ticker parameter (`VALUES ?ticker {
+      "AAA" }`), company name when present, industry label, sector label and
+      the sector individual's Spanish `rdfs:comment`/`skos:definition` when
+      present; point Q5's "Where" cell at it. The test covers AAA (classified
+      catalog asset), AAPL (one row despite being declared in both graphs) and
+      an unclassified ticker (no row, as documented). → step 2.
+- [x] **T-307** *(done 2026-11-04, PR #120 review)* Re-run the checks and
+      record the new counts: `uv run pytest -q` = **1074 passed, 56 deselected
+      in 800.19 s**; `tests/test_query_catalog.py` = 55 passed in 4.02 s;
+      `uv run mypy --config-file=.code_quality/mypy.ini` = success, 77 files;
+      `uv run pre-commit run --files <changed files>` passes all hooks. No
+      GraphDB write or reload, no merge or rebase. → step 3.
+- [x] **T-308** *(done 2026-11-04, merge of PR #122)* Re-measure the reloaded
+      catalog read-only against `portfolio_test`: `urn:graph:universe:2026-Q4`
+      holds **643 `:Asset` individuals, 584 with `:classifiedAs`** (59
+      unclassified), plus the five `reference.ttl` assets. Replace the
+      pre-Work-item-23 648/579 counts in §6 and the §7 loader note with those
+      measured values; `tests/test_query_catalog.py` = 57 passed in 3.16 s;
+      `uv run pre-commit run --files <changed files>` passes all hooks. No
+      GraphDB write or reload. → step 4.

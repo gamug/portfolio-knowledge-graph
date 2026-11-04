@@ -1450,6 +1450,68 @@ procedure around both halves.
   21/21 checks over an in-memory Dataset holding `rule_P1.db`'s 209,886-triple projection, but its
   store-side SPARQL has not yet run against GraphDB. The first live run is the operator's step in
   `docs/backtest-load-runbook.md`.
+## Work item 25 — Reports-agent sector and industry queries (T-300–T-308)
+
+**Status: closed 2026-11-04.**
+
+**Why**: a sector question written with the asset classification and the GICS taxonomy in one
+`GRAPH` block silently returns almost nothing. In the real store `:Asset :classifiedAs :Ind_*`
+lives in the asset-catalog graph `urn:graph:universe:{year}-Q{n}`, while `:Industry`, `:Sector`,
+`:memberOfSector` and their `skos:prefLabel`s live in `urn:graph:reference`; only the five
+worked-example assets in `reference.ttl` satisfy a single-graph pattern. Those five also appear in
+the universe graph for their memberships (T-225), so a naive union join can count them twice.
+
+**What was built**:
+
+1. `docs/reports-agent-query-catalog.md` gains §6, the cross-graph rule and six executable queries:
+   layer-1 GUARD cuts by window and sector (with an `unclassified` bucket so the P1 total equals the
+   layer-1 ENTER alert count), sector composition of a book on a rebalance date (the sector weights
+   plus the `unclassified` bucket plus CASH sum to 1), distinct held tickers by window and industry
+   (Banks and Insurance, count and `GROUP_CONCAT` list), sector coverage of held assets (held,
+   asset-linked, sector-classified), unclassified assets by year of `:validTo`, and `sector-of-asset`
+   for Q5 (ticker, company, industry, sector and the optional Spanish sector note). The
+   asset-to-sector part is a `SELECT DISTINCT` sub-select outside `GRAPH ?g`; the backtest part stays
+   inside the `urn:graph:derived:backtest:` filter with the run label.
+2. `tests/test_query_catalog.py` now builds the synthetic store in the real layout: `:Asset` and
+   `:classifiedAs` in `urn:graph:universe:2026-Q4`, the taxonomy in `urn:graph:reference`, and
+   `AAPL` in both graphs (T-225). The dataset enables GraphDB's default union for the documented
+   sub-select. A negative test proves the single-graph form returns fewer rows (0 in the universe
+   graph, 5 in the reference graph) than the correct cross-graph form (8), and that a naive union
+   counts the overlapping `AAPL` twice.
+3. The limits table marks the sector questions Q5 and Q11 **Today**; §6.7 records the known limits of
+   the asset catalog (the 2019–2021 leavers' 56 closed stints have no source classification, the
+   spin-offs MBC/FTRE/PHIN have none either, and GICS is rolled up by
+   `src/etl/common/gics_rollup.py`).
+
+**Acceptance criteria**:
+
+- Every new query is tagged and executes against the synthetic real-layout store; the sector tests
+  pin the cut total, the composition sum, the Banks/Insurance ticker lists, the coverage split and
+  the unclassified years.
+- Read-only verification against `portfolio_test` on 2026-11-04: layer-1 cuts 157 (P1), 56 (P2) and
+  29 (P3), the P1 total equal to its 157 ENTER alerts; the P1 `MARKOWITZ_BASE` composition (decision
+  2021-12-31, execution 2022-01-03) is 9 sector rows summing to `0.999999548…` with CASH
+  `0.000000451…`; Banks/Insurance returns 5 rows; coverage is 100/100/100, 123/123/123 and
+  115/115/115; the 2019–2021 unclassified closed stints total 56.
+- `uv run pytest`, `mypy` and the pinned pre-commit hooks pass; docs and counts are consistent.
+
+**Follow-up (2026-11-04, PR #120 review).** The composition query's optional sector sub-select
+was evaluated before the backtest block, so a held ticker with no `:classifiedAs` or no
+`:holdingAsset` disappeared instead of joining the `unclassified` bucket. T-305 moves the holding
+and CASH patterns into `GRAPH ?g` with `OPTIONAL { ?row :holdingAsset ?asset }`, then uses the
+sentinel/`COALESCE` pattern; a dedicated fixture now holds AAA (Financials) 0.60, QQQ (catalog asset
+without a sector) 0.30, ZZZ (no `:holdingAsset`) 0.05 and CASH 0.05, and asserts Financials 0.60,
+`unclassified` 0.35 and 0.60 + 0.35 + 0.05 = 1. T-306 adds `sector-of-asset` for Q5 (ticker
+parameter; company, industry, sector and the optional Spanish sector note), proves one row for
+`AAPL` even though it is in both graphs, and documents that an unclassified ticker returns no row.
+T-307 re-runs the checks and records the counts.
+
+**Coordination**: Work item 23 (inclusive `validTo`, one `:Asset` per CIK for renames) owns the
+`validTo` semantics and asset-identity statements and will edit the same catalog for membership
+queries. When it lands, merge `origin/master` and keep both sides; this work item deliberately does
+not restate or change those decisions.
+
+**Blocked on**: nothing.
 
 ## Sequencing
 
@@ -1494,6 +1556,7 @@ Work item 23 (inclusive membership end, one `:Asset` per CIK) — closed 2026-11
   the inclusive `validTo`, the shared loader/projector resolver and the real-data counts are in
   `CHANGELOG.md`
 Work item 24 (backtest verifier and load runbook) — closed 2026-11-04 (T-280–T-283); see
+Work item 25 (reports-agent sector and industry queries) — closed 2026-11-04 (T-300–T-307); see
   `CHANGELOG.md`
 ```
 
