@@ -1450,7 +1450,7 @@ procedure around both halves.
   21/21 checks over an in-memory Dataset holding `rule_P1.db`'s 209,886-triple projection, but its
   store-side SPARQL has not yet run against GraphDB. The first live run is the operator's step in
   `docs/backtest-load-runbook.md`.
-## Work item 25 — Reports-agent sector and industry queries (T-300–T-307)
+## Work item 25 — Reports-agent sector and industry queries (T-300–T-308)
 
 **Status: closed 2026-11-04.**
 

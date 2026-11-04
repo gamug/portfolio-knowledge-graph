@@ -646,7 +646,8 @@ ORDER BY ?label ?window
 
 The sector of an asset is split across two graph families. In `portfolio_test`
 on 2026-11-04, `:Asset` and `:classifiedAs` live in
-`urn:graph:universe:2026-Q4` (648 assets, 579 with a classification), while
+`urn:graph:universe:2026-Q4` (643 assets, 584 with a classification; the five
+worked-example assets are declared separately in `reference.ttl`), while
 `:Industry`, `:Sector`, `:memberOfSector` and their `skos:prefLabel`s live in
 `urn:graph:reference`. Only the five worked-example assets that
 `schema/reference.ttl` declares satisfy a pattern that holds the classification
@@ -973,9 +974,10 @@ The status column is one of:
   S&P 500 membership and the `:UniverseMembership` relation. **Loader note
   (2026-11-04):** `cli/load_universe.py` (logic in `src/kg_store/universe.py`)
   has run in `portfolio_test`; `urn:graph:universe:2026-Q4` holds the catalog
-  (648 `:Asset` individuals, 579 with `:classifiedAs`). The sector questions
-  (Q5 and Q11) are therefore **Today**. The label stays for the rows whose own
-  live check has not been recorded.
+  (643 `:Asset` individuals, 584 with `:classifiedAs`; the five
+  `reference.ttl` assets are additional). The sector questions (Q5 and Q11) are
+  therefore **Today**. The label stays for the rows whose own live check has
+  not been recorded.
 - **After T-209** — the backtest veto projector. Without it the graph knows
   GUARD cuts but not the selection vetoes that explain an asset's exit at a
   rebalance.

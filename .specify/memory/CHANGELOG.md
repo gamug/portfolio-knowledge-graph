@@ -1035,3 +1035,11 @@ test changed; no `src/`, `schema/` or gate change.*
       `uv run mypy --config-file=.code_quality/mypy.ini` = success, 77 files;
       `uv run pre-commit run --files <changed files>` passes all hooks. No
       GraphDB write or reload, no merge or rebase. → step 3.
+- [x] **T-308** *(done 2026-11-04, merge of PR #122)* Re-measure the reloaded
+      catalog read-only against `portfolio_test`: `urn:graph:universe:2026-Q4`
+      holds **643 `:Asset` individuals, 584 with `:classifiedAs`** (59
+      unclassified), plus the five `reference.ttl` assets. Replace the
+      pre-Work-item-23 648/579 counts in §6 and the §7 loader note with those
+      measured values; `tests/test_query_catalog.py` = 57 passed in 3.16 s;
+      `uv run pre-commit run --files <changed files>` passes all hooks. No
+      GraphDB write or reload. → step 4.
