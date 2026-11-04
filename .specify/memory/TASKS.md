@@ -1245,6 +1245,12 @@ Work item 30 (T-420–T-425): closed 2026-11-04 — the gate context falls back 
 TBox range, the real-fetch regression tests cover the selection batch, and `--check-store` was
 accepted read-only against `portfolio_test` for the six backtest graphs and the ticker-history
 snapshot; see `CHANGELOG.md` and `PLAN.md` Work item 30.
+
+Work item 31 (T-440–T-446): closed 2026-11-04 — `cli/load_run.py` pre-flights every m018 and
+selection graph before writing any of them, skips already-stored graphs, stops with nothing written
+on a refusal, reports a post-pre-flight write failure with the written/in-doubt graphs and the
+one-graph drops, and adds read-only `--check-store`; the real `portfolio_test` pre-flight reports
+the six 2026-11-04 graphs as already-in-the-store; see `CHANGELOG.md` and `PLAN.md` Work item 31.
 T-163 (function done, PR #68) closes with T-031, whose first slice (PR #72) calls it on the real read and re-reads the late keys for `v_score_snapshot`; T-164 done (PR #69).
 Work item 8 (T-070–T-071) is independent but needs a human at a Protégé
 session, not a coding session.

@@ -52,9 +52,17 @@ of this command:
 
 1. optional view-contract check (`--contract`);
 2. dry run of both projectors (rows, triples, unlinked counts);
-3. with `--write`, the m018 graphs and then the selection graphs through the normal gate;
-4. the read-only verifier for **every** graph;
-5. a final table of graph, stored triples and checks passed.
+3. the read-only pre-flight: `gate.plan` for **every** m018 and selection graph of every database,
+   with the store's real context and `SELECT` only. A refused graph stops the command before
+   anything is written; a graph already in the store is reported and skipped;
+4. with `--write`, the plans the pre-flight already computed, applied with `gate.write` (all m018
+   graphs first, then the selection siblings);
+5. the read-only verifier for **every** graph;
+6. a final table of graph, stored triples, status and checks passed.
+
+`--check-store` runs step 3 only, reports every graph's status and writes nothing. It is the
+one-command form of the per-projector pre-flight in §4a and refuses `--write` and
+`--to-production`.
 
 ### 1a. Prerequisites
 
@@ -82,6 +90,20 @@ uv run python cli/verify_store.py
 
 `verify_store` must exit 0. If it reports `urn:graph:tbox: expected N, store has M`, stop and reload
 the schema; do not load a backtest against a stale store.
+
+Check free disk space on the mounted data directory before a write. GraphDB refuses every write
+when the data disk has less than 5% free (observed 2026-11-04 on `portfolio_test`: HTTP 500
+"Critically low disk space! ... 5.0% (23 GB) free"), so require comfortable headroom, several GB
+beyond the 5% line:
+
+```bash
+df -h /workspaces/thesis
+```
+
+If the directory is backed by a Docker Desktop virtual disk, trim and compact it as
+`docs/graphdb-setup.md` records before retrying. A write refused for low disk is a store error
+before any graph is written; the pre-flight itself only reads, but the write that follows needs
+the space.
 
 ### 1b. Load the asset catalog once, then extend it with deltas
 
@@ -171,7 +193,11 @@ Use `--dir` when the files follow the `*_P<number>.db` naming, or repeat `--db`:
 SQL_UNIVERSE_DB=/workspaces/thesis/data/universe_history_gics.db \
 uv run python cli/load_run.py --label rule --dir data/backtests
 
-# write, after the dry run is clean
+# read-only pre-flight: plan every graph against the store, write nothing
+SQL_UNIVERSE_DB=/workspaces/thesis/data/universe_history_gics.db \
+uv run python cli/load_run.py --label rule --dir data/backtests --check-store
+
+# write, after the dry run and the pre-flight are clean
 SQL_UNIVERSE_DB=/workspaces/thesis/data/universe_history_gics.db \
 uv run python cli/load_run.py --label rule --dir data/backtests --write
 
@@ -180,7 +206,7 @@ SQL_UNIVERSE_DB=/workspaces/thesis/data/universe_history_gics.db \
 uv run python cli/load_run.py --label rule --dir data/backtests --write --to-production
 ```
 
-Use the same three commands with explicit files if you prefer:
+Use the same commands with explicit files if you prefer:
 
 ```bash
 uv run python cli/load_run.py --label rule \
@@ -194,20 +220,28 @@ view-contract check before anything is read; a `DRIFT` line stops the command. W
 `KG_REPOSITORY=portfolio` still needs `--to-production`; without it the command exits 2 before any
 graph is written.
 
-A dry run ends with a table like this (the checks column says `not verified (dry run)` because no
+A dry run ends with a table like this (the status and checks columns say `not checked` because no
 store was contacted):
 
 ```text
-graph                                                              triples  checks
-urn:graph:derived:backtest:rule:P1:1                                  209,886  not verified (dry run)
-urn:graph:derived:backtest:selection:rule:P1:1                        321,324  not verified (dry run)
+graph                                                              triples  status                  checks
+urn:graph:derived:backtest:rule:P1:1                                  209,886  not checked (dry run)   not verified (dry run)
+urn:graph:derived:backtest:selection:rule:P1:1                        321,324  not checked (dry run)   not verified (dry run)
 ```
 
-A write run repeats the dry-run counts, writes both graphs for every database, then runs the
-verifier for every graph and prints its `PASS`/`FAIL` lines and a table with the stored triple
-count and the number of checks passed. Exit 0 means every stage passed. A verification failure
-stops the run and prints the exact one-graph `DROP GRAPH <iri>` commands for the graphs this run
-wrote (see §9); the command itself never drops anything.
+`--check-store` prints the pre-flight's per-graph status (`would-be-written`,
+`already-in-the-store` or `refused`) and the same table; it contacts the store with `SELECT` only
+and never writes.
+
+A write run repeats the dry-run counts, runs the pre-flight for every graph, and only after every
+graph is accepted applies those plans (all m018 graphs first, then the selection siblings). It then
+runs the verifier for every graph and prints its `PASS`/`FAIL` lines and a table with the stored
+triple count, the status and the number of checks passed. Exit 0 means every stage passed. A
+refused pre-flight exits 1 with nothing written and lists each refused graph and the gate's
+message. A verification failure stops the run and prints the exact one-graph `DROP GRAPH <iri>`
+commands for the graphs this run wrote (see §9); the command itself never drops anything. A store
+error after the pre-flight names the graphs written, the graph in doubt (if any) and the same
+one-graph drops.
 
 ## 2. Manual fallback: check the pinned view contract
 
@@ -283,7 +317,16 @@ checks (check 7). It prints one of three results for each graph:
 It writes nothing, so it needs neither `--write` nor `--to-production`; those flags are refused
 with it.
 
-Run it for both backtest sides and the reference snapshot:
+For the final backtest, the one-command form plans both graph kinds of every database in one pass
+and refuses to write anything if any graph is refused:
+
+```bash
+SQL_UNIVERSE_DB=/workspaces/thesis/data/universe_history_gics.db \
+uv run python cli/load_run.py --label rule --dir data/backtests --check-store
+```
+
+The per-projector commands below remain useful when only one side is in question. Run them for both
+backtest sides and the reference snapshot:
 
 ```bash
 SQL_UNIVERSE_DB=/workspaces/thesis/data/universe_history_gics.db \
@@ -493,9 +536,10 @@ DROP GRAPH <urn:graph:derived:backtest:selection:rule:P1:1>
 ```
 
 (Or the equivalent one-graph `DROP GRAPH` through the repository's `/statements` endpoint.)
-`cli/load_run.py` prints these exact commands for the graphs it wrote when a verification fails;
-it never runs them itself. Never use `CLEAR ALL`, `DROP ALL`, `DROP DEFAULT`, a repository delete,
-or a graph IRI other than the one you are rolling back. After the drop, a `--write` of the same
+`cli/load_run.py` prints these exact commands for the graphs it wrote when a verification fails or
+a write fails after the pre-flight; a graph listed as *in doubt* is not included, because the store
+may not hold it. The command never runs a drop itself. Never use `CLEAR ALL`, `DROP ALL`,
+`DROP DEFAULT`, a repository delete, or a graph IRI other than the one you are rolling back. After the drop, a `--write` of the same
 source and label can create the graph again; the verifier should then pass. If only one arm or one
 file is wrong, still drop the whole graph (and its selection sibling when the failure is on that
 side) and re-project that database; never patch triples inside it.
@@ -527,7 +571,11 @@ side) and re-project that database; never patch triples inside it.
 | The verifier header names the wrong repository | `KG_REPOSITORY` (or `.env`) points elsewhere. Shell environment wins over `.env`; fix it and re-run the read-only verifier. If a graph was written to the wrong repository, drop only that one graph there (§9), never production. |
 | `DRIFT` from `cli/check_view_contract.py` or `--contract` | The pin and the new database disagree. Stop and re-pin (T-157/T-173); do not project. |
 | `refused: <graph>` from `--check-store` | The pre-flight's `gate.plan` hit the same rejection the write would: an existing individual (check 6), a closing state the store cannot take (check 7) or a shape/context failure. Fix the source or gate; do not bypass it. |
+| `pre-flight refused N graph(s); nothing was written` | `load_run.py --write` planned every graph before writing any and at least one was refused. Read each `pre-flight refused: <graph>` line and its gate message; nothing is in the store from this run. Fix the cause and re-run the pre-flight. |
 | `already-in-the-store: <graph>` from `--check-store` | Append-only: the graph exists, so the write will skip it. Use a new label/date/run id if this should be a new artifact. |
+| `--check-store only reads; do not combine it with --write` / `--check-store never writes; drop --to-production` (exit 2) | The read-only pre-flight refuses both write flags. Drop them and run it alone; the write is a separate command after a clean pre-flight. |
+| `store error after the pre-flight: ...` from `load_run.py --write` | The write failed after every graph had been accepted. The message lists the graphs written and the one in doubt (the store's answer was lost). Use the printed one-graph `DROP GRAPH` commands only after deciding the loss is acceptable; never drop the in-doubt graph blindly. |
+| HTTP 500 `Critically low disk space! ...` on a write | The GraphDB data disk is below its 5% free threshold; every write is refused. Free space until there is comfortable headroom beyond 5% (`df -h /workspaces/thesis`), then re-run the pre-flight and the write. |
 | A `FAIL` after `load_run.py --write` | The command prints the exact `DROP GRAPH` commands for the graphs it wrote. Read the failing check, decide the loss is acceptable, then drop only those graphs (§9) and re-project from the same copied database. |
 | `v_orchestrator_run: 0 rows, v_orchestrator_step: 0 rows: nothing to write` | Expected for the completed P1/P2/P3 databases: the two m015 views are empty. The ticker-history snapshot is still built and validated; there is no orchestrator graph to write. |
 | `canonical_symbol '...' is not the latest symbol` from `cli/project_reference.py` | The ticker-history view and the catalog disagree about a CIK line. Stop and report the CIK; do not edit the database or guess an asset. |

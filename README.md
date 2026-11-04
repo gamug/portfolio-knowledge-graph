@@ -53,7 +53,7 @@ storage location assigned in `07` and its writer assigned in `08`.
 │   └── protege-view.ttl                   generated flat Turtle bundle for Protégé — STALE as of 2026-08-23, not regenerated after the tbox.ttl/reference.ttl/shapes.ttl edits below; regenerate before using in Protégé
 ├── src/etl/, cli/build_data_ttl.py         transitional ETL: universe.db + portfolio-nlp results → flat data.ttl (roadmap step 2 shortcut)
 ├── src/kg_store/, cli/load_schema.py, cli/ingest.py, cli/verify_store.py, cli/load_universe.py   GraphDB store, schema loader, SHACL ingest gate and the asset-master loader with its incremental --delta (roadmap step 1, T-220, Work item 28)
-├── src/projection/, cli/check_view_contract.py (a checkout or the service's URL)   real step-2 projection (Work item 4): v_* read contract, drift check, score conversion, boundary expectations (view_expectations/*.json) and their runner (boundary.py), `v_score_snapshot` -> `:ScoreSnapshot` (score_snapshots.py, project_scores.py; entry point cli/project_scores.py), the eight m018 backtest/GUARD views -> `urn:graph:derived:backtest:{label}:{window}:{run}` (backtest.py, project_backtest.py; entry point cli/project_backtest.py), the six selection views -> the sibling `urn:graph:derived:backtest:selection:{label}:{window}:{run}` (project_selection.py; entry point cli/project_selection.py; Work item 26), the read-only verifier for either graph (verify_backtest.py; entry point cli/verify_backtest.py), and the one-command load/dry-run/verify sequence (load_run.py; entry point cli/load_run.py; Work item 29)
+├── src/projection/, cli/check_view_contract.py (a checkout or the service's URL)   real step-2 projection (Work item 4): v_* read contract, drift check, score conversion, boundary expectations (view_expectations/*.json) and their runner (boundary.py), `v_score_snapshot` -> `:ScoreSnapshot` (score_snapshots.py, project_scores.py; entry point cli/project_scores.py), the eight m018 backtest/GUARD views -> `urn:graph:derived:backtest:{label}:{window}:{run}` (backtest.py, project_backtest.py; entry point cli/project_backtest.py), the six selection views -> the sibling `urn:graph:derived:backtest:selection:{label}:{window}:{run}` (project_selection.py; entry point cli/project_selection.py; Work item 26), the read-only verifier for either graph (verify_backtest.py; entry point cli/verify_backtest.py), and the one-command dry-run/pre-flight/write/verify sequence (load_run.py; entry point cli/load_run.py; Work items 29 and 31)
 └── docs/                                  all Markdown design documents
     ├── critique-and-evolution.md          v1 critique + v2 evolution layers
     ├── 06-ontology-definition.md          ontology design rationale
@@ -149,7 +149,7 @@ of configuration:
 |---|---|
 | 0 — Ontology + SHACL shapes (this repo's `schema/`) | ✅ Done |
 | 1 — Stand up the triple store | ✅ Done — GraphDB repository `portfolio` with the reasoning profile of `07`, `schema/` loaded (`cli/load_schema.py`), ABox writes pass a SHACL gate (`cli/ingest.py`); see `docs/graphdb-setup.md`. Only the `instances.trig` worked example is loaded so far |
-| 2 — Ingest already-collected data into the graph | Shortcut built — `src/etl/` projects the universe (`universe.db`: assets and membership history) and news (`portfolio-nlp` results) to a flat `data.ttl`; the real projection (`financial-analysis` `v_*` views, dated named graphs) is partly built: T-030 pinned the read contract and the score conversion (`src/projection/`), T-031 projects `v_score_snapshot`, T-207 projects the eight m018 backtest/GUARD views into `urn:graph:derived:backtest:{label}:{window}:{run}`, Work item 26 projects the selection side into `urn:graph:derived:backtest:selection:{label}:{window}:{run}`, T-280's `cli/verify_backtest.py` proves a loaded graph matches its source read-only (Work item 29 extends it to the selection graph and adds the cross-graph check), and `cli/load_run.py` runs both dry runs, both writes and every verification in one command (see `docs/backtest-load-runbook.md`) |
+| 2 — Ingest already-collected data into the graph | Shortcut built — `src/etl/` projects the universe (`universe.db`: assets and membership history) and news (`portfolio-nlp` results) to a flat `data.ttl`; the real projection (`financial-analysis` `v_*` views, dated named graphs) is partly built: T-030 pinned the read contract and the score conversion (`src/projection/`), T-031 projects `v_score_snapshot`, T-207 projects the eight m018 backtest/GUARD views into `urn:graph:derived:backtest:{label}:{window}:{run}`, Work item 26 projects the selection side into `urn:graph:derived:backtest:selection:{label}:{window}:{run}`, T-280's `cli/verify_backtest.py` proves a loaded graph matches its source read-only (Work item 29 extends it to the selection graph and adds the cross-graph check), and `cli/load_run.py` runs both dry runs, the read-only pre-flight of every graph, both writes and every verification in one command (see `docs/backtest-load-runbook.md`) |
 | 3–9 — Pricing collector, EDGAR batch pipeline, NLP service, agent cycles, entity resolution, sector/portfolio construction, backtesting | Not this repo's to build — owned by `portfolio-data-mining`, `portfolio-nlp`, `portfolio-financial-analysis` (built or partly built there, per their docs; per-step owner table in the roadmap). This repo's part is projecting their outputs (step 2) |
 
 Full dependency-ordered detail in [`docs/10-integration-roadmap.md`](docs/10-integration-roadmap.md).
@@ -162,8 +162,9 @@ repository and graph and one `PASS`/`FAIL` line per check; exit 0 only if all pa
 
 | Command | Purpose |
 |---|---|
-| `cli/load_run.py --label rule --dir data/backtests` | Dry-run both projectors over every `*_P<number>.db` file and print the graph/triples table. |
-| `cli/load_run.py --label rule --dir data/backtests --write` | Write the m018 graphs, then the selection siblings, then verify every graph and print the checks-passed table. |
+| `cli/load_run.py --label rule --dir data/backtests` | Dry-run both projectors over every `*_P<number>.db` file and print the graph/triples/status table. |
+| `cli/load_run.py --label rule --dir data/backtests --check-store` | Run the read-only pre-flight (`gate.plan`) for every m018 and selection graph, report would-be-written/already-in-the-store/refused and write nothing. |
+| `cli/load_run.py --label rule --dir data/backtests --write` | Pre-flight every graph first; only if all are accepted, write the m018 graphs, then the selection siblings, then verify every graph and print the checks-passed table. |
 | `cli/load_run.py … --contract /path/to/portfolio-financial-analysis` | Run the pinned view-contract check before reading any database. |
 | `cli/verify_backtest.py --graph urn:graph:derived:backtest:rule:P1:1 --db rule_P1.db --label rule` | Verify one m018 graph read-only. |
 | `cli/verify_backtest.py --graph urn:graph:derived:backtest:selection:rule:P1:1 --db rule_P1.db --label rule` | Verify one selection graph read-only, including its m018 cross-graph check. |
@@ -175,8 +176,10 @@ uv run python cli/verify_backtest.py \
   --db /path/to/rule_P1.db --label rule
 ```
 
-The final table is `graph / triples / checks`; a verification failure stops the command and prints
-the exact one-graph `DROP GRAPH <iri>` commands for the graphs it wrote. The full load procedure,
+The final table is `graph / triples / status / checks`. `--write` plans every graph against the
+store before writing any of them: a refused graph stops the command with nothing written, while an
+already-stored graph is reported and skipped. A verification failure, or a write failure after the
+pre-flight, prints the exact one-graph `DROP GRAPH <iri>` commands for the graphs it wrote. The full load procedure,
 including the schema/catalog prerequisites and a single-graph rollback, is
 [`docs/backtest-load-runbook.md`](docs/backtest-load-runbook.md).
 

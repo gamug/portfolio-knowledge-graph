@@ -1788,6 +1788,8 @@ Work item 27 (ticker history and orchestrator projectors) — closed 2026-11-04 
   T-208); see `CHANGELOG.md`
 Work item 29 (selection verifier and one-command load) — closed 2026-11-04 (T-390–T-398); see
   `CHANGELOG.md`
+Work item 31 (load_run pre-flight and --check-store) — closed 2026-11-04 (T-440–T-446); see
+  `CHANGELOG.md`
 ```
 
 Work items 1, 2, and 9 have no dependencies and no blockers — they can land
@@ -2189,3 +2191,75 @@ context nodes against the class shapes. m018's `:holdingAsset`, `:guardAsset`, `
 `mypy` = success, **99 files**; pinned pre-commit hooks pass on every changed file; FR-001 remains
 **4431 quads; conforms: True**. No GraphDB write or reload was made.
 
+
+## Work item 31 — Pre-flight every graph before `load_run` writes (T-440–T-459)
+
+**Status: closed 2026-11-04.**
+
+**Why**: `cli/load_run.py` wrote every m018 graph and then every selection graph, so a graph refused
+halfway left the earlier ones in the append-only store; only a manual `DROP GRAPH` undid it. The dry
+run validated beside the local rules and asset catalog, not the store's real context, so it could
+not see an existing graph, an already-stored individual or a closing state the store cannot take.
+
+**What was built**:
+
+1. `projection.backtest` exposes `RunPlan`, `plan_run`, `plan_selection` and `write_run`. The
+   `plan_*` functions build the deterministic batches and call `gate.plan` for every graph without
+   writing; `write_run` applies the plans the pre-flight already computed with `gate.write` and
+   never plans a batch twice. `run`/`run_selection` keep their existing dry-run and per-graph write
+   behaviour for the single-side projectors.
+2. `projection.load_run` pre-flights **every** m018 and selection graph of **every** database before
+   writing any of them. Each graph is reported as `would-be-written`, `already-in-the-store`
+   (skipped) or `refused`; any refusal stops with nothing written and lists each refused graph with
+   the gate's message. Only after every graph is accepted does it apply the plans, all m018 graphs
+   first and then the selection siblings, and then verify every graph as before. The final table
+   gained a status column.
+3. `--check-store` runs only the pre-flight, with `SELECT` queries only; it writes nothing and
+   refuses `--write` and `--to-production`, like the three projector CLIs. The default dry run still
+   contacts no store.
+4. A write failure after the pre-flight names the graphs written and the graph in doubt when the
+   store's answer was lost, and prints the exact one-graph `DROP GRAPH <iri>` commands for the
+   graphs this run wrote. Nothing is ever dropped automatically.
+5. `tests/fixtures/dataset_store.py` now implements `select_terms` and `add`, so the load_run tests
+   run the real `gate.plan`/`gate.write` path against an in-memory Dataset holding the typed assets
+   and `schema/rules.ttl`; they do not use a fake with canned answers.
+6. `docs/backtest-load-runbook.md` documents the pre-flight and `--check-store`, the status table,
+   the write-failure report and the free-disk prerequisite (GraphDB refuses writes below 5% free);
+   `README.md` gained the command row and `SPEC.md` FR-010/FR-011 the contract.
+
+**Tasks**: T-440–T-446 (design, plan/write split, load_run pre-flight and `--check-store`, the real
+DatasetStore tests, docs, the real read-only verification and the checks).
+
+**Measured read-only verification (2026-11-04, no GraphDB write or reload)**:
+
+- `cli/load_run.py --check-store` against `portfolio_test` with the three
+  `/workspaces/thesis/scratch/final/runs/rule_P*.db` files reported all six graphs
+  (`...backtest:rule:P1:1`/`:P2:1`/`:P3:1` and their `...selection:...` siblings) as
+  `already-in-the-store`, exit 0, in **273.193 s**; nothing was written.
+- The dry run over the same three databases (no store contacted) took **280.967 s** and reported
+  209,886 / 196,840 / 222,449 m018 triples and 321,324 / 309,728 / 342,934 selection triples for
+  P1/P2/P3.
+- Hermetic tests run the real gate path with the in-memory `DatasetStore`: all accepted graphs are
+  written and verified; a later refused graph leaves no earlier graph written; an already-stored
+  graph is skipped while the others are written; `--check-store` writes nothing and rejects the
+  write flags; and a write failure after the pre-flight prints the written graphs, the in-doubt
+  graph and the one-graph drops. The existing load_run tests stay green.
+
+**Acceptance criteria**:
+
+- ✅ Every graph is planned through `gate.plan` with the store's real context before any graph is
+  written; a refusal writes nothing and lists every refusal with its graph and message.
+- ✅ An already-stored graph is reported and skipped, not an error; the other graphs are written.
+- ✅ `--check-store` is read-only, writes nothing and refuses `--write`/`--to-production`; the dry
+  run still contacts no store.
+- ✅ A write failure after the pre-flight names the written graphs and the in-doubt graph and prints
+  the exact one-graph `DROP GRAPH` commands; nothing is dropped automatically.
+- ✅ The real `portfolio_test` pre-flight reports the six 2026-11-04 graphs as already-in-the-store.
+- ✅ `uv run pytest`, `mypy` and the pinned pre-commit hooks pass; docs and counts are consistent.
+
+**Blocked on**: nothing. The user performs every write.
+
+**Verified 2026-11-04**: `uv run pytest -q` = **1307 passed, 59 deselected, 5114 warnings in
+812.16 s (13:32)**; `mypy` = success, **106 source files**; the pinned pre-commit hooks pass on
+every changed file; FR-001 remains **4431 quads; conforms: True**. No GraphDB write or reload was
+made.

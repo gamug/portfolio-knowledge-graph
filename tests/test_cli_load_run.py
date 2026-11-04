@@ -45,6 +45,7 @@ def test_help_exits_0() -> None:
     assert "--label" in result.stdout
     assert "--db" in result.stdout
     assert "--dir" in result.stdout
+    assert "--check-store" in result.stdout
     assert "--contract" in result.stdout
 
 
@@ -74,12 +75,25 @@ def test_to_production_without_write_exits_2(tmp_path: Path) -> None:
     assert "--to-production only matters with --write" in result.stderr
 
 
+def test_check_store_rejects_write_and_to_production(tmp_path: Path) -> None:
+    path = backtest_db(tmp_path)
+    result = _run(tmp_path, "--label", "rule", "--db", str(path), "--check-store", "--write")
+    assert result.returncode == 2
+    assert "--check-store only reads" in result.stderr
+    result = _run(
+        tmp_path, "--label", "rule", "--db", str(path), "--check-store", "--to-production"
+    )
+    assert result.returncode == 2
+    assert "--check-store never writes" in result.stderr
+
+
 def test_a_dry_run_over_a_synthetic_database_exits_0(tmp_path: Path) -> None:
     result = _run(tmp_path, "--label", "rule", "--db", str(backtest_db(tmp_path)))
     assert result.returncode == 0, result.stderr
     assert "urn:graph:derived:backtest:rule:P1:1" in result.stdout
     assert "urn:graph:derived:backtest:selection:rule:P1:1" in result.stdout
     assert "not verified (dry run)" in result.stdout
+    assert "pre-flight" not in result.stdout
 
 
 def test_a_directory_dry_run_loads_every_final_file(tmp_path: Path) -> None:
