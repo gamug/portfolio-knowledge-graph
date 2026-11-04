@@ -1370,3 +1370,130 @@ before a reasoner/SPARQL surface); 5 and 7 are no longer build items here. Work 
 everything but needs a human at a Protégé session, not code.
 
 See `TASKS.md` for the discrete, checkable task breakdown.
+## Work item 26 — Project the backtest selection side (T-320–T-349)
+
+**Status: open.**
+
+**Why**: the eight m018 backtest/GUARD views are projected, but the graphs cannot answer the two
+selection questions the reports agent receives: "why did X (not) make the Top-30 at this
+rebalance" and "which vetoes were in force". `v_veto`, `v_cycle_run`, `v_cycle_ranking` and
+`v_cycle_ranking_component` have no projector; `v_weight_scheme`/`v_weight_component` are the
+ranking's scheme context and have none either. This work item adds a **selection-side** projector
+beside the frozen m018 one. It closes T-209 and fixes the rule-resolution convention for backtest
+vetoes.
+
+**Step 0 measurements (2026-11-04, all three databases opened read-only as
+`file:/workspaces/thesis/scratch/final/runs/rule_P{1,2,3}.db?mode=ro`; `schema_version` 18):**
+
+| view | P1 | P2 | P3 | measured nullability / join |
+|---|---:|---:|---:|---|
+| `v_veto` | 1,442 | 1,354 | 1,696 | `cleared_on`/`cleared_at` NULL 512/268/254; `expires_on` NULL 1,267/1,159/1,424; every other column non-NULL; `run_id` joins `v_cycle_run` |
+| `v_cycle_run` | 22 | 20 | 22 | every column non-NULL; **all rows are `cycle_type = REPLAY`**; P1 has one `failed` run (id 6), the rest `completed` |
+| `v_cycle_ranking` | 10,484 | 10,060 | 11,066 | `target_weight` NULL 9,854/9,460/10,406; every other column non-NULL; unique `(cycle_run_id, asset_id)`; every `cycle_run_id` in `v_cycle_run`; `cycle_date = v_cycle_run.as_of` |
+| `v_cycle_ranking_component` | 30,664 | 29,745 | 32,568 | all six columns non-NULL; unique `(cycle_run_id, asset_id, score_type)`; no component row without a ranking row; 3/11/16 ranking rows have no component row (`UNSCORED`, some also `NO_RISK_MODEL`) |
+| `v_weight_scheme` | 22 | 20 | 22 | `max_name_weight` NULL once in P1; every other column non-NULL |
+| `v_weight_component` | 66 | 60 | 66 | all non-NULL |
+
+`v_book_rebalance.cycle_run_id` is NULL on all 10/8/10 `MARKOWITZ_BASE` rebalances and populated on
+all 20/16/20 TOPN rebalances; every populated value joins `v_cycle_run.run_id`, and
+`decision_date = v_cycle_run.as_of` in every database. The selection rows therefore attach to a
+rebalance by the run id (and, independently, by the date).
+
+Rule ids in `v_veto` are `BREAK_TREND_200`, `CRASH_Z_SCORE`, `DATA_QUALITY`, `EARNINGS_MISSING`,
+`LEVERAGE_EXTREME`, `LIQUIDITY_DISTRESS`, `NEGATIVE_FCF`, `PRICE_CRASH`, `UTILITY_CASH_COVERAGE` and
+`VOLATILITY_SHOCK`. Resolved by `:ruleId` on the backtest run's date (**2026-10-31**, the
+`v_book.knowledge_date` all three carry), each has exactly one active definition in
+`schema/rules.ttl`; `LIQUIDITY_DISTRESS` resolves to `:Rule_LIQUIDITY_DISTRESS_v11`, because the
+2026-10-02 definition closed on 2026-10-10. Resolving by `:raisedOn` would fail: every stint was
+raised between 2020-12-31 and 2024-07-30, before every active rule's `validFrom`.
+
+**Graph placement.** The m018 graph `urn:graph:derived:backtest:{label}:{P<n>}:{run_id}` is
+append-only and may already be written, so the selection side gets a sibling graph:
+`urn:graph:derived:backtest:selection:{label}:{P<n>}:{run_id}`. It keeps the same label and window
+vocabulary, and the gate accepts it as a second append-only backtest target
+(`_BACKTEST_SELECTION_TARGET`). The projection is all-or-nothing per run: one graph holds the run's
+`SelectionCycle`s, `AttractivenessWeightScheme`s, configured `WeightComponent`s,
+`AttractivenessSnapshot`s, effective-weight `WeightComponent`s and `Veto`s. It is written by a
+sibling CLI, so an existing m018 graph is neither read as a target nor rewritten.
+
+**Model — classes reused or new.**
+
+- **Reused**: `AttractivenessSnapshot` (one asset's ranking in one cycle), `AttractivenessWeightScheme`
+  and `WeightComponent` (the per-run configured blend), and `Veto` (a stint). The existing
+  `AttractivenessSnapshotShape` keeps `attractivenessOfAsset` optional and requires an asset link
+  or a `:rankingTicker`, because the universe database does not know every backtest ticker.
+- **New class `:SelectionCycle`** for `v_cycle_run`: `cycleRunId` (integer), `cycleType`,
+  `runAsOf`, `runId` (`"cycle_run:<id>"`), `status`, optional `codeVersion`, `startedAt` and
+  `finishedAt`; it is placed under `:Observation` and joins to a rebalance by `:cycleRunId`.
+  `:cycleRunId` loses its `BookRebalance`-only domain and is shared by `BookRebalance`,
+  `SelectionCycle` and the scheme.
+- **Ranking properties** (the names `kg_target_schema.ttl` already proposes for T-155):
+  `:rankPosition`, `:selectedForBook`, `:vetoedAtRanking`, `:targetWeight`,
+  `:hasEffectiveWeight`, and `:componentValue`; plus `:rankingOfCycle` (snapshot -> cycle),
+  `:rankingTicker` and `:vetoRulesJson` (upstream's `veto_rules_json` verbatim).
+- **Veto properties**: `:vetoTicker` always, `:vetoOfAsset` when the universe knows the ticker, and
+  `:appliesRule` + `:primaryRule` to the one rule resolved on the run date.
+- **No-component ranking rows are kept**, unlike T-155's proposal to skip them. Their upstream
+  `blended_score` is 0.0 and they carry `veto_rules_json` `["UNSCORED"]`/`["UNPRICED"]`; keeping
+  them is what lets a reader answer why an asset did not make the Top-30. They have no
+  `:hasEffectiveWeight` entry, which is the placeholder marker; no shape requires such an entry.
+  (T-155 remains the live-side task; this is the backtest-side convention.)
+
+**Nullable columns and masking.** `clearedOn`, `expiresOn`, `targetWeight`, `maxNameWeight` and
+`maxSectorWeight` are optional exactly as the views leave them NULL; nothing is filled. A view's
+`target_weight` is written only on selected rows. `v_veto.evidence_json` is **not projected**:
+unlike `v_cycle_ranking` and its components (which upstream explicitly keeps under the Tiingo
+non-redistribution rule), it carries values such as `close`, `vol_5d` and `vol_60d_base` derived
+from price rows, including the private Tiingo lines. No raw price, return or Tiingo-marked series is
+read; the projector reads only the six selection views above.
+
+**Asset linking.** Every ticker goes through the existing
+`projection.backtest.universe_assets` resolution, unchanged (Work item 23 is rewriting it). A
+missing asset keeps its `:rankingTicker`/`:vetoTicker` and is counted in
+`asset_unlinked[view]`, as the m018 projector counts `:guardTicker`/`:holdingKey`; the row is never
+dropped. Measured unlinked rows: ranking 34/0/2, veto 9/2/3 (distinct `FBIN` and `GAP`).
+
+**CLI.** A sibling `cli/project_selection.py --db LABEL=PATH [--write] [--to-production]`, sharing
+the m018 policy: dry run by default, no store contact, SHACL validation beside `rules.ttl` and the
+universe assets; `--write` through the ingest gate; production also needs `--to-production`; an
+existing graph is reported and skipped. Run labels and windows are the same patterns.
+
+**Tasks**:
+
+- **T-320** Implement the selection projector in `src/projection/` (six views, cycle/scheme/ranking/
+  component/veto construction, rule resolution on the run date, asset links and counts).
+- **T-321** Add the sibling graph name, gate target and its tests; keep the m018 target unchanged.
+- **T-322** Add the minimum schema: `SelectionCycle`, `:cycleType`, `:rankingTicker`, `:vetoTicker`,
+  `:vetoRulesJson`, the T-155 ranking properties and the two shapes (`SelectionCycleShape`,
+  `EffectiveWeightComponentShape`); update `kg_target_schema.ttl`, `schema/README.md`, every
+  asserted count and the FR-001 bundle number.
+- **T-323** Add the sibling CLI and its command-policy tests (dry run, `--write`, production guard,
+  duplicate graph).
+- **T-324** Hermetic fixtures and tests for every nullable case, the placeholder rows, the
+  LIQUIDITY_DISTRESS rule-date resolution, an unknown rule id, unlinked tickers and the gate.
+- **T-325** Opt-in real-database tests (`BACKTEST_DB`) with the P1/P2/P3 row counts above.
+- **T-326** Real dry runs over `rule_P1/P2/P3.db`: rows, individuals, triples, timing, peak RSS and
+  `pyshacl`, recorded in `SPEC.md`/`TASKS.md`.
+- **T-327** Docs: `docs/06` (§1.10/§1.11), `docs/07`, `docs/08`, `docs/graphdb-setup.md`,
+  `schema/README.md`, `README.md`, `SPEC.md`, and the reports query catalog. Add tested selection
+  queries and move Q9/B5 from `After T-209` to `Today` only if those queries answer them.
+- **T-328** Close T-209 in `TASKS.md`/`CHANGELOG.md` and record the rule-resolution convention.
+
+**Acceptance criteria**:
+
+- A dry run over each real database projects every selection view row exactly once (or reports the
+  documented skip), produces one sibling graph per run, links every known ticker through
+  `universe_assets`, counts the unknown ones, and is `pyshacl`-conformant.
+- A backtest veto's rule is resolved by `:ruleId` against the definition in force on the run date
+  (2026-10-31); `LIQUIDITY_DISTRESS` resolves to `_v11`; an unknown rule id stops with a message
+  naming the id and the date. `raisedOn` is never the resolver.
+- No shape requires a value the views mask or leave NULL; the no-component rows remain visible
+  without inventing a component; `evidence_json` and every Tiingo-derived price value stay out of
+  the Turtle.
+- The m018 graphs and target are unchanged; the new graph name is accepted by the gate and
+  documented; a graph already in the store is skipped, never appended to.
+- `uv run pytest`, `mypy`, and the pinned pre-commit hooks pass; the FR-001 bundle and every asserted
+  count are updated in the same change.
+
+**Blocked on**: nothing. No GraphDB write or reload is made by this work item; the maintainer
+performs both.
