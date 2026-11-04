@@ -744,12 +744,17 @@ no-component ranking row stays visible as upstream's 0.0 placeholder (`vetoRules
 `["UNSCORED"]`/`["UNPRICED"]`, no `:hasEffectiveWeight`), and `v_veto.evidence_json` is not
 projected (its values are price-derived). A backtest veto's rule is resolved by `:ruleId` on the
 run's `knowledge_date` (2026-10-31), not `:raisedOn`; `LIQUIDITY_DISTRESS` resolves to `_v11`.
-Real dry runs (read-only): P1 42,700 rows/individuals, 321,281 triples, 86.25 s, 1,213,756 KB peak
-RSS; P2 41,259, 309,726, 81.64 s, 1,153,048 KB; P3 45,440, 342,929, 90.11 s, 1,282,204 KB; all
-`pyshacl conforms: True`. The schema gains `:SelectionCycle` and the ranking properties; the FR-001
-bundle is **4431 quads** (52 classes, 39 leaves, 34 shapes) and the load plan is 4708 asserted
-triples. The query catalog adds `selection-ranking-at-rebalance`, `selection-vetoes-in-force` and
-`selection-why-not-top30`, and moves Q9/B5 to `Today`. No GraphDB write or reload was made.
+`:attractivenessOfAsset`/`:vetoOfAsset` link by exact ticker first, then to the one loaded `:Asset`
+with the same CIK from `v_ticker_history` of the same database (`FBIN`→`:FBHS`, `GAP`→`:GPS`);
+otherwise the row keeps its ticker literal and is counted. That rule removed the last unlinked
+rows (before: ranking 34/0/2, veto 9/2/3 across P1/P2/P3; after: 0).
+Real dry runs (read-only): P1 42,700 rows/individuals, **321,324** triples, 56.45 s, 1,214,004 KB
+peak RSS; P2 41,259, **309,728**, 53.94 s, 1,155,632 KB; P3 45,440, **342,934**, 58.35 s,
+1,285,948 KB; all `pyshacl conforms: True`. The schema gains `:SelectionCycle` and the ranking
+properties; the FR-001 bundle is **4431 quads** (52 classes, 39 leaves, 34 shapes) and the load plan
+is 4708 asserted triples. The query catalog adds `selection-ranking-at-rebalance`,
+`selection-vetoes-in-force` and `selection-why-not-top30`, and moves Q9/B5 to `Today`. No GraphDB
+write or reload was made.
 
 **Contract v18 backtest/GUARD projector (2026-11-02, T-207; run labels 2026-11-03, T-230–T-236).**
 The eight m018 views (`v_book`,
@@ -798,6 +803,28 @@ with the label a run adds one triple per book and per test (+9 for P1 and P3, +2
 tests). The bundle then held **4204 triples, `pyshacl conforms: True** (T-220's `sh:class :Asset` and
 T-227's `sh:class :Universe` +2, and the net −34 of T-233/T-234: five `sh:in` window lists and two
 segment lists became `sh:pattern`, and `:runLabel` adds 16).
+
+**Contract v18 ticker-history and orchestrator projector (2026-11-04, T-208/T-350–T-360).** The
+remaining three views are read by `src/projection/reference.py` (policy in
+`src/projection/project_reference.py`, CLI `cli/project_reference.py`). `v_ticker_history` becomes a
+complete, labelled, dated snapshot in `urn:graph:derived:ticker-history:{label}:{snapshot_date}`;
+every `TickerHistory` IRI carries the label and date (`TickerHistory_{label}_{YYYYMMDD}_{cik}_{symbol}_{validFrom}`),
+so a later refresh is a new graph with new individuals and never a re-declaration (the gate refuses
+both an existing graph and a stored typed individual). The interval is inclusive
+(`validFrom <= D <= validTo`; NULL `validTo` is the current symbol), and a latest row whose
+`canonical_symbol` is not one of its CIK line's latest symbols stops the run. `v_orchestrator_run`
+and `v_orchestrator_step` become one append-only graph per run,
+`urn:graph:derived:orchestrator:{label}:{run_id}`, with the step linked by `:stepOfOrchestratorRun`
+and its own `run_id` written as `"{run_kind}:{id}"`; the shapes require only the natural keys. A
+masked/NULL optional column is omitted; a multi-date `evidence_date` is omitted and counted, and
+`evidence_url` is kept verbatim. `:tickerHistoryAsset` links by exact canonical symbol first, then to
+the one loaded `:Asset` under the same CIK (`FBIN`→`:FBHS`, `GAP`→`:GPS`), otherwise it is unset and
+counted; no `:Asset` is invented and no link crosses CIKs. The real dry runs over P1/P2/P3 read 21
+ticker-history rows, built 198 triples and 21 individuals per database, linked 17 exact + 4 by CIK
+with 0 unlinked, omitted 4 multi-date evidence cells, and reported 0 orchestrator rows / nothing to
+write; each graph is `pyshacl`-conformant in 1.25–1.42 s at ~73 MB peak RSS. The gate accepts the
+two new graph patterns. No schema file changed; the bundle stays **4431 quads, conforms: True**
+(Work item 26's schema is the current revision).
 
 **FIBO Phase 1 alignment (2026-11-03, T-210).** FIBO is a reference vocabulary, not a dependency
 (the FIBO integration brief §1): our terms stay in `https://thesis.local/kg/portfolio#`, there is

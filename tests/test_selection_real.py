@@ -2,9 +2,9 @@
 
 Run with ``-m integration`` and ``BACKTEST_DB=<path to rule_P1.db, rule_P2.db or rule_P3.db>``.
 The file is opened read-only. It checks the Step 0 row counts and that every selection row becomes
-one individual, plus the measured unlinked-ticker counts. The universe database and
-``schema/rules.ttl`` are read the way the CLI reads them; if the universe file is absent the test
-skips rather than guessing an asset set.
+one individual, and that the exact/unique-same-CIK rule leaves no unlinked ticker. The universe
+database and ``schema/rules.ttl`` are read the way the CLI reads them; if the universe file is
+absent the test skips rather than guessing an asset set.
 """
 
 from __future__ import annotations
@@ -40,7 +40,7 @@ EXPECTED = {
             "AttractivenessSnapshot": 10_484,
             "Veto": 1_442,
         },
-        "unlinked": {"v_cycle_ranking": 34, "v_veto": 9},
+        "unlinked": {},
     },
     "P2": {
         "v_cycle_run": 20,
@@ -56,7 +56,7 @@ EXPECTED = {
             "AttractivenessSnapshot": 10_060,
             "Veto": 1_354,
         },
-        "unlinked": {"v_veto": 2},
+        "unlinked": {},
     },
     "P3": {
         "v_cycle_run": 22,
@@ -72,7 +72,7 @@ EXPECTED = {
             "AttractivenessSnapshot": 11_066,
             "Veto": 1_696,
         },
-        "unlinked": {"v_cycle_ranking": 2, "v_veto": 3},
+        "unlinked": {},
     },
 }
 

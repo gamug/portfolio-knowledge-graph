@@ -602,10 +602,15 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       `CHANGELOG.md`. Bundle unchanged: **4178 quads; conforms: True**.)* Project the eight m018
       backtest/GUARD views into one append-only graph per completed run. → `PLAN.md` Work item 4,
       step 7.
-- [ ] **T-208** *(PR-C2, from T-206/T-207)* Project the remaining Contract v18 views
-      `v_ticker_history`, `v_orchestrator_run` and `v_orchestrator_step`, and settle their
+- [x] **T-208** *(done 2026-11-04 in Work item 27: `src/projection/reference.py`, policy
+      `src/projection/project_reference.py`, CLI `cli/project_reference.py`; ticker-history
+      snapshots at `urn:graph:derived:ticker-history:{label}:{snapshot_date}`, one orchestrator
+      graph per run; the gate accepts both; 21 ticker rows / 198 triples / 17 exact + 4 same-CIK
+      links / 0 unlinked in the P1/P2/P3 dry runs, 0 orchestrator rows and nothing to write; no
+      schema change. See `CHANGELOG.md` Work item 27.)* Project the remaining Contract v18
+      views `v_ticker_history`, `v_orchestrator_run` and `v_orchestrator_step`, and settle their
       graph placement; no projector exists for them yet, and T-207 deliberately reads only the
-      eight m018 views. A `feat/` PR. → `PLAN.md` Work item 4.
+      eight m018 views. A `feat/` PR. → `PLAN.md` Work item 27.
 - [x] **T-209** *(done 2026-11-04 in Work item 26: `load_selection_catalog`/`resolve_rule` in
       `src/projection/backtest.py` resolve every backtest veto's `:ruleId` on the run's
       `knowledge_date` (2026-10-31); `LIQUIDITY_DISTRESS` resolves to
@@ -1181,8 +1186,8 @@ repository. See `PLAN.md` Work item 28, SPEC FR-008 and `docs/backtest-load-runb
       incremental procedure), `docs/graphdb-setup.md` (options, delta target, measured runs),
       `docs/07` (delta graph row and drift policy), `schema/README.md`, `README.md`, SPEC FR-008
       and this task list. → `PLAN.md` Work item 28.
-- [x] **T-379** *(done 2026-11-04)* Checks: `uv run pytest -q` = **1191 passed, 57 deselected in
-      875.59 s**; `mypy` = success, 88 source files; the pinned pre-commit hooks pass on the 15
+- [x] **T-379** *(done 2026-11-04)* Checks: `uv run pytest -q` = **1252 passed, 58 deselected in
+      871.88 s**; `mypy` = success, 97 source files; the pinned pre-commit hooks pass on the 15
       changed files. → `PLAN.md` Work item 28.
 - [ ] **T-380** *(maintainer; the agent never writes GraphDB)* First real
       `cli/load_universe.py --delta --write` on a scratch repository whose catalog is known, then a
@@ -1224,6 +1229,9 @@ Work item 26 (T-320–T-328): closed 2026-11-04 — the backtest selection side 
 `urn:graph:derived:backtest:selection:{label}:{P<n>}:{run}`, the three new report queries are
 tested, T-209's rule resolution is fixed on the run date, and the real dry runs are recorded;
 see `CHANGELOG.md`.
+Work item 27 (T-350–T-360): closed 2026-11-04 — the ticker-history and orchestrator projector,
+CLI, gate patterns, tests, real dry runs and the `ticker-history-on-date` query; see
+`CHANGELOG.md` and `PLAN.md` Work item 27.
 Work item 28 (T-370–T-389): T-370–T-379 done 2026-11-04 — the incremental asset-catalog delta
 (`--delta`, four categories, drift reported never applied, the
 `urn:graph:universe:{year}-Q{n}:delta:{n}` target), its hermetic tests and the read-only

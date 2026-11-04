@@ -22,6 +22,26 @@ The label is yours (`rule`, `champ_v1`, …), the window and run id come from `v
 also part of every individual IRI, so two result families never share an individual. The graph is
 append-only: once written, it is never edited or appended to.
 
+The same database also carries the three remaining Contract v18 views. They are projected
+separately by `cli/project_reference.py` into:
+
+```text
+urn:graph:derived:ticker-history:{label}:{snapshot_date}   # one complete snapshot
+urn:graph:derived:orchestrator:{label}:{run_id}            # one graph per run
+```
+
+A ticker-history snapshot is labelled and dated, and every IRI carries both, so a later refresh is
+a new graph with new individuals, never a re-declaration. An orchestrator run is immutable; a
+later run is a new id and a new graph. Both are append-only like the backtest graph.
+
+The selection side of the same run is a separate sibling graph:
+
+```text
+urn:graph:derived:backtest:selection:{label}:{window_id}:{backtest_run_id}
+```
+
+It is written by `cli/project_selection.py`; the m018 graph is neither a target nor rewritten.
+
 ## 1. Prerequisites
 
 Run from the repository root, with `uv sync` already done and `.env` present (never commit it).
@@ -207,6 +227,61 @@ uv run python cli/project_backtest.py \
 was left untouched (nothing was appended); use a new label (§3) if this was meant to be a new
 family. The gate also refuses an existing graph, so a second write can never mutate the first.
 
+## 5a. Ticker history and orchestrator runs
+
+The three remaining v18 views are projected by the reference/process CLI. The default is a dry run;
+it reads the same database, runs the boundary, builds each graph and SHACL-validates it beside the
+loaded asset catalog, and contacts no store:
+
+```bash
+SQL_UNIVERSE_DB=/workspaces/thesis/data/universe_history_gics.db \
+uv run python cli/project_reference.py \
+  --db rule=data/backtests/rule_P1.db --as-of 2026-11-04
+```
+
+Read the `rows: v_ticker_history`, `rows: v_orchestrator_run` and
+`rows: v_orchestrator_step` lines, the `asset links:` line (exact, by CIK) and any
+`asset link omitted:` line. A canonical symbol the catalog does not know is linked to the one
+loaded `:Asset` with the same CIK (`FBIN` → `:FBHS`, `GAP` → `:GPS`); with no safe link it is left
+unset and counted, never invented. A ticker-history snapshot is complete and immutable: a later
+refresh uses a new `--as-of` date (or a new label), not a rewrite of the existing graph.
+
+When both orchestrator views are empty, the run exits 0 and prints
+`v_orchestrator_run: 0 rows, v_orchestrator_step: 0 rows: nothing to write`; that is the expected
+result for the completed P1/P2/P3 databases, not a failure.
+
+Write after a clean dry run, with the same production guard as the backtest projector:
+
+```bash
+SQL_UNIVERSE_DB=/workspaces/thesis/data/universe_history_gics.db \
+uv run python cli/project_reference.py \
+  --db rule=data/backtests/rule_P1.db --as-of 2026-11-04 --write
+```
+
+`written: <graph>: <n> triples` is the record. `already in the store: <graph>` means the graph was
+left untouched; use a new snapshot date/label for ticker history, or a new run id for an
+orchestrator run. The production repository additionally needs `--to-production`.
+
+## 5b. Selection side
+
+The selection projector writes the sibling graph for the same run:
+
+```bash
+SQL_UNIVERSE_DB=/workspaces/thesis/data/universe_history_gics.db \
+uv run python cli/project_selection.py --db rule=data/backtests/rule_P1.db
+```
+
+The dry run reads `v_cycle_run`, `v_weight_scheme`, `v_weight_component`, `v_cycle_ranking`,
+`v_cycle_ranking_component`, `v_veto` and `v_ticker_history`, builds the selection graph and
+SHACL-validates it beside `rules.ttl` and the universe assets. A ranking or veto ticker links by
+exact `:Asset` symbol first, else to the one loaded `:Asset` with the same CIK from
+`v_ticker_history` (`FBIN` → `:FBHS`, `GAP` → `:GPS`); otherwise it keeps its literal and is
+counted. The 2026-11-04 dry runs report 0 unlinked ranking/veto rows (before: 34/0/2 and 9/2/3),
+321,324 / 309,728 / 342,934 triples for P1/P2/P3, and each graph is SHACL-conformant.
+
+Write after a clean dry run with `--write`; the production repository also needs
+`--to-production`, and an existing graph is reported and skipped rather than appended to.
+
 ## 6. Verify the store against the source
 
 Run once per graph. The verifier reads only `SELECT` queries, so it is safe against any repository,
@@ -246,7 +321,11 @@ a new "Live load record" section) with:
 
 The 2026-11-04 reference dry runs, for comparison: P1 15,615 `v_book_weight_daily` rows and
 209,886 triples; P2 15,641 and 196,840; P3 18,025 and 222,449; 0.66–0.73 GB peak RSS and 44–48 s
-per database. A final load with different data will differ; record what you measured.
+per database. The reference/process dry run over the same P1 database reads 21 `v_ticker_history`
+rows, 0 orchestrator runs and 0 steps; it builds one snapshot graph and reports 17 exact + 4 same-CIK
+asset links (0 unlinked). The selection dry runs after the same-CIK rule build 321,324 / 309,728 /
+342,934 triples for P1/P2/P3 with 0 unlinked ranking/veto rows (before: 34/0/2 and 9/2/3). A final
+load with different data will differ; record what you measured.
 
 ## 8. Roll back exactly one graph
 
@@ -282,3 +361,7 @@ graph and re-project that database; never patch triples inside it.
 | `store error: cannot reach GraphDB ...` | `KG_HOST` is wrong. From the dev container use `http://host.docker.internal:7200`; `localhost` is the container. |
 | The verifier header names the wrong repository | `KG_REPOSITORY` (or `.env`) points elsewhere. Shell environment wins over `.env`; fix it and re-run the read-only verifier. If a graph was written to the wrong repository, drop only that one graph there (§8), never production. |
 | `DRIFT` from `cli/check_view_contract.py` | The pin and the new database disagree. Stop and re-pin (T-157/T-173); do not project. |
+| `v_orchestrator_run: 0 rows, v_orchestrator_step: 0 rows: nothing to write` | Expected for the completed P1/P2/P3 databases: the two m015 views are empty. The ticker-history snapshot is still built and validated; there is no orchestrator graph to write. |
+| `canonical_symbol '...' is not the latest symbol` from `cli/project_reference.py` | The ticker-history view and the catalog disagree about a CIK line. Stop and report the CIK; do not edit the database or guess an asset. |
+| `asset link omitted: v_ticker_history: N` | No exact symbol and no unique same-CIK asset. The history row is kept, the property is unset, and the row is counted; never add an `:Asset` by hand. |
+| `already in the store: urn:graph:derived:ticker-history:...` | The snapshot date/label was used before. Choose a new `--as-of` date (or label); do not drop and rewrite the old snapshot. |

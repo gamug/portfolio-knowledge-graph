@@ -167,6 +167,44 @@ drift** (`:ZZTEST`, `:UM_ZZTEST_2026-11-01`, `:UM_DIS_1976-07-01 validTo 2026-11
 `urn:graph:universe:2026-Q4:delta:1`, SHACL conforms. No GraphDB write was made; the first real
 `--write` is the maintainer's step.
 
+## Loading ticker history and orchestrator runs (T-208, T-352/T-353)
+
+After `schema/` and the asset catalog are loaded, the three remaining Contract v18 views are
+projected by:
+
+```bash
+uv run python cli/project_reference.py --db rule=rule_P1.db --as-of 2026-11-04        # dry run
+uv run python cli/project_reference.py --db rule=rule_P1.db --as-of 2026-11-04 --write
+```
+
+`--db LABEL=PATH` is repeatable and the label reaches every graph and individual IRI. Ticker
+history goes to `urn:graph:derived:ticker-history:{label}:{YYYY-MM-DD}` as a complete snapshot;
+every `TickerHistory` IRI carries the label and date, so a later refresh uses a new date (or label)
+and never re-declares a stored individual. Orchestrator runs go one per graph,
+`urn:graph:derived:orchestrator:{label}:{run_id}`, keyed by the positive id. The production
+repository also needs `--to-production` with `--write`.
+
+`:tickerHistoryAsset` links by exact canonical symbol first, then to the one loaded `:Asset`
+carrying the row's CIK (`FBIN` → `:FBHS`, `GAP` → `:GPS`); with no safe link the property is unset
+and counted. No `:Asset` is created. A canonical symbol that is not the latest symbol of its CIK
+stops the run. An optional `evidence_date` holding more than one date is omitted and counted;
+`evidence_url` is kept verbatim.
+
+The 2026-11-04 read-only dry runs over the completed databases:
+
+| Database | `v_ticker_history` rows | Orchestrator rows | Ticker graph triples | Asset links (exact / by CIK / omitted) | Time | Peak RSS |
+|---|---|---|---|---|---|---|
+| `rule_P1.db` | 21 | 0 run, 0 step | 198 | 17 / 4 / 0 | 1.35 s | 73 MB |
+| `rule_P2.db` | 21 | 0 run, 0 step | 198 | 17 / 4 / 0 | 1.42 s | 73 MB |
+| `rule_P3.db` | 21 | 0 run, 0 step | 198 | 17 / 4 / 0 | 1.25 s | 73 MB |
+
+Each ticker graph contains 21 `TickerHistory` individuals and is SHACL-conformant. The two
+orchestrator views are empty in all three, so no orchestrator graph was built and the CLI printed
+`v_orchestrator_run: 0 rows, v_orchestrator_step: 0 rows: nothing to write`. No GraphDB write or
+reload was made. The pilot `financial.db` in this checkout has no `schema_version` row (it reads 0
+and is below the v18 floor), so it is not a valid v18 source; the task's `base.db`/`scored_rule.db`
+paths are not present here.
+
 ## Ingest gate (T-023)
 
 ```bash
@@ -182,6 +220,8 @@ nothing written:
    `urn:graph:derived:quant:{date}`,
    `urn:graph:derived:backtest:{run_label}:{P<number>}:{run}`,
    `urn:graph:derived:backtest:selection:{run_label}:{P<number>}:{run}`,
+   `urn:graph:derived:ticker-history:{run_label}:{YYYY-MM-DD}`,
+   `urn:graph:derived:orchestrator:{run_label}:{positive run id}`,
    `urn:graph:universe:{year}-Q{n}` (or its `:delta:{n}` incremental suffix) or
    `urn:graph:portfolio:current` (TBox, reference and rules go through `cli/load_schema.py`);
 2. an append-only graph (all but `portfolio:current`) does not exist yet;
@@ -242,10 +282,10 @@ whether a stored section a restatement replaces is current (check 8's other half
 at individuals it does not declare fails check 5 under `--check` for want of what the store holds about them (the rejection says so).
 
 **T-206/T-207 note.** The Contract v18 ontology added `TickerHistory` to `gate.CLOSABLE` (its shape
-reads `:validTo`). T-207 adds the accepted backtest graph
-`urn:graph:derived:backtest:{window_id}:{backtest_run_id}` to check 1; its last capture group is a
-positive integer id, not a date, so `check_target` validates the window and id on a separate branch
-instead of passing the id to `_date_ok`. The projector that writes those graphs
+reads `:validTo`). T-207 added the accepted backtest graph
+`urn:graph:derived:backtest:{run_label}:{P<number>}:{backtest_run_id}` to check 1; its last capture
+group is a positive integer id, not a date, so `check_target` validates the label, window and id on
+a separate branch instead of passing the id to `_date_ok`. The projector that writes those graphs
 (`src/projection/backtest.py`, CLI `cli/project_backtest.py`) was run here as a dry run only, and
 that change made no GraphDB write or reload; the store was then still pre-T-206. It was reloaded
 on 2026-11-02 (T-212, below), and `verify_store` passes.
@@ -274,10 +314,26 @@ uv run python cli/project_selection.py --db rule=rule_P1.db --write
 
 A backtest veto's rule is resolved by `:ruleId` on the run's knowledge date (2026-10-31), not by
 `:raisedOn`; `LIQUIDITY_DISTRESS` resolves to `_v11` and an unknown id stops the run. The projector
-reads only the six selection views, keeps `v_veto.evidence_json` out of the graph (its values are
-price-derived), and counts a ticker the universe database does not know rather than inventing an
-`:Asset`. The schema must be reloaded (the T-212 command) before a selection write, because the
-store's copy predates `:SelectionCycle` and the ranking properties.
+reads the six selection views plus `v_ticker_history`, keeps `v_veto.evidence_json` out of the
+graph (its values are price-derived), and links a ticker by exact `:Asset` symbol first, else to
+the one loaded `:Asset` with the same CIK from `v_ticker_history` (`FBIN` → `:FBHS`, `GAP` →
+`:GPS`); if neither is safe it keeps the ticker literal and counts the row. The schema must be
+reloaded (the T-212 command) before a selection write, because the store's copy predates
+`:SelectionCycle` and the ranking properties.
+
+The 2026-11-04 selection dry runs after the link rule (read-only): P1 321,324 triples in 56.45 s
+at 1,214,004 KB peak RSS, P2 309,728 in 53.94 s at 1,155,632 KB, P3 342,934 in 58.35 s at
+1,285,948 KB; all `pyshacl` conformant, 0 unlinked ranking/veto rows (before: 34/0/2 and 9/2/3).
+The increases over the exact-only runs (321,281 / 309,726 / 342,929) are the recovered links.
+
+**T-352/T-353 note (ticker history and orchestrator runs).** `check_target` now also accepts
+`urn:graph:derived:ticker-history:{run_label}:{YYYY-MM-DD}` and
+`urn:graph:derived:orchestrator:{run_label}:{positive run id}`. The ticker-history target is
+append-only and reference-like: a later snapshot uses a new date (or label), and every
+`TickerHistory` IRI carries the label and date so the gate's check 6 does not see a re-declaration.
+An orchestrator run gets one graph, keyed by its positive id; a later run is a new graph. The
+projector is `src/projection/reference.py`, the policy is `src/projection/project_reference.py`,
+and the CLI is `cli/project_reference.py`. No GraphDB write or reload was made in this change.
 
 **T-211 note (FIBO Phase 2).** `schema/fibo.ttl` is a 277-statement reference slice and loads into
 its own graph, `urn:graph:reference:fibo`, after `reference.ttl`. The loader therefore owns 20
