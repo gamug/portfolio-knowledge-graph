@@ -288,6 +288,8 @@ architecture, and not partitioned for the bitemporal audit trail
    `v_cycle_run`; no store was reloaded then, and the reload landed with T-212 on 2026-11-02. The
    m015/m016 views (`v_ticker_history`,
    `v_orchestrator_run`, `v_orchestrator_step`) landed in Work item 27 (T-208, 2026-11-04).
+   The first real backtest write landed in `portfolio_test` on 2026-11-04 (T-215, Work item 32):
+   the m018 graphs passed 21/21 checks each and the selection graphs 15/15 each.
    FIBO Phase 1 (T-210, 2026-11-03) is in too: six `rdfs:seeAlso` links from
    `schema/fibo_terms.csv` in `tbox.ttl` and (for the four terms it declares)
    `kg_target_schema.ttl`, the two broken `https://www.omg.org/spec/EDMC-FIBO/` links removed, and
@@ -1180,13 +1182,21 @@ Asset a membership batch points at (T-221). T-227 added the `sh:class :Universe`
   (refused).
 - ✅ FR-001 parse + `pyshacl` on the 4237-quad bundle at that revision (4204 after T-227 and T-233/T-234); every pinned count updated in the same
   change.
-- ⬜ First real `--write` to a scratch repository (T-226), never production by default; it needs the
+- ✅ First real `--write` to a scratch repository (T-226), never production by default; it needs the
   maintainer's go-ahead, a schema reload there (the store is 4513 until the merged 4431-quad
-  bundle is loaded) and the full universe in `SQL_UNIVERSE_DB`.
+  bundle is loaded) and the full universe in `SQL_UNIVERSE_DB`. Done 2026-11-04 in `portfolio_test`
+  after the schema reload from master following PR #123 (`verify_store` 6/6 PASS); see "Verified
+  2026-11-04 (live)" below and Work item 32.
+
+**Verified 2026-11-04 (live, `portfolio_test`)**: the full load wrote 643 `:Asset` plus the 5 in
+`reference.ttl`, 658 memberships (503 open, 155 closed) and 6548 triples into
+`urn:graph:universe:2026-Q4`; 59 assets were left without `:classifiedAs` on purpose. The record is
+in `docs/graphdb-setup.md`, "Live load record, portfolio_test, 2026-11-04".
 
 **Open**: T-225 (the worked example's `2026-Q3` memberships overlap the loader's catalog for the
-five reference assets; clean it when the worked example stops being loaded into the real store) and
-T-226 (the live write). Everything else landed with T-220–T-227.
+five reference assets; clean it when the worked example stops being loaded into the real store).
+T-226 is done; everything else landed with T-220–T-227.
+
 ## Work item 20 — Label backtest runs and open the window vocabulary (T-230–T-237)
 
 **Why**: the m018 views carry no identifier for the run itself — no input hash, no parameters — so
@@ -1449,8 +1459,9 @@ procedure around both halves.
   no schema count changed.
 - **Residual risk:** no live GraphDB read or write was made in this change. The verifier passed
   21/21 checks over an in-memory Dataset holding `rule_P1.db`'s 209,886-triple projection, but its
-  store-side SPARQL has not yet run against GraphDB. The first live run is the operator's step in
-  `docs/backtest-load-runbook.md`.
+  store-side SPARQL had not yet run against GraphDB. **Closed 2026-11-04**: the verifier ran
+  against `portfolio_test` and passed 21/21 checks each on the m018 graphs (Work item 32).
+
 ## Work item 25 — Reports-agent sector and industry queries (T-300–T-308)
 
 **Status: closed 2026-11-04.**
@@ -1733,8 +1744,9 @@ Unlinked tickers: 0 ranking and 0 veto in every database after the shared CIK-aw
 - ✅ `uv run pytest`, `mypy` and the pinned pre-commit hooks pass; docs, counts and `SPEC.md` are
   consistent; no schema count changed.
 - **Residual risk:** no live GraphDB read or write was made in this work item. The verifier's
-  store-side SPARQL over the selection graph and `load_run.py --write` have not run against
-  GraphDB; the first live run is the operator's step in `docs/backtest-load-runbook.md`.
+  store-side SPARQL over the selection graph and `load_run.py --write` had not run against
+  GraphDB. **Closed 2026-11-04**: the live `portfolio_test` load wrote the m018 and selection
+  graphs, and the verifier passed 21/21 and 15/15 checks (Work item 32).
 
 **Blocked on**: nothing.
 ## Sequencing
@@ -1770,9 +1782,10 @@ Work item 15 (upstream's v_* changes) — T-150, T-170 and T-171 (PR #56) done, 
 Work item 16 (boundary validation of upstream rows; T-192 adds the veto stint check after T-031's vetoes lane) — T-160 done (plain checks), T-161 closed, T-162 done; T-163 open (its function is done, the wiring into the read path started with Work item 4's T-031, PR #72)
 Work item 17 (one GraphDB repository per automation) — T-196–T-200 open; replaces T-195; starts with T-196 (the maintainer's decision)
 Work item 19 (asset master through the ingest gate) — T-220–T-224 done; T-225 (worked-example
-  overlap) and T-226 (first real --write) open
+  overlap) remains open; T-226 (first real --write) closed 2026-11-04 with Work item 32
 Work item 20 (backtest run labels, open window vocabulary) — T-230–T-236 done; T-237 (live reload and dropping
-  stale unlabelled graphs from scratch repositories) is the maintainer's
+  stale unlabelled graphs from scratch repositories) is the maintainer's; the reload half is done
+  2026-11-04 (Work item 32)
 Work item 21 (reports-agent query catalog) — closed 2026-11-03 (T-240–T-243); adapted to the labelled
   backtest graphs and the asset catalog loader on 2026-11-04; see `CHANGELOG.md`
 Work item 22 (retired GICS names) — closed 2026-11-04 (T-250–T-259); see `CHANGELOG.md`
@@ -1789,6 +1802,8 @@ Work item 27 (ticker history and orchestrator projectors) — closed 2026-11-04 
 Work item 29 (selection verifier and one-command load) — closed 2026-11-04 (T-390–T-398); see
   `CHANGELOG.md`
 Work item 31 (load_run pre-flight and --check-store) — closed 2026-11-04 (T-440–T-446); see
+  `CHANGELOG.md`
+Work item 32 (portfolio_test live load record) — closed 2026-11-04 (T-460–T-469); see
   `CHANGELOG.md`
 ```
 
@@ -1970,7 +1985,8 @@ or reload was made; the maintainer performs both.
 
 ## Work item 28 — Incremental asset-catalog deltas (T-370–T-389)
 
-**Status: implemented 2026-11-04; open only for T-380 (the maintainer's first real `--write`).**
+**Status: implemented 2026-11-04; the full catalog is loaded in `portfolio_test` (Work item 32);
+open only for T-380 (the maintainer's first real delta `--write`).**
 
 **Why**: `cli/load_universe.py` writes the whole catalog into
 `urn:graph:universe:{year}-Q{n}` once per repository. A second load into the same quarter is
@@ -2112,7 +2128,8 @@ are still only made by the user.
 - New asset/membership blocks, closures, drift and the empty delta are covered hermetically with
   the in-memory `Dataset` store, including gate check 2/6/7 refusals.
 - `uv run pytest`, `mypy` and the pinned pre-commit hooks pass; docs and asserted counts are
-  consistent (NR-001); the first real write remains the maintainer's step.
+  consistent (NR-001); the first real delta write remains the maintainer's step (T-380); the full
+  catalog write landed 2026-11-04 (Work item 32).
 
 **Verified 2026-11-04 (read-only, no GraphDB write):** `cli/load_universe.py --delta --as-of
 2026-11-04` against `portfolio_test` with
@@ -2191,7 +2208,6 @@ context nodes against the class shapes. m018's `:holdingAsset`, `:guardAsset`, `
 `mypy` = success, **99 files**; pinned pre-commit hooks pass on every changed file; FR-001 remains
 **4431 quads; conforms: True**. No GraphDB write or reload was made.
 
-
 ## Work item 31 — Pre-flight every graph before `load_run` writes (T-440–T-459)
 
 **Status: closed 2026-11-04.**
@@ -2263,3 +2279,50 @@ DatasetStore tests, docs, the real read-only verification and the checks).
 812.16 s (13:32)**; `mypy` = success, **106 source files**; the pinned pre-commit hooks pass on
 every changed file; FR-001 remains **4431 quads; conforms: True**. No GraphDB write or reload was
 made.
+
+## Work item 32 — Record the portfolio_test live load (T-460–T-469)
+
+**Status: closed 2026-11-04.**
+
+**Why**: the first real catalog write (`cli/load_universe.py`) and the first real backtest write
+(the m018 and selection graphs) landed in `portfolio_test` on 2026-11-04. T-215 and T-226 were
+still open because no live write had been recorded, and the incidents from that load had to reach
+the runbook so the next load does not repeat them.
+
+**Record**: the full dated record is in `docs/graphdb-setup.md`, "Live load record, portfolio_test,
+2026-11-04". In short:
+
+- schema reloaded from master after PR #123; `verify_store` 6/6 PASS;
+- asset catalog `urn:graph:universe:2026-Q4`: 643 `:Asset` written plus the 5 in `reference.ttl`,
+  658 memberships (503 open, 155 closed), 6548 triples, 59 assets without `:classifiedAs` on purpose;
+- m018 graphs, label `rule`: P1/P2/P3 209,886 / 196,840 / 222,449 triples, verifier 21/21 each;
+- selection graphs, label `rule`: P1/P2/P3 321,324 / 309,728 / 342,934 triples, verifier 15/15 each;
+- ticker-history snapshot `urn:graph:derived:ticker-history:rule:2026-11-04`: 21 rows, 198 triples,
+  17 exact plus 4 same-CIK links, 4 multi-date evidence cells omitted and counted; the orchestrator
+  views have 0 rows and nothing was written.
+
+**Lessons**:
+
+1. The first live selection write was refused because `:attractivenessOfAsset`, `:vetoOfAsset`,
+   `:appliesRule` and `:primaryRule` declared no `sh:class`, so `fetch_context` returned only
+   `rdf:type` for the referenced assets and rules and the batch failed `AssetShape` and
+   `RuleDefinitionShape` (dozens of violations). Work item 30 added the `rdfs:range` fallback and
+   `--check-store`; the dry run alone cannot see this class of problem.
+2. GraphDB refuses every write below 5% free disk space (HTTP 500 "Critically low disk space",
+   observed with 23 GB free on a 465 GB disk). Docker Desktop's `docker_data.vhdx` had grown to
+   210.5 GB with about 76 GB in real use; freeing space inside, `fstrim`, `wsl --shutdown` and an
+   elevated `diskpart` attach/compact/detach took it from 210.5 GB to 78.5 GB. Compacting without
+   the trim step recovered nothing. The runbook's prerequisites now start with `df -h` on the
+   mounted data directory, keeping several GB beyond the 5% line.
+
+**Acceptance criteria**:
+
+- The dated record carries the schema reload, the catalog, the m018 and selection graph families
+  and the ticker-history snapshot with the measured numbers and nothing invented.
+- T-215 and T-226 are checked with that evidence; the remaining first-write task (T-380, the delta)
+  stays open.
+- The runbook has the free-disk prerequisite; the SPEC acceptance cells point at the live record.
+- `uv run pytest`, `mypy` and the pinned pre-commit hooks pass; docs and counts are consistent.
+
+**Verified 2026-11-04**: docs-only; `uv run pytest -q`, `mypy` and the pinned pre-commit hooks
+pass; no schema file changed. No GraphDB write or reload was made by this change.

@@ -165,7 +165,8 @@ CIK `0002999999`, `valid_from` 2026-11-01) and one open stint closed (`DIS`, `va
 2026-11-01), the same command reported exactly **1 new asset, 1 new membership, 1 closure and 0
 drift** (`:ZZTEST`, `:UM_ZZTEST_2026-11-01`, `:UM_DIS_1976-07-01 validTo 2026-11-01`), target
 `urn:graph:universe:2026-Q4:delta:1`, SHACL conforms. No GraphDB write was made; the first real
-`--write` is the maintainer's step.
+delta `--write` is still the maintainer's step (T-380). The full catalog write landed on
+2026-11-04; see "Live load record, portfolio_test, 2026-11-04" below.
 
 ## Loading ticker history and orchestrator runs (T-208, T-352/T-353)
 
@@ -200,8 +201,9 @@ The 2026-11-04 read-only dry runs over the completed databases:
 
 Each ticker graph contains 21 `TickerHistory` individuals and is SHACL-conformant. The two
 orchestrator views are empty in all three, so no orchestrator graph was built and the CLI printed
-`v_orchestrator_run: 0 rows, v_orchestrator_step: 0 rows: nothing to write`. No GraphDB write or
-reload was made. The pilot `financial.db` in this checkout has no `schema_version` row (it reads 0
+`v_orchestrator_run: 0 rows, v_orchestrator_step: 0 rows: nothing to write`. That dry run made no
+GraphDB write or reload; the live snapshot is in the record below. The pilot `financial.db` in this
+checkout has no `schema_version` row (it reads 0
 and is below the v18 floor), so it is not a valid v18 source; the task's `base.db`/`scored_rule.db`
 paths are not present here.
 
@@ -336,7 +338,8 @@ append-only and reference-like: a later snapshot uses a new date (or label), and
 `TickerHistory` IRI carries the label and date so the gate's check 6 does not see a re-declaration.
 An orchestrator run gets one graph, keyed by its positive id; a later run is a new graph. The
 projector is `src/projection/reference.py`, the policy is `src/projection/project_reference.py`,
-and the CLI is `cli/project_reference.py`. No GraphDB write or reload was made in this change.
+and the CLI is `cli/project_reference.py`. No GraphDB write or reload was made in this change; the
+live ticker-history snapshot is in the record below.
 
 **T-211 note (FIBO Phase 2).** `schema/fibo.ttl` is a 277-statement reference slice and loads into
 its own graph, `urn:graph:reference:fibo`, after `reference.ttl`. The loader therefore owns 20
@@ -410,11 +413,12 @@ projectors):
 | `rule_P2.db` | 15,641 | 196,840 | 41,259 | 309,728 | 90.2 s | 1.10 GB |
 | `rule_P3.db` | 18,025 | 222,449 | 45,440 | 342,934 | 101.0 s | 1.22 GB |
 
-Unlinked tickers: 0 ranking and 0 veto in every database after the shared CIK-aware link rule. On 2026-11-04 the verifier also ran against an in-memory `rdflib.Dataset`
-holding `rule_P1.db`'s two projections: 21 of 21 m018 checks passed over 209,886 triples and 15 of
-15 selection checks passed over 321,324 triples, including the cross-graph check. It has **not**
-yet been run against a live GraphDB repository (this change made no GraphDB read or write); that
-first live run is the operator's step in the runbook.
+Unlinked tickers: 0 ranking and 0 veto in every database after the shared CIK-aware link rule. On
+2026-11-04 the verifier also ran against an in-memory `rdflib.Dataset` holding `rule_P1.db`'s two
+projections: 21 of 21 m018 checks passed over 209,886 triples and 15 of 15 selection checks passed
+over 321,324 triples, including the cross-graph check. It then ran against `portfolio_test`: the
+m018 graphs passed 21/21 checks each and the selection graphs 15/15 each; see "Live load record,
+portfolio_test, 2026-11-04" below.
 
 ## Acceptance check (T-025)
 
@@ -620,6 +624,48 @@ PASS the quant batch passes beside the stored Portfolios: the quant batch passes
 
 Both match the offline versions in `tests/test_fibo_slice.py`, so the live graph layout
 (`urn:graph:tbox`, `urn:graph:reference:fibo`) is confirmed. T-212 and T-213 are done.
+
+### Live load record, portfolio_test, 2026-11-04
+
+The first real catalog and backtest load into `portfolio_test`. The schema was reloaded from
+`master` after PR #123; `cli/verify_store.py` passed 6/6 checks.
+
+| Load | Result |
+|---|---|
+| Asset catalog, `universe_history_gics.db`, `urn:graph:universe:2026-Q4` | 643 `:Asset` written plus the 5 in `reference.ttl`; 658 memberships (503 open, 155 closed); 6548 triples; 59 assets without `:classifiedAs` on purpose |
+| m018 backtest graphs, label `rule` | P1 209,886, P2 196,840, P3 222,449 triples; `cli/verify_backtest.py` 21/21 checks each |
+| Selection graphs, label `rule` | P1 321,324, P2 309,728, P3 342,934 triples; `cli/verify_backtest.py` 15/15 checks each |
+| Ticker history, `urn:graph:derived:ticker-history:rule:2026-11-04` | 21 rows; 198 triples; 17 exact plus 4 same-CIK asset links; 4 multi-date evidence cells omitted and counted |
+| Orchestrator | `v_orchestrator_run` and `v_orchestrator_step` have 0 rows; nothing written |
+
+Selection individuals per class:
+
+| Class | P1 | P2 | P3 |
+|---|---|---|---|
+| `SelectionCycle` | 22 | 20 | 22 |
+| `AttractivenessSnapshot` | 10,484 | 10,060 | 11,066 |
+| `AttractivenessWeightScheme` | 22 | 20 | 22 |
+| `WeightComponent` | 30,730 | 29,805 | 32,634 |
+| `Veto` | 1,442 | 1,354 | 1,696 |
+
+Placeholders with no effective weight: 3 / 11 / 16. Distinct linked tickers: ranking 516 / 529 /
+530, veto 485 / 498 / 504; 0 unlinked.
+
+**Lesson 1 — the gate must see the referenced individuals' shape data.** The first live selection
+write was refused by the gate: `:attractivenessOfAsset`, `:vetoOfAsset`, `:appliesRule` and
+`:primaryRule` declared no `sh:class`, so `fetch_context` returned only `rdf:type` for the
+referenced assets and rules, and the batch failed `AssetShape` and `RuleDefinitionShape` (dozens of
+violations). Work item 30 fixed it with the relation's `rdfs:range` fallback and added
+`--check-store`; the dry run alone cannot see this class of problem.
+
+**Lesson 2 — GraphDB refuses every write below 5% free disk space.** The store answered HTTP 500
+"Critically low disk space" with 23 GB free on a 465 GB disk. Docker Desktop's `docker_data.vhdx`
+had grown to 210.5 GB with about 76 GB in real use. The procedure that worked, and its result
+(210.5 GB to 78.5 GB): free space inside, then run
+`docker run --rm --privileged --pid=host alpine nsenter -t 1 -m -- fstrim -av`, quit Docker Desktop,
+run `wsl --shutdown`, and in an elevated prompt use `diskpart`:
+`select vdisk file="...\docker_data.vhdx"`, `attach vdisk readonly`, `compact vdisk`,
+`detach vdisk`. A compaction without the trim step recovered nothing.
 
 ## Connecting
 
