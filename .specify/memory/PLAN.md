@@ -1323,7 +1323,7 @@ Finance -> `Ind_Banks`.
 
 **Blocked on**: nothing.
 
-## Work item 25 — Reports-agent sector and industry queries (T-300–T-304)
+## Work item 25 — Reports-agent sector and industry queries (T-300–T-307)
 
 **Status: closed 2026-11-04.**
 
@@ -1336,21 +1336,22 @@ the universe graph for their memberships (T-225), so a naive union join can coun
 
 **What was built**:
 
-1. `docs/reports-agent-query-catalog.md` gains §6, the cross-graph rule and five executable queries:
+1. `docs/reports-agent-query-catalog.md` gains §6, the cross-graph rule and six executable queries:
    layer-1 GUARD cuts by window and sector (with an `unclassified` bucket so the P1 total equals the
    layer-1 ENTER alert count), sector composition of a book on a rebalance date (the sector weights
-   plus CASH sum to 1), distinct held tickers by window and industry (Banks and Insurance, count and
-   `GROUP_CONCAT` list), sector coverage of held assets (held, asset-linked, sector-classified), and
-   unclassified assets by year of `:validTo`. The asset-to-sector part is a `SELECT DISTINCT`
-   sub-select outside `GRAPH ?g`; the backtest part stays inside the `urn:graph:derived:backtest:`
-   filter with the run label.
+   plus the `unclassified` bucket plus CASH sum to 1), distinct held tickers by window and industry
+   (Banks and Insurance, count and `GROUP_CONCAT` list), sector coverage of held assets (held,
+   asset-linked, sector-classified), unclassified assets by year of `:validTo`, and `sector-of-asset`
+   for Q5 (ticker, company, industry, sector and the optional Spanish sector note). The
+   asset-to-sector part is a `SELECT DISTINCT` sub-select outside `GRAPH ?g`; the backtest part stays
+   inside the `urn:graph:derived:backtest:` filter with the run label.
 2. `tests/test_query_catalog.py` now builds the synthetic store in the real layout: `:Asset` and
    `:classifiedAs` in `urn:graph:universe:2026-Q4`, the taxonomy in `urn:graph:reference`, and
    `AAPL` in both graphs (T-225). The dataset enables GraphDB's default union for the documented
    sub-select. A negative test proves the single-graph form returns fewer rows (0 in the universe
    graph, 5 in the reference graph) than the correct cross-graph form (8), and that a naive union
    counts the overlapping `AAPL` twice.
-3. The limits table marks the sector questions Q5 and Q11 **Today**; §6.6 records the known limits of
+3. The limits table marks the sector questions Q5 and Q11 **Today**; §6.7 records the known limits of
    the asset catalog (the 2019–2021 leavers' 56 closed stints have no source classification, the
    spin-offs MBC/FTRE/PHIN have none either, and GICS is rolled up by
    `src/etl/common/gics_rollup.py`).
@@ -1366,6 +1367,17 @@ the universe graph for their memberships (T-225), so a naive union join can coun
   `0.000000451…`; Banks/Insurance returns 5 rows; coverage is 100/100/100, 123/123/123 and
   115/115/115; the 2019–2021 unclassified closed stints total 56.
 - `uv run pytest`, `mypy` and the pinned pre-commit hooks pass; docs and counts are consistent.
+
+**Follow-up (2026-11-04, PR #120 review).** The composition query's optional sector sub-select
+was evaluated before the backtest block, so a held ticker with no `:classifiedAs` or no
+`:holdingAsset` disappeared instead of joining the `unclassified` bucket. T-305 moves the holding
+and CASH patterns into `GRAPH ?g` with `OPTIONAL { ?row :holdingAsset ?asset }`, then uses the
+sentinel/`COALESCE` pattern; a dedicated fixture now holds AAA (Financials) 0.60, QQQ (catalog asset
+without a sector) 0.30, ZZZ (no `:holdingAsset`) 0.05 and CASH 0.05, and asserts Financials 0.60,
+`unclassified` 0.35 and 0.60 + 0.35 + 0.05 = 1. T-306 adds `sector-of-asset` for Q5 (ticker
+parameter; company, industry, sector and the optional Spanish sector note), proves one row for
+`AAPL` even though it is in both graphs, and documents that an unclassified ticker returns no row.
+T-307 re-runs the checks and records the counts.
 
 **Coordination**: Work item 23 (inclusive `validTo`, one `:Asset` per CIK for renames) owns the
 `validTo` semantics and asset-identity statements and will edit the same catalog for membership
@@ -1412,7 +1424,7 @@ Work item 20 (backtest run labels, open window vocabulary) — T-230–T-236 don
   stale unlabelled graphs from scratch repositories) is the maintainer's
 Work item 21 (reports-agent query catalog) — closed 2026-11-03 (T-240–T-243); adapted to the labelled
   backtest graphs and the asset catalog loader on 2026-11-04; see `CHANGELOG.md`
-Work item 25 (reports-agent sector and industry queries) — closed 2026-11-04 (T-300–T-304); see
+Work item 25 (reports-agent sector and industry queries) — closed 2026-11-04 (T-300–T-307); see
   `CHANGELOG.md`
 ```
 

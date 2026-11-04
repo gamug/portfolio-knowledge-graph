@@ -866,7 +866,7 @@ test changed; no `src/`, `schema/` or gate change.*
 - [x] **T-302** *(done 2026-11-04)* Update the limits table: Q5 and Q11 become
       **Today**, Q11 points at `held-tickers-by-window-industry`, and the loader
       note records the `portfolio_test` catalog (648 assets, 579 classified).
-      Add §6.6 "Known limits of the asset catalog": the 2019–2021 leavers'
+      Add §6.7 "Known limits of the asset catalog": the 2019–2021 leavers'
       **56 closed stints** have no source classification ("no classification in
       the source", not an error), MBC (inference, no source), FTRE and PHIN
       (S&P DJI release of 2023-06-28, cited in `universe_patches.py`) have none
@@ -887,3 +887,27 @@ test changed; no `src/`, `schema/` or gate change.*
       = success, 77 files; `uv run pre-commit run --files <changed files>`
       passes all hooks. Update `PLAN.md`, `TASKS.md` and this file; no schema
       count changed. → step 5.
+- [x] **T-305** *(done 2026-11-04, PR #120 review)* Fix
+      `sector-composition-on-rebalance`: the sector sub-select ran before
+      `GRAPH ?g`, so a holding without `:classifiedAs` or without
+      `:holdingAsset` disappeared instead of joining `unclassified`. The
+      holding and CASH patterns now stay inside `GRAPH ?g` with
+      `OPTIONAL { ?row :holdingAsset ?asset }`, followed by the
+      `COALESCE` sentinel, the `SELECT DISTINCT` sector sub-select and the
+      `unclassified` bucket. A dedicated fixture uses AAA 0.60, QQQ 0.30 (a
+      catalog asset without a sector), ZZZ 0.05 (no `:holdingAsset`) and CASH
+      0.05, and asserts Financials 0.60, `unclassified` 0.35 and
+      0.60 + 0.35 + 0.05 = 1. → step 1.
+- [x] **T-306** *(done 2026-11-04, PR #120 review)* Add the tagged
+      `sector-of-asset` query for Q5: ticker parameter (`VALUES ?ticker {
+      "AAA" }`), company name when present, industry label, sector label and
+      the sector individual's Spanish `rdfs:comment`/`skos:definition` when
+      present; point Q5's "Where" cell at it. The test covers AAA (classified
+      catalog asset), AAPL (one row despite being declared in both graphs) and
+      an unclassified ticker (no row, as documented). → step 2.
+- [x] **T-307** *(done 2026-11-04, PR #120 review)* Re-run the checks and
+      record the new counts: `uv run pytest -q` = **1074 passed, 56 deselected
+      in 800.19 s**; `tests/test_query_catalog.py` = 55 passed in 4.02 s;
+      `uv run mypy --config-file=.code_quality/mypy.ini` = success, 77 files;
+      `uv run pre-commit run --files <changed files>` passes all hooks. No
+      GraphDB write or reload, no merge or rebase. → step 3.

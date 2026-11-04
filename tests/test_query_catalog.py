@@ -22,11 +22,11 @@ from pathlib import Path
 
 import pytest
 import rdflib
-from fixtures.backtest_rows import ASSETS, backtest_db, load_catalog
+from fixtures.backtest_rows import ASSETS, backtest_db, load_catalog, scenario_rows
 from rdflib.query import ResultRow
 from rdflib.term import URIRef
 
-from projection.backtest import VIEWS, Projection, project, read_view
+from projection.backtest import VIEWS, AssetInfo, Projection, project, read_view
 from projection.source import FinancialSource
 
 REPO = Path(__file__).resolve().parent.parent
@@ -36,6 +36,8 @@ CATALOG = REPO / "docs" / "reports-agent-query-catalog.md"
 NS = "https://thesis.local/kg/portfolio#"
 KG = rdflib.Namespace(NS)
 RDF = rdflib.RDF
+RDFS = rdflib.RDFS
+SKOS = rdflib.SKOS
 XSD = rdflib.XSD
 UNIVERSE_GRAPH = "urn:graph:universe:2026-Q4"
 
@@ -75,6 +77,7 @@ EXPECTED_NAMES = frozenset(
         "held-tickers-by-window-industry",
         "sector-coverage-of-held-assets",
         "unclassified-assets-by-validto-year",
+        "sector-of-asset",
     }
 )
 
@@ -206,9 +209,12 @@ def _add_universe_catalog(dataset: rdflib.Dataset) -> None:
         universe.add((membership, KG.validTo, rdflib.Literal(valid_to, datatype=XSD.date)))
 
 
-@pytest.fixture(scope="module")
-def catalog_dataset(tmp_path_factory: pytest.TempPathFactory) -> rdflib.Dataset:
-    """The four schema graphs, the real-layout universe graph, and two synthetic run labels."""
+def _base_dataset() -> rdflib.Dataset:
+    """The schema graphs, the real-layout universe graph and two Spanish sector probes.
+
+    The shipped ``reference.ttl`` has no per-sector Spanish note; the probes exercise the
+    optional comment/definition branch of ``sector-of-asset`` without changing the real schema.
+    """
     # GraphDB's default graph is the union of every named graph; the sector sub-select in §6
     # depends on that union, so the hermetic dataset reproduces it.
     dataset = rdflib.Dataset(default_union=True)
@@ -220,7 +226,24 @@ def catalog_dataset(tmp_path_factory: pytest.TempPathFactory) -> rdflib.Dataset:
     ):
         dataset.graph(URIRef(graph_iri)).parse(path, format="turtle")
     _add_universe_catalog(dataset)
+    reference = dataset.graph(URIRef("urn:graph:reference"))
+    reference.add(
+        (KG.Sec_Financials, RDFS.comment, rdflib.Literal("Sector financiero (prueba).", lang="es"))
+    )
+    reference.add(
+        (
+            KG.Sec_InformationTechnology,
+            SKOS.definition,
+            rdflib.Literal("Sector de tecnología (prueba).", lang="es"),
+        )
+    )
+    return dataset
 
+
+@pytest.fixture(scope="module")
+def catalog_dataset(tmp_path_factory: pytest.TempPathFactory) -> rdflib.Dataset:
+    """The base dataset plus two labels across both synthetic backtest windows."""
+    dataset = _base_dataset()
     for label in ("rule", "champ_v1"):
         for window in ("P1", "P2"):
             projection = _projection(tmp_path_factory.mktemp(f"{label}-{window}"), window, label)
@@ -228,6 +251,64 @@ def catalog_dataset(tmp_path_factory: pytest.TempPathFactory) -> rdflib.Dataset:
                 graph = dataset.graph(URIRef(name))
                 for triple in builder.triples:
                     graph.add(triple)
+    return dataset
+
+
+@pytest.fixture(scope="module")
+def composition_dataset(tmp_path_factory: pytest.TempPathFactory) -> rdflib.Dataset:
+    """A rebalance with a classified, an unclassified and an unlinked holding.
+
+    ``AAA`` is classified (Banks -> Financials), ``QQQ`` is a catalog asset without
+    ``:classifiedAs`` and ``ZZZ`` has no ``:holdingAsset`` at all. The two unlinkable holdings
+    must land in ``unclassified`` so sectors + unclassified + CASH = 1.
+    """
+    dataset = _base_dataset()
+    rows = scenario_rows(window="P1")
+    rows["book_weight_daily"] = [
+        row
+        for row in rows["book_weight_daily"]
+        if not (row["book_id"] == 1 and row["date"] == "2022-01-04")
+    ]
+    for ticker, asset_id, weight in (
+        ("AAA", 1, 0.60),
+        ("QQQ", None, 0.30),
+        ("ZZZ", 4, 0.05),
+        ("CASH", None, 0.05),
+    ):
+        rows["book_weight_daily"].append(
+            {
+                "book_id": 1,
+                "date": "2022-01-04",
+                "holding_key": ticker,
+                "asset_id": asset_id,
+                "markowitz_target_weight": weight,
+                "drifted_weight": weight,
+                "pre_guard_weight": weight,
+                "final_target_weight": weight,
+            }
+        )
+    for perf in rows["book_daily_performance"]:
+        if perf["book_id"] == 1 and perf["date"] == "2022-01-04":
+            perf["cash_weight"] = 0.05
+            perf["n_equity"] = 3
+
+    assets = {**ASSETS, "QQQ": AssetInfo("QQQ", "0000000005", (("2020-01-01", None),))}
+    source = FinancialSource.open(
+        backtest_db(tmp_path_factory.mktemp("composition"), window="P1", rows=rows)
+    )
+    try:
+        views = {view: read_view(source, view) for view in VIEWS}
+    finally:
+        source.close()
+    projection = project(views, assets, load_catalog(), "rule")
+    for name, builder in projection.graphs.items():
+        graph = dataset.graph(URIRef(name))
+        for triple in builder.triples:
+            graph.add(triple)
+
+    universe = dataset.graph(URIRef(UNIVERSE_GRAPH))
+    universe.add((KG.QQQ, RDF.type, KG.Asset))
+    universe.add((KG.QQQ, KG.tickerSymbol, rdflib.Literal("QQQ")))
     return dataset
 
 
@@ -461,6 +542,51 @@ def test_the_sector_composition_sums_to_one_minus_cash(
     cash = Decimal(str(rows[0]["cash"]))
     assert total + cash == Decimal(1)
     assert str(rows[0]["sector"]) == "Financials"  # AAA -> Banks -> Financials
+
+
+def test_the_sector_composition_keeps_unclassified_holdings(
+    composition_dataset: rdflib.Dataset,
+) -> None:
+    rows = _rows(composition_dataset, _query("sector-composition-on-rebalance"))
+    by_sector = {str(row["sector"]): Decimal(str(row["weight"])) for row in rows}
+    assert by_sector == {"Financials": Decimal("0.60"), "unclassified": Decimal("0.35")}
+    cash = Decimal(str(rows[0]["cash"]))
+    assert cash == Decimal("0.05")
+    assert sum(by_sector.values()) + cash == Decimal(1)
+
+
+def test_sector_of_asset_returns_the_catalog_sector(
+    catalog_dataset: rdflib.Dataset,
+) -> None:
+    rows = _rows(catalog_dataset, _query("sector-of-asset"))
+    assert len(rows) == 1
+    row = rows[0]
+    assert str(row["ticker"]) == "AAA"
+    assert row["companyName"] is None
+    assert str(row["industryLabel"]) == "Banks"
+    assert str(row["sectorLabel"]) == "Financials"
+    assert str(row["sectorDefinition"]) == "Sector financiero (prueba)."
+
+
+def test_sector_of_asset_deduplicates_a_worked_example_in_both_graphs(
+    catalog_dataset: rdflib.Dataset,
+) -> None:
+    query = _query("sector-of-asset").replace('"AAA"', '"AAPL"')
+    rows = _rows(catalog_dataset, query)
+    assert len(rows) == 1
+    row = rows[0]
+    assert str(row["ticker"]) == "AAPL"
+    assert str(row["companyName"]) == "Apple Inc."
+    assert str(row["industryLabel"]) == "Technology Hardware & Equipment"
+    assert str(row["sectorLabel"]) == "Information Technology"
+    assert str(row["sectorDefinition"]) == "Sector de tecnología (prueba)."
+
+
+def test_sector_of_asset_returns_no_row_for_an_unclassified_asset(
+    catalog_dataset: rdflib.Dataset,
+) -> None:
+    query = _query("sector-of-asset").replace('"AAA"', '"OLD2019"')
+    assert _rows(catalog_dataset, query) == []
 
 
 def test_banks_and_insurers_are_listed_by_window(

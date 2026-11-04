@@ -1156,8 +1156,8 @@ Work item 21 (T-240–T-243): closed 2026-11-03 — the reports-agent query cata
 Work item 22 (T-250–T-259): closed 2026-11-04 — the six historical GICS sub-industry names now roll
 up to existing `reference.ttl` groups, and the full dry run reports 6563 triples with no
 unmapped-value warning; see `CHANGELOG.md`.
-Work item 25 (T-300–T-304): closed 2026-11-04 — the catalog's sector/industry section, its
-cross-graph rule and five executable queries, the real-layout synthetic store and the negative
+Work item 25 (T-300–T-307): closed 2026-11-04 — the catalog's sector/industry section, its
+cross-graph rule and six executable queries, the real-layout synthetic store and the negative
 single-graph test; see `CHANGELOG.md`.
 T-163 (function done, PR #68) closes with T-031, whose first slice (PR #72) calls it on the real read and re-reads the late keys for `v_score_snapshot`; T-164 done (PR #69).
 Work item 8 (T-070–T-071) is independent but needs a human at a Protégé

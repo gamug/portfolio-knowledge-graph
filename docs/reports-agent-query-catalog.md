@@ -697,7 +697,9 @@ zero. The query selects the execution-date row of the rebalance decided on `D`
 (`?weightDate = ?execution`); change that filter to `?decision` to read the
 decision-date row when the run carries one. The sector weights plus the
 `unclassified` bucket sum to **1 minus the CASH weight**; CASH is not an asset
-and has no sector, so it is read as its own `:finalTargetWeight`.
+and has no sector, so it is read as its own `:finalTargetWeight`. A holding
+whose asset has no `:classifiedAs` and a holding with no `:holdingAsset` at all
+both land in `unclassified`, so neither is silently dropped.
 
 The example uses the synthetic scenario's decision of 2022-01-03 (execution
 2022-01-04). In `portfolio_test` the same P1 `MARKOWITZ_BASE` book decides on
@@ -713,22 +715,16 @@ PREFIX xsd:  <http://www.w3.org/2001/XMLSchema#>
 SELECT ?label ?window ?arm ?decision ?weightDate ?sector
        (SUM(?weightValue) AS ?weight) ?cash
 WHERE {
-  OPTIONAL {
-    SELECT DISTINCT ?asset ?sectorLabel WHERE {
-      ?asset :classifiedAs ?industry .
-      ?industry :memberOfSector ?sector .
-      ?sector skos:prefLabel ?sectorLabel .
-    }
-  }
   GRAPH ?g {
     ?rebalance a :BookRebalance ; :rebalanceOfBook ?book ;
       :decisionDate ?decision ; :executionDate ?execution .
     ?book :runLabel ?label ; :windowId ?window ; :armCode ?arm .
     ?row a :BookWeightDaily ; :weightOfBook ?book ; :weightDate ?weightDate ;
-      :holdingKey ?ticker ; :holdingAsset ?asset ; :finalTargetWeight ?weightValue .
+      :holdingKey ?ticker ; :finalTargetWeight ?weightValue .
     ?cashRow a :BookWeightDaily ; :weightOfBook ?book ; :weightDate ?weightDate ;
       :holdingKey "CASH" ; :finalTargetWeight ?cash .
     FILTER (?ticker != "CASH")
+    OPTIONAL { ?row :holdingAsset ?asset . }
   }
   FILTER (STRSTARTS(STR(?g), "urn:graph:derived:backtest:"))
   # Optional run-label parameter: change "rule" to another label.
@@ -738,6 +734,15 @@ WHERE {
   # D: the rebalance decision. Change this date together with the book and window above.
   FILTER (?decision = "2022-01-03"^^xsd:date)
   FILTER (?weightDate = ?execution)
+  # The sentinel keeps a holding without :holdingAsset out of the catalog join.
+  BIND (COALESCE(?asset, <urn:thesis:no-asset>) AS ?lookupAsset)
+  OPTIONAL {
+    SELECT DISTINCT ?lookupAsset ?sectorLabel WHERE {
+      ?lookupAsset :classifiedAs ?industry .
+      ?industry :memberOfSector ?sector .
+      ?sector skos:prefLabel ?sectorLabel .
+    }
+  }
   BIND (COALESCE(?sectorLabel, "unclassified") AS ?sector)
 }
 GROUP BY ?label ?window ?arm ?decision ?weightDate ?sector ?cash
@@ -790,7 +795,7 @@ many have a `:holdingAsset` link, and how many of those resolve to a sector.
 On 2026-11-04 the real store returned 100/100/100 for P1, 123/123/123 for P2
 and 115/115/115 for P3. A missing link means the ticker is not in the loaded
 catalog; a missing sector means the source has no classification for it (see
-§6.6). Neither is a query error.
+§6.7). Neither is a query error.
 
 <!-- q:sector-coverage-of-held-assets expect:2 -->
 
@@ -858,7 +863,55 @@ GROUP BY ?year
 ORDER BY ?year
 ```
 
-### 6.6 Known limits of the asset catalog
+### 6.6 The sector of one asset
+
+This is the Q5 data answer. `VALUES ?ticker { "AAA" }` is the parameter; change
+the literal for another ticker. The asset-to-sector part is the same cross-graph
+`SELECT DISTINCT` sub-select as §6.1. The five worked-example assets are
+declared in `reference.ttl` and appear again in the universe graph for their
+memberships (T-225), so the `DISTINCT` is what makes `AAPL` return exactly one
+row. A ticker with no `:classifiedAs` returns no row: that is the source gap
+described in §6.7, not a query error. The optional `?sectorDefinition` is the
+sector individual's Spanish `rdfs:comment` or `skos:definition`; the shipped
+`reference.ttl` carries none, so it is normally unbound.
+
+<!-- q:sector-of-asset expect:1 -->
+
+```sparql
+PREFIX :    <https://thesis.local/kg/portfolio#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+
+SELECT DISTINCT ?ticker ?companyName ?industryLabel ?sectorLabel ?sectorDefinition
+WHERE {
+  VALUES ?ticker { "AAA" }
+  {
+    SELECT DISTINCT ?asset ?ticker ?companyName ?industryLabel ?sectorLabel ?sectorDefinition
+    WHERE {
+      ?asset :tickerSymbol ?ticker .
+      ?asset :classifiedAs ?industry .
+      ?industry skos:prefLabel ?industryLabel .
+      ?industry :memberOfSector ?sector .
+      ?sector skos:prefLabel ?sectorLabel .
+      OPTIONAL { ?asset :companyName ?companyName . }
+      OPTIONAL {
+        {
+          SELECT ?sector (SAMPLE(?definition) AS ?sectorDefinition)
+          WHERE {
+            { ?sector rdfs:comment ?definition . }
+            UNION
+            { ?sector skos:definition ?definition . }
+            FILTER (lang(?definition) = "es")
+          }
+          GROUP BY ?sector
+        }
+      }
+    }
+  }
+}
+```
+
+### 6.7 Known limits of the asset catalog
 
 - GICS for a leaver comes from the last Wikipedia revision that lists the
   company, and those revisions stop at 2022-01-01. The 2019–2021 leavers
@@ -912,7 +965,7 @@ text and the statuses.
 | Q2 | ¿Por qué GOOGL y GOOG aparecen como dos activos? | Today | A1-terms (:Asset's own definition names these share classes; no FIBO link by design) |
 | Q3 | ¿Qué es el S&P 500 y cómo se relaciona con el universo de activos? | Today for the definitions (:Universe, :UniverseMembership); After the asset catalog for the :SP500Index individual and its FIBO EquityIndex link, which the asset loader writes | A1-terms and A2 by Spanish label "índice bursátil de renta variable" |
 | Q4 | ¿Qué precio de cierre usa el sistema? ¿Está ajustado por dividendos? | Today | A1-terms (:PriceObservation says: split-adjusted close, not dividend-adjusted, price-only return) plus A2 for "precio de cierre" and "precio de cierre ajustado" (FIBO terms with no link, because FIBO's adjusted close includes dividends) |
-| Q5 | ¿A qué sector GICS pertenece X y qué significa? | Today: the meaning from A1-terms, and the sector of a given asset from the loaded asset catalog (§6) | A1-terms; `held-tickers-by-window-industry`; `sector-coverage-of-held-assets` |
+| Q5 | ¿A qué sector GICS pertenece X y qué significa? | Today: the meaning from A1-terms, and the sector of a given asset from `sector-of-asset` | A1-terms; `sector-of-asset` |
 | Q6 | ¿Qué es un informe 10-K y quién lo recibe? | Today | A1-terms (:SECFiling) plus A2 for "comisión de bolsa y valores de ee. uu. (sec)" |
 | Q7 | ¿Qué papel tiene X en la empresa Y? | Not projected yet (needs :Executive individuals from DEF 14A; no projector exists or is scheduled) | A1-terms for the class :Executive only |
 | Q8 | ¿Qué es la volatilidad y cómo la usa el sistema? | Today (A2 for "volatilidad" plus the VOLATILITY_SHOCK and BREAK_TREND_200 rules in the rule-catalog query) | A2-volatilidad; the rule catalog query |
@@ -962,7 +1015,9 @@ with or without the FIBO slice.
    graph, the `:Industry`/`:Sector` taxonomy in `urn:graph:reference`, and one
    asset (`AAPL`) in both graphs for the T-225 overlap; plus two run labels
    (`rule`, `champ_v1`) across two windows of the synthetic backtest scenario,
-   projected with `projection.backtest.project`;
+   projected with `projection.backtest.project`, and a dedicated composition
+   dataset with a classified holding, a catalog asset without `:classifiedAs`
+   and an unlinked ticker;
 3. runs every query and checks its expectation: an exact row count, a
    non-empty result, or a named rule (`expect:rule=...`);
 4. checks the no-FIBO rows in `A1` (`:Asset`, `:Universe`,
@@ -978,10 +1033,13 @@ with or without the FIBO slice.
    filter is applied, and that `runs-available` lists both labels and both
    windows;
 7. checks the sector promises: the P1 layer-1 cuts equal the layer-1 `"ENTER"`
-   alert count, the composition weights plus CASH sum to 1, the
-   Banks/Insurance query lists the expected tickers, the coverage counts
-   separate held, linked and classified tickers, and the unclassified query
-   groups the closed memberships by year;
+   alert count; the composition weights plus CASH sum to 1, including an
+   `unclassified` bucket for both an asset without `:classifiedAs` and a ticker
+   without `:holdingAsset`; the Banks/Insurance query lists the expected
+   tickers; the coverage counts separate held, linked and classified tickers;
+   the unclassified query groups the closed memberships by year; and
+   `sector-of-asset` returns one row for a catalog asset and for `AAPL`, the
+   Spanish sector note when present, and no row for an unclassified asset;
 8. has a negative test for the single-graph trap: the correct cross-graph
    `SELECT DISTINCT` returns more rows than the same pattern in either one
    graph, and the un-deduplicated union returns `AAPL` twice.
