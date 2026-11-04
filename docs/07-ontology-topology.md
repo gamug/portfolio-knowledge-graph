@@ -30,7 +30,8 @@ special query language feature.
 | `urn:graph:derived:entity-resolution:{date}` | `AssetCoOccurrence` candidate edges (T-107; news co-occurrence, method/weight) and other entity-resolution-service output (roadmap step 7); `sharedExecutiveWith` only if verified | Append-only; kept separate from the EDGAR graphs it draws on since it's a different service's output. |
 | `urn:graph:derived:backtest:{run_label}:{window_id}:{backtest_run_id}` | The eight m018 backtest/GUARD views' individuals — `StrategyBook`, `BookRebalance`, `GuardAlert`, `GuardAction`, `BookWeightDaily`, `BookDailyPerformance`, `PortfolioPeriodSummary`, `BacktestTest` — one graph per backtest run, written by `src/projection/backtest.py` (T-207, T-231; `docs/08`), with each individual carrying `:knowledgeDate` for `knowledgeDate <= D` reads. The window qualifies the name because the three run databases each start their ids at 1; the run label (`rule`, `champ_v1`, …) qualifies it again because the views expose no run identity, so several result families can share one repository. | Append-only; a run is a frozen artifact, so a re-run is a new `backtest_run_id` (and, per Work item 17, a new automation/repository), never an edit. |
 | `urn:graph:derived:backtest:selection:{run_label}:{window_id}:{backtest_run_id}` | The selection side of the same run: `SelectionCycle` (`v_cycle_run`), the configured `AttractivenessWeightScheme`/`WeightComponent` (`v_weight_scheme`/`v_weight_component`), the `AttractivenessSnapshot`s and per-asset effective-weight components (`v_cycle_ranking`/`v_cycle_ranking_component`), and the `Veto` stints (`v_veto`), written by `cli/project_selection.py` (Work item 26; `docs/08`). Same label and window vocabulary; a sibling graph because the m018 graph is append-only and may already be written. | Append-only; skipped, never appended to, when the graph already exists. Rule links resolve by `:ruleId` against the definition in force on the run's knowledge date (2026-10-31), not by `:raisedOn`. |
-| `urn:graph:universe:{year}-Q{n}` | The `Universe` individual + its membership boundary for that quarter; since T-220 the real asset catalog (`:SP500Index` + one `:Asset` per company line for a pure rename, or per symbol for concurrent classes / a mixed CIK / a CIK-less stint + one `:UniverseMembership` per stint) written there by `cli/load_universe.py` from `universe.db`, in the quarter of its `--as-of` | Append-only, closed by writing `validTo` on the *previous* quarter's memberships (never by deleting them); the gate checks that each closure names a stored, open record and a date after it opened (`graphdb-setup.md`, check 7). |
+| `urn:graph:universe:{year}-Q{n}` | The `Universe` individual + its membership boundary for that quarter; since T-220 the real asset catalog (`:SP500Index` + one `:Asset` per company line for a pure rename, or per symbol for concurrent classes / a mixed CIK / a CIK-less stint + one `:UniverseMembership` per stint) written there by `cli/load_universe.py` from `universe.db`, in the quarter of its `--as-of` | Append-only, one-time per repository: the whole catalog is written once, and a second load into the same quarter is refused (check 2) while a later quarter re-declares stored individuals (check 6). Memberships are closed by writing `validTo` on the stored record (never by deleting them); the gate checks that each closure names a stored, open record and a date after it opened (`graphdb-setup.md`, check 7). |
+| `urn:graph:universe:{year}-Q{n}:delta:{n}` | The **incremental** asset-catalog delta (Work item 28): only the new `:Asset` individuals, their new `:UniverseMembership` individuals (and new memberships of stored assets), and the `:validTo` closures of stored open memberships that `cli/load_universe.py --delta` finds by diffing `universe.db` against the stored catalog. Drift (changed names, CIK, classification, other dates, source-absent rows) is reported, never written. `{n}` is the next free positive sequence for that quarter | Append-only, never appended to: each later delta gets the next `{n}`. It re-declares no stored typed individual and drops no graph, so the base quarter graph above stays the catalog's one-time boundary. |
 | `urn:graph:portfolio:current` | Live `PortfolioPosition` individuals — the actively-held book | The one graph that's genuinely mutated in place, but even here, closing a position sets `validTo` rather than deleting the triple, preserving history in place (checked as above). |
 
 **Implementation addendum — three graph patterns this table originally missed.** Building
@@ -100,6 +101,26 @@ second set of memberships for those five in its own quarter graph; they are diff
 change removes or re-declares anything. The overlap is accepted until the worked-example ABox stops
 being loaded into the real store (TASKS T-225).
 
+**Incremental catalog deltas (Work item 28).** `cli/load_universe.py --delta` diffs the source
+against the stored catalog and writes only what is new into
+`urn:graph:universe:{year}-Q{n}:delta:{n}`. The stored catalog it reads is the `:Asset`
+individuals and the `:UniverseMembership`s whose `:membershipUniverse` is `:SP500Index` (the
+worked-example `:SP500Watchlist_2026Q3` memberships in `urn:graph:universe:2026-Q3` are a
+different universe and are not catalog drift). The delta has four categories: new assets (with
+their stints), new memberships of stored assets (a re-entry, or a symbol of a renamed company that
+still folds into the stored asset by CIK), closures (only the closing `:validTo` triple), and
+drift. Drift covers a changed `:companyName`, `:cikNumber` or `:classifiedAs` (the store's only
+sector/sub-industry fact), a stored membership with other `membershipAsset`/`validFrom`/`validTo`
+values, a stored closed membership whose source stint is open, and a stored membership or
+non-reference asset absent from the source. Drift is reported and never applied: the old value is
+not rewritten, the old membership is not deleted, and no graph is dropped. The five
+`reference.ttl` assets keep their declarations and are not compared; they still get new
+memberships. The source is read with the loader's own `--since` and `resolve_assets`, so the full
+load and the delta agree on the asset set. The run is idempotent: after a write, the next run's
+actionable delta is empty and nothing is written. The runbook
+([`backtest-load-runbook.md`](backtest-load-runbook.md)) carries the procedure; the dry run against
+the repository whose catalog came from the same `universe.db` must be empty.
+
 **Restatements/amendments** (the concrete case critique gap #8 was raised for): a corrected 10-K
 does not edit the old `SECFilingSection` individual — it lands in a *new* dated EDGAR graph
 alongside a `:supersededBy` triple pointing from the old section to the new one, asserted in the
@@ -132,7 +153,9 @@ differently:
   `universe`) the graph for that date already exists when a late correction arrives, the gate refuses to
   append to it, and the row is lost for that date and listed as lost (the FUNDAMENTAL row of the table
   above; SPEC §13 item 10). This rule does not change that; a recomputed ranking snapshot or quant book
-  for a past cycle date is in the second group. **No source emits a restatement today:** upstream stores
+  for a past cycle date is in the second group. Work item 28's universe delta is not a restatement: it
+  never changes a stored asset value or membership date, it only adds new individuals and writes the
+  closing `:validTo`, and any other difference is reported as drift. **No source emits a restatement today:** upstream stores
   no amendments (10-K/A and 10-Q/A are not stored; each period's values come from its original filing,
   SPEC §2.6, seventh reply) and `v_sec_filing_section` has no column naming a replacement. The rule and
   the gate's check 8 wait for one; if upstream starts storing amendments, a projector rule derives the

@@ -92,26 +92,29 @@ one-day stint is kept.
 |---|---|
 | `--since YYYY-MM-DD` | Keep a stint with no `valid_to` or `valid_to >= since` (default `2019-01-02`). A ticker reused by another company (`CEG`, `DELL`, `Q`) keeps only the era the backtests and the live index can see, and the dropped stints are counted, never silently omitted. |
 | `--as-of YYYY-MM-DD` | The day the catalog is seen as of; it names the graph. Default: today in UTC. |
-| `--write` | Append the batch through `cli/ingest.py`'s gate (`kg_store.gate.ingest`). Default: a dry run that reads, builds and SHACL-validates through `gate.validate`, contacting no store. |
-| `--to-production` | With `--write`, allow the production repository (`KG_REPOSITORY=portfolio`); without it the run exits 2 before reading anything, as `cli/project_backtest.py` does. |
+| `--delta` | Diff the source against the stored catalog and report/write only the incremental changes (new assets, new memberships, `:validTo` closures); drift is reported and never applied. It always opens the store read-only to diff, and a run with no actionable delta writes nothing. |
+| `--write` | Append the batch through `cli/ingest.py`'s gate (`kg_store.gate.ingest`). Default: a dry run that reads, builds and SHACL-validates through `gate.validate`; the full load contacts no store, the delta reads it read-only. |
+| `--to-production` | With `--write`, allow the production repository (`KG_REPOSITORY=portfolio`); without it the run exits 2 before writing, as `cli/project_backtest.py` does. A delta dry run may read production without the flag. |
 
-The target is the quarter graph `urn:graph:universe:{year}-Q{n}` computed from `--as-of` (the gate
-accepts that pattern; it was not changed). It is not `urn:graph:reference`: `cli/load_schema.py`
+The full load's target is the quarter graph `urn:graph:universe:{year}-Q{n}` computed from
+`--as-of` (the gate accepts that pattern). It is not `urn:graph:reference`: `cli/load_schema.py`
 drops and rewrites every graph `schema/` owns on each reload, so ABox individuals written there
-would disappear, and an existing graph is never appended to. The load is append-only and one-time
-per repository: a second run into the same quarter is refused because the graph exists, and a run
-into another quarter re-declares the same `:Asset`/`:Universe` individuals and is refused by check
-6. **This is the real limit:** the current loader has no incremental mode, so once a repository
-holds the catalog, a new quarter alone does not let it add new memberships (the whole catalog is
-re-declared and refused), and a new ticker cannot be added at all: a fresh repository (schema,
-catalog and backtests together) is the only supported safe path today. The manual alternative is a
-new quarter graph batch containing only new typed individuals (`:Asset`, `:UniverseMembership`) and
-`:validTo` closures of stored memberships, submitted through `cli/ingest.py`; no CLI renders that
-batch, so treat it as a new task, never as a reload or a gate bypass. A new automation gets its own
-repository (Work item 17). Exit status: 0 on success, 1 if the source, the shapes, the gate or the
-store stop the run, 2 on a bad argument or the production guard. The runbook
-([`backtest-load-runbook.md`](backtest-load-runbook.md)) carries the procedure and the failure
-messages.
+would disappear, and an existing graph is never appended to. The full load is append-only and
+one-time per repository: a second run into the same quarter is refused because the graph exists,
+and a run into another quarter re-declares the same `:Asset`/`:Universe` individuals and is refused
+by check 6. **The supported way to extend a catalog is `--delta`:** it reads `:Asset` and
+`:SP500Index` `:UniverseMembership` individuals with `SELECT`, renders only the new asset blocks,
+new membership blocks and closing `:validTo` triples, and appends them through the same gate into
+`urn:graph:universe:{year}-Q{n}:delta:{n}` (the next free sequence for that quarter). It never
+re-declares a stored typed individual, never changes a stored value and never drops a graph. Drift
+(a changed name, CIK or `:classifiedAs`; a stored membership with other dates; a stored membership
+or non-reference asset absent from the source) is printed and never applied. A store with no
+`:SP500Index` membership catalog, or missing a `reference.ttl` asset, is refused with a pointer to
+the full load/schema load. After a write, the next run's actionable delta is empty, so running it
+twice is safe. A new automation still gets its own repository (Work item 17). Exit status: 0 on
+success, 1 if the source, the shapes, the gate or the store stop the run, 2 on a bad argument or
+the production guard. The runbook ([`backtest-load-runbook.md`](backtest-load-runbook.md)) carries
+the procedure and the failure messages.
 
 A dry run of 2026-11-04 over `/workspaces/thesis/data/universe_history_gics.db` (read-only; no
 write was made) kept 657 of 891 stints over 653 symbols and dropped 234 stints of 229 symbols (214
@@ -152,6 +155,18 @@ P2 and P3) link every ticker in `v_book_weight_daily` (CASH excluded), `v_guard_
 `v_guard_action`: 100, 123 and 115 distinct, 0 unlinked; the three graphs are SHACL-valid and were
 not written.
 
+**Incremental delta verification (Work item 28, read-only, 2026-11-04).** Against `portfolio_test`
+with `SQL_UNIVERSE_DB=/workspaces/thesis/data/universe_history_gics.db`,
+`cli/load_universe.py --delta --as-of 2026-11-04` reported source 648 assets/658 memberships and
+store 648 assets/658 memberships, then **0 new assets, 0 new memberships, 0 closures and 0 drift**:
+the empty delta expected when the catalog came from the same file. On a temporary copy of that
+database (never the original, never committed) with one new symbol (`ZZTEST`, `Systems Software`,
+CIK `0002999999`, `valid_from` 2026-11-01) and one open stint closed (`DIS`, `valid_to`
+2026-11-01), the same command reported exactly **1 new asset, 1 new membership, 1 closure and 0
+drift** (`:ZZTEST`, `:UM_ZZTEST_2026-11-01`, `:UM_DIS_1976-07-01 validTo 2026-11-01`), target
+`urn:graph:universe:2026-Q4:delta:1`, SHACL conforms. No GraphDB write was made; the first real
+`--write` is the maintainer's step.
+
 ## Ingest gate (T-023)
 
 ```bash
@@ -167,8 +182,8 @@ nothing written:
    `urn:graph:derived:quant:{date}`,
    `urn:graph:derived:backtest:{run_label}:{P<number>}:{run}`,
    `urn:graph:derived:backtest:selection:{run_label}:{P<number>}:{run}`,
-   `urn:graph:universe:{year}-Q{n}` or `urn:graph:portfolio:current` (TBox, reference and rules go
-   through `cli/load_schema.py`);
+   `urn:graph:universe:{year}-Q{n}` (or its `:delta:{n}` incremental suffix) or
+   `urn:graph:portfolio:current` (TBox, reference and rules go through `cli/load_schema.py`);
 2. an append-only graph (all but `portfolio:current`) does not exist yet;
 3. every IRI is absolute and every `rdf:type` is one of the 39 leaf classes (the
    `owl:AllDisjointClasses` members), so neither a typo nor a bare abstract category can dodge the
@@ -197,8 +212,9 @@ nothing written:
    one it opened on (`:validFrom` / `:raisedOn`). For a TickerHistory or a UniverseMembership the
    interval is inclusive, so a closing date equal to the opening date is a one-day record and is
    accepted; a closure of an unknown subject, of an observation, of a record already closed or
-   closed before it opened is refused. The store is read in any graph, so a new quarter's graph can
-   close the previous quarter's memberships. The check reads, then writes: two batches closing the
+   closed before it opened is refused. The store is read in any graph, so a new quarter's graph or
+   an incremental `:delta:{n}` graph can close the previous quarter's memberships. The check reads,
+   then writes: two batches closing the
    same record at once can both pass it. A Veto cleared before the latest `:lastSeenOn` is refused too
    (T-185; the same day passes), and `VetoShape` makes the same check for a Veto declared with both
    dates (one `sh:lessThanOrEquals`). A later cycle appends its `:lastSeenOn` to a

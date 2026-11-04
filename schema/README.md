@@ -51,7 +51,10 @@ matches dependency order and is the sequence `10-integration-roadmap.md` step 1 
 `reference.ttl`'s five `:Asset` individuals are the worked-example master. The real asset master
 (`universe.db`) is ABox data and is written through the ingest gate by `cli/load_universe.py` into
 `urn:graph:universe:{year}-Q{n}` (`docs/07`), never into `urn:graph:reference`: `cli/load_schema.py`
-drops and rewrites that graph as a whole on every schema reload.
+drops and rewrites that graph as a whole on every schema reload. A later refresh is an incremental
+delta in `urn:graph:universe:{year}-Q{n}:delta:{n}` (new assets, new memberships and `:validTo`
+closures only; drift is reported and never written), so the base quarter graph stays the one-time
+catalog boundary and no stored individual is re-declared.
 
 ## Why both OWL restrictions (`tbox.ttl` §4) and SHACL shapes (`shapes.ttl`)
 
@@ -397,8 +400,9 @@ what the store *enforces*.
      the Turtle, links an asset only when the universe database has the ticker (point
      `SQL_UNIVERSE_DB` at `/workspaces/thesis/data/universe_history_gics.db` and load it with
      `cli/load_universe.py` first, or a real write is refused for want of the stored `:Asset`
-     individuals; that loader is one-time per repository, so a new ticker needs a fresh repository
-     or an incremental membership batch, see `docs/backtest-load-runbook.md`), resolves
+     individuals; the full load is one-time per repository, and a later change is the
+     `cli/load_universe.py --delta` incremental batch described in
+     `docs/backtest-load-runbook.md` §1b), resolves
      `:alertRule` to `:Rule_{rule_id}` and refuses an unknown rule or a layer disagreement.
      `cli/verify_backtest.py` (logic in `src/projection/verify_backtest.py`, T-280) re-projects the
      source read-only and prints one `PASS`/`FAIL` line per check, including the run identity,
@@ -533,7 +537,11 @@ reloaded in that change.
 (logic in `src/kg_store/universe.py`) loads the real `:Universe`/`:Asset`/`:UniverseMembership`
 population from `universe.db` into `urn:graph:universe:{year}-Q{n}` through the gate; `reference.ttl`
 keeps its five worked-example assets, and the loader gives them memberships without re-declaring
-them. The overlap with `instances.trig`'s worked-example memberships is documented in `docs/07`.
+them. Work item 28 adds `--delta`: it reads the stored assets and `:SP500Index` memberships with
+`SELECT`, writes only new assets/memberships and untyped `:validTo` closures into
+`urn:graph:universe:{year}-Q{n}:delta:{n}`, and reports drift without applying it. The gate accepts
+that suffix as append-only; the base quarter pattern is unchanged. The overlap with
+`instances.trig`'s worked-example memberships is documented in `docs/07`.
 **T-216 (`UTILITY_CASH_COVERAGE` `validFrom`, 2026-11-03).** The upstream maintainer supplied
 T-071's real integration date: part 2a (PR #167, merge commit `7ae8ba8`) reached upstream master on
 2026-10-14 20:51:47 -0500 (already 2026-10-15 in UTC), so the rule's `validFrom` is now 2026-10-14,

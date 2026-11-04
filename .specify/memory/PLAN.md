@@ -1424,7 +1424,8 @@ procedure around both halves.
    link) and `:knowledgeDate` where the model has it.
 3. `docs/backtest-load-runbook.md`: prerequisites, contract check, label choice, dry run, write
    and production guard, verification, recording the numbers, single-graph rollback, a new
-   label/run, the asset catalog's real one-time limit, and the common failure messages.
+   label/run, the asset catalog's one-time full load (now extended by Work item 28's `--delta`),
+   and the common failure messages.
 4. Reference dry runs (2026-11-04, read-only): `rule_P1.db` 15,615 `v_book_weight_daily` rows and
    **209,886 triples**; `rule_P2.db` 15,641 and **196,840**; `rule_P3.db` 18,025 and **222,449**;
    peak RSS 0.66–0.73 GB and 44–48 s per database. These are in `docs/graphdb-setup.md` and the
@@ -1733,6 +1734,8 @@ performs both.
 
 ## Work item 28 — Incremental asset-catalog deltas (T-370–T-389)
 
+**Status: implemented 2026-11-04; open only for T-380 (the maintainer's first real `--write`).**
+
 **Why**: `cli/load_universe.py` writes the whole catalog into
 `urn:graph:universe:{year}-Q{n}` once per repository. A second load into the same quarter is
 refused because the graph exists (gate check 2), and a load into a later quarter re-declares the
@@ -1874,5 +1877,21 @@ are still only made by the user.
   the in-memory `Dataset` store, including gate check 2/6/7 refusals.
 - `uv run pytest`, `mypy` and the pinned pre-commit hooks pass; docs and asserted counts are
   consistent (NR-001); the first real write remains the maintainer's step.
+
+**Verified 2026-11-04 (read-only, no GraphDB write):** `cli/load_universe.py --delta --as-of
+2026-11-04` against `portfolio_test` with
+`SQL_UNIVERSE_DB=/workspaces/thesis/data/universe_history_gics.db` reported source/store 648
+assets and 658 memberships and an **empty delta** (0 new assets, 0 new memberships, 0 closures, 0
+drift), target `urn:graph:universe:2026-Q4:delta:1`. On a temporary copy of that database (never
+the original, never committed) with `ZZTEST` added (Systems Software, CIK `0002999999`,
+`valid_from` 2026-11-01) and `DIS`'s open 1976 stint closed on 2026-11-01, the same command
+reported exactly **1 new asset, 1 new membership, 1 closure and 0 drift**
+(`:ZZTEST`, `:UM_ZZTEST_2026-11-01`, `:UM_DIS_1976-07-01 validTo 2026-11-01`) and `gate.validate`
+conformed. Hermetic coverage: `tests/test_universe_delta.py` 16 tests (new ticker, rename joining
+a stored asset, closure, re-entry, changed sector/name/CIK drift, source-absent membership, empty
+delta, sequence, fresh-store refusal, gate checks 2/6/7, CLI dry run/write/idempotency/production
+guard) plus the gate target cases in `tests/test_kg_gate.py`. Checks: `uv run pytest -q` = 1191
+passed, 57 deselected in 875.59 s; `mypy` = success, 88 source files; the pinned pre-commit hooks
+pass on the changed files.
 
 **Blocked on**: nothing.
