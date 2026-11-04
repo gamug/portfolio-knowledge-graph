@@ -1565,7 +1565,8 @@
     rdfs:comment "v_book_rebalance.execution_date: the NYSE session E_k = D1 + 21*k, one session after decision_date." .
 :quantPortfolioId a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :BookRebalance ; rdfs:range xsd:integer ;
     rdfs:comment "Optional: v_book_rebalance.quant_portfolio_id, an upstream id. It is a literal, not a :Portfolio node: no v_quant_portfolio individual is minted by this class." .
-:cycleRunId a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :BookRebalance ; rdfs:range xsd:integer ;
+:cycleRunId a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:range xsd:integer ;
+    rdfs:comment "Upstream cycle_run id. No rdfs:domain: shared by BookRebalance, SelectionCycle and AttractivenessWeightScheme." ;
     rdfs:comment "Optional: v_book_rebalance.cycle_run_id. Always NULL on MARKOWITZ_BASE (no cycle Top-30 selection); an upstream id literal, not a node." .
 :riskModelId a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :BookRebalance ; rdfs:range xsd:integer ;
     rdfs:comment "Optional: v_book_rebalance.risk_model_id, an upstream id literal, not a node." .
@@ -1904,3 +1905,51 @@
     sh:property [ sh:path :nObs ; sh:datatype xsd:integer ; sh:minInclusive 1 ; sh:minCount 1 ; sh:maxCount 1 ] ;
     sh:property [ sh:path :paramsJson ; sh:datatype xsd:string ; sh:maxCount 1 ] ;
     sh:property [ sh:path :knowledgeDate ; sh:datatype xsd:date ; sh:minCount 1 ; sh:maxCount 1 ] .
+
+# --- Work item 26: backtest selection side (v_cycle_run, v_veto, v_cycle_ranking)
+# The master schema implements the T-155 ranking properties above and adds the cycle/run context
+# the backtest side needs. :cycleRunId is shared with BookRebalance (no rdfs:domain), the ticker
+# literals survive an asset the universe database does not know, and the no-component ranking rows
+# stay visible as placeholders without an :hasEffectiveWeight entry.
+:SelectionCycle a owl:Class ;
+    rdfs:label "Selection Cycle" ;
+    rdfs:label "ciclo de selección"@es ;
+    skos:definition "Registro de una corrida del motor de ciclos del sistema de origen (v_cycle_run): tipo de ciclo, fecha de corte, estado y marcas de tiempo de una corrida de selección, monitoreo o repetición."@es ;
+    rdfs:comment "One row of v_cycle_run (m018 selection side). A process record, so an Observation. :cycleRunId joins BookRebalance and AttractivenessWeightScheme." ;
+    rdfs:subClassOf :Observation .
+
+:cycleType a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :SelectionCycle ; rdfs:range xsd:string .
+:rankingOfCycle a owl:ObjectProperty, owl:FunctionalProperty ; rdfs:domain :AttractivenessSnapshot ; rdfs:range :SelectionCycle .
+:rankingTicker a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :AttractivenessSnapshot ; rdfs:range xsd:string .
+:vetoTicker a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :Veto ; rdfs:range xsd:string .
+:vetoRulesJson a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :AttractivenessSnapshot ; rdfs:range xsd:string .
+
+:SelectionCycleShape a sh:NodeShape ;
+    sh:targetClass :SelectionCycle ;
+    sh:property [ sh:path :cycleRunId ; sh:datatype xsd:integer ; sh:minInclusive 1 ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :cycleType ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ;
+                  sh:in ("SELECTION" "MONITORING" "ENTITY_RESOLUTION" "REPLAY") ] ;
+    sh:property [ sh:path :runAsOf ; sh:datatype xsd:date ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :runId ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :status ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :codeVersion ; sh:datatype xsd:string ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :startedAt ; sh:datatype xsd:dateTime ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :finishedAt ; sh:datatype xsd:dateTime ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :runLabel ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ;
+                  sh:pattern "^[a-z][a-z0-9_]{1,31}$" ] ;
+    sh:property [ sh:path :windowId ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ; sh:pattern "^P[0-9]+$" ] ;
+    sh:property [ sh:path :backtestRunId ; sh:datatype xsd:integer ; sh:minInclusive 1 ; sh:minCount 1 ; sh:maxCount 1 ] .
+
+:BacktestRankingShape a sh:NodeShape ;
+    sh:targetSubjectsOf :rankingOfCycle ;
+    sh:property [ sh:path :rankingOfCycle ; sh:class :SelectionCycle ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :rankPosition ; sh:datatype xsd:integer ; sh:minInclusive 1 ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :selectedForBook ; sh:datatype xsd:boolean ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :vetoedAtRanking ; sh:datatype xsd:boolean ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :rankingTicker ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :vetoRulesJson ; sh:datatype xsd:string ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :hasEffectiveWeight ; sh:class :WeightComponent ] .
+
+:EffectiveWeightComponentShape a sh:NodeShape ;
+    sh:targetObjectsOf :hasEffectiveWeight ;
+    sh:property [ sh:path :componentValue ; sh:datatype xsd:decimal ; sh:minInclusive 0.0 ; sh:maxInclusive 100.0 ; sh:minCount 1 ; sh:maxCount 1 ] .

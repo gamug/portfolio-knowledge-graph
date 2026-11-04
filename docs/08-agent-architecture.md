@@ -183,7 +183,42 @@ still needs the loader's write first: the gate validates the batch beside the st
 individuals, so without them the asset links are refused. A dry run reads the universe database
 itself and does not need the store.
 
-Two rules the projector keeps, both from the handoff §3.3 and the completed P1/P2/P3 databases:
+## Backtest selection-side projection (Work item 26)
+
+The same frozen run's selection side is read by a second projector
+(`src/projection/project_selection.py`, work in `src/projection/backtest.py`, CLI
+`cli/project_selection.py`) from `v_cycle_run`, `v_weight_scheme`, `v_weight_component`,
+`v_cycle_ranking`, `v_cycle_ranking_component` and `v_veto`. It writes `SelectionCycle`,
+`AttractivenessWeightScheme`, `WeightComponent`, `AttractivenessSnapshot` and `Veto` individuals
+into the sibling graph `urn:graph:derived:backtest:selection:{run_label}:{window_id}:{run_id}`;
+the m018 graph is neither read as a target nor rewritten. Run it with:
+
+```bash
+uv run python cli/project_selection.py --db rule=rule_P1.db       # dry run: read, check, SHACL
+uv run python cli/project_selection.py --db rule=rule_P1.db --write  # append through the gate
+```
+
+The policy is the m018 one: `--db LABEL=PATH`, dry run by default, `--write` through the ingest
+gate, an existing graph reported and skipped, and `--to-production` for the production repository.
+The boundary checks the six views; the source check is `v_book.run_status = completed`, not the
+live REPLAY refusal, because a backtest database's cycle runs are REPLAY by construction.
+
+Two selection-specific rules:
+
+- **Rules resolve on the run date, never `raisedOn`.** Every backtest stint was raised in
+  2020–2024, before every active rule's `validFrom`. `v_veto.rule_id` is matched against the
+  `RuleDefinition` in force on the run's `knowledge_date` (2026-10-31); `LIQUIDITY_DISTRESS`
+  therefore points at `_v11`, and an unknown id stops the run with a message naming the id and the
+  date.
+- **The ranking keeps its exclusions visible.** A row with no `v_cycle_ranking_component` row is
+  written as an `AttractivenessSnapshot` with score 0.0 and `vetoRulesJson`
+  `["UNSCORED"]`/`["UNPRICED"]`, and no `:hasEffectiveWeight`; that absence is the placeholder
+  marker. `v_veto.evidence_json` is not projected (it carries price-derived values), and a ticker
+  the universe database does not know keeps `:rankingTicker`/`:vetoTicker` and is counted.
+
+The real dry-run counts are in `SPEC.md`/`TASKS.md` Work item 26.
+
+Two rules the m018 projector keeps, both from the handoff §3.3 and the completed P1/P2/P3 databases:
 
 - **It does not require a value the view masks.** `cycle_run_id` is NULL on `MARKOWITZ_BASE`;
   layer-1 alerts have no `value`; layers 3–4 have no asset/ticker; asset-level actions have no

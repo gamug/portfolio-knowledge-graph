@@ -25,13 +25,52 @@ ASSETS: dict[str, AssetInfo] = {
     "AAA": AssetInfo("AAA", "0000000001", (("2000-01-01", None),)),
     "BBB": AssetInfo("BBB", "0000000002", (("2000-01-01", None),)),
     "BRK.B": AssetInfo("BRK.B", "0000000003", (("2000-01-01", None),)),
+    "CCC": AssetInfo("CCC", "0000000004", (("2000-01-01", None),)),
 }
 
 _DDL = """
 CREATE TABLE schema_version (version INTEGER, applied_at TEXT, description TEXT);
 INSERT INTO schema_version VALUES (18, 'x', 'x');
 
-CREATE TABLE v_cycle_run (run_id INTEGER PRIMARY KEY, cycle_type TEXT);
+CREATE TABLE cycle_run (
+    id              INTEGER PRIMARY KEY,
+    cycle_type      TEXT NOT NULL,
+    cycle_date      TEXT NOT NULL,
+    code_version    TEXT,
+    status          TEXT NOT NULL,
+    started_at      TEXT,
+    finished_at     TEXT,
+    params_json     TEXT NOT NULL DEFAULT '{}'
+);
+
+CREATE TABLE cycle_ranking (
+    id              INTEGER PRIMARY KEY,
+    cycle_run_id    INTEGER NOT NULL REFERENCES cycle_run(id),
+    asset_id        INTEGER NOT NULL REFERENCES assets(id),
+    rank            INTEGER NOT NULL,
+    blended_score   REAL NOT NULL,
+    components_json TEXT NOT NULL,
+    vetoed          INTEGER NOT NULL,
+    veto_rules_json TEXT NOT NULL,
+    selected        INTEGER NOT NULL,
+    target_weight   REAL,
+    UNIQUE (cycle_run_id, asset_id)
+);
+
+CREATE TABLE veto (
+    id              INTEGER PRIMARY KEY,
+    asset_id        INTEGER NOT NULL REFERENCES assets(id),
+    rule_id         TEXT NOT NULL,
+    severity        TEXT NOT NULL,
+    raised_on       TEXT NOT NULL,
+    cleared_on      TEXT,
+    last_seen_on    TEXT NOT NULL,
+    detected_at     TEXT NOT NULL,
+    cleared_at      TEXT,
+    evidence_json   TEXT NOT NULL,
+    run_id          INTEGER NOT NULL REFERENCES cycle_run(id),
+    expires_on      TEXT
+);
 
 CREATE TABLE assets (
     id INTEGER PRIMARY KEY,
@@ -240,6 +279,54 @@ SELECT t.backtest_run_id, r.window_id, t.segment, t.arm_a, t.arm_b, t.test,
        substr(r.created_at, 1, 10) AS knowledge_date
 FROM backtest_test t
 JOIN backtest_run r ON r.id = t.backtest_run_id;
+
+-- Work item 26: the six selection views, copied from upstream's kg_schema.views.
+CREATE VIEW v_cycle_run AS
+SELECT id AS run_id, cycle_type, cycle_date AS as_of, code_version, status,
+       started_at, finished_at, params_json
+FROM cycle_run;
+
+CREATE VIEW v_cycle_ranking AS
+SELECT r.cycle_run_id, cr.cycle_type, cr.cycle_date, a.ticker, r.asset_id,
+       r.rank, r.blended_score, r.components_json, r.vetoed, r.veto_rules_json,
+       r.selected, r.target_weight, cr.status
+FROM cycle_ranking r
+JOIN cycle_run cr ON cr.id = r.cycle_run_id
+JOIN assets a ON a.id = r.asset_id;
+
+CREATE VIEW v_weight_scheme AS
+SELECT cr.id AS cycle_run_id, cr.cycle_type, cr.cycle_date,
+       json_extract(cr.params_json, '$.weight_scheme')          AS scheme_id,
+       json_extract(cr.params_json, '$.score_weights')          AS weights_json,
+       CAST(json_extract(cr.params_json, '$.top_n') AS INTEGER) AS top_n,
+       json_extract(cr.params_json, '$.max_name_weight')        AS max_name_weight,
+       json_extract(cr.params_json, '$.max_sector_weight')      AS max_sector_weight,
+       json_extract(cr.params_json, '$.soft_veto_penalty')      AS soft_veto_penalty
+FROM cycle_run cr
+WHERE json_extract(cr.params_json, '$.score_weights') IS NOT NULL;
+
+CREATE VIEW v_weight_component AS
+SELECT cr.id AS cycle_run_id, cr.cycle_type, cr.cycle_date,
+       je.key AS score_type, je.value AS weight
+FROM cycle_run cr,
+     json_each(json_extract(cr.params_json, '$.score_weights')) je
+WHERE json_extract(cr.params_json, '$.score_weights') IS NOT NULL;
+
+CREATE VIEW v_cycle_ranking_component AS
+SELECT r.cycle_run_id, r.asset_id, je.key AS score_type, je.value AS component_value,
+       wc.weight AS configured_weight,
+       wc.weight / NULLIF(SUM(wc.weight) OVER (PARTITION BY r.id), 0)
+           AS effective_weight
+FROM cycle_ranking r
+JOIN json_each(r.components_json) je ON je.value IS NOT NULL
+LEFT JOIN v_weight_component wc
+       ON wc.cycle_run_id = r.cycle_run_id AND wc.score_type = je.key;
+
+CREATE VIEW v_veto AS
+SELECT v.id, a.ticker, v.asset_id, v.rule_id, v.severity, v.raised_on, v.cleared_on,
+       v.last_seen_on, v.detected_at, v.cleared_at, v.evidence_json, v.run_id,
+       v.expires_on
+FROM veto v JOIN assets a ON a.id = v.asset_id;
 """
 
 
@@ -657,6 +744,154 @@ def scenario_rows(
                 "params_json": None,
             },
         ],
+        # --- Work item 26: the selection side -------------------------------------------------
+        "cycle_run": [
+            {
+                "id": index,
+                "cycle_type": "REPLAY",
+                "cycle_date": day,
+                "code_version": "v1",
+                "status": "completed",
+                "started_at": f"{day}T18:00:00+00:00",
+                "finished_at": f"{day}T18:30:00+00:00",
+                "params_json": (
+                    '{"weight_scheme": "score_tilt", '
+                    '"score_weights": {"FUNDAMENTAL": 0.3333333333333333, '
+                    '"VALORIZATION": 0.3333333333333333, "TECHNICAL": 0.3333333333333333}, '
+                    '"top_n": 30, "max_name_weight": '
+                    + ("null" if index == 1 else "0.05")
+                    + ', "max_sector_weight": 0.3, "soft_veto_penalty": 15.0}'
+                ),
+            }
+            for index, day in enumerate(
+                (
+                    "2021-12-01",
+                    "2021-12-15",
+                    "2021-12-20",
+                    "2021-12-27",
+                    "2021-12-30",
+                    "2022-01-04",
+                    "2022-01-05",
+                ),
+                1,
+            )
+        ],
+        "cycle_ranking": [
+            {
+                "id": 1,
+                "cycle_run_id": 7,
+                "asset_id": 1,
+                "rank": 1,
+                "blended_score": 55.0,
+                "components_json": (
+                    '{"FUNDAMENTAL": 60.0, "VALORIZATION": 55.0, "TECHNICAL": 50.0}'
+                ),
+                "vetoed": 0,
+                "veto_rules_json": "[]",
+                "selected": 1,
+                "target_weight": 0.5,
+            },
+            {
+                "id": 2,
+                "cycle_run_id": 7,
+                "asset_id": 2,
+                "rank": 2,
+                "blended_score": 55.0,
+                "components_json": (
+                    '{"FUNDAMENTAL": 50.0, "VALORIZATION": 55.0, "TECHNICAL": 60.0}'
+                ),
+                "vetoed": 0,
+                "veto_rules_json": "[]",
+                "selected": 1,
+                "target_weight": 0.3,
+            },
+            {
+                "id": 3,
+                "cycle_run_id": 7,
+                "asset_id": 4,
+                "rank": 3,
+                "blended_score": 50.0,
+                "components_json": (
+                    '{"FUNDAMENTAL": 45.0, "VALORIZATION": 50.0, "TECHNICAL": 55.0}'
+                ),
+                "vetoed": 0,
+                "veto_rules_json": "[]",
+                "selected": 0,
+                "target_weight": None,
+            },
+            {
+                "id": 4,
+                "cycle_run_id": 7,
+                "asset_id": 5,
+                "rank": 4,
+                "blended_score": 50.0,
+                "components_json": (
+                    '{"FUNDAMENTAL": 55.0, "VALORIZATION": 45.0, "TECHNICAL": 50.0}'
+                ),
+                "vetoed": 1,
+                "veto_rules_json": '["DATA_QUALITY"]',
+                "selected": 0,
+                "target_weight": None,
+            },
+            {
+                "id": 5,
+                "cycle_run_id": 7,
+                "asset_id": 3,
+                "rank": 5,
+                "blended_score": 0.0,
+                "components_json": (
+                    '{"FUNDAMENTAL": null, "VALORIZATION": null, "TECHNICAL": null}'
+                ),
+                "vetoed": 1,
+                "veto_rules_json": '["UNSCORED"]',
+                "selected": 0,
+                "target_weight": None,
+            },
+        ],
+        "veto": [
+            {
+                "id": 1,
+                "asset_id": 5,
+                "rule_id": "DATA_QUALITY",
+                "severity": "HARD",
+                "raised_on": "2021-12-31",
+                "cleared_on": None,
+                "last_seen_on": "2022-01-05",
+                "detected_at": "2021-12-31T18:30:00+00:00",
+                "cleared_at": None,
+                "evidence_json": '{"close": 123.45}',
+                "run_id": 7,
+                "expires_on": None,
+            },
+            {
+                "id": 2,
+                "asset_id": 2,
+                "rule_id": "LIQUIDITY_DISTRESS",
+                "severity": "SOFT",
+                "raised_on": "2021-12-01",
+                "cleared_on": "2021-12-15",
+                "last_seen_on": "2021-12-15",
+                "detected_at": "2021-12-01T18:30:00+00:00",
+                "cleared_at": "2021-12-15T18:30:00+00:00",
+                "evidence_json": '{"current_ratio": 0.9}',
+                "run_id": 2,
+                "expires_on": None,
+            },
+            {
+                "id": 3,
+                "asset_id": 4,
+                "rule_id": "LIQUIDITY_DISTRESS",
+                "severity": "SOFT",
+                "raised_on": "2021-12-31",
+                "cleared_on": None,
+                "last_seen_on": "2022-01-05",
+                "detected_at": "2021-12-31T18:30:00+00:00",
+                "cleared_at": None,
+                "evidence_json": "{}",
+                "run_id": 7,
+                "expires_on": None,
+            },
+        ],
     }
 
 
@@ -684,10 +919,31 @@ def backtest_db(  # noqa: PLR0913 -- a test builder's keyword-only knobs are cle
             (2, "BBB", "BBB Inc."),
             (3, "BRK.B", "Berkshire Hathaway"),
             (4, "ZZZ", "ZZZ Corp"),
+            (5, "CCC", "CCC Inc."),
         ],
     )
-    for index, cycle_type in enumerate(cycle_types, 1):
-        conn.execute("INSERT INTO v_cycle_run VALUES (?, ?)", (index, cycle_type))
+    if cycle_types:
+        # The argument exists for the live-source REPLAY refusal test; it replaces the scenario's
+        # own cycle runs so ids never collide.
+        conn.executemany(
+            "INSERT INTO cycle_run "
+            "(id, cycle_type, cycle_date, code_version, status, started_at, finished_at, params_json) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            [
+                (
+                    index,
+                    cycle_type,
+                    "2022-01-05",
+                    "v1",
+                    "completed",
+                    "2022-01-05T18:00:00+00:00",
+                    "2022-01-05T18:30:00+00:00",
+                    "{}",
+                )
+                for index, cycle_type in enumerate(cycle_types, 1)
+            ],
+        )
+        data = {table: rows for table, rows in data.items() if table != "cycle_run"}
     for table, table_rows in data.items():
         if not table_rows:
             continue

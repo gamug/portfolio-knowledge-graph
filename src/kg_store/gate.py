@@ -6,6 +6,7 @@ A batch is Turtle destined for one named graph. It is written only if
    (``urn:graph:ingest:{agent}:{date}``, ``urn:graph:derived:entity-resolution:{date}``,
    ``urn:graph:derived:quant:{date}``,
    ``urn:graph:derived:backtest:{run_label}:{P<number>}:{run}``,
+   ``urn:graph:derived:backtest:selection:{run_label}:{P<number>}:{run}``,
    ``urn:graph:universe:{year}-Q{n}``, or ``urn:graph:portfolio:current``); the TBox,
    reference and rule-catalog graphs are loaded by ``cli/load_schema.py``;
 2. the graph is new, for the append-only ones (an ingest graph is never edited after
@@ -100,6 +101,11 @@ _QUARTER = r"\d{4}-Q[1-4]"
 _BACKTEST_TARGET = re.compile(
     r"urn:graph:derived:backtest:([a-z][a-z0-9_]{1,31}):(P[0-9]+):([1-9][0-9]*)"
 )
+#: The selection side of one backtest run (Work item 26) lives beside the m018 graph, not inside
+#: it: the m018 graph is append-only and may already be written. Same label/window vocabulary.
+_BACKTEST_SELECTION_TARGET = re.compile(
+    r"urn:graph:derived:backtest:selection:([a-z][a-z0-9_]{1,31}):(P[0-9]+):([1-9][0-9]*)"
+)
 #: Append-only graph names (``07``): agents write a dated graph; FUNDAMENTAL writes per
 #: quarter; EDGAR and entity resolution take a date or a quarter; universes are quarterly.
 APPEND_ONLY_PATTERNS = (
@@ -111,6 +117,7 @@ APPEND_ONLY_PATTERNS = (
     re.compile(rf"urn:graph:derived:entity-resolution:({_DATE}|{_QUARTER})"),
     re.compile(rf"urn:graph:derived:quant:({_DATE})"),
     _BACKTEST_TARGET,
+    _BACKTEST_SELECTION_TARGET,
     re.compile(rf"urn:graph:universe:({_QUARTER})"),
 )
 
@@ -147,8 +154,8 @@ def check_target(graph: str) -> bool:
     for pattern in APPEND_ONLY_PATTERNS:
         m = pattern.fullmatch(graph)
         if m:
-            if pattern is _BACKTEST_TARGET:
-                # The pattern already pins the label and window, and the last capture group is a
+            if pattern in (_BACKTEST_TARGET, _BACKTEST_SELECTION_TARGET):
+                # The patterns already pin the label and window, and the last capture group is a
                 # positive id, so _date_ok would refuse every valid name.
                 return True
             if not _date_ok(m.group(m.lastindex or 0)):
@@ -160,6 +167,7 @@ def check_target(graph: str) -> bool:
         "urn:graph:ingest:FUNDAMENTAL:YYYY-Qn, urn:graph:ingest:EDGAR:{date|quarter}, "
         "urn:graph:derived:entity-resolution:{date|quarter}, urn:graph:derived:quant:YYYY-MM-DD, "
         "urn:graph:derived:backtest:{run label}:{P<number>}:{positive integer}, "
+        "urn:graph:derived:backtest:selection:{run label}:{P<number>}:{positive integer}, "
         "urn:graph:universe:YYYY-Qn, "
         f"{', '.join(MUTABLE_GRAPHS)}"
     )

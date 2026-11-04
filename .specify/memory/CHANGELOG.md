@@ -838,3 +838,52 @@ loader were untouched.*
       = success, 77 files; `uv run pre-commit run --files <changed files>` passes
       all hooks (the standalone `uv run ruff check .` still reports the
       pre-existing repo-wide 0.16.x/config mismatch, not these files). → step 5.
+
+## Work item 26 — Project the backtest selection side
+
+*From T-209 and the report questions "why did X (not) make the Top-30" / "which vetoes were in
+force". See `PLAN.md` Work item 26. Task IDs T-320–T-349.*
+
+- [x] **T-320** *(done 2026-11-04: `SELECTION_VIEWS`, `project_selection` and `run_selection` in
+      `src/projection/backtest.py`; `SelectionCycle`, schemes, configured/effective
+      `WeightComponent`s, `AttractivenessSnapshot`s and `Veto`s; `load_selection_catalog`/
+      `resolve_rule`; `universe_assets` unchanged; unlinked rows counted per view.)* Implement the
+      selection projector over `v_cycle_run`, `v_weight_scheme`, `v_weight_component`,
+      `v_cycle_ranking`, `v_cycle_ranking_component` and `v_veto`.
+- [x] **T-321** *(done 2026-11-04: `urn:graph:derived:backtest:selection:{label}:{P<n>}:{run}` and
+      `_BACKTEST_SELECTION_TARGET` in `src/kg_store/gate.py`; the m018 target is unchanged;
+      `tests/test_kg_gate.py` and `tests/test_backtest_selection.py` cover the accepted and
+      malformed names.)* Add the sibling graph name and the gate's target branch.
+- [x] **T-322** *(done 2026-11-04: `:SelectionCycle`, `:cycleType`, `:rankingTicker`, `:vetoTicker`,
+      `:vetoRulesJson`, `:rankingOfCycle`, `:hasEffectiveWeight`, `:rankPosition`,
+      `:selectedForBook`, `:vetoedAtRanking`, `:targetWeight` and `:componentValue`; the
+      `SelectionCycleShape`, `BacktestRankingShape` and `EffectiveWeightComponentShape`; tbox 52
+      classes / 39 leaves, shapes 34, FR-001 **4431 quads**, load plan **4708**. `kg_target_schema`
+      mirrors the new terms; synthetic positive/negative cases in `tests/test_ontology_v18.py`.)*
+      Add the minimum schema, shapes and counts.
+- [x] **T-323** *(done 2026-11-04: `src/projection/project_selection.py` and
+      `cli/project_selection.py`, `database_argument` shared with the m018 CLI; dry run by default,
+      `--write`, `--to-production`, duplicate-graph guard; `tests/test_project_selection.py` and
+      `tests/test_cli_project_selection.py`.)* Add the sibling CLI and its command-policy tests.
+- [x] **T-324** *(done 2026-11-04: the fixture now has the six upstream views and seven synthetic
+      cycles; `tests/test_backtest_selection.py` covers the LIQUIDITY_DISTRESS `_v11` resolution,
+      an unknown rule id, the BRK.B UNSCORED placeholder, unlinked FBIN/GAP-style tickers,
+      non-completed runs, the m018/selection sibling names and SHACL.)* Add hermetic fixtures and
+      tests for every nullable case.
+- [x] **T-325** *(done 2026-11-04: `tests/test_selection_real.py`, opt-in under `BACKTEST_DB` and
+      `-m integration`; P1/P2/P3 row and individual counts, unlinked counts and the SHACL-valid
+      graph.)* Add the opt-in real-database row-count test.
+- [x] **T-326** *(done 2026-11-04, read-only dry runs: P1 42,700 rows/individuals, 321,281 triples,
+      86.25 s, 1,213,756 KB peak RSS; P2 41,259, 309,726, 81.64 s, 1,153,048 KB; P3 45,440,
+      342,929, 90.11 s, 1,282,204 KB; each `pyshacl` conforms; no store write/reload.)* Run the real
+      dry runs and record rows, individuals, triples, timing and peak RSS.
+- [x] **T-327** *(done 2026-11-04: `docs/06` §1.11, `docs/07`, `docs/08`,
+      `docs/graphdb-setup.md`, `schema/README.md`, `README.md`, `SPEC.md`; the query catalog adds
+      `selection-ranking-at-rebalance`, `selection-vetoes-in-force` and
+      `selection-why-not-top30`, and Q9/B5 are `Today`.)* Update docs and the query catalog.
+- [x] **T-328** *(done 2026-11-04: T-209 closed, this section cut to `CHANGELOG.md`, Work item 26
+      closed in `PLAN.md`. Verification: `uv run pytest -q` = 1108 passed, 57 deselected in
+      838.11 s; `uv run mypy --config-file=.code_quality/mypy.ini` = success, 83 files; the pinned
+      pre-commit hooks pass on every changed file; FR-001 parse = 4431 quads and `pyshacl` conforms;
+      the opt-in real-database test passes for P1, P2 and P3.)* Close T-209 and record the
+      rule-resolution convention.

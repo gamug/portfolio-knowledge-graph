@@ -606,7 +606,12 @@ it reads. Feeds Work item 4 (T-031) and Work item 12 (T-121).*
       `v_ticker_history`, `v_orchestrator_run` and `v_orchestrator_step`, and settle their
       graph placement; no projector exists for them yet, and T-207 deliberately reads only the
       eight m018 views. A `feat/` PR. → `PLAN.md` Work item 4.
-- [ ] **T-209** *(from T-201/T-207)* Project backtest vetoes (`v_veto`) once a veto projector
+- [x] **T-209** *(done 2026-11-04 in Work item 26: `load_selection_catalog`/`resolve_rule` in
+      `src/projection/backtest.py` resolve every backtest veto's `:ruleId` on the run's
+      `knowledge_date` (2026-10-31); `LIQUIDITY_DISTRESS` resolves to
+      `:Rule_LIQUIDITY_DISTRESS_v11`, an unknown id stops with the id and the date, and the
+      synthetic + real tests pin it. The projector, CLI, schema and docs are Work item 26's
+      T-320–T-328; see `CHANGELOG.md`.)* Project backtest vetoes (`v_veto`) once a veto projector
       exists: resolve a backtest veto's rule by `:ruleId` against the definition in force on the
       backtest run's date (2026-10-31), not by `raisedOn`, because the 2022–2025 stints predate
       every active rule's `validFrom`. T-207 does not read `v_veto`; the rule-resolution
@@ -1156,6 +1161,10 @@ Work item 21 (T-240–T-243): closed 2026-11-03 — the reports-agent query cata
 Work item 22 (T-250–T-259): closed 2026-11-04 — the six historical GICS sub-industry names now roll
 up to existing `reference.ttl` groups, and the full dry run reports 6563 triples with no
 unmapped-value warning; see `CHANGELOG.md`.
+Work item 26 (T-320–T-328): closed 2026-11-04 — the backtest selection side is projected into
+`urn:graph:derived:backtest:selection:{label}:{P<n>}:{run}`, the three new report queries are
+tested, T-209's rule resolution is fixed on the run date, and the real dry runs are recorded;
+see `CHANGELOG.md`.
 T-163 (function done, PR #68) closes with T-031, whose first slice (PR #72) calls it on the real read and re-reads the late keys for `v_score_snapshot`; T-164 done (PR #69).
 Work item 8 (T-070–T-071) is independent but needs a human at a Protégé
 session, not a coding session.

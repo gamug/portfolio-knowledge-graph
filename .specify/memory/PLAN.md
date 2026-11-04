@@ -277,7 +277,7 @@ architecture, and not partitioned for the bitemporal audit trail
    settled whether `src/etl/` survives. Until then `SPEC.md` §13 item 9 stands as an accepted
    risk: the only NLP read is the tag-pinned `news_export.fetch_processed_articles`.
 7. The Contract v18 ontology half (T-206, 2026-11-01) is in: the 11 classes for the m015/m016/m018
-   views, 31 SHACL shapes, and the 10 selection + 5 GUARD rules, with the handoff §3.3 nullable
+   views, 34 SHACL shapes, and the 10 selection + 5 GUARD rules, with the handoff §3.3 nullable
    columns left optional. `UTILITY_CASH_COVERAGE`'s `validFrom` is 2026-10-14, the real T-071 part
    2a merge date (T-216, 2026-11-03; it was 2026-10-31, the last safe date, until then). The eight
    m018 projectors are built (T-207, 2026-11-02):
@@ -1181,7 +1181,7 @@ Asset a membership batch points at (T-221). T-227 added the `sh:class :Universe`
 - ✅ FR-001 parse + `pyshacl` on the 4237-quad bundle at that revision (4204 after T-227 and T-233/T-234); every pinned count updated in the same
   change.
 - ⬜ First real `--write` to a scratch repository (T-226), never production by default; it needs the
-  maintainer's go-ahead, a schema reload there (the store is 4513 until the merged 4204-quad
+  maintainer's go-ahead, a schema reload there (the store is 4513 until the merged 4431-quad
   bundle is loaded) and the full universe in `SQL_UNIVERSE_DB`.
 
 **Open**: T-225 (the worked example's `2026-Q3` memberships overlap the loader's catalog for the
@@ -1222,7 +1222,7 @@ repository. The window and segment vocabularies were also closed `sh:in` lists (
 - `:runLabel` is required by SHACL on `StrategyBook`/`BacktestTest`; a missing, upper-case or
   too-short label is refused.
 - `P4` and `P2c` conform; `Q1` and `P2A` do not; the arm list is still a closed `sh:in`.
-- FR-001 parse + `pyshacl` pass at **4204 quads**; `kg_target_schema.ttl` carries the same facts.
+- FR-001 parse + `pyshacl` pass at **4431 quads**; `kg_target_schema.ttl` carries the same facts.
 - `uv run pytest`, `mypy` and `pre-commit` pass.
 
 **Blocked on**: nothing. The live-store reload and the drop of stale unlabelled backtest graphs
@@ -1361,6 +1361,7 @@ Work item 20 (backtest run labels, open window vocabulary) — T-230–T-236 don
   stale unlabelled graphs from scratch repositories) is the maintainer's
 Work item 21 (reports-agent query catalog) — closed 2026-11-03 (T-240–T-243); adapted to the labelled
   backtest graphs and the asset catalog loader on 2026-11-04; see `CHANGELOG.md`
+Work item 26 (backtest selection side) — closed 2026-11-04 (T-320–T-328); see `CHANGELOG.md`
 ```
 
 Work items 1, 2, and 9 have no dependencies and no blockers — they can land
@@ -1372,7 +1373,7 @@ everything but needs a human at a Protégé session, not code.
 See `TASKS.md` for the discrete, checkable task breakdown.
 ## Work item 26 — Project the backtest selection side (T-320–T-349)
 
-**Status: open.**
+**Status: closed 2026-11-04.**
 
 **Why**: the eight m018 backtest/GUARD views are projected, but the graphs cannot answer the two
 selection questions the reports agent receives: "why did X (not) make the Top-30 at this
@@ -1495,5 +1496,14 @@ existing graph is reported and skipped. Run labels and windows are the same patt
 - `uv run pytest`, `mypy`, and the pinned pre-commit hooks pass; the FR-001 bundle and every asserted
   count are updated in the same change.
 
-**Blocked on**: nothing. No GraphDB write or reload is made by this work item; the maintainer
-performs both.
+**Verified 2026-11-04 (read-only dry runs, `pyshacl` conforms in all three):** P1 42,700
+rows/individuals and 321,281 triples in 86.25 s at 1,213,756 KB peak RSS; P2 41,259 and 309,726
+in 81.64 s at 1,153,048 KB; P3 45,440 and 342,929 in 90.11 s at 1,282,204 KB. The synthetic tests
+cover the LIQUIDITY_DISTRESS `_v11` resolution, an unknown rule id, the UNSCORED placeholder,
+unlinked tickers and a non-completed cycle run. Schema: 52 classes / 39 leaves / 34 shapes;
+FR-001 **4431 quads**, fresh load **4708** asserted triples. The three report queries are in the
+catalog; Q9 and B5 are `Today`. `uv run pytest -q` = 1108 passed, 57 deselected in 838.11 s;
+`mypy` = success, 83 files; the pinned pre-commit hooks pass; the opt-in real-database test passes
+for P1/P2/P3. No GraphDB write or reload was made; the maintainer performs both.
+
+**Blocked on**: nothing.

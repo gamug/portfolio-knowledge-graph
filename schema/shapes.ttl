@@ -97,6 +97,9 @@
     # day passes). The gate makes the same check when a stored Veto is cleared later.
     sh:property [ sh:path :lastSeenOn ; sh:datatype xsd:date ; sh:lessThanOrEquals :clearedOn ] ;
     sh:property [ sh:path :vetoSeverity ; sh:in ("HARD" "SOFT") ; sh:maxCount 1 ] ;
+    # Work item 26: upstream ticker, always written by the backtest selection projector; the asset
+    # link is optional because the shared universe database may not know the line.
+    sh:property [ sh:path :vetoTicker ; sh:datatype xsd:string ; sh:maxCount 1 ] ;
     # T-206: a GUARD rule is not a veto rule. Refuse it as the object of either rule link, so a Veto
     # can never reach one even though both are :RuleDefinition individuals. (No sh:class here: the
     # canonical pyshacl command validates instances.trig without rules.ttl, so the rule nodes are not
@@ -300,11 +303,39 @@
 :AttractivenessSnapshotShape
     a sh:NodeShape ;
     sh:targetClass :AttractivenessSnapshot ;
-    sh:property [ sh:path :attractivenessOfAsset ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    # Work item 26: an asset link is preferred, but a backtest ticker the shared universe database
+    # does not know keeps its :rankingTicker instead of losing the ranking row. Existing live
+    # individuals (asset link only) still conform.
+    sh:property [ sh:path :attractivenessOfAsset ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :rankingTicker ; sh:datatype xsd:string ; sh:maxCount 1 ] ;
+    sh:or ( [ sh:path :attractivenessOfAsset ; sh:minCount 1 ]
+            [ sh:path :rankingTicker ; sh:minCount 1 ] ) ;
     # T-155: no lower bound: upstream's blended_score / 100 goes negative when the SOFT-veto penalties exceed the blend (T-189: the sum of the active SOFT stints' rules' :penaltyPoints, 15 each unless the stint's rule declares its own).
     sh:property [ sh:path :attractivenessScore ; sh:datatype xsd:decimal ; sh:maxInclusive 1.0 ; sh:minCount 1 ; sh:maxCount 1 ] ;
     sh:property [ sh:path :computedAt ; sh:datatype xsd:dateTime ; sh:minCount 1 ; sh:maxCount 1 ] ;
-    sh:property [ sh:path :computedWithScheme ; sh:minCount 1 ; sh:maxCount 1 ] .
+    sh:property [ sh:path :computedWithScheme ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    # Selection-side fields (Work item 26). Optional on the pre-existing live examples; the
+    # BacktestRankingShape below requires them where :rankingOfCycle is written.
+    sh:property [ sh:path :rankingOfCycle ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :rankPosition ; sh:datatype xsd:integer ; sh:minInclusive 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :selectedForBook ; sh:datatype xsd:boolean ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :vetoedAtRanking ; sh:datatype xsd:boolean ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :targetWeight ; sh:datatype xsd:decimal ; sh:minInclusive 0.0 ; sh:maxInclusive 1.0 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :vetoRulesJson ; sh:datatype xsd:string ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :hasEffectiveWeight ; sh:class :WeightComponent ] .
+
+:BacktestRankingShape
+    a sh:NodeShape ;
+    # Scoped to the snapshots the selection-side projector writes, so the pre-existing live examples
+    # (which have no cycle/rank fields) are not retroactively required to grow them.
+    sh:targetSubjectsOf :rankingOfCycle ;
+    sh:property [ sh:path :rankingOfCycle ; sh:class :SelectionCycle ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :rankPosition ; sh:datatype xsd:integer ; sh:minInclusive 1 ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :selectedForBook ; sh:datatype xsd:boolean ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :vetoedAtRanking ; sh:datatype xsd:boolean ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :rankingTicker ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :vetoRulesJson ; sh:datatype xsd:string ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :hasEffectiveWeight ; sh:class :WeightComponent ] .
 
 :AttractivenessWeightSchemeShape
     a sh:NodeShape ;
@@ -319,6 +350,7 @@
     sh:property [ sh:path :validFrom ; sh:datatype xsd:date ; sh:maxCount 1 ] ;
     sh:property [ sh:path :cycleDate ; sh:datatype xsd:date ; sh:maxCount 1 ] ;
     sh:property [ sh:path :runId ; sh:datatype xsd:string ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :cycleRunId ; sh:datatype xsd:integer ; sh:maxCount 1 ] ;
     sh:property [ sh:path :bookWeightingRule ; sh:datatype xsd:string ; sh:maxCount 1 ] ;
     sh:property [ sh:path :topN ; sh:datatype xsd:integer ; sh:minInclusive 1 ; sh:maxCount 1 ] ;
     sh:property [ sh:path :maxNameWeight ; sh:datatype xsd:decimal ; sh:minInclusive 0.0 ; sh:maxInclusive 1.0 ; sh:maxCount 1 ] ;
@@ -332,7 +364,15 @@
     sh:property [ sh:path :weightMetricName ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ;
                   sh:in ("ScoreFinanciero" "ScoreCuantitativo" "ScoreTecnico" "Sentiment" "SectorRelativeMomentum") ] ;
     sh:property [ sh:path :weightValue ; sh:datatype xsd:decimal ; sh:minInclusive 0.0 ; sh:maxInclusive 1.0 ; sh:minCount 1 ; sh:maxCount 1 ] ;
-    sh:property [ sh:path :inverted ; sh:datatype xsd:boolean ; sh:maxCount 1 ] .
+    sh:property [ sh:path :inverted ; sh:datatype xsd:boolean ; sh:maxCount 1 ] ;
+    # Work item 26: only effective-weight components carry this (the configured ones do not); the
+    # targetObjectsOf shape below makes it mandatory exactly for those reached by :hasEffectiveWeight.
+    sh:property [ sh:path :componentValue ; sh:datatype xsd:decimal ; sh:minInclusive 0.0 ; sh:maxInclusive 100.0 ; sh:maxCount 1 ] .
+
+:EffectiveWeightComponentShape
+    a sh:NodeShape ;
+    sh:targetObjectsOf :hasEffectiveWeight ;
+    sh:property [ sh:path :componentValue ; sh:datatype xsd:decimal ; sh:minInclusive 0.0 ; sh:maxInclusive 100.0 ; sh:minCount 1 ; sh:maxCount 1 ] .
 
 #################################################################
 # CONTRACT v18 SHAPES (T-206, 2026-11-01)
@@ -592,3 +632,28 @@
     sh:property [ sh:path :nObs ; sh:datatype xsd:integer ; sh:minInclusive 1 ; sh:minCount 1 ; sh:maxCount 1 ] ;
     sh:property [ sh:path :paramsJson ; sh:datatype xsd:string ; sh:maxCount 1 ] ;
     sh:property [ sh:path :knowledgeDate ; sh:datatype xsd:date ; sh:minCount 1 ; sh:maxCount 1 ] .
+
+#################################################################
+# BACKTEST SELECTION-SIDE SHAPE (Work item 26, T-322)
+#
+# v_cycle_run -> :SelectionCycle. Required only what the view
+# guarantees non-null; the run label, window and backtest run id
+# are projector context (the view itself is per database).
+#################################################################
+
+:SelectionCycleShape
+    a sh:NodeShape ;
+    sh:targetClass :SelectionCycle ;
+    sh:property [ sh:path :cycleRunId ; sh:datatype xsd:integer ; sh:minInclusive 1 ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :cycleType ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ;
+                  sh:in ("SELECTION" "MONITORING" "ENTITY_RESOLUTION" "REPLAY") ] ;
+    sh:property [ sh:path :runAsOf ; sh:datatype xsd:date ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :runId ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :status ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :codeVersion ; sh:datatype xsd:string ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :startedAt ; sh:datatype xsd:dateTime ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :finishedAt ; sh:datatype xsd:dateTime ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :runLabel ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ;
+                  sh:pattern "^[a-z][a-z0-9_]{1,31}$" ] ;
+    sh:property [ sh:path :windowId ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ; sh:pattern "^P[0-9]+$" ] ;
+    sh:property [ sh:path :backtestRunId ; sh:datatype xsd:integer ; sh:minInclusive 1 ; sh:minCount 1 ; sh:maxCount 1 ] .

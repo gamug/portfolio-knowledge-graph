@@ -212,7 +212,7 @@
     rdfs:label "Attractiveness Snapshot" ;
     rdfs:label "instantánea de atractivo"@es ;
     skos:definition "Resultado inmutable del ranking de atractivo de un activo en un ciclo de selección: su puntuación combinada de atractivo. No es lo contrario de un veto: un activo puede tener ambos, y un veto SOFT resta de la puntuación combinada los penaltyPoints de su regla."@es ;
-    rdfs:comment "The Orchestrator's immutable attractiveness ranking result for one Asset in one selection cycle: its combined attractiveness score. It is not the opposite of a Veto: an Asset can have both, and a SOFT veto subtracts its rule's penaltyPoints from the blended score. The class stores the Asset, the score, the computation time and the scheme; v_cycle_ranking also carries rank, selected and status, but they are not modelled here. Closes part of critique #2/evolution layer B3's ranking half (not the position-sizing half). Added 2026-08-13." .
+    rdfs:comment "The Orchestrator's immutable attractiveness ranking result for one Asset in one selection cycle: its combined attractiveness score. It is not the opposite of a Veto: an Asset can have both, and a SOFT veto subtracts its rule's penaltyPoints from the blended score. The class stores the Asset (or, when the universe database does not know the ticker, :rankingTicker), the score, the computation time, the scheme and, for the backtest selection side, the cycle, rank, selection flag, target weight and the upstream veto_rules_json. :rankPosition is the upstream rank, persisted for the backtest; for a live read it remains a query-time ORDER BY over the score. Closes part of critique #2/evolution layer B3's ranking half (not the position-sizing half). Added 2026-08-13; selection-side properties added by Work item 26 (T-322)." .
 
 :AttractivenessWeightScheme
     a owl:Class ;
@@ -226,7 +226,7 @@
     rdfs:label "Weight Component" ;
     rdfs:label "componente de ponderación"@es ;
     skos:definition "Par (métrica, peso) dentro de un esquema de ponderación del atractivo, configurado por el sistema de origen para una ejecución: uno por score_type (FUNDAMENTAL, VALORIZATION, TECHNICAL y, en ejecuciones antiguas, SEMANTIC). SectorRelativeMomentum no tiene peso en el sistema de origen. :inverted es historia de diseño opcional."@es ;
-    rdfs:comment "One (metric, weight) pair within an AttractivenessWeightScheme, as configured upstream for one run: one per score_type (FUNDAMENTAL, VALORIZATION, TECHNICAL, plus SEMANTIC in older runs); SectorRelativeMomentum has no upstream weight. :inverted is optional design history (T-121). Added 2026-08-13." .
+    rdfs:comment "One (metric, weight) pair: a configured weight inside an AttractivenessWeightScheme (one per score_type: FUNDAMENTAL, VALORIZATION, TECHNICAL, plus SEMANTIC in older runs; SectorRelativeMomentum has no upstream weight), or a per-asset effective weight reached from an AttractivenessSnapshot by :hasEffectiveWeight, where :componentValue carries the value that run used. :inverted is optional design history (T-121). Added 2026-08-13; effective-weight use added by Work item 26 (T-322)." .
 
 #################################################################
 # 1.0 CONTRACT v18 CLASSES (T-206, 2026-11-01) — one class per
@@ -317,6 +317,13 @@
     rdfs:label "prueba estadística pareada de backtest"@es ;
     skos:definition "Resultado de una prueba de hipótesis pareada entre dos brazos de estrategia en un segmento (Jobson-Korkie con corrección de Memmel, bootstrap en bloques de Ledoit-Wolf para el ratio de Sharpe y diferencia de medias diarias con errores estándar HAC de Newey-West): estadístico, valor p y número de sesiones."@es ;
     rdfs:comment "One row of v_backtest_test (m018): a paired hypothesis test between two strategy arms in one segment, keyed by (backtest_run_id, segment, arm_a, arm_b, test). A derived observation. :armA/:armB use the same arm vocabulary as :armCode; :testName is memmel_jk | ledoit_wolf | hac_mean_diff. No BacktestRun class: :backtestRunId is the literal link." .
+
+:SelectionCycle
+    a owl:Class ;
+    rdfs:label "Selection Cycle" ;
+    rdfs:label "ciclo de selección"@es ;
+    skos:definition "Registro de una corrida del motor de ciclos del sistema de origen (v_cycle_run): tipo de ciclo, fecha de corte, estado y marcas de tiempo de una corrida de selección, monitoreo o repetición."@es ;
+    rdfs:comment "One row of v_cycle_run (m018 selection side): the run log of one cycle-engine run, keyed by its integer id. A process record, so an Observation like OrchestratorRun, not a metric snapshot. :cycleRunId is the id a BookRebalance and an AttractivenessWeightScheme carry; :runId is the D7 form 'cycle_run:<id>'. A backtest database's runs are REPLAY by construction. Added by Work item 26 (T-322)." .
 
 #################################################################
 # 1.1 SHARED-PROPERTY SUPERCLASSES — precise ranges for properties
@@ -456,10 +463,11 @@
 :BookDailyPerformance rdfs:subClassOf :Observation .
 :PortfolioPeriodSummary rdfs:subClassOf :Observation .
 :BacktestTest rdfs:subClassOf :Observation .
+:SelectionCycle rdfs:subClassOf :Observation .
 
 #################################################################
 # 1.3 DISJOINTNESS — every individual belongs to exactly one of
-# these 38 classes. EvidenceSource/RuleOperand/ObservationSnapshot
+# these 39 classes. EvidenceSource/RuleOperand/ObservationSnapshot
 # (§1.1) and every §1.2 taxonomy class are deliberately excluded --
 # they're superclasses of members of this list, and a superclass is
 # never disjoint from its own subclasses.
@@ -474,7 +482,7 @@
                  :WeightComponent
                  :TickerHistory :OrchestratorRun :OrchestratorStep :StrategyBook :BookRebalance
                  :GuardAlert :GuardAction :BookWeightDaily :BookDailyPerformance
-                 :PortfolioPeriodSummary :BacktestTest ) .
+                 :PortfolioPeriodSummary :BacktestTest :SelectionCycle ) .
 
 #################################################################
 # 2. OBJECT PROPERTIES
@@ -553,7 +561,13 @@
 :computedWithScheme a owl:ObjectProperty, owl:FunctionalProperty ; rdfs:domain :AttractivenessSnapshot ; rdfs:range :AttractivenessWeightScheme ;
     rdfs:comment "Audit trail -- same role appliesRule/primaryRule play for Veto." .
 
+:rankingOfCycle a owl:ObjectProperty, owl:FunctionalProperty ; rdfs:domain :AttractivenessSnapshot ; rdfs:range :SelectionCycle ;
+    rdfs:comment "The cycle run a backtest ranking row belongs to (v_cycle_ranking.cycle_run_id, resolved to its SelectionCycle). Written by the selection-side projector; absent on the pre-existing live examples." .
+
 :hasWeightComponent a owl:ObjectProperty ; rdfs:domain :AttractivenessWeightScheme ; rdfs:range :WeightComponent .
+
+:hasEffectiveWeight a owl:ObjectProperty ; rdfs:domain :AttractivenessSnapshot ; rdfs:range :WeightComponent ;
+    rdfs:comment "The weight each component actually had for THIS asset (upstream's per-asset renormalization), read from v_cycle_ranking_component.effective_weight. A component absent for the asset has no entry; the entries of one snapshot sum to 1. A snapshot with no such entry is an upstream no-component placeholder (UNSCORED/UNPRICED), kept so the backtest can explain the exclusion." .
 
 #################################################################
 # 2.1 CONTRACT v18 OBJECT PROPERTIES (T-206, 2026-11-01)
@@ -806,6 +820,27 @@
 :softVetoPenalty a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :AttractivenessWeightScheme ; rdfs:range xsd:decimal ;
     rdfs:comment "T-121: upstream soft_veto_penalty, in points of upstream's 0-100 blend (15 by default), charged once per active SOFT veto stint whose rule declares no :penaltyPoints (the default for a SOFT rule, and for a SOFT stint of a HARD rule, which has none: assumed, T-191 ask 8; runs before upstream's version 11 charged it flat on every SOFT stint, T-189). Not a fraction: do not divide by 100 here. At least 0." .
 
+# --- backtest selection side (Work item 26, T-322): rank/selection/weights ---
+:rankPosition a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :AttractivenessSnapshot ; rdfs:range xsd:integer ;
+    rdfs:comment "Upstream v_cycle_ranking.rank (1 = best), read verbatim for the backtest selection side. A live ranking may still be a query-time ORDER BY; the backtest keeps the row's own rank so a report does not have to break ties or reproduce upstream's comparison set." .
+:selectedForBook a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :AttractivenessSnapshot ; rdfs:range xsd:boolean ;
+    rdfs:comment "Upstream v_cycle_ranking.selected: whether the cycle's book construction selected the asset. Different from :vetoedAtRanking: a SOFT veto lowers the score but does not by itself exclude." .
+:vetoedAtRanking a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :AttractivenessSnapshot ; rdfs:range xsd:boolean ;
+    rdfs:comment "Upstream v_cycle_ranking.vetoed: true only for a HARD veto or the UNSCORED/UNPRICED gaps, never for a SOFT veto alone. The stints themselves are :Veto individuals (v_veto)." .
+:targetWeight a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :AttractivenessSnapshot ; rdfs:range xsd:decimal ;
+    rdfs:comment "Upstream v_cycle_ranking.target_weight verbatim, a fraction of the book [0, 1]. Optional: NULL for an unselected row and on a MONITORING run; never filled in here." .
+:vetoRulesJson a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :AttractivenessSnapshot ; rdfs:range xsd:string ;
+    rdfs:comment "Upstream v_cycle_ranking.veto_rules_json verbatim: the rule ids/markers that applied at that ranking, including UNSCORED and UNPRICED, which have no :Veto row. A JSON string, like :paramsJson; never parsed or recomputed here. It names rules only, not price values." .
+:componentValue a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :WeightComponent ; rdfs:range xsd:decimal ;
+    rdfs:comment "Upstream v_cycle_ranking_component.component_value verbatim, on an effective-weight WeightComponent only (never on a configured one). 0-100, the same cohort-relative scale as normalized_score. For FUNDAMENTAL this is NOT a repeat of the ScoreSnapshot's normalizedScore: the stored score is rewritten in place by a later cycle, while this is the value THIS run used (T-171)." .
+
+:cycleType a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :SelectionCycle ; rdfs:range xsd:string ;
+    rdfs:comment "Upstream v_cycle_run.cycle_type: SELECTION, MONITORING, ENTITY_RESOLUTION or REPLAY. A backtest database's cycle runs are REPLAY by construction, which is why the backtest source check reads v_book.run_status rather than the live REPLAY refusal (T-320)." .
+:rankingTicker a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :AttractivenessSnapshot ; rdfs:range xsd:string ;
+    rdfs:comment "Upstream v_cycle_ranking.ticker, always written so a row survives when the shared universe database does not know the ticker; :attractivenessOfAsset is added only when it does. The reports agent must not treat this literal as proof of an :Asset link." .
+:vetoTicker a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :Veto ; rdfs:range xsd:string ;
+    rdfs:comment "Upstream v_veto.ticker, always written so a backtest veto survives when the shared universe database does not know the ticker; :vetoOfAsset is added only when it does." .
+
 #################################################################
 # 3.1 CONTRACT v18 DATATYPE PROPERTIES (T-206, 2026-11-01)
 #
@@ -912,8 +947,8 @@
     rdfs:comment "v_book_rebalance.execution_date: the NYSE session E_k = D1 + 21*k, one session after decision_date." .
 :quantPortfolioId a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :BookRebalance ; rdfs:range xsd:integer ;
     rdfs:comment "Optional: v_book_rebalance.quant_portfolio_id, an upstream id. It is a literal, not a :Portfolio node: no v_quant_portfolio individual is minted by this class." .
-:cycleRunId a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :BookRebalance ; rdfs:range xsd:integer ;
-    rdfs:comment "Optional: v_book_rebalance.cycle_run_id. Always NULL on MARKOWITZ_BASE (no cycle Top-30 selection); an upstream id literal, not a node." .
+:cycleRunId a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:range xsd:integer ;
+    rdfs:comment "Upstream cycle_run id. No rdfs:domain (the :runId pattern): shared by BookRebalance (v_book_rebalance.cycle_run_id, NULL on MARKOWITZ_BASE), SelectionCycle (v_cycle_run.run_id) and AttractivenessWeightScheme (the run the blend belongs to), so the reports agent can join a rebalance to its ranking without a graph-specific convention." .
 :riskModelId a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :BookRebalance ; rdfs:range xsd:integer ;
     rdfs:comment "Optional: v_book_rebalance.risk_model_id, an upstream id literal, not a node." .
 

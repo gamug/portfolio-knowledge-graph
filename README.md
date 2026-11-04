@@ -46,14 +46,14 @@ storage location assigned in `07` and its writer assigned in `08`.
 ├── schema/                                the implemented ontology (roadmap step 0) — all files real, verified
 │   ├── README.md                          authoritative map of this directory — read first
 │   ├── tbox.ttl                           OWL classes, properties, cardinality restrictions, class taxonomy (§1.2)
-│   ├── shapes.ttl                         SHACL data-quality shapes (20)
+│   ├── shapes.ttl                         SHACL data-quality shapes (34)
 │   ├── reference.ttl                      GICS sector/industry taxonomy + asset master data + MetricType vocabulary
 │   ├── rules.ttl                          veto rule catalog + AttractivenessWeightScheme, as RuleClause/weight trees
 │   ├── instances.trig                     worked-example ABox (TriG, multiple named graphs)
 │   └── protege-view.ttl                   generated flat Turtle bundle for Protégé — STALE as of 2026-08-23, not regenerated after the tbox.ttl/reference.ttl/shapes.ttl edits below; regenerate before using in Protégé
 ├── src/etl/, cli/build_data_ttl.py         transitional ETL: universe.db + portfolio-nlp results → flat data.ttl (roadmap step 2 shortcut)
 ├── src/kg_store/, cli/load_schema.py, cli/ingest.py, cli/verify_store.py, cli/load_universe.py   GraphDB store, schema loader, SHACL ingest gate and the asset-master loader (roadmap step 1, T-220)
-├── src/projection/, cli/check_view_contract.py (a checkout or the service's URL)   real step-2 projection (Work item 4): v_* read contract, drift check, score conversion, boundary expectations (view_expectations/*.json) and their runner (boundary.py), `v_score_snapshot` -> `:ScoreSnapshot` (score_snapshots.py, project_scores.py; entry point cli/project_scores.py), and the eight m018 backtest/GUARD views -> `urn:graph:derived:backtest:{label}:{window}:{run}` (backtest.py, project_backtest.py; entry point cli/project_backtest.py)
+├── src/projection/, cli/check_view_contract.py (a checkout or the service's URL)   real step-2 projection (Work item 4): v_* read contract, drift check, score conversion, boundary expectations (view_expectations/*.json) and their runner (boundary.py), `v_score_snapshot` -> `:ScoreSnapshot` (score_snapshots.py, project_scores.py; entry point cli/project_scores.py), the eight m018 backtest/GUARD views -> `urn:graph:derived:backtest:{label}:{window}:{run}` (backtest.py, project_backtest.py; entry point cli/project_backtest.py), and the six selection views -> the sibling `urn:graph:derived:backtest:selection:{label}:{window}:{run}` (project_selection.py; entry point cli/project_selection.py; Work item 26)
 └── docs/                                  all Markdown design documents
     ├── critique-and-evolution.md          v1 critique + v2 evolution layers
     ├── 06-ontology-definition.md          ontology design rationale
@@ -84,7 +84,7 @@ class taxonomy (§1.2 in `06-ontology-definition.md`) and MetricType vocabulary 
 directly into `tbox.ttl`/`reference.ttl`/`shapes.ttl` — not left as separate addendum files. Full
 `rdflib` parse + `pyshacl` conformance re-verified against the real files after the merge: **parses
 clean (1608 quads at the 2026-08-23 revision — `schema/taxonomy-quality-review-2026-08-23.md` has the +1 delta from a
-same-day `RuleClause` fix; 1771 after T-102/T-103, 1881 after T-104, 1951 after T-101, 1953 after T-105, 2064 after T-106, 2150 after T-107, 2298 after T-108, 2352 after T-109, 2366 after T-111, 2378 after T-100, 2383 after its review, 2400 after T-081, 2458 after T-140, 2648 after T-187/T-188, 4178 after T-206, 4182 after T-210, 4236 after T-211, 4237 after T-220, 4202 after T-233/T-234, 4203 after merging T-220 with T-233/T-234, 4204 after T-227), conforms: True** (`schema/README.md`'s Validation section has the exact
+same-day `RuleClause` fix; 1771 after T-102/T-103, 1881 after T-104, 1951 after T-101, 1953 after T-105, 2064 after T-106, 2150 after T-107, 2298 after T-108, 2352 after T-109, 2366 after T-111, 2378 after T-100, 2383 after its review, 2400 after T-081, 2458 after T-140, 2648 after T-187/T-188, 4178 after T-206, 4182 after T-210, 4236 after T-211, 4237 after T-220, 4202 after T-233/T-234, 4203 after merging T-220 with T-233/T-234, 4204 after T-227, 4431 after Work item 26), conforms: True** (`schema/README.md`'s Validation section has the exact
 command). `protege-view.ttl` is the one file *not* re-verified — it's a generated bundle
 (`schema/README.md`: "never hand-edit") that predates this revision's edits, the T-206 Contract
 v18 classes, T-210's FIBO links and T-211's Spanish layer, and needs regenerating from a real
@@ -95,8 +95,8 @@ Protégé session, not something this pass could safely hand-patch.
 
 | File | Format | Named graph | Contents |
 |---|---|---|---|
-| `tbox.ttl` | Turtle | `urn:graph:tbox` | 51 classes (38 mutually disjoint leaf/domain classes + a 13-class `rdfs:subClassOf` taxonomic backbone), properties, cardinality restrictions |
-| `shapes.ttl` | Turtle | `urn:graph:tbox` | 31 SHACL node shapes |
+| `tbox.ttl` | Turtle | `urn:graph:tbox` | 52 classes (39 mutually disjoint leaf/domain classes + a 13-class `rdfs:subClassOf` taxonomic backbone), properties, cardinality restrictions |
+| `shapes.ttl` | Turtle | `urn:graph:tbox` | 34 SHACL node shapes |
 | `reference.ttl` | Turtle | `urn:graph:reference` | GICS sector/industry taxonomy + 5 worked-example asset tickers |
 | `fibo.ttl` | Turtle | `urn:graph:reference:fibo` | 25-term FIBO 2026Q2 glossary slice (54 entries, 277 statements) + the authors' Spanish `@es` layer |
 | `rules.ttl` | Turtle | `urn:graph:rules:catalog` | 10 active selection rules + 5 GUARD protection rules (single-leaf `RuleDefinition`s) + 8 superseded definitions kept as history + `AttractivenessWeightScheme` |
@@ -149,7 +149,7 @@ of configuration:
 |---|---|
 | 0 — Ontology + SHACL shapes (this repo's `schema/`) | ✅ Done |
 | 1 — Stand up the triple store | ✅ Done — GraphDB repository `portfolio` with the reasoning profile of `07`, `schema/` loaded (`cli/load_schema.py`), ABox writes pass a SHACL gate (`cli/ingest.py`); see `docs/graphdb-setup.md`. Only the `instances.trig` worked example is loaded so far |
-| 2 — Ingest already-collected data into the graph | Shortcut built — `src/etl/` projects the universe (`universe.db`: assets and membership history) and news (`portfolio-nlp` results) to a flat `data.ttl`; the real projection (`financial-analysis` `v_*` views, dated named graphs) is partly built: T-030 pinned the read contract and the score conversion (`src/projection/`), T-031 projects `v_score_snapshot`, and T-207 projects the eight m018 backtest/GUARD views into `urn:graph:derived:backtest:{label}:{window}:{run}` |
+| 2 — Ingest already-collected data into the graph | Shortcut built — `src/etl/` projects the universe (`universe.db`: assets and membership history) and news (`portfolio-nlp` results) to a flat `data.ttl`; the real projection (`financial-analysis` `v_*` views, dated named graphs) is partly built: T-030 pinned the read contract and the score conversion (`src/projection/`), T-031 projects `v_score_snapshot`, T-207 projects the eight m018 backtest/GUARD views into `urn:graph:derived:backtest:{label}:{window}:{run}`, and Work item 26 projects the selection side into `urn:graph:derived:backtest:selection:{label}:{window}:{run}` |
 | 3–9 — Pricing collector, EDGAR batch pipeline, NLP service, agent cycles, entity resolution, sector/portfolio construction, backtesting | Not this repo's to build — owned by `portfolio-data-mining`, `portfolio-nlp`, `portfolio-financial-analysis` (built or partly built there, per their docs; per-step owner table in the roadmap). This repo's part is projecting their outputs (step 2) |
 
 Full dependency-ordered detail in [`docs/10-integration-roadmap.md`](docs/10-integration-roadmap.md).

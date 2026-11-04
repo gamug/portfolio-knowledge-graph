@@ -297,10 +297,10 @@ def _leaves(graph: rdflib.Graph) -> list[Node]:
     return leaves
 
 
-def test_each_of_the_38_leaf_classes_has_one_spanish_label_and_definition() -> None:
+def test_each_of_the_39_leaf_classes_has_one_spanish_label_and_definition() -> None:
     graph = rdflib.Graph().parse(SCHEMA / "tbox.ttl", format="turtle")
     leaves = _leaves(graph)
-    assert len(leaves) == 38
+    assert len(leaves) == 39
     for leaf in leaves:
         assert len(_spanish(graph, leaf, RDFS.label)) == 1, leaf
         assert len(_spanish(graph, leaf, SKOS.definition)) == 1, leaf
