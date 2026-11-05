@@ -2422,3 +2422,109 @@ derived-graph target checks in the gate.
 1232.29 s (20:32)**; `mypy` = success, **106 source files**; the pinned pre-commit hooks pass on
 every changed file; FR-001 remains **4634 quads; conforms: True**.
 No GraphDB write or reload was made.
+
+## Work item 36 — Make the query catalog independent of the pilot (T-550–T-569)
+
+**Status: in progress 2026-11-05.**
+
+**Why**: `docs/reports-agent-query-catalog.md` still describes the pilot as if it were the only
+run: three windows named `P1`/`P2`/`P3`, three arms, the label `rule` as a literal filter, and
+sector rollups that treat every asset without a GICS class as `unclassified`. The final backtest
+has six date-ordered windows (`P1`, `H1`, `P3`, `H2`, `P2`, `H3`; `P3` precedes `P2`), four arms
+including `MARKOWITZ_BASE_GUARD`, the same four-arm vocabulary but a different label, a core ETF
+(`SPY`), Basing Points GUARD rules, and run metadata dated November 2026. A reports agent that
+follows the current text would filter for a label and windows that do not exist, hide `SPY` in an
+`unclassified` bucket, and misread the selection side (`selected` is candidate-pool membership, not
+the names held; `target_weight` is not a book weight). Work item 33 opened the vocabulary; this
+work item makes the catalog and its test ready for the final data without writing any result
+number into the documentation.
+
+**Decisions**:
+
+1. **Parameters first.** Every per-run backtest and selection query binds the run label and the
+   window (and the arm where the question is per-arm), with a discovery query for each choice:
+   run labels present, windows present with `MIN(:dateFrom)`/`MAX(:dateTo)` ordered by date (never
+   by name), arms present, rebalance dates, and the decision/warm-up cycle dates. `rule` remains
+   only an example label; no text says "three windows" or that `P1`–`P3` are the only windows.
+2. **Two kinds of cycle.** A decision cycle is a `SelectionCycle` referenced by a `BookRebalance`
+   through the shared `:cycleRunId` (same `:runLabel` and `:windowId`); a warm-up cycle is one no
+   rebalance references. The book-to-cycle join is `:cycleRunId`, never a date coincidence. Only
+   the Top-N arms carry it; both Markowitz arms leave it NULL on purpose and link through
+   `:quantPortfolioId`/`:riskModelId` instead. The discovery queries list decision and warm-up
+   cycles separately, so an unqualified "cycle dates" answer cannot mix them.
+3. **Core ETF.** The three sector rollups (layer-1 cuts by sector, composition at a rebalance,
+   coverage of holdings) map an `:ExchangeTradedFund` (`SPY`) to the class's Spanish label
+   `ETF núcleo`. They never drop it and never count it as `unclassified`; an ordinary asset with no
+   `:classifiedAs` still lands in `unclassified`. The query that lists assets without a sector
+   excludes ETFs explicitly. `sector-of-asset` returns the same label for `SPY`.
+4. **Held names and the pool.** `:selectedForBook` is membership of the candidate pool
+   (`v_weight_scheme.top_n`, 60 in the final run), not the names held. A book's holdings are
+   `:BookWeightDaily` rows with `:finalTargetWeight > 0` of the Top-N arms. Composition and
+   "what did the book hold" queries use `:finalTargetWeight`, never the ranking's
+   `:targetWeight`; that ranking value is the cycle's own pool weight and is not a portfolio
+   weight. `:rankPosition` counts vetoed names, so a selected name can have rank greater than the
+   pool size. "Not selected" means vetoed or ranked below the last selected name, never a fixed
+   "Top-30".
+5. **Semantics that look like gaps.** Document each in the catalog, with a text test where a
+   query cannot express it: `vetoRulesJson` keeps SOFT rule ids (they penalise the score) and
+   collapses HARD vetoes to the marker `"HARD"`, so the HARD rule ids come from the in-force
+   `Veto` predicate `raisedOn <= C AND (clearedOn IS NULL OR clearedOn > C)`; the orchestrator views
+   are empty by design because backtests do not run through the orchestrator; `n_guard_actions`
+   counts by decision date inside the segment, so a guard action decided on the last session
+   before a window and effective on its first day is in `v_guard_action` but not in the window's
+   summary; the final bases' knowledge date is the run date (November 2026) and vetoes resolve
+   their rule by `:ruleId` against the definition valid then; only aggregates are published,
+   never a price, return or price-derived value of an individual asset (`evidence_json` is not
+   projected, layer-1 alert `value` is masked, and `L1_BP_*` alerts carry no `:alertThreshold`).
+6. **Severity and the first decision date.** A veto's displayed severity is the veto's
+   `:vetoSeverity`, never the rule's `:ruleSeverity` (`LEVERAGE_EXTREME` is HARD in the catalog but
+   emits SOFT for a negative-equity asset with no usable credit metric). The first decision date
+   of a window has no weight rows on that date; its weights appear on the execution date, which is
+   not a gap.
+7. **No result numbers.** The catalog and these docs carry no NAV and no result count of the pilot
+   or the final run. Worked examples use only the hermetic fixture and say so; the dated pilot
+   records already in `PLAN.md`/`CHANGELOG.md` stay untouched. The trend-filter and
+   reference-return queries belong to Work item 37 and are not added here.
+8. **The contract stays executable.** Every fenced `sparql` block keeps a tag and an expectation,
+   and every `Today` query still runs against the hermetic dataset. The test gains a four-arm,
+   date-ordered discovery dataset, decision and warm-up cycles, a Basing Points-alert check, and a
+   sector dataset with `SPY`, one classified ordinary asset and one unclassified ordinary asset.
+
+**Tasks**:
+
+- [ ] **T-550** Record this design in `PLAN.md` and `TASKS.md` before any code (first commit).
+- [ ] **T-551** Parameterise the backtest and selection queries by label/window/arm and add the
+  discovery queries: run labels, windows by date range, arms (including `MARKOWITZ_BASE_GUARD`),
+  rebalance dates, decision cycles and warm-up cycles.
+- [ ] **T-552** Add the `ETF núcleo` branch to the sector rollups, the `sector-of-asset` query and
+  the ETF exclusion in the unclassified-assets query; keep ordinary unclassified assets counted.
+- [ ] **T-553** Document the veto-JSON, empty-orchestrator, `n_guard_actions`, knowledge-date and
+  publication semantics with text tests.
+- [ ] **T-554** Correct the selection semantics (`selected`, `targetWeight`, `finalTargetWeight`,
+  `rankPosition`) and rename the "why not Top-30" query to a pool-neutral name.
+- [ ] **T-555** Add and test the `:cycleRunId` book-to-cycle join and the decision/warm-up
+  discovery, distinguishing both in the catalog text.
+- [ ] **T-556** State the per-veto severity rule and the first-decision-date weight rule, with a
+  test over the fixture graph.
+- [ ] **T-557** Extend the hermetic fixtures/tests: `SPY` plus a classified and an unclassified
+  ordinary asset, four arms, two date-ordered windows, and both cycle kinds.
+- [ ] **T-558** Update `docs/backtest-load-runbook.md` where it refers to the catalog, plus the
+  related README/SPEC references; keep every count and status consistent.
+- [ ] **T-559** Run `pytest`, `mypy` and the pinned pre-commit hooks on the changed files; report
+  counts and timings, and leave GraphDB untouched.
+
+**Acceptance criteria**:
+
+- No per-run query hardcodes `rule`, `P1`–`P3`, "three windows" or "Top-30"; every one binds a
+  label and a window (and an arm where per-arm), and the discovery queries answer label, window
+  date order, arm list, rebalance dates, decision cycles and warm-up cycles.
+- `SPY` appears as `ETF núcleo` in the three sector rollups and in `sector-of-asset`, never as
+  `unclassified` or dropped; an ordinary asset without `:classifiedAs` is still `unclassified`;
+  the unclassified-assets query excludes ETFs.
+- The five semantic notes are present and tested; no catalog or related doc states a NAV or a
+  pilot/final result count as a fact, and no query selects `:alertThreshold` or `:evidenceJson`.
+- Every tagged query runs against the hermetic dataset; the new fixture includes both cycle kinds
+  and all four final arms.
+- `uv run pytest`, `mypy` and the pinned pre-commit hooks pass; no GraphDB write or reload.
+
+**Blocked on**: nothing. Work item 37 adds its own trend-filter/reference-return entries later.
