@@ -1,9 +1,9 @@
-"""The reports-agent query catalog is executable (T-240-T-243).
+"""The reports-agent query catalog is executable (T-240-T-243, Work item 36).
 
 Every fenced ``sparql`` block in ``docs/reports-agent-query-catalog.md`` carries an HTML comment
 ``<!-- q:NAME expect:... -->``. This test parses those tags, builds one in-memory
 :class:`rdflib.Dataset` from the schema graphs, a small universe graph (one rename chain) and the
-two-label, two-window synthetic backtest scenario of ``tests/fixtures/backtest_rows.py``, and runs
+two-label, multi-window synthetic backtest scenario of ``tests/fixtures/backtest_rows.py``, and runs
 every query against it. A query added to the doc
 without a tag, a tag without its block, or a result that no longer matches its expectation fails.
 
@@ -16,6 +16,7 @@ one documented cross-graph sub-select.
 from __future__ import annotations
 
 import re
+import sqlite3
 from collections import Counter
 from dataclasses import dataclass
 from decimal import Decimal
@@ -79,6 +80,12 @@ EXPECTED_NAMES = frozenset(
         "active-rules",
         "universe-members-on-date",
         "ticker-history-on-date",
+        "run-labels",
+        "windows-present",
+        "arms-present",
+        "rebalance-dates",
+        "decision-cycle-dates",
+        "warm-up-cycle-dates",
         "performance-window-arm-segment",
         "guard-alerts-window-month-rule",
         "latest-nav-known-on-date",
@@ -91,7 +98,7 @@ EXPECTED_NAMES = frozenset(
         "runs-available",
         "selection-ranking-at-rebalance",
         "selection-vetoes-in-force",
-        "selection-why-not-top30",
+        "selection-why-not-selected",
         "layer1-cuts-by-window-sector",
         "sector-composition-on-rebalance",
         "held-tickers-by-window-industry",
@@ -104,6 +111,12 @@ EXPECTED_NAMES = frozenset(
 #: The backtest queries. They must not hardcode a graph name, a run label or a run id.
 BACKTEST_NAMES = frozenset(
     {
+        "run-labels",
+        "windows-present",
+        "arms-present",
+        "rebalance-dates",
+        "decision-cycle-dates",
+        "warm-up-cycle-dates",
         "performance-window-arm-segment",
         "guard-alerts-window-month-rule",
         "latest-nav-known-on-date",
@@ -116,11 +129,22 @@ BACKTEST_NAMES = frozenset(
         "runs-available",
         "selection-ranking-at-rebalance",
         "selection-vetoes-in-force",
-        "selection-why-not-top30",
+        "selection-why-not-selected",
         "layer1-cuts-by-window-sector",
         "sector-composition-on-rebalance",
         "held-tickers-by-window-industry",
         "sector-coverage-of-held-assets",
+    }
+)
+
+#: Discovery/inventory queries that deliberately span runs instead of binding one label and window.
+GLOBAL_NAMES = frozenset(
+    {
+        "run-labels",
+        "windows-present",
+        "arms-present",
+        "book-weight-daily-properties",
+        "runs-available",
     }
 )
 
@@ -314,13 +338,21 @@ def catalog_dataset(tmp_path_factory: pytest.TempPathFactory) -> rdflib.Dataset:
     return dataset
 
 
+def _add_projection(dataset: rdflib.Dataset, projection: Projection) -> None:
+    for name, builder in projection.graphs.items():
+        graph = dataset.graph(URIRef(name))
+        for triple in builder.triples:
+            graph.add(triple)
+
+
 @pytest.fixture(scope="module")
 def composition_dataset(tmp_path_factory: pytest.TempPathFactory) -> rdflib.Dataset:
-    """A rebalance with a classified, an unclassified and an unlinked holding.
+    """A rebalance with classified, ETF, unclassified and unlinked holdings.
 
-    ``AAA`` is classified (Banks -> Financials), ``QQQ`` is a catalog asset without
-    ``:classifiedAs`` and ``ZZZ`` has no ``:holdingAsset`` at all. The two unlinkable holdings
-    must land in ``unclassified`` so sectors + unclassified + CASH = 1.
+    ``AAA``/``BBB`` are classified (Banks and Insurance -> Financials), ``SPY`` is the core ETF,
+    ``QQQ`` is a catalog asset without ``:classifiedAs`` and ``ZZZ`` has no ``:holdingAsset`` at
+    all. The ETF must land under ``ETF núcleo`` and the two unlinkable ordinary holdings under
+    ``unclassified``, so sectors + ETF + unclassified + CASH = 1.
     """
     dataset = _base_dataset()
     rows = scenario_rows(window="P1")
@@ -330,10 +362,12 @@ def composition_dataset(tmp_path_factory: pytest.TempPathFactory) -> rdflib.Data
         if not (row["book_id"] == 1 and row["date"] == "2022-01-04")
     ]
     for ticker, asset_id, weight in (
-        ("AAA", 1, 0.60),
-        ("QQQ", None, 0.30),
+        ("AAA", 1, 0.45),
+        ("BBB", 2, 0.05),
+        ("SPY", 6, 0.10),
+        ("QQQ", None, 0.25),
         ("ZZZ", 4, 0.05),
-        ("CASH", None, 0.05),
+        ("CASH", None, 0.10),
     ):
         rows["book_weight_daily"].append(
             {
@@ -349,26 +383,97 @@ def composition_dataset(tmp_path_factory: pytest.TempPathFactory) -> rdflib.Data
         )
     for perf in rows["book_daily_performance"]:
         if perf["book_id"] == 1 and perf["date"] == "2022-01-04":
-            perf["cash_weight"] = 0.05
-            perf["n_equity"] = 3
+            perf["cash_weight"] = 0.10
+            perf["n_equity"] = 5
 
-    assets = {**ASSETS, "QQQ": AssetInfo("QQQ", "0000000005", (("2020-01-01", None),))}
-    source = FinancialSource.open(
-        backtest_db(tmp_path_factory.mktemp("composition"), window="P1", rows=rows)
+    # One layer-1 ENTER alert on the core ETF, applied by the Markowitz book.
+    rows["guard_alert"].append(
+        {
+            "id": 6,
+            "backtest_run_id": 1,
+            "date": "2022-02-08",
+            "layer": 1,
+            "asset_id": 6,
+            "rule_id": "L1_STOP_LOSS",
+            "value": 0.2,
+            "threshold": -0.1229,
+            "state": "ENTER",
+        }
     )
+    rows["guard_action"].append(
+        {
+            "id": 7,
+            "book_id": 1,
+            "alert_id": 6,
+            "decision_date": "2022-02-08",
+            "effective_date": "2022-02-09",
+            "asset_id": 6,
+            "status": "APPLIED",
+            "weight_before": 0.1,
+            "weight_after": 0.0,
+        }
+    )
+
+    assets = {
+        **ASSETS,
+        "QQQ": AssetInfo("QQQ", "0000000005", (("2020-01-01", None),)),
+        "SPY": AssetInfo("SPY", None, ()),
+    }
+    db_path = backtest_db(tmp_path_factory.mktemp("composition"), window="P1", rows=rows)
+    # The guard-action view gets its ticker from the assets table, so the ETF needs an id there.
+    connection = sqlite3.connect(db_path)
+    connection.execute(
+        "INSERT INTO assets (id, ticker, company_name, cik) VALUES (6, 'SPY', 'SPDR S&P 500 ETF Trust', NULL)"
+    )
+    connection.commit()
+    connection.close()
+    source = FinancialSource.open(db_path)
     try:
         views = {view: read_view(source, view) for view in VIEWS}
     finally:
         source.close()
-    projection = project(views, assets, load_catalog(), "rule")
-    for name, builder in projection.graphs.items():
-        graph = dataset.graph(URIRef(name))
-        for triple in builder.triples:
-            graph.add(triple)
+    _add_projection(dataset, project(views, assets, load_catalog(), "rule"))
 
     universe = dataset.graph(URIRef(UNIVERSE_GRAPH))
     universe.add((KG.QQQ, RDF.type, KG.Asset))
     universe.add((KG.QQQ, KG.tickerSymbol, rdflib.Literal("QQQ")))
+    return dataset
+
+
+@pytest.fixture(scope="module")
+def discovery_dataset(tmp_path_factory: pytest.TempPathFactory) -> rdflib.Dataset:
+    """Two date-ordered windows and all four final arms, under the label ``final``.
+
+    ``P3`` starts in 2023 and ``P2`` in 2025, so an order by window name would put ``P2`` first.
+    ``MARKOWITZ_BASE_GUARD`` is a book with no child rows; it exists to prove the arm vocabulary.
+    """
+    dataset = _base_dataset()
+    for window, start, end in (
+        ("P3", "2023-10-27", "2024-08-02"),
+        ("P2", "2025-02-19", "2025-09-23"),
+    ):
+        rows = scenario_rows(window=window)
+        rows["backtest_run"][0].update({"d_start": start, "d_end": end, "formation_date": start})
+        for summary in rows["backtest_summary"]:
+            summary.update({"segment": window, "date_from": start, "date_to": end})
+        rows["strategy_book"].append(
+            {
+                "id": 4,
+                "backtest_run_id": 1,
+                "arm_code": "MARKOWITZ_BASE_GUARD",
+                "objective": "min_var",
+                "exclude_hard_vetoed": 0,
+                "guard_layers": "[1, 3, 4]",
+            }
+        )
+        source = FinancialSource.open(
+            backtest_db(tmp_path_factory.mktemp(f"final-{window}"), window=window, rows=rows)
+        )
+        try:
+            views = {view: read_view(source, view) for view in VIEWS}
+        finally:
+            source.close()
+        _add_projection(dataset, project(views, ASSETS, load_catalog(), "final"))
     return dataset
 
 
@@ -409,7 +514,7 @@ def test_the_asset_catalog_limits_are_stated() -> None:
 
 
 def test_the_backtest_table_lists_the_battery() -> None:
-    assert BACKTEST_ROW.findall(_document()) == [f"B{number}" for number in range(1, 10)]
+    assert BACKTEST_ROW.findall(_document()) == [f"B{number}" for number in range(1, 12)]
 
 
 def test_the_boundary_rule_is_stated() -> None:
@@ -420,28 +525,65 @@ def test_the_boundary_rule_is_stated() -> None:
         assert status in text
 
 
-def test_the_hard_veto_marker_note_is_stated() -> None:
-    text = " ".join(_document().replace("`", "").split())
+def test_the_veto_json_and_semantic_notes_are_stated() -> None:
+    text = " ".join(_document().replace("`", "").replace("*", "").split())
     assert 'only the marker "HARD"' in text
-    assert "every rule missing from the JSON is a HARD rule" in text
-    assert "no JSON rule is ever extra" in text
-    assert "join it with the Veto stints in force" in text
+    assert "keeps the ids of the SOFT vetoes" in text
+    assert "collapses every HARD veto" in text
+    assert "raisedOn <= C AND (clearedOn IS NULL OR clearedOn > C)" in text
     assert "selection-vetoes-in-force" in text
+    assert "v_orchestrator_run and v_orchestrator_step hold 0 rows" in text
+    assert "no data by design, not a gap" in text
+    assert "counts guard actions by decision_date inside the segment" in text
+    assert "appears in v_guard_action but not in that window's summary" in text
+    assert "November 2026" in text
+    assert "resolves its rule by :ruleId" in text
+    assert "Only aggregates leave this repository" in text
+    assert "no :alertThreshold triple may exist" in text
+    assert "no executives, no live portfolio and no daily returns per asset" in text
+
+
+def test_the_selection_semantics_are_stated() -> None:
+    text = " ".join(_document().replace("`", "").split())
+    assert "membership of the candidate pool" in text
+    assert "not a holding" in text
+    assert "not a portfolio weight" in text
+    assert "finalTargetWeight > 0" in text
+    assert "rankPosition counts vetoed names" in text
+    assert "fixed top-N size" in text
+    assert "Top-30" not in text
+
+
+def test_the_severity_and_first_decision_date_rules_are_stated() -> None:
+    text = " ".join(_document().replace("`", "").split())
+    assert "vetoSeverity" in text
+    assert "never the rule's :ruleSeverity" in text
+    assert "LEVERAGE_EXTREME" in text
+    assert "negative book equity" in text
+    assert "first decision date of a window has no v_book_weight_daily rows" in text
+    assert "weights appear on the execution date" in text
 
 
 def test_backtest_queries_do_not_name_a_graph_or_a_run() -> None:
     for name in BACKTEST_NAMES:
         query = _query(name)
-        assert "GRAPH ?g" in query, name
-        assert 'STRSTARTS(STR(?g), "urn:graph:derived:backtest:")' in query, name
-        assert not re.search(r"urn:graph:derived:backtest:[A-Za-z0-9{]", query), name
-        # The property list and runs-available deliberately span labels; every other query selects
-        # one label (`:runLabel`) and one window, directly or through the book.
-        if name not in {"book-weight-daily-properties", "runs-available"}:
+        if "GRAPH ?s" in query:
+            assert 'STRSTARTS(STR(?s), "urn:graph:derived:backtest:selection:")' in query, name
+        else:
+            assert "GRAPH ?g" in query, name
+            assert 'STRSTARTS(STR(?g), "urn:graph:derived:backtest:")' in query, name
+        assert not re.search(r"urn:graph:derived:backtest:(?!selection:)[A-Za-z0-9{]", query), name
+        assert not re.search(r"urn:graph:derived:backtest:selection:[A-Za-z0-9{]", query), name
+        # Discovery/inventory queries deliberately span runs; every per-run query selects one label
+        # (`:runLabel`) and one window, directly or through the book.
+        if name not in GLOBAL_NAMES:
             assert 'FILTER (?label = "rule")' in query, name
-            assert ":windowId" in query or ":weightOfBook" in query, name
+            assert 'FILTER (?window = "P1")' in query or "?window" in query, name
         else:
             assert "FILTER (?label" not in query, name
+        # No query may read a per-asset price, a price level or the veto evidence.
+        assert ":alertThreshold" not in query, name
+        assert ":evidenceJson" not in query, name
 
 
 # --- every tagged query runs and matches its expectation ----------------------------------------
@@ -562,12 +704,12 @@ def test_the_weight_classes_expose_no_per_asset_return_or_drifted_weight(
 
 def test_n_equity_is_the_latest_performance_row(catalog_dataset: rdflib.Dataset) -> None:
     rows: list[ResultRow] = _rows(catalog_dataset, _query("n-equity-per-arm-on-last-day"))
-    assert len(rows) == 6
+    assert len(rows) == 3
     by_key = {(str(row["window"]), str(row["arm"])): row for row in rows}
     markowitz = by_key[("P1", "MARKOWITZ_BASE")]
     assert str(markowitz["date"]) == "2022-01-05"
     assert int(str(markowitz["nEquity"])) == 2
-    no_guard = by_key[("P2", "TOPN_MV_NOGUARD")]
+    no_guard = by_key[("P1", "TOPN_MV_NOGUARD")]
     assert str(no_guard["date"]) == "2022-01-06"
     assert int(str(no_guard["nEquity"])) == 1
 
@@ -582,6 +724,162 @@ def test_runs_available_lists_both_labels_and_windows(
         ("champ_v1", "P1", 3),
         ("champ_v1", "P2", 3),
     }
+
+
+def test_run_labels_windows_and_arms_are_discovered(
+    catalog_dataset: rdflib.Dataset,
+) -> None:
+    labels = _rows(catalog_dataset, _query("run-labels"))
+    assert {
+        (str(row["label"]), int(str(row["windows"]))): int(str(row["books"])) for row in labels
+    } == {
+        ("rule", 2): 6,
+        ("champ_v1", 2): 6,
+    }
+
+    windows = _rows(catalog_dataset, _query("windows-present"))
+    assert [
+        (str(row["label"]), str(row["window"]), str(row["dateFrom"]), str(row["dateTo"]))
+        for row in windows
+    ] == [
+        ("champ_v1", "P1", "2022-01-03", "2022-10-12"),
+        ("champ_v1", "P2", "2022-01-03", "2022-10-12"),
+        ("rule", "P1", "2022-01-03", "2022-10-12"),
+        ("rule", "P2", "2022-01-03", "2022-10-12"),
+    ]
+
+    arms = _rows(catalog_dataset, _query("arms-present"))
+    assert {
+        (str(row["label"]), str(row["window"]), str(row["arm"]), int(str(row["books"])))
+        for row in arms
+    } == {
+        (label, window, arm, 1)
+        for label in ("rule", "champ_v1")
+        for window in ("P1", "P2")
+        for arm in ("MARKOWITZ_BASE", "TOPN_MV_NOGUARD", "TOPN_MV_GUARD_NO_NLP")
+    }
+
+
+def test_windows_are_ordered_by_date_not_by_name(
+    discovery_dataset: rdflib.Dataset,
+) -> None:
+    rows = _rows(discovery_dataset, _query("windows-present"))
+    assert [
+        (str(row["label"]), str(row["window"]), str(row["dateFrom"]), str(row["dateTo"]))
+        for row in rows
+    ] == [
+        ("final", "P3", "2023-10-27", "2024-08-02"),
+        ("final", "P2", "2025-02-19", "2025-09-23"),
+    ]
+
+
+def test_arms_present_includes_the_fourth_arm(discovery_dataset: rdflib.Dataset) -> None:
+    rows = _rows(discovery_dataset, _query("arms-present"))
+    assert {(str(row["window"]), str(row["arm"]), int(str(row["books"]))) for row in rows} == {
+        (window, arm, 1)
+        for window in ("P3", "P2")
+        for arm in (
+            "MARKOWITZ_BASE",
+            "TOPN_MV_NOGUARD",
+            "TOPN_MV_GUARD_NO_NLP",
+            "MARKOWITZ_BASE_GUARD",
+        )
+    }
+
+
+def test_rebalance_dates_keep_the_markowitz_cycle_null(
+    catalog_dataset: rdflib.Dataset,
+) -> None:
+    rows = _rows(catalog_dataset, _query("rebalance-dates"))
+    assert len(rows) == 3
+    by_arm = {str(row["arm"]): row for row in rows}
+    assert by_arm["MARKOWITZ_BASE"]["cycleRunId"] is None
+    assert str(by_arm["MARKOWITZ_BASE"]["decision"]) == "2022-01-03"
+    assert str(by_arm["MARKOWITZ_BASE"]["execution"]) == "2022-01-04"
+    for arm in ("TOPN_MV_NOGUARD", "TOPN_MV_GUARD_NO_NLP"):
+        assert int(str(by_arm[arm]["cycleRunId"])) == 7
+        assert str(by_arm[arm]["decision"]) == "2022-01-05"
+
+
+def test_decision_and_warm_up_cycles_are_separated(
+    catalog_dataset: rdflib.Dataset,
+) -> None:
+    decision = _rows(catalog_dataset, _query("decision-cycle-dates"))
+    assert len(decision) == 1
+    assert int(str(decision[0]["cycleRunId"])) == 7
+    assert {str(arm) for arm in str(decision[0]["arms"]).split(", ")} == {
+        "TOPN_MV_NOGUARD",
+        "TOPN_MV_GUARD_NO_NLP",
+    }
+
+    warm_up = _rows(catalog_dataset, _query("warm-up-cycle-dates"))
+    assert [int(str(row["cycleRunId"])) for row in warm_up] == [1, 2, 3, 4, 5, 6]
+
+
+def test_a_hard_veto_is_marked_hard_and_a_soft_rule_id_is_kept(
+    catalog_dataset: rdflib.Dataset,
+) -> None:
+    rows = _rows(catalog_dataset, _query("selection-ranking-at-rebalance"))
+    by_ticker = {str(row["ticker"]): row for row in rows}
+    assert str(by_ticker["CCC"]["rules"]) == '["HARD"]'
+    assert str(by_ticker["ZZZ"]["rules"]) == '["LIQUIDITY_DISTRESS"]'
+    assert str(by_ticker["AAA"]["selected"]) == "true"
+    assert Decimal(str(by_ticker["AAA"]["cycleTarget"])) == Decimal("0.5")
+    assert str(by_ticker["BRK.B"]["selected"]) == "false"
+
+
+def test_a_veto_severity_comes_from_the_veto_not_the_rule(
+    catalog_dataset: rdflib.Dataset,
+) -> None:
+    rows = _rows(catalog_dataset, _query("selection-vetoes-in-force"))
+    by_ticker = {str(row["ticker"]): row for row in rows}
+    assert str(by_ticker["CCC"]["severity"]) == "HARD"
+    assert str(by_ticker["ZZZ"]["severity"]) == "SOFT"
+
+
+def test_the_first_decision_date_has_no_weight_rows(catalog_dataset: rdflib.Dataset) -> None:
+    rows = _rows(
+        catalog_dataset,
+        """
+PREFIX : <https://thesis.local/kg/portfolio#>
+
+SELECT DISTINCT ?date
+WHERE {
+  GRAPH ?g {
+    ?row a :BookWeightDaily ; :weightOfBook ?book ; :weightDate ?date .
+    ?book :runLabel "rule" ; :windowId "P1" ; :armCode "MARKOWITZ_BASE" .
+  }
+  FILTER (STRSTARTS(STR(?g), "urn:graph:derived:backtest:"))
+}
+""",
+    )
+    dates = {str(row["date"]) for row in rows}
+    assert "2022-01-03" not in dates
+    assert "2022-01-04" in dates
+
+
+def test_unclassified_assets_query_excludes_etfs_even_with_a_membership() -> None:
+    """An ETF never becomes "no sector" even if a synthetic membership is present."""
+    dataset = rdflib.Dataset(default_union=True)
+    universe = dataset.graph(URIRef(UNIVERSE_GRAPH))
+    reference = dataset.graph(URIRef("urn:graph:reference"))
+    for asset, valid_to in ((KG.SPY, "2021-12-31"), (KG.OLD, "2021-12-31")):
+        membership = KG[f"UM_{asset.split('#')[-1]}"]
+        universe.add((asset, RDF.type, KG.Asset))
+        universe.add((asset, KG.hasUniverseMembership, membership))
+        universe.add((membership, KG.validTo, rdflib.Literal(valid_to, datatype=XSD.date)))
+    reference.add((KG.SPY, RDF.type, KG.ExchangeTradedFund))
+
+    rows = _rows(dataset, _query("unclassified-assets-by-validto-year"))
+    assert [(int(str(row["year"])), int(str(row["unclassifiedAssets"]))) for row in rows] == [
+        (2021, 1)
+    ]
+
+
+def test_the_catalog_has_no_pilot_or_final_result_counts() -> None:
+    text = " ".join(_document().split())
+    for marker in ("157 cuts", "100/100/100", "321,324", "309,728", "342,934"):
+        assert marker not in text
 
 
 def test_the_fixture_uses_the_real_asset_catalog_split(
@@ -634,15 +932,26 @@ def test_the_sector_composition_sums_to_one_minus_cash(
     assert str(rows[0]["sector"]) == "Financials"  # AAA -> Banks -> Financials
 
 
-def test_the_sector_composition_keeps_unclassified_holdings(
+def test_the_sector_composition_keeps_unclassified_holdings_and_the_etf(
     composition_dataset: rdflib.Dataset,
 ) -> None:
     rows = _rows(composition_dataset, _query("sector-composition-on-rebalance"))
     by_sector = {str(row["sector"]): Decimal(str(row["weight"])) for row in rows}
-    assert by_sector == {"Financials": Decimal("0.60"), "unclassified": Decimal("0.35")}
+    assert by_sector == {
+        "Financials": Decimal("0.50"),
+        "ETF núcleo": Decimal("0.10"),
+        "unclassified": Decimal("0.30"),
+    }
     cash = Decimal(str(rows[0]["cash"]))
-    assert cash == Decimal("0.05")
+    assert cash == Decimal("0.10")
     assert sum(by_sector.values()) + cash == Decimal(1)
+
+
+def test_the_layer1_cut_rollup_shows_the_core_etf(composition_dataset: rdflib.Dataset) -> None:
+    rows = _rows(composition_dataset, _query("layer1-cuts-by-window-sector"))
+    by_sector = {str(row["sector"]): int(str(row["cuts"])) for row in rows}
+    assert by_sector == {"Financials": 1, "ETF núcleo": 1}
+    assert all(str(row["arm"]) == "MARKOWITZ_BASE" for row in rows)
 
 
 def test_sector_of_asset_returns_the_catalog_sector(
@@ -679,32 +988,51 @@ def test_sector_of_asset_returns_no_row_for_an_unclassified_asset(
     assert _rows(catalog_dataset, query) == []
 
 
-def test_banks_and_insurers_are_listed_by_window(
+def test_sector_of_asset_returns_the_etf_core_label_for_spy(
     catalog_dataset: rdflib.Dataset,
 ) -> None:
-    rows = _rows(catalog_dataset, _query("held-tickers-by-window-industry"))
+    query = _query("sector-of-asset").replace('"AAA"', '"SPY"')
+    rows = _rows(catalog_dataset, query)
+    assert len(rows) == 1
+    row = rows[0]
+    assert str(row["ticker"]) == "SPY"
+    assert str(row["sectorLabel"]) == "ETF núcleo"
+    assert row["industryLabel"] is None
+    assert str(row["sectorDefinition"]).startswith("Fondo cotizado")
+
+
+def test_banks_and_insurers_are_listed_by_window(
+    composition_dataset: rdflib.Dataset,
+) -> None:
+    rows = _rows(composition_dataset, _query("held-tickers-by-window-industry"))
     by_key = {(str(row["window"]), str(row["industry"])): row for row in rows}
-    assert set(by_key) == {
-        ("P1", "Banks"),
-        ("P1", "Insurance"),
-        ("P2", "Banks"),
-        ("P2", "Insurance"),
-    }
+    assert set(by_key) == {("P1", "Banks"), ("P1", "Insurance")}
     assert int(str(by_key[("P1", "Banks")]["tickers"])) == 1
     assert "AAA" in str(by_key[("P1", "Banks")]["tickerList"])
     assert "BBB" in str(by_key[("P1", "Insurance")]["tickerList"])
 
 
-def test_sector_coverage_separates_held_linked_and_classified(
+def test_sector_coverage_separates_held_linked_classified_and_etf(
     catalog_dataset: rdflib.Dataset,
+    composition_dataset: rdflib.Dataset,
 ) -> None:
     rows = _rows(catalog_dataset, _query("sector-coverage-of-held-assets"))
-    assert {str(row["window"]) for row in rows} == {"P1", "P2"}
-    for row in rows:
-        # AAA, BBB and BRK.B are linked and classified; ZZZ is held but not in the catalog.
-        assert int(str(row["heldTickers"])) == 4
-        assert int(str(row["withAsset"])) == 3
-        assert int(str(row["withSector"])) == 3
+    assert len(rows) == 1
+    row = rows[0]
+    # AAA and BRK.B have a positive execution-date target; ZZZ is zero and CASH is not an asset.
+    assert int(str(row["heldTickers"])) == 2
+    assert int(str(row["withAsset"])) == 2
+    assert int(str(row["withSector"])) == 2
+    assert int(str(row["etfTickers"])) == 0
+
+    composition = _rows(composition_dataset, _query("sector-coverage-of-held-assets"))
+    assert len(composition) == 1
+    cover = composition[0]
+    # AAA, BBB, SPY, QQQ, ZZZ and BRK.B are positive holdings; CASH is excluded.
+    assert int(str(cover["heldTickers"])) == 6
+    assert int(str(cover["withAsset"])) == 5
+    assert int(str(cover["withSector"])) == 4  # Financials for AAA/BBB/BRK.B, ETF for SPY
+    assert int(str(cover["etfTickers"])) == 1
 
 
 def test_unclassified_assets_are_counted_by_validto_year(
@@ -715,6 +1043,8 @@ def test_unclassified_assets_are_counted_by_validto_year(
         (2019, 1),
         (2021, 2),
     ]
+    query = _query("unclassified-assets-by-validto-year")
+    assert "a :ExchangeTradedFund" in query
 
 
 def test_the_single_graph_sector_pattern_loses_the_catalog(

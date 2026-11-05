@@ -757,8 +757,9 @@ peak RSS; P2 41,259, **309,728**, 53.94 s, 1,155,632 KB; P3 45,440, **342,934**,
 1,285,948 KB; all `pyshacl conforms: True`. The schema gains `:SelectionCycle` and the ranking
 properties; the FR-001 bundle is **4634 quads** (55 classes, 41 leaves, 36 shapes) and the load plan
 is 4911 asserted triples. The query catalog adds `selection-ranking-at-rebalance`,
-`selection-vetoes-in-force` and `selection-why-not-top30`, and moves Q9/B5 to `Today`. No GraphDB
-write or reload was made.
+`selection-vetoes-in-force` and `selection-why-not-top30` (renamed
+`selection-why-not-selected` by Work item 36, because the pool is not a fixed top-N list), and moves
+Q9/B5 to `Today`. No GraphDB write or reload was made.
 
 **Contract v18 backtest/GUARD projector (2026-11-02, T-207; run labels 2026-11-03, T-230–T-236).**
 The eight m018 views (`v_book`,
