@@ -1517,7 +1517,7 @@ is recorded here.
 **No GraphDB write or reload was made.** The user reloads the schema afterwards with
 `cli/load_schema.py`, then `cli/verify_store.py`, and performs the real write.
 
-**Verified 2026-11-05**: `uv run pytest -q` = **1423 passed, 59 deselected, 5472 warnings in
-1379.13 s (22:59)** (the two count tests were fixed before the run); `mypy` = success, **112 source
+**Verified 2026-11-05**: `uv run pytest -q` = **1443 passed, 59 deselected, 7320 warnings in
+1201.26 s (20:01)** (the two count tests were fixed before the run); `mypy` = success, **112 source
 files**; the pinned pre-commit hooks pass on every changed file; FR-001 is **4913 quads (58
 classes, 44 disjoint leaves, 39 named shapes); conforms: True**.

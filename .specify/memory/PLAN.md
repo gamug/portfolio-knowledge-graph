@@ -2608,8 +2608,8 @@ projects a daily series, a price level or the 210-session average.
 
 **Blocked on**: nothing. The user performs every GraphDB write.
 
-**Verified 2026-11-05**: `uv run pytest -q` = **1423 passed, 59 deselected, 5472 warnings in
-1379.13 s (22:59)** after the aggregate tests and the two count fixes; `mypy` = success, **112
+**Verified 2026-11-05**: `uv run pytest -q` = **1443 passed, 59 deselected, 7320 warnings in
+1201.26 s (20:01)** after the aggregate tests and the two count fixes; `mypy` = success, **112
 source files**; the pinned pre-commit hooks pass on every changed file; FR-001 is **4913 quads
 (58 classes, 44 disjoint leaves, 39 named shapes); conforms: True**, and the load plan is **5190
 asserted triples**. The real read-only dry run over `candidate_y2` verified the manifest hash,
