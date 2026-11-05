@@ -839,7 +839,7 @@ def scenario_rows(
                     '{"FUNDAMENTAL": 45.0, "VALORIZATION": 50.0, "TECHNICAL": 55.0}'
                 ),
                 "vetoed": 0,
-                "veto_rules_json": "[]",
+                "veto_rules_json": '["LIQUIDITY_DISTRESS"]',
                 "selected": 0,
                 "target_weight": None,
             },
@@ -853,7 +853,7 @@ def scenario_rows(
                     '{"FUNDAMENTAL": 55.0, "VALORIZATION": 45.0, "TECHNICAL": 50.0}'
                 ),
                 "vetoed": 1,
-                "veto_rules_json": '["DATA_QUALITY"]',
+                "veto_rules_json": '["HARD"]',
                 "selected": 0,
                 "target_weight": None,
             },
