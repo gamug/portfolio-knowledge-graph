@@ -15,9 +15,12 @@ from pathlib import Path
 from fixtures.backtest_rows import backtest_db, universe_db
 
 CLI = Path(__file__).resolve().parent.parent / "cli" / "load_run.py"
+LEGACY = ("--no-manifest", "--no-config")
 
 
-def _run(tmp_path: Path, *args: str, repository: str = "test") -> subprocess.CompletedProcess[str]:
+def _run(
+    tmp_path: Path, *args: str, repository: str = "test", delivery: bool = False
+) -> subprocess.CompletedProcess[str]:
     env = {
         **os.environ,
         "SQL_UNIVERSE_DB": str(universe_db(tmp_path)),
@@ -25,7 +28,7 @@ def _run(tmp_path: Path, *args: str, repository: str = "test") -> subprocess.Com
         "KG_REPOSITORY": repository,
     }
     return subprocess.run(  # noqa: S603 -- fixed interpreter and script, tmp_path arguments
-        [sys.executable, str(CLI), *args],
+        [sys.executable, str(CLI), *args, *(LEGACY if not delivery else ())],
         capture_output=True,
         text=True,
         check=False,
@@ -69,7 +72,12 @@ def test_a_malformed_label_exits_2(tmp_path: Path) -> None:
 
 def test_to_production_without_write_exits_2(tmp_path: Path) -> None:
     result = _run(
-        tmp_path, "--label", "rule", "--db", str(backtest_db(tmp_path)), "--to-production"
+        tmp_path,
+        "--label",
+        "rule",
+        "--db",
+        str(backtest_db(tmp_path)),
+        "--to-production",
     )
     assert result.returncode == 2
     assert "--to-production only matters with --write" in result.stderr
@@ -81,7 +89,13 @@ def test_check_store_rejects_write_and_to_production(tmp_path: Path) -> None:
     assert result.returncode == 2
     assert "--check-store only reads" in result.stderr
     result = _run(
-        tmp_path, "--label", "rule", "--db", str(path), "--check-store", "--to-production"
+        tmp_path,
+        "--label",
+        "rule",
+        "--db",
+        str(path),
+        "--check-store",
+        "--to-production",
     )
     assert result.returncode == 2
     assert "--check-store never writes" in result.stderr

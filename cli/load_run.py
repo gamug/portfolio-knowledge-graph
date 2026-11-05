@@ -1,11 +1,13 @@
 #!/usr/bin/env python
-"""Entry point: load one labelled backtest family and prove it in one command (Work items 29, 31).
+"""Entry point: load one labelled backtest delivery and prove it in one command (Work items 29, 31, 35).
 
-    uv run python cli/load_run.py --label rule --dir /path/to/runs [--check-store] [--write]
-        [--to-production]
+    uv run python cli/load_run.py --label final --dir /path/to/delivery [--check-store] [--write]
+        [--to-production] [--windows P1,H1] [--min-free-pct 8]
+    uv run python cli/load_run.py --label rule --dir /path/to/pilot --no-manifest --no-config
 
 Thin wrapper around :func:`projection.load_run.main` (puts ``src/`` on ``sys.path``, like
-``cli/project_backtest.py``); its docstring documents the ordered stages, the read-only pre-flight,
+``cli/project_backtest.py``); its docstring documents the delivery discovery, the manifest and
+configuration checks, the chronological window order, the read-only pre-flight, the metadata graph,
 the final table, the one-graph rollback commands and the exit status.
 """
 
