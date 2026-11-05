@@ -154,6 +154,7 @@ def test_the_checks_report_real_source_rows_and_triples(tmp_path: Path) -> None:
     assert "3 stored, 3 source rows" in details["individuals StrategyBook"]
     assert "8 stored, 8 source rows" in details["individuals BookWeightDaily"]
     assert "6 stored, 6 source rows" in details["individuals GuardAction"]
+    assert "4 stored, 4 source rows" in details["individuals BacktestTest"]
     assert "209,886" not in details["triples"]  # the synthetic fixture is deliberately small
 
 

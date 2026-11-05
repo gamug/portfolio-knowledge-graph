@@ -323,8 +323,8 @@
     a owl:Class ;
     rdfs:label "Backtest Test" ;
     rdfs:label "prueba estadística pareada de backtest"@es ;
-    skos:definition "Resultado de una prueba de hipótesis pareada entre dos brazos de estrategia en un segmento (Jobson-Korkie con corrección de Memmel, bootstrap en bloques de Ledoit-Wolf para el ratio de Sharpe y diferencia de medias diarias con errores estándar HAC de Newey-West): estadístico, valor p y número de sesiones."@es ;
-    rdfs:comment "One row of v_backtest_test (m018): a paired hypothesis test between two strategy arms in one segment, keyed by (backtest_run_id, segment, arm_a, arm_b, test). A derived observation. :armA/:armB use the same arm vocabulary as :armCode; :testName is memmel_jk | ledoit_wolf | hac_mean_diff. :backtestRunId is still the literal link; run metadata is :BacktestRun (Work item 33)." .
+    skos:definition "Resultado de una prueba de hipótesis pareada entre dos brazos de estrategia en un segmento (Jobson-Korkie con corrección de Memmel, bootstrap en bloques de Ledoit-Wolf para el ratio de Sharpe, diferencia de medias diarias con errores estándar HAC de Newey-West y bootstrap circular pareado en bloques de la diferencia de máximo drawdown MDD(arm_a) − MDD(arm_b) en el segmento, bloque 5, 4999 réplicas, semilla 20261104; el estadístico es esa diferencia como fracción, positiva cuando arm_a cayó más; el valor p es bilateral; fuente: src/cycle/backtest/stats.py::bootstrap_mdd_diff): estadístico, valor p y número de sesiones."@es ;
+    rdfs:comment "One row of v_backtest_test (m018): a paired hypothesis test between two strategy arms in one segment, keyed by (backtest_run_id, segment, arm_a, arm_b, test). A derived observation. :armA/:armB use the same arm vocabulary as :armCode; :testName is memmel_jk | ledoit_wolf | hac_mean_diff | bootstrap_mdd. bootstrap_mdd is upstream's paired circular block bootstrap of the maximum-drawdown difference MDD(arm_a) − MDD(arm_b) in the segment (block 5, 4999 replicates, seed 20261104; the statistic is that difference as a fraction, positive when arm_a fell more; the p-value is two-sided). Source: src/cycle/backtest/stats.py::bootstrap_mdd_diff. :backtestRunId is still the literal link; run metadata is :BacktestRun (Work item 33)." .
 
 :BacktestRun
     a owl:Class ;
@@ -1155,7 +1155,7 @@ original layer-1 stop-loss, inspired by Kaminski & Lo (2014).""" .
 :armB a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :BacktestTest ; rdfs:range xsd:string ;
     rdfs:comment "v_backtest_test.arm_b. SHACL sh:in." .
 :testName a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :BacktestTest ; rdfs:range xsd:string ;
-    rdfs:comment "v_backtest_test.test: memmel_jk | ledoit_wolf | hac_mean_diff. SHACL sh:in." .
+    rdfs:comment "v_backtest_test.test: memmel_jk | ledoit_wolf | hac_mean_diff | bootstrap_mdd. bootstrap_mdd is upstream's paired circular block bootstrap of the maximum-drawdown difference MDD(arm_a) − MDD(arm_b) in the segment (block 5, 4999 replicates, seed 20261104; the statistic is that difference as a fraction, positive when arm_a fell more; the p-value is two-sided). Source: src/cycle/backtest/stats.py::bootstrap_mdd_diff. SHACL sh:in." .
 :statistic a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :BacktestTest ; rdfs:range xsd:decimal .
 :pValue a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :BacktestTest ; rdfs:range xsd:decimal .
 :nObs a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :BacktestTest ; rdfs:range xsd:integer .

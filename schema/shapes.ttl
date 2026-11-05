@@ -644,7 +644,7 @@
     sh:property [ sh:path :armB ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ;
                   sh:in ("MARKOWITZ_BASE" "TOPN_MV_NOGUARD" "TOPN_MV_GUARD_NO_NLP" "TOPN_MV_GUARD" "MARKOWITZ_BASE_GUARD") ] ;
     sh:property [ sh:path :testName ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ;
-                  sh:in ("memmel_jk" "ledoit_wolf" "hac_mean_diff") ] ;
+                  sh:in ("memmel_jk" "ledoit_wolf" "hac_mean_diff" "bootstrap_mdd") ] ;
     sh:property [ sh:path :statistic ; sh:datatype xsd:decimal ; sh:minCount 1 ; sh:maxCount 1 ] ;
     sh:property [ sh:path :pValue ; sh:datatype xsd:decimal ; sh:minInclusive 0.0 ; sh:maxInclusive 1.0 ; sh:minCount 1 ; sh:maxCount 1 ] ;
     sh:property [ sh:path :nObs ; sh:datatype xsd:integer ; sh:minInclusive 1 ; sh:minCount 1 ; sh:maxCount 1 ] ;
