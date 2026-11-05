@@ -429,7 +429,7 @@ what the store *enforces*.
    `urn:graph:derived:backtest:selection:{run_label}:{P<n>|H<n>}:{run_id}`, accepted by the gate.
    `tbox.ttl` is now **58 classes (44 disjoint leaves, 13 backbone)** and `shapes.ttl` **39 named
    shapes** (the three new ones are `SelectionCycleShape`, `BacktestRankingShape` and
-   `EffectiveWeightComponentShape`); `kg_target_schema.ttl` mirrors the new terms. **4913 quads;
+   `EffectiveWeightComponentShape`); `kg_target_schema.ttl` mirrors the new terms. **4915 quads;
    conforms: True.** No GraphDB write or reload was made.
 
 9. **Final-backtest vocabulary (Work item 33, 2026-11-04).** The six date-ordered windows
@@ -447,7 +447,7 @@ what the store *enforces*.
    append-only graph `urn:graph:derived:backtest:meta:{label}`; the configuration carries
    `configCodeCommit`, `configPr`, `configResultsDoc` and optional `configId`/`configStatus`, with
    the frozen English body text verbatim, hard line breaks included, in its `rdfs:comment`.
-   Counts: **58 classes (44 disjoint leaves), 39 named shapes, 4913 quads; conforms: True.** The
+   Counts: **58 classes (44 disjoint leaves), 39 named shapes, 4915 quads; conforms: True.** The
    catalog is 643 written assets plus the six in `reference.ttl` = **649**.
 
 10. **Ranking and severity comments (Work item 34, 2026-11-05).** Comments only, no structural
@@ -460,9 +460,10 @@ what the store *enforces*.
    `skos:definition` say the same, and `kg_target_schema.ttl` mirrors the four property comments.
    The Spanish `:StrategyBook` definition now says the Top-N arms use the cycle's Top-N pool
    ("selección del pool Top-N del ciclo"), not a fixed Top-30. No shape or term was added.
-   This item adds no terms or shapes; the merged bundle is **4913 quads; conforms: True** (Work
-   item 37 added the aggregates terms). The store must be reloaded afterwards (`cli/load_schema.py`,
-   then `cli/verify_store.py`) to pick up the changed comment/definition literals.
+   This item adds no terms or shapes; the merged bundle is **4915 quads; conforms: True** (Work
+   item 37 added the aggregates terms and Work item 38 added `bootstrap_mdd`). The store must be
+   reloaded afterwards (`cli/load_schema.py`, then `cli/verify_store.py`) to pick up the changed
+   comment/definition literals.
 
 11. **Aggregates file (Work item 37, 2026-11-05).** Three new disjoint leaves under
    `:Observation`: `:AggregatesSet` (one per label), `:TrendFilterState` (one per window and decision
@@ -479,7 +480,19 @@ what the store *enforces*.
    The append-only graph is `urn:graph:derived:backtest:aggregates:{label}`; `sources.
    spy_total_return_series_sha256` is validated and never projected, and no daily series, price
    level or 210-session mean is stored. Counts: **58 classes (44 disjoint leaves), 39 named shapes,
-   4913 quads; conforms: True.**
+   4915 quads; conforms: True.**
+
+12. **Bootstrap MDD test name (Work item 38, 2026-11-05).** `bootstrap_mdd` joins the closed
+   `:testName` list in `BacktestTestShape` and the two `:testName` comments in `tbox.ttl` (and the
+   `kg_target_schema.ttl` mirror). It is upstream's paired circular block bootstrap of the
+   maximum-drawdown difference MDD(arm_a) − MDD(arm_b) in the segment (block 5, 4999 replicates,
+   seed 20261104; the statistic is that difference as a fraction, positive when arm_a fell more;
+   the p-value is two-sided), from `src/cycle/backtest/stats.py::bootstrap_mdd_diff`. No other
+   shape, term or check changed: arms, rule ids, alert states, action statuses, cycle types, veto
+   severities and the window/segment patterns stay as they were. The extra `sh:in` member adds two
+   triples, so the bundle is **4915 quads; conforms: True** and the load plan is **5192 asserted
+   triples**. The store must be reloaded afterwards (`cli/load_schema.py` with
+   `KG_REPOSITORY=portfolio_test`, then `cli/verify_store.py`).
 
 ## Validation
 

@@ -154,11 +154,13 @@ approve them by merging the change. The slice loads into `urn:graph:reference:fi
 For a linked row, the Spanish definition in `fibo.ttl` is FIBO's meaning, never ours; our own
 Spanish definitions live in `tbox.ttl` (S2), where the six "differs" classes state why FIBO does
 not define every instance of ours. The 27 pre-existing leaf classes now carry one `@es` label and
-one `@es` definition each; the 11 v18 classes' handoff §6.2 texts are unchanged. Those 54 new
-triples take the FR-001 bundle to **4913 quads at this revision; conforms: True** (4236 before
+one `@es` definition each; at that revision the 11 v18 classes' handoff §6.2 texts were unchanged
+(Work item 38 later extends `BacktestTest`'s definition with the fourth test). Those 54 new
+triples take the FR-001 bundle to **4915 quads at this revision; conforms: True** (4236 before
 T-220's `sh:class :Asset` and T-227's `sh:class :Universe` +2 and T-233/T-234: the five `sh:in` window lists and two segment lists
 become one `sh:pattern` each, −50 quads, and `:runLabel` adds 16; Work item 33 adds the
-final-backtest vocabulary and Work item 37 the aggregates terms), `fibo.ttl` is a separate
+final-backtest vocabulary, Work item 37 the aggregates terms and Work item 38 `bootstrap_mdd`
+(+2)), `fibo.ttl` is a separate
 277-statement graph. `:SP500Index` gets its `rdfs:seeAlso` in the ETL output, where the universe
 individual is emitted (S3), not in `urn:graph:tbox`.
 
@@ -306,7 +308,7 @@ Portfolio Knowledge Graph
 | `BookWeightDaily` | Observation | T-206 (`v_book_weight_daily`, m018) | One holding's weight in a book on a date; a `CASH` row has no asset link, and the target weights exist only on decision/execution dates. |
 | `BookDailyPerformance` | Observation | T-206 (`v_book_daily_performance`, m018) | A book's portfolio-level daily series (gross/net return, turnover, cost, NAV, drawdown, cash weight, equity count, benchmark return). |
 | `PortfolioPeriodSummary` | Observation | T-206 (`v_portfolio_period_summary`, m018) | Consolidated statistics of one book over one segment (`P1`, `P2`, `P2a`, `P2b`, `P3`). |
-| `BacktestTest` | Observation | T-206 (`v_backtest_test`, m018) | A paired hypothesis test between two arms in one segment (`memmel_jk`, `ledoit_wolf`, `hac_mean_diff`): statistic, p-value, observations. |
+| `BacktestTest` | Observation | T-206 (`v_backtest_test`, m018) | A paired hypothesis test between two arms in one segment (`memmel_jk`, `ledoit_wolf`, `hac_mean_diff`, `bootstrap_mdd`): statistic, p-value, observations. `bootstrap_mdd` is upstream's paired circular block bootstrap of the maximum-drawdown difference MDD(arm_a) − MDD(arm_b) in the segment (block 5, 4999 replicates, seed 20261104; the statistic is that difference as a fraction, positive when arm_a fell more; the p-value is two-sided). Source: `src/cycle/backtest/stats.py::bootstrap_mdd_diff`. |
 | `SelectionCycle` | Observation | Work item 26 (`v_cycle_run`, m018) | A cycle-engine run: cycle id/type, as-of date, status and timestamps; joins a `BookRebalance` and a scheme by `cycleRunId`. |
 
 ### 1.2.1 Taxonomic backbone, formally
@@ -574,7 +576,7 @@ attractiveness-ranking feature, see §1.8, plus `VetoShape` added 2026-10-03 for
 | `PortfolioShape` | name and `portfolioKind` ∈ {LIVE, BENCHMARK} required; `benchmarkObjective` and `benchmarkKind` optional (`benchmarkKind` may never be `live_book`, enforced by SHACL, T-109) | Lets benchmark books share `Portfolio` with the live book (T-108). |
 | `BenchmarkObservationShape` (+ `QuantSubjectShape`) | portfolio, metric (free text) and value required; `quantPortfolio` must be a BENCHMARK or the LIVE book; `quantAsset`, `quantUnit`, `quantAsOf`, `quantBenchmark` and T-106 run provenance optional; a LIVE subject may only carry the four performance metrics | Carries upstream's finished quant numbers without interpreting them (T-108); upstream's columns, units and the `live_book` handling were pinned in T-109. |
 | `VetoShape` | `raisedOn` required; `clearedOn`/`lastSeenOn` optional, never before `raisedOn`; no `lastSeenOn` after `clearedOn` (T-185, same day passes); `vetoSeverity` ∈ {HARD, SOFT}; optional, multi-valued `expiresOn` (T-188, like `lastSeenOn`: upstream moves it, current = MAX), each value not before `raisedOn` (the same day passes); it never closes a stint, only `clearedOn` does; since T-206 a GUARD-category rule is refused as `appliesRule`/`primaryRule` | Veto stints (T-102): a stint is closed by `clearedOn`, never deleted. |
-| The 11 Contract v18 shapes (`TickerHistoryShape`, `OrchestratorRunShape`, `OrchestratorStepShape`, `StrategyBookShape`, `BookRebalanceShape`, `GuardAlertShape`, `GuardActionShape`, `BookWeightDailyShape`, `BookDailyPerformanceShape`, `PortfolioPeriodSummaryShape`, `BacktestTestShape`) | Required only what the view guarantees non-null; the handoff §3.3 nullable columns stay optional (cycle_run_id on MARKOWITZ_BASE, layer-1 alert value, layer-3/4 asset/ticker, action weights, CASH asset/name/targets, book guard_layers, ticker valid_to/evidence). `sh:pattern` for window_id (`^[PH][0-9]+$`) and segment (`^[PH][0-9]+[a-z]?$`) since T-234/Work item 33; `sh:in` for arm_code, GUARD rule ids, alert state, action status and test name; `:runLabel` required on StrategyBook/BacktestTest (T-233); no sign/range on drawdown, cost_return or max_drawdown. Sourcery review: `bookId` required on BookRebalance/GuardAction; `pValue` ∈ [0,1] and `nObs` ≥ 1 on BacktestTest; `sh:equals` for the six row-date/`knowledgeDate` pairs; a CASH row must have no `holdingAsset` | Carries the m015/m016/m018 views into the ontology (T-206, §1.10); a CASH row never needs an Asset node. |
+| The 11 Contract v18 shapes (`TickerHistoryShape`, `OrchestratorRunShape`, `OrchestratorStepShape`, `StrategyBookShape`, `BookRebalanceShape`, `GuardAlertShape`, `GuardActionShape`, `BookWeightDailyShape`, `BookDailyPerformanceShape`, `PortfolioPeriodSummaryShape`, `BacktestTestShape`) | Required only what the view guarantees non-null; the handoff §3.3 nullable columns stay optional (cycle_run_id on MARKOWITZ_BASE, layer-1 alert value, layer-3/4 asset/ticker, action weights, CASH asset/name/targets, book guard_layers, ticker valid_to/evidence). `sh:pattern` for window_id (`^[PH][0-9]+$`) and segment (`^[PH][0-9]+[a-z]?$`) since T-234/Work item 33; `sh:in` for arm_code, GUARD rule ids, alert state, action status and test name (`memmel_jk`, `ledoit_wolf`, `hac_mean_diff`, `bootstrap_mdd`); `:runLabel` required on StrategyBook/BacktestTest (T-233); no sign/range on drawdown, cost_return or max_drawdown. Sourcery review: `bookId` required on BookRebalance/GuardAction; `pValue` ∈ [0,1] and `nObs` ≥ 1 on BacktestTest; `sh:equals` for the six row-date/`knowledgeDate` pairs; a CASH row must have no `holdingAsset` | Carries the m015/m016/m018 views into the ontology (T-206, §1.10); a CASH row never needs an Asset node. |
 | `SelectionCycleShape`, `BacktestRankingShape`, `EffectiveWeightComponentShape` (Work item 26) | `SelectionCycle` requires its run id/type/as-of/status plus the projector's label/window/backtest-run context; a ranking snapshot reached by `:rankingOfCycle` requires rank, selection, vetoed flag and ticker (asset link or `:rankingTicker`); an effective-weight `WeightComponent` requires `:componentValue`. No shape requires a component for the 0.0 UNSCORED/UNPRICED placeholder. `:targetWeight`, `:vetoRulesJson` and the effective components stay optional; `:targetWeight` is the cycle's pool weight, never the portfolio weight. | Carries the six selection views into the ontology and keeps the reports agent's exclusion reasons visible (§1.11). |
 
 Validated end-to-end with `pyshacl` against the full worked dataset below: **conforms = True**.
@@ -924,9 +926,10 @@ not a veto rule:** it carries no `:ruleSeverity`, `:penaltyPoints` or `:priority
 `VetoShape` refuses it as the object of `:appliesRule`/`:primaryRule`. `RuleDefinitionShape` adds one
 `sh:or` branch for `:category "GUARD"`, keeps the severity requirement for every other active rule,
 makes `:priorityRank` mandatory for non-GUARD rules, and widens the rank range to `[1,10]` for
-`UTILITY_CASH_COVERAGE`. The bundle is **4913 quads; conforms: True** (the FR-001 gate; T-220 and
+`UTILITY_CASH_COVERAGE`. The bundle is **4915 quads; conforms: True** (the FR-001 gate; T-220 and
 T-227 add the two `UniverseMembershipShape` `sh:class` triples, T-233/T-234 contribute the net −34,
-and Work item 33 adds the final-backtest vocabulary).
+Work item 33 adds the final-backtest vocabulary, Work item 37 the aggregates terms and Work item 38
+`bootstrap_mdd`).
 
 **Projection of the three remaining v18 views (T-208, T-352/T-353).** `TickerHistory`,
 `OrchestratorRun` and `OrchestratorStep` are now written by `src/projection/reference.py`:
@@ -983,7 +986,7 @@ leaves in the new append-only graph `urn:graph:derived:backtest:meta:{label}`. T
 label, window, run id, source file, lowercase SHA-256, knowledge date and configuration link; the
 configuration carries the code commit, PR, results document and optional `config_id`/`status`
 front-matter keys, with the frozen English body text verbatim (hard line breaks, apostrophes and
-ampersands included) in its `rdfs:comment`. Counts: **58 classes (44 disjoint leaves), 39 named shapes, 4913 quads; conforms:
+ampersands included) in its `rdfs:comment`. Counts: **58 classes (44 disjoint leaves), 39 named shapes, 4915 quads; conforms:
 True.**
 
 
@@ -1015,4 +1018,5 @@ equal the distinct `v_book_rebalance.decision_date` of both Top-N arms; each seg
 `below` must carry a positive cash fraction and every other state exactly `0.0`; and `P2` must
 compound `P2a`/`P2b` within `1e-6`. It never writes and never stores a daily series, a price level or
 the 210-session mean. Counts after this addition: **58 classes (44 disjoint leaves), 39 named
-shapes, 4913 quads; conforms: True.**
+shapes, 4915 quads; conforms: True.** Work item 38 adds only the `bootstrap_mdd` `sh:in` member
+(+2 triples).

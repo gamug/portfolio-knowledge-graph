@@ -498,6 +498,22 @@ def test_the_target_schema_carries_the_run_label_and_vocabulary_patterns(
     assert _shape_property_facts(SCHEMA.parent / "kg_target_schema.ttl", shape, prop) == in_shapes
 
 
+def test_the_target_schema_lists_all_four_test_names() -> None:
+    """Work item 38: both schema files close ``:testName`` on the same four values."""
+    expected = {"memmel_jk", "ledoit_wolf", "hac_mean_diff", "bootstrap_mdd"}
+    for path in (SCHEMA / "shapes.ttl", SCHEMA.parent / "kg_target_schema.ttl"):
+        graph = rdflib.Graph().parse(path, format="turtle")
+        nodes = [
+            node
+            for node in graph.objects(KG.BacktestTestShape, SH.property)
+            if (node, SH.path, KG.testName) in graph
+        ]
+        assert len(nodes) == 1, path
+        values = graph.value(nodes[0], SH["in"])
+        assert values is not None, path
+        assert {str(value) for value in rdflib.collection.Collection(graph, values)} == expected
+
+
 # --- a Veto's sightings against its clearing (T-185) --------------------------------------------
 
 _VETO = KG.Veto_T185

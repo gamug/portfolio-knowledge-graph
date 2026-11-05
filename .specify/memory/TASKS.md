@@ -1291,6 +1291,12 @@ Work item 37 (T-570–T-599): closed 2026-11-05 — project upstream's per-segme
 parser, a strict SHA256SUMS check, three new classes/shapes, a dry-run/default loader CLI and a
 read-only source verifier; no daily series, price level or 210-session average is projected. See
 `CHANGELOG.md` and `PLAN.md` Work item 37.
+
+Work item 38 (T-600–T-629): closed 2026-11-05 — `bootstrap_mdd` joins the closed `:testName`
+vocabulary (the fourth legitimate upstream test, no per-asset values), with a hermetic fixture row
+that passes SHACL, the projector and the verifier, and the candidate store-free dry run reaching
+SHACL; no other closed list changed. The user reloads the schema afterwards. See `CHANGELOG.md`
+and `PLAN.md` Work item 38.
 T-163 (function done, PR #68) closes with T-031, whose first slice (PR #72) calls it on the real read and re-reads the late keys for `v_score_snapshot`; T-164 done (PR #69).
 Work item 8 (T-070–T-071) is independent but needs a human at a Protégé
 session, not a coding session.

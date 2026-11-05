@@ -181,8 +181,12 @@ NEW_CLASSES: dict[rdflib.URIRef, tuple[rdflib.URIRef, str, str]] = {
         (
             "Resultado de una prueba de hipótesis pareada entre dos brazos de estrategia en un "
             "segmento (Jobson-Korkie con corrección de Memmel, bootstrap en bloques de Ledoit-Wolf "
-            "para el ratio de Sharpe y diferencia de medias diarias con errores estándar HAC de "
-            "Newey-West): estadístico, valor p y número de sesiones."
+            "para el ratio de Sharpe, diferencia de medias diarias con errores estándar HAC de "
+            "Newey-West y bootstrap circular pareado en bloques de la diferencia de máximo drawdown "
+            "MDD(arm_a) \u2212 MDD(arm_b) en el segmento, bloque 5, 4999 réplicas, semilla "
+            "20261104; el estadístico es esa diferencia como fracción, positiva cuando arm_a cayó "
+            "más; el valor p es bilateral; fuente: src/cycle/backtest/stats.py::bootstrap_mdd_diff): "
+            "estadístico, valor p y número de sesiones."
         ),
     ),
 }
@@ -819,6 +823,16 @@ def test_a_new_window_sub_period_or_label_conforms(
     g = _m018(bundle)
     g.remove((subject, path, None))
     g.add((subject, path, value))
+    assert _violations(g, shapes) == set()
+
+
+def test_bootstrap_mdd_is_an_allowed_test_name(
+    bundle: rdflib.Dataset, shapes: rdflib.Graph
+) -> None:
+    """Work item 38: upstream's fourth paired test is in the closed list."""
+    g = _m018(bundle)
+    g.remove((TEST, KG.testName, None))
+    g.add((TEST, KG.testName, rdflib.Literal("bootstrap_mdd")))
     assert _violations(g, shapes) == set()
 
 

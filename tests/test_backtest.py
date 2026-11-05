@@ -560,6 +560,22 @@ def test_a_duplicate_book_iri_is_refused(tmp_path: Path) -> None:
         _run(backtest_db(tmp_path, rows=rows))
 
 
+def test_the_bootstrap_mdd_test_is_projected(tmp_path: Path) -> None:
+    """Work item 38: the fourth test name reaches its individual with the published parameters."""
+    projection = _projection(tmp_path)
+    graph = _graph(projection, "urn:graph:derived:backtest:rule:P1:1")
+    iri = KG.BacktestTest_rule_P1_P1_MARKOWITZ_BASE_TOPN_MV_NOGUARD_bootstrap_mdd
+    assert (iri, rdflib.RDF.type, KG.BacktestTest) in graph
+    assert (iri, KG.testName, rdflib.Literal("bootstrap_mdd")) in graph
+    assert (
+        iri,
+        KG.paramsJson,
+        rdflib.Literal(
+            '{"block": 5, "n_boot": 4999, "seed": 20261104, "statistic": "max_drawdown_a_minus_b"}'
+        ),
+    ) in graph
+
+
 @pytest.mark.parametrize("segment", ["P2a", "P2b", "P2c", "P12z", "H1", "H2a", "H3z"])
 def test_a_new_sub_period_segment_is_accepted(tmp_path: Path, segment: str) -> None:
     """T-234/WI 33: the closed segment list became [PH]<number>[a-z]?, so a new sub-period needs no edit."""

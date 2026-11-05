@@ -2890,3 +2890,100 @@ source files**; the pinned pre-commit hooks pass on every changed file; FR-001 i
 asserted triples**. The real read-only dry run over `candidate_y2` verified the manifest hash,
 every verifier check and SHACL conforms, in 0.574 s of CLI time (0.951 s wall including `uv`). No
 GraphDB write or reload was made.
+
+## Work item 38 — Accept the `bootstrap_mdd` test name (T-600–T-629)
+
+**Status: closed 2026-11-05.**
+
+**Why**: the store-free dry run of the candidate delivery
+(`SQL_UNIVERSE_DB=/workspaces/thesis/data/universe_history_gics.db uv run python cli/load_run.py
+--label candidate --dir /workspaces/thesis/scratch/final/candidate_y2`) stopped at SHACL on window
+P1's m018 graph: four `:BacktestTest` nodes carry `:testName "bootstrap_mdd"`, which is not in the
+closed list of `BacktestTestShape`. Upstream (reviewer A) confirmed that `bootstrap_mdd` is a
+legitimate fourth test, present in candidate and in the final run (4 rows per window, 12 in P2),
+with no per-asset values, and that adding it to the allowed list without changing any meaning is
+correct.
+
+**Decisions**:
+
+1. **Vocabulary only.** Add `bootstrap_mdd` to the `:testName` `sh:in` list of
+   `BacktestTestShape` in `schema/shapes.ttl`, and to the `:testName` list in both `tbox.ttl`
+   comments and the `kg_target_schema.ttl` mirror. No new class, property or shape, and no other
+   closed list is relaxed: arms, GUARD rule ids, alert states, action statuses, cycle types, veto
+   severities, window segments and the run-label/window/segment patterns stay unchanged.
+2. **The fourth test's meaning.** The comments state, verbatim from upstream, that `bootstrap_mdd`
+   is upstream's paired circular block bootstrap of the maximum-drawdown difference MDD(arm_a) −
+   MDD(arm_b) in the segment (block 5, 4999 replicates, seed 20261104; the statistic is that
+   difference as a fraction, positive when arm_a fell more; the p-value is two-sided), from
+   `src/cycle/backtest/stats.py::bootstrap_mdd_diff`. The Spanish `:BacktestTest`
+   `skos:definition` names the same fourth test and its parameters; upstream's DDL comment and
+   column are otherwise unchanged, and nothing about per-asset values is added.
+3. **No other closed list exists.** The grep over `src/`, `tests/`, `docs/` and
+   `src/projection/view_expectations` found no second test-name vocabulary: the expectations JSON
+   checks columns, types and null rates but not test values; the projector writes `v_backtest_test`
+   rows without a test-name allow-list; the verifier compares stored and source row counts; the
+   only catalog text that listed the names is `docs/06`, which is updated.
+4. **Tests.** The default hermetic m018 fixture gains a fourth `backtest_test` row with
+   `test = bootstrap_mdd` and the candidate's published `params_json`
+   (`{"block": 5, "n_boot": 4999, "seed": 20261104, "statistic": "max_drawdown_a_minus_b"}`).
+   A synthetic SHACL case proves the value conforms, a projector test proves the individual and
+   its `:paramsJson` reach the graph, and the verifier's `BacktestTest` count assertion proves the
+   row is compared source-to-graph. The existing out-of-list `BOGUS` case still fails.
+5. **Store access.** This item uses the store-free dry run only: it reads the candidate folder
+   read-only and never contacts GraphDB. No `--write` or `--check-store` is run.
+
+**Tasks**:
+
+- [x] **T-600** *(done 2026-11-05: this section.)* Record the design in `PLAN.md` before any code.
+- [x] **T-601** *(done 2026-11-05: one added `sh:in` member, +2 triples.)* Add `bootstrap_mdd` to the closed `:testName` list in `schema/shapes.ttl`, update the
+  `schema/tbox.ttl` comments and Spanish definition, and mirror the list and comments in
+  `kg_target_schema.ttl`.
+- [x] **T-602** *(done 2026-11-05: only `docs/06` carried a second list; expectations/verifier/catalog needed no code change.)* Grep `src/`, `tests/`, `docs/` and `src/projection/view_expectations` for the three existing
+  names and update every other closed list or catalog text; leave every other check at full
+  strength.
+- [x] **T-603** *(done 2026-11-05: fixture row, SHACL positive, projector test, verifier count, mirror-list equality.)* Add the hermetic `bootstrap_mdd` fixture row and tests proving it passes SHACL, the projector
+  and the verifier while `BOGUS` still fails.
+- [x] **T-604** *(done 2026-11-05, read-only: see the measured results below.)* Run the candidate store-free dry run after the change and report each window's triples, the
+  SHACL result and the timings; run the `final_b5` dry run too if the folder exists.
+- [x] **T-605** *(done 2026-11-05: FR-001 now 4915 quads, load plan 5192.)* Update `docs/06`, `schema/README.md`, `README.md`, `SPEC.md` and the asserted counts, plus
+  PLAN/TASKS/CHANGELOG.
+- [x] **T-606** *(done 2026-11-05: see the verification line below.)* Run `pytest`, `mypy`, the pinned pre-commit hooks and the FR-001 parse + `pyshacl` gate.
+
+**Acceptance criteria**:
+
+- `bootstrap_mdd` conforms through `BacktestTestShape`; `BOGUS` and every other value outside an
+  existing closed list still fail.
+- The fixture row becomes one `:BacktestTest` individual with its `:testName`, `:statistic`,
+  `:pValue`, `:nObs` and optional `:paramsJson`, and the verifier reports the source and stored
+  counts equal.
+- The candidate dry run reaches SHACL with every m018 graph conforming, or stops only on a
+  genuinely new closed-list value that is extended the same way. An unknown arm, window, rule id,
+  view or column stops the run and is reported, never silenced.
+- No other closed list, cardinality, datatype, range or cross-graph check is weakened.
+- Docs and counts are consistent; no GraphDB write or reload is made. The user reloads the schema
+  afterwards (`cli/load_schema.py` with `KG_REPOSITORY=portfolio_test`, then
+  `cli/verify_store.py`).
+
+**Blocked on**: nothing. The user performs the schema reload; this item makes no GraphDB write.
+
+**Verified 2026-11-05**: `uv run pytest -q` = **1482 passed, 59 deselected, 8794 warnings in
+1541.87 s (25:41)**; `mypy` = success, **118 source files**; the pinned pre-commit hooks pass on
+every changed file; FR-001 is **4915 quads; conforms: True**, and the load plan is **5192 asserted
+triples**. The read-only dry-run results are below.
+
+**Measured candidate dry run (2026-11-05, read-only, no store)**:
+
+| Window | m018 triples | m018 time | selection triples | selection time |
+|---|---:|---:|---:|---:|
+| P1 | 308,139 | 75.37 s | 321,954 | 75.53 s |
+| H1 | 441,319 | 125.90 s | 391,365 | 99.77 s |
+| P3 | 351,049 | 89.70 s | 343,594 | 86.81 s |
+| H2 | 245,220 | 59.91 s | 295,780 | 73.45 s |
+| P2 | 318,829 | 77.20 s | 310,341 | 74.76 s |
+| H3 | 622,477 | 151.79 s | 389,440 | 93.63 s |
+
+The metadata graph `urn:graph:derived:backtest:meta:candidate` is 56 triples (0.00 s). Delivery
+files took 118.21 s (six manifest hashes), the schema catalogs 0.07 s, and the total was
+1,202.55 s. Every m018, selection and metadata graph reported `SHACL-valid, not written`; no
+GraphDB contact, write or `--check-store` was made. `/workspaces/thesis/scratch/final/final_b5`
+does not exist, so no final-run dry run was possible.

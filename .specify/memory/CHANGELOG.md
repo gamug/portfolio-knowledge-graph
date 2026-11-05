@@ -1636,3 +1636,49 @@ is recorded here.
 1217.63 s (20:17)** (the two count tests were fixed before the run); `mypy` = success, **116 source
 files**; the pinned pre-commit hooks pass on every changed file; FR-001 is **4913 quads (58
 classes, 44 disjoint leaves, 39 named shapes); conforms: True**.
+
+## Work item 38 — Accept the `bootstrap_mdd` test name (2026-11-05, T-600–T-629)
+
+**Goal**: accept upstream's fourth paired test, `bootstrap_mdd`, in the closed `:testName`
+vocabulary without changing any other meaning or check.
+
+- [x] **T-600** Recorded the design in `PLAN.md` Work item 38 before any code (first commit).
+- [x] **T-601** Added `bootstrap_mdd` to `BacktestTestShape`'s `:testName` `sh:in` list, updated
+      both `tbox.ttl` comments and the Spanish `:BacktestTest` definition, and mirrored the list
+      and comments in `kg_target_schema.ttl`. The wording is upstream's: a paired circular block
+      bootstrap of the maximum-drawdown difference MDD(arm_a) − MDD(arm_b) in the segment (block 5,
+      4999 replicates, seed 20261104; the statistic is that difference as a fraction, positive when
+      arm_a fell more; the p-value is two-sided), from
+      `src/cycle/backtest/stats.py::bootstrap_mdd_diff`.
+- [x] **T-602** Grepped `src/`, `tests/`, `docs/` and `src/projection/view_expectations` for the
+      three existing names. The expectations JSON has no test-value list, the projector writes any
+      source row and the verifier compares source/store counts; only `docs/06` listed the names,
+      and it now carries the fourth. Every other closed list and check is unchanged.
+- [x] **T-603** Added a fourth `backtest_test` row to the hermetic fixture with
+      `test = bootstrap_mdd` and the candidate's published `params_json`; added the SHACL positive
+      case, the projector assertion for its individual and `:paramsJson`, the verifier's
+      `4 stored, 4 source rows` assertion, and a check that both schema files list the same four
+      values. The existing `BOGUS` negative case still fails.
+- [x] **T-604** Ran the candidate store-free dry run after the change: all six windows and the
+      metadata graph are SHACL-valid and were not written. Per-window m018/selection triples:
+      P1 308,139/321,954, H1 441,319/391,365, P3 351,049/343,594, H2 245,220/295,780,
+      P2 318,829/310,341, H3 622,477/389,440; metadata 56. Delivery files 118.21 s, total
+      1,202.55 s. `final_b5` does not exist, so no final-run dry run was possible. See the table
+      below.
+- [x] **T-605** Updated `docs/06`, `schema/README.md`, `README.md`, `SPEC.md` and the asserted
+      counts: FR-001 is now **4915 quads** (the extra `sh:in` member adds two triples) and the
+      load plan is **5192 asserted triples**.
+- [x] **T-606** Ran the full checks; see the verification line below.
+
+**Scope notes.** A vocabulary-only change: no class, property, shape, cardinality, datatype, range
+or cross-graph check was added or relaxed. `schema/protege-view.ttl` is generated and was not
+regenerated. No GraphDB write, `--check-store` or schema reload was made by the agent.
+
+**No GraphDB write or reload was made.** The user reloads the schema afterwards with
+`cli/load_schema.py` (`KG_REPOSITORY=portfolio_test`), then `cli/verify_store.py`, and performs the
+real candidate/final writes.
+
+**Verified 2026-11-05**: `uv run pytest -q` = **1482 passed, 59 deselected, 8794 warnings in
+1541.87 s (25:41)**; `mypy` = success, **118 source files**; the pinned pre-commit hooks pass on
+every changed file; FR-001 is **4915 quads (58 classes, 44 disjoint leaves, 39 named shapes);
+conforms: True**, and the load plan is **5192 asserted triples**.

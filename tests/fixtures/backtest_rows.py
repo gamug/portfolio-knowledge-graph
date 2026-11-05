@@ -767,6 +767,21 @@ def scenario_rows(
                 "n_obs": 50,
                 "params_json": None,
             },
+            {
+                # Work item 38: upstream's fourth test, from v_backtest_test.
+                "backtest_run_id": run_id,
+                "segment": "P1",
+                "arm_a": "MARKOWITZ_BASE",
+                "arm_b": "TOPN_MV_NOGUARD",
+                "test": "bootstrap_mdd",
+                "statistic": -0.019021471790853117,
+                "p_value": 0.234,
+                "n_obs": 196,
+                "params_json": (
+                    '{"block": 5, "n_boot": 4999, "seed": 20261104, '
+                    '"statistic": "max_drawdown_a_minus_b"}'
+                ),
+            },
         ],
         # --- Work item 26: the selection side -------------------------------------------------
         "cycle_run": [
