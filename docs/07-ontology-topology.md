@@ -30,6 +30,7 @@ special query language feature.
 | `urn:graph:derived:entity-resolution:{date}` | `AssetCoOccurrence` candidate edges (T-107; news co-occurrence, method/weight) and other entity-resolution-service output (roadmap step 7); `sharedExecutiveWith` only if verified | Append-only; kept separate from the EDGAR graphs it draws on since it's a different service's output. |
 | `urn:graph:derived:backtest:{run_label}:{window_id}:{backtest_run_id}` | The eight m018 backtest/GUARD views' individuals — `StrategyBook`, `BookRebalance`, `GuardAlert`, `GuardAction`, `BookWeightDaily`, `BookDailyPerformance`, `PortfolioPeriodSummary`, `BacktestTest` — one graph per backtest run, written by `src/projection/backtest.py` (T-207, T-231; `docs/08`), with each individual carrying `:knowledgeDate` for `knowledgeDate <= D` reads. The window qualifies the name because the three run databases each start their ids at 1; the run label (`rule`, `champ_v1`, …) qualifies it again because the views expose no run identity, so several result families can share one repository. | Append-only; a run is a frozen artifact, so a re-run is a new `backtest_run_id` (and, per Work item 17, a new automation/repository), never an edit. |
 | `urn:graph:derived:backtest:selection:{run_label}:{window_id}:{backtest_run_id}` | The selection side of the same run: `SelectionCycle` (`v_cycle_run`), the configured `AttractivenessWeightScheme`/`WeightComponent` (`v_weight_scheme`/`v_weight_component`), the `AttractivenessSnapshot`s and per-asset effective-weight components (`v_cycle_ranking`/`v_cycle_ranking_component`), and the `Veto` stints (`v_veto`), written by `cli/project_selection.py` (Work item 26; `docs/08`). Same label and window vocabulary; a sibling graph because the m018 graph is append-only and may already be written. | Append-only; skipped, never appended to, when the graph already exists. Rule links resolve by `:ruleId` against the definition in force on the run's knowledge date (2026-10-31), not by `:raisedOn`. |
+| `urn:graph:derived:backtest:meta:{run_label}` | The run metadata of one label: one `BacktestRun` per label and window (`:runLabel`, `:windowId`, `:backtestRunId`, `:sourceFile`, `:sourceSha256`, `:knowledgeDate`) and one `RunConfiguration` per label (`:configCodeCommit`, `:configPr`, `:configResultsDoc`, optional `:configId`/`:configStatus`, and the frozen English configuration body in `rdfs:comment`), written by the loader in Work item 35. | Append-only, one graph per label; a second write is refused by the gate like every derived graph. It cannot collide with the m018 or selection names: those have four and five path segments after `backtest`, the meta name has three. |
 | `urn:graph:derived:ticker-history:{run_label}:{snapshot_date}` | One complete ticker-history snapshot — `TickerHistory` individuals for every `v_ticker_history` row — written by `src/projection/reference.py` (T-352; `docs/08`). The label names the source family and the date is the snapshot date (`--as-of`, default today in UTC). Every individual IRI carries both (`TickerHistory_{label}_{YYYYMMDD}_{cik}_{symbol}_{validFrom}`), so a later refresh is a new graph with new individuals, never a re-declaration of a stored one. | Append-only. A later snapshot is a new date (or a new label) and leaves the previous graph untouched; it is a reference-like complete snapshot, not a delta, and readers use the latest `urn:graph:derived:ticker-history:` graph. |
 | `urn:graph:derived:orchestrator:{run_label}:{run_id}` | One `OrchestratorRun` and its `OrchestratorStep`s from `v_orchestrator_run`/`v_orchestrator_step`, written by `src/projection/reference.py` (T-353; `docs/08`). The label separates source families because each database starts its run ids at 1. The step links to its run by `:stepOfOrchestratorRun`; the step's own `run_id` is the string `"{run_kind}:{id}"`. | Append-only; a run is an immutable process record. A later run has a new id and a new graph, never an append to the previous one. |
 | `urn:graph:universe:{year}-Q{n}` | The `Universe` individual + its membership boundary for that quarter; since T-220 the real asset catalog (`:SP500Index` + one `:Asset` per company line for a pure rename, or per symbol for concurrent classes / a mixed CIK / a CIK-less stint + one `:UniverseMembership` per stint) written there by `cli/load_universe.py` from `universe.db`, in the quarter of its `--as-of` | Append-only, one-time per repository: the whole catalog is written once, and a second load into the same quarter is refused (check 2) while a later quarter re-declares stored individuals (check 6). Memberships are closed by writing `validTo` on the stored record (never by deleting them); the gate checks that each closure names a stored, open record and a date after it opened (`graphdb-setup.md`, check 7). |
@@ -56,7 +57,7 @@ no run identity at all (no input hash, no parameters), so the operator names the
 several can share a window. The label reaches every individual IRI stem as well
 (`Book_{label}_{window}_{arm}`, …), so two families never share an individual; the gate's
 backtest target pattern accepts only a label matching `[a-z][a-z0-9_]{1,31}` and a window
-matching `P[0-9]+`. A label therefore identifies one run per window: a re-run of the same family
+matching `[PH][0-9]+`. A label therefore identifies one run per window: a re-run of the same family
 and window needs a different label or, per Work item 17, another automation/repository, because
 equal stems would otherwise coincide. A run is a frozen artifact: a re-run is a new
 `backtest_run_id` (and, per Work item 17, a new automation/repository), never an edit, and the gate
@@ -68,6 +69,16 @@ dated so a later refresh is a new graph) and
 `src/projection/reference.py`. `TickerHistory`'s own interval is inclusive
 (`validFrom <= d <= validTo`, `validTo` = the symbol's last valid date, handoff §3.1), unlike
 `RuleDefinition`'s exclusive `validTo`.
+
+**Final-backtest windows, arms and core ETF (Work item 33).** The window vocabulary is `P<n>` or
+`H<n>` (six contiguous final windows, ordered by `:dateFrom`: `P1`, `H1`, `P3`, `H2`, `P2`, `H3`;
+`P3` precedes `P2` by date, never by name), and a segment adds an optional lowercase suffix
+(`P2a`, `P2b`). The fourth arm is `MARKOWITZ_BASE_GUARD`; `MARKOWITZ_BASE` and `TOPN_MV_NOGUARD`
+keep NULL `guard_layers`, and both guard arms carry `[1, 3, 4]`. `SPY` is declared in
+`urn:graph:reference` as an `:ExchangeTradedFund`, not as an S&P 500 member: it has a ticker and a
+company name, no CIK, no membership and no GICS classification. A sector query must report it as
+`ETF núcleo` (its Spanish class label), never as "no sector"; the sector catalog's query layer owns
+that label, and no projector invents a GICS class for it.
 
 **Selection-side placement (Work item 26).** The four selection views (`v_veto`, `v_cycle_run`,
 `v_cycle_ranking`, `v_cycle_ranking_component`) plus the scheme views they depend on are a *run's*
@@ -109,12 +120,12 @@ one `:Asset` described by the era the backtests and the live index can see; noth
 the dropped stints. The catalog is resolved by CIK (T-264): a pure ticker succession (`FB`→`META`)
 is ONE `:Asset` named by the latest symbol with every stint as a membership, so the backtest's
 `holding_key` (the current ticker) links across the rename; concurrent classes, a mixed CIK and a
-CIK-less symbol stay per symbol. The five `:Asset`s `reference.ttl` already declares get memberships
+CIK-less symbol stay per symbol. The six `:Asset`/`:ExchangeTradedFund` individuals `reference.ttl` already declares get memberships (SPY has none: it is not an index member)
 but are never re-declared, and a CIK-less asset is accepted only when all its memberships are closed
 (`AssetShape`).
 
 **Known overlap with the worked example.** `schema/instances.trig` already holds `:UM_*_2026Q3`
-memberships for the five `reference.ttl` assets in `urn:graph:universe:2026-Q3`, against
+memberships for the five S&P 500 `reference.ttl` assets in `urn:graph:universe:2026-Q3`, against
 `:SP500Watchlist_2026Q3` (a fundamental-agent watchlist, not `:SP500Index`). The loader adds a
 second set of memberships for those five in its own quarter graph; they are different
 `:UniverseMembership` individuals in a different `:Universe`, and neither the batch nor this

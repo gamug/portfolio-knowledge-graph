@@ -86,8 +86,10 @@
 :Ind_RealEstateMgmtDev        a :Industry ; skos:inScheme :GICSScheme ; skos:prefLabel "Real Estate Management & Development" ; :memberOfSector :Sec_RealEstate ; skos:broader :Sec_RealEstate .
 
 #################################################################
-# Asset master data — the 5 worked-example constituents used
-# throughout instances.trig, chosen to span 5 different sectors.
+# Asset master data — the worked-example assets used throughout
+# instances.trig: five S&P 500 constituents spanning five sectors,
+# plus the core ETF SPY (Work item 33). SPY has no CIK, no GICS
+# classification and no UniverseMembership: it is not an index member.
 #################################################################
 
 :AAPL a :Asset ; :tickerSymbol "AAPL" ; :companyName "Apple Inc."          ; :cikNumber "0000320193" ; :classifiedAs :Ind_TechHardwareEquip .
@@ -95,6 +97,7 @@
 :XOM  a :Asset ; :tickerSymbol "XOM"  ; :companyName "Exxon Mobil Corporation" ; :cikNumber "0000034088" ; :classifiedAs :Ind_OilGasConsumableFuels .
 :JNJ  a :Asset ; :tickerSymbol "JNJ"  ; :companyName "Johnson & Johnson"   ; :cikNumber "0000200406" ; :classifiedAs :Ind_PharmaBiotechLifeSci .
 :PG   a :Asset ; :tickerSymbol "PG"   ; :companyName "The Procter & Gamble Company" ; :cikNumber "0000080424" ; :classifiedAs :Ind_HouseholdPersonalProds .
+:SPY  a :ExchangeTradedFund ; :tickerSymbol "SPY" ; :companyName "SPDR S&P 500 ETF Trust" .
 
 #################################################################
 # MetricType controlled vocabulary (added 2026-08-23) — closes the

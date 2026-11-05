@@ -9,11 +9,11 @@ actually building it (each flagged inline in the file that surfaced it, and summ
 
 | File | Format | Loads into | Contents |
 |---|---|---|---|
-| `tbox.ttl` | Turtle | `urn:graph:tbox` | 52 classes (39 mutually disjoint leaf/domain classes + a 13-class `rdfs:subClassOf` taxonomic backbone), properties, OWL cardinality restrictions. |
-| `shapes.ttl` | Turtle | `urn:graph:tbox` | 34 SHACL node shapes (data-quality shapes kept as a separate file/concern from `tbox.ttl` — OWL semantics vs. SHACL validation, see below). |
+| `tbox.ttl` | Turtle | `urn:graph:tbox` | 55 classes (41 mutually disjoint leaf/domain classes + a 13-class `rdfs:subClassOf` taxonomic backbone), properties, OWL cardinality restrictions. |
+| `shapes.ttl` | Turtle | `urn:graph:tbox` | 36 SHACL node shapes (data-quality shapes kept as a separate file/concern from `tbox.ttl` — OWL semantics vs. SHACL validation, see below). |
 | `reference.ttl` | Turtle | `urn:graph:reference` | GICS sector/industry taxonomy + asset master data (5 worked-example tickers). |
 | `fibo.ttl` | Turtle | `urn:graph:reference:fibo` | The 25-term FIBO 2026Q2 glossary slice (54 entries, 277 statements) plus the authors' Spanish `@es` layer; built by `cli/build_fibo_slice.py`, never hand-edited. |
-| `rules.ttl` | Turtle | `urn:graph:rules:catalog` | The active catalog: 10 selection rules (upstream's 9 plus `UTILITY_CASH_COVERAGE` from T-071, T-206) as `RuleDefinition`s, 5 GUARD protection rules (`L1_STOP_LOSS`, `L1_REENTRY`, `L2_NEWS`, `L3_VOL`, `L4_DD`) in their own section, the 7 original tree rules plus the pre-2026-10-10 `LIQUIDITY_DISTRESS` kept closed as design history, and the `AttractivenessWeightScheme`. |
+| `rules.ttl` | Turtle | `urn:graph:rules:catalog` | The active catalog: 10 selection rules (upstream's 9 plus `UTILITY_CASH_COVERAGE` from T-071, T-206) as `RuleDefinition`s, 7 GUARD protection rules (`L1_STOP_LOSS`, `L1_REENTRY`, `L1_BP_STOP`, `L1_BP_REENTRY`, `L2_NEWS`, `L3_VOL`, `L4_DD`) in their own section, the 7 original tree rules plus the pre-2026-10-10 `LIQUIDITY_DISTRESS` kept closed as design history, and the `AttractivenessWeightScheme`. |
 | `instances.trig` | **TriG** | *(self-describing — see below)* | Dated ABox: universe membership, agent snapshots, evidence, vetoes, filings, portfolio; sector-aggregate and attractiveness-ranking output (added 2026-08-13). |
 
 `instances.trig` is TriG, not Turtle — it contains explicit `GRAPH <urn:graph:...> { ... }` blocks,
@@ -48,7 +48,7 @@ above):
 quad store doesn't validate on ingest unless SHACL validation is explicitly turned on), but it
 matches dependency order and is the sequence `10-integration-roadmap.md` step 1 assumes.
 
-`reference.ttl`'s five `:Asset` individuals are the worked-example master. The real asset master
+`reference.ttl`'s six worked-example individuals (five S&P 500 `:Asset`s plus the core ETF `:SPY`, an `:ExchangeTradedFund`) are the master. The real asset master
 (`universe.db`) is ABox data and is written through the ingest gate by `cli/load_universe.py` into
 `urn:graph:universe:{year}-Q{n}` (`docs/07`), never into `urn:graph:reference`: `cli/load_schema.py`
 drops and rewrites that graph as a whole on every schema reload. A later refresh is an incremental
@@ -382,7 +382,7 @@ what the store *enforces*.
      technical persistence timestamp, not the adoption date) joins the 9
      selection rules; the `LEVERAGE_EXTREME`/`NEGATIVE_FCF`/`LIQUIDITY_DISTRESS` comments record the
      APP-00 profile exemptions (financial firms; regulated utilities; equity REITs), with no
-     threshold/severity/clause change. The 5 GUARD rules are `RuleDefinition`s in their own section,
+     threshold/severity/clause change. The 7 GUARD rules are `RuleDefinition`s in their own section,
      one `GraphPredicate` leaf each, `:category "GUARD"`, `:guardLayer` 1..4, frozen parameters only in
      `rdfs:comment`; `L2_NEWS` is disabled in the 2022–2025 backtest. They carry no
      `:ruleSeverity`/`:penaltyPoints`/`:priorityRank`. `RuleDefinitionShape` gets one extra `sh:or`
@@ -426,11 +426,29 @@ what the store *enforces*.
    as upstream's placeholder (score 0.0, `vetoRulesJson` `["UNSCORED"]`/`["UNPRICED"]`, no
    `:hasEffectiveWeight`). `v_veto.evidence_json` is not projected (price-derived values under the
    Tiingo rule). The selection graph is the sibling
-   `urn:graph:derived:backtest:selection:{run_label}:{P<number>}:{run_id}`, accepted by the gate.
-   `tbox.ttl` is now **52 classes (39 disjoint leaves, 13 backbone)** and `shapes.ttl` **34 named
+   `urn:graph:derived:backtest:selection:{run_label}:{P<n>|H<n>}:{run_id}`, accepted by the gate.
+   `tbox.ttl` is now **55 classes (41 disjoint leaves, 13 backbone)** and `shapes.ttl` **36 named
    shapes** (the three new ones are `SelectionCycleShape`, `BacktestRankingShape` and
-   `EffectiveWeightComponentShape`); `kg_target_schema.ttl` mirrors the new terms. **4431 quads;
+   `EffectiveWeightComponentShape`); `kg_target_schema.ttl` mirrors the new terms. **4634 quads;
    conforms: True.** No GraphDB write or reload was made.
+
+9. **Final-backtest vocabulary (Work item 33, 2026-11-04).** The six date-ordered windows
+   (`P1`, `H1`, `P3`, `H2`, `P2`, `H3`) and their segments use `^[PH][0-9]+$` /
+   `^[PH][0-9]+[a-z]?$` in every shape, in `projection.backtest` and in both gate graph patterns;
+   `MARKOWITZ_BASE_GUARD` joins the closed arm list (`guardLayers "[1, 3, 4]"`,
+   `excludeHardVetoed false`). `L1_BP_STOP`/`L1_BP_REENTRY` are layer-1 GUARD rules valid from
+   2026-11-04, and the alert shape forbids `:alertThreshold` on them (the threshold is an
+   individual asset's stop price level; upstream's licence forbids redistributing it) while every
+   other alert keeps its required threshold. `:ExchangeTradedFund` is an `:Asset` subclass for the
+   core ETF; `SPY` is declared in `reference.ttl` with no CIK, membership or GICS classification,
+   and `AssetShape` admits it while ordinary assets keep the CIK/closed-membership rule. There is
+   no FIBO mapping for exchange-traded funds: the pinned 2026Q2 slice has no such term, so none is
+   invented. `:BacktestRun` and `:RunConfiguration` are the run-metadata leaves, written to the
+   append-only graph `urn:graph:derived:backtest:meta:{label}`; the configuration carries
+   `configCodeCommit`, `configPr`, `configResultsDoc` and optional `configId`/`configStatus`, with
+   the frozen English body text verbatim, hard line breaks included, in its `rdfs:comment`.
+   Counts: **55 classes (41 disjoint leaves), 36 named shapes, 4634 quads; conforms: True.** The
+   catalog is 643 written assets plus the six in `reference.ttl` = **649**.
 
 ## Validation
 
@@ -536,7 +554,7 @@ reloaded in that change.
 `cli/load_universe.py`
 (logic in `src/kg_store/universe.py`) loads the real `:Universe`/`:Asset`/`:UniverseMembership`
 population from `universe.db` into `urn:graph:universe:{year}-Q{n}` through the gate; `reference.ttl`
-keeps its five worked-example assets, and the loader gives them memberships without re-declaring
+keeps its six worked-example individuals, and the loader gives the five index constituents memberships without re-declaring
 them. Work item 28 adds `--delta`: it reads the stored assets and `:SP500Index` memberships with
 `SELECT`, writes only new assets/memberships and untyped `:validTo` closures into
 `urn:graph:universe:{year}-Q{n}:delta:{n}`, and reports drift without applying it. The gate accepts
@@ -558,13 +576,13 @@ classes with no book link; a book's children reach its label through the book, a
 through its actions. The CLI names it (`--db LABEL=PATH`), the graph is
 `urn:graph:derived:backtest:{run_label}:{window_id}:{backtest_run_id}` and every individual IRI
 stem carries it (`Book_{label}_{window}_{arm}`, `BookWeight_{label}_{window}_{arm}_{date}_{key}`,
-…). `windowId` and `segment` stop being closed `sh:in` lists: they are `sh:pattern` `^P[0-9]+$`
-and `^P[0-9]+[a-z]?$` in `shapes.ttl`, in the projector and in the gate's graph pattern, so a
+…). `windowId` and `segment` stop being closed `sh:in` lists: they are `sh:pattern` `^[PH][0-9]+$`
+and `^[PH][0-9]+[a-z]?$` in `shapes.ttl`, in the projector and in the gate's graph pattern, so a
 fourth window or a new sub-period needs no schema edit. **Trade-off:** a typo in a window id is
 no longer caught by SHACL (`P4` for `P1` is a well-formed window); the arm list stays closed. Five
 window lists and two segment lists become one triple each (−50) and `:runLabel` adds 16 (a
 property with its comment in `tbox.ttl`, and a required `sh:property` with five constraints in each
-of the two shapes), so after merging with T-220 the bundle is **4431 quads; conforms: True**
+of the two shapes), so after merging with T-220 the bundle is **4634 quads at Work item 33; conforms: True**
 (4236 + 2 − 50 + 16, the +2 being T-220's `sh:class :Asset` and T-227's `sh:class :Universe`) and a
 fresh load is 20 graphs and 4708 asserted triples (4513 + 2 − 34).
 `kg_target_schema.ttl` carries the same property and shapes. No GraphDB load was made; the
@@ -580,7 +598,7 @@ CIK-less symbol stay per symbol. `projection.backtest.universe_assets` and
 `projection.score_snapshots.universe_symbols` use the same resolver. No class or property changes,
 so the FR-001 bundle is still **4204 quads; conforms: True**. No GraphDB write or reload was made.
 On `universe_history_gics.db` at the default `--since`, the final dry run wrote 643 `:Asset`s plus
-five in `reference.ttl` (648 assets from 654 symbols; six successions folded), 658 memberships,
+six in `reference.ttl` (649 assets from 654 symbols; six successions folded), 658 memberships,
 6548 triples; 59 written assets lack `:classifiedAs` and the P1/P2/P3 dry runs leave 0 tickers
 unlinked.
 

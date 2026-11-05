@@ -82,7 +82,7 @@ It reads `SQL_UNIVERSE_DB` (`portfolio-data-mining`'s point-in-time `universe.db
 through `portfolio_common.db`) and reuses `etl.asset_master`: the `:SP500Index` `:Universe`
 (with its FIBO `rdfs:seeAlso`), one `:Asset` per company line for a pure ticker succession (or per
 symbol for concurrent classes, a mixed CIK or a CIK-less stint) and one `:UniverseMembership` per
-stint. The five `:Asset`s `schema/reference.ttl` already declares get memberships but are not re-declared
+stint. The five S&P 500 `:Asset`s `schema/reference.ttl` already declares get memberships but are not re-declared (its sixth individual, the core ETF `SPY`, has no membership)
 (the gate's check 6 refuses a second declaration, and `cikNumber` is functional). A membership's
 `validTo` is inclusive: it is the last day of membership, and a point-in-time read on D is
 `validFrom <= D AND (no validTo OR validTo >= D)`, so a member on its last day is still in and a
@@ -220,14 +220,14 @@ nothing written:
 1. the target is named as `07` prescribes: `urn:graph:ingest:{agent}:{date}` (`FUNDAMENTAL` by
    quarter, `EDGAR` by date or quarter), `urn:graph:derived:entity-resolution:{date|quarter}`,
    `urn:graph:derived:quant:{date}`,
-   `urn:graph:derived:backtest:{run_label}:{P<number>}:{run}`,
-   `urn:graph:derived:backtest:selection:{run_label}:{P<number>}:{run}`,
+   `urn:graph:derived:backtest:{run_label}:{P<n>|H<n>}:{run}`,
+   `urn:graph:derived:backtest:selection:{run_label}:{P<n>|H<n>}:{run}`, `urn:graph:derived:backtest:meta:{run_label}`,
    `urn:graph:derived:ticker-history:{run_label}:{YYYY-MM-DD}`,
    `urn:graph:derived:orchestrator:{run_label}:{positive run id}`,
    `urn:graph:universe:{year}-Q{n}` (or its `:delta:{n}` incremental suffix) or
    `urn:graph:portfolio:current` (TBox, reference and rules go through `cli/load_schema.py`);
 2. an append-only graph (all but `portfolio:current`) does not exist yet;
-3. every IRI is absolute and every `rdf:type` is one of the 39 leaf classes (the
+3. every IRI is absolute and every `rdf:type` is one of the 41 leaf classes or a subclass of one (the
    `owl:AllDisjointClasses` members), so neither a typo nor a bare abstract category can dodge the
    shapes;
 4. a subject with no `rdf:type` in the batch, which no shape can see, only gets relations to other
@@ -285,7 +285,7 @@ at individuals it does not declare fails check 5 under `--check` for want of wha
 
 **T-206/T-207 note.** The Contract v18 ontology added `TickerHistory` to `gate.CLOSABLE` (its shape
 reads `:validTo`). T-207 added the accepted backtest graph
-`urn:graph:derived:backtest:{run_label}:{P<number>}:{backtest_run_id}` to check 1; its last capture
+`urn:graph:derived:backtest:{run_label}:{P<n>|H<n>}:{backtest_run_id}` to check 1; its last capture
 group is a positive integer id, not a date, so `check_target` validates the label, window and id on
 a separate branch instead of passing the id to `_date_ok`. The projector that writes those graphs
 (`src/projection/backtest.py`, CLI `cli/project_backtest.py`) was run here as a dry run only, and
@@ -293,8 +293,8 @@ that change made no GraphDB write or reload; the store was then still pre-T-206.
 on 2026-11-02 (T-212, below), and `verify_store` passes.
 
 **T-231/T-234 note (run labels and the window vocabulary).** The accepted backtest graph is now
-`urn:graph:derived:backtest:{run_label}:{P<number>}:{backtest_run_id}`: the label pattern is
-`[a-z][a-z0-9_]{1,31}` and the window is open to `P<number>` instead of `P1|P2|P3`. The retired
+`urn:graph:derived:backtest:{run_label}:{P<n>|H<n>}:{backtest_run_id}`: the label pattern is
+`[a-z][a-z0-9_]{1,31}` and the window is open to `P<number>`/`H<number>` instead of `P1|P2|P3`. The retired
 unlabelled names (`urn:graph:derived:backtest:{window}:{run}`) are no longer accepted; no real data
 uses them, but a scratch repository may still hold one, and the maintainer should drop it before
 projecting the same window with a label. The FR-001 bundle is now **4431 quads** (T-220's
@@ -305,7 +305,8 @@ must be reloaded (the T-212 command) before a labelled or selection projection w
 store's `shapes.ttl` still lacks `:runLabel` and `:SelectionCycle`.
 
 **Work item 26 note (selection side).** The selection-side projector writes the sibling graph
-`urn:graph:derived:backtest:selection:{run_label}:{P<number>}:{backtest_run_id}`. The ingest gate
+`urn:graph:derived:backtest:selection:{run_label}:{P<n>|H<n>}:{backtest_run_id}` and the metadata graph
+`urn:graph:derived:backtest:meta:{run_label}`. The ingest gate
 accepts it on its own append-only branch (`_BACKTEST_SELECTION_TARGET`), so an already-written m018
 graph is untouched. Run it dry first, then with `--write`:
 
@@ -625,7 +626,18 @@ PASS the quant batch passes beside the stored Portfolios: the quant batch passes
 Both match the offline versions in `tests/test_fibo_slice.py`, so the live graph layout
 (`urn:graph:tbox`, `urn:graph:reference:fibo`) is confirmed. T-212 and T-213 are done.
 
-### Live load record, portfolio_test, 2026-11-04
+### Final-backtest vocabulary (Work item 33)
+
+The schema now accepts `P1`–`P3`, `H1`–`H3` and the `P2a`/`P2b` segments, the fourth arm
+`MARKOWITZ_BASE_GUARD`, the Basing Points GUARD rules `L1_BP_STOP`/`L1_BP_REENTRY`, the core ETF
+`SPY` (`:ExchangeTradedFund`, no CIK/membership/classification) and the run-metadata graph
+`urn:graph:derived:backtest:meta:{label}`. A Basing Points alert must not carry
+`:alertThreshold`; every other alert still must. `reference.ttl` now has six individuals, so a
+fresh catalog is 643 written assets + 6 = **649**; the live 2026-11-04 record above stays as it
+was (it wrote five reference memberships, and `SPY` has none to write). The user reloads the schema
+with `cli/load_schema.py` and verifies with `cli/verify_store.py`; pilot data remains valid.
+
+## Live load record, portfolio_test, 2026-11-04
 
 The first real catalog and backtest load into `portfolio_test`. The schema was reloaded from
 `master` after PR #123; `cli/verify_store.py` passed 6/6 checks.

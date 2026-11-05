@@ -3,7 +3,7 @@
 @prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
 
 #################################################################
-# Portfolio Knowledge Graph — Veto Rule Catalog (10 active selection rules + 5 GUARD rules; 8 superseded definitions: the 7 original tree rules and the pre-2026-10-10 LIQUIDITY_DISTRESS)
+# Portfolio Knowledge Graph — Veto Rule Catalog (10 active selection rules + 7 GUARD rules; 8 superseded definitions: the 7 original tree rules and the pre-2026-10-10 LIQUIDITY_DISTRESS)
 #
 # Loads into named graph urn:graph:rules:catalog.
 #
@@ -193,7 +193,7 @@
 #################################################################
 # GUARD DAILY PROTECTION LAYERS (T-206, Contract v18 handoff §5)
 #
-# Five RuleDefinition individuals, one per GUARD rule id, in a
+# Seven RuleDefinition individuals, one per GUARD rule id, in a
 # separate section because they are NOT veto rules: they never
 # exclude an asset from the book and are never the object of a
 # Veto's :appliesRule/:primaryRule (VetoShape refuses them).
@@ -203,6 +203,8 @@
 # :priorityRank: they carry none of the three. :guardLayer is the
 # 1..4 protection layer. The frozen parameters and academic sources
 # live only in rdfs:comment; nothing in this repo runs them.
+# L1_BP_STOP/L1_BP_REENTRY are Basing Points guard rules added by
+# Work item 33 for the final backtest; they are valid from 2026-11-04.
 # L2_NEWS is disabled in the 2022-2025 backtest because the
 # gamug/FinBERT-financial-news training pool spans 2022-2026.
 # Calibrated out-of-sample on 2019-01-02..2021-12-31 (757 NYSE
@@ -231,6 +233,22 @@
     rdfs:comment "GUARD layer 1 re-entry: after a stop-loss cut, re-enters when the asset's 1-session return is >= delta (delta = 0.0108). Inspired by Kaminski & Lo (2014), Def. 1. Not a veto rule: no :ruleSeverity, :penaltyPoints or :priorityRank." .
 :Pred_L1_REENTRY a :GraphPredicate ; :predicateName "GuardReentry" ;
     rdfs:comment "A label chosen here, not an upstream identifier. Evaluated upstream: 1-session return >= 0.0108." .
+
+:Rule_L1_BP_STOP a :RuleDefinition ;
+    :ruleId "L1_BP_STOP" ; :category "GUARD" ; :guardLayer 1 ;
+    :validFrom "2026-11-04"^^xsd:date ;
+    :hasClause :Pred_L1_BP_STOP ;
+    rdfs:comment "Basing Points stop (Edwards & Magee, Bassetti's rules 1–4) for satellite names: the name goes to cash when its close falls below its stop, the latest Basing Point low × (1 − d), with d from Edwards' Table of Stop Distances by price class and 252-session beta. The stop only rises. The name stays out until the next decision date." .
+:Pred_L1_BP_STOP a :GraphPredicate ; :predicateName "GuardBasingPointsStop" ;
+    rdfs:comment "A label chosen here, not an upstream identifier. Evaluated upstream: close below the rising Basing Points stop (latest Basing Point low × (1 − d))." .
+
+:Rule_L1_BP_REENTRY a :RuleDefinition ;
+    :ruleId "L1_BP_REENTRY" ; :category "GUARD" ; :guardLayer 1 ;
+    :validFrom "2026-11-04"^^xsd:date ;
+    :hasClause :Pred_L1_BP_REENTRY ;
+    rdfs:comment "Re-entry, at a decision date, of a name stopped by L1_BP_STOP that is still selected, with a fresh Basing Points machine." .
+:Pred_L1_BP_REENTRY a :GraphPredicate ; :predicateName "GuardBasingPointsReentry" ;
+    rdfs:comment "A label chosen here, not an upstream identifier. Evaluated upstream: a stopped satellite that is still selected re-enters with a fresh Basing Points machine." .
 
 :Rule_L2_NEWS a :RuleDefinition ;
     :ruleId "L2_NEWS" ; :category "GUARD" ; :guardLayer 2 ;

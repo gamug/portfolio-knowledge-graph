@@ -5,8 +5,9 @@ A batch is Turtle destined for one named graph. It is written only if
 1. the target graph is named as ``07-ontology-topology.md`` prescribes
    (``urn:graph:ingest:{agent}:{date}``, ``urn:graph:derived:entity-resolution:{date}``,
    ``urn:graph:derived:quant:{date}``,
-   ``urn:graph:derived:backtest:{run_label}:{P<number>}:{run}``,
-   ``urn:graph:derived:backtest:selection:{run_label}:{P<number>}:{run}``,
+   ``urn:graph:derived:backtest:{run_label}:{P<n>|H<n>}:{run}``,
+   ``urn:graph:derived:backtest:selection:{run_label}:{P<n>|H<n>}:{run}``,
+   ``urn:graph:derived:backtest:meta:{run_label}``,
    ``urn:graph:derived:ticker-history:{run_label}:{date}``,
    ``urn:graph:derived:orchestrator:{run_label}:{run}``,
    ``urn:graph:universe:{year}-Q{n}`` (or its ``:delta:{n}`` incremental suffix),
@@ -102,9 +103,9 @@ _QUARTER = r"\d{4}-Q[1-4]"
 #: A backtest graph is run-label- and window-qualified (each run database starts its ids at 1,
 #: and several result families can share a window) and ends in a positive run id, not a date, so
 #: :func:`check_target` validates it separately. The label pattern is the one ``:runLabel``
-#: enforces (T-233); the window is ``P<number>``, open to new data (T-234).
+#: enforces (T-233); the window is ``P<n>`` or ``H<n>``, open to new data (T-234, Work item 33).
 _BACKTEST_TARGET = re.compile(
-    r"urn:graph:derived:backtest:([a-z][a-z0-9_]{1,31}):(P[0-9]+):([1-9][0-9]*)"
+    r"urn:graph:derived:backtest:([a-z][a-z0-9_]{1,31}):([PH][0-9]+):([1-9][0-9]*)"
 )
 #: A ticker-history snapshot is labelled and dated: a later refresh writes a new graph, never an
 #: edit to the existing one (T-352). The date is the snapshot date (``--as-of``).
@@ -119,8 +120,12 @@ _ORCHESTRATOR_TARGET = re.compile(
 #: The selection side of one backtest run (Work item 26) lives beside the m018 graph, not inside
 #: it: the m018 graph is append-only and may already be written. Same label/window vocabulary.
 _BACKTEST_SELECTION_TARGET = re.compile(
-    r"urn:graph:derived:backtest:selection:([a-z][a-z0-9_]{1,31}):(P[0-9]+):([1-9][0-9]*)"
+    r"urn:graph:derived:backtest:selection:([a-z][a-z0-9_]{1,31}):([PH][0-9]+):([1-9][0-9]*)"
 )
+#: One metadata graph per run label (Work item 33): the :BacktestRun and :RunConfiguration
+#: individuals. It has three path segments after ``backtest`` where the m018 and selection names
+#: have four and five, so their full matches cannot collide with it.
+_BACKTEST_META_TARGET = re.compile(r"urn:graph:derived:backtest:meta:([a-z][a-z0-9_]{1,31})")
 #: The incremental asset-catalog batch (T-371): a sequence-qualified suffix on the quarter graph,
 #: so the one-time catalog graph is never appended to and a later delta gets the next number.
 _UNIVERSE_DELTA_TARGET = re.compile(rf"urn:graph:universe:({_QUARTER}):delta:([1-9][0-9]*)")
@@ -136,6 +141,7 @@ APPEND_ONLY_PATTERNS = (
     re.compile(rf"urn:graph:derived:quant:({_DATE})"),
     _BACKTEST_TARGET,
     _BACKTEST_SELECTION_TARGET,
+    _BACKTEST_META_TARGET,
     _TICKER_HISTORY_TARGET,
     _ORCHESTRATOR_TARGET,
     re.compile(rf"urn:graph:universe:({_QUARTER})"),
@@ -198,6 +204,7 @@ def check_target(graph: str) -> bool:
             if pattern in (
                 _BACKTEST_TARGET,
                 _BACKTEST_SELECTION_TARGET,
+                _BACKTEST_META_TARGET,
                 _ORCHESTRATOR_TARGET,
                 _UNIVERSE_DELTA_TARGET,
             ):
@@ -212,8 +219,9 @@ def check_target(graph: str) -> bool:
         "{SEMANTIC|VALORIZATION|TECHNICAL|SECTOR|ORCHESTRATOR}:YYYY-MM-DD, "
         "urn:graph:ingest:FUNDAMENTAL:YYYY-Qn, urn:graph:ingest:EDGAR:{date|quarter}, "
         "urn:graph:derived:entity-resolution:{date|quarter}, urn:graph:derived:quant:YYYY-MM-DD, "
-        "urn:graph:derived:backtest:{run label}:{P<number>}:{positive integer}, "
-        "urn:graph:derived:backtest:selection:{run label}:{P<number>}:{positive integer}, "
+        "urn:graph:derived:backtest:{run label}:{P<n>|H<n>}:{positive integer}, "
+        "urn:graph:derived:backtest:selection:{run label}:{P<n>|H<n>}:{positive integer}, "
+        "urn:graph:derived:backtest:meta:{run label}, "
         "urn:graph:derived:ticker-history:{run label}:YYYY-MM-DD, "
         "urn:graph:derived:orchestrator:{run label}:{positive integer}, "
         "urn:graph:universe:YYYY-Qn[:delta:{positive integer}], "
@@ -275,6 +283,13 @@ def load_gate_schema(directory: Path) -> GateSchema:
     for decl in tbox.subjects(RDF.type, OWL.AllDisjointClasses):
         for members in tbox.objects(decl, OWL.members):
             leaves.update(Collection(tbox, members))
+    # A concrete subclass of a disjoint leaf is a valid individual type too (Work item 33:
+    # ExchangeTradedFund is an Asset). Superclasses such as ObservationSnapshot are not added:
+    # they are reached upwards, not downwards, so the typo/abstract check stays non-vacuous.
+    for leaf in tuple(leaves):
+        leaves.update(
+            sub for sub in tbox.transitive_subjects(RDFS.subClassOf, leaf) if sub is not None
+        )
     return GateSchema(
         tbox,
         shapes,
@@ -284,7 +299,7 @@ def load_gate_schema(directory: Path) -> GateSchema:
 
 
 def unknown_types(batch: rdflib.Graph, schema: GateSchema) -> set[str]:
-    """``rdf:type`` objects in the batch that are not leaf classes of the ontology."""
+    """``rdf:type`` objects that are not a disjoint leaf or a subclass of one."""
     return {str(t) for t in set(batch.objects(None, RDF.type)) if t not in schema.leaf_classes}
 
 
@@ -866,7 +881,8 @@ def validate(
     unknown = unknown_types(batch, schema)
     if unknown:
         raise IngestRejected(
-            "types that are not leaf classes of the ontology: " + ", ".join(sorted(unknown))
+            "types that are not leaf classes of the ontology (a disjoint leaf or a subclass of one): "
+            + ", ".join(sorted(unknown))
         )
     stray = untyped_writes(batch, schema)
     if stray:

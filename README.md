@@ -84,7 +84,7 @@ class taxonomy (§1.2 in `06-ontology-definition.md`) and MetricType vocabulary 
 directly into `tbox.ttl`/`reference.ttl`/`shapes.ttl` — not left as separate addendum files. Full
 `rdflib` parse + `pyshacl` conformance re-verified against the real files after the merge: **parses
 clean (1608 quads at the 2026-08-23 revision — `schema/taxonomy-quality-review-2026-08-23.md` has the +1 delta from a
-same-day `RuleClause` fix; 1771 after T-102/T-103, 1881 after T-104, 1951 after T-101, 1953 after T-105, 2064 after T-106, 2150 after T-107, 2298 after T-108, 2352 after T-109, 2366 after T-111, 2378 after T-100, 2383 after its review, 2400 after T-081, 2458 after T-140, 2648 after T-187/T-188, 4178 after T-206, 4182 after T-210, 4236 after T-211, 4237 after T-220, 4202 after T-233/T-234, 4203 after merging T-220 with T-233/T-234, 4204 after T-227, 4431 after Work item 26), conforms: True** (`schema/README.md`'s Validation section has the exact
+same-day `RuleClause` fix; 1771 after T-102/T-103, 1881 after T-104, 1951 after T-101, 1953 after T-105, 2064 after T-106, 2150 after T-107, 2298 after T-108, 2352 after T-109, 2366 after T-111, 2378 after T-100, 2383 after its review, 2400 after T-081, 2458 after T-140, 2648 after T-187/T-188, 4178 after T-206, 4182 after T-210, 4236 after T-211, 4237 after T-220, 4202 after T-233/T-234, 4203 after merging T-220 with T-233/T-234, 4204 after T-227, 4431 after Work item 26, 4634 after Work item 33), conforms: True** (`schema/README.md`'s Validation section has the exact
 command). `protege-view.ttl` is the one file *not* re-verified — it's a generated bundle
 (`schema/README.md`: "never hand-edit") that predates this revision's edits, the T-206 Contract
 v18 classes, T-210's FIBO links and T-211's Spanish layer, and needs regenerating from a real
@@ -95,11 +95,11 @@ Protégé session, not something this pass could safely hand-patch.
 
 | File | Format | Named graph | Contents |
 |---|---|---|---|
-| `tbox.ttl` | Turtle | `urn:graph:tbox` | 52 classes (39 mutually disjoint leaf/domain classes + a 13-class `rdfs:subClassOf` taxonomic backbone), properties, cardinality restrictions |
-| `shapes.ttl` | Turtle | `urn:graph:tbox` | 34 SHACL node shapes |
-| `reference.ttl` | Turtle | `urn:graph:reference` | GICS sector/industry taxonomy + 5 worked-example asset tickers |
+| `tbox.ttl` | Turtle | `urn:graph:tbox` | 55 classes (41 mutually disjoint leaf/domain classes + a 13-class `rdfs:subClassOf` taxonomic backbone), properties, cardinality restrictions |
+| `shapes.ttl` | Turtle | `urn:graph:tbox` | 36 SHACL node shapes |
+| `reference.ttl` | Turtle | `urn:graph:reference` | GICS sector/industry taxonomy + 6 worked-example assets (5 S&P 500 constituents + the core ETF SPY) |
 | `fibo.ttl` | Turtle | `urn:graph:reference:fibo` | 25-term FIBO 2026Q2 glossary slice (54 entries, 277 statements) + the authors' Spanish `@es` layer |
-| `rules.ttl` | Turtle | `urn:graph:rules:catalog` | 10 active selection rules + 5 GUARD protection rules (single-leaf `RuleDefinition`s) + 8 superseded definitions kept as history + `AttractivenessWeightScheme` |
+| `rules.ttl` | Turtle | `urn:graph:rules:catalog` | 10 active selection rules + 7 GUARD protection rules (single-leaf `RuleDefinition`s) + 8 superseded definitions kept as history + `AttractivenessWeightScheme` |
 | `instances.trig` | TriG | *(self-describing — 14 `GRAPH` blocks)* | Dated ABox: universe membership, agent snapshots, evidence, vetoes, filings, portfolio, sector-aggregate and attractiveness-ranking output |
 
 Load order: `tbox.ttl` → `shapes.ttl` → `reference.ttl` → `fibo.ttl` → `rules.ttl` → `instances.trig`.
@@ -162,7 +162,7 @@ repository and graph and one `PASS`/`FAIL` line per check; exit 0 only if all pa
 
 | Command | Purpose |
 |---|---|
-| `cli/load_run.py --label rule --dir data/backtests` | Dry-run both projectors over every `*_P<number>.db` file and print the graph/triples/status table. |
+| `cli/load_run.py --label rule --dir data/backtests` | Dry-run both projectors over every `*_P<number>.db` / `*_H<number>.db` file and print the graph/triples/status table. |
 | `cli/load_run.py --label rule --dir data/backtests --check-store` | Run the read-only pre-flight (`gate.plan`) for every m018 and selection graph, report would-be-written/already-in-the-store/refused and write nothing. |
 | `cli/load_run.py --label rule --dir data/backtests --write` | Pre-flight every graph first; only if all are accepted, write the m018 graphs, then the selection siblings, then verify every graph and print the checks-passed table. |
 | `cli/load_run.py … --contract /path/to/portfolio-financial-analysis` | Run the pinned view-contract check before reading any database. |

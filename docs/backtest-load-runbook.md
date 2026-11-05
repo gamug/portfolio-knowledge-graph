@@ -80,7 +80,7 @@ container itself):
 grep -E '^(KG_HOST|KG_REPOSITORY|SQL_UNIVERSE_DB)=' .env
 ```
 
-The store's shapes must know `:runLabel`, the open `P<number>` window vocabulary and the selection
+The store's shapes must know `:runLabel`, the open `P<number>`/`H<number>` window vocabulary and the selection
 terms (T-233/T-234, Work item 26). Reload after any `schema/` change:
 
 ```bash
@@ -183,7 +183,7 @@ ls -l data/backtests/
 
 ### 1d. Run it
 
-Use `--dir` when the files follow the `*_P<number>.db` naming, or repeat `--db`:
+Use `--dir` when the files follow the `*_P<number>.db`/`*_H<number>.db` naming, or repeat `--db`:
 
 ```bash
 # dry run of both projectors over the three final files (no store is contacted)
@@ -549,12 +549,12 @@ side) and re-project that database; never patch triples inside it.
 | Message / symptom | Meaning and action |
 |---|---|
 | `run label 'Rule' does not match ...` (exit 2) | The label must be lower-case, start with a letter, then letters/digits/underscore, 2–32 characters. Use e.g. `rule`, not `Rule`. |
-| `at least one --db PATH or --dir DIR is required` (exit 2) | Give one or more explicit databases or a directory of `*_P<number>.db` files. |
-| `--dir ...: no *_P<number>.db file` (exit 2) | The directory has no final-run file with that naming; use explicit `--db` paths. |
+| `at least one --db PATH or --dir DIR is required` (exit 2) | Give one or more explicit databases or a directory of `*_P<number>.db`/`*_H<number>.db` files. |
+| `--dir ...: no *_P<number>.db or *_H<number>.db file` (exit 2) | The directory has no final-run file with that naming; use explicit `--db` paths. |
 | `database given twice` / `would both write <graph>` (exit 2) | The same file or two files resolving to one graph were given. A graph belongs to one frozen run; use one database per run. |
 | `--to-production only matters with --write` (exit 2) | Remove `--to-production` from a dry run. |
 | `--write to the production repository needs --to-production` (exit 2) | You are writing to `KG_REPOSITORY=portfolio`; the maintainer must approve, then add `--to-production`. |
-| `window_id 'Q1' does not match P[0-9]+` / gate refuses the graph | The source's window is not a `P<number>`. This is a bad input, not a label problem; do not edit the database. |
+| `window_id 'Q1' does not match [PH][0-9]+` / gate refuses the graph | The source's window is not a `P<number>` or `H<number>`. This is a bad input, not a label problem; do not edit the database. |
 | `graph ... already exists` / `already in the store: ...` | Append-only: the graph was written before. Nothing was appended. Use a new label (§3); do not drop the old graph to reuse its name. |
 | `asset link omitted: v_cycle_ranking: N` or `unlinked v_cycle_ranking: N stored, M reported` | The store or catalog lacks a ticker. The projector keeps `:rankingTicker`/`:vetoTicker` and counts it. For the supported path, extend the catalog with `cli/load_universe.py --delta` (§1b), write the delta, then re-run the projection; a first catalog still needs the full load. Do not add an `:Asset` by hand to the backtest graph. |
 | `attractiveness links: X stored, Y expected` / `veto links: ...` | The store's linked tickers differ from the source. Check that the catalog graph is the one you loaded and that `SQL_UNIVERSE_DB` is the same file used for the dry run. |

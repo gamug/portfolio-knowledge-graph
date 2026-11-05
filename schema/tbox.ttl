@@ -36,8 +36,16 @@
     a owl:Class ;
     rdfs:label "Asset" ;
     rdfs:label "activo"@es ;
-    skos:definition "Línea cotizada del S&P 500 que sigue el sistema, identificada por su símbolo más reciente. Una empresa que cambia de símbolo es un solo nodo con todas sus pertenencias (por ejemplo, FB→META); una empresa con varias clases de acciones en el índice tiene un nodo por clase (GOOGL y GOOG, FOXA y FOX, NWSA y NWS). Un símbolo reutilizado por otra empresa conserva el nodo de la era que se carga; si dos CIK cargados reclaman el mismo símbolo más reciente, la carga se detiene."@es ;
-    rdfs:comment "A publicly traded S&P 500 constituent tracked by the system (v1 §2A, §3A)." .
+    skos:definition "Línea cotizada que sigue el sistema, identificada por su símbolo más reciente: normalmente una acción del S&P 500, o un ETF núcleo. Una empresa que cambia de símbolo es un solo nodo con todas sus pertenencias (por ejemplo, FB→META); una empresa con varias clases de acciones en el índice tiene un nodo por clase (GOOGL y GOOG, FOXA y FOX, NWSA y NWS). Un símbolo reutilizado por otra empresa conserva el nodo de la era que se carga; si dos CIK cargados reclaman el mismo símbolo más reciente, la carga se detiene."@es ;
+    rdfs:comment "A publicly traded company line or core ETF tracked by the system (v1 §2A, §3A). An ordinary Asset is an S&P 500 constituent; an ExchangeTradedFund is the core position and has no membership or GICS classification." .
+
+:ExchangeTradedFund
+    a owl:Class ;
+    rdfs:subClassOf :Asset ;
+    rdfs:label "Exchange-Traded Fund" ;
+    rdfs:label "ETF núcleo"@es ;
+    skos:definition "Fondo cotizado que el sistema mantiene como núcleo de la cartera (por ejemplo, SPY). No es una acción del S&P 500: no tiene CIK, pertenencia al índice ni clasificación sectorial GICS, y las consultas de sector lo muestran como «ETF núcleo», nunca como «sin sector»."@es ;
+    rdfs:comment "Work item 33: a listed fund held as the book's core (SPY). It is an Asset, but not an S&P 500 constituent: no CIK, no UniverseMembership and no GICS classification. Its reader-facing Spanish label is 'ETF núcleo', so a sector query reports it explicitly instead of counting it as unclassified. No FIBO rdfs:seeAlso: the pinned 2026Q2 slice (schema/fibo.ttl, schema/fibo_terms.csv) has no exchange-traded-fund term, and no IRI is invented." .
 
 :Sector
     a owl:Class ;
@@ -266,8 +274,8 @@
     a owl:Class ;
     rdfs:label "Strategy Book" ;
     rdfs:label "libro de estrategia de backtest"@es ;
-    skos:definition "Brazo experimental de una corrida de backtest en una ventana histórica (P1, P2 o P3): MARKOWITZ_BASE (optimización de mínima varianza sobre todo el universo elegible sin selección de ciclo), TOPN_MV_NOGUARD (selección Top-30 del ciclo + mínima varianza sin GUARD) o TOPN_MV_GUARD_NO_NLP (selección Top-30 + mínima varianza con protección diaria GUARD activa)."@es ;
-    rdfs:comment "One row of v_book (m018): an experimental arm of one backtest run (the name :StrategyBook, not :BacktestBook). A named pool of holdings, so a Collection like Portfolio. The backtest run itself has no class (no v_backtest_run view); :backtestRunId is the literal link to it. :guardLayers is optional and :excludeHardVetoed is a boolean with no per-arm constraint (see their comments)." .
+    skos:definition "Brazo experimental de una corrida de backtest en una ventana histórica (P<n> o H<n>, por ejemplo P1, H1, P3, H2, P2 o H3): MARKOWITZ_BASE (optimización de mínima varianza sobre todo el universo elegible sin selección de ciclo), TOPN_MV_NOGUARD (selección Top-30 del ciclo + mínima varianza sin GUARD), TOPN_MV_GUARD_NO_NLP (selección Top-30 + mínima varianza con protección diaria GUARD activa) o MARKOWITZ_BASE_GUARD (la misma optimización de MARKOWITZ_BASE con protección GUARD)."@es ;
+    rdfs:comment "One row of v_book (m018): an experimental arm of one backtest run (the name :StrategyBook, not :BacktestBook). A named pool of holdings, so a Collection like Portfolio. The m018 row still links to its run by the literal :backtestRunId; run metadata is the separate :BacktestRun individual of Work item 33. :guardLayers is optional and :excludeHardVetoed is a boolean with no per-arm constraint (see their comments)." .
 
 :BookRebalance
     a owl:Class ;
@@ -280,8 +288,8 @@
     a owl:Class ;
     rdfs:label "Guard Alert" ;
     rdfs:label "alerta diaria de GUARD"@es ;
-    skos:definition "Alerta de riesgo generada al cierre de una sesión por las capas de protección diaria GUARD: corte individual por pérdida acumulada (capa 1, L1_STOP_LOSS / L1_REENTRY), volatilidad ex-ante del portafolio (capa 3, L3_VOL) o caída acumulada desde el máximo (capa 4, L4_DD)."@es ;
-    rdfs:comment "One row of v_guard_alert (m018): a GUARD layer's daily alert, with :alertRule pointing at its GUARD RuleDefinition. A dated measurement (value/threshold/state), so an Observation. :guardAsset and :guardTicker are optional (NULL on layers 3 and 4); :alertValue is optional (NULL on layer 1); :alertThreshold and :alertState are always populated. The view has no book_id: an alert reaches a book through its :alertHasGuardAction actions, never a direct alert-to-book property." .
+    skos:definition "Alerta de riesgo generada al cierre de una sesión por las capas de protección diaria GUARD: corte individual por pérdida acumulada o por Basing Points (capa 1, L1_STOP_LOSS / L1_REENTRY / L1_BP_STOP / L1_BP_REENTRY), volatilidad ex-ante del portafolio (capa 3, L3_VOL) o caída acumulada desde el máximo (capa 4, L4_DD)."@es ;
+    rdfs:comment "One row of v_guard_alert (m018): a GUARD layer's daily alert, with :alertRule pointing at its GUARD RuleDefinition. A dated measurement (value/threshold/state), so an Observation. :guardAsset and :guardTicker are optional (NULL on layers 3 and 4); :alertValue is optional (NULL on layer 1); :alertState is always populated and :alertThreshold on every rule except L1_BP_STOP/L1_BP_REENTRY, whose threshold is a price level and is forbidden (Work item 33). The view has no book_id: an alert reaches a book through its :alertHasGuardAction actions, never a direct alert-to-book property." .
 
 :GuardAction
     a owl:Class ;
@@ -308,15 +316,40 @@
     a owl:Class ;
     rdfs:label "Portfolio Period Summary" ;
     rdfs:label "resumen de desempeño por período"@es ;
-    skos:definition "Estadísticas consolidadas de un libro de estrategia en una ventana o subperíodo de backtest (P1, P2, P2a, P2b, P3): retorno acumulado y anualizado, volatilidad anualizada, ratio de Sharpe ex-post sobre la tasa libre de riesgo diaria (FF_RF_DAILY), máximo drawdown, rotación total, costo total en puntos básicos, número de rebalanceos y número de acciones de GUARD."@es ;
-    rdfs:comment "One row of v_portfolio_period_summary (m018): consolidated statistics of one StrategyBook over one segment (P1, P2, P2a, P2b, P3), keyed by (book, segment). A derived observation. No sign or range constraint is placed on :maxDrawdown (the handoff states no sign convention)." .
+    skos:definition "Estadísticas consolidadas de un libro de estrategia en una ventana o subperíodo de backtest (P1, H1, P3, H2, P2 con P2a y P2b, H3): retorno acumulado y anualizado, volatilidad anualizada, ratio de Sharpe ex-post sobre la tasa libre de riesgo diaria (FF_RF_DAILY), máximo drawdown, rotación total, costo total en puntos básicos, número de rebalanceos y número de acciones de GUARD."@es ;
+    rdfs:comment "One row of v_portfolio_period_summary (m018): consolidated statistics of one StrategyBook over one segment (P1, H1, P3, H2, P2 with P2a/P2b, H3), keyed by (book, segment). Order by :dateFrom, never by the segment name (P3 precedes P2). A derived observation. No sign or range constraint is placed on :maxDrawdown (the handoff states no sign convention)." .
 
 :BacktestTest
     a owl:Class ;
     rdfs:label "Backtest Test" ;
     rdfs:label "prueba estadística pareada de backtest"@es ;
     skos:definition "Resultado de una prueba de hipótesis pareada entre dos brazos de estrategia en un segmento (Jobson-Korkie con corrección de Memmel, bootstrap en bloques de Ledoit-Wolf para el ratio de Sharpe y diferencia de medias diarias con errores estándar HAC de Newey-West): estadístico, valor p y número de sesiones."@es ;
-    rdfs:comment "One row of v_backtest_test (m018): a paired hypothesis test between two strategy arms in one segment, keyed by (backtest_run_id, segment, arm_a, arm_b, test). A derived observation. :armA/:armB use the same arm vocabulary as :armCode; :testName is memmel_jk | ledoit_wolf | hac_mean_diff. No BacktestRun class: :backtestRunId is the literal link." .
+    rdfs:comment "One row of v_backtest_test (m018): a paired hypothesis test between two strategy arms in one segment, keyed by (backtest_run_id, segment, arm_a, arm_b, test). A derived observation. :armA/:armB use the same arm vocabulary as :armCode; :testName is memmel_jk | ledoit_wolf | hac_mean_diff. :backtestRunId is still the literal link; run metadata is :BacktestRun (Work item 33)." .
+
+:BacktestRun
+    a owl:Class ;
+    rdfs:label "Backtest Run" ;
+    rdfs:label "corrida de backtest"@es ;
+    skos:definition "Artefacto de una corrida de backtest identificado por su etiqueta, su ventana y su backtest_run_id: el archivo fuente, su hash SHA-256, la fecha de conocimiento y la configuración con la que se ejecutó."@es ;
+    rdfs:comment "Work item 33: one backtest run artefact per label and window. It carries the run label and window, the integer backtest_run_id, the source file name, its lowercase SHA-256 from the distribution's SHA256SUMS, the knowledge date and the :runConfiguration link. The m018 rows keep identifying their run by the literal :backtestRunId; this class is the run metadata the loader writes to urn:graph:derived:backtest:meta:{label} in Work item 35." .
+
+:RunConfiguration
+    a owl:Class ;
+    rdfs:label "Run Configuration" ;
+    rdfs:label "configuración de la corrida"@es ;
+    skos:definition "Configuración congelada de una etiqueta de backtest: la etiqueta, el identificador de configuración, el commit de código, la pull request, el documento de resultados y el estado que produjeron la familia de corridas."@es ;
+    rdfs:comment """Portfolio system configuration Y2 (round 4). Every 21 trading sessions the book is rebuilt as 50% SPY (core) and
+50% satellite. The satellite is chosen from the point-in-time S&P 500 members: technical, valuation and LLM-scored
+fundamental scores are blended, hard vetoes exclude a company and soft vetoes lower its score, and the top 60 names
+form the candidate pool. A minimum-variance optimisation (Ledoit-Wolf constant-correlation covariance, 756 sessions)
+then holds at most 30 names, with a 5% name cap and a 30% sector cap. A trend filter (SPY against its 210-session
+average, adapted from Faber 2007) moves half of the book to cash at a decision date when SPY is below its average.
+After every close, GUARD sets the next session's weights. Layer 1 is a Basing Points stop (Edwards & Magee,
+Bassetti's rules 1-4) on satellite names. Layer 3 scales exposure by volatility (Moreira & Muir 2017). Layer 4
+scales exposure by drawdown (Grossman & Zhou 1993). Layer 2 (news) is off. Costs are 10 basis points per trade, and
+cash earns the Kenneth French daily risk-free rate. The four arms compare this system with and without GUARD against
+a minimum-variance book over the whole eligible universe, with and without GUARD. That book's GUARD keeps the
+original layer-1 stop-loss, inspired by Kaminski & Lo (2014).""" .
 
 :SelectionCycle
     a owl:Class ;
@@ -410,6 +443,7 @@
 :ObservationSnapshot rdfs:subClassOf :Observation .
 
 :Asset rdfs:subClassOf :DomainEntity .
+:ExchangeTradedFund rdfs:subClassOf :Asset .
 :Executive rdfs:subClassOf :DomainEntity .
 :Sector rdfs:subClassOf :ClassificationConcept .
 :Industry rdfs:subClassOf :ClassificationConcept .
@@ -464,10 +498,15 @@
 :PortfolioPeriodSummary rdfs:subClassOf :Observation .
 :BacktestTest rdfs:subClassOf :Observation .
 :SelectionCycle rdfs:subClassOf :Observation .
+# Work item 33: a run artefact is an immutable dated record (Observation); a frozen configuration
+# belongs with the rule systems, like AttractivenessWeightScheme.
+:BacktestRun rdfs:subClassOf :Observation .
+:RunConfiguration rdfs:subClassOf :RuleSystem .
 
 #################################################################
 # 1.3 DISJOINTNESS — every individual belongs to exactly one of
-# these 39 classes. EvidenceSource/RuleOperand/ObservationSnapshot
+# these 41 classes. ExchangeTradedFund is deliberately absent: it is
+# a subclass of Asset, not a sibling. EvidenceSource/RuleOperand/ObservationSnapshot
 # (§1.1) and every §1.2 taxonomy class are deliberately excluded --
 # they're superclasses of members of this list, and a superclass is
 # never disjoint from its own subclasses.
@@ -482,7 +521,8 @@
                  :WeightComponent
                  :TickerHistory :OrchestratorRun :OrchestratorStep :StrategyBook :BookRebalance
                  :GuardAlert :GuardAction :BookWeightDaily :BookDailyPerformance
-                 :PortfolioPeriodSummary :BacktestTest :SelectionCycle ) .
+                 :PortfolioPeriodSummary :BacktestTest :SelectionCycle
+                 :BacktestRun :RunConfiguration ) .
 
 #################################################################
 # 2. OBJECT PROPERTIES
@@ -578,9 +618,9 @@
 # book, a ticker-history row at most one asset. The inverse is
 # declared only where a reader would traverse the other way.
 #
-# There is no BacktestRun class (no v_backtest_run view; the run log
-# stays upstream, as T-106 decided), so a book or a test links to its
-# run by the literal :backtestRunId, never by an invented node.
+# The m018 views expose no run row, so a book or a test links to its
+# run by the literal :backtestRunId; Work item 33 adds :BacktestRun for
+# the labelled run metadata the loader writes, never a node per m018 row.
 # v_guard_alert has no book_id, so an alert reaches a book through
 # its :alertHasGuardAction actions; there is deliberately no direct
 # alert-to-book property.
@@ -610,7 +650,7 @@
 :alertHasGuardAction a owl:ObjectProperty ; rdfs:domain :GuardAlert ; rdfs:range :GuardAction .
 
 :alertRule a owl:ObjectProperty, owl:FunctionalProperty ; rdfs:domain :GuardAlert ; rdfs:range :RuleDefinition ;
-    rdfs:comment "v_guard_alert.rule_id, resolved to the GUARD RuleDefinition (L1_STOP_LOSS, L1_REENTRY, L2_NEWS, L3_VOL or L4_DD). This is the only way a GUARD rule is reached from an alert; it is not a Veto :appliesRule/:primaryRule target (VetoShape refuses category GUARD)." .
+    rdfs:comment "v_guard_alert.rule_id, resolved to the GUARD RuleDefinition (L1_STOP_LOSS, L1_REENTRY, L1_BP_STOP, L1_BP_REENTRY, L2_NEWS, L3_VOL or L4_DD). This is the only way a GUARD rule is reached from an alert; it is not a Veto :appliesRule/:primaryRule target (VetoShape refuses category GUARD)." .
 
 :guardAsset a owl:ObjectProperty, owl:FunctionalProperty ; rdfs:range :Asset ;
     rdfs:comment "Optional on GuardAlert and GuardAction. No rdfs:domain so the two classes can share it without entailing each other (the :runId pattern). NULL on layer 3/4 portfolio-level alerts/actions; a CASH weight row uses no asset link at all." .
@@ -629,6 +669,10 @@
 :summaryOfBook a owl:ObjectProperty, owl:FunctionalProperty ; rdfs:domain :PortfolioPeriodSummary ; rdfs:range :StrategyBook ;
     owl:inverseOf :bookHasSummary .
 :bookHasSummary a owl:ObjectProperty ; rdfs:domain :StrategyBook ; rdfs:range :PortfolioPeriodSummary .
+
+# --- Work item 33: backtest run metadata ---
+:runConfiguration a owl:ObjectProperty, owl:FunctionalProperty ; rdfs:domain :BacktestRun ; rdfs:range :RunConfiguration ;
+    rdfs:comment "The frozen configuration a BacktestRun ran under, one per label (Work item 33). The run's source file and hash stay on the BacktestRun; this link reaches the code commit, pull request and results document." .
 
 #################################################################
 # 3. DATATYPE PROPERTIES
@@ -678,7 +722,7 @@
 
 # --- RiskEvent / Veto ---
 :category a owl:DatatypeProperty ; rdfs:range xsd:string ;
-    rdfs:comment "On RiskEvent: LEGAL | FINANCIAL | MARKET | NETWORK. On RuleDefinition: free-text category label (v1's catalog table for the superseded rules; upstream's FINANCIAL | MARKET | DATA_QUALITY for the ten active selection rules; GUARD for the five GUARD protection rules, T-206). A GUARD rule is not a veto rule: RuleDefinitionShape accepts it without :ruleSeverity, :penaltyPoints or :priorityRank, and VetoShape refuses it as an :appliesRule/:primaryRule target." .
+    rdfs:comment "On RiskEvent: LEGAL | FINANCIAL | MARKET | NETWORK. On RuleDefinition: free-text category label (v1's catalog table for the superseded rules; upstream's FINANCIAL | MARKET | DATA_QUALITY for the ten active selection rules; GUARD for the seven GUARD protection rules, T-206 and Work item 33). A GUARD rule is not a veto rule: RuleDefinitionShape accepts it without :ruleSeverity, :penaltyPoints or :priorityRank, and VetoShape refuses it as an :appliesRule/:primaryRule target." .
 # --- AssetCoOccurrence (T-107, D10) ---
 :coOccurrenceAsset a owl:ObjectProperty ; rdfs:domain :AssetCoOccurrence ; rdfs:range :Asset ;
     rdfs:comment "The two assets linked (SHACL: exactly 2). Unordered, so no direction is implied." .
@@ -862,11 +906,11 @@
 :bookId a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:range xsd:integer ;
     rdfs:comment "v_book.book_id and the book_id of the five other m018 views that carry it. No rdfs:domain: shared across StrategyBook, BookRebalance, GuardAction, BookWeightDaily, BookDailyPerformance and PortfolioPeriodSummary." .
 :backtestRunId a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:range xsd:integer ;
-    rdfs:comment "v_*.backtest_run_id. No rdfs:domain: shared across all eight m018 classes. There is no BacktestRun class (no v_backtest_run view), so this literal is the link from a book or a test to its run." .
+    rdfs:comment "v_*.backtest_run_id. No rdfs:domain: shared across all eight m018 classes and the :BacktestRun metadata class (Work item 33). The m018 literal remains the link from a book or a test to its run; :BacktestRun is the labelled run artefact, not a per-row node." .
 :armCode a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:range xsd:string ;
-    rdfs:comment "MARKOWITZ_BASE | TOPN_MV_NOGUARD | TOPN_MV_GUARD_NO_NLP | TOPN_MV_GUARD. No rdfs:domain: shared across StrategyBook, BookRebalance, GuardAction, BookWeightDaily, BookDailyPerformance and PortfolioPeriodSummary. SHACL sh:in." .
+    rdfs:comment "MARKOWITZ_BASE | TOPN_MV_NOGUARD | TOPN_MV_GUARD_NO_NLP | TOPN_MV_GUARD | MARKOWITZ_BASE_GUARD. No rdfs:domain: shared across StrategyBook, BookRebalance, GuardAction, BookWeightDaily, BookDailyPerformance and PortfolioPeriodSummary. SHACL sh:in." .
 :windowId a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:range xsd:string ;
-    rdfs:comment "P<number> (P1, P2, P3, …; T-234 opened the vocabulary, which was the closed set P1 | P2 | P3). No rdfs:domain: shared across StrategyBook, GuardAlert, BookDailyPerformance, PortfolioPeriodSummary and BacktestTest. SHACL sh:pattern ^P[0-9]+$: a typo in the digits is no longer caught, only the P<number> shape." .
+    rdfs:comment "P<number> or H<number> (P1, P2, P3, H1, H2, H3, …; T-234 opened the vocabulary and Work item 33 added H<number> for the holdout windows). No rdfs:domain: shared across StrategyBook, GuardAlert, BookDailyPerformance, PortfolioPeriodSummary, BacktestTest and BacktestRun. SHACL sh:pattern ^[PH][0-9]+$: a typo in the letter or digits is no longer caught, only the P<number>/H<number> shape." .
 :knowledgeDate a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:range xsd:date ;
     rdfs:comment "The date the m018 row became known (v_* knowledge_date, the view's own date or the run's created_at date). No rdfs:domain: every m018 individual carries it, so a knowledgeDate <= D query works uniformly (handoff checklist 3). It is not valid time and not a replacement for :knowledgeDate-less m015/m016 rows." .
 :status a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:range xsd:string ;
@@ -878,7 +922,7 @@
 :guardLayer a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:range xsd:integer ;
     rdfs:comment "T-206: 1..4, the GUARD protection layer. No rdfs:domain: it is the alert's v_guard_alert.layer and the GUARD RuleDefinition's layer. SHACL bounds it to 1..4 on both." .
 :segment a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:range xsd:string ;
-    rdfs:comment "P<number> plus an optional lowercase sub-period suffix (P1, P2, P2a, P2b, P3, …; T-234 opened the vocabulary). No rdfs:domain: shared by PortfolioPeriodSummary and BacktestTest. SHACL sh:pattern ^P[0-9]+[a-z]?$." .
+    rdfs:comment "P<number> or H<number> plus an optional lowercase sub-period suffix (P1, H1, P3, H2, P2a, P2b, H3, …; T-234 opened the vocabulary and Work item 33 added H<number>). No rdfs:domain: shared by PortfolioPeriodSummary and BacktestTest. SHACL sh:pattern ^[PH][0-9]+[a-z]?$." .
 :runLabel a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:range xsd:string ;
     rdfs:comment "The operator's name for one backtest result family (--db LABEL=PATH; T-233), the one run identity the m018 views do not expose (no input hash, no parameters). [a-z][a-z0-9_]{1,31}: lowercase, 2-32 characters. No rdfs:domain: StrategyBook and BacktestTest share it, the two m018 classes with no book link; every other class reaches its label through its book. SHACL sh:pattern, the same one the CLI and the graph-name pattern enforce." .
 :handle a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:range xsd:string ;
@@ -889,6 +933,22 @@
     rdfs:comment "Finish time, optional. No rdfs:domain: OrchestratorRun and OrchestratorStep share it." .
 :runKind a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:range xsd:string ;
     rdfs:comment "OrchestratorRun.kind (pipeline | pricing-agent | ...) and OrchestratorStep.run_kind (pricing | analysis | cycle | quant). Open vocabulary. No rdfs:domain." .
+
+# --- BacktestRun / RunConfiguration (Work item 33) ---
+:sourceFile a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :BacktestRun ; rdfs:range xsd:string ;
+    rdfs:comment "The result file name from the distribution's SHA256SUMS (for example rule_P1.db), never an absolute path." .
+:sourceSha256 a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :BacktestRun ; rdfs:range xsd:string ;
+    rdfs:comment "The lowercase SHA-256 of :sourceFile exactly as SHA256SUMS records it (sha256sum format: 64 lowercase hex digits, two spaces, file name). Read verbatim, never recomputed here; SHACL enforces ^[0-9a-f]{64}$." .
+:configCodeCommit a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :RunConfiguration ; rdfs:range xsd:string ;
+    rdfs:comment "The code commit named by config_<label>.md (its code_commit field), verbatim." .
+:configPr a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :RunConfiguration ; rdfs:range xsd:string ;
+    rdfs:comment "The pull request named by config_<label>.md (its pr field), kept as a string, verbatim." .
+:configResultsDoc a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :RunConfiguration ; rdfs:range xsd:string ;
+    rdfs:comment "The results document named by config_<label>.md (its results_doc field), verbatim." .
+:configId a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :RunConfiguration ; rdfs:range xsd:string ;
+    rdfs:comment "Optional: the configuration id named by config_<label>.md (its config_id field, e.g. Y2), verbatim." .
+:configStatus a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :RunConfiguration ; rdfs:range xsd:string ;
+    rdfs:comment "Optional: the status line named by config_<label>.md (its status field), verbatim, including its quotes and parentheses when present." .
 
 # --- OrchestratorRun / OrchestratorStep ---
 :orchestratorRunId a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :OrchestratorRun ; rdfs:range xsd:integer ;
@@ -930,9 +990,9 @@
 :objective a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :StrategyBook ; rdfs:range xsd:string ;
     rdfs:comment "v_book.objective, upstream's strategy_book.objective ('min_var' in the three backtest databases; 'equal_weight' is the benchmark in the DDL). Open, read verbatim." .
 :excludeHardVetoed a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :StrategyBook ; rdfs:range xsd:boolean ;
-    rdfs:comment "v_book.exclude_hard_vetoed, upstream INTEGER 0/1 projected as false/true. The DDL comment says 0 on MARKOWITZ_BASE and 1 on TOPN_MV_*; the completed P1/P2/P3 databases hold 0 on all three arms, so the shape requires only a boolean and does NOT constrain it per arm (data over DDL comment)." .
+    rdfs:comment "v_book.exclude_hard_vetoed, upstream INTEGER 0/1 projected as false/true. The DDL comment says 0 on MARKOWITZ_BASE and 1 on TOPN_MV_*; the completed P1/P2/P3 databases hold 0 on all three arms, and MARKOWITZ_BASE_GUARD is 0 too, so the shape requires only a boolean and does NOT constrain it per arm (data over DDL comment)." .
 :guardLayers a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :StrategyBook ; rdfs:range xsd:string ;
-    rdfs:comment "v_book.guard_layers, the JSON list text verbatim. Optional: the DDL comment says '[]' on BASE/NOGUARD, but the completed P1/P2/P3 databases hold NULL there and '[1, 3, 4]' on TOPN_MV_GUARD_NO_NLP, so the shape does not require it and never parses it." .
+    rdfs:comment "v_book.guard_layers, the JSON list text verbatim. Optional: the DDL comment says '[]' on BASE/NOGUARD, but the completed P1/P2/P3 databases hold NULL there and '[1, 3, 4]' on the guard arms (TOPN_MV_GUARD_NO_NLP and MARKOWITZ_BASE_GUARD), so the shape does not require it and never parses it." .
 :backtestStartDate a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :StrategyBook ; rdfs:range xsd:date ;
     rdfs:comment "v_book.d_start (backtest_run.d_start)." .
 :backtestEndDate a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :StrategyBook ; rdfs:range xsd:date ;
@@ -958,9 +1018,9 @@
 :alertDate a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :GuardAlert ; rdfs:range xsd:date ;
     rdfs:comment "v_guard_alert.date, the session close the alert was raised at." .
 :alertValue a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :GuardAlert ; rdfs:range xsd:decimal ;
-    rdfs:comment "Optional: v_guard_alert.value. Always NULL on layer 1 (the asset's return is masked under the Tiingo non-redistribution rule); :alertThreshold and :alertState are always populated." .
+    rdfs:comment "Optional: v_guard_alert.value. Always NULL on layer 1 (the asset's return is masked under the Tiingo non-redistribution rule); :alertState is always populated, and :alertThreshold on every rule except the two Basing Points rules (Work item 33)." .
 :alertThreshold a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :GuardAlert ; rdfs:range xsd:decimal ;
-    rdfs:comment "v_guard_alert.threshold; always populated (handoff §3.3)." .
+    rdfs:comment "v_guard_alert.threshold. Required for every alert except L1_BP_STOP/L1_BP_REENTRY, where it is the individual asset's stop price level and is therefore forbidden (Work item 33: upstream's licence does not allow redistributing it). L1_STOP_LOSS/L1_REENTRY keep their fixed parameter. SHACL enforces both sides." .
 :alertState a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :GuardAlert ; rdfs:range xsd:string ;
     rdfs:comment "v_guard_alert.state: ENTER | EXIT | ACTIVE | COOLDOWN | SCALE. SHACL sh:in." .
 
@@ -1018,7 +1078,7 @@
 
 # --- BacktestTest ---
 :armA a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :BacktestTest ; rdfs:range xsd:string ;
-    rdfs:comment "v_backtest_test.arm_a, the same four-value arm vocabulary as :armCode. SHACL sh:in." .
+    rdfs:comment "v_backtest_test.arm_a, the same five-value arm vocabulary as :armCode. SHACL sh:in." .
 :armB a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :BacktestTest ; rdfs:range xsd:string ;
     rdfs:comment "v_backtest_test.arm_b. SHACL sh:in." .
 :testName a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :BacktestTest ; rdfs:range xsd:string ;

@@ -1291,3 +1291,52 @@ Task IDs T-460–T-469.*
       no schema file changed.)* Run the checks.
 - [x] **T-469** *(done 2026-11-04: T-380 (first real delta `--write`) remains the maintainer's; no
       production write was made.)* Report the residual work.
+
+## Work item 33 — Open the vocabulary for the final backtest (2026-11-04, T-470–T-477)
+
+**Goal**: make the ontology, SHACL shapes, ingest gate and rule catalog accept the final backtest
+before any data arrives. Vocabulary only: the projector, verifier and loader kept their behaviour
+except `WINDOW_PATTERN`, `SEGMENT_PATTERN`, `ARMS` and the gate's derived-graph targets.
+
+- [x] **T-470** Recorded the design in `PLAN.md` Work item 33 before any code (first commit).
+- [x] **T-471** `windowId` is `^[PH][0-9]+$` and `segment` `^[PH][0-9]+[a-z]?$` in every
+      `sh:pattern`, the tbox comments, `projection.backtest`, both gate graph patterns,
+      `projection.load_run`'s `*_<window>.db` matcher, `kg_target_schema.ttl` and the docs. `P1`–`P3`
+      still work; `H1`–`H3` and `P2a`/`P2b` conform.
+- [x] **T-472** `MARKOWITZ_BASE_GUARD` joined every arm `sh:in` and `ARMS`; the two non-guard arms
+      keep NULL `guardLayers`, both guard arms carry `[1, 3, 4]`.
+- [x] **T-473** `:Rule_L1_BP_STOP`/`:Rule_L1_BP_REENTRY` are layer-1 GUARD rules valid from
+      2026-11-04, with the handoff comments verbatim. `:alertThreshold` is required for every other
+      alert and forbidden (zero triples) for the two Basing Points rules through one node-level
+      `sh:xone`, because the threshold is an individual asset's stop price level.
+- [x] **T-474** `:ExchangeTradedFund rdfs:subClassOf :Asset`, Spanish label `ETF núcleo`, no FIBO
+      mapping (the pinned 2026Q2 slice has no exchange-traded-fund term). `:SPY` is declared in
+      `reference.ttl` without CIK, membership or classification; `AssetShape` has an ETF branch and
+      ordinary assets keep the CIK/closed-membership rule. The catalog is 643 written assets plus
+      six in `reference.ttl` = **649**.
+- [x] **T-475** `:BacktestRun` (label + window) and `:RunConfiguration` (one per label) with their
+      shapes; the configuration carries the code commit, PR, results document and optional
+      `configId`/`configStatus`, with the frozen English body text verbatim, hard line breaks
+      included, in `rdfs:comment`. `urn:graph:derived:backtest:meta:{label}` is accepted by the gate
+      as append-only and refused on a second write; it cannot collide with the m018/selection names
+      and no label is reserved.
+- [x] **T-476** Hermetic tests: `H1`/`H2`/`H3`, `P2a`/`P2b`, all five arms, both threshold cases,
+      ETF vs ordinary asset, metadata shapes, the configuration-body round trip, and the meta graph
+      accepted once/refused twice.
+- [x] **T-477** Updated the docs and every asserted count; FR-001 is
+      **4634 quads (55 classes, 41 disjoint leaves, 36 named shapes); conforms: True**, and the load
+      plan is **4911 asserted triples**.
+
+**Scope notes.** The projector, verifier and loader were not changed beyond the named constants
+(`WINDOW_PATTERN`, `SEGMENT_PATTERN`, `ARMS`, and the `projection.load_run` directory matcher, which
+is the same window regex). `kg_target_schema.ttl` mirrors the patterns, arm list, alert list and
+threshold condition. `protege-view.ttl` is generated and was not regenerated.
+
+**No GraphDB write or reload was made.** Pilot data stays valid: its windows are `P1`–`P3`, its
+arms are a subset of the final four, its alerts are the fixed-threshold rules, and it has no
+Basing Points alert. The user reloads the schema afterwards with `cli/load_schema.py`, then
+`cli/verify_store.py`.
+
+**Verified 2026-11-04**: `uv run pytest -q` = **1362 passed, 59 deselected, 5114 warnings in
+1232.29 s (20:32)**; `mypy` = success, **106 source files**; the pinned pre-commit hooks pass on
+every changed file; FR-001 remains **4634 quads; conforms: True**.
