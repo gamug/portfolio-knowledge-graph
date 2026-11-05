@@ -1394,8 +1394,8 @@ afterwards with `cli/load_schema.py`, then `cli/verify_store.py`, so the store h
 literals; `protege-view.ttl` was not regenerated. `SPY` is linked through the already-loaded
 `urn:graph:reference`.
 
-**Verified 2026-11-05**: `uv run pytest -q` = **1377 passed, 59 deselected, 5362 warnings in
-1349.13 s (22:29)**; `mypy` = success, **107 source files**; the pinned pre-commit hooks pass on
+**Verified 2026-11-05**: `uv run pytest -q` = **1397 passed, 59 deselected, 7118 warnings in
+1179.28 s (19:39)**; `mypy` = success, **107 source files**; the pinned pre-commit hooks pass on
 every changed file; FR-001 remains **4634 quads; conforms: True**. No GraphDB write or reload was
 made by the agent; the user reloads the schema afterwards.
 ## Work item 36 — Make the query catalog independent of the pilot (T-550–T-569)
