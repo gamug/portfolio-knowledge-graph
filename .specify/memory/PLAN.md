@@ -2326,3 +2326,90 @@ the runbook so the next load does not repeat them.
 
 **Verified 2026-11-04**: docs-only; `uv run pytest -q`, `mypy` and the pinned pre-commit hooks
 pass; no schema file changed. No GraphDB write or reload was made by this change.
+
+## Work item 33 — Open the vocabulary for the final backtest (T-470–T-499)
+
+**Status: open (design first, then vocabulary only).**
+
+**Why**: the final backtest uses six contiguous windows ordered by date (`P1`, `H1`, `P3`, `H2`,
+`P2`, `H3`), a fourth arm (`MARKOWITZ_BASE_GUARD`), two Basing Points GUARD rules
+(`L1_BP_STOP`, `L1_BP_REENTRY`), the core ETF `SPY`, and run metadata that the loader will write
+in Work item 35. None of that can be projected until the ontology, SHACL shapes, ingest gate and
+rule catalog accept it. This work item changes vocabulary only: the projector, verifier and loader
+keep their current behaviour except the two shared constants (`WINDOW_PATTERN`, `ARMS`) and the
+derived-graph target checks in the gate.
+
+**Decisions**:
+
+1. **Windows and segments.** `windowId` becomes `^[PH][0-9]+$` and `segment`
+   `^[PH][0-9]+[a-z]?$` in every `sh:pattern`, in `projection.backtest` and in both gate graph
+   patterns. `P1`–`P3` are unchanged; `H1`–`H3` and `P2a`/`P2b` are accepted without a wildcard.
+   Window order is a read-time concern (`ORDER BY :dateFrom`), never the name: `P3` precedes `P2`.
+2. **Arms.** The closed arm list gains `MARKOWITZ_BASE_GUARD`, whose `:guardLayers` is `"[1, 3, 4]"`
+   and whose `:excludeHardVetoed` is `false`; `MARKOWITZ_BASE` and `TOPN_MV_NOGUARD` keep their
+   NULL guard layers. `TOPN_MV_GUARD` remains accepted. The shapes enforce only the datatypes and
+   the closed arm vocabulary, not a per-arm `guardLayers` value, following the existing
+   data-over-DDL decision.
+3. **Basing Points rules.** `:Rule_L1_BP_STOP` and `:Rule_L1_BP_REENTRY` join the GUARD section as
+   `:category "GUARD"`, `:guardLayer 1`, one `:GraphPredicate` each and `:validFrom 2026-11-04`;
+   they carry no `:ruleSeverity`, `:penaltyPoints` or `:priorityRank`, exactly like the existing
+   GUARD rules, and their `rdfs:comment` is the handoff text verbatim. They are guard rules, not
+   vetoes, and are added to the alert shape's closed rule list.
+4. **Threshold publication rule.** `:alertThreshold` stays required for every alert except the two
+   Basing Points rules, for which it is forbidden (zero triples). The condition is one node-level
+   `sh:xone` over two property-shape branches, the mechanism the repo already uses for conditional
+   constraints. Reason: for `L1_BP_*` the threshold is an individual asset's stop price level and
+   upstream's licence forbids redistributing it; `L1_STOP_LOSS`/`L1_REENTRY` keep their fixed
+   parameter threshold. `v_guard_alert.value` stays masked as today.
+5. **Core ETF.** `:ExchangeTradedFund rdfs:subClassOf :Asset` is a new class with Spanish label
+   `ETF núcleo` and definition. The pinned FIBO 2026Q2 slice has no exchange-traded-fund term, so
+   no `rdfs:seeAlso` is invented and the README records the absence. `:SPY` is declared in
+   `reference.ttl` as an `:ExchangeTradedFund` with its ticker and company name only; `AssetShape`
+   gains an ETF branch that waives CIK and memberships while every ordinary-asset rule stays.
+   `reference.ttl` now has six assets, so the catalog total becomes **643 written + 6 = 649** (the
+   written count does not change; no source membership is invented for `SPY`).
+6. **Run metadata.** `:BacktestRun` (one per label and window) carries `:runLabel`, `:windowId`,
+   `:backtestRunId`, `:sourceFile`, `:sourceSha256` (`^[0-9a-f]{64}$`), `:knowledgeDate` and a
+   `:runConfiguration` link. `:RunConfiguration` (one per label) carries `:runLabel`,
+   `:configCodeCommit`, `:configPr` and `:configResultsDoc`; the frozen English configuration text
+   is its `rdfs:comment`. Both are disjoint leaves (41 leaves, 55 classes, 36 named shapes). The
+   append-only graph `urn:graph:derived:backtest:meta:{label}` is added to the gate. It cannot
+   collide with the m018 or selection names because those full-match four/five path segments after
+   `backtest` while the meta name has three; the labels `meta` and `selection` stay usable as run
+   labels, so no label is reserved.
+7. **Counts and records.** Every asserted count and every quoted pattern in `schema/README.md`,
+   `docs/06`–`docs/10`, `README.md`, `SPEC.md`, the query catalog and the backtest runbook moves
+   with the change (NR-001). The pilot databases stay valid: their windows are `P1`–`P3`, their
+   arms are a subset of the four, their alerts are the fixed-threshold rules, and none declares a
+   Basing Points alert.
+
+**Tasks**:
+
+- **T-470** Record this design before any code.
+- **T-471** Open the window/segment patterns (`[PH]`) in the shapes, tbox comments, projector
+  constants, both gate patterns and the target schema.
+- **T-472** Add `MARKOWITZ_BASE_GUARD` to every arm list and to the tbox comments.
+- **T-473** Add the two Basing Points GUARD rules and the conditional `:alertThreshold` shape.
+- **T-474** Add `:ExchangeTradedFund`, `:SPY`, the `AssetShape` ETF branch and the 643 + 6 count.
+- **T-475** Add `:BacktestRun`/`:RunConfiguration`, their shapes and the meta graph target.
+- **T-476** Hermetic tests for `H1`/`H3`, `P2a`/`P2b`, the fourth arm, both threshold cases, the ETF
+  and ordinary assets, the metadata classes and the meta graph (accepted once, refused twice).
+- **T-477** Update the docs/counts, run `pytest`, `mypy` and the pinned pre-commit hooks, and report
+  the exact commands and timings.
+
+**Acceptance criteria**:
+
+- `P1`–`P3` and every existing test still pass unchanged in behaviour; `H1`, `H3`, `P2a` and `P2b`
+  conform.
+- A `L1_BP_STOP` alert with an `:alertThreshold` fails SHACL; one without it conforms; an
+  `L1_STOP_LOSS` alert without one still fails. The gate refuses a Basing Points alert that carries
+  a threshold.
+- `:SPY` conforms as an `:ExchangeTradedFund` without CIK, classification or membership; an
+  ordinary `:Asset` without CIK and open membership still fails.
+- The meta graph name is accepted as append-only and refused on a second write like every other
+  derived graph; the m018 and selection names still work and no existing label collides.
+- The FR-001 bundle parses and `pyshacl` conforms; the new counts are consistent everywhere.
+- No GraphDB write or reload. The user reloads the schema afterwards (`cli/load_schema.py`, then
+  `cli/verify_store.py`); pilot data remains valid.
+
+**Blocked on**: nothing. The user performs every GraphDB write.
