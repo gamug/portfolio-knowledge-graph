@@ -2500,6 +2500,9 @@ for that data without touching the loader (Work item 35) or GraphDB.
 - [x] **T-510** Update `SPEC.md` FR-009, `docs/06`, `docs/08`, the query catalog, the runbook and
   the PLAN/TASKS/CHANGELOG records.
 - [x] **T-511** Run `pytest`, `mypy` and the pinned pre-commit hooks and report the evidence.
+- [x] **T-512** Add hermetic variable-layer fixtures: guard arms with `"[1]"` and `"[1, 4]"`
+  (no L3_VOL alert; no L4_DD in the first) and date-varying L3_VOL thresholds, and run the
+  projector and verifier on all of them.
 
 **What was built**:
 
@@ -2522,7 +2525,8 @@ for that data without touching the loader (Work item 35) or GraphDB.
 5. `tests/fixtures/backtest_rows.py` gained `final_scenario_rows`/`final_backtest_db` (six
    date-ordered windows, four arms, `P2a`/`P2b`, `SPY`, both Basing Points rules and one APPLIED
    action decided before the P2 segment); `tests/test_final_backtest.py` runs both projectors and
-   the verifier over every window.
+   the verifier over every window. `tests/test_guard_layers.py` additionally covers guard arms
+   with `"[1]"`/`"[1, 4]"`, no L3_VOL alert, and two L3_VOL thresholds that vary by date.
 6. Comments only in `schema/tbox.ttl` (and the `kg_target_schema.ttl` mirror) for the confirmed
    ranking and severity semantics, the Spanish `:StrategyBook` Top-N-pool wording, plus the
    first-decision-date-no-weights regression. No shape, term or count changed.
@@ -2558,8 +2562,8 @@ for that data without touching the loader (Work item 35) or GraphDB.
 
 **Blocked on**: nothing. The user performs every GraphDB write and the schema reload.
 
-**Verified 2026-11-05**: `uv run pytest -q` = **1397 passed, 59 deselected, 7118 warnings in
-1179.28 s (19:39)**; `mypy` = success, **107 source files**; the pinned pre-commit hooks pass on
+**Verified 2026-11-05**: `uv run pytest -q` = **1400 passed, 59 deselected, 7118 warnings in
+1146.15 s (19:06)**; `mypy` = success, **107 source files**; the pinned pre-commit hooks pass on
 every changed file; FR-001 remains **4634 quads; conforms: True**. The read-only pilot dry runs and
 the in-memory verifier checks are above. No GraphDB write or reload was made by the agent; the user
 reloads the schema afterwards.

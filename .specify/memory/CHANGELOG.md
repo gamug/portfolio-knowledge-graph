@@ -1386,6 +1386,11 @@ without touching the loader (Work item 35) or GraphDB.
       `schema/README.md`, `PLAN.md`, `TASKS.md` and this record are consistent with the code.
 - [x] **T-511** Checks: `uv run pytest -q`, `mypy`, the pinned pre-commit hooks, FR-001 and the
       read-only pilot verification all pass; the measured evidence is in `PLAN.md` Work item 34.
+- [x] **T-512** Added `tests/test_guard_layers.py` and fixture helpers: a Top-N guard arm with
+      `guard_layers "[1]"` and one with `"[1, 4]"` (no L3_VOL alert; no L4_DD in the first), and
+      two portfolio-level L3_VOL alerts with different thresholds on different dates. The projector
+      and verifier pass all three cases; no production code assumed a fixed layer set, so no code
+      change was needed.
 
 **Scope notes.** `src/projection/load_run.py`, `cli/load_run.py`, the gate and the schema structure
 were not changed (no new property: `:decisionDate` already existed on `GuardAction`). The schema
@@ -1394,8 +1399,8 @@ afterwards with `cli/load_schema.py`, then `cli/verify_store.py`, so the store h
 literals; `protege-view.ttl` was not regenerated. `SPY` is linked through the already-loaded
 `urn:graph:reference`.
 
-**Verified 2026-11-05**: `uv run pytest -q` = **1397 passed, 59 deselected, 7118 warnings in
-1179.28 s (19:39)**; `mypy` = success, **107 source files**; the pinned pre-commit hooks pass on
+**Verified 2026-11-05**: `uv run pytest -q` = **1400 passed, 59 deselected, 7118 warnings in
+1146.15 s (19:06)**; `mypy` = success, **107 source files**; the pinned pre-commit hooks pass on
 every changed file; FR-001 remains **4634 quads; conforms: True**. No GraphDB write or reload was
 made by the agent; the user reloads the schema afterwards.
 ## Work item 36 — Make the query catalog independent of the pilot (T-550–T-569)

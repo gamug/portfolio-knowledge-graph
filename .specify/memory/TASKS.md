@@ -1275,10 +1275,10 @@ segments, `MARKOWITZ_BASE_GUARD`, the Basing Points GUARD rules with the conditi
 `:RunConfiguration` metadata plus the `urn:graph:derived:backtest:meta:{label}` gate target); see
 `CHANGELOG.md` and `PLAN.md` Work item 33.
 
-Work item 34 (T-500–T-511): closed 2026-11-05 — the final-backtest projector/verifier
+Work item 34 (T-500–T-512): closed 2026-11-05 — the final-backtest projector/verifier
 checks (Basing Points thresholds, `SPY` from `reference.ttl`, `nGuardActions` by decision date, the
-six-window/four-arm fixture and the ranking/severity comments); the user reloads the schema; see
-`CHANGELOG.md` and `PLAN.md` Work item 34.
+six-window/four-arm and variable-guard-layer fixtures and the ranking/severity comments); the user
+reloads the schema; see `CHANGELOG.md` and `PLAN.md` Work item 34.
 Work item 36 (T-550–T-559): closed 2026-11-05 — the query catalog is pilot-independent (label/window/arm parameters and discovery queries, `ETF núcleo`, selection and cycle semantics, publication limits) and its hermetic test covers date-ordered windows and all four arms; see `CHANGELOG.md` and `PLAN.md` Work item 36.
 T-163 (function done, PR #68) closes with T-031, whose first slice (PR #72) calls it on the real read and re-reads the late keys for `v_score_snapshot`; T-164 done (PR #69).
 Work item 8 (T-070–T-071) is independent but needs a human at a Protégé

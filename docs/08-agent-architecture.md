@@ -252,7 +252,9 @@ The dry runs over `rule_P1/P2/P3.db` and their row/triple counts are recorded in
 The ontology, shapes and gate now accept the final backtest before any data arrives. The six
 windows are `P1`, `H1`, `P3`, `H2`, `P2` (with `P2a`/`P2b`) and `H3`, always ordered by date; the
 four delivery arms are `MARKOWITZ_BASE`, `TOPN_MV_NOGUARD`, `TOPN_MV_GUARD_NO_NLP` and
-`MARKOWITZ_BASE_GUARD` (`TOPN_MV_GUARD` remains accepted by the shapes). `L1_BP_STOP`/`L1_BP_REENTRY`
+`MARKOWITZ_BASE_GUARD` (`TOPN_MV_GUARD` remains accepted by the shapes). The projector reads
+`guardLayers` as data: it does not assume the pilot's `[1, 3, 4]`, so an arm can carry `[1]` or
+`[1, 4]`, and an L3_VOL threshold may vary by date. `L1_BP_STOP`/`L1_BP_REENTRY`
 are layer-1 GUARD rules, not vetoes, and their
 alerts must not carry `:alertThreshold`. `SPY` is an `:ExchangeTradedFund` in
 `urn:graph:reference`, not an S&P 500 member; sector readers show its `ETF núcleo` label instead of

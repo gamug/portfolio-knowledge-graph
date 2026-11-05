@@ -1411,3 +1411,114 @@ def final_backtest_db(tmp_path: Path, window: str = "P1", run_id: int = 1) -> Pa
         run_id=run_id,
         rows=final_scenario_rows(window, run_id),
     )
+
+
+def _recompute_summary_counts(data: dict[str, list[dict[str, Any]]]) -> None:
+    """Keep each summary's ``n_guard_actions`` consistent after a fixture edits the actions."""
+    actions = data["guard_action"]
+    for summary in data["backtest_summary"]:
+        book_id = summary["book_id"]
+        date_from, date_to = str(summary["date_from"]), str(summary["date_to"])
+        summary["n_guard_actions"] = sum(
+            1
+            for action in actions
+            if action["book_id"] == book_id
+            and action["status"] == "APPLIED"
+            and date_from <= str(action["decision_date"]) <= date_to
+        )
+
+
+def guard_layer_scenario_rows(
+    window: str = "P1",
+    guard_layers: str = "[1]",
+    alert_rules: tuple[str, ...] = (
+        "L1_STOP_LOSS",
+        "L1_REENTRY",
+        "L1_BP_STOP",
+        "L1_BP_REENTRY",
+    ),
+) -> dict[str, list[dict[str, Any]]]:
+    """A final-backtest scenario with a chosen guard-layer set and only those alert rules.
+
+    The projector must treat ``guard_layers`` as data, not as the fixed ``[1, 3, 4]`` set: the
+    ``[1]`` case has neither an L3_VOL nor an L4_DD alert, and the ``[1, 4]`` case has no L3_VOL
+    alert but keeps L4_DD. The summaries are recomputed after the alert/action pruning.
+    """
+    data = final_scenario_rows(window)
+    for book in data["strategy_book"]:
+        if book["arm_code"] in ("TOPN_MV_GUARD_NO_NLP", "MARKOWITZ_BASE_GUARD"):
+            book["guard_layers"] = guard_layers
+    allowed = set(alert_rules)
+    data["guard_alert"] = [alert for alert in data["guard_alert"] if alert["rule_id"] in allowed]
+    alert_ids = {alert["id"] for alert in data["guard_alert"]}
+    data["guard_action"] = [
+        action for action in data["guard_action"] if action["alert_id"] in alert_ids
+    ]
+    _recompute_summary_counts(data)
+    return data
+
+
+def varying_threshold_scenario_rows(window: str = "P1") -> dict[str, list[dict[str, Any]]]:
+    """A final-backtest scenario with two portfolio-level L3_VOL alerts and different thresholds.
+
+    The L3_VOL threshold is a portfolio-level value, not an individual asset price. The projector
+    must emit each row's own ``:alertThreshold`` (no fixed/date-invariant assumption) and the
+    verifier must accept both.
+    """
+    data = final_scenario_rows(window)
+    start = FINAL_WINDOWS[window][0]
+    d0, d1, d2, d3 = (start, _plus(start, 1), _plus(start, 2), _plus(start, 3))
+    data["guard_alert"].extend(
+        [
+            {
+                "id": 20,
+                "backtest_run_id": 1,
+                "date": d0,
+                "layer": 3,
+                "asset_id": None,
+                "rule_id": "L3_VOL",
+                "value": 0.80,
+                "threshold": 0.20,
+                "state": "SCALE",
+            },
+            {
+                "id": 21,
+                "backtest_run_id": 1,
+                "date": d2,
+                "layer": 3,
+                "asset_id": None,
+                "rule_id": "L3_VOL",
+                "value": 0.90,
+                "threshold": 0.25,
+                "state": "SCALE",
+            },
+        ]
+    )
+    data["guard_action"].extend(
+        [
+            {
+                "id": 20,
+                "book_id": 3,
+                "alert_id": 20,
+                "decision_date": d0,
+                "effective_date": d1,
+                "asset_id": None,
+                "status": "APPLIED",
+                "weight_before": 1.0,
+                "weight_after": 0.8,
+            },
+            {
+                "id": 21,
+                "book_id": 3,
+                "alert_id": 21,
+                "decision_date": d2,
+                "effective_date": d3,
+                "asset_id": None,
+                "status": "APPLIED",
+                "weight_before": 0.8,
+                "weight_after": 0.6,
+            },
+        ]
+    )
+    _recompute_summary_counts(data)
+    return data
