@@ -1379,18 +1379,18 @@ without writing anything until every pre-flight passes.
       `/workspaces/thesis/scratch/final/runs` processed P1 → P3 → P2 in 376.4 s; the explicit
       `--check-store --no-manifest --no-config` run against `portfolio_test` took 366.2 s and
       reported the six m018/selection graphs as `already-in-the-store`. No GraphDB write was made.
-- [x] **T-529** *(done 2026-11-05)* Full suite `uv run pytest -q` = **1380 passed, 59 deselected,
-      6325 warnings in 1503.08 s (25:03)**; focused load-run suite = **40 passed in 36.88 s**;
-      `mypy` = success, **110 source files**; the pinned pre-commit hooks pass on every changed
-      file.
+- [x] **T-529** *(done 2026-11-05)* Merged-tree full suite `uv run pytest -q` = **1400 passed,
+      59 deselected, 8081 warnings in 1212.64 s (20:12)**; focused load-run suite = **40 passed in
+      36.88 s**; merged targeted run = **254 passed in 785.01 s**; `mypy` = success, **110 source
+      files**; the pinned pre-commit hooks pass on every changed file.
 
 **Residual work**: the real candidate/final loads remain the maintainer's (the agent never writes
 GraphDB). Production receives only the `final` label.
 
-**Verified 2026-11-05**: the full suite and focused load-run suite pass as above; the real read-only
-pilot dry run processed P1 → P3 → P2 in 376.4 s and the `--check-store --no-manifest --no-config`
-run against `portfolio_test` took 366.2 s, reporting the six m018/selection graphs
-`already-in-the-store`. No GraphDB write or reload was made.
+**Verified 2026-11-05 (merged with `origin/master`)**: the full suite, focused load-run suite and
+merged targeted run pass as above; the real read-only pilot dry run processed P1 → P3 → P2 in
+376.4 s and the `--check-store --no-manifest --no-config` run against `portfolio_test` took 366.2 s,
+reporting the six m018/selection graphs `already-in-the-store`. No GraphDB write or reload was made.
 
 ## Work item 36 — Make the query catalog independent of the pilot (T-550–T-569)
 

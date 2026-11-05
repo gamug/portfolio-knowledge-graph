@@ -2547,12 +2547,13 @@ contract without changing the projectors, the gate or the verifier.
 
 **Blocked on**: nothing. The user performs every GraphDB write.
 
-**Verified 2026-11-05**: `uv run pytest -q` = **1380 passed, 59 deselected, 6325 warnings in
-1503.08 s (25:03)**; the focused load-run suite = **40 passed in 36.88 s**; `mypy` = success,
-**110 source files**; the pinned pre-commit hooks pass on every changed file. The real read-only
-pilot dry run processed P1 → P3 → P2 in 376.4 s; the explicit `--check-store --no-manifest
---no-config` run against `portfolio_test` took 366.2 s and reported the six m018/selection graphs
-`already-in-the-store`. No GraphDB write or reload was made.
+**Verified 2026-11-05 (merged with `origin/master`)**: `uv run pytest -q` = **1400 passed,
+59 deselected, 8081 warnings in 1212.64 s (20:12)**; the focused load-run suite = **40 passed in
+36.88 s**; the merged targeted run (load-run, query catalog and schema gate) = **254 passed in
+785.01 s**; `mypy` = success, **110 source files**; the pinned pre-commit hooks pass on every
+changed file. The real read-only pilot dry run processed P1 → P3 → P2 in 376.4 s; the explicit
+`--check-store --no-manifest --no-config` run against `portfolio_test` took 366.2 s and reported
+the six m018/selection graphs `already-in-the-store`. No GraphDB write or reload was made.
 
 ## Work item 36 — Make the query catalog independent of the pilot (T-550–T-569)
 
