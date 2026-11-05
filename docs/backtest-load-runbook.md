@@ -5,8 +5,8 @@ databases into their append-only graphs (m018, selection and one metadata graph 
 prove that the store matches the source and the delivery's `SHA256SUMS`. The one-command path is
 `cli/load_run.py`; the older step-by-step commands remain as the manual fallback. Everything here
 is read-only except the explicitly marked write steps (`cli/load_universe.py --write` or
-`--delta --write`, `cli/project_backtest.py --write`, `cli/project_selection.py --write` and
-`cli/load_run.py --write`); the verifier never writes.
+`--delta --write`, `cli/project_backtest.py --write`, `cli/project_selection.py --write`,
+`cli/load_run.py --write` and `cli/load_aggregates.py --write`); the verifiers never write.
 
 The verifier's checks are in `SPEC.md` FR-009, the one-command load is FR-011, the graph naming
 and projectors are in `SPEC.md` §2.6 and `docs/07-ontology-topology.md`, and the measured
@@ -313,6 +313,37 @@ message. A verification failure stops the run and prints the exact one-graph `DR
 commands for the graphs this run wrote (see §9); the command itself never drops anything. A store
 error after the pre-flight names the graphs written, the graph in doubt (if any) and the same
 one-graph drops.
+
+### 1e. Load the aggregates file (after `load_run`)
+
+Upstream publishes `aggregates_<label>.json` in the same folder as the run databases and
+`SHA256SUMS`. It contains only per-segment aggregates: the trend-filter state at each decision date
+(with the cash fraction) and the SPY/SP500_EW_INTERNAL total return and max drawdown per reporting
+segment. It is a separate append-only graph and is loaded after `cli/load_run.py`:
+
+```bash
+# dry run: verifies the manifest hash, parses the whitelist, verifies the databases read-only,
+# builds and SHACL-validates the batch; no store is contacted
+uv run python cli/load_aggregates.py --label final --dir data/backtests
+
+# read-only pre-flight: the real gate plan with the store's context, write nothing
+uv run python cli/load_aggregates.py --label final --dir data/backtests --check-store
+
+# write the one graph after the dry run and pre-flight are clean
+uv run python cli/load_aggregates.py --label final --dir data/backtests --write
+
+# production, only with the maintainer's explicit go-ahead
+uv run python cli/load_aggregates.py --label final --dir data/backtests --write --to-production
+```
+
+The command refuses a file that is not listed in `SHA256SUMS` or whose SHA-256 differs, showing the
+manifest hash and the actual hash. It writes `urn:graph:derived:backtest:aggregates:{label}` only;
+the m018, selection and meta graphs are untouched. The verifier checks that each window's trend
+dates equal both Top-N arms' `v_book_rebalance.decision_date`, that every segment in
+`v_portfolio_period_summary` has exactly the two reference rows with the summary's dates, that
+`below` implies a positive cash fraction and every other state `0.0`, and that P2 compounds P2a/P2b
+within `1e-6`. It reports failures with the window, date or segment. A second write of the same
+label is refused by the gate; there is no daily series, price level or 210-session mean in the graph.
 
 ## 2. Manual fallback: check the pinned view contract
 

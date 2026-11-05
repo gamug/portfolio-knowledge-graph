@@ -9,9 +9,9 @@ actually building it (each flagged inline in the file that surfaced it, and summ
 
 | File | Format | Loads into | Contents |
 |---|---|---|---|
-| `tbox.ttl` | Turtle | `urn:graph:tbox` | 55 classes (41 mutually disjoint leaf/domain classes + a 13-class `rdfs:subClassOf` taxonomic backbone), properties, OWL cardinality restrictions. |
-| `shapes.ttl` | Turtle | `urn:graph:tbox` | 36 SHACL node shapes (data-quality shapes kept as a separate file/concern from `tbox.ttl` — OWL semantics vs. SHACL validation, see below). |
-| `reference.ttl` | Turtle | `urn:graph:reference` | GICS sector/industry taxonomy + asset master data (5 worked-example tickers). |
+| `tbox.ttl` | Turtle | `urn:graph:tbox` | 58 classes (44 mutually disjoint leaf/domain classes + a 13-class `rdfs:subClassOf` taxonomic backbone + `:ExchangeTradedFund` under `:Asset`), properties, OWL cardinality restrictions. |
+| `shapes.ttl` | Turtle | `urn:graph:tbox` | 39 named SHACL node shapes plus two blank-node conditional shapes (data-quality shapes kept as a separate file/concern from `tbox.ttl` — OWL semantics vs. SHACL validation, see below). |
+| `reference.ttl` | Turtle | `urn:graph:reference` | GICS sector/industry taxonomy + asset master data (five worked-example S&P 500 tickers plus the core ETF `SPY`). |
 | `fibo.ttl` | Turtle | `urn:graph:reference:fibo` | The 25-term FIBO 2026Q2 glossary slice (54 entries, 277 statements) plus the authors' Spanish `@es` layer; built by `cli/build_fibo_slice.py`, never hand-edited. |
 | `rules.ttl` | Turtle | `urn:graph:rules:catalog` | The active catalog: 10 selection rules (upstream's 9 plus `UTILITY_CASH_COVERAGE` from T-071, T-206) as `RuleDefinition`s, 7 GUARD protection rules (`L1_STOP_LOSS`, `L1_REENTRY`, `L1_BP_STOP`, `L1_BP_REENTRY`, `L2_NEWS`, `L3_VOL`, `L4_DD`) in their own section, the 7 original tree rules plus the pre-2026-10-10 `LIQUIDITY_DISTRESS` kept closed as design history, and the `AttractivenessWeightScheme`. |
 | `instances.trig` | **TriG** | *(self-describing — see below)* | Dated ABox: universe membership, agent snapshots, evidence, vetoes, filings, portfolio; sector-aggregate and attractiveness-ranking output (added 2026-08-13). |
@@ -427,9 +427,9 @@ what the store *enforces*.
    `:hasEffectiveWeight`). `v_veto.evidence_json` is not projected (price-derived values under the
    Tiingo rule). The selection graph is the sibling
    `urn:graph:derived:backtest:selection:{run_label}:{P<n>|H<n>}:{run_id}`, accepted by the gate.
-   `tbox.ttl` is now **55 classes (41 disjoint leaves, 13 backbone)** and `shapes.ttl` **36 named
+   `tbox.ttl` is now **58 classes (44 disjoint leaves, 13 backbone)** and `shapes.ttl` **39 named
    shapes** (the three new ones are `SelectionCycleShape`, `BacktestRankingShape` and
-   `EffectiveWeightComponentShape`); `kg_target_schema.ttl` mirrors the new terms. **4634 quads;
+   `EffectiveWeightComponentShape`); `kg_target_schema.ttl` mirrors the new terms. **4913 quads;
    conforms: True.** No GraphDB write or reload was made.
 
 9. **Final-backtest vocabulary (Work item 33, 2026-11-04).** The six date-ordered windows
@@ -447,7 +447,7 @@ what the store *enforces*.
    append-only graph `urn:graph:derived:backtest:meta:{label}`; the configuration carries
    `configCodeCommit`, `configPr`, `configResultsDoc` and optional `configId`/`configStatus`, with
    the frozen English body text verbatim, hard line breaks included, in its `rdfs:comment`.
-   Counts: **55 classes (41 disjoint leaves), 36 named shapes, 4634 quads; conforms: True.** The
+   Counts: **58 classes (44 disjoint leaves), 39 named shapes, 4913 quads; conforms: True.** The
    catalog is 643 written assets plus the six in `reference.ttl` = **649**.
 
 10. **Ranking and severity comments (Work item 34, 2026-11-05).** Comments only, no structural
@@ -460,9 +460,26 @@ what the store *enforces*.
    `skos:definition` say the same, and `kg_target_schema.ttl` mirrors the four property comments.
    The Spanish `:StrategyBook` definition now says the Top-N arms use the cycle's Top-N pool
    ("selección del pool Top-N del ciclo"), not a fixed Top-30. No shape or term was added.
-   **4634 quads, unchanged; conforms: True.** The store must be reloaded afterwards
-   (`cli/load_schema.py`, then `cli/verify_store.py`) to pick up the changed comment/definition
-   literals.
+   This item adds no terms or shapes; the merged bundle is **4913 quads; conforms: True** (Work
+   item 37 added the aggregates terms). The store must be reloaded afterwards (`cli/load_schema.py`,
+   then `cli/verify_store.py`) to pick up the changed comment/definition literals.
+
+11. **Aggregates file (Work item 37, 2026-11-05).** Three new disjoint leaves under
+   `:Observation`: `:AggregatesSet` (one per label), `:TrendFilterState` (one per window and decision
+   date) and `:ReferenceReturn` (one per window, segment and reference). The set carries the source
+   file name, its lowercase manifest SHA-256, the `config_id` and the three textual source
+   descriptions; the rows carry `:trendState`/`:cashFraction` and the two Top-N arms, or
+   `:referenceName`/`:referenceTotalReturn`/`:referenceMaxDrawdown`/`:nSessions`. The new properties
+   `:trendWindow`, `:trendDecisionDate`, `:returnWindow`, `:returnSegment`, `:referenceDateFrom`,
+   `:referenceDateTo`, `:nSessions`, `:referenceName`, `:referenceTotalReturn`,
+   `:referenceMaxDrawdown`, `:cashFraction`, `:appliesToArm`, `:aggregatesSet` and the six
+   `:AggregatesSet` fields avoid reusing a property whose `rdfs:domain` would entail a disjoint
+   class. Every new property's English `rdfs:comment` is the file's dictionary text verbatim; the
+   three shapes close the label/window/segment/state/reference lists with `sh:pattern`/`sh:in`.
+   The append-only graph is `urn:graph:derived:backtest:aggregates:{label}`; `sources.
+   spy_total_return_series_sha256` is validated and never projected, and no daily series, price
+   level or 210-session mean is stored. Counts: **58 classes (44 disjoint leaves), 39 named shapes,
+   4913 quads; conforms: True.**
 
 ## Validation
 

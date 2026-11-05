@@ -1,9 +1,10 @@
 # Ontology Definition — Portfolio Knowledge Graph (v2)
 
 **Implementation:** [`schema/`](../schema/) — the formal OWL/SHACL/TriG implementation of
-everything described below, split into `tbox.ttl` (classes/properties, **55 classes total** as of
-this revision — 38 mutually-disjoint leaf/domain classes plus a 13-class `rdfs:subClassOf`
-taxonomic backbone, see §1.2), `shapes.ttl` (SHACL, 31 shapes), `reference.ttl` (GICS taxonomy +
+everything described below, split into `tbox.ttl` (classes/properties, **58 classes total** as of
+this revision — 44 mutually-disjoint leaf/domain classes, a 13-class `rdfs:subClassOf` taxonomic
+backbone and `:ExchangeTradedFund` under `:Asset`, see §1.2), `shapes.ttl` (SHACL, 39 named
+shapes), `reference.ttl` (GICS taxonomy +
 asset master data + the new `MetricType` controlled vocabulary, §1.9), `rules.ttl` (the ten active
 selection rules, the seven GUARD protection rules, and the seven original ones as trees), and
 `instances.trig` (a worked, multi-graph, multi-asset dataset). Parsed clean
@@ -154,9 +155,10 @@ For a linked row, the Spanish definition in `fibo.ttl` is FIBO's meaning, never 
 Spanish definitions live in `tbox.ttl` (S2), where the six "differs" classes state why FIBO does
 not define every instance of ours. The 27 pre-existing leaf classes now carry one `@es` label and
 one `@es` definition each; the 11 v18 classes' handoff §6.2 texts are unchanged. Those 54 new
-triples take the FR-001 bundle to **4634 quads at this revision; conforms: True** (4236 before
+triples take the FR-001 bundle to **4913 quads at this revision; conforms: True** (4236 before
 T-220's `sh:class :Asset` and T-227's `sh:class :Universe` +2 and T-233/T-234: the five `sh:in` window lists and two segment lists
-become one `sh:pattern` each, −50 quads, and `:runLabel` adds 16), `fibo.ttl` is a separate
+become one `sh:pattern` each, −50 quads, and `:runLabel` adds 16; Work item 33 adds the
+final-backtest vocabulary and Work item 37 the aggregates terms), `fibo.ttl` is a separate
 277-statement graph. `:SP500Index` gets its `rdfs:seeAlso` in the ETL output, where the universe
 individual is emitted (S3), not in `urn:graph:tbox`.
 
@@ -757,8 +759,8 @@ The 11 views added between v12 and v18 (`SPEC.md` §2.6, T-205) now have ontolog
 per view: `TickerHistory` (`v_ticker_history`, m016), `OrchestratorRun`/`OrchestratorStep`
 (`v_orchestrator_run`/`v_orchestrator_step`, m015) and the eight m018 backtest/GUARD classes
 `StrategyBook` (`v_book`), `BookRebalance`, `GuardAlert`, `GuardAction`, `BookWeightDaily`,
-`BookDailyPerformance`, `PortfolioPeriodSummary` and `BacktestTest`. `tbox.ttl` is now 55 classes
-(41 disjoint leaves) and `shapes.ttl` 36 named shapes; `AllDisjointClasses` gains the 11 v18 leaves and the two metadata leaves.
+`BookDailyPerformance`, `PortfolioPeriodSummary` and `BacktestTest`. `tbox.ttl` is now 58 classes
+(44 disjoint leaves) and `shapes.ttl` 39 named shapes; `AllDisjointClasses` gains the 11 v18 leaves and the two metadata leaves.
 
 **Placement is by property shape, not theme** (the rule in §1.2 and the constitution's Project
 structure #2). `TickerHistory` and `BookRebalance` are dated n-ary relations carrying data, so
@@ -922,7 +924,7 @@ not a veto rule:** it carries no `:ruleSeverity`, `:penaltyPoints` or `:priority
 `VetoShape` refuses it as the object of `:appliesRule`/`:primaryRule`. `RuleDefinitionShape` adds one
 `sh:or` branch for `:category "GUARD"`, keeps the severity requirement for every other active rule,
 makes `:priorityRank` mandatory for non-GUARD rules, and widens the rank range to `[1,10]` for
-`UTILITY_CASH_COVERAGE`. The bundle is **4634 quads; conforms: True** (the FR-001 gate; T-220 and
+`UTILITY_CASH_COVERAGE`. The bundle is **4913 quads; conforms: True** (the FR-001 gate; T-220 and
 T-227 add the two `UniverseMembershipShape` `sh:class` triples, T-233/T-234 contribute the net −34,
 and Work item 33 adds the final-backtest vocabulary).
 
@@ -981,5 +983,36 @@ leaves in the new append-only graph `urn:graph:derived:backtest:meta:{label}`. T
 label, window, run id, source file, lowercase SHA-256, knowledge date and configuration link; the
 configuration carries the code commit, PR, results document and optional `config_id`/`status`
 front-matter keys, with the frozen English body text verbatim (hard line breaks, apostrophes and
-ampersands included) in its `rdfs:comment`. Counts: **55 classes (41 disjoint leaves), 36 named shapes, 4634 quads; conforms:
+ampersands included) in its `rdfs:comment`. Counts: **58 classes (44 disjoint leaves), 39 named shapes, 4913 quads; conforms:
 True.**
+
+
+## 1.13 The aggregates file (Work item 37, 2026-11-05)
+
+Upstream now publishes `aggregates_<label>.json` beside the run databases and `SHA256SUMS`. It has
+two row families. `:TrendFilterState` records one decision date: the published `spy_vs_sma210` state
+(`below`, `at_or_above`, `not_evaluable`), the `:cashFraction` the filter moved to cash and the two
+Top-N arms it applies to. `:ReferenceReturn` records one reporting segment and reference (`SPY` or
+`SP500_EW_INTERNAL`): `:referenceTotalReturn`, `:referenceMaxDrawdown`, the segment's inclusive dates
+and its session count. `:AggregatesSet` is the per-label root both row classes point at with
+`:aggregatesSet`; it carries the source file name, its lowercase manifest SHA-256, the `config_id`
+and the three textual source descriptions. The `sources.spy_total_return_series_sha256` value is
+validated and deliberately not projected.
+
+The names read beside the existing backtest terms and avoid a domain clash: `:trendWindow`,
+`:trendDecisionDate`, `:returnWindow`, `:returnSegment`, `:referenceDateFrom`, `:referenceDateTo`,
+`:nSessions`, `:referenceName`, `:referenceTotalReturn` and `:referenceMaxDrawdown` are new
+properties, so the existing `:windowId`, `:decisionDate`, `:dateFrom`, `:dateTo` and `:maxDrawdown`
+keep their own `rdfs:domain` (using them here would entail a disjoint class). Every new property's
+English `rdfs:comment` is the file's dictionary text verbatim. The parser is a whitelist: extra keys,
+unknown states/references/segments, duplicate row identities and a bad manifest stop with a message.
+The graph is the append-only `urn:graph:derived:backtest:aggregates:{label}`; the three row shapes
+close the label, window, segment, state and reference vocabularies with `sh:pattern`/`sh:in`.
+
+The read-only verifier compares the file with the source databases: each window's trend dates must
+equal the distinct `v_book_rebalance.decision_date` of both Top-N arms; each segment in
+`v_portfolio_period_summary` must have exactly the two reference rows with the summary's dates;
+`below` must carry a positive cash fraction and every other state exactly `0.0`; and `P2` must
+compound `P2a`/`P2b` within `1e-6`. It never writes and never stores a daily series, a price level or
+the 210-session mean. Counts after this addition: **58 classes (44 disjoint leaves), 39 named
+shapes, 4913 quads; conforms: True.**
