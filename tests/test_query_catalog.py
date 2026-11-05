@@ -738,7 +738,15 @@ def test_run_labels_windows_and_arms_are_discovered(
     }
 
     windows = _rows(catalog_dataset, _query("windows-present"))
-    assert [str(row["window"]) for row in windows] == ["P1", "P2"]
+    assert [
+        (str(row["label"]), str(row["window"]), str(row["dateFrom"]), str(row["dateTo"]))
+        for row in windows
+    ] == [
+        ("champ_v1", "P1", "2022-01-03", "2022-10-12"),
+        ("champ_v1", "P2", "2022-01-03", "2022-10-12"),
+        ("rule", "P1", "2022-01-03", "2022-10-12"),
+        ("rule", "P2", "2022-01-03", "2022-10-12"),
+    ]
 
     arms = _rows(catalog_dataset, _query("arms-present"))
     assert {
@@ -756,9 +764,12 @@ def test_windows_are_ordered_by_date_not_by_name(
     discovery_dataset: rdflib.Dataset,
 ) -> None:
     rows = _rows(discovery_dataset, _query("windows-present"))
-    assert [(str(row["window"]), str(row["dateFrom"]), str(row["dateTo"])) for row in rows] == [
-        ("P3", "2023-10-27", "2024-08-02"),
-        ("P2", "2025-02-19", "2025-09-23"),
+    assert [
+        (str(row["label"]), str(row["window"]), str(row["dateFrom"]), str(row["dateTo"]))
+        for row in rows
+    ] == [
+        ("final", "P3", "2023-10-27", "2024-08-02"),
+        ("final", "P2", "2025-02-19", "2025-09-23"),
     ]
 
 

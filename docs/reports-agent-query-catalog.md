@@ -396,27 +396,30 @@ GROUP BY ?label
 ORDER BY ?label
 ```
 
-#### Windows present, with their date range, ordered by date
+#### Windows present, per run label, with their date range, ordered by date
 
-The order is `ORDER BY :dateFrom`, never by the window name: `P3` precedes
-`P2` in the final run because its first day is earlier. The range comes from
-`:PortfolioPeriodSummary`, which carries the segment's `:dateFrom`/`:dateTo`.
+One row per label and window: two labels in one store keep their own window
+ranges and never merge. Within each label the order is `ORDER BY :dateFrom`,
+never by the window name: `P3` precedes `P2` in the final run because its first
+day is earlier. The range comes from `:PortfolioPeriodSummary`, which carries
+the segment's `:dateFrom`/`:dateTo`.
 
-<!-- q:windows-present expect:2 -->
+<!-- q:windows-present expect:4 -->
 
 ```sparql
 PREFIX : <https://thesis.local/kg/portfolio#>
 
-SELECT ?window (MIN(?from) AS ?dateFrom) (MAX(?to) AS ?dateTo)
+SELECT ?label ?window (MIN(?from) AS ?dateFrom) (MAX(?to) AS ?dateTo)
 WHERE {
   GRAPH ?g {
-    ?summary a :PortfolioPeriodSummary ; :windowId ?window ;
-      :dateFrom ?from ; :dateTo ?to .
+    ?summary a :PortfolioPeriodSummary ; :summaryOfBook ?book ;
+      :windowId ?window ; :dateFrom ?from ; :dateTo ?to .
+    ?book :runLabel ?label .
   }
   FILTER (STRSTARTS(STR(?g), "urn:graph:derived:backtest:"))
 }
-GROUP BY ?window
-ORDER BY ?dateFrom ?window
+GROUP BY ?label ?window
+ORDER BY ?label ?dateFrom ?window
 ```
 
 #### Arms present

@@ -1806,7 +1806,7 @@ Work item 31 (load_run pre-flight and --check-store) — closed 2026-11-04 (T-44
 Work item 32 (portfolio_test live load record) — closed 2026-11-04 (T-460–T-469); see
   `CHANGELOG.md`
 Work item 36 (query catalog independent of the pilot) — closed 2026-11-05 (T-550–T-559);
-  see `CHANGELOG.md`
+  see the Work item 36 section below and `CHANGELOG.md`
 ```
 
 Work items 1, 2, and 9 have no dependencies and no blockers — they can land
@@ -2424,3 +2424,46 @@ derived-graph target checks in the gate.
 1232.29 s (20:32)**; `mypy` = success, **106 source files**; the pinned pre-commit hooks pass on
 every changed file; FR-001 remains **4634 quads; conforms: True**.
 No GraphDB write or reload was made.
+
+## Work item 36 — Make the query catalog independent of the pilot (T-550–T-569)
+
+**Status: closed 2026-11-05.**
+
+**Why**: the query catalog still described the pilot as the only run (three windows, three arms,
+`rule` as a literal label) and treated every asset without a GICS class as `unclassified`. The
+final backtest needs date-ordered windows, four arms, the core ETF, and selection semantics that
+distinguish the candidate pool from the names held.
+
+**Delivered**: the catalog's per-run queries now take label/window/arm parameters and its discovery
+queries list labels, date-ordered windows per label, arms, rebalance dates, decision cycles and
+warm-up cycles. `SPY` is reported as `ETF núcleo` in the sector rollups, rebalance composition,
+coverage and `sector-of-asset`, and is excluded from the unclassified-assets query. The catalog
+documents and tests the veto-JSON/severity, orchestrator-emptiness, `n_guard_actions`, knowledge-date
+and publication limits, plus candidate-pool vs held names, `:targetWeight` vs
+`:finalTargetWeight`, `:rankPosition`, and `:cycleRunId` decision/warm-up joins. The hermetic test
+gains SPY, classified and unclassified ordinary assets, date-ordered windows, all four arms and both
+cycle kinds. The detailed record is in `CHANGELOG.md`.
+
+**Tasks**:
+
+- [x] **T-550** Record the design in `PLAN.md`/`TASKS.md` before any code.
+- [x] **T-551** Parameterise every per-run query and add the label/window/arm/rebalance/cycle
+  discovery queries.
+- [x] **T-552** Add the `ETF núcleo` branch to the sector rollups and `sector-of-asset`; exclude
+  ETFs from the unclassified-assets query.
+- [x] **T-553** Document and test the veto-JSON, empty-orchestrator, `n_guard_actions`,
+  knowledge-date and publication semantics.
+- [x] **T-554** Correct the candidate-pool/held-name semantics and rename
+  `selection-why-not-top30` to `selection-why-not-selected`.
+- [x] **T-555** Add and test the `:cycleRunId` join and the decision/warm-up discovery queries.
+- [x] **T-556** State the per-veto severity rule and the first-decision-date weight rule.
+- [x] **T-557** Extend the hermetic fixtures/tests with SPY, four arms, date-ordered windows and
+  both cycle kinds.
+- [x] **T-558** Update the catalog references in the runbook, `docs/06` and `SPEC.md`.
+- [x] **T-559** Run `pytest`, `mypy` and the pinned pre-commit hooks; report counts and timings.
+
+**Blocked on**: nothing. Work item 37 adds its own trend-filter/reference-return catalog entries.
+
+**Verified 2026-11-05**: `uv run pytest -q` = **1382 passed, 59 deselected, 6870 warnings in
+1515.14 s (25:15)**; `mypy` = success, **106 source files**; the pinned pre-commit hooks pass on
+every changed file; no GraphDB write or reload was made and no schema file changed.

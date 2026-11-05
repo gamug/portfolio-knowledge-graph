@@ -1361,8 +1361,8 @@ number into the documentation.
 
 1. **Parameters first.** Every per-run backtest and selection query binds the run label and the
    window (and the arm where the question is per-arm), with a discovery query for each choice:
-   run labels present, windows present with `MIN(:dateFrom)`/`MAX(:dateTo)` ordered by date (never
-   by name), arms present, rebalance dates, and the decision/warm-up cycle dates. `rule` remains
+   run labels present, windows present per label with `MIN(:dateFrom)`/`MAX(:dateTo)` ordered by
+   date (never by name), arms present, rebalance dates, and the decision/warm-up cycle dates. `rule` remains
    only an example label; no text says "three windows" or that `P1`–`P3` are the only windows.
 2. **Two kinds of cycle.** A decision cycle is a `SelectionCycle` referenced by a `BookRebalance`
    through the shared `:cycleRunId` (same `:runLabel` and `:windowId`); a warm-up cycle is one no
@@ -1447,4 +1447,4 @@ number into the documentation.
 
 **Blocked on**: nothing. Work item 37 adds its own trend-filter/reference-return entries later.
 
-**Verified 2026-11-05**: `uv run pytest -q` = **1382 passed, 59 deselected, 6870 warnings in 1351.99 s (22:31)**; `mypy` = success, **106 source files**; the pinned pre-commit hooks (ruff-check, ruff-format, mypy) pass on every changed file. No GraphDB write or reload was made; the schema bundle and FR-001 counts are unchanged because no schema file changed.
+**Verified 2026-11-05**: `uv run pytest -q` = **1382 passed, 59 deselected, 6870 warnings in 1515.14 s (25:15)**; `mypy` = success, **106 source files**; the pinned pre-commit hooks (ruff-check, ruff-format, mypy) pass on every changed file. No GraphDB write or reload was made; the schema bundle and FR-001 counts are unchanged because no schema file changed.
