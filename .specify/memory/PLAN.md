@@ -2425,7 +2425,7 @@ No GraphDB write or reload was made.
 
 ## Work item 37 — Project the upstream aggregates file (T-570–T-599)
 
-**Status: in progress (2026-11-05).**
+**Status: closed 2026-11-05.**
 
 **Why**: upstream now publishes a small `aggregates_<label>.json` beside the run databases and the
 `SHA256SUMS` manifest. The graph already holds the m018 per-arm summaries, but it cannot answer two
@@ -2522,24 +2522,24 @@ projects a daily series, a price level or the 210-session average.
 
 **Tasks**:
 
-- [ ] **T-570** Record this design in `PLAN.md` before any code (first commit).
-- [ ] **T-571** Add the whitelist parser, the local strict manifest reader and the deterministic
+- [x] **T-570** *(done 2026-11-05: this section, first commit.)* Record this design in `PLAN.md` before any code.
+- [x] **T-571** *(done 2026-11-05: `src/projection/aggregates.py`.)* Add the whitelist parser, the local strict manifest reader and the deterministic
   batch builder in `src/projection/aggregates.py`.
-- [ ] **T-572** Add `:AggregatesSet`, `:TrendFilterState`, `:ReferenceReturn`, their properties
+- [x] **T-572** *(done 2026-11-05: 58 classes, 44 disjoint leaves, 39 named shapes.)* Add `:AggregatesSet`, `:TrendFilterState`, `:ReferenceReturn`, their properties
   (dictionary comments verbatim), their shapes and the three disjoint leaves.
-- [ ] **T-573** Add `urn:graph:derived:backtest:aggregates:{label}` to the gate and `docs/07`, with
+- [x] **T-573** *(done 2026-11-05: `_BACKTEST_AGGREGATES_TARGET`, `tests/test_kg_gate.py`.)* Add `urn:graph:derived:backtest:aggregates:{label}` to the gate and `docs/07`, with
   the accepted-once/refused-twice tests.
-- [ ] **T-574** Add `cli/load_aggregates.py` and `src/projection/load_aggregates.py` (dry run,
+- [x] **T-574** *(done 2026-11-05: dry run, read-only pre-flight, write and production guard.)* Add `cli/load_aggregates.py` and `src/projection/load_aggregates.py` (dry run,
   `--check-store`, `--write`, `--to-production`, timings, manifest refusal).
-- [ ] **T-575** Add the read-only source and stored-graph verifier checks (a)–(f).
-- [ ] **T-576** Add the two tagged catalog queries, their fixture (both references, `P2a`/`P2b`, a
+- [x] **T-575** *(done 2026-11-05: manifest, trend dates, segments, cash, P2 compounding and stored rows.)* Add the read-only source and stored-graph verifier checks (a)–(f).
+- [x] **T-576** *(done 2026-11-05: `trend-filter-on-in-window` and `reference-returns-and-arm`.)* Add the two tagged catalog queries, their fixture (both references, `P2a`/`P2b`, a
   `not_evaluable` row) and the graph-scope text.
-- [ ] **T-577** Add the hermetic tests for the parser, manifest, IRIs, gate, verifier and CLI.
-- [ ] **T-578** Update `docs/06`–`docs/08`, the runbook, `graphdb-setup`, `schema/README.md`,
+- [x] **T-577** *(done 2026-11-05: `tests/test_aggregates.py` and `tests/test_cli_load_aggregates.py`.)* Add the hermetic tests for the parser, manifest, IRIs, gate, verifier and CLI.
+- [x] **T-578** *(done 2026-11-05: current counts are 58 classes / 44 leaves / 39 named shapes / 4913 quads; load plan 5190.)* Update `docs/06`–`docs/08`, the runbook, `graphdb-setup`, `schema/README.md`,
   `README.md`, `SPEC.md` and the asserted counts.
-- [ ] **T-579** Run `uv run pytest`, `mypy` and the pinned pre-commit hooks; record the measured
+- [x] **T-579** *(measured 2026-11-05; see the verification line below.)* Run `uv run pytest`, `mypy` and the pinned pre-commit hooks; record the measured
   results.
-- [ ] **T-580** Run the real read-only dry run of `cli/load_aggregates.py` against
+- [x] **T-580** *(done 2026-11-05, read-only: every verifier check passed and SHACL conforms; 0.574 s CLI total.)* Run the real read-only dry run of `cli/load_aggregates.py` against
   `/workspaces/thesis/scratch/final/candidate_y2` and report the counts, SHACL result, verifier
   results and timings. The user performs the real write.
 
@@ -2562,3 +2562,11 @@ projects a daily series, a price level or the 210-session average.
 - No GraphDB write or reload is made. The user reloads the schema and performs the real write.
 
 **Blocked on**: nothing. The user performs every GraphDB write.
+
+**Verified 2026-11-05**: `uv run pytest -q` = **1423 passed, 59 deselected, 5472 warnings in
+1379.13 s (22:59)** after the aggregate tests and the two count fixes; `mypy` = success, **112
+source files**; the pinned pre-commit hooks pass on every changed file; FR-001 is **4913 quads
+(58 classes, 44 disjoint leaves, 39 named shapes); conforms: True**, and the load plan is **5190
+asserted triples**. The real read-only dry run over `candidate_y2` verified the manifest hash,
+every verifier check and SHACL conforms, in 0.574 s of CLI time (0.951 s wall including `uv`). No
+GraphDB write or reload was made.

@@ -351,6 +351,27 @@ cash earns the Kenneth French daily risk-free rate. The four arms compare this s
 a minimum-variance book over the whole eligible universe, with and without GUARD. That book's GUARD keeps the
 original layer-1 stop-loss, inspired by Kaminski & Lo (2014).""" .
 
+:AggregatesSet
+    a owl:Class ;
+    rdfs:label "Aggregates Set" ;
+    rdfs:label "conjunto de agregados por segmento"@es ;
+    skos:definition "Conjunto de agregados por segmento publicado por el backtest para una etiqueta: el archivo fuente, su hash SHA-256, la configuración y las descripciones de las fuentes. Las filas de estado del filtro de tendencia y de retorno de las referencias lo referencian."@es ;
+    rdfs:comment "One aggregates file per backtest label (aggregates_<label>.json): the source file name, its lowercase SHA-256 from the distribution's SHA256SUMS, the configuration id and the three textual source descriptions. It is the per-label root the trend-filter and reference-return rows point at with :aggregatesSet. Work item 37." .
+
+:TrendFilterState
+    a owl:Class ;
+    rdfs:label "Trend Filter State" ;
+    rdfs:label "estado del filtro de tendencia"@es ;
+    skos:definition "Estado del filtro de tendencia de la cartera Top-N en una fecha de decisión: si el cierre de SPY estaba por debajo de la media simple de sus últimos 210 cierres, la fracción de la cartera Top-N movida a efectivo y los brazos a los que se aplica. No publica ningún nivel de precio ni la media."@es ;
+    rdfs:comment "One row of aggregates_<label>.json trend_filter: the trend state of SPY against the simple mean of its last 210 session closes at one decision date, the cash fraction the filter moved to cash, and the two Top-N arms it applies to. :trendState is below | at_or_above | not_evaluable; no price level or mean is published. Work item 37." .
+
+:ReferenceReturn
+    a owl:Class ;
+    rdfs:label "Reference Return" ;
+    rdfs:label "retorno de una referencia por segmento"@es ;
+    skos:definition "Retorno total y caída máxima de una referencia (SPY o SP500_EW_INTERNAL) en un segmento de reporte, calculados por el sistema de origen sobre las sesiones del segmento. Es un agregado por segmento, no una serie diaria."@es ;
+    rdfs:comment "One row of aggregates_<label>.json reference_returns: the total return and max drawdown of one reference (SPY or SP500_EW_INTERNAL) over one reporting segment. A per-segment aggregate only; no daily series, price level or 210-session average is stored. Work item 37." .
+
 :SelectionCycle
     a owl:Class ;
     rdfs:label "Selection Cycle" ;
@@ -502,10 +523,15 @@ original layer-1 stop-loss, inspired by Kaminski & Lo (2014).""" .
 # belongs with the rule systems, like AttractivenessWeightScheme.
 :BacktestRun rdfs:subClassOf :Observation .
 :RunConfiguration rdfs:subClassOf :RuleSystem .
+# Work item 37: the aggregates file is a per-label artefact and its two row types are immutable
+# dated observations, like the run metadata.
+:AggregatesSet rdfs:subClassOf :Observation .
+:TrendFilterState rdfs:subClassOf :Observation .
+:ReferenceReturn rdfs:subClassOf :Observation .
 
 #################################################################
 # 1.3 DISJOINTNESS — every individual belongs to exactly one of
-# these 41 classes. ExchangeTradedFund is deliberately absent: it is
+# these 44 classes. ExchangeTradedFund is deliberately absent: it is
 # a subclass of Asset, not a sibling. EvidenceSource/RuleOperand/ObservationSnapshot
 # (§1.1) and every §1.2 taxonomy class are deliberately excluded --
 # they're superclasses of members of this list, and a superclass is
@@ -522,7 +548,8 @@ original layer-1 stop-loss, inspired by Kaminski & Lo (2014).""" .
                  :TickerHistory :OrchestratorRun :OrchestratorStep :StrategyBook :BookRebalance
                  :GuardAlert :GuardAction :BookWeightDaily :BookDailyPerformance
                  :PortfolioPeriodSummary :BacktestTest :SelectionCycle
-                 :BacktestRun :RunConfiguration ) .
+                 :BacktestRun :RunConfiguration
+                 :AggregatesSet :TrendFilterState :ReferenceReturn ) .
 
 #################################################################
 # 2. OBJECT PROPERTIES
@@ -924,7 +951,7 @@ original layer-1 stop-loss, inspired by Kaminski & Lo (2014).""" .
 :segment a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:range xsd:string ;
     rdfs:comment "P<number> or H<number> plus an optional lowercase sub-period suffix (P1, H1, P3, H2, P2a, P2b, H3, …; T-234 opened the vocabulary and Work item 33 added H<number>). No rdfs:domain: shared by PortfolioPeriodSummary and BacktestTest. SHACL sh:pattern ^[PH][0-9]+[a-z]?$." .
 :runLabel a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:range xsd:string ;
-    rdfs:comment "The operator's name for one backtest result family (--db LABEL=PATH; T-233), the one run identity the m018 views do not expose (no input hash, no parameters). [a-z][a-z0-9_]{1,31}: lowercase, 2-32 characters. No rdfs:domain: StrategyBook and BacktestTest share it, the two m018 classes with no book link; every other class reaches its label through its book. SHACL sh:pattern, the same one the CLI and the graph-name pattern enforce." .
+    rdfs:comment "The operator's name for one backtest result family (--db LABEL=PATH; T-233), the one run identity the m018 views do not expose (no input hash, no parameters). [a-z][a-z0-9_]{1,31}: lowercase, 2-32 characters. No rdfs:domain: StrategyBook and BacktestTest share it, the two m018 classes with no book link, and BacktestRun, AggregatesSet, TrendFilterState and ReferenceReturn carry it directly; every other class reaches its label through its book. SHACL sh:pattern, the same one the CLI and the graph-name pattern enforce." .
 :handle a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:range xsd:string ;
     rdfs:comment "v_orchestrator_run.handle, the uuid4 the run endpoints return; repeated on v_orchestrator_step from the joined run. No rdfs:domain." .
 :startedAt a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:range xsd:dateTime ;
@@ -949,6 +976,52 @@ original layer-1 stop-loss, inspired by Kaminski & Lo (2014).""" .
     rdfs:comment "Optional: the configuration id named by config_<label>.md (its config_id field, e.g. Y2), verbatim." .
 :configStatus a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :RunConfiguration ; rdfs:range xsd:string ;
     rdfs:comment "Optional: the status line named by config_<label>.md (its status field), verbatim, including its quotes and parentheses when present." .
+
+# --- AggregatesSet / TrendFilterState / ReferenceReturn (Work item 37) ---
+# The row-property comments are the aggregates file's own dictionary text, verbatim (upstream
+# asked that it not be rewritten). New names are used instead of :windowId/:decisionDate/
+# :dateFrom/:maxDrawdown because those properties carry an rdfs:domain that would otherwise
+# entail a disjoint class on these rows.
+:aggregatesSourceFile a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :AggregatesSet ; rdfs:range xsd:string ;
+    rdfs:comment "The aggregates file name from SHA256SUMS (aggregates_<label>.json), never an absolute path. Work item 37." .
+:aggregatesSourceSha256 a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :AggregatesSet ; rdfs:range xsd:string ;
+    rdfs:comment "The lowercase SHA-256 of :aggregatesSourceFile exactly as SHA256SUMS records it (64 lowercase hex digits, two spaces, file name). Read verbatim, never recomputed here; SHACL enforces ^[0-9a-f]{64}$." .
+:aggregatesConfigId a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :AggregatesSet ; rdfs:range xsd:string ;
+    rdfs:comment "The configuration id from the aggregates file (config_id, for example Y2), verbatim." .
+:aggregatesRunDatabasesSource a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :AggregatesSet ; rdfs:range xsd:string ;
+    rdfs:comment "The aggregates file's sources.run_databases text, verbatim." .
+:aggregatesSpySource a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :AggregatesSet ; rdfs:range xsd:string ;
+    rdfs:comment "The aggregates file's sources.spy_source text, verbatim. It names the source only; sources.spy_total_return_series_sha256 is never projected." .
+:aggregatesSp500EwInternalSource a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :AggregatesSet ; rdfs:range xsd:string ;
+    rdfs:comment "The aggregates file's sources.sp500_ew_internal text, verbatim." .
+:aggregatesSet a owl:ObjectProperty, owl:FunctionalProperty ; rdfs:range :AggregatesSet ;
+    rdfs:comment "The per-label AggregatesSet a TrendFilterState or ReferenceReturn row belongs to. No rdfs:domain: both row classes share it, like :runLabel." .
+:trendWindow a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :TrendFilterState ; rdfs:range xsd:string ;
+    rdfs:comment """backtest window id (P1, H1, P3, H2, P2, H3)""" .
+:trendDecisionDate a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :TrendFilterState ; rdfs:range xsd:date ;
+    rdfs:comment """ISO date of the decision session (the close the filter reads); the same dates as v_book_rebalance.decision_date of the Top-N arms""" .
+:trendState a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :TrendFilterState ; rdfs:range xsd:string ;
+    rdfs:comment """'below' = SPY's close at decision_date is below the simple mean of its last 210 session closes (filter triggered); 'at_or_above' = not triggered; 'not_evaluable' = fewer than 210 sessions (filter off). No level or mean value is published""" .
+:cashFraction a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :TrendFilterState ; rdfs:range xsd:decimal ;
+    rdfs:comment """fraction of the Top-N target (SPY core + satellite) moved to cash by the filter at this decision, held until the next decision date: the run's filter_exit when 'below', else 0.0. GUARD layers act on top of it in TOPN_MV_GUARD_NO_NLP; the base arms (MARKOWITZ_BASE, MARKOWITZ_BASE_GUARD) never use the filter""" .
+:appliesToArm a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :TrendFilterState ; rdfs:range xsd:string ;
+    rdfs:comment "TOPN_MV_NOGUARD | TOPN_MV_GUARD_NO_NLP: the arms the trend filter applies to, read from trend_filter_applies_to_arms (the MARKOWITZ_* arms never use it). SHACL requires exactly these two values on every row." .
+:returnWindow a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :ReferenceReturn ; rdfs:range xsd:string ;
+    rdfs:comment """backtest window id""" .
+:returnSegment a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :ReferenceReturn ; rdfs:range xsd:string ;
+    rdfs:comment """reporting segment: the window itself, or P2a / P2b (cuts of P2)""" .
+:referenceDateFrom a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :ReferenceReturn ; rdfs:range xsd:date ;
+    rdfs:comment """ISO date of the segment's first session (the same as backtest_summary.date_from)""" .
+:referenceDateTo a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :ReferenceReturn ; rdfs:range xsd:date ;
+    rdfs:comment """ISO date of the segment's last session (the same as backtest_summary.date_to)""" .
+:nSessions a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :ReferenceReturn ; rdfs:range xsd:integer ;
+    rdfs:comment """number of sessions in the segment""" .
+:referenceName a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :ReferenceReturn ; rdfs:range xsd:string ;
+    rdfs:comment """'SPY' (total return, dividends reinvested) or 'SP500_EW_INTERNAL'""" .
+:referenceTotalReturn a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :ReferenceReturn ; rdfs:range xsd:decimal ;
+    rdfs:comment """prod(1 + r_t) - 1 over the segment's sessions, as a fraction (6 decimals)""" .
+:referenceMaxDrawdown a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :ReferenceReturn ; rdfs:range xsd:decimal ;
+    rdfs:comment """max_t(1 - NAV_t / max(1, NAV_1..NAV_t)), positive fraction, the same formula as backtest_summary.max_drawdown (6 decimals)""" .
 
 # --- OrchestratorRun / OrchestratorStep ---
 :orchestratorRunId a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :OrchestratorRun ; rdfs:range xsd:integer ;

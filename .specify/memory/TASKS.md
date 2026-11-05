@@ -1269,11 +1269,11 @@ Work item 32 (T-460–T-469): closed 2026-11-04 — the `portfolio_test` live lo
 reload, asset catalog, m018 and selection graphs, ticker history), the lessons, the free-disk
 runbook prerequisite, and the closure of T-215/T-226; see `CHANGELOG.md` and `PLAN.md` Work item 32.
 
-Work item 37 (T-570–T-599): in progress 2026-11-05 — project upstream's per-segment
+Work item 37 (T-570–T-599): closed 2026-11-05 — project upstream's per-segment
 `aggregates_<label>.json` into `urn:graph:derived:backtest:aggregates:{label}` with a whitelist
 parser, a strict SHA256SUMS check, three new classes/shapes, a dry-run/default loader CLI and a
 read-only source verifier; no daily series, price level or 210-session average is projected. See
-`PLAN.md` Work item 37.
+`CHANGELOG.md` and `PLAN.md` Work item 37.
 
 Work item 33 (T-470–T-477): closed 2026-11-04 — the final-backtest vocabulary (`[PH]` windows and
 segments, `MARKOWITZ_BASE_GUARD`, the Basing Points GUARD rules with the conditional

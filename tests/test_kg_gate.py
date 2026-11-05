@@ -151,6 +151,40 @@ def test_a_malformed_backtest_meta_graph_is_refused(name: str) -> None:
         gate.check_target(name)
 
 
+@pytest.mark.parametrize(
+    "name",
+    [
+        "urn:graph:derived:backtest:aggregates:rule",
+        "urn:graph:derived:backtest:aggregates:candidate",
+        "urn:graph:derived:backtest:aggregates:final",
+        "urn:graph:derived:backtest:aggregates:rule_20261105",
+    ],
+)
+def test_a_backtest_aggregates_graph_is_append_only_and_accepted(name: str) -> None:
+    # Work item 37: one aggregates graph per run label, three path segments after "backtest".
+    assert gate.check_target(name) is True
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        "urn:graph:derived:backtest:aggregates",  # label required
+        "urn:graph:derived:backtest:aggregates:Rule",  # lowercase label
+        "urn:graph:derived:backtest:aggregates:r",  # label is 2-32 characters
+        "urn:graph:derived:backtest:aggregates:rule:P1:1",  # an m018 name is not aggregates
+        "urn:graph:derived:backtest:aggregates:rule/extra",
+    ],
+)
+def test_a_malformed_backtest_aggregates_graph_is_refused(name: str) -> None:
+    with pytest.raises(gate.IngestRejected, match="not an ingest target"):
+        gate.check_target(name)
+
+
+def test_the_aggregates_literal_does_not_reserve_a_run_label() -> None:
+    # A run labelled "aggregates" still writes the ordinary four-segment m018 name.
+    assert gate.check_target("urn:graph:derived:backtest:aggregates:P1:1") is True
+
+
 def test_the_refusal_lists_the_backtest_graph() -> None:
     with pytest.raises(gate.IngestRejected, match=r"derived:backtest:\{run label\}:\{P<n>\|H<n>\}"):
         gate.check_target("urn:graph:nope")

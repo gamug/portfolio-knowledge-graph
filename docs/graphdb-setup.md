@@ -207,6 +207,26 @@ checkout has no `schema_version` row (it reads 0
 and is below the v18 floor), so it is not a valid v18 source; the task's `base.db`/`scored_rule.db`
 paths are not present here.
 
+## Loading the aggregates file (Work item 37)
+
+After the m018 and selection graphs, load upstream's `aggregates_<label>.json` from the same
+folder:
+
+```bash
+uv run python cli/load_aggregates.py --label final --dir /path/to/final        # dry run
+uv run python cli/load_aggregates.py --label final --dir /path/to/final --check-store
+uv run python cli/load_aggregates.py --label final --dir /path/to/final --write
+```
+
+The dry run checks the `SHA256SUMS` entry and hash, parses the whitelist, verifies the source
+databases read-only, builds the deterministic batch and SHACL-validates it; it contacts no store.
+`--check-store` runs the real `gate.plan` with the store's context and writes nothing; if the graph
+already exists it also compares the stored rows with the file. `--write` appends the one graph
+`urn:graph:derived:backtest:aggregates:{label}` and then runs that stored-row check. The target is
+append-only: a second write of the same label is refused, and no other backtest graph is touched. A
+mismatch between the manifest and the file's actual SHA-256 exits 1 and prints both hashes. There is
+no daily series, price level or 210-session mean in the graph.
+
 ## Ingest gate (T-023)
 
 ```bash
@@ -221,13 +241,15 @@ nothing written:
    quarter, `EDGAR` by date or quarter), `urn:graph:derived:entity-resolution:{date|quarter}`,
    `urn:graph:derived:quant:{date}`,
    `urn:graph:derived:backtest:{run_label}:{P<n>|H<n>}:{run}`,
-   `urn:graph:derived:backtest:selection:{run_label}:{P<n>|H<n>}:{run}`, `urn:graph:derived:backtest:meta:{run_label}`,
+   `urn:graph:derived:backtest:selection:{run_label}:{P<n>|H<n>}:{run}`,
+   `urn:graph:derived:backtest:meta:{run_label}`,
+   `urn:graph:derived:backtest:aggregates:{run_label}`,
    `urn:graph:derived:ticker-history:{run_label}:{YYYY-MM-DD}`,
    `urn:graph:derived:orchestrator:{run_label}:{positive run id}`,
    `urn:graph:universe:{year}-Q{n}` (or its `:delta:{n}` incremental suffix) or
    `urn:graph:portfolio:current` (TBox, reference and rules go through `cli/load_schema.py`);
 2. an append-only graph (all but `portfolio:current`) does not exist yet;
-3. every IRI is absolute and every `rdf:type` is one of the 41 leaf classes or a subclass of one (the
+3. every IRI is absolute and every `rdf:type` is one of the 44 leaf classes or a subclass of one (the
    `owl:AllDisjointClasses` members), so neither a typo nor a bare abstract category can dodge the
    shapes;
 4. a subject with no `rdf:type` in the batch, which no shape can see, only gets relations to other

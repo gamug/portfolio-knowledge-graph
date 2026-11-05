@@ -45,13 +45,14 @@ def test_tbox_and_shapes_share_one_graph() -> None:
     assert load_schema.expected_sizes(SCHEMA)["urn:graph:tbox"] == len(union)
 
 
-def test_the_load_plan_has_20_graphs_and_4911_asserted_triples() -> None:
+def test_the_load_plan_has_20_graphs_and_5190_asserted_triples() -> None:
     sizes = load_schema.expected_sizes(SCHEMA)
     assert len(sizes) == 20
     # 4513 at the T-212 reload; +2 for T-220's and T-227's sh:class triples, -34 for T-233/T-234
     # (two RDF lists removed, the run label added), +227 for Work item 26's selection terms/shapes,
-    # +185 for Work item 33's final-backtest vocabulary (BP rules, ETF, metadata classes/shapes).
-    assert sum(sizes.values()) == 4911
+    # +185 for Work item 33's final-backtest vocabulary (BP rules, ETF, metadata classes/shapes),
+    # +279 for Work item 37's aggregates classes, properties and shapes.
+    assert sum(sizes.values()) == 5190
     assert sizes["urn:graph:reference:fibo"] == 277
 
 

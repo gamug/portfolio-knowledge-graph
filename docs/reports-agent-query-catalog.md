@@ -54,6 +54,7 @@ unscoped pattern.
 | `urn:graph:reference:fibo` | the FIBO 2026Q2 glossary slice (54 entries) | `GRAPH <urn:graph:reference:fibo> { ... }` |
 | `urn:graph:rules:catalog` | every `:RuleDefinition`, selection and GUARD | `GRAPH <urn:graph:rules:catalog> { ... }` |
 | `urn:graph:derived:backtest:*` | one append-only graph per completed run family and window: the m018 book/GUARD graph and the selection-side sibling (`...:selection:...`) | `GRAPH ?g { ... } FILTER (STRSTARTS(STR(?g), "urn:graph:derived:backtest:"))` |
+| `urn:graph:derived:backtest:aggregates:*` | one append-only per-label aggregates graph: `:AggregatesSet`, `:TrendFilterState` and `:ReferenceReturn` | `GRAPH ?g { ... } FILTER (STRSTARTS(STR(?g), "urn:graph:derived:backtest:aggregates:"))` |
 | `urn:graph:derived:ticker-history:*` | one append-only ticker-history snapshot per label and date | `GRAPH ?g { ... } FILTER (STRSTARTS(STR(?g), "urn:graph:derived:ticker-history:"))` |
 | `urn:graph:derived:orchestrator:*` | one append-only graph per orchestrator run | `GRAPH ?g { ... } FILTER (STRSTARTS(STR(?g), "urn:graph:derived:orchestrator:"))` |
 
@@ -791,6 +792,72 @@ WHERE {
 }
 GROUP BY ?label ?window
 ORDER BY ?label ?window
+```
+
+### 5.14 The trend filter and the reference returns
+
+These are per-segment aggregates published by upstream in `aggregates_<label>.json`, projected into
+`urn:graph:derived:backtest:aggregates:{label}`. The graph holds one row per decision date (whether
+SPY was below the simple mean of its last 210 session closes, and the cash fraction the filter moved)
+and one row per reporting segment and reference (`SPY` or `SP500_EW_INTERNAL`). It **does not hold a
+daily series, a price level or the 210-session average**: the only SPY numbers are the per-segment
+total return and max drawdown, and the filter state is the published word `below` /
+`at_or_above` / `not_evaluable`.
+
+The first query returns the decision dates with the filter on in one window, with the cash fraction.
+`"rule"` and `"P1"` are parameters, as in §5; the window is compared as a value, never as a substring
+of the graph name.
+
+<!-- q:trend-filter-on-in-window expect:1 -->
+
+```sparql
+PREFIX : <https://thesis.local/kg/portfolio#>
+
+SELECT ?date ?cashFraction
+WHERE {
+  GRAPH ?g {
+    ?state a :TrendFilterState ; :runLabel ?label ; :trendWindow ?window ;
+      :trendDecisionDate ?date ; :trendState "below" ; :cashFraction ?cashFraction .
+  }
+  FILTER (STRSTARTS(STR(?g), "urn:graph:derived:backtest:aggregates:"))
+  # Optional run-label parameter: change "rule" to another label.
+  FILTER (?label = "rule")
+  FILTER (?window = "P1")
+}
+ORDER BY ?date
+```
+
+The second query puts the two reference returns of a window and segment beside every arm's own
+segment return from the existing `:PortfolioPeriodSummary` projection. A row is one reference × one
+arm; the reference numbers are the upstream aggregate, not a recomputation here, and the arm number
+is the summary's `:cumulativeReturn`. `P2` has its two cuts `P2a` and `P2b` in `:returnSegment`; the
+window stays `P2` for all three.
+
+<!-- q:reference-returns-and-arm expect:4 -->
+
+```sparql
+PREFIX : <https://thesis.local/kg/portfolio#>
+
+SELECT ?reference ?totalReturn ?maxDrawdown ?arm ?armReturn
+WHERE {
+  GRAPH ?g {
+    ?ref a :ReferenceReturn ; :runLabel ?label ; :returnWindow ?window ;
+      :returnSegment ?segment ; :referenceName ?reference ;
+      :referenceTotalReturn ?totalReturn ; :referenceMaxDrawdown ?maxDrawdown .
+  }
+  GRAPH ?b {
+    ?summary a :PortfolioPeriodSummary ; :summaryOfBook ?book ;
+      :windowId ?window ; :segment ?segment ; :armCode ?arm ;
+      :cumulativeReturn ?armReturn .
+    ?book :runLabel ?label .
+  }
+  FILTER (STRSTARTS(STR(?g), "urn:graph:derived:backtest:aggregates:"))
+  FILTER (STRSTARTS(STR(?b), "urn:graph:derived:backtest:"))
+  # Optional run-label parameter: change "rule" to another label.
+  FILTER (?label = "rule")
+  FILTER (?window = "P1" && ?segment = "P1")
+}
+ORDER BY ?reference ?arm
 ```
 
 ## 6. Sector and industry questions

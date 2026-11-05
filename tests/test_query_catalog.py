@@ -23,12 +23,15 @@ from pathlib import Path
 
 import pytest
 import rdflib
+from fixtures.aggregates_rows import aggregates_document, write_aggregates
 from fixtures.backtest_rows import ASSETS, backtest_db, load_catalog, scenario_rows
 from fixtures.reference_rows import ASSETS as REFERENCE_ASSETS
 from fixtures.reference_rows import reference_db
 from rdflib.query import ResultRow
 from rdflib.term import URIRef
 
+from projection.aggregates import parse_aggregates, with_manifest
+from projection.aggregates import project as project_aggregates
 from projection.backtest import (
     SELECTION_VIEWS,
     VIEWS,
@@ -98,6 +101,8 @@ EXPECTED_NAMES = frozenset(
         "sector-coverage-of-held-assets",
         "unclassified-assets-by-validto-year",
         "sector-of-asset",
+        "trend-filter-on-in-window",
+        "reference-returns-and-arm",
     }
 )
 
@@ -123,6 +128,10 @@ BACKTEST_NAMES = frozenset(
         "sector-coverage-of-held-assets",
     }
 )
+
+#: The aggregates-file queries (Work item 37): they bind their own graph family and compare the
+#: label/window as values, never as part of the graph name.
+AGGREGATES_NAMES = frozenset({"trend-filter-on-in-window", "reference-returns-and-arm"})
 
 #: The eleven questions of the brief's §6, verbatim and in its order.
 EXPECTED_QUESTIONS = (
@@ -311,6 +320,16 @@ def catalog_dataset(tmp_path_factory: pytest.TempPathFactory) -> rdflib.Dataset:
                     graph = dataset.graph(URIRef(name))
                     for triple in builder.triples:
                         graph.add(triple)
+
+    # The per-label aggregates file (Work item 37): both references, P2a/P2b and a
+    # not_evaluable row. It is attached to the synthetic "rule" label.
+    aggregates_dir = tmp_path_factory.mktemp("aggregates")
+    path = write_aggregates(aggregates_dir, aggregates_document("rule"), label="rule")
+    data = with_manifest(parse_aggregates(path, label="rule"), aggregates_dir, path.name)
+    aggregates_builder = project_aggregates(data)
+    aggregates_graph = dataset.graph(URIRef("urn:graph:derived:backtest:aggregates:rule"))
+    for triple in aggregates_builder.triples:
+        aggregates_graph.add(triple)
     return dataset
 
 
@@ -442,6 +461,23 @@ def test_backtest_queries_do_not_name_a_graph_or_a_run() -> None:
             assert ":windowId" in query or ":weightOfBook" in query, name
         else:
             assert "FILTER (?label" not in query, name
+
+
+def test_aggregates_queries_do_not_name_a_graph_or_a_run() -> None:
+    for name in AGGREGATES_NAMES:
+        query = _query(name)
+        assert "GRAPH ?g" in query, name
+        assert 'STRSTARTS(STR(?g), "urn:graph:derived:backtest:aggregates:")' in query, name
+        assert not re.search(r"urn:graph:derived:backtest:aggregates:[A-Za-z0-9{]", query), name
+        assert 'FILTER (?label = "rule")' in query, name
+        assert ":trendWindow" in query or ":returnWindow" in query, name
+
+
+def test_the_aggregates_limit_is_stated() -> None:
+    text = " ".join(_document().replace("`", "").split())
+    assert "per-segment aggregates" in text
+    assert "does not hold a daily series" in text
+    assert "210-session average" in text
 
 
 # --- every tagged query runs and matches its expectation ----------------------------------------
