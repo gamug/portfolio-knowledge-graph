@@ -1207,6 +1207,42 @@ repository. See `PLAN.md` Work item 28, SPEC FR-008 and `docs/backtest-load-runb
       `portfolio_test` catalog `urn:graph:universe:2026-Q4` is known after the 2026-11-04 full load
       (Work item 32). → `PLAN.md` Work item 28.
 
+## Work item 35 — Load a six-window delivery with its manifest and configuration (T-520–T-529)
+
+*Design and acceptance criteria: `PLAN.md` Work item 35. Delivery mode is `--dir`; explicit
+`--db` stays as the legacy path; the pilot uses `--no-manifest --no-config`.*
+
+- [ ] **T-520** Record the design in `PLAN.md` Work item 35 and this task block before any code.
+      → `PLAN.md` Work item 35.
+- [ ] **T-521** Add the delivery module: window discovery for `<label>_<window>.db`, the fixed
+      `P1/H1/P3/H2/P2/H3` vocabulary, the optional `--windows` requirement, `SHA256SUMS` parsing,
+      1 MiB stream hashing with a time per file, case-insensitive comparison and lowercase storage,
+      and the chronological `v_book` window information. → `PLAN.md` Work item 35 decisions 1–2.
+- [ ] **T-522** Add the configuration reader for `config_<label>.md`: minimal front matter with
+      every scalar a string, required `label`/`code_commit`/`pr`/`results_doc`, optional
+      `config_id`/`status`, unknown keys as warnings, label/file-name checks and the body verbatim
+      after the separator blank line. → decision 3.
+- [ ] **T-523** Add the metadata module: deterministic `:BacktestRun_{label}_{window}` and
+      `:RunConfiguration_{label}` Turtle, `gate.plan`/`gate.write`, and the read-only post-write
+      verifier for the hashes, the single configuration and every window's run. → decision 4.
+- [ ] **T-524** Integrate delivery mode into `projection.load_run`: manifest before any database
+      read, chronological order, metadata planned with every other graph before the first write,
+      written after the selection graphs, verified afterwards; pilot flags disable it. → decisions
+      1, 4 and 5.
+- [ ] **T-525** Add the operational guards: per-step and per-window timings, the
+      `--min-free-pct` probe and fallback reminder, the low-disk HTTP 500 translation with the
+      partial graph's `DROP GRAPH`, and the 30-minute `STOP AND ASK upstream` summary. → decision 6.
+- [ ] **T-526** Add hermetic tests for the six-window folder, manifest match/mismatch/missing
+      entry, unknown and missing windows, config label mismatch and verbatim body, chronological
+      order, the metadata graph through the in-memory store and the refusal of a second write.
+      → acceptance criteria.
+- [ ] **T-527** Update `docs/backtest-load-runbook.md`, `docs/graphdb-setup.md`, `README.md`,
+      `SPEC.md` and the task records. → decision 7 and acceptance criteria.
+- [ ] **T-528** Run the real, read-only pilot `--check-store --no-manifest --no-config` and the
+      store-free dry run; record the result and that no write was made. → acceptance criteria.
+- [ ] **T-529** Run `pytest`, `mypy` and the pinned pre-commit hooks; report counts and timings.
+      → acceptance criteria.
+
 ## Status
 
 Closed Work items 1, 2, 3, 5, 7 (superseded/decided by T-007), 9, 10, 11 and 14 are in
