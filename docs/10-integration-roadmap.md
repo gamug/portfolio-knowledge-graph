@@ -46,10 +46,11 @@ before it, and which repo owns it.
 
 **0. Formalize ontology TBox + SHACL shapes.** ✅ **Implemented.**
 `schema/tbox.ttl` + `schema/shapes.ttl` + `schema/reference.ttl` + `schema/rules.ttl` (this
-series' §1) — 52 classes (39 mutually disjoint leaf/domain classes under a 13-class taxonomic
-backbone added 2026-08-23), 34 SHACL shapes, the 10 selection rules + 5 GUARD rules (the 7-rule
+series' §1) — 55 classes (41 mutually disjoint leaf/domain classes under a 13-class taxonomic
+backbone added 2026-08-23), 36 SHACL shapes, the 10 selection rules + 7 GUARD rules (the 7-rule
 tree catalog below is design history), and a
-5-asset worked dataset (`schema/instances.trig`) that's been parsed, SHACL-validated
+six-asset reference master (five S&P 500 constituents plus the core ETF SPY) and its worked
+ABox (`schema/instances.trig`) that have been parsed, SHACL-validated
 (`pyshacl`: conforms = True), and independently re-evaluated in Python to confirm the rule trees
 fire exactly as intended (that 7-rule catalog is superseded as the target by `portfolio-financial-analysis`'s
 six-rule catalog — `.specify/memory/SPEC.md` §2.6 D4; `rules.ttl` carried those six as the active catalog (nine since T-187, 2026-10-13) and keeps the seven as closed design history — T-103, done 2026-10-03). Everything downstream needs real classes to write into — this is why it

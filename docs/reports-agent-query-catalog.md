@@ -245,12 +245,12 @@ backtest terms; neither has a FIBO link, and neither needs one.
 
 A rule is **active** when it has no `:validTo`; a closed rule is history and
 must not be counted. The ten active selection rules are the `DATA_QUALITY`,
-`FINANCIAL` and `MARKET` rows; the five GUARD rules are the `GUARD` rows.
-`L1_STOP_LOSS` and `L1_REENTRY` are both layer 1, `L2_NEWS` layer 2, `L3_VOL`
-layer 3 and `L4_DD` layer 4. `LIQUIDITY_DISTRESS` has two definitions with
+`FINANCIAL` and `MARKET` rows; the seven GUARD rules are the `GUARD` rows.
+`L1_STOP_LOSS`, `L1_REENTRY`, `L1_BP_STOP` and `L1_BP_REENTRY` are layer 1,
+`L2_NEWS` layer 2, `L3_VOL` layer 3 and `L4_DD` layer 4. `LIQUIDITY_DISTRESS` has two definitions with
 the same `:ruleId`; only the active one (`..._v11`) is returned.
 
-<!-- q:active-rules expect:15 -->
+<!-- q:active-rules expect:17 -->
 
 ```sparql
 PREFIX : <https://thesis.local/kg/portfolio#>
@@ -798,12 +798,13 @@ ORDER BY ?label ?window
 The sector of an asset is split across two graph families. In `portfolio_test`
 on 2026-11-04, `:Asset` and `:classifiedAs` live in
 `urn:graph:universe:2026-Q4` (643 assets, 584 with a classification; the five
-worked-example assets are declared separately in `reference.ttl`), while
+S&P 500 worked-example assets are declared separately in `reference.ttl`, and Work item 33 adds
+the core ETF `SPY`, which has no classification), while
 `:Industry`, `:Sector`, `:memberOfSector` and their `skos:prefLabel`s live in
-`urn:graph:reference`. Only the five worked-example assets that
+`urn:graph:reference`. Only the worked-example assets that
 `schema/reference.ttl` declares satisfy a pattern that holds the classification
 and the taxonomy in one graph. A query with both in a single `GRAPH` block
-therefore returns those five rows, or none if the block names the universe
+therefore returns those five rows (SPY is not classified), or none if the block names the universe
 graph, not the catalog.
 
 The cross-graph rule is:
@@ -823,7 +824,7 @@ The cross-graph rule is:
 The default graph of GraphDB is the union of every named graph, so that
 sub-select can see the classification in the universe graph and the taxonomy in
 the reference graph at once. The `DISTINCT` is load-bearing: the five
-worked-example assets also appear in the universe graph for their memberships
+S&P 500 worked-example assets also appear in the universe graph for their memberships
 (T-225), so without it the same asset-to-sector pair is counted twice. Do not
 put the backtest triples in that union sub-select; they belong to one run graph
 and are scoped by `GRAPH ?g`.
@@ -1053,7 +1054,7 @@ ORDER BY ?year
 
 This is the Q5 data answer. `VALUES ?ticker { "AAA" }` is the parameter; change
 the literal for another ticker. The asset-to-sector part is the same cross-graph
-`SELECT DISTINCT` sub-select as §6.1. The five worked-example assets are
+`SELECT DISTINCT` sub-select as §6.1. The worked-example assets are
 declared in `reference.ttl` and appear again in the universe graph for their
 memberships (T-225), so the `DISTINCT` is what makes `AAPL` return exactly one
 row. A ticker with no `:classifiedAs` returns no row: that is the source gap
@@ -1125,7 +1126,7 @@ The status column is one of:
   S&P 500 membership and the `:UniverseMembership` relation. **Loader note
   (2026-11-04):** `cli/load_universe.py` (logic in `src/kg_store/universe.py`)
   has run in `portfolio_test`; `urn:graph:universe:2026-Q4` holds the catalog
-  (643 `:Asset` individuals, 584 with `:classifiedAs`; the five
+  (643 `:Asset` individuals, 584 with `:classifiedAs`; the six
   `reference.ttl` assets are additional). The sector questions (Q5 and Q11) are
   therefore **Today**. The label stays for the rows whose own live check has
   not been recorded.

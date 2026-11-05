@@ -169,10 +169,11 @@ ticker in the universe database; a former index member absent from that small da
 `:guardTicker`/`:holdingKey` and is counted.
 
 The window and segment vocabularies are patterns, not closed lists: `windowId` must match
-`P[0-9]+` and `segment` `P[0-9]+[a-z]?`, in the projector, the gate's graph pattern and
-`shapes.ttl`. A new window (`P4`) or sub-period (`P2c`) therefore needs no schema change; the
-trade-off, stated in `docs/06` §1.10, is that SHACL no longer catches a mistyped window number.
-The arm list stays closed.
+`[PH][0-9]+` and `segment` `[PH][0-9]+[a-z]?`, in the projector, the gate's graph patterns and
+`shapes.ttl`. A new window (`P4`), a holdout window (`H1`) or a sub-period (`P2c`) therefore needs
+no schema change; the trade-off, stated in `docs/06` §1.10, is that SHACL no longer catches a
+mistyped window number. The arm list stays closed, with `MARKOWITZ_BASE_GUARD` as the fourth final
+arm.
 
 The full asset master makes those links resolve. Load it once per repository with
 `uv run python cli/load_universe.py --write` (`docs/graphdb-setup.md`), then extend it with
@@ -228,14 +229,32 @@ Two rules the m018 projector keeps, both from the handoff §3.3 and the complete
   layer-1 alerts have no `value`; layers 3–4 have no asset/ticker; asset-level actions have no
   `weight_before`/`weight_after`; CASH weight rows have no asset/holding name; ordinary-session
   weight rows have no target weights; `v_book.guard_layers` is NULL on `MARKOWITZ_BASE` and
-  `TOPN_MV_NOGUARD`. The shapes leave all of these optional and the projector never invents a value.
-- **The GUARD rules are read, not evaluated.** The five `RuleDefinition`s in `rules.ttl` are
-  `:category "GUARD"` and carry `:guardLayer`; an alert links to one through `:alertRule`. They are
+  `TOPN_MV_NOGUARD`, while both guard arms carry `[1, 3, 4]`. The shapes leave all of these optional and the projector never invents a value.
+- **The GUARD rules are read, not evaluated.** The seven `RuleDefinition`s in `rules.ttl` are
+  `:category "GUARD"` and carry `:guardLayer`; an alert links to one through `:alertRule`.
+  `L1_BP_STOP`/`L1_BP_REENTRY` alerts carry no `:alertThreshold` (it is an asset price level and
+  is forbidden); every other alert keeps its fixed-parameter threshold. They are
   not veto rules and are never written as a `Veto`'s `:appliesRule`/`:primaryRule`. `L2_NEWS` is
   disabled in the 2022–2025 backtest.
 
 The dry runs over `rule_P1/P2/P3.db` and their row/triple counts are recorded in `SPEC.md` §2.6 and
 `TASKS.md` T-207/T-230–T-236; no store was written.
+
+## Final-backtest vocabulary (Work item 33)
+
+The ontology, shapes and gate now accept the final backtest before any data arrives. The six
+windows are `P1`, `H1`, `P3`, `H2`, `P2` (with `P2a`/`P2b`) and `H3`, always ordered by date; the
+four arms are `MARKOWITZ_BASE`, `TOPN_MV_NOGUARD`, `TOPN_MV_GUARD_NO_NLP`, `TOPN_MV_GUARD` and
+`MARKOWITZ_BASE_GUARD`. `L1_BP_STOP`/`L1_BP_REENTRY` are layer-1 GUARD rules, not vetoes, and their
+alerts must not carry `:alertThreshold`. `SPY` is an `:ExchangeTradedFund` in
+`urn:graph:reference`, not an S&P 500 member; sector readers show its `ETF núcleo` label instead of
+counting it as unclassified.
+
+The loader in Work item 35 also writes the run metadata: one `:BacktestRun` per label and window
+and one `:RunConfiguration` per label, into the append-only graph
+`urn:graph:derived:backtest:meta:{label}`. The configuration carries the code commit, PR, results
+document and optional `config_id`/`status`, with the frozen English body text verbatim in its
+`rdfs:comment`.
 
 ## Ticker history and orchestrator process records (T-208, T-350–T-360)
 

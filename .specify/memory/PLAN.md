@@ -2327,9 +2327,9 @@ the runbook so the next load does not repeat them.
 **Verified 2026-11-04**: docs-only; `uv run pytest -q`, `mypy` and the pinned pre-commit hooks
 pass; no schema file changed. No GraphDB write or reload was made by this change.
 
-## Work item 33 — Open the vocabulary for the final backtest (T-470–T-499)
+## Work item 33 — Open the vocabulary for the final backtest (T-470–T-477)
 
-**Status: open (design first, then vocabulary only).**
+**Status: closed 2026-11-04.**
 
 **Why**: the final backtest uses six contiguous windows ordered by date (`P1`, `H1`, `P3`, `H2`,
 `P2`, `H3`), a fourth arm (`MARKOWITZ_BASE_GUARD`), two Basing Points GUARD rules
@@ -2371,8 +2371,10 @@ derived-graph target checks in the gate.
 6. **Run metadata.** `:BacktestRun` (one per label and window) carries `:runLabel`, `:windowId`,
    `:backtestRunId`, `:sourceFile`, `:sourceSha256` (`^[0-9a-f]{64}$`), `:knowledgeDate` and a
    `:runConfiguration` link. `:RunConfiguration` (one per label) carries `:runLabel`,
-   `:configCodeCommit`, `:configPr` and `:configResultsDoc`; the frozen English configuration text
-   is its `rdfs:comment`. Both are disjoint leaves (41 leaves, 55 classes, 36 named shapes). The
+   `:configCodeCommit`, `:configPr` and `:configResultsDoc`, plus the optional `:configId` and
+   `:configStatus` front-matter keys; the frozen English configuration text, hard line breaks
+   included, is its `rdfs:comment`. Both are disjoint leaves (41 leaves, 55 classes, 36 named
+   shapes). The
    append-only graph `urn:graph:derived:backtest:meta:{label}` is added to the gate. It cannot
    collide with the m018 or selection names because those full-match four/five path segments after
    `backtest` while the meta name has three; the labels `meta` and `selection` stay usable as run
@@ -2385,16 +2387,18 @@ derived-graph target checks in the gate.
 
 **Tasks**:
 
-- **T-470** Record this design before any code.
-- **T-471** Open the window/segment patterns (`[PH]`) in the shapes, tbox comments, projector
+- [x] **T-470** Record this design before any code.
+- [x] **T-471** Open the window/segment patterns (`[PH]`) in the shapes, tbox comments, projector
   constants, both gate patterns and the target schema.
-- **T-472** Add `MARKOWITZ_BASE_GUARD` to every arm list and to the tbox comments.
-- **T-473** Add the two Basing Points GUARD rules and the conditional `:alertThreshold` shape.
-- **T-474** Add `:ExchangeTradedFund`, `:SPY`, the `AssetShape` ETF branch and the 643 + 6 count.
-- **T-475** Add `:BacktestRun`/`:RunConfiguration`, their shapes and the meta graph target.
-- **T-476** Hermetic tests for `H1`/`H3`, `P2a`/`P2b`, the fourth arm, both threshold cases, the ETF
-  and ordinary assets, the metadata classes and the meta graph (accepted once, refused twice).
-- **T-477** Update the docs/counts, run `pytest`, `mypy` and the pinned pre-commit hooks, and report
+- [x] **T-472** Add `MARKOWITZ_BASE_GUARD` to every arm list and to the tbox comments.
+- [x] **T-473** Add the two Basing Points GUARD rules and the conditional `:alertThreshold` shape.
+- [x] **T-474** Add `:ExchangeTradedFund`, `:SPY`, the `AssetShape` ETF branch and the 643 + 6 count.
+- [x] **T-475** Add `:BacktestRun`/`:RunConfiguration`, their shapes, the optional `:configId`/
+  `:configStatus` keys and the meta graph target.
+- [x] **T-476** Hermetic tests for `H1`/`H3`, `P2a`/`P2b`, the fourth arm, both threshold cases, the ETF
+  and ordinary assets, the metadata classes, the configuration-body round trip and the meta graph
+  (accepted once, refused twice).
+- [x] **T-477** Update the docs/counts, run `pytest`, `mypy` and the pinned pre-commit hooks, and report
   the exact commands and timings.
 
 **Acceptance criteria**:
@@ -2413,3 +2417,8 @@ derived-graph target checks in the gate.
   `cli/verify_store.py`); pilot data remains valid.
 
 **Blocked on**: nothing. The user performs every GraphDB write.
+
+**Verified 2026-11-04**: `uv run pytest -q` = **1362 passed, 59 deselected, 5114 warnings in
+1232.29 s (20:32)**; `mypy` = success, **106 source files**; the pinned pre-commit hooks pass on
+every changed file; FR-001 remains **4634 quads; conforms: True**.
+No GraphDB write or reload was made.
