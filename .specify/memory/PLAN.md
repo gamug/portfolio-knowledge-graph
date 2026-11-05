@@ -2562,11 +2562,12 @@ for that data without touching the loader (Work item 35) or GraphDB.
 
 **Blocked on**: nothing. The user performs every GraphDB write and the schema reload.
 
-**Verified 2026-11-05**: `uv run pytest -q` = **1418 passed, 59 deselected, 8329 warnings in
-1020.21 s (17:00)**; `mypy` = success, **112 source files**; the pinned pre-commit hooks pass on
-every changed file; FR-001 remains **4634 quads; conforms: True**. The read-only pilot dry runs and
+**Verified 2026-11-05**: `uv run pytest -q` = **1479 passed, 59 deselected, 8779 warnings in
+1124.41 s (18:44)**; `mypy` = success, **118 source files**; the pinned pre-commit hooks pass on
+every changed file; FR-001 is the merged **4913 quads; conforms: True**. The read-only pilot dry runs and
 the in-memory verifier checks are above. No GraphDB write or reload was made by the agent; the user
 reloads the schema afterwards.
+
 ## Work item 35 — Load a six-window delivery with its manifest and configuration (T-520–T-529)
 
 **Status: closed 2026-11-05.**

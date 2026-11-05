@@ -1399,10 +1399,11 @@ afterwards with `cli/load_schema.py`, then `cli/verify_store.py`, so the store h
 literals; `protege-view.ttl` was not regenerated. `SPY` is linked through the already-loaded
 `urn:graph:reference`.
 
-**Verified 2026-11-05**: `uv run pytest -q` = **1418 passed, 59 deselected, 8329 warnings in
-1020.21 s (17:00)**; `mypy` = success, **112 source files**; the pinned pre-commit hooks pass on
-every changed file; FR-001 remains **4634 quads; conforms: True**. No GraphDB write or reload was
-made by the agent; the user reloads the schema afterwards.
+**Verified 2026-11-05**: `uv run pytest -q` = **1479 passed, 59 deselected, 8779 warnings in
+1124.41 s (18:44)**; `mypy` = success, **118 source files**; the pinned pre-commit hooks pass on
+every changed file; FR-001 is the merged **4913 quads; conforms: True**. No GraphDB write or reload
+was made by the agent; the user reloads the schema afterwards.
+
 ## Work item 35 — Load a six-window delivery with its manifest and configuration (2026-11-05, T-520–T-529)
 
 **Goal**: make `cli/load_run.py` load the final backtest's six date-ordered windows from one
