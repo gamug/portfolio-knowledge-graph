@@ -2531,7 +2531,4 @@ contract without changing the projectors, the gate or the verifier.
 
 **Blocked on**: nothing. The user performs every GraphDB write.
 
-**Verified 2026-11-04**: `uv run pytest -q` = **1362 passed, 59 deselected, 5114 warnings in
-1232.29 s (20:32)**; `mypy` = success, **106 source files**; the pinned pre-commit hooks pass on
-every changed file; FR-001 remains **4634 quads; conforms: True**.
-No GraphDB write or reload was made.
+**Design recorded 2026-11-05.** No code, store read or write was made by the design commit.

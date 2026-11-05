@@ -1212,8 +1212,8 @@ repository. See `PLAN.md` Work item 28, SPEC FR-008 and `docs/backtest-load-runb
 *Design and acceptance criteria: `PLAN.md` Work item 35. Delivery mode is `--dir`; explicit
 `--db` stays as the legacy path; the pilot uses `--no-manifest --no-config`.*
 
-- [ ] **T-520** Record the design in `PLAN.md` Work item 35 and this task block before any code.
-      → `PLAN.md` Work item 35.
+- [x] **T-520** *(done 2026-11-05)* Record the design in `PLAN.md` Work item 35 and this task block
+      before any code. → `PLAN.md` Work item 35.
 - [ ] **T-521** Add the delivery module: window discovery for `<label>_<window>.db`, the fixed
       `P1/H1/P3/H2/P2/H3` vocabulary, the optional `--windows` requirement, `SHA256SUMS` parsing,
       1 MiB stream hashing with a time per file, case-insensitive comparison and lowercase storage,
