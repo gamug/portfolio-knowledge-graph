@@ -22,6 +22,20 @@ SCHEMA = Path(__file__).resolve().parent.parent / "schema"
 SPEC = SCHEMA.parent / ".specify" / "memory" / "SPEC.md"
 KG = rdflib.Namespace("https://thesis.local/kg/portfolio#")
 
+#: The frozen English configuration body from config_<label>.md, hard line breaks included.
+RUN_CONFIGURATION_TEXT = """Portfolio system configuration Y2 (round 4). Every 21 trading sessions the book is rebuilt as 50% SPY (core) and
+50% satellite. The satellite is chosen from the point-in-time S&P 500 members: technical, valuation and LLM-scored
+fundamental scores are blended, hard vetoes exclude a company and soft vetoes lower its score, and the top 60 names
+form the candidate pool. A minimum-variance optimisation (Ledoit-Wolf constant-correlation covariance, 756 sessions)
+then holds at most 30 names, with a 5% name cap and a 30% sector cap. A trend filter (SPY against its 210-session
+average, adapted from Faber 2007) moves half of the book to cash at a decision date when SPY is below its average.
+After every close, GUARD sets the next session's weights. Layer 1 is a Basing Points stop (Edwards & Magee,
+Bassetti's rules 1-4) on satellite names. Layer 3 scales exposure by volatility (Moreira & Muir 2017). Layer 4
+scales exposure by drawdown (Grossman & Zhou 1993). Layer 2 (news) is off. Costs are 10 basis points per trade, and
+cash earns the Kenneth French daily risk-free rate. The four arms compare this system with and without GUARD against
+a minimum-variance book over the whole eligible universe, with and without GUARD. That book's GUARD keeps the
+original layer-1 stop-loss, inspired by Kaminski & Lo (2014)."""
+
 # Load order from schema/README.md; everything but instances.trig is Turtle.
 TURTLE_FILES = ("tbox.ttl", "shapes.ttl", "reference.ttl", "rules.ttl")
 
@@ -731,13 +745,29 @@ def _guard_rule(bundle: rdflib.Dataset) -> rdflib.Graph:
     return g
 
 
-def test_the_guard_catalog_has_the_five_rule_ids_and_layers() -> None:
+def test_the_guard_catalog_has_the_seven_rule_ids_and_layers() -> None:
     g = _rules_file()
     guards = _guard_rules()
-    assert set(guards) == {"L1_STOP_LOSS", "L1_REENTRY", "L2_NEWS", "L3_VOL", "L4_DD"}
+    assert set(guards) == {
+        "L1_STOP_LOSS",
+        "L1_REENTRY",
+        "L1_BP_STOP",
+        "L1_BP_REENTRY",
+        "L2_NEWS",
+        "L3_VOL",
+        "L4_DD",
+    }
     assert {
         rule_id: int(str(g.value(rule, KG.guardLayer))) for rule_id, rule in guards.items()
-    } == {"L1_STOP_LOSS": 1, "L1_REENTRY": 1, "L2_NEWS": 2, "L3_VOL": 3, "L4_DD": 4}
+    } == {
+        "L1_STOP_LOSS": 1,
+        "L1_REENTRY": 1,
+        "L1_BP_STOP": 1,
+        "L1_BP_REENTRY": 1,
+        "L2_NEWS": 2,
+        "L3_VOL": 3,
+        "L4_DD": 4,
+    }
     for rule in guards.values():
         assert (rule, KG.ruleSeverity, None) not in g
         assert (rule, KG.penaltyPoints, None) not in g
@@ -992,3 +1022,245 @@ def test_an_expiry_does_not_close_a_veto(bundle: rdflib.Dataset, shapes: rdflib.
     g.add((_VETO, KG.lastSeenOn, _date("2026-03-01")))
     assert _violations(g, shapes) == set()
     assert (_VETO, KG.clearedOn, None) not in g
+
+
+# --- final-backtest vocabulary (Work item 33) ----------------------------------------------
+
+
+def _m018_book(
+    bundle: rdflib.Dataset,
+    *,
+    name: str = "Book_T470",
+    window: str = "H1",
+    arm: str = "MARKOWITZ_BASE_GUARD",
+    guard_layers: str | None = "[1, 3, 4]",
+) -> rdflib.Graph:
+    g = _flat(bundle)
+    book = KG[name]
+    g.add((book, rdflib.RDF.type, KG.StrategyBook))
+    g.add((book, KG.bookId, rdflib.Literal("1", datatype=rdflib.XSD.integer)))
+    g.add((book, KG.backtestRunId, rdflib.Literal("1", datatype=rdflib.XSD.integer)))
+    g.add((book, KG.runLabel, rdflib.Literal("final")))
+    g.add((book, KG.windowId, rdflib.Literal(window)))
+    g.add((book, KG.backtestStartDate, _date("2022-01-03")))
+    g.add((book, KG.backtestEndDate, _date("2026-10-15")))
+    g.add((book, KG.runStatus, rdflib.Literal("completed")))
+    g.add((book, KG.armCode, rdflib.Literal(arm)))
+    g.add((book, KG.objective, rdflib.Literal("min_var")))
+    g.add((book, KG.excludeHardVetoed, rdflib.Literal(False)))
+    if guard_layers is not None:
+        g.add((book, KG.guardLayers, rdflib.Literal(guard_layers)))
+    g.add((book, KG.knowledgeDate, _date("2026-11-04")))
+    return g
+
+
+@pytest.mark.parametrize("window", ["P1", "P2", "P3", "H1", "H2", "H3"])
+def test_every_final_window_conforms(
+    bundle: rdflib.Dataset, shapes: rdflib.Graph, window: str
+) -> None:
+    assert _violations(_m018_book(bundle, window=window), shapes) == set()
+
+
+@pytest.mark.parametrize("window", ["P2a", "P2b", "H3"])
+def test_a_window_or_segment_with_a_holdout_letter_conforms_or_is_caught(
+    bundle: rdflib.Dataset, shapes: rdflib.Graph, window: str
+) -> None:
+    """P2a/P2b are segments, not windows; H3 is a window and its own segment."""
+    if window.startswith("P2"):
+        g = _summary(bundle, segment=window)
+    else:
+        g = _summary(bundle, window=window, segment=window)
+    assert _violations(g, shapes) == set()
+
+
+def _summary(bundle: rdflib.Dataset, *, window: str = "P2", segment: str = "P2a") -> rdflib.Graph:
+    g = _m018_book(bundle, name="Book_T470")
+    summary = KG.Summary_T470
+    g.add((summary, rdflib.RDF.type, KG.PortfolioPeriodSummary))
+    g.add((summary, KG.summaryOfBook, KG.Book_T470))
+    g.add((summary, KG.bookId, rdflib.Literal("1", datatype=rdflib.XSD.integer)))
+    g.add((summary, KG.backtestRunId, rdflib.Literal("1", datatype=rdflib.XSD.integer)))
+    g.add((summary, KG.armCode, rdflib.Literal("MARKOWITZ_BASE_GUARD")))
+    g.add((summary, KG.windowId, rdflib.Literal(window)))
+    g.add((summary, KG.segment, rdflib.Literal(segment)))
+    g.add((summary, KG.dateFrom, _date("2025-02-19")))
+    g.add((summary, KG.dateTo, _date("2025-09-23")))
+    g.add((summary, KG.cumulativeReturn, rdflib.Literal("0.1", datatype=rdflib.XSD.decimal)))
+    g.add((summary, KG.annualizedReturn, rdflib.Literal("0.12", datatype=rdflib.XSD.decimal)))
+    g.add((summary, KG.annualizedVol, rdflib.Literal("0.18", datatype=rdflib.XSD.decimal)))
+    g.add((summary, KG.exPostSharpe, rdflib.Literal("0.6", datatype=rdflib.XSD.decimal)))
+    g.add((summary, KG.maxDrawdown, rdflib.Literal("0.2", datatype=rdflib.XSD.decimal)))
+    g.add((summary, KG.totalTurnover, rdflib.Literal("3.0", datatype=rdflib.XSD.decimal)))
+    g.add((summary, KG.totalCostBps, rdflib.Literal("300", datatype=rdflib.XSD.decimal)))
+    g.add((summary, KG.nRebalances, rdflib.Literal("10", datatype=rdflib.XSD.integer)))
+    g.add((summary, KG.nGuardActions, rdflib.Literal("5", datatype=rdflib.XSD.integer)))
+    g.add((summary, KG.knowledgeDate, _date("2025-09-23")))
+    return g
+
+
+@pytest.mark.parametrize(
+    "arm",
+    [
+        "MARKOWITZ_BASE",
+        "TOPN_MV_NOGUARD",
+        "TOPN_MV_GUARD_NO_NLP",
+        "TOPN_MV_GUARD",
+        "MARKOWITZ_BASE_GUARD",
+    ],
+)
+def test_every_final_arm_conforms(bundle: rdflib.Dataset, shapes: rdflib.Graph, arm: str) -> None:
+    guard = "[1, 3, 4]" if arm.endswith(("GUARD", "NO_NLP")) else None
+    assert _violations(_m018_book(bundle, arm=arm, guard_layers=guard), shapes) == set()
+
+
+def test_an_arm_outside_the_final_list_is_caught(
+    bundle: rdflib.Dataset, shapes: rdflib.Graph
+) -> None:
+    g = _m018_book(bundle, arm="MARKOWITZ_BASE_GUARD_V2", guard_layers=None)
+    assert _violations(g, shapes) == {(KG.Book_T470, KG.armCode)}
+
+
+def _alert(
+    bundle: rdflib.Dataset, *, rule: str, threshold: str | None, window: str = "H1"
+) -> rdflib.Graph:
+    g = _flat(bundle)
+    alert = KG.Alert_T470
+    g.add((alert, rdflib.RDF.type, KG.GuardAlert))
+    g.add((alert, KG.alertId, rdflib.Literal("7", datatype=rdflib.XSD.integer)))
+    g.add((alert, KG.backtestRunId, rdflib.Literal("1", datatype=rdflib.XSD.integer)))
+    g.add((alert, KG.windowId, rdflib.Literal(window)))
+    g.add((alert, KG.alertDate, _date("2026-01-05")))
+    g.add((alert, KG.guardLayer, rdflib.Literal("1", datatype=rdflib.XSD.integer)))
+    g.add((alert, KG.alertRule, KG[f"Rule_{rule}"]))
+    g.add((alert, KG.alertState, rdflib.Literal("ENTER")))
+    g.add((alert, KG.knowledgeDate, _date("2026-01-05")))
+    if threshold is not None:
+        g.add((alert, KG.alertThreshold, rdflib.Literal(threshold, datatype=rdflib.XSD.decimal)))
+    return g
+
+
+@pytest.mark.parametrize("rule", ["L1_BP_STOP", "L1_BP_REENTRY"])
+def test_a_basing_points_alert_without_a_threshold_conforms(
+    bundle: rdflib.Dataset, shapes: rdflib.Graph, rule: str
+) -> None:
+    assert _violations(_alert(bundle, rule=rule, threshold=None), shapes) == set()
+
+
+@pytest.mark.parametrize("rule", ["L1_BP_STOP", "L1_BP_REENTRY"])
+def test_a_basing_points_alert_with_a_threshold_is_caught(
+    bundle: rdflib.Dataset, shapes: rdflib.Graph, rule: str
+) -> None:
+    """The BP threshold is an individual asset's stop price, not a publishable parameter."""
+    assert _violations(_alert(bundle, rule=rule, threshold="123.45"), shapes) == {
+        (KG.Alert_T470, None)
+    }
+
+
+@pytest.mark.parametrize("rule", ["L1_STOP_LOSS", "L1_REENTRY"])
+def test_a_fixed_parameter_alert_still_requires_a_threshold(
+    bundle: rdflib.Dataset, shapes: rdflib.Graph, rule: str
+) -> None:
+    assert _violations(_alert(bundle, rule=rule, threshold=None), shapes) == {(KG.Alert_T470, None)}
+    assert _violations(_alert(bundle, rule=rule, threshold="0.0108"), shapes) == set()
+
+
+def test_an_exchange_traded_fund_may_omit_cik_classification_and_membership(
+    bundle: rdflib.Dataset, shapes: rdflib.Graph
+) -> None:
+    g = _flat(bundle)
+    g.add((KG.SPY_T470, rdflib.RDF.type, KG.ExchangeTradedFund))
+    g.add((KG.SPY_T470, KG.tickerSymbol, rdflib.Literal("SPY")))
+    g.add((KG.SPY_T470, KG.companyName, rdflib.Literal("SPDR S&P 500 ETF Trust")))
+    assert _violations(g, shapes) == set()
+
+
+def test_an_ordinary_asset_without_cik_classification_and_membership_is_caught(
+    bundle: rdflib.Dataset, shapes: rdflib.Graph
+) -> None:
+    g = _flat(bundle)
+    g.add((KG.ORDINARY_T470, rdflib.RDF.type, KG.Asset))
+    g.add((KG.ORDINARY_T470, KG.tickerSymbol, rdflib.Literal("ORD")))
+    assert _violations(g, shapes) == {(KG.ORDINARY_T470, None)}
+
+
+def _run_metadata(
+    bundle: rdflib.Dataset, *, sha: str = "a" * 64, config: bool = True
+) -> rdflib.Graph:
+    g = _flat(bundle)
+    config_iri = KG.Config_T470
+    run = KG.Run_T470
+    g.add((config_iri, rdflib.RDF.type, KG.RunConfiguration))
+    g.add((config_iri, KG.runLabel, rdflib.Literal("final")))
+    g.add((config_iri, KG.configCodeCommit, rdflib.Literal("537e864")))
+    g.add((config_iri, KG.configPr, rdflib.Literal("192")))
+    g.add((config_iri, KG.configResultsDoc, rdflib.Literal("docs/results.md")))
+    g.add((config_iri, KG.configId, rdflib.Literal("Y2")))
+    g.add(
+        (
+            config_iri,
+            KG.configStatus,
+            rdflib.Literal(
+                'candidate (the system may still change in round 5; the final delivery will be label "final")'
+            ),
+        )
+    )
+    g.add((run, rdflib.RDF.type, KG.BacktestRun))
+    g.add((run, KG.runLabel, rdflib.Literal("final")))
+    g.add((run, KG.windowId, rdflib.Literal("H1")))
+    g.add((run, KG.backtestRunId, rdflib.Literal("1", datatype=rdflib.XSD.integer)))
+    g.add((run, KG.sourceFile, rdflib.Literal("final_H1.db")))
+    g.add((run, KG.sourceSha256, rdflib.Literal(sha)))
+    g.add((run, KG.knowledgeDate, _date("2026-11-04")))
+    if config:
+        g.add((run, KG.runConfiguration, config_iri))
+    return g
+
+
+def test_the_run_metadata_classes_conform(bundle: rdflib.Dataset, shapes: rdflib.Graph) -> None:
+    assert _violations(_run_metadata(bundle), shapes) == set()
+
+
+@pytest.mark.parametrize(
+    ("sha", "config", "path"),
+    [
+        ("A" * 64, True, KG.sourceSha256),  # uppercase is not the sha256sum format
+        ("a" * 63, True, KG.sourceSha256),
+        ("a" * 64, False, KG.runConfiguration),  # the required link is missing
+    ],
+    ids=["uppercase", "short", "missing configuration"],
+)
+def test_malformed_run_metadata_is_caught(
+    bundle: rdflib.Dataset, shapes: rdflib.Graph, sha: str, config: bool, path: object
+) -> None:
+    assert _violations(_run_metadata(bundle, sha=sha, config=config), shapes) == {
+        (KG.Run_T470, path)
+    }
+
+
+def test_the_run_configuration_body_round_trips_verbatim() -> None:
+    """The fixed body keeps its hard line breaks, apostrophes and ampersands through Turtle."""
+    tbox = rdflib.Graph().parse(SCHEMA / "tbox.ttl", format="turtle")
+    comment = tbox.value(KG.RunConfiguration, rdflib.RDFS.comment)
+    assert comment is not None
+    assert str(comment) == RUN_CONFIGURATION_TEXT
+    assert "\n" in str(comment) and "&" in str(comment) and "'" in str(comment)
+    again = rdflib.Graph().parse(data=tbox.serialize(format="turtle"), format="turtle")
+    assert str(again.value(KG.RunConfiguration, rdflib.RDFS.comment)) == RUN_CONFIGURATION_TEXT
+
+
+def test_run_configuration_front_matter_is_optional(
+    bundle: rdflib.Dataset, shapes: rdflib.Graph
+) -> None:
+    g = _run_metadata(bundle)
+    g.remove((KG.Config_T470, KG.configId, None))
+    g.remove((KG.Config_T470, KG.configStatus, None))
+    assert _violations(g, shapes) == set()
+
+
+def test_a_config_status_with_quotes_round_trips() -> None:
+    """The status line keeps its quotes and parentheses through Turtle, like the body text."""
+    expected = 'candidate (the system may still change in round 5; the final delivery will be label "final")'
+    g = rdflib.Graph()
+    g.add((KG.Config_T470, KG.configStatus, rdflib.Literal(expected)))
+    reparsed = rdflib.Graph().parse(data=g.serialize(format="turtle"), format="turtle")
+    assert str(reparsed.value(KG.Config_T470, KG.configStatus)) == expected

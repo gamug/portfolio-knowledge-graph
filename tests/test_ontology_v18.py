@@ -108,11 +108,12 @@ NEW_CLASSES: dict[rdflib.URIRef, tuple[rdflib.URIRef, str, str]] = {
         KG.Collection,
         "libro de estrategia de backtest",
         (
-            "Brazo experimental de una corrida de backtest en una ventana histórica (P1, P2 o P3): "
-            "MARKOWITZ_BASE (optimización de mínima varianza sobre todo el universo elegible sin "
-            "selección de ciclo), TOPN_MV_NOGUARD (selección Top-30 del ciclo + mínima varianza sin "
-            "GUARD) o TOPN_MV_GUARD_NO_NLP (selección Top-30 + mínima varianza con protección diaria "
-            "GUARD activa)."
+            "Brazo experimental de una corrida de backtest en una ventana histórica (P<n> o H<n>, "
+            "por ejemplo P1, H1, P3, H2, P2 o H3): MARKOWITZ_BASE (optimización de mínima varianza "
+            "sobre todo el universo elegible sin selección de ciclo), TOPN_MV_NOGUARD (selección "
+            "Top-30 del ciclo + mínima varianza sin GUARD), TOPN_MV_GUARD_NO_NLP (selección Top-30 + "
+            "mínima varianza con protección diaria GUARD activa) o MARKOWITZ_BASE_GUARD (la misma "
+            "optimización de MARKOWITZ_BASE con protección GUARD)."
         ),
     ),
     KG.BookRebalance: (
@@ -129,9 +130,9 @@ NEW_CLASSES: dict[rdflib.URIRef, tuple[rdflib.URIRef, str, str]] = {
         "alerta diaria de GUARD",
         (
             "Alerta de riesgo generada al cierre de una sesión por las capas de protección diaria "
-            "GUARD: corte individual por pérdida acumulada (capa 1, L1_STOP_LOSS / L1_REENTRY), "
-            "volatilidad ex-ante del portafolio (capa 3, L3_VOL) o caída acumulada desde el máximo "
-            "(capa 4, L4_DD)."
+            "GUARD: corte individual por pérdida acumulada o por Basing Points (capa 1, L1_STOP_LOSS / "
+            "L1_REENTRY / L1_BP_STOP / L1_BP_REENTRY), volatilidad ex-ante del portafolio (capa 3, "
+            "L3_VOL) o caída acumulada desde el máximo (capa 4, L4_DD)."
         ),
     ),
     KG.GuardAction: (
@@ -167,10 +168,10 @@ NEW_CLASSES: dict[rdflib.URIRef, tuple[rdflib.URIRef, str, str]] = {
         "resumen de desempeño por período",
         (
             "Estadísticas consolidadas de un libro de estrategia en una ventana o subperíodo de "
-            "backtest (P1, P2, P2a, P2b, P3): retorno acumulado y anualizado, volatilidad anualizada, "
-            "ratio de Sharpe ex-post sobre la tasa libre de riesgo diaria (FF_RF_DAILY), máximo "
-            "drawdown, rotación total, costo total en puntos básicos, número de rebalanceos y número "
-            "de acciones de GUARD."
+            "backtest (P1, H1, P3, H2, P2 con P2a y P2b, H3): retorno acumulado y anualizado, "
+            "volatilidad anualizada, ratio de Sharpe ex-post sobre la tasa libre de riesgo diaria "
+            "(FF_RF_DAILY), máximo drawdown, rotación total, costo total en puntos básicos, número de "
+            "rebalanceos y número de acciones de GUARD."
         ),
     ),
     KG.BacktestTest: (
@@ -186,16 +187,17 @@ NEW_CLASSES: dict[rdflib.URIRef, tuple[rdflib.URIRef, str, str]] = {
 }
 
 
-def test_the_bundle_has_52_classes_and_39_disjoint_leaves(
+def test_the_bundle_has_55_classes_and_41_disjoint_leaves(
     bundle: rdflib.Dataset,
 ) -> None:
     g = _flat(bundle)
-    assert len(set(g.subjects(RDF.type, OWL.Class))) == 52
+    assert len(set(g.subjects(RDF.type, OWL.Class))) == 55
     members = set()
     for disjoint in g.subjects(RDF.type, OWL.AllDisjointClasses):
         for collection in g.objects(disjoint, OWL.members):
             members |= set(rdflib.collection.Collection(g, collection))
-    assert len(members) == 39
+    assert len(members) == 41
+    assert KG.ExchangeTradedFund not in members  # a subclass of Asset, not a sibling
     assert set(NEW_CLASSES) <= members
 
 
@@ -421,9 +423,9 @@ def test_shared_properties_have_no_domain(tbox: rdflib.Graph) -> None:
         assert (KG[name], RDFS.domain, None) not in tbox, name
 
 
-def test_the_new_shapes_are_34_named_shapes(shapes: rdflib.Graph) -> None:
+def test_the_new_shapes_are_36_named_shapes(shapes: rdflib.Graph) -> None:
     named = {s for s in shapes.subjects(RDF.type, SH.NodeShape) if isinstance(s, rdflib.URIRef)}
-    assert len(named) == 34
+    assert len(named) == 36
     assert {
         KG.TickerHistoryShape,
         KG.OrchestratorRunShape,
@@ -1075,7 +1077,15 @@ def test_the_guard_rules_are_not_in_the_selection_catalog() -> None:
         for rule in g.subjects(RDF.type, KG.RuleDefinition)
         if (rule, KG.validTo, None) not in g and str(g.value(rule, KG.category)) == "GUARD"
     }
-    assert set(guards) == {"L1_STOP_LOSS", "L1_REENTRY", "L2_NEWS", "L3_VOL", "L4_DD"}
+    assert set(guards) == {
+        "L1_STOP_LOSS",
+        "L1_REENTRY",
+        "L1_BP_STOP",
+        "L1_BP_REENTRY",
+        "L2_NEWS",
+        "L3_VOL",
+        "L4_DD",
+    }
     for rule in guards.values():
         assert (rule, KG.ruleSeverity, None) not in g
         assert (rule, KG.penaltyPoints, None) not in g

@@ -71,7 +71,7 @@ _V18 = (
     "PortfolioPeriodSummary",
     "BacktestTest",
 )
-_V18_SHA256 = "91d5a96cc1003c262e1f612c50999c5f9bd15bfff05a346fa4c7b84473eff9cf"
+_V18_SHA256 = "a7f135b08eae8591fdc8244308f2530c39755efb57266afefaca51d298be93c1"
 
 QUERY_A1 = """PREFIX :     <https://thesis.local/kg/portfolio#>
 PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
@@ -297,10 +297,10 @@ def _leaves(graph: rdflib.Graph) -> list[Node]:
     return leaves
 
 
-def test_each_of_the_39_leaf_classes_has_one_spanish_label_and_definition() -> None:
+def test_each_of_the_41_leaf_classes_has_one_spanish_label_and_definition() -> None:
     graph = rdflib.Graph().parse(SCHEMA / "tbox.ttl", format="turtle")
     leaves = _leaves(graph)
-    assert len(leaves) == 39
+    assert len(leaves) == 41
     for leaf in leaves:
         assert len(_spanish(graph, leaf, RDFS.label)) == 1, leaf
         assert len(_spanish(graph, leaf, SKOS.definition)) == 1, leaf

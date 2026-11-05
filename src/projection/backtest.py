@@ -18,8 +18,8 @@ that exists in the universe database; a former S&P 500 member absent from that s
 keeps its ``:guardTicker``/``:holdingKey`` and is counted, not dropped.
 
 The window and segment vocabularies are patterns, not closed lists: ``windowId`` is ``P<number>``
-and ``segment`` is ``P<number>`` with an optional lowercase sub-period suffix (``P2a``), so a new
-window needs no schema change (T-234). The arm vocabulary stays closed.
+or ``H<number>`` and ``segment`` adds an optional lowercase sub-period suffix (``P2a``, ``H1``), so
+a new window needs no schema change (T-234, Work item 33). The arm vocabulary stays closed.
 
 
 A GUARD alert's ``:alertRule`` points at the matching ``:Rule_{rule_id}`` in ``schema/rules.ttl``;
@@ -120,12 +120,20 @@ SELECTION_GRAPH_PREFIX = "urn:graph:derived:backtest:selection:"
 #: A run label: the operator's name for one result family (``--db LABEL=PATH``). Lowercase,
 #: 2-32 characters, and the same pattern SHACL's ``:runLabel`` enforces (T-233).
 RUN_LABEL_PATTERN = r"[a-z][a-z0-9_]{1,31}"
-#: A window id. It was the closed set ``P1|P2|P3``; it is now open to ``P<number>`` so new data
-#: needs no schema change (T-234).
-WINDOW_PATTERN = r"P[0-9]+"
+#: A window id. It was the closed set ``P1|P2|P3``; it is now open to ``P<number>`` or
+#: ``H<number>`` so new data needs no schema change (T-234, Work item 33).
+WINDOW_PATTERN = r"[PH][0-9]+"
 #: A segment: a window id plus an optional lowercase sub-period suffix (``P2a``, ``P2b``).
-SEGMENT_PATTERN = r"P[0-9]+[a-z]?"
-ARMS = frozenset({"MARKOWITZ_BASE", "TOPN_MV_NOGUARD", "TOPN_MV_GUARD_NO_NLP", "TOPN_MV_GUARD"})
+SEGMENT_PATTERN = r"[PH][0-9]+[a-z]?"
+ARMS = frozenset(
+    {
+        "MARKOWITZ_BASE",
+        "TOPN_MV_NOGUARD",
+        "TOPN_MV_GUARD_NO_NLP",
+        "TOPN_MV_GUARD",
+        "MARKOWITZ_BASE_GUARD",
+    }
+)
 
 _RUN_LABEL = re.compile(RUN_LABEL_PATTERN)
 _WINDOW = re.compile(WINDOW_PATTERN)
@@ -457,7 +465,7 @@ def _graph_suffix(label: str, window: str, run_id: int) -> str:
 
 
 def _window(value: object, where: str) -> str:
-    """A window id: ``P<number>`` (T-234)."""
+    """A window id: ``P<number>`` or ``H<number>`` (T-234, Work item 33)."""
     text = str(value)
     if not _WINDOW.fullmatch(text):
         raise ProjectionError(f"{where}: window_id {text!r} does not match {WINDOW_PATTERN}")
@@ -465,7 +473,7 @@ def _window(value: object, where: str) -> str:
 
 
 def _segment(value: object, where: str) -> str:
-    """A segment: ``P<number>`` plus an optional lowercase sub-period suffix (T-234)."""
+    """A segment: ``P<number>``/``H<number>`` plus an optional lowercase suffix (T-234, WI 33)."""
     text = str(value)
     if not _SEGMENT.fullmatch(text):
         raise ProjectionError(f"{where}: segment {text!r} does not match {SEGMENT_PATTERN}")

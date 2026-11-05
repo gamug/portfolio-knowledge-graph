@@ -162,15 +162,15 @@ def test_a_malformed_run_label_is_refused(tmp_path: Path, label: str) -> None:
         _projection(tmp_path, "P1", label)
 
 
-@pytest.mark.parametrize("window", ["P1", "P2", "P3", "P4", "P12"])
-def test_the_window_vocabulary_accepts_any_p_number(tmp_path: Path, window: str) -> None:
+@pytest.mark.parametrize("window", ["P1", "P2", "P3", "P4", "P12", "H1", "H2", "H3"])
+def test_the_window_vocabulary_accepts_any_p_or_h_number(tmp_path: Path, window: str) -> None:
     """T-234: the closed P1|P2|P3 list became a pattern, so new data needs no schema change."""
     assert graph_name("rule", window, 1) == f"urn:graph:derived:backtest:rule:{window}:1"
     projection = _projection(tmp_path, window)
     assert set(projection.graphs) == {f"urn:graph:derived:backtest:rule:{window}:1"}
 
 
-@pytest.mark.parametrize("window", ["Q1", "P", "P1a", "p1", "P-1", "P1 "])
+@pytest.mark.parametrize("window", ["Q1", "P", "H", "P1a", "H1a", "p1", "h1", "P-1", "H-1", "P1 "])
 def test_a_malformed_window_is_refused(window: str) -> None:
     with pytest.raises(ProjectionError, match="window_id"):
         graph_name("rule", window, 1)
@@ -343,16 +343,43 @@ def test_every_row_becomes_one_individual(tmp_path: Path) -> None:
     assert projection.individuals["GuardAlert"] == 5
 
 
-def test_the_guard_catalog_maps_the_five_rule_ids_to_their_layers() -> None:
+def test_the_guard_catalog_maps_the_seven_rule_ids_to_their_layers() -> None:
     catalog = load_catalog()
     assert {rule_id: rule.layer for rule_id, rule in catalog.by_id.items()} == {
         "L1_STOP_LOSS": 1,
         "L1_REENTRY": 1,
+        "L1_BP_STOP": 1,
+        "L1_BP_REENTRY": 1,
         "L2_NEWS": 2,
         "L3_VOL": 3,
         "L4_DD": 4,
     }
     assert all(rule.iri == KG[f"Rule_{rule.rule_id}"] for rule in catalog.by_id.values())
+
+
+def test_the_fourth_arm_is_projected(tmp_path: Path) -> None:
+    """Work item 33: MARKOWITZ_BASE_GUARD is a real arm, with '[1, 3, 4]' guard layers."""
+    rows = scenario_rows()
+    rows["strategy_book"].append(
+        {
+            "id": 4,
+            "backtest_run_id": 1,
+            "arm_code": "MARKOWITZ_BASE_GUARD",
+            "objective": "min_var",
+            "exclude_hard_vetoed": 0,
+            "guard_layers": "[1, 3, 4]",
+        }
+    )
+    source = FinancialSource.open(backtest_db(tmp_path, rows=rows))
+    try:
+        projection = project(_rows(source), ASSETS, load_catalog(), "rule")
+    finally:
+        source.close()
+    graph = _graph(projection, "urn:graph:derived:backtest:rule:P1:1")
+    book = KG["Book_rule_P1_MARKOWITZ_BASE_GUARD"]
+    assert (book, KG.armCode, rdflib.Literal("MARKOWITZ_BASE_GUARD")) in graph
+    assert (book, KG.guardLayers, rdflib.Literal("[1, 3, 4]")) in graph
+    assert projection.individuals["StrategyBook"] == 4
 
 
 # --- refusals -----------------------------------------------------------------------------------
@@ -412,9 +439,9 @@ def test_a_duplicate_book_iri_is_refused(tmp_path: Path) -> None:
         _run(backtest_db(tmp_path, rows=rows))
 
 
-@pytest.mark.parametrize("segment", ["P2a", "P2b", "P2c", "P12z"])
+@pytest.mark.parametrize("segment", ["P2a", "P2b", "P2c", "P12z", "H1", "H2a", "H3z"])
 def test_a_new_sub_period_segment_is_accepted(tmp_path: Path, segment: str) -> None:
-    """T-234: the closed segment list became P<number>[a-z]?, so a new sub-period needs no edit."""
+    """T-234/WI 33: the closed segment list became [PH]<number>[a-z]?, so a new sub-period needs no edit."""
     rows = scenario_rows()
     for row in rows["backtest_summary"] + rows["backtest_test"]:
         row["segment"] = segment
@@ -430,7 +457,7 @@ def test_a_new_sub_period_segment_is_accepted(tmp_path: Path, segment: str) -> N
     }
 
 
-@pytest.mark.parametrize("segment", ["Q1", "P", "P1A", "p1a", "P1 "])
+@pytest.mark.parametrize("segment", ["Q1", "P", "H", "P1A", "H1A", "p1a", "h1a", "P1 "])
 def test_a_malformed_segment_is_refused(tmp_path: Path, segment: str) -> None:
     rows = scenario_rows()
     rows["backtest_summary"][0]["segment"] = segment

@@ -27,7 +27,7 @@ graphs this run wrote; it never drops anything itself.
 
 ``--contract TARGET`` runs the same view-contract check as ``cli/check_view_contract.py`` first
 (a ``portfolio-financial-analysis`` checkout path or its API URL). ``--dir DIR`` accepts every
-``*_P<number>.db`` file in the directory, so the three final-run files need no repeated ``--db``.
+``*_{P<number>|H<number>}.db`` file in the directory, so the final-run files need no repeated ``--db``.
 Writing the production repository still needs ``--to-production``.
 
 Exit status: 0 all requested steps passed; 1 a contract, source (including a missing database),
@@ -80,7 +80,7 @@ from projection.source import FinancialSource
 from projection.verify_backtest import Verification, VerificationError, verify
 
 #: A final-run file name: a family, its window and the ``.db`` suffix (``rule_P1.db``).
-_DB_FILE = re.compile(r"[a-z][a-z0-9_]*_P[0-9]+\.db")
+_DB_FILE = re.compile(r"[a-z][a-z0-9_]*_[PH][0-9]+\.db")
 
 #: The statuses a graph can carry in the pre-flight and the final table.
 WOULD_WRITE = "would-be-written"
@@ -159,7 +159,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         default=[],
         type=Path,
         metavar="DIR",
-        help="a directory of *_P<number>.db files; every match is loaded",
+        help="a directory of *_{P<number>|H<number>}.db files; every match is loaded",
     )
     parser.add_argument("--write", action="store_true", help="append the graphs to the store")
     parser.add_argument(
@@ -204,7 +204,7 @@ def _directory_databases(directory: Path) -> list[Path]:
         key=lambda path: (_window_number(path), path.name),
     )
     if not matches:
-        raise InputError(f"--dir {directory}: no *_P<number>.db file")
+        raise InputError(f"--dir {directory}: no *_P<number>.db or *_H<number>.db file")
     return matches
 
 

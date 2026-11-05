@@ -121,8 +121,38 @@ def test_a_malformed_ticker_history_or_orchestrator_graph_is_refused(name: str) 
         gate.check_target(name)
 
 
+@pytest.mark.parametrize(
+    "name",
+    [
+        "urn:graph:derived:backtest:meta:rule",
+        "urn:graph:derived:backtest:meta:candidate",
+        "urn:graph:derived:backtest:meta:final",
+        "urn:graph:derived:backtest:meta:rule_20261105",
+    ],
+)
+def test_a_backtest_meta_graph_is_append_only_and_accepted(name: str) -> None:
+    # Work item 33: one metadata graph per run label, with three path segments after "backtest"
+    # where the m018 and selection names have four and five, so no full match can collide.
+    assert gate.check_target(name) is True
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        "urn:graph:derived:backtest:meta",  # label required
+        "urn:graph:derived:backtest:meta:Rule",  # lowercase label
+        "urn:graph:derived:backtest:meta:r",  # label is 2-32 characters
+        "urn:graph:derived:backtest:meta:rule:P1:1",  # an m018 name is not a meta name
+        "urn:graph:derived:backtest:meta:rule/extra",
+    ],
+)
+def test_a_malformed_backtest_meta_graph_is_refused(name: str) -> None:
+    with pytest.raises(gate.IngestRejected, match="not an ingest target"):
+        gate.check_target(name)
+
+
 def test_the_refusal_lists_the_backtest_graph() -> None:
-    with pytest.raises(gate.IngestRejected, match=r"derived:backtest:\{run label\}:\{P<number>\}"):
+    with pytest.raises(gate.IngestRejected, match=r"derived:backtest:\{run label\}:\{P<n>\|H<n>\}"):
         gate.check_target("urn:graph:nope")
 
 
@@ -251,6 +281,12 @@ def test_unknown_types_flags_a_typo_and_an_abstract_class(schema: gate.GateSchem
         str(KG.ScoreSnapshott),
         str(KG.ObservationSnapshot),
     }
+
+
+def test_unknown_types_accepts_a_concrete_subclass_of_a_leaf(schema: gate.GateSchema) -> None:
+    """Work item 33: ExchangeTradedFund is an Asset subclass, not a disjoint sibling."""
+    batch = gate.parse_batch(PREFIXES + b":etf a :ExchangeTradedFund .")
+    assert gate.unknown_types(batch, schema) == set()
 
 
 def test_untyped_subject_may_only_take_relations_or_a_closing_date(schema: gate.GateSchema) -> None:
@@ -715,6 +751,20 @@ def test_ingest_refuses_an_existing_append_only_graph(make_db: MakeDB) -> None:
     with pytest.raises(gate.IngestRejected, match="already exists and is append-only"):
         gate.ingest(db, GOOD, "urn:graph:ingest:SEMANTIC:2026-08-05")
     assert fake.added == []
+
+
+def test_ingest_accepts_a_backtest_meta_graph_once_and_refuses_a_second_write(
+    make_db: MakeDB,
+) -> None:
+    """Work item 33: the meta graph is append-only exactly like the m018 and selection graphs."""
+    name = "urn:graph:derived:backtest:meta:final"
+    first = make_db()
+    assert gate.ingest(first.db, GOOD, name) == 3
+    assert first.added[0][2] == name
+    second = make_db(rows=[{"s": "x"}])
+    with pytest.raises(gate.IngestRejected, match="already exists and is append-only"):
+        gate.ingest(second.db, GOOD, name)
+    assert second.added == []
 
 
 def test_ingest_refuses_individuals_already_in_the_store(make_db: MakeDB) -> None:
