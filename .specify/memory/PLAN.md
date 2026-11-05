@@ -2422,3 +2422,95 @@ derived-graph target checks in the gate.
 1232.29 s (20:32)**; `mypy` = success, **106 source files**; the pinned pre-commit hooks pass on
 every changed file; FR-001 remains **4634 quads; conforms: True**.
 No GraphDB write or reload was made.
+
+## Work item 34 — Final-backtest correctness for the projectors and the verifier (T-500–T-519)
+
+**Status: in progress (2026-11-05).**
+
+**Why**: Work item 33 opened the vocabulary, but the m018 and selection projectors and the verifier
+still behave as if every alert has a fixed-parameter threshold, every loaded asset comes from
+`universe.db`, and a period summary's `n_guard_actions` is an opaque upstream number. The final
+backtest adds `L1_BP_STOP`/`L1_BP_REENTRY` (whose threshold is an individual asset's stop price and
+must not be published), the core ETF `SPY` (present in `reference.ttl`, not `universe.db`), a fourth
+arm and six windows with `P2a`/`P2b` segments. This work item makes those three code paths correct
+for that data without touching the loader (Work item 35) or GraphDB.
+
+**Decisions**:
+
+1. **Basing Points threshold.** `_alerts` omits `:alertThreshold` whenever the row's `rule_id`
+   starts with `L1_BP_`; every other GUARD rule keeps the required threshold exactly as today. The
+   shape already forbids the triple on those two rules, so the projector and SHACL agree. The only
+   other value-bearing columns of `v_guard_alert`/`v_guard_action` on a layer-1 Basing Points row
+   are `value` (already NULL in the view for layer 1) and `weight_before`/`weight_after` (already
+   NULL in the view for every asset-level action); no other projected column carries a price level
+   or a price-derived number, so no further masking is needed. `v_veto.evidence_json` remains
+   unprojected.
+2. **Core ETF link.** `AssetInfo` gains the loaded RDF types (default `("Asset",)`) and
+   `universe_assets(path)` merges the individuals declared in `schema/reference.ttl` before the
+   universe database rows, which win on a symbol collision so their CIK and stints are not
+   overwritten. `:SPY` therefore resolves by the exact-symbol rule to `:SPY` even though it is not
+   an S&P 500 member. `validation_context` writes each asset's real type(s), so a dry run types
+   `:SPY` as `:ExchangeTradedFund` and `AssetShape`'s ETF branch sees it. A write/`--check-store`
+   fetches the same type and ticker from `urn:graph:reference` through `:holdingAsset`'s
+   `sh:class :Asset` and the Work item 30 range fallback; the gate's superclass expansion adds
+   `:Asset` to the fetched `:ExchangeTradedFund`, so the class check passes without a new shape.
+3. **Guard-action summaries.** The verifier recomputes, for every `(book, arm, segment)` summary,
+   the number of `APPLIED` `GuardAction` rows of that book whose `decision_date` is inside
+   `[date_from, date_to]` inclusive, once from the source views and once from the stored graph,
+   and requires both to equal the stored `:nGuardActions`. `:decisionDate` is already projected on
+   `:GuardAction` and already required by `GuardActionShape`/`:decisionDate`, so no schema change
+   is needed. This is the rule that makes pilot P2 report 279 in the summary while
+   `v_guard_action` has 280 `APPLIED` rows: the extra `L1_STOP_LOSS` was decided 2025-02-18 and
+   became effective 2025-02-19.
+4. **Publication check.** A new m018 check counts the graph's alerts whose `:alertRule` is a
+   Basing Points rule, requires that count to equal the source's `L1_BP_*` rows, and requires zero
+   `:alertThreshold` triples on them.
+5. **Generality.** No code path assumes three windows or three arms. A new hermetic fixture builds
+   a small six-window (`P1`, `H1`, `P3`, `H2`, `P2`, `H3`), four-arm database with `P2a`/`P2b`
+   summaries, `SPY` holdings and Basing Points alerts; the projector and verifier run over every
+   window. The selection cross-graph check treats every `MARKOWITZ*` arm as cycle-less.
+6. **Semantics.** Comments only for `:selectedForBook` (candidate-pool membership, 60 per decision
+   cycle, not the held names), `:targetWeight` (the cycle's own weight over that pool, never the
+   portfolio weight), `:rankPosition` (counts vetoed names) and `:vetoSeverity` (per row and
+   authoritative; `LEVERAGE_EXTREME` can be `SOFT` although its catalog severity is `HARD`). The
+   first decision date of a window legitimately has no weight rows on that date because they
+   appear on the execution date; a regression test pins that this is not a gap.
+
+**Tasks**:
+
+- [x] **T-500** Record this design before any code.
+- [ ] **T-501** Omit `:alertThreshold` for `L1_BP_*` alerts and keep it for every other rule.
+- [ ] **T-502** Merge `reference.ttl` assets into `universe_assets`, carry their RDF types into
+  `validation_context`, and test a `SPY` holding and alert.
+- [ ] **T-503** Prove the gate's `:holdingAsset` class check accepts `:SPY` as an
+  `:ExchangeTradedFund`, including the store/`--check-store` context path.
+- [ ] **T-504** Add the source-and-graph `n_guard_actions` check to the verifier.
+- [ ] **T-505** Add the zero-`Basing Points`-threshold publication check to the verifier.
+- [ ] **T-506** Add the six-window/four-arm/segment/`SPY` fixture and run both projectors and the
+  verifier over it.
+- [ ] **T-507** Run the read-only pilot dry runs and the in-memory pilot verifier regression.
+- [ ] **T-508** Amend the four property comments (and any Spanish definition) without changing the
+  schema structure.
+- [ ] **T-509** Add the first-decision-date-has-no-weights regression.
+- [ ] **T-510** Update `SPEC.md` FR-009, `docs/06`, `docs/08`, the query catalog, the runbook and
+  the PLAN/TASKS/CHANGELOG records.
+- [ ] **T-511** Run `pytest`, `mypy` and the pinned pre-commit hooks and report the evidence.
+
+**Acceptance criteria**:
+
+- A Basing Points alert never gains `:alertThreshold`; a fixed-parameter alert still requires it.
+- A `SPY` holding/alert/action links to `:SPY`, and the gate accepts it in a dry run and through
+  the store context (including `--check-store`).
+- Every period-summary row's `:nGuardActions` equals the source's and the graph's `APPLIED`
+  actions by `decision_date` inside the segment; the pilot P1/P3 match and P2's 279 vs 280 case is
+  explained by the 2025-02-18 decision.
+- Zero Basing Points thresholds and the exact source count in the graph.
+- The six-window/four-arm fixture projects and verifies every window; the selection side still
+  verifies.
+- The four property comments state the confirmed ranking/severity semantics; the no-weight-on-
+  decision-date test passes.
+- The pilot dry-run triples are unchanged except for any new `:decisionDate` (none expected) and
+  the verifier passes all checks, including the new ones.
+- No GraphDB write or reload. If only comments changed in the schema, the PR says so.
+
+**Blocked on**: nothing. The user performs every GraphDB write.

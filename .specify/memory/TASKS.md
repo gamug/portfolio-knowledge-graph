@@ -1207,6 +1207,34 @@ repository. See `PLAN.md` Work item 28, SPEC FR-008 and `docs/backtest-load-runb
       `portfolio_test` catalog `urn:graph:universe:2026-Q4` is known after the 2026-11-04 full load
       (Work item 32). → `PLAN.md` Work item 28.
 
+## Work item 34 — Final-backtest correctness for the projectors and the verifier (T-500–T-519)
+
+*See `PLAN.md` Work item 34 for the design and acceptance criteria. Work item 33 opened the
+vocabulary; this item makes the m018/selection projectors and the verifier use it.*
+
+- [x] **T-500** Record the design in `PLAN.md` Work item 34 before any code.
+- [ ] **T-501** Omit `:alertThreshold` for `L1_BP_*` alerts; keep it required for every other
+      rule. → `PLAN.md` Work item 34, decision 1.
+- [ ] **T-502** Merge `reference.ttl` assets into `universe_assets` and carry their RDF types
+      through `validation_context`, so `SPY` links exactly. → decision 2.
+- [ ] **T-503** Prove the gate accepts a `:holdingAsset` to `:SPY` (an `:ExchangeTradedFund`) in
+      the dry run and the store/`--check-store` context. → decision 2.
+- [ ] **T-504** Add the `n_guard_actions` check (source and graph, `APPLIED` by `decision_date`
+      inside the segment) to the verifier. → decision 3.
+- [ ] **T-505** Add the zero-`:alertThreshold` Basing Points publication check to the verifier.
+      → decision 4.
+- [ ] **T-506** Add the six-window/four-arm/`P2a`/`P2b`/`SPY` hermetic fixture and run the
+      projectors and verifier over it. → decision 5.
+- [ ] **T-507** Run the read-only pilot dry runs (triples unchanged except any new
+      `:decisionDate`) and the in-memory pilot verifier regression. → acceptance criteria.
+- [ ] **T-508** Amend the `:selectedForBook`, `:targetWeight`, `:rankPosition` and
+      `:vetoSeverity` comments (and Spanish definitions) only. → decision 6.
+- [ ] **T-509** Add the first-decision-date-has-no-weight-rows regression. → decision 6.
+- [ ] **T-510** Update `SPEC.md` FR-009, `docs/06`, `docs/08`, the query catalog, the runbook and
+      the PLAN/TASKS/CHANGELOG records. → step 8.
+- [ ] **T-511** Run `pytest`, `mypy` and the pinned pre-commit hooks; report timings and counts.
+      → definition of done.
+
 ## Status
 
 Closed Work items 1, 2, 3, 5, 7 (superseded/decided by T-007), 9, 10, 11 and 14 are in
