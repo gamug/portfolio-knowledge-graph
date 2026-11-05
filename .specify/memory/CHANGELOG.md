@@ -1341,6 +1341,57 @@ Basing Points alert. The user reloads the schema afterwards with `cli/load_schem
 1232.29 s (20:32)**; `mypy` = success, **106 source files**; the pinned pre-commit hooks pass on
 every changed file; FR-001 remains **4634 quads; conforms: True**.
 
+## Work item 35 — Load a six-window delivery with its manifest and configuration (2026-11-05, T-520–T-529)
+
+**Goal**: make `cli/load_run.py` load the final backtest's six date-ordered windows from one
+delivery folder, prove its `SHA256SUMS` and `config_<label>.md` before any database read, write the
+one `:BacktestRun`/`:RunConfiguration` metadata graph per label, and verify all of it read-only,
+without writing anything until every pre-flight passes.
+
+- [x] **T-520** Recorded the design in `PLAN.md` Work item 35 and `TASKS.md` before any code.
+- [x] **T-521** `src/projection/delivery.py` discovers `<label>_<window>.db` for
+      `P1/H1/P3/H2/P2/H3`, rejects an unknown window or a missing `--windows` entry, verifies
+      `SHA256SUMS` in 1 MiB streaming chunks before opening a database, compares hashes
+      case-insensitively and stores them lowercase, and orders the windows by `v_book.d_start`/
+      `d_end` (`P3` before `P2`).
+- [x] **T-522** `config_<label>.md` is read by a minimal front-matter parser: every scalar is a
+      string, required `label`/`code_commit`/`pr`/`results_doc`, optional `config_id`/`status`,
+      unknown keys are warnings, the label must equal `--label` and the file name, and the body is
+      kept byte for byte after the one blank separator line.
+- [x] **T-523** `src/projection/run_metadata.py` builds the deterministic
+      `:BacktestRun_{label}_{window}`/`:RunConfiguration_{label}` Turtle, plans and writes it
+      through the ingest gate, and verifies it read-only: exact triples, one run per window, one
+      configuration, every link, each manifest hash/file/date/run id and the configuration body.
+- [x] **T-524** `projection.load_run` verifies the delivery before any database read, processes
+      the windows chronologically, plans every m018, selection and metadata graph before the first
+      write, writes them in that order, then verifies all of them. `--no-manifest --no-config` is
+      the pilot legacy mode and builds no metadata graph; a present delivery file is never ignored.
+- [x] **T-525** Per-step and per-window timings, the read-only `--min-free-pct` probe with its
+      `df -h` fallback, the GraphDB HTTP 500 low-disk translation naming the graph and its
+      one-graph `DROP GRAPH`, and the 30-minute `STOP AND ASK upstream` summary are in place.
+- [x] **T-526** `tests/test_load_run_delivery.py` covers the six-window folder, manifest
+      match/mismatch/missing entry/missing file, unknown and missing windows, config label
+      mismatch and verbatim body, chronological order, the metadata graph through the in-memory
+      store, the second-write refusal, the low-disk message and the 30-minute flag.
+- [x] **T-527** The runbook, `graphdb-setup.md`, `README.md` and `SPEC.md` record the six-window
+      procedure, the delivery files, the metadata graph, the disk rule and production-only-`final`.
+- [x] **T-528** Real read-only check: the store-free pilot dry run over
+      `/workspaces/thesis/scratch/final/runs` processed P1 → P3 → P2 in 376.4 s; the explicit
+      `--check-store --no-manifest --no-config` run against `portfolio_test` took 366.2 s and
+      reported the six m018/selection graphs as `already-in-the-store`. No GraphDB write was made.
+- [x] **T-529** *(done 2026-11-05)* Merged-tree full suite `uv run pytest -q` = **1400 passed,
+      59 deselected, 8081 warnings in 1212.64 s (20:12)**; focused load-run suite = **40 passed in
+      36.88 s**; merged targeted run = **254 passed in 785.01 s**; `mypy` = success, **110 source
+      files**; the pinned pre-commit hooks pass on every changed file.
+
+**Residual work**: the real candidate/final loads remain the maintainer's (the agent never writes
+GraphDB). Production receives only the `final` label.
+
+**Verified 2026-11-05 (merged with `origin/master`)**: the full suite, focused load-run suite and
+merged targeted run pass as above; the real read-only pilot dry run processed P1 → P3 → P2 in
+376.4 s and the `--check-store --no-manifest --no-config` run against `portfolio_test` took 366.2 s,
+reporting the six m018/selection graphs `already-in-the-store`. No GraphDB write or reload was made.
+
 ## Work item 36 — Make the query catalog independent of the pilot (T-550–T-569)
 
 **Status: closed 2026-11-05.**
@@ -1461,8 +1512,9 @@ source verifier. No daily series, price level or 210-session average is projecte
   references, dates, decimals, session counts and the exact two Top-N arms, refuses duplicate row
   identities, and validates (but never projects) `sources.spy_total_return_series_sha256`. The
   local manifest reader is strict `sha256sum` format (64 lowercase hex, two spaces, bare file name)
-  and reports both hashes on a mismatch; it is local because Work item 35's manifest module is not
-  merged, to be unified with that loader later.
+  and reports both hashes on a mismatch. Work item 35's ``delivery.read_manifest`` now exists, but
+  it accepts uppercase hashes and the binary marker; the aggregates contract is stricter, so the
+  reader stays local until the two contracts agree.
 - [x] **T-572** Added `:AggregatesSet`, `:TrendFilterState` and `:ReferenceReturn` as three disjoint
   `:Observation` leaves with Spanish `skos:definition` and English comments. The new properties
   (`:trendWindow`, `:trendDecisionDate`, `:trendState`, `:cashFraction`, `:appliesToArm`,
@@ -1517,7 +1569,7 @@ is recorded here.
 **No GraphDB write or reload was made.** The user reloads the schema afterwards with
 `cli/load_schema.py`, then `cli/verify_store.py`, and performs the real write.
 
-**Verified 2026-11-05**: `uv run pytest -q` = **1443 passed, 59 deselected, 7320 warnings in
-1201.26 s (20:01)** (the two count tests were fixed before the run); `mypy` = success, **112 source
+**Verified 2026-11-05**: `uv run pytest -q` = **1461 passed, 59 deselected, 8531 warnings in
+1217.63 s (20:17)** (the two count tests were fixed before the run); `mypy` = success, **116 source
 files**; the pinned pre-commit hooks pass on every changed file; FR-001 is **4913 quads (58
 classes, 44 disjoint leaves, 39 named shapes); conforms: True**.

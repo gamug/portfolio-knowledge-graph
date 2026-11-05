@@ -32,6 +32,8 @@ from projection.verify_backtest import Check, Verification
 KG = rdflib.Namespace("https://thesis.local/kg/portfolio#")
 M018 = "urn:graph:derived:backtest:rule:P1:1"
 SELECTION = "urn:graph:derived:backtest:selection:rule:P1:1"
+#: The synthetic folders have no SHA256SUMS/config_rule.md, so they load as the pilot does.
+LEGACY = ("--no-manifest", "--no-config")
 
 
 class FailingStore(DatasetStore):
@@ -110,7 +112,7 @@ def test_a_dry_run_prints_both_graphs_and_a_table(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     path = _patch_inputs(monkeypatch, tmp_path)
-    assert load_run.main(["--label", "rule", "--db", str(path)]) == 0
+    assert load_run.main(["--label", "rule", "--db", str(path), *LEGACY]) == 0
     printed = capsys.readouterr().out
     assert M018 in printed
     assert SELECTION in printed
@@ -125,7 +127,7 @@ def test_a_directory_is_discovered_by_window(
     backtest_db(tmp_path, name="rule_P1.db", window="P1")
     backtest_db(tmp_path, name="rule_P2.db", window="P2")
     (tmp_path / "other.db").write_bytes(b"not a database")
-    assert load_run.main(["--label", "rule", "--dir", str(tmp_path)]) == 0
+    assert load_run.main(["--label", "rule", "--dir", str(tmp_path), *LEGACY]) == 0
     printed = capsys.readouterr().out
     assert "backtest:rule:P1:1" in printed
     assert "backtest:rule:P2:1" in printed
@@ -143,8 +145,8 @@ def test_two_databases_naming_the_same_graph_exit_2(
     monkeypatch.setattr(load_run, "universe_assets", lambda _path: ASSETS)
     first = backtest_db(tmp_path, name="a.db")
     second = backtest_db(tmp_path, name="b.db")
-    assert load_run.main(["--label", "rule", "--db", str(first), "--db", str(second)]) == 2
-    assert "would both write" in capsys.readouterr().err
+    assert load_run.main(["--label", "rule", "--db", str(first), "--db", str(second), *LEGACY]) == 2
+    assert "two databases describe window(s) P1" in capsys.readouterr().err
 
 
 def test_all_graphs_are_planned_then_written_and_verified(
@@ -153,7 +155,7 @@ def test_all_graphs_are_planned_then_written_and_verified(
     path = _patch_inputs(monkeypatch, tmp_path)
     store = _store()
     monkeypatch.setattr(load_run, "open_store", lambda _args: store)
-    assert load_run.main(["--label", "rule", "--db", str(path), "--write"]) == 0
+    assert load_run.main(["--label", "rule", "--db", str(path), "--write", *LEGACY]) == 0
     printed = capsys.readouterr()
     assert f"pre-flight {load_run.WOULD_WRITE}: {M018}" in printed.out
     assert f"pre-flight {load_run.WOULD_WRITE}: {SELECTION}" in printed.out
@@ -165,7 +167,8 @@ def test_all_graphs_are_planned_then_written_and_verified(
     assert len(_graph(store, SELECTION)) == len(
         _selection_projection(path).projection.graphs[SELECTION]
     )
-    assert not printed.err
+    assert "--no-manifest" in printed.err
+    assert "--no-config" in printed.err
 
 
 def test_a_later_graph_refused_writes_no_earlier_graph(
@@ -176,7 +179,7 @@ def test_a_later_graph_refused_writes_no_earlier_graph(
     store = _store()
     _preload_one_selection_subject(store, path)
     monkeypatch.setattr(load_run, "open_store", lambda _args: store)
-    assert load_run.main(["--label", "rule", "--db", str(path), "--write"]) == 1
+    assert load_run.main(["--label", "rule", "--db", str(path), "--write", *LEGACY]) == 1
     printed = capsys.readouterr()
     assert f"pre-flight {load_run.REFUSED}: {SELECTION}" in printed.out
     assert "already exist in the store" in printed.out
@@ -194,7 +197,7 @@ def test_a_graph_already_in_the_store_is_skipped_while_the_others_are_written(
     _preload(store, M018, _m018_projection(path))
     before = len(_graph(store, M018))
     monkeypatch.setattr(load_run, "open_store", lambda _args: store)
-    assert load_run.main(["--label", "rule", "--db", str(path), "--write"]) == 0
+    assert load_run.main(["--label", "rule", "--db", str(path), "--write", *LEGACY]) == 0
     printed = capsys.readouterr()
     assert f"pre-flight {load_run.ALREADY_IN_STORE}: {M018}" in printed.out
     assert f"pre-flight {load_run.WOULD_WRITE}: {SELECTION}" in printed.out
@@ -210,7 +213,7 @@ def test_check_store_reports_every_graph_and_writes_nothing(
     path = _patch_inputs(monkeypatch, tmp_path)
     store = _store()
     monkeypatch.setattr(load_run, "_open_check_store", lambda: store)
-    assert load_run.main(["--label", "rule", "--db", str(path), "--check-store"]) == 0
+    assert load_run.main(["--label", "rule", "--db", str(path), "--check-store", *LEGACY]) == 0
     printed = capsys.readouterr()
     assert f"pre-flight {load_run.WOULD_WRITE}: {M018}" in printed.out
     assert f"pre-flight {load_run.WOULD_WRITE}: {SELECTION}" in printed.out
@@ -225,11 +228,21 @@ def test_check_store_rejects_write_and_to_production(
 ) -> None:
     path = _patch_inputs(monkeypatch, tmp_path)
     with pytest.raises(SystemExit) as info:
-        load_run.main(["--label", "rule", "--db", str(path), "--check-store", "--write"])
+        load_run.main(["--label", "rule", "--db", str(path), "--check-store", "--write", *LEGACY])
     assert info.value.code == 2
     assert "--check-store only reads" in capsys.readouterr().err
     with pytest.raises(SystemExit) as info:
-        load_run.main(["--label", "rule", "--db", str(path), "--check-store", "--to-production"])
+        load_run.main(
+            [
+                "--label",
+                "rule",
+                "--db",
+                str(path),
+                "--check-store",
+                "--to-production",
+                *LEGACY,
+            ]
+        )
     assert info.value.code == 2
     assert "--check-store never writes" in capsys.readouterr().err
 
@@ -243,11 +256,16 @@ def test_a_verification_failure_stops_the_sequence_and_prints_the_drops(
 
     def fail(graph: str, *_args: Any, **_kwargs: Any) -> Verification:
         return Verification(
-            "test", "", graph, "rule", path, [Check("graph", False, "stored graph differs")]
+            "test",
+            "",
+            graph,
+            "rule",
+            path,
+            [Check("graph", False, "stored graph differs")],
         )
 
     monkeypatch.setattr(load_run, "_verify_graph", fail)
-    assert load_run.main(["--label", "rule", "--db", str(path), "--write"]) == 1
+    assert load_run.main(["--label", "rule", "--db", str(path), "--write", *LEGACY]) == 1
     printed = capsys.readouterr()
     assert [graph for graph, _ in store.writes] == [M018, SELECTION]
     assert f"DROP GRAPH <{M018}>" in printed.err
@@ -262,7 +280,7 @@ def test_a_write_failure_after_the_preflight_prints_the_written_graph_and_drops(
     path = _patch_inputs(monkeypatch, tmp_path)
     store = _store(fail_graph=SELECTION)
     monkeypatch.setattr(load_run, "open_store", lambda _args: store)
-    assert load_run.main(["--label", "rule", "--db", str(path), "--write"]) == 1
+    assert load_run.main(["--label", "rule", "--db", str(path), "--write", *LEGACY]) == 1
     printed = capsys.readouterr()
     assert f"Graphs written: {M018}" in printed.err
     assert f"In doubt: {SELECTION}" in printed.err
@@ -279,5 +297,5 @@ def test_a_plan_error_exits_2_before_any_stage(
 ) -> None:
     path = backtest_db(tmp_path)
     monkeypatch.setattr(load_run, "_dry_run", lambda *_args, **_kwargs: pytest.fail("must not run"))
-    assert load_run.main(["--label", "rule", "--db", str(path), "--db", str(path)]) == 2
+    assert load_run.main(["--label", "rule", "--db", str(path), "--db", str(path), *LEGACY]) == 2
     assert "given twice" in capsys.readouterr().err

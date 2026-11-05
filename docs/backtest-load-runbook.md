@@ -1,26 +1,42 @@
 # Backtest load runbook
 
-Copy-pasteable procedure for the final backtest: load each completed database into its two
-append-only graphs (m018 and selection) and prove that the store matches the source. The
-one-command path is `cli/load_run.py`; the older step-by-step commands remain as the manual
-fallback. Everything here is read-only except the explicitly marked write steps
-(`cli/load_universe.py --write` or `--delta --write`, `cli/project_backtest.py --write`,
-`cli/project_selection.py --write`, `cli/load_run.py --write` and
-`cli/load_aggregates.py --write`); the verifiers never write.
+Copy-pasteable procedure for the final backtest: load a delivery of six date-ordered window
+databases into their append-only graphs (m018, selection and one metadata graph per label) and
+prove that the store matches the source and the delivery's `SHA256SUMS`. The one-command path is
+`cli/load_run.py`; the older step-by-step commands remain as the manual fallback. Everything here
+is read-only except the explicitly marked write steps (`cli/load_universe.py --write` or
+`--delta --write`, `cli/project_backtest.py --write`, `cli/project_selection.py --write`,
+`cli/load_run.py --write` and `cli/load_aggregates.py --write`); the verifiers never write.
 
 The verifier's checks are in `SPEC.md` FR-009, the one-command load is FR-011, the graph naming
 and projectors are in `SPEC.md` §2.6 and `docs/07-ontology-topology.md`, and the measured
 reference numbers are in [`graphdb-setup.md`](graphdb-setup.md). Work item 24 built the first
-verifier and this runbook; Work item 29 extended both to the selection side.
+verifier and this runbook; Work item 29 extended both to the selection side; Work item 35 added
+the six-window delivery, the integrity manifest, the configuration and the metadata graph.
 
 ## 0. What "loaded" means
 
-One completed backtest database becomes **two** graphs per backtest run:
+One delivery has six contiguous windows, in this chronological order (never by window name):
+`P1`, `H1`, `P3`, `H2`, `P2`, `H3`. Any subset is valid (the pilot has `P1`–`P3`); a delivery adds
+one `:BacktestRun` per window to the label's metadata graph. One completed database becomes
+**two data graphs** per backtest run:
 
 ```text
 urn:graph:derived:backtest:{label}:{window_id}:{backtest_run_id}
 urn:graph:derived:backtest:selection:{label}:{window_id}:{backtest_run_id}
 ```
+
+and the whole delivery adds **one metadata graph** per label:
+
+```text
+urn:graph:derived:backtest:meta:{label}
+```
+
+The metadata graph holds one `:BacktestRun_{label}_{window}` per window (source file, verified
+lowercase SHA-256, run id, window id, knowledge date and a configuration link) and one
+`:RunConfiguration_{label}` with the required `code_commit`, `pr` and `results_doc`, the optional
+`config_id` and `status`, and the frozen configuration body in `rdfs:comment`. It is written last,
+after every m018 and selection graph, and is verified read-only.
 
 The label is yours (`rule`, `champ_v1`, …), the window and run id come from `v_book`. The label is
 also part of every individual IRI, so two result families never share an individual. Both graphs
@@ -58,19 +74,29 @@ later run is a new id and a new graph. Both are append-only like the backtest gr
 reference/process graphs (`cli/project_reference.py`, §5a) are a separate stream and are not part
 of this command:
 
-1. optional view-contract check (`--contract`);
-2. dry run of both projectors (rows, triples, unlinked counts);
-3. the read-only pre-flight: `gate.plan` for **every** m018 and selection graph of every database,
-   with the store's real context and `SELECT` only. A refused graph stops the command before
-   anything is written; a graph already in the store is reported and skipped;
-4. with `--write`, the plans the pre-flight already computed, applied with `gate.write` (all m018
-   graphs first, then the selection siblings);
-5. the read-only verifier for **every** graph;
-6. a final table of graph, stored triples, status and checks passed.
+1. discover the delivery's `<label>_<window>.db` files, reject any window outside
+   `P1/H1/P3/H2/P2/H3`, and verify `SHA256SUMS` by streaming every database in 1 MiB chunks
+   **before any database is opened for its rows**;
+2. read `config_<label>.md` and build the one metadata batch (front matter strings plus the body
+   verbatim);
+3. optional view-contract check (`--contract`);
+4. dry run of both projectors and SHACL validation of the metadata batch (rows, triples, unlinked
+   counts; no store contacted);
+5. the read-only pre-flight: `gate.plan` for **every** m018 and selection graph and the metadata
+   graph, with the store's real context and `SELECT` only. A refused graph stops the command
+   before anything is written; a graph already in the store is reported and skipped;
+6. with `--write`, the plans the pre-flight already computed, applied with `gate.write` (all m018
+   graphs first, then the selection siblings, then the metadata graph); the free-disk guard runs
+   before the run and between windows, and a window over 30 minutes is listed as
+   `STOP AND ASK upstream`;
+7. the read-only verifier for **every** m018 and selection graph, then the metadata verifier
+   (stored hashes equal the manifest, one configuration, every window has its run and links to it);
+8. a final table of graph, stored triples, status and checks passed.
 
-`--check-store` runs step 3 only, reports every graph's status and writes nothing. It is the
-one-command form of the per-projector pre-flight in §4a and refuses `--write` and
-`--to-production`.
+The window order is chronological by each database's `v_book.d_start`/`d_end`; `P3` precedes
+`P2`. `--windows P1,H1` requires those windows to be present. `--check-store` runs steps 1–5 and
+the pre-flight report only, and writes nothing; it is the one-command form of the per-projector
+pre-flight in §4a and refuses `--write` and `--to-production`.
 
 ### 1a. Prerequisites
 
@@ -99,6 +125,13 @@ uv run python cli/verify_store.py
 `verify_store` must exit 0. If it reports `urn:graph:tbox: expected N, store has M`, stop and reload
 the schema; do not load a backtest against a stale store.
 
+The delivery folder must contain the six `<label>_<window>.db` files, the `SHA256SUMS` manifest in
+sha256sum format (lowercase hash, two spaces, file name) and `config_<label>.md` (front matter plus
+body; §1e). A delivery is refused when a file named in `--windows` is absent, when a file names an
+unknown window, when a manifest entry is missing or does not match, or when the configuration
+label differs from `--label`. The pilot folder has neither delivery file; it uses the explicit
+`--no-manifest --no-config` legacy mode and builds no metadata graph.
+
 Check free disk space on the mounted data directory before a write. GraphDB refuses every write
 when the data disk has less than 5% free (HTTP 500, "Critically low disk space"), so keep several GB
 beyond the 5% line:
@@ -107,8 +140,13 @@ beyond the 5% line:
 df -h /workspaces/thesis
 ```
 
-If the directory is backed by a Docker Desktop virtual disk, trim and compact it as
-`docs/graphdb-setup.md` records before retrying.
+GraphDB 11.5.1 exposes no free-disk value on its read-only REST surface (checked against the live
+store; `/rest/locations` has no space fields and `/rest/monitor/structures` carries cache/query
+metrics, not disk). `cli/load_run.py` therefore prints a `df -h` reminder before `--write` and
+refuses to continue below `--min-free-pct` only when a value is exposed; the default is 8 and the
+hard floor is 5. A probed value, when a later GraphDB exposes one, is printed before the run and
+between windows. If the directory is backed by a Docker Desktop virtual disk, trim and compact it
+as `docs/graphdb-setup.md` records before retrying.
 
 ### 1b. Load the asset catalog once, then extend it with deltas
 
@@ -174,56 +212,84 @@ Do not drop or rewrite the universe graph, hand-edit an `:Asset`, or bypass the 
 needs a real correction (not just a new membership), stop and open a task for a new graph/version;
 the append-only store keeps both values.
 
-### 1c. Copy the databases
+### 1c. Copy the delivery folder
 
-The inputs are read-only; work on copies so a later source refresh cannot change what you verified:
+The inputs are read-only; work on copies so a later source refresh cannot change what you verified.
+Copy the whole delivery, including `SHA256SUMS` and `config_<label>.md`, into one folder (the
+manifest is looked up in that folder):
 
 ```bash
 mkdir -p data/backtests
-cp /workspaces/thesis/scratch/final/runs/rule_P1.db data/backtests/
-cp /workspaces/thesis/scratch/final/runs/rule_P2.db data/backtests/
-cp /workspaces/thesis/scratch/final/runs/rule_P3.db data/backtests/
+cp /path/to/delivery/SHA256SUMS data/backtests/
+cp /path/to/delivery/config_final.md data/backtests/
+cp /path/to/delivery/final_*.db data/backtests/
 ls -l data/backtests/
 ```
+
+For a candidate rehearsal use its own folder and label, for example `candidate`; production
+receives only the `final` label. The pilot delivery is the older three-window folder
+`/workspaces/thesis/scratch/final/runs/` (`rule_P1.db`–`rule_P3.db`) and needs the legacy flags.
 
 `SQL_UNIVERSE_DB` must point at the catalog you loaded (for the full 2026-11-04 catalog,
 `/workspaces/thesis/data/universe_history_gics.db`).
 
 ### 1d. Run it
 
-Use `--dir` when the files follow the `*_P<number>.db`/`*_H<number>.db` naming, or repeat `--db`:
+The rehearsal is a candidate delivery; the delivery is the `final` one. Use the same commands,
+changing only the folder and label:
 
 ```bash
-# dry run of both projectors over the three final files (no store is contacted)
+# 1. candidate rehearsal: dry run (no store contacted), then read-only pre-flight
 SQL_UNIVERSE_DB=/workspaces/thesis/data/universe_history_gics.db \
-uv run python cli/load_run.py --label rule --dir data/backtests
+uv run python cli/load_run.py --label candidate --dir data/candidate --check-store
 
-# read-only pre-flight: plan every graph against the store, write nothing
+# 2. final delivery: dry run and pre-flight first
 SQL_UNIVERSE_DB=/workspaces/thesis/data/universe_history_gics.db \
-uv run python cli/load_run.py --label rule --dir data/backtests --check-store
+uv run python cli/load_run.py --label final --dir data/backtests
+SQL_UNIVERSE_DB=/workspaces/thesis/data/universe_history_gics.db \
+uv run python cli/load_run.py --label final --dir data/backtests --check-store
 
-# write, after the dry run and the pre-flight are clean
+# 3. write, only after the dry run and the pre-flight are clean
 SQL_UNIVERSE_DB=/workspaces/thesis/data/universe_history_gics.db \
-uv run python cli/load_run.py --label rule --dir data/backtests --write
+uv run python cli/load_run.py --label final --dir data/backtests --write
 
-# production, only with the maintainer's explicit go-ahead
+# 4. production, only with the maintainer's explicit go-ahead and only the final label
 SQL_UNIVERSE_DB=/workspaces/thesis/data/universe_history_gics.db \
-uv run python cli/load_run.py --label rule --dir data/backtests --write --to-production
+uv run python cli/load_run.py --label final --dir data/backtests --write --to-production
 ```
 
-Use the same commands with explicit files if you prefer:
+`--windows P1,H1,P3,H2,P2,H3` requires all six; omit it for any subset. The pilot folder has no
+manifest or configuration, so its read-only check is the explicit legacy form:
 
 ```bash
-uv run python cli/load_run.py --label rule \
-  --db data/backtests/rule_P1.db \
-  --db data/backtests/rule_P2.db \
-  --db data/backtests/rule_P3.db
+SQL_UNIVERSE_DB=/workspaces/thesis/data/universe_history_gics.db \
+uv run python cli/load_run.py --label rule --dir /workspaces/thesis/scratch/final/runs \
+  --no-manifest --no-config --check-store
 ```
 
-Add `--contract /path/to/portfolio-financial-analysis` (or its API URL) to run the pinned
-view-contract check before anything is read; a `DRIFT` line stops the command. Writing to
-`KG_REPOSITORY=portfolio` still needs `--to-production`; without it the command exits 2 before any
-graph is written.
+A delivery folder with a manifest or configuration is never loaded with those flags: the command
+refuses to ignore a present file. Explicit `--db PATH` remains available for a legacy folder, but
+the delivery path is `--dir`. Add `--contract /path/to/portfolio-financial-analysis` (or its API
+URL) to run the pinned view-contract check before anything is read; a `DRIFT` line stops the
+command. Writing to `KG_REPOSITORY=portfolio` still needs `--to-production`; without it the command
+exits 2 before any graph is written. **Production receives only the `final` label; `rule` and
+`candidate` are rehearsal/pilot families.**
+
+### 1e. The delivery files
+
+`SHA256SUMS` is sha256sum format: 64 hex digits, two spaces, then the file name. The loader
+stream-hashes every database to load in 1 MiB chunks and prints the time per file; hashes are
+compared case-insensitively and stored lowercase. A missing entry, a missing file or a mismatch
+prints the file, the expected hash and the actual hash and stops before any database is read. The
+manifest is never ignored.
+
+`config_<label>.md` starts with a `---` front matter and a closing `---`, one blank line, then the
+English prose body. Required keys are `label`, `code_commit`, `pr` and `results_doc`; optional keys
+are `config_id` and `status`; any other key is a warning. Every scalar stays a string, so
+`pr: 192` and `code_commit: 537e864` keep their spelling. The body is stored byte for byte
+(hard line breaks included) in `:RunConfiguration`'s `rdfs:comment`. The front-matter `label` must
+equal `--label` and the file name; a missing required key, an empty value, an empty body or a label
+mismatch stops the run. Do not commit a real configuration file to this repository.
 
 A dry run ends with a table like this (the status and checks columns say `not checked` because no
 store was contacted):
@@ -239,9 +305,9 @@ urn:graph:derived:backtest:selection:rule:P1:1                        321,324  n
 and never writes.
 
 A write run repeats the dry-run counts, runs the pre-flight for every graph, and only after every
-graph is accepted applies those plans (all m018 graphs first, then the selection siblings). It then
-runs the verifier for every graph and prints its `PASS`/`FAIL` lines and a table with the stored
-triple count, the status and the number of checks passed. Exit 0 means every stage passed. A
+graph is accepted applies those plans (all m018 graphs first, then the selection siblings, then the
+metadata graph). It then runs the verifier for every graph and prints its `PASS`/`FAIL` lines and a
+table with the stored triple count, the status and the number of checks passed. Exit 0 means every stage passed. A
 refused pre-flight exits 1 with nothing written and lists each refused graph and the gate's
 message. A verification failure stops the run and prints the exact one-graph `DROP GRAPH <iri>`
 commands for the graphs this run wrote (see §9); the command itself never drops anything. A store
@@ -295,17 +361,20 @@ A `DRIFT` line or a non-zero exit means the database and this repo's pin disagre
 
 ## 3. Manual fallback: choose the label
 
-The label names the result family and is part of both graph names and every IRI:
+The label names the result family and is part of both data graph names, the metadata graph and
+every IRI:
 
 ```text
 [a-z][a-z0-9_]{1,31}
 ```
 
-Use `rule` for the final rule-based runs. A missing or malformed label exits 2 before anything is
-read. The graph names are fixed by `v_book.window_id` and `v_book.backtest_run_id`; for the
-completed databases the dry run below prints them, e.g.
-`urn:graph:derived:backtest:rule:P1:1` and
-`urn:graph:derived:backtest:selection:rule:P1:1`.
+Use `final` for the delivery; `candidate` is the rehearsal and `rule` is the pilot family.
+Production receives only `final`. A missing or malformed label exits 2 before anything is read.
+The graph names are fixed by `v_book.window_id` and `v_book.backtest_run_id`; for the completed
+databases the dry run below prints them, e.g.
+`urn:graph:derived:backtest:final:P1:1`,
+`urn:graph:derived:backtest:selection:final:P1:1` and
+`urn:graph:derived:backtest:meta:final`.
 
 **A new run needs a new label when the graph name would repeat.** Re-projecting the same database
 under `rule`/`P1`/`1` targets the same graphs and the gate refuses them (append-only). Do not drop
@@ -353,16 +422,17 @@ checks (check 7). It prints one of three results for each graph:
 It writes nothing, so it needs neither `--write` nor `--to-production`; those flags are refused
 with it.
 
-For the final backtest, the one-command form plans both graph kinds of every database in one pass
-and refuses to write anything if any graph is refused:
+For the final backtest, the one-command form verifies the delivery files and plans every m018,
+selection and metadata graph in one pass, and refuses to write anything if any graph is refused:
 
 ```bash
 SQL_UNIVERSE_DB=/workspaces/thesis/data/universe_history_gics.db \
-uv run python cli/load_run.py --label rule --dir data/backtests --check-store
+uv run python cli/load_run.py --label final --dir data/backtests --check-store
 ```
 
-The per-projector commands below remain useful when only one side is in question. Run them for both
-backtest sides and the reference snapshot:
+The per-projector commands below remain useful when only one side is in question. The examples use
+the pilot's `rule`/P1–P3 files; a delivery uses `final` and its six windows. These commands do not
+write the metadata graph. Run them for both backtest sides and the reference snapshot:
 
 ```bash
 SQL_UNIVERSE_DB=/workspaces/thesis/data/universe_history_gics.db \
@@ -427,7 +497,9 @@ uv run python cli/project_selection.py \
 was left untouched (nothing was appended); use a new label (§3) if this was meant to be a new
 family. The gate also refuses an existing graph, so a second write can never mutate the first. Write
 all m018 graphs before the selection graphs so a selection verification can always find its m018
-sibling.
+sibling. These two commands do **not** write the metadata graph: only `cli/load_run.py` reads the
+delivery manifest/configuration and writes `urn:graph:derived:backtest:meta:{label}`. For a
+delivery, use the one-command path (§1d) rather than the manual fallback.
 
 ## 5a. Ticker history and orchestrator runs
 
@@ -522,6 +594,12 @@ by resolved rule; and the cross-graph check that every TOPN `BookRebalance` cycl
 has its `SelectionCycle` in the selection graph (`MARKOWITZ_BASE` has none). A `FAIL` is a real
 difference, not a warning; investigate before calling the load done.
 
+The metadata verifier runs inside `cli/load_run.py` after the data graphs, read-only: it proves
+the graph name, its exact triple count, one `:BacktestRun` per window, exactly one
+`:RunConfiguration`, every run's link to it, and each window's stored `:sourceSha256`,
+`:sourceFile`, `:knowledgeDate` and `:backtestRunId` against the verified delivery. The
+configuration fields and the `rdfs:comment` body are compared with `config_<label>.md`.
+
 ## 7. Reference numbers
 
 Read-only dry runs on 2026-11-04 over the completed databases in
@@ -560,6 +638,11 @@ asset links (0 unlinked). The selection dry runs after the same-CIK rule build 3
 342,934 triples for P1/P2/P3 with 0 unlinked ranking/veto rows (before: 34/0/2 and 9/2/3). A final
 load with different data will differ; record what you measured.
 
+The 2026-11-05 read-only re-check (Work item 35) processed the same pilot folder in the required
+chronological order (`P1`, `P3`, `P2`); the explicit `--check-store --no-manifest --no-config` run
+against `portfolio_test` reported the six m018/selection graphs as `already-in-the-store`. No
+GraphDB write or reload was made.
+
 ## 9. Roll back exactly one graph
 
 A backtest graph is append-only audit data. Drop one **only** when it was written incorrectly or
@@ -572,6 +655,13 @@ DROP GRAPH <urn:graph:derived:backtest:rule:P1:1>
 
 ```sparql
 DROP GRAPH <urn:graph:derived:backtest:selection:rule:P1:1>
+```
+
+The one metadata graph of a label is dropped the same way, and only when that whole label is being
+retired from this repository:
+
+```sparql
+DROP GRAPH <urn:graph:derived:backtest:meta:final>
 ```
 
 (Or the equivalent one-graph `DROP GRAPH` through the repository's `/statements` endpoint.)
@@ -614,7 +704,14 @@ side) and re-project that database; never patch triples inside it.
 | `already-in-the-store: <graph>` from `--check-store` | Append-only: the graph exists, so the write will skip it. Use a new label/date/run id if this should be a new artifact. |
 | `--check-store only reads; do not combine it with --write` / `--check-store never writes; drop --to-production` (exit 2) | The read-only pre-flight refuses both write flags. Drop them and run it alone; the write is a separate command after a clean pre-flight. |
 | `store error after the pre-flight: ...` from `load_run.py --write` | The write failed after every graph had been accepted. The message lists the graphs written and the one in doubt (the store's answer was lost). Use the printed one-graph `DROP GRAPH` commands only after deciding the loss is acceptable; never drop the in-doubt graph blindly. |
-| HTTP 500 `Critically low disk space! ...` on a write | The GraphDB data disk is below its 5% free threshold; every write is refused. Free space until there is comfortable headroom beyond 5% (`df -h /workspaces/thesis`), then re-run the pre-flight and the write. |
+| HTTP 500 `Critically low disk space! ...` on a write | The GraphDB data disk is below its 5% free threshold; every write is refused. `cli/load_run.py` translates this into a stop that names the graph being written and prints its one-graph `DROP GRAPH`. Free space until there is comfortable headroom beyond 5% (`df -h /workspaces/thesis`), then re-run the pre-flight and the write. |
+| `...: SHA-256 mismatch: manifest ..., actual ...` | A database changed after the manifest was made, or the wrong folder/manifest was copied. Do not edit the hash; re-copy the exact delivered file and manifest. Nothing was read or written. |
+| `...: no entry in .../SHA256SUMS` | The delivery is incomplete. Add the database's manifest line from the delivery, or remove the file; a present manifest is never ignored. |
+| `--dir ...: no rule_<window>.db file` / `unknown window 'Q1'` | The folder is not that label's delivery, or a file uses a window outside `P1/H1/P3/H2/P2/H3`. Do not rename a database to a convenient window; stop and ask upstream. |
+| `front-matter label 'candidate' differs from --label 'final'` / `no config_<label>.md` | The configuration belongs to another label or is missing. Use the matching delivery folder; do not edit the delivered configuration. |
+| `--no-manifest and --no-config go together` / `cannot ignore a present delivery file` | The pilot flags are only for a folder without delivery files. For a real delivery drop them; for the pilot pass both. |
+| `STOP AND ASK upstream: P2 took ... min` | A window exceeded 30 minutes. Do not continue the delivery; report the window and timing to upstream. |
+| `pre-flight refused ...: <meta graph>` | The metadata batch failed the gate (a missing field, a bad hash or an existing graph). Fix the delivery or use a new label; do not bypass the gate. |
 | A `FAIL` after `load_run.py --write` | The command prints the exact `DROP GRAPH` commands for the graphs it wrote. Read the failing check, decide the loss is acceptable, then drop only those graphs (§9) and re-project from the same copied database. |
 | `v_orchestrator_run: 0 rows, v_orchestrator_step: 0 rows: nothing to write` | Expected for the completed P1/P2/P3 databases: the two m015 views are empty. The ticker-history snapshot is still built and validated; there is no orchestrator graph to write. |
 | `canonical_symbol '...' is not the latest symbol` from `cli/project_reference.py` | The ticker-history view and the catalog disagree about a CIK line. Stop and report the CIK; do not edit the database or guess an asset. |

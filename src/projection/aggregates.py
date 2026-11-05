@@ -465,8 +465,10 @@ def parse_aggregates(path: str | Path, *, label: str | None = None) -> Aggregate
 def read_manifest(path: str | Path) -> dict[str, str]:
     """A strict ``sha256sum`` manifest: hash, two spaces, file name; no duplicates.
 
-    Work item 35's loader manifest module is not merged; this local reader is the one to unify
-    with it when it lands.
+    Work item 35's ``delivery.read_manifest`` is not reused here: it accepts uppercase hashes and
+    the sha256sum binary marker, while this file's contract requires lowercase hashes and exactly
+    two spaces. Keep the strict reader local until the two contracts agree (they can be unified
+    later).
     """
     path = Path(path)
     text = path.read_text(encoding="utf-8")

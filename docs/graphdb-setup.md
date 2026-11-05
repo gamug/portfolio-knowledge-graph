@@ -338,7 +338,12 @@ uv run python cli/project_selection.py --db rule=rule_P1.db --write
 ```
 
 For the final load, `cli/load_run.py` runs both projectors and the verifier in order
-(`--label rule --dir runs --write`); the manual commands remain the fallback.
+(`--label final --dir delivery --write`); the manual commands remain the fallback. A delivery is a
+folder of six date-ordered windows (`P1`, `H1`, `P3`, `H2`, `P2`, `H3`) with `SHA256SUMS` and
+`config_<label>.md`; the loader verifies the manifest before any database read, writes the one
+`urn:graph:derived:backtest:meta:{label}` graph after the data graphs, and verifies its hashes,
+configuration and per-window runs read-only. The pilot folder uses `--no-manifest --no-config`
+and builds no metadata graph.
 
 A backtest veto's rule is resolved by `:ruleId` on the run's knowledge date (2026-10-31), not by
 `:raisedOn`; `LIQUIDITY_DISTRESS` resolves to `_v11` and an unknown id stops the run. The projector
@@ -413,18 +418,23 @@ their unlinked ceiling, vetoes grouped by resolved rule, and the cross-graph che
 their details are in `SPEC.md` FR-009; the full load procedure is
 [`backtest-load-runbook.md`](backtest-load-runbook.md).
 
-`cli/load_run.py` runs the whole sequence in one command (optional contract check, both dry runs,
-both writes, then the verifier for every graph):
+`cli/load_run.py` runs the whole sequence in one command (delivery discovery, manifest and
+configuration checks, optional contract check, both dry runs, both writes, the metadata graph, then
+the verifier for every graph):
 
 ```bash
 SQL_UNIVERSE_DB=/workspaces/thesis/data/universe_history_gics.db \
-uv run python cli/load_run.py --label rule --dir data/backtests --write
+uv run python cli/load_run.py --label final --dir data/backtests --write
 ```
 
-It prints a final table of graph, stored triples and checks passed. A verification failure stops
-the run and prints the exact one-graph `DROP GRAPH <iri>` commands for the graphs it wrote; it
-never drops anything itself. The one-command flow and its manual fallback are in
-[`backtest-load-runbook.md`](backtest-load-runbook.md).
+It prints the window order (chronological, so `P3` precedes `P2`), per-step and per-window timings,
+and a final table of graph, stored triples and checks passed. A window over 30 minutes is listed as
+`STOP AND ASK upstream`. It prints a `df -h` reminder before a write because GraphDB 11.5.1 exposes
+no free-disk value on its read-only REST surface; if a later version does, the probed percentage is
+printed before the run and between windows and the run stops below `--min-free-pct` (default 8,
+hard floor 5). A verification failure stops the run and prints the exact one-graph `DROP GRAPH
+<iri>` commands for the graphs it wrote; it never drops anything itself. The one-command flow and
+its manual fallback are in [`backtest-load-runbook.md`](backtest-load-runbook.md).
 
 Read-only dry runs on 2026-11-04 over the completed databases in
 `/workspaces/thesis/scratch/final/runs/` (no store was contacted; `cli/load_run.py`, both
@@ -693,7 +703,12 @@ violations). Work item 30 fixed it with the relation's `rdfs:range` fallback and
 `--check-store`; the dry run alone cannot see this class of problem.
 
 **Lesson 2 — GraphDB refuses every write below 5% free disk space.** The store answered HTTP 500
-"Critically low disk space" with 23 GB free on a 465 GB disk. Docker Desktop's `docker_data.vhdx`
+"Critically low disk space" with 23 GB free on a 465 GB disk. GraphDB 11.5.1's read-only REST
+surface exposes no free-disk value: `/rest/locations` returns the location identity without space
+fields, and `/rest/monitor/structures` carries cache/query metrics, not disk. `cli/load_run.py`
+therefore prints a `df -h` reminder before a write and translates the HTTP 500 into a stop that
+names the graph being written and prints its one-graph `DROP GRAPH`; the default
+`--min-free-pct` is 8 and the hard floor is 5. Docker Desktop's `docker_data.vhdx`
 had grown to 210.5 GB with about 76 GB in real use. The procedure that worked, and its result
 (210.5 GB to 78.5 GB): free space inside, then run
 `docker run --rm --privileged --pid=host alpine nsenter -t 1 -m -- fstrim -av`, quit Docker Desktop,

@@ -1275,6 +1275,10 @@ segments, `MARKOWITZ_BASE_GUARD`, the Basing Points GUARD rules with the conditi
 `:RunConfiguration` metadata plus the `urn:graph:derived:backtest:meta:{label}` gate target); see
 `CHANGELOG.md` and `PLAN.md` Work item 33.
 
+Work item 35 (T-520–T-529): closed 2026-11-05 — the six-window delivery loader (manifest,
+configuration, metadata graph and read-only verification); see `CHANGELOG.md` and `PLAN.md`
+Work item 35.
+
 Work item 36 (T-550–T-559): closed 2026-11-05 — the query catalog is pilot-independent (label/window/arm parameters and discovery queries, `ETF núcleo`, selection and cycle semantics, publication limits) and its hermetic test covers date-ordered windows and all four arms; see `CHANGELOG.md` and `PLAN.md` Work item 36.
 
 Work item 37 (T-570–T-599): closed 2026-11-05 — project upstream's per-segment

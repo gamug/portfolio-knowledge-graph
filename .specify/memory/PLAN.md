@@ -2425,6 +2425,136 @@ derived-graph target checks in the gate.
 every changed file; FR-001 remains **4634 quads; conforms: True**.
 No GraphDB write or reload was made.
 
+## Work item 35 — Load a six-window delivery with its manifest and configuration (T-520–T-529)
+
+**Status: closed 2026-11-05.**
+
+**Why**: the final backtest is delivered as six date-ordered windows (`P1`, `H1`, `P3`, `H2`,
+`P2`, `H3`, any subset such as the pilot's three), with a `SHA256SUMS` manifest, a
+`config_<label>.md` file, and the run metadata vocabulary Work item 33 added. `cli/load_run.py`
+still discovers only `*_P<number>.db`/`*_H<number>.db` by name, reads no manifest or
+configuration, writes no `:BacktestRun`/`:RunConfiguration`, and cannot stop a long window or a
+nearly full data disk before it starts. This work item makes the loader finish the delivery
+contract without changing the projectors, the gate or the verifier.
+
+**Decisions**:
+
+1. **Delivery mode is `--dir`.** A delivery folder is discovered from `<label>_<window>.db`; the
+   allowed window ids are exactly `P1`, `H1`, `P3`, `H2`, `P2`, `H3` and any subset is valid. A
+   file for another label is ignored; a file for this label naming another window stops before
+   hashing.
+   An optional `--windows` list names the windows that must be present; a missing one stops. The
+   processed and printed order is chronological by each database's `v_book.d_start`/`d_end`
+   (`P3` precedes `P2`), never by name, and the file-name window must equal `v_book.window_id`.
+   Explicit `--db` stays as the legacy escape hatch: it follows the same manifest/configuration
+   rules and uses the pilot flags when its folder has neither.
+2. **A present manifest is never ignored.** `SHA256SUMS` is parsed in sha256sum format (64 hex
+   digits, two spaces, file name). Before any database is opened, including `--check-store`, every
+   database to load is stream-hashed in 1 MiB chunks and compared case-insensitively; the stored
+   value is lowercase. A missing entry, a missing file or a mismatch exits non-zero (2, a delivery
+   input error) and prints the file, the expected hash and the actual hash. `--no-manifest` is accepted only when no manifest exists
+   (the pilot), prints a loud warning, and disables the metadata graph because `:sourceSha256`
+   would otherwise have no verified source. A manifest found together with `--no-manifest` is an
+   error, not a request to ignore it.
+3. **Configuration.** `config_<label>.md` has a YAML front matter with required `label`,
+   `code_commit`, `pr` and `results_doc`, optional `config_id` and `status`, and any other key is
+   a warning. Every scalar is parsed as a string (`pr: 192` and `code_commit: 537e864` keep their
+   exact spelling; a short hexadecimal commit cannot become a number). A missing required key, an
+   empty value, a label different from `--label` or from the file name, or an empty body is an
+   error. The body is the exact text after the front matter and its one blank separator line; its
+   hard line breaks are kept byte for byte in `rdfs:comment`. `--no-config` is accepted only when
+   the file is absent (the pilot), prints a warning, and disables the metadata graph. A present
+   configuration is never ignored. The parser is a small `key: value` reader, so no new YAML
+   dependency is added; quoted scalars lose their surrounding quotes, matching YAML's string form.
+4. **Metadata graph.** One append-only graph `urn:graph:derived:backtest:meta:{label}` is built once
+   per delivery from all its windows: one `:BacktestRun_{label}_{window}` per window (run label,
+   window id, integer run id, source file name, lowercase SHA-256, knowledge date, configuration
+   link) and one `:RunConfiguration_{label}` (required and optional front-matter fields plus the
+   body). `v_book` must show one distinct `backtest_run_id`, `window_id`, knowledge date and date
+   range per database; anything else stops. The graph goes through `gate.plan` like the m018 and
+   selection graphs. The pre-flight covers every m018, every selection and the metadata graph
+   before the first write; `--check-store` reports it without writing; a re-run refuses an existing
+   graph as every append-only target does. Writes are ordered all m018 windows, all selection
+   windows, then the metadata graph, so the metadata is the delivery's closing record. A new
+   read-only post-write verifier (new module, not `verify_backtest.py`) proves the stored hash of
+   every window equals the manifest, the graph has exactly one `:RunConfiguration`, every window
+   has its `:BacktestRun`, and every run links to that configuration.
+5. **Pilot compatibility.** `--no-manifest --no-config` on the pilot folder is the explicit legacy
+   mode: m018 and selection graphs are still dry-run, pre-flighted, written and verified, the
+   metadata graph is reported as not built, and the read-only `--check-store` still reports what
+   already exists. The two flags are used together (a metadata graph needs both a verified hash and
+   a configuration), and a folder with a present delivery file is refused when they are given.
+6. **Operational guards.** Hash and stage times are printed, per file and per window. The loader
+   probes GraphDB's read-only REST surface for its volume's free percentage; the documented 11.5
+   API exposes no disk endpoint (checked against the live store), so it prints a reminder before a
+   write and relies on the same 5% hard floor. A `--min-free-pct` threshold (default 8) refuses a
+   run when a probed value is below it. An HTTP 500 `Critically low disk space` is translated into
+   a stop that names the graph being written and prints its one-graph `DROP GRAPH`. A window that
+   took more than 30 minutes is listed in the summary as `STOP AND ASK upstream`.
+7. **Production.** The guard is unchanged: `--to-production` is required only for a write to
+   `KG_REPOSITORY=portfolio`, and production receives only the `final` label; `rule` and
+   `candidate` stay rehearsal/pilot families.
+8. **No computation and no writes here.** This work item only reads, validates, projects and
+   verifies; it never writes GraphDB in this repository's test/CI path and never recomputes a
+   score, rank, veto, price or weight. All real loads remain the maintainer's.
+
+**Tasks**:
+
+- [x] **T-520** *(done 2026-11-05)* Record this design in `PLAN.md` and the task block in
+      `TASKS.md` before any code.
+- [x] **T-521** *(done 2026-11-05)* Add the delivery module: window discovery, `--windows`
+      validation, manifest parsing and 1 MiB stream hashing, chronological window information from
+      `v_book`.
+- [x] **T-522** *(done 2026-11-05)* Add the configuration reader: minimal front-matter parser with
+      string scalars, required/optional/unknown keys, label/file-name checks and the verbatim body.
+- [x] **T-523** *(done 2026-11-05)* Add the metadata module: deterministic
+      `:BacktestRun`/`:RunConfiguration` Turtle, `gate.plan`/`gate.write`, and the read-only
+      post-write verifier.
+- [x] **T-524** *(done 2026-11-05)* Integrate delivery mode into `projection.load_run`: manifest
+      before any database read, chronological processing, metadata in the pre-flight and write
+      order, pilot flags, and no metadata in legacy mode.
+- [x] **T-525** *(done 2026-11-05)* Add the operational guards: per-step/per-window timing, the
+      `--min-free-pct` disk probe with its fallback reminder, the low-disk HTTP 500 translation and
+      the 30-minute summary flag.
+- [x] **T-526** *(done 2026-11-05)* Add hermetic tests: six-window folder, manifest
+      match/mismatch/missing entry, unknown and missing windows, config label mismatch and verbatim
+      body, chronological order, metadata through the in-memory store, and refusal of a second
+      write.
+- [x] **T-527** *(done 2026-11-05)* Update the runbook, `graphdb-setup.md`, `README.md`, `SPEC.md`
+      and the task records with the delivery procedure, metadata graph, disk rule and
+      production-only-`final` rule.
+- [x] **T-528** *(done 2026-11-05, read-only)* Run the real, read-only pilot
+      `--check-store --no-manifest --no-config` and the store-free dry run; record that the
+      existing graphs are still reported and no write is made.
+- [x] **T-529** *(done 2026-11-05)* Run `pytest`, `mypy` and the pinned pre-commit hooks; report
+      counts and timings.
+
+**Acceptance criteria**:
+
+- A six-window synthetic folder loads through one `--dir` command: manifest verified before any
+  database read, windows processed in date order even when their names are not, and the metadata
+  graph holds one run per window, one configuration and the verbatim body.
+- A manifest mismatch, a missing entry, a missing file, an unknown window, a missing `--windows`
+  entry, a config label mismatch and a second write are refused with the offending file/graph
+  named; `--no-manifest`/`--no-config` cannot override a file that is present.
+- `--check-store` reports the m018, selection and metadata graphs without writing; a write plans
+  every graph before the first write and verifies the metadata read-only afterwards.
+- The pilot command `--label rule --dir <pilot> --no-manifest --no-config --check-store` still
+  reports the existing m018/selection graphs; the store-free dry run still works.
+- No GraphDB write or reload is made by this work item; production still needs `--to-production`
+  and receives only `final`.
+- `pytest`, `mypy` and the pinned pre-commit hooks pass; docs and counts are consistent.
+
+**Blocked on**: nothing. The user performs every GraphDB write.
+
+**Verified 2026-11-05 (merged with `origin/master`)**: `uv run pytest -q` = **1400 passed,
+59 deselected, 8081 warnings in 1212.64 s (20:12)**; the focused load-run suite = **40 passed in
+36.88 s**; the merged targeted run (load-run, query catalog and schema gate) = **254 passed in
+785.01 s**; `mypy` = success, **110 source files**; the pinned pre-commit hooks pass on every
+changed file. The real read-only pilot dry run processed P1 → P3 → P2 in 376.4 s; the explicit
+`--check-store --no-manifest --no-config` run against `portfolio_test` took 366.2 s and reported
+the six m018/selection graphs `already-in-the-store`. No GraphDB write or reload was made.
+
 ## Work item 36 — Make the query catalog independent of the pilot (T-550–T-569)
 
 **Status: closed 2026-11-05.**
@@ -2537,8 +2667,10 @@ projects a daily series, a price level or the 210-session average.
    Before anything is built it requires `aggregates_<label>.json` in `D/SHA256SUMS`, in strict
    `sha256sum` format (64 lowercase hex digits, two spaces, the file name), and recomputes the
    file's SHA-256; a missing entry or a mismatch exits 1 showing the manifest hash and the actual
-   hash. Work item 35's manifest module is not merged, so the parser is a small local function in
-   this work item, to be unified with that loader later.
+   hash. Work item 35's ``delivery.read_manifest`` is now merged, but its parser accepts uppercase
+   hashes and the sha256sum binary marker; the aggregates contract requires lowercase hashes and
+   exactly two spaces, so this work item keeps the strict reader local until the two contracts
+   agree.
 6. **Verifier.** `src/projection/aggregates.py` verifies, read-only, against `D/<label>_<window>.db`
    opened through `FinancialSource` (`mode=ro`): (a) the file is in the manifest and its hash
    matches; (b) each window's trend-filter decision dates equal the distinct
@@ -2608,8 +2740,8 @@ projects a daily series, a price level or the 210-session average.
 
 **Blocked on**: nothing. The user performs every GraphDB write.
 
-**Verified 2026-11-05**: `uv run pytest -q` = **1443 passed, 59 deselected, 7320 warnings in
-1201.26 s (20:01)** after the aggregate tests and the two count fixes; `mypy` = success, **112
+**Verified 2026-11-05**: `uv run pytest -q` = **1461 passed, 59 deselected, 8531 warnings in
+1217.63 s (20:17)** after the aggregate tests and the two count fixes; `mypy` = success, **116
 source files**; the pinned pre-commit hooks pass on every changed file; FR-001 is **4913 quads
 (58 classes, 44 disjoint leaves, 39 named shapes); conforms: True**, and the load plan is **5190
 asserted triples**. The real read-only dry run over `candidate_y2` verified the manifest hash,
