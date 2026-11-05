@@ -1269,17 +1269,19 @@ Work item 32 (T-460–T-469): closed 2026-11-04 — the `portfolio_test` live lo
 reload, asset catalog, m018 and selection graphs, ticker history), the lessons, the free-disk
 runbook prerequisite, and the closure of T-215/T-226; see `CHANGELOG.md` and `PLAN.md` Work item 32.
 
-Work item 37 (T-570–T-599): closed 2026-11-05 — project upstream's per-segment
-`aggregates_<label>.json` into `urn:graph:derived:backtest:aggregates:{label}` with a whitelist
-parser, a strict SHA256SUMS check, three new classes/shapes, a dry-run/default loader CLI and a
-read-only source verifier; no daily series, price level or 210-session average is projected. See
-`CHANGELOG.md` and `PLAN.md` Work item 37.
-
 Work item 33 (T-470–T-477): closed 2026-11-04 — the final-backtest vocabulary (`[PH]` windows and
 segments, `MARKOWITZ_BASE_GUARD`, the Basing Points GUARD rules with the conditional
 `:alertThreshold`, the `:ExchangeTradedFund`/`SPY` branch, and the `:BacktestRun`/
 `:RunConfiguration` metadata plus the `urn:graph:derived:backtest:meta:{label}` gate target); see
 `CHANGELOG.md` and `PLAN.md` Work item 33.
+
+Work item 36 (T-550–T-559): closed 2026-11-05 — the query catalog is pilot-independent (label/window/arm parameters and discovery queries, `ETF núcleo`, selection and cycle semantics, publication limits) and its hermetic test covers date-ordered windows and all four arms; see `CHANGELOG.md` and `PLAN.md` Work item 36.
+
+Work item 37 (T-570–T-599): closed 2026-11-05 — project upstream's per-segment
+`aggregates_<label>.json` into `urn:graph:derived:backtest:aggregates:{label}` with a whitelist
+parser, a strict SHA256SUMS check, three new classes/shapes, a dry-run/default loader CLI and a
+read-only source verifier; no daily series, price level or 210-session average is projected. See
+`CHANGELOG.md` and `PLAN.md` Work item 37.
 T-163 (function done, PR #68) closes with T-031, whose first slice (PR #72) calls it on the real read and re-reads the late keys for `v_score_snapshot`; T-164 done (PR #69).
 Work item 8 (T-070–T-071) is independent but needs a human at a Protégé
 session, not a coding session.
