@@ -1274,37 +1274,8 @@ segments, `MARKOWITZ_BASE_GUARD`, the Basing Points GUARD rules with the conditi
 `:alertThreshold`, the `:ExchangeTradedFund`/`SPY` branch, and the `:BacktestRun`/
 `:RunConfiguration` metadata plus the `urn:graph:derived:backtest:meta:{label}` gate target); see
 `CHANGELOG.md` and `PLAN.md` Work item 33.
+
+Work item 36 (T-550–T-559): closed 2026-11-05 — the query catalog is pilot-independent (label/window/arm parameters and discovery queries, `ETF núcleo`, selection and cycle semantics, publication limits) and its hermetic test covers date-ordered windows and all four arms; see `CHANGELOG.md` and `PLAN.md` Work item 36.
 T-163 (function done, PR #68) closes with T-031, whose first slice (PR #72) calls it on the real read and re-reads the late keys for `v_score_snapshot`; T-164 done (PR #69).
 Work item 8 (T-070–T-071) is independent but needs a human at a Protégé
 session, not a coding session.
-
-## Work item 36 — Make the query catalog independent of the pilot (T-550–T-569)
-
-- [ ] **T-550** *(design)* Record the Work item 36 decisions, tasks and acceptance criteria in
-      `PLAN.md`/`TASKS.md` before any code. → `PLAN.md` Work item 36.
-- [ ] **T-551** *(queries)* Bind every per-run backtest/selection query to a label, a window and,
-      where relevant, an arm; add the run-label, window-date-range, arm, rebalance-date, decision
-      cycle and warm-up cycle discovery queries; include `MARKOWITZ_BASE_GUARD`. → Work item 36.
-- [ ] **T-552** *(ETF)* Map `:ExchangeTradedFund` to `ETF núcleo` in the layer-1 sector cuts, the
-      rebalance composition and the coverage query; return the same label from `sector-of-asset`
-      and exclude ETFs from the unclassified-assets query. Keep ordinary unclassified assets
-      counted. → Work item 36.
-- [ ] **T-553** *(semantics)* Document and test the `vetoRulesJson` SOFT/HARD convention, the
-      empty orchestrator views by design, the `n_guard_actions` decision-date rule, the November
-      2026 knowledge date and rule resolution, and the publication rule. → Work item 36.
-- [ ] **T-554** *(selection)* Document `selected` as candidate-pool membership, `targetWeight` as
-      the cycle's pool weight (never a book weight), `finalTargetWeight > 0` as the held names and
-      `rankPosition` as counting vetoed names; rename `selection-why-not-top30`. → Work item 36.
-- [ ] **T-555** *(cycles)* Add the `:cycleRunId` join and the decision/warm-up discovery queries;
-      document that only the Top-N arms carry the link and the Markowitz arms do not, on purpose.
-      → Work item 36.
-- [ ] **T-556** *(severity)* State that a veto's severity is `:vetoSeverity`, never the rule's
-      `:ruleSeverity` (the `LEVERAGE_EXTREME` SOFT case), and that the first decision date of a
-      window has no weight rows on that date. → Work item 36.
-- [ ] **T-557** *(tests/fixtures)* Extend the hermetic fixtures with `SPY`, a classified and an
-      unclassified ordinary asset, four arms, date-ordered windows and both cycle kinds; run every
-      tagged query. → Work item 36.
-- [ ] **T-558** *(docs)* Update `docs/backtest-load-runbook.md` where it refers to the catalog and
-      the README/SPEC references; keep counts and statuses consistent. → Work item 36.
-- [ ] **T-559** *(checks)* Run `pytest`, `mypy` and the pinned pre-commit hooks on the changed
-      files; report counts and timings; no GraphDB write or reload. → Work item 36.
