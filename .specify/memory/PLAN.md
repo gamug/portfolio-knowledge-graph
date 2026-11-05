@@ -2425,7 +2425,7 @@ No GraphDB write or reload was made.
 
 ## Work item 34 — Final-backtest correctness for the projectors and the verifier (T-500–T-519)
 
-**Status: in progress (2026-11-05).**
+**Status: closed 2026-11-05.**
 
 **Why**: Work item 33 opened the vocabulary, but the m018 and selection projectors and the verifier
 still behave as if every alert has a fixed-parameter threshold, every loaded asset comes from
@@ -2459,9 +2459,9 @@ for that data without touching the loader (Work item 35) or GraphDB.
    `[date_from, date_to]` inclusive, once from the source views and once from the stored graph,
    and requires both to equal the stored `:nGuardActions`. `:decisionDate` is already projected on
    `:GuardAction` and already required by `GuardActionShape`/`:decisionDate`, so no schema change
-   is needed. This is the rule that makes pilot P2 report 279 in the summary while
-   `v_guard_action` has 280 `APPLIED` rows: the extra `L1_STOP_LOSS` was decided 2025-02-18 and
-   became effective 2025-02-19.
+   is needed. This is the rule that explains the pilot's P2 summary being one lower than the raw
+   `APPLIED` total: the extra `L1_STOP_LOSS` was decided 2025-02-18 and became effective
+   2025-02-19.
 4. **Publication check.** A new m018 check counts the graph's alerts whose `:alertRule` is a
    Basing Points rule, requires that count to equal the source's `L1_BP_*` rows, and requires zero
    `:alertThreshold` triples on them.
@@ -2474,27 +2474,66 @@ for that data without touching the loader (Work item 35) or GraphDB.
    portfolio weight), `:rankPosition` (counts vetoed names) and `:vetoSeverity` (per row and
    authoritative; `LEVERAGE_EXTREME` can be `SOFT` although its catalog severity is `HARD`). The
    first decision date of a window legitimately has no weight rows on that date because they
-   appear on the execution date; a regression test pins that this is not a gap.
+   appear on the execution date; a regression test pins that this is not a gap. The Spanish
+   `:StrategyBook` `skos:definition` also changes its two "selección Top-30" occurrences to
+   "selección del pool Top-N del ciclo" (no fixed number).
 
 **Tasks**:
 
 - [x] **T-500** Record this design before any code.
-- [ ] **T-501** Omit `:alertThreshold` for `L1_BP_*` alerts and keep it for every other rule.
-- [ ] **T-502** Merge `reference.ttl` assets into `universe_assets`, carry their RDF types into
+- [x] **T-501** Omit `:alertThreshold` for `L1_BP_*` alerts and keep it for every other rule.
+- [x] **T-502** Merge `reference.ttl` assets into `universe_assets`, carry their RDF types into
   `validation_context`, and test a `SPY` holding and alert.
-- [ ] **T-503** Prove the gate's `:holdingAsset` class check accepts `:SPY` as an
+- [x] **T-503** Prove the gate's `:holdingAsset` class check accepts `:SPY` as an
   `:ExchangeTradedFund`, including the store/`--check-store` context path.
-- [ ] **T-504** Add the source-and-graph `n_guard_actions` check to the verifier.
-- [ ] **T-505** Add the zero-`Basing Points`-threshold publication check to the verifier.
-- [ ] **T-506** Add the six-window/four-arm/segment/`SPY` fixture and run both projectors and the
+- [x] **T-504** Add the source-and-graph `n_guard_actions` check to the verifier.
+- [x] **T-505** Add the zero-`Basing Points`-threshold publication check to the verifier.
+- [x] **T-506** Add the six-window/four-arm/segment/`SPY` fixture and run both projectors and the
   verifier over it.
-- [ ] **T-507** Run the read-only pilot dry runs and the in-memory pilot verifier regression.
-- [ ] **T-508** Amend the four property comments (and any Spanish definition) without changing the
-  schema structure.
-- [ ] **T-509** Add the first-decision-date-has-no-weights regression.
-- [ ] **T-510** Update `SPEC.md` FR-009, `docs/06`, `docs/08`, the query catalog, the runbook and
+- [x] **T-507** Run the read-only pilot dry runs and the in-memory pilot verifier regression.
+- [x] **T-508** Amend the four property comments, the Spanish `:StrategyBook` definition (Top-N
+  pool, not Top-30), the `kg_target_schema.ttl` mirror and the tests that pin the Spanish text/hash,
+  without changing the schema structure.
+- [x] **T-509** Add the first-decision-date-has-no-weights regression.
+- [x] **T-510** Update `SPEC.md` FR-009, `docs/06`, `docs/08`, the query catalog, the runbook and
   the PLAN/TASKS/CHANGELOG records.
-- [ ] **T-511** Run `pytest`, `mypy` and the pinned pre-commit hooks and report the evidence.
+- [x] **T-511** Run `pytest`, `mypy` and the pinned pre-commit hooks and report the evidence.
+
+**What was built**:
+
+1. `projection.backtest._alerts` omits `:alertThreshold` on every `L1_BP_*` alert and keeps the
+   required fixed-parameter threshold on every other GUARD rule. The other value-bearing columns of
+   a layer-1 Basing Points row (`value`, `weight_before`/`weight_after`) are already NULL in the
+   view, so no further masking is needed.
+2. `AssetInfo` carries the loaded RDF type(s); `universe_assets` merges `schema/reference.ttl`
+   before the universe rows and keeps a reference-declared type on a same-symbol collision, while
+   the universe CIK and stints win. `validation_context` writes the real type, so `SPY` is an
+   `:ExchangeTradedFund` in a dry run. A store write/`--check-store` fetches the same type from
+   `urn:graph:reference` through `:holdingAsset`'s `sh:class :Asset`; the gate's superclass
+   expansion adds `:Asset`, so no shape change was needed.
+3. The verifier's `nGuardActions by decision date` check recomputes each `(book, arm, segment)`
+   summary from the `APPLIED` actions whose `decision_date` is inside `[dateFrom, dateTo]`, once
+   from the source and once from the graph, and requires both to equal the stored value.
+   `:decisionDate` was already projected on `:GuardAction` and already required by its shape.
+4. The verifier's `Basing Points publication` check counts the `L1_BP_*` alerts, requires the
+   source count, and requires zero `:alertThreshold` triples on them.
+5. `tests/fixtures/backtest_rows.py` gained `final_scenario_rows`/`final_backtest_db` (six
+   date-ordered windows, four arms, `P2a`/`P2b`, `SPY`, both Basing Points rules and one APPLIED
+   action decided before the P2 segment); `tests/test_final_backtest.py` runs both projectors and
+   the verifier over every window.
+6. Comments only in `schema/tbox.ttl` (and the `kg_target_schema.ttl` mirror) for the confirmed
+   ranking and severity semantics, the Spanish `:StrategyBook` Top-N-pool wording, plus the
+   first-decision-date-no-weights regression. No shape, term or count changed.
+
+**Measured read-only verification (2026-11-05, no GraphDB write or reload by the agent)**:
+
+- `cli/project_backtest.py` and `cli/project_selection.py` dry runs over `rule_P1/P2/P3.db` with
+  label `rule`: the m018 and selection triple counts are unchanged from the 2026-11-04 records (no
+  new property was needed; `:decisionDate` was already projected).
+- The verifier over in-memory projections of all three pilot databases passes **23/23** m018 checks
+  and **15/15** selection checks on each, including the two new m018 checks.
+- The measured per-arm/per-segment `nGuardActions` breakdown is in the pull request description,
+  not recorded here as a fact.
 
 **Acceptance criteria**:
 
@@ -2502,8 +2541,8 @@ for that data without touching the loader (Work item 35) or GraphDB.
 - A `SPY` holding/alert/action links to `:SPY`, and the gate accepts it in a dry run and through
   the store context (including `--check-store`).
 - Every period-summary row's `:nGuardActions` equals the source's and the graph's `APPLIED`
-  actions by `decision_date` inside the segment; the pilot P1/P3 match and P2's 279 vs 280 case is
-  explained by the 2025-02-18 decision.
+  actions by `decision_date` inside the segment; the pilot P1/P3 match and the P2
+  summary/`APPLIED` difference is explained by the 2025-02-18 decision.
 - Zero Basing Points thresholds and the exact source count in the graph.
 - The six-window/four-arm fixture projects and verifies every window; the selection side still
   verifies.
@@ -2511,6 +2550,14 @@ for that data without touching the loader (Work item 35) or GraphDB.
   decision-date test passes.
 - The pilot dry-run triples are unchanged except for any new `:decisionDate` (none expected) and
   the verifier passes all checks, including the new ones.
-- No GraphDB write or reload. If only comments changed in the schema, the PR says so.
+- No GraphDB write or reload by the agent. The schema changed only in comments and one Spanish
+  `skos:definition`, so the user reloads it afterwards (`cli/load_schema.py`, then
+  `cli/verify_store.py`) to pick up the new literals.
 
-**Blocked on**: nothing. The user performs every GraphDB write.
+**Blocked on**: nothing. The user performs every GraphDB write and the schema reload.
+
+**Verified 2026-11-05**: `uv run pytest -q` = **1377 passed, 59 deselected, 5362 warnings in
+1349.13 s (22:29)**; `mypy` = success, **107 source files**; the pinned pre-commit hooks pass on
+every changed file; FR-001 remains **4634 quads; conforms: True**. The read-only pilot dry runs and
+the in-memory verifier checks are above. No GraphDB write or reload was made by the agent; the user
+reloads the schema afterwards.

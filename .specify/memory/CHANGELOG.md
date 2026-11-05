@@ -1340,3 +1340,61 @@ Basing Points alert. The user reloads the schema afterwards with `cli/load_schem
 **Verified 2026-11-04**: `uv run pytest -q` = **1362 passed, 59 deselected, 5114 warnings in
 1232.29 s (20:32)**; `mypy` = success, **106 source files**; the pinned pre-commit hooks pass on
 every changed file; FR-001 remains **4634 quads; conforms: True**.
+
+## Work item 34 — Final-backtest correctness for the projectors and the verifier (2026-11-05, T-500–T-511)
+
+**Goal**: make the m018 and selection projectors and the read-only verifier correct for the final
+backtest's Basing Points alerts, core ETF `SPY`, period summaries and six-window/four-arm shape,
+without touching the loader (Work item 35) or GraphDB.
+
+- [x] **T-500** Recorded the design in `PLAN.md` Work item 34 before any code (first commit).
+- [x] **T-501** `_alerts` omits `:alertThreshold` for every `L1_BP_*` alert and keeps the required
+      fixed-parameter threshold on every other GUARD rule. The only other value-bearing columns on a
+      layer-1 Basing Points row (`value`, `weight_before`/`weight_after`) are already masked by the
+      view, so no further projector masking is needed.
+- [x] **T-502** `AssetInfo` carries the loaded RDF type(s); `universe_assets` merges
+      `schema/reference.ttl` before the universe rows (the universe wins on CIK/stints, a
+      reference-declared type is kept), so `SPY` links by exact symbol. `validation_context` writes the real type (`:ExchangeTradedFund`)
+      and the projection/verifier reference context does the same.
+- [x] **T-503** Hermetic `SPY` holding/alert/action tests; `gate.plan` (the `--check-store` path)
+      accepts a `:holdingAsset`/`:guardAsset` to `:SPY` with the store's reference context, through
+      `:holdingAsset`'s `sh:class :Asset` and the superclass expansion of `:ExchangeTradedFund`.
+- [x] **T-504** The verifier recomputes every period summary's `:nGuardActions` from the `APPLIED`
+      guard actions whose `decision_date` is inside `[dateFrom, dateTo]`, once from the source and
+      once from the graph, and requires both to equal the stored value. `:decisionDate` was already
+      projected on `:GuardAction` and already required by the shape, so no schema property was
+      added. The pilot's day-before-window action is correctly excluded.
+- [x] **T-505** The verifier counts the Basing Points alerts, requires the source count, and
+      requires zero `:alertThreshold` triples on them.
+- [x] **T-506** New hermetic `final_scenario_rows`/`final_backtest_db` fixture: six date-ordered
+      windows, four arms, `P2a`/`P2b`, `SPY`, Basing Points alerts and a before-window action. Both
+      projectors and the verifier run over every window (`tests/test_final_backtest.py`).
+- [x] **T-507** Read-only dry runs over `rule_P1/P2/P3.db` with label `rule`: the m018 and selection
+      triple counts are unchanged from the recorded 2026-11-04 runs (no new property was needed),
+      and the verifier over in-memory projections passes 23/23 m018 and 15/15 selection checks on
+      every database, including the two new m018 checks.
+- [x] **T-508** Comments/definition only in `tbox.ttl` (and the `kg_target_schema.ttl` mirror) for
+      `:selectedForBook` (candidate-pool membership), `:targetWeight` (pool weight, never portfolio
+      weight), `:rankPosition` (counts vetoed names), `:vetoSeverity` (per-row authoritative), the
+      related `:topN`/`:finalTargetWeight` clarifications, and the Spanish `:StrategyBook`
+      definition (both "selección Top-30" occurrences become "selección del pool Top-N del
+      ciclo"). The `test_ontology_v18` expected text and `test_fibo_slice`'s v18 Spanish-text hash
+      move with it. No shape, term or count changed.
+- [x] **T-509** The first decision date of a window has no weight rows on that date by design; a
+      hermetic test proves the verifier does not report that as a gap.
+- [x] **T-510** `SPEC.md` FR-009, `docs/06`, `docs/08`, the query catalog, the load runbook,
+      `schema/README.md`, `PLAN.md`, `TASKS.md` and this record are consistent with the code.
+- [x] **T-511** Checks: `uv run pytest -q`, `mypy`, the pinned pre-commit hooks, FR-001 and the
+      read-only pilot verification all pass; the measured evidence is in `PLAN.md` Work item 34.
+
+**Scope notes.** `src/projection/load_run.py`, `cli/load_run.py`, the gate and the schema structure
+were not changed (no new property: `:decisionDate` already existed on `GuardAction`). The schema
+edit is comments and one Spanish `skos:definition` only, but **the user must reload the schema**
+afterwards with `cli/load_schema.py`, then `cli/verify_store.py`, so the store holds the new
+literals; `protege-view.ttl` was not regenerated. `SPY` is linked through the already-loaded
+`urn:graph:reference`.
+
+**Verified 2026-11-05**: `uv run pytest -q` = **1377 passed, 59 deselected, 5362 warnings in
+1349.13 s (22:29)**; `mypy` = success, **107 source files**; the pinned pre-commit hooks pass on
+every changed file; FR-001 remains **4634 quads; conforms: True**. No GraphDB write or reload was
+made by the agent; the user reloads the schema afterwards.

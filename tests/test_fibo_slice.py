@@ -71,7 +71,7 @@ _V18 = (
     "PortfolioPeriodSummary",
     "BacktestTest",
 )
-_V18_SHA256 = "a7f135b08eae8591fdc8244308f2530c39755efb57266afefaca51d298be93c1"
+_V18_SHA256 = "5a7f7b6ec81adfa553cf119260bc7323b867f5e707f8804a529df6635d90698e"
 
 QUERY_A1 = """PREFIX :     <https://thesis.local/kg/portfolio#>
 PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>

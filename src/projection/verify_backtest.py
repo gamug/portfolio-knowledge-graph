@@ -20,15 +20,18 @@ unchanged: the graph's name and its stored ``:runLabel``/``:windowId``/``:backte
 the label, window and run id; its triple count equals the re-projection; each class has one
 individual per source row; ``:holdingAsset``/``:guardAsset`` link the tickers the source can link,
 and no more rows are unlinked than the projector reports; the GuardAlert rule/layer/state groups,
-GuardAction statuses, last NAV per arm and CASH rows equal the source; and every individual carries
-``:runLabel`` through its book (where the model has that link) and ``:knowledgeDate``.
+GuardAction statuses, last NAV per arm and CASH rows equal the source; every period summary's
+``:nGuardActions`` equals the ``APPLIED`` actions by ``decision_date`` inside its segment from both
+the source and the graph; the Basing Points alerts equal the source count and carry no
+``:alertThreshold``; and every individual carries ``:runLabel`` through its book (where the model
+has that link) and ``:knowledgeDate``.
 
 Selection checks: graph identity, total triples, one individual per projected source row for
 ``SelectionCycle``, ``AttractivenessSnapshot``, ``AttractivenessWeightScheme``, ``Veto`` and the
 configured/effective ``WeightComponent`` links; the UNSCORED/UNPRICED placeholder count;
 ``:attractivenessOfAsset``/``:vetoOfAsset`` links and the unlinked-ticker ceiling; vetoes grouped
 by resolved rule; and every ``:cycleRunId`` of a TOPN ``BookRebalance`` in the m018 graph having
-its ``SelectionCycle`` in the selection graph (``MARKOWITZ_BASE`` has none).
+its ``SelectionCycle`` in the selection graph (the ``MARKOWITZ`` arms have none).
 """
 
 from __future__ import annotations
@@ -270,6 +273,47 @@ def _cash_rows(rows: Sequence[Row]) -> int:
     return sum(1 for row in rows if str(row.get("holding_key")) == _CASH)
 
 
+def _source_guard_summaries(
+    books: Sequence[Row],
+    summaries: Sequence[Row],
+    actions: Sequence[Row],
+) -> dict[tuple[str, str, str], tuple[int, int]]:
+    """``(book, arm, segment) -> (stored summary count, source APPLIED count)``.
+
+    An ``APPLIED`` action counts for a segment when its ``decision_date`` lies inside
+    ``[date_from, date_to]`` inclusive. This is deliberately not ``effective_date``: the summary
+    uses the decision session, so an action decided before the segment and effective on its first
+    day stays outside (the pilot P2 279-vs-280 case, Work item 34).
+    """
+    arms = {int(row["book_id"]): str(row["arm_code"]) for row in books}
+    expected: dict[tuple[str, str, str], tuple[int, int]] = {}
+    for row in summaries:
+        book = int(row["book_id"])
+        arm = arms.get(book)
+        if arm is None:
+            raise VerificationError(f"v_portfolio_period_summary book_id {book} is not in v_book")
+        date_from, date_to = str(row["date_from"]), str(row["date_to"])
+        computed = sum(
+            1
+            for action in actions
+            if int(action["book_id"]) == book
+            and str(action["status"]) == "APPLIED"
+            and date_from <= str(action["decision_date"]) <= date_to
+        )
+        key = (str(book), arm, str(row["segment"]))
+        if key in expected:
+            raise VerificationError(
+                f"v_portfolio_period_summary: two rows for book {book}, arm {arm}, "
+                f"segment {row['segment']}"
+            )
+        expected[key] = (int(row["n_guard_actions"]), computed)
+    return expected
+
+
+def _basing_points_alerts(alerts: Sequence[Row]) -> int:
+    return sum(1 for row in alerts if str(row.get("rule_id", "")).startswith("L1_BP_"))
+
+
 # --- store-side reads ---------------------------------------------------------------------------
 
 
@@ -342,6 +386,37 @@ def _store_action_statuses(store: ReadableStore, graph: str) -> Counter[str]:
         "?status",
     )
     return Counter({row["status"]: int(row["n"]) for row in rows})
+
+
+def _store_guard_summaries(
+    store: ReadableStore, graph: str
+) -> dict[tuple[str, str, str], tuple[int, int]]:
+    """``(book, arm, segment) -> (stored summary count, stored APPLIED count)``."""
+    summaries = _select(
+        store,
+        graph,
+        "?book ?arm ?segment ?n ?dateFrom ?dateTo",
+        "?s a :PortfolioPeriodSummary ; :bookId ?book ; :armCode ?arm ; :segment ?segment ; "
+        ":dateFrom ?dateFrom ; :dateTo ?dateTo ; :nGuardActions ?n .",
+    )
+    actions = _select(
+        store,
+        graph,
+        "?book ?arm ?date",
+        "?s a :GuardAction ; :bookId ?book ; :armCode ?arm ; :decisionDate ?date ; "
+        ':status "APPLIED" .',
+    )
+    counts = Counter((row["book"], row["arm"], row["date"]) for row in actions)
+    stored: dict[tuple[str, str, str], tuple[int, int]] = {}
+    for row in summaries:
+        book, arm, segment = str(int(row["book"])), row["arm"], row["segment"]
+        computed = sum(
+            count
+            for (action_book, action_arm, day), count in counts.items()
+            if action_book == book and action_arm == arm and row["dateFrom"] <= day <= row["dateTo"]
+        )
+        stored[(book, arm, segment)] = (int(row["n"]), computed)
+    return stored
 
 
 def _store_last_nav(store: ReadableStore, graph: str) -> dict[str, tuple[str, Decimal]]:
@@ -458,7 +533,7 @@ def _describe_difference(expected: Mapping[Any, Any], actual: Mapping[Any, Any])
     return "; ".join(parts)
 
 
-def verify(  # noqa: C901, PLR0913, PLR0915 -- the one public verifier
+def verify(  # noqa: C901, PLR0912, PLR0913, PLR0915 -- the one public verifier
     store: ReadableStore,
     graph: str,
     db_path: str | Path,
@@ -661,6 +736,74 @@ def verify(  # noqa: C901, PLR0913, PLR0915 -- the one public verifier
             _describe_difference(expected_statuses, stored_statuses),
         )
     )
+
+    source_guard = _source_guard_summaries(
+        _run_rows(rows.get("v_book", ()), identity.run_id),
+        _run_rows(rows.get("v_portfolio_period_summary", ()), identity.run_id),
+        actions,
+    )
+    stored_guard = _store_guard_summaries(store, graph)
+    source_inconsistent = {
+        key: value for key, value in source_guard.items() if value[0] != value[1]
+    }
+    stored_inconsistent = {
+        key: value for key, value in stored_guard.items() if value[0] != value[1]
+    }
+    guard_problems: list[str] = []
+    if source_guard != stored_guard:
+        guard_problems.append(_describe_difference(source_guard, stored_guard))
+    if source_inconsistent:
+        guard_problems.append(
+            "source summary differs from its APPLIED-by-decision-date count: "
+            + ", ".join(
+                f"{key} {value[0]}!={value[1]}"
+                for key, value in sorted(source_inconsistent.items())
+            )
+        )
+    if stored_inconsistent:
+        guard_problems.append(
+            "stored summary differs from its APPLIED-by-decision-date count: "
+            + ", ".join(
+                f"{key} {value[0]}!={value[1]}"
+                for key, value in sorted(stored_inconsistent.items())
+            )
+        )
+    checks.append(
+        Check(
+            "nGuardActions by decision date",
+            not guard_problems,
+            (
+                f"{len(stored_guard)} (book, arm, segment) summary row(s): source and graph "
+                "APPLIED counts inside [dateFrom, dateTo] agree with :nGuardActions"
+                if not guard_problems
+                else "; ".join(guard_problems)
+            ),
+        )
+    )
+
+    expected_basing_points = _basing_points_alerts(alerts)
+    basing_points_pattern = (
+        '?s a :GuardAlert ; :alertRule ?rule . FILTER (CONTAINS(STR(?rule), "#Rule_L1_BP_"))'
+    )
+    stored_basing_points = _scalar(store, graph, "COUNT(DISTINCT ?s)", basing_points_pattern)
+    stored_basing_thresholds = _scalar(
+        store,
+        graph,
+        "COUNT(DISTINCT ?s)",
+        basing_points_pattern + " ?s :alertThreshold ?threshold .",
+    )
+    publication_ok = (
+        stored_basing_points == expected_basing_points and stored_basing_thresholds == 0
+    )
+    checks.append(
+        Check(
+            "Basing Points publication",
+            publication_ok,
+            f"{stored_basing_points:,} stored, {expected_basing_points:,} source "
+            f"L1_BP_* alerts; {stored_basing_thresholds:,} :alertThreshold triple(s)",
+        )
+    )
+
     expected_nav = _last_nav(_run_rows(rows.get("v_book_daily_performance", ()), identity.run_id))
     stored_nav = _store_last_nav(store, graph)
     nav_details = ", ".join(
@@ -959,8 +1102,12 @@ def verify_selection(  # noqa: C901, PLR0912, PLR0913, PLR0915 -- the one select
         "?r a :BookRebalance ; :cycleRunId ?cycle ; :rebalanceOfBook ?book . "
         "?book a :StrategyBook ; :armCode ?arm .",
     )
-    markowitz = [row for row in rebalances if row.get("arm") == "MARKOWITZ_BASE"]
-    topn_cycles = _cycle_ids([row for row in rebalances if row.get("arm") != "MARKOWITZ_BASE"])
+    # Work item 34: both MARKOWITZ arms are independent controls with no cycle link; every other
+    # arm (TOPN_MV_NOGUARD, TOPN_MV_GUARD_NO_NLP, TOPN_MV_GUARD) shares the replay cycle.
+    markowitz = [row for row in rebalances if str(row.get("arm", "")).startswith("MARKOWITZ")]
+    topn_cycles = _cycle_ids(
+        [row for row in rebalances if not str(row.get("arm", "")).startswith("MARKOWITZ")]
+    )
     selection_cycles = _store_cycle_ids(
         store,
         graph,
@@ -971,7 +1118,7 @@ def verify_selection(  # noqa: C901, PLR0912, PLR0913, PLR0915 -- the one select
     if not rebalances:
         cross_problems.append(f"{m018_graph} has no BookRebalance with a :cycleRunId")
     if markowitz:
-        cross_problems.append(f"MARKOWITZ_BASE has {len(markowitz)} cycle link(s)")
+        cross_problems.append(f"a MARKOWITZ arm has {len(markowitz)} cycle link(s)")
     if missing_cycles:
         cross_problems.append(
             "missing SelectionCycle for cycle " + ", ".join(sorted(missing_cycles, key=int))
@@ -982,7 +1129,7 @@ def verify_selection(  # noqa: C901, PLR0912, PLR0913, PLR0915 -- the one select
             not cross_problems,
             (
                 f"{len(topn_cycles)} TOPN cycle id(s) from {m018_graph} are in this graph; "
-                "MARKOWITZ_BASE has 0"
+                "the MARKOWITZ arms have 0"
                 if not cross_problems
                 else "; ".join(cross_problems)
             ),

@@ -14,8 +14,8 @@ Every individual carries ``:knowledgeDate`` exactly as its view gives it. A NULL
 omitted, never filled: the handoff §3.3 masks layer-1 alert values, layer-3/4 assets, asset-level
 action weights, ordinary-session target weights and CASH's asset/name. A CASH weight row has no
 ``:holdingAsset`` and never creates an ``:Asset`` node. An asset link is written only for a ticker
-that exists in the universe database; a former S&P 500 member absent from that small database
-keeps its ``:guardTicker``/``:holdingKey`` and is counted, not dropped.
+in the loaded asset set (the universe database plus ``schema/reference.ttl``); a former S&P 500
+member absent from that set keeps its ``:guardTicker``/``:holdingKey`` and is counted, not dropped.
 
 The window and segment vocabularies are patterns, not closed lists: ``windowId`` is ``P<number>``
 or ``H<number>`` and ``segment`` adds an optional lowercase sub-period suffix (``P2a``, ``H1``), so
@@ -24,8 +24,11 @@ a new window needs no schema change (T-234, Work item 33). The arm vocabulary st
 
 A GUARD alert's ``:alertRule`` points at the matching ``:Rule_{rule_id}`` in ``schema/rules.ttl``;
 an unknown rule id, or a view layer that disagrees with the rule's ``:guardLayer``, stops the run.
-No rule, asset or value is invented. Writing is :mod:`kg_store.gate`'s job; :func:`run` calls it
-only when a store is given.
+No rule, asset or value is invented. An ``L1_BP_*`` alert never gets ``:alertThreshold``: its
+source threshold is the individual asset's stop price level, which the publication rule keeps out
+of the graph (Work item 34). The loaded asset set is the universe catalog plus the individuals in
+``schema/reference.ttl``, so the core ETF ``SPY`` links by exact symbol. Writing is
+:mod:`kg_store.gate`'s job; :func:`run` calls it only when a store is given.
 """
 
 from __future__ import annotations
@@ -43,6 +46,7 @@ import rdflib
 from rdflib.namespace import RDF, XSD
 from rdflib.term import Node
 
+from etl import config
 from etl.asset_master import read_stints, resolve_assets
 from kg_store import gate
 from kg_store.graphdb import GraphDB, GraphDBError
@@ -176,15 +180,68 @@ def read_view(db: FinancialSource, view: str) -> list[Row]:
 
 @dataclass(frozen=True)
 class AssetInfo:
-    """What the projector needs of one universe asset: its CIK and its membership stints."""
+    """What the projector needs of one loaded asset: its CIK, stints and RDF type(s)."""
 
     symbol: str
     cik: str | None
     stints: tuple[tuple[str, str | None], ...] = ()
+    #: The RDF types the loaded store holds for this asset. ``Asset`` for a universe row; a
+    #: reference individual can instead be an ``ExchangeTradedFund`` (Work item 34).
+    types: tuple[str, ...] = ("Asset",)
 
 
-def universe_assets(path: str | Path) -> dict[str, AssetInfo]:
-    """The universe database's assets, through the loader's own CIK-aware resolver (T-264/T-266).
+def _local_name(term: rdflib.term.Node) -> str:
+    """The local name of a portfolio-namespace IRI, else its text."""
+    text = str(term)
+    return text.rsplit("#", 1)[-1] if text.startswith(NS) else text
+
+
+def reference_assets(path: str | Path) -> dict[str, AssetInfo]:
+    """The asset individuals ``schema/reference.ttl`` declares, keyed by ticker symbol.
+
+    ``reference.ttl`` lives in ``urn:graph:reference`` in every loaded store, so a holding or alert
+    on one of its tickers is a real link even though the ticker is not in ``universe.db``. The core
+    ETF ``SPY`` is one of them: an ``:ExchangeTradedFund`` with no CIK, membership or GICS sector
+    (Work item 33). Only subjects with a ``:tickerSymbol`` are read, so the taxonomy concepts are
+    ignored.
+    """
+    graph = rdflib.Graph().parse(path, format="turtle")
+    assets: dict[str, AssetInfo] = {}
+    for subject in graph.subjects(KG.tickerSymbol, None):
+        if not isinstance(subject, rdflib.URIRef):
+            continue
+        symbol = str(graph.value(subject, KG.tickerSymbol))
+        cik = graph.value(subject, KG.cikNumber)
+        types = tuple(
+            sorted(
+                {
+                    _local_name(kind)
+                    for kind in graph.objects(subject, RDF.type)
+                    if isinstance(kind, rdflib.URIRef)
+                }
+            )
+        )
+        assets[symbol] = AssetInfo(
+            symbol,
+            None if cik is None else str(cik),
+            (),
+            types or ("Asset",),
+        )
+    return assets
+
+
+def universe_assets(
+    path: str | Path, reference_path: str | Path | None = None
+) -> dict[str, AssetInfo]:
+    """The loaded assets the projector may link, through the loader's own CIK-aware resolver.
+
+    The universe database's rows come first in name resolution (through
+    :func:`etl.asset_master.resolve_assets`) and win over a same-symbol ``reference.ttl``
+    individual for its CIK and membership stints, so a real constituent keeps what the loader
+    stored; a reference-declared RDF type is kept. The
+    reference individuals are merged first so the core ETF ``SPY`` (and the other worked-example
+    assets) are linkable even though they are not S&P 500 members; their RDF type travels with them
+    and ``validation_context`` reproduces it (Work item 34).
 
     The key is the ``:Asset`` IRI local name (a rename chain's latest symbol), not every historical
     symbol: the backtest's ``holding_key`` is the current ticker, so ``:META`` is what P1 links even
@@ -192,11 +249,21 @@ def universe_assets(path: str | Path) -> dict[str, AssetInfo]:
     full stint list, so a dry run validates exactly the memberships the loader would store.
     """
     assets: dict[str, AssetInfo] = {}
+    if reference_path is None:
+        reference_path = config.schema_dir() / "reference.ttl"
+    reference = Path(reference_path)
+    if reference.is_file():
+        assets.update(reference_assets(reference))
     for asset in resolve_assets(read_stints(path)):
+        # The universe row wins on CIK and stints; a reference-declared type (SPY's
+        # :ExchangeTradedFund) is kept even if the universe database happens to carry the symbol.
+        existing = assets.get(asset.symbol)
+        types = existing.types if existing is not None else ("Asset",)
         assets[asset.symbol] = AssetInfo(
             asset.symbol,
             asset.cik,
             tuple((stint.valid_from, stint.valid_to) for stint in asset.stints),
+            types,
         )
     return assets
 
@@ -347,7 +414,8 @@ def validation_context(assets: Mapping[str, AssetInfo], catalog: RuleGraph) -> r
     context.add((KG.SP500Index, RDF.type, KG.Universe))
     for symbol, info in assets.items():
         asset = KG[symbol]
-        context.add((asset, RDF.type, KG.Asset))
+        for kind in info.types:
+            context.add((asset, RDF.type, KG[kind]))
         context.add((asset, KG.tickerSymbol, rdflib.Literal(symbol)))
         if info.cik is not None:
             context.add((asset, KG.cikNumber, rdflib.Literal(info.cik)))
@@ -759,11 +827,16 @@ def _alerts(  # noqa: PLR0913, PLR0917 -- the call site reads better with the na
                 KG.alertValue,
                 _dec_lit(_decimal(row["value"], "value", where)),
             )
-        builder.add(
-            iri,
-            KG.alertThreshold,
-            _dec_lit(_decimal(_required(row, "threshold", where), "threshold", where)),
-        )
+        # Publication rule (Work item 34): for the Basing Points rules the view's threshold is
+        # the individual asset's stop price level, not a fixed parameter. The licence forbids
+        # redistributing it, so no :alertThreshold triple is written at all (the shape forbids it).
+        # Every other GUARD rule keeps its required fixed-parameter threshold.
+        if not rule_id.startswith("L1_BP_"):
+            builder.add(
+                iri,
+                KG.alertThreshold,
+                _dec_lit(_decimal(_required(row, "threshold", where), "threshold", where)),
+            )
         builder.add(iri, KG.alertState, rdflib.Literal(str(_required(row, "state", where))))
         builder.add(
             iri,
@@ -1950,6 +2023,7 @@ __all__ = [
     "project_selection_source",
     "project_source",
     "read_view",
+    "reference_assets",
     "resolve_rule",
     "run",
     "run_selection",

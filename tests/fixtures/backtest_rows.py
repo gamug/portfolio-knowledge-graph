@@ -11,6 +11,7 @@ shared fixtures.
 
 from __future__ import annotations
 
+import datetime
 import sqlite3
 from pathlib import Path
 from typing import Any
@@ -26,6 +27,8 @@ ASSETS: dict[str, AssetInfo] = {
     "BBB": AssetInfo("BBB", "0000000002", (("2000-01-01", None),)),
     "BRK.B": AssetInfo("BRK.B", "0000000003", (("2000-01-01", None),)),
     "CCC": AssetInfo("CCC", "0000000004", (("2000-01-01", None),)),
+    # Work item 33/34: the core ETF is in reference.ttl, not the S&P 500 universe database.
+    "SPY": AssetInfo("SPY", None, (), ("ExchangeTradedFund",)),
 }
 
 _DDL = """
@@ -359,7 +362,7 @@ def scenario_rows(
 ) -> dict[str, list[dict[str, Any]]]:
     """One run of three books covering every §3.3 nullable case."""
     knowledge = "2026-10-31"
-    books = [
+    books: list[dict[str, Any]] = [
         {
             "id": 1,
             "backtest_run_id": run_id,
@@ -710,7 +713,8 @@ def scenario_rows(
                 "total_turnover": 2.0,
                 "total_cost_bps": 20.0,
                 "n_rebalances": 10,
-                "n_guard_actions": 0,
+                # APPLIED actions 1 and 3 are decided inside 2022-01-03..2022-10-12.
+                "n_guard_actions": 2,
             },
             {
                 "book_id": 3,
@@ -725,7 +729,8 @@ def scenario_rows(
                 "total_turnover": 18.0,
                 "total_cost_bps": 180.0,
                 "n_rebalances": 10,
-                "n_guard_actions": 535,
+                # APPLIED action 4 is decided inside the segment.
+                "n_guard_actions": 1,
             },
         ],
         "backtest_test": [
@@ -939,6 +944,7 @@ def backtest_db(  # noqa: PLR0913 -- a test builder's keyword-only knobs are cle
             (3, "BRK.B", "Berkshire Hathaway", "0000000003"),
             (4, "ZZZ", "ZZZ Corp", "0000000005"),
             (5, "CCC", "CCC Inc.", "0000000004"),
+            (6, "SPY", "SPDR S&P 500 ETF Trust", None),
         ],
     )
     conn.executemany(
@@ -1000,6 +1006,9 @@ def universe_db(tmp_path: Path, assets: dict[str, AssetInfo] | None = None) -> P
         "gics_sub_industry TEXT, cik TEXT, valid_from TEXT, valid_to TEXT)"
     )
     for symbol, info in (assets or ASSETS).items():
+        if not info.stints:
+            # A reference-only asset (SPY) is not an S&P 500 member: it has no universe row.
+            continue
         valid_from, valid_to = info.stints[0]
         conn.execute(
             "INSERT INTO universe_membership VALUES (?, ?, NULL, NULL, ?, ?, ?)",
@@ -1017,3 +1026,388 @@ def rows_without(
     copy = {name: [dict(row) for row in rows] for name, rows in data.items()}
     del copy[table][index]
     return copy
+
+
+# --- the final backtest: six windows, four arms, SPY, Basing Points (Work item 34) -------------
+
+#: The six contiguous final-backtest windows, in chronological (never name) order.
+FINAL_WINDOWS: dict[str, tuple[str, str]] = {
+    "P1": ("2022-01-03", "2022-10-12"),
+    "H1": ("2022-10-13", "2023-10-26"),
+    "P3": ("2023-10-27", "2024-08-02"),
+    "H2": ("2024-08-05", "2025-02-18"),
+    "P2": ("2025-02-19", "2025-09-23"),
+    "H3": ("2025-09-24", "2026-10-15"),
+}
+
+#: The four final-backtest arms.
+FINAL_ARMS: tuple[str, ...] = (
+    "MARKOWITZ_BASE",
+    "TOPN_MV_NOGUARD",
+    "TOPN_MV_GUARD_NO_NLP",
+    "MARKOWITZ_BASE_GUARD",
+)
+
+#: The P2 sub-periods; P2b starts the day after P2a ends.
+P2_SEGMENTS: tuple[tuple[str, str, str], ...] = (
+    ("P2a", "2025-02-19", "2025-05-06"),
+    ("P2b", "2025-05-07", "2025-09-23"),
+)
+
+
+def _plus(day: str, days: int) -> str:
+    return (datetime.date.fromisoformat(day) + datetime.timedelta(days=days)).isoformat()
+
+
+def final_scenario_rows(window: str = "P1", run_id: int = 1) -> dict[str, list[dict[str, Any]]]:
+    """A small six-window/four-arm scenario with SPY and Basing Points alerts.
+
+    It deliberately models the final-backtest shape rather than the pilot's: four books, the
+    ``P2a``/``P2b`` summaries, the core ETF ``SPY`` in the daily weights, and ``L1_BP_*`` alerts
+    whose source threshold is present (the projector must not emit it). The first decision date has
+    no weight rows; the weights appear on the execution date. For ``P2`` one extra ``APPLIED``
+    action is decided the day before the window starts, so the summary count (by ``decision_date``
+    inside the segment) is one lower than the view's raw ``APPLIED`` total.
+    """
+    start, end = FINAL_WINDOWS[window]
+    d0, d1, d2, d3 = (start, _plus(start, 1), _plus(start, 2), _plus(start, 3))
+    books: list[dict[str, Any]] = [
+        {
+            "id": 1,
+            "backtest_run_id": run_id,
+            "arm_code": "MARKOWITZ_BASE",
+            "objective": "min_var",
+            "exclude_hard_vetoed": 0,
+            "guard_layers": None,
+        },
+        {
+            "id": 2,
+            "backtest_run_id": run_id,
+            "arm_code": "TOPN_MV_NOGUARD",
+            "objective": "min_var",
+            "exclude_hard_vetoed": 0,
+            "guard_layers": None,
+        },
+        {
+            "id": 3,
+            "backtest_run_id": run_id,
+            "arm_code": "TOPN_MV_GUARD_NO_NLP",
+            "objective": "min_var",
+            "exclude_hard_vetoed": 0,
+            "guard_layers": "[1, 3, 4]",
+        },
+        {
+            "id": 4,
+            "backtest_run_id": run_id,
+            "arm_code": "MARKOWITZ_BASE_GUARD",
+            "objective": "min_var",
+            "exclude_hard_vetoed": 0,
+            "guard_layers": "[1, 3, 4]",
+        },
+    ]
+    guard_alert: list[dict[str, Any]] = [
+        {
+            "id": 1,
+            "backtest_run_id": run_id,
+            "date": d0,
+            "layer": 1,
+            "asset_id": 1,
+            "rule_id": "L1_STOP_LOSS",
+            "value": 0.5,
+            "threshold": -0.1229,
+            "state": "ENTER",
+        },
+        {  # the Basing Points stop's source threshold is an asset price level (never projected)
+            "id": 2,
+            "backtest_run_id": run_id,
+            "date": d0,
+            "layer": 1,
+            "asset_id": 6,
+            "rule_id": "L1_BP_STOP",
+            "value": 0.5,
+            "threshold": 401.25,
+            "state": "ENTER",
+        },
+        {
+            "id": 3,
+            "backtest_run_id": run_id,
+            "date": d1,
+            "layer": 1,
+            "asset_id": 1,
+            "rule_id": "L1_REENTRY",
+            "value": 0.6,
+            "threshold": 0.0108,
+            "state": "EXIT",
+        },
+        {  # the Basing Points re-entry threshold is also a price level
+            "id": 4,
+            "backtest_run_id": run_id,
+            "date": d1,
+            "layer": 1,
+            "asset_id": 6,
+            "rule_id": "L1_BP_REENTRY",
+            "value": 0.4,
+            "threshold": 405.75,
+            "state": "EXIT",
+        },
+        {
+            "id": 5,
+            "backtest_run_id": run_id,
+            "date": d2,
+            "layer": 4,
+            "asset_id": None,
+            "rule_id": "L4_DD",
+            "value": 0.8,
+            "threshold": 0.2455,
+            "state": "SCALE",
+        },
+    ]
+    guard_action: list[dict[str, Any]] = [
+        {
+            "id": 1,
+            "book_id": 3,
+            "alert_id": 1,
+            "decision_date": d0,
+            "effective_date": d1,
+            "asset_id": 1,
+            "status": "APPLIED",
+            "weight_before": 0.1,
+            "weight_after": 0.0,
+        },
+        {
+            "id": 2,
+            "book_id": 4,
+            "alert_id": 1,
+            "decision_date": d0,
+            "effective_date": d1,
+            "asset_id": 1,
+            "status": "APPLIED",
+            "weight_before": 0.1,
+            "weight_after": 0.0,
+        },
+        {
+            "id": 3,
+            "book_id": 3,
+            "alert_id": 2,
+            "decision_date": d1,
+            "effective_date": d2,
+            "asset_id": 6,
+            "status": "APPLIED",
+            "weight_before": 0.1,
+            "weight_after": 0.0,
+        },
+        {
+            "id": 4,
+            "book_id": 3,
+            "alert_id": 3,
+            "decision_date": d2,
+            "effective_date": d3,
+            "asset_id": 1,
+            "status": "APPLIED",
+            "weight_before": 0.1,
+            "weight_after": 0.0,
+        },
+        {
+            "id": 5,
+            "book_id": 4,
+            "alert_id": 2,
+            "decision_date": d1,
+            "effective_date": d2,
+            "asset_id": 6,
+            "status": "NOT_HELD",
+            "weight_before": None,
+            "weight_after": None,
+        },
+        {
+            "id": 6,
+            "book_id": 2,
+            "alert_id": 1,
+            "decision_date": d0,
+            "effective_date": d1,
+            "asset_id": 1,
+            "status": "ARM_DISABLED",
+            "weight_before": 0.1,
+            "weight_after": 0.0,
+        },
+        {
+            "id": 7,
+            "book_id": 3,
+            "alert_id": 4,
+            "decision_date": d2,
+            "effective_date": d3,
+            "asset_id": 6,
+            "status": "APPLIED",
+            "weight_before": 0.1,
+            "weight_after": 0.0,
+        },
+        {
+            "id": 8,
+            "book_id": 3,
+            "alert_id": 5,
+            "decision_date": d2,
+            "effective_date": d3,
+            "asset_id": None,
+            "status": "APPLIED",
+            "weight_before": 1.0,
+            "weight_after": 0.8,
+        },
+    ]
+    if window == "P2":
+        # Decided the day before the window starts and effective on its first day: inside the raw
+        # APPLIED set, outside every P2/P2a/P2b [date_from, date_to] segment. It is a separate
+        # alert from id 1 because the boundary keys v_guard_action by (book_id, alert_id).
+        guard_alert.append(
+            {
+                "id": 6,
+                "backtest_run_id": run_id,
+                "date": _plus(start, -1),
+                "layer": 1,
+                "asset_id": 1,
+                "rule_id": "L1_STOP_LOSS",
+                "value": 0.5,
+                "threshold": -0.1229,
+                "state": "ENTER",
+            }
+        )
+        guard_action.append(
+            {
+                "id": 9,
+                "book_id": 3,
+                "alert_id": 6,
+                "decision_date": _plus(start, -1),
+                "effective_date": start,
+                "asset_id": 1,
+                "status": "APPLIED",
+                "weight_before": 0.1,
+                "weight_after": 0.0,
+            }
+        )
+
+    def applied(book_id: int, date_from: str, date_to: str) -> int:
+        return sum(
+            1
+            for action in guard_action
+            if action["book_id"] == book_id
+            and action["status"] == "APPLIED"
+            and date_from <= str(action["decision_date"]) <= date_to
+        )
+
+    segments: list[tuple[str, str, str]] = [(window, start, end)]
+    if window == "P2":
+        segments.extend(P2_SEGMENTS)
+    summaries = [
+        {
+            "book_id": book["id"],
+            "segment": segment,
+            "date_from": date_from,
+            "date_to": date_to,
+            "cumulative_return": 0.01,
+            "annualized_return": 0.02,
+            "annualized_vol": 0.1,
+            "ex_post_sharpe": 0.2,
+            "max_drawdown": 0.05,
+            "total_turnover": 1.0,
+            "total_cost_bps": 10.0,
+            "n_rebalances": 10,
+            "n_guard_actions": applied(book["id"], date_from, date_to),
+        }
+        for book in books
+        for segment, date_from, date_to in segments
+    ]
+
+    weights = [
+        {
+            "book_id": book["id"],
+            "date": d1,
+            "holding_key": key,
+            "asset_id": asset_id,
+            "markowitz_target_weight": target,
+            "drifted_weight": target,
+            "pre_guard_weight": target,
+            "final_target_weight": target,
+        }
+        for book in books
+        for key, asset_id, target in (("SPY", 6, 0.5), ("AAA", 1, 0.4), ("CASH", None, 0.1))
+    ]
+    performance = [
+        {
+            "book_id": book["id"],
+            "date": d1,
+            "gross_return": 0.001,
+            "turnover": 0.0,
+            "cost_return": 0.0,
+            "net_return": 0.001,
+            "nav": 1.001,
+            "drawdown": 0.0,
+            "cash_weight": 0.1,
+            "n_equity": 2,
+            "benchmark_return": 0.0,
+        }
+        for book in books
+    ]
+    rebalances = [
+        {
+            "id": book["id"],
+            "book_id": book["id"],
+            "decision_date": d0,
+            "execution_date": d1,
+            "quant_portfolio_id": 10 + book["id"],
+            "cycle_run_id": 7 if book["arm_code"].startswith("TOPN") else None,
+            "risk_model_id": 5,
+            "status": "executed",
+        }
+        for book in books
+    ]
+    base = scenario_rows(window, run_id)
+    return {
+        "backtest_run": [
+            {
+                "id": run_id,
+                "window_id": window,
+                "d_start": start,
+                "d_end": end,
+                "formation_date": start,
+                "warmup_steps": 12,
+                "params_json": "{}",
+                "ips_json": "{}",
+                "code_version": "v1",
+                "input_db_sha256": None,
+                "status": "completed",
+                "created_at": "2026-10-31T19:37:32",
+            }
+        ],
+        "strategy_book": books,
+        "book_rebalance": rebalances,
+        "guard_alert": guard_alert,
+        "guard_action": guard_action,
+        "book_weight_daily": weights,
+        "book_daily_performance": performance,
+        "backtest_summary": summaries,
+        "backtest_test": [
+            {
+                "backtest_run_id": run_id,
+                "segment": window,
+                "arm_a": "TOPN_MV_GUARD_NO_NLP",
+                "arm_b": "TOPN_MV_NOGUARD",
+                "test": "memmel_jk",
+                "statistic": 1.0,
+                "p_value": 0.1,
+                "n_obs": 100,
+                "params_json": None,
+            }
+        ],
+        "cycle_run": base["cycle_run"],
+        "cycle_ranking": base["cycle_ranking"],
+        "veto": base["veto"],
+    }
+
+
+def final_backtest_db(tmp_path: Path, window: str = "P1", run_id: int = 1) -> Path:
+    """Write one small final-backtest database for ``window`` and return its path."""
+    return backtest_db(
+        tmp_path,
+        name=f"final_{window}.db",
+        window=window,
+        run_id=run_id,
+        rows=final_scenario_rows(window, run_id),
+    )

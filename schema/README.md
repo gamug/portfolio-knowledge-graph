@@ -450,6 +450,20 @@ what the store *enforces*.
    Counts: **55 classes (41 disjoint leaves), 36 named shapes, 4634 quads; conforms: True.** The
    catalog is 643 written assets plus the six in `reference.ttl` = **649**.
 
+10. **Ranking and severity comments (Work item 34, 2026-11-05).** Comments only, no structural
+   change and no new count: `:selectedForBook` is candidate-pool membership (60 per decision
+   cycle), not the at most 30 names held; `:targetWeight` is the cycle's own weight over that pool,
+   never a portfolio weight (the held weights are `:finalTargetWeight`); `:rankPosition` counts
+   vetoed names too; `:vetoSeverity` is read per veto row and is authoritative, so
+   `LEVERAGE_EXTREME` can be `SOFT` although its catalog severity is `HARD`; `:topN` is the pool
+   size (60), not the held cap. The `:AttractivenessSnapshot` English comment and Spanish
+   `skos:definition` say the same, and `kg_target_schema.ttl` mirrors the four property comments.
+   The Spanish `:StrategyBook` definition now says the Top-N arms use the cycle's Top-N pool
+   ("selección del pool Top-N del ciclo"), not a fixed Top-30. No shape or term was added.
+   **4634 quads, unchanged; conforms: True.** The store must be reloaded afterwards
+   (`cli/load_schema.py`, then `cli/verify_store.py`) to pick up the changed comment/definition
+   literals.
+
 ## Validation
 
 Parsed and checked with `rdflib` (Turtle + TriG) and validated end-to-end with `pyshacl` —

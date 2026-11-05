@@ -472,15 +472,20 @@ checked: compare it with the `KG_REPOSITORY` you intended.
 The m018 checks are: graph name and stored run identity; total triples against the deterministic
 re-projection; one individual per source row for each of the eight classes; distinct
 `:holdingAsset`/`:guardAsset` tickers and the unlinked-row ceiling; GuardAlert groups by
-rule/layer/state; GuardAction by status; last NAV per arm; CASH rows; `:runLabel` through the book;
-and `:knowledgeDate`.
+rule/layer/state; GuardAction by status; the `nGuardActions` rule (each summary's stored value
+equals the `APPLIED` guard actions of that book whose `decision_date` is inside
+`[dateFrom, dateTo]`, from both the source and the graph, so an action decided before the segment
+and effective on its first day stays out); the Basing Points publication check (the `L1_BP_*` alert
+count equals the source and none has `:alertThreshold`); last NAV per arm; CASH rows; `:runLabel`
+through the book; and `:knowledgeDate`. A `SPY` holding/alert/action links to `:SPY` from
+`urn:graph:reference` by the exact-symbol rule; it is not counted as unlinked.
 
 The selection checks are: graph name and stored cycle identity; total triples; one individual per
 projected source row for `SelectionCycle`, `AttractivenessSnapshot`, `AttractivenessWeightScheme`,
 `Veto`, and the configured/effective `WeightComponent` links; the UNSCORED/UNPRICED placeholder
 count; `:attractivenessOfAsset`/`:vetoOfAsset` links and the unlinked-ticker ceiling; vetoes grouped
 by resolved rule; and the cross-graph check that every TOPN `BookRebalance` cycle in the m018 graph
-has its `SelectionCycle` in the selection graph (`MARKOWITZ_BASE` has none). A `FAIL` is a real
+has its `SelectionCycle` in the selection graph (the `MARKOWITZ` arms have none). A `FAIL` is a real
 difference, not a warning; investigate before calling the load done.
 
 ## 7. Reference numbers

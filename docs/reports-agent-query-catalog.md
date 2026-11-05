@@ -677,10 +677,13 @@ property inventory in §5.7) select one.
 
 ### 5.11 The ranking at a rebalance
 
-One row per asset in the selected cycle, in rank order. `:rankPosition` is upstream's rank,
-`:selectedForBook` its selection flag, `:targetWeight` its book weight (absent when not selected)
-and `:vetoRulesJson` upstream's rule ids/markers verbatim. A row with no `:hasEffectiveWeight`
-entry is the UNSCORED/UNPRICED placeholder (score 0.0), as in `selection-why-not-top30`.
+One row per asset in the decision cycle's candidate pool, in rank order. `:rankPosition` is
+upstream's rank (it counts vetoed names too, so it can exceed 60), `:selectedForBook` marks
+membership of the 60-name candidate pool (not the at most 30 names held), `:targetWeight` is the
+cycle's own weight over that pool and never a portfolio weight (the held weights are
+`:finalTargetWeight` on `:BookWeightDaily`), and `:vetoRulesJson` is upstream's rule ids/markers
+verbatim. A row with no `:hasEffectiveWeight` entry is the UNSCORED/UNPRICED placeholder (score
+0.0), as in `selection-why-not-top30`.
 `:vetoRulesJson` does **not** name HARD rules: it carries only the marker `"HARD"` for them; see
 §5.13 for the join that recovers the HARD rule ids.
 
