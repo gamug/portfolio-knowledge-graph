@@ -1275,6 +1275,11 @@ segments, `MARKOWITZ_BASE_GUARD`, the Basing Points GUARD rules with the conditi
 `:RunConfiguration` metadata plus the `urn:graph:derived:backtest:meta:{label}` gate target); see
 `CHANGELOG.md` and `PLAN.md` Work item 33.
 
+Work item 34 (T-500–T-512): closed 2026-11-05 — the final-backtest projector/verifier
+checks (Basing Points thresholds, `SPY` from `reference.ttl`, `nGuardActions` by decision date, the
+six-window/four-arm and variable-guard-layer fixtures and the ranking/severity comments); the user
+reloads the schema; see `CHANGELOG.md` and `PLAN.md` Work item 34.
+
 Work item 35 (T-520–T-529): closed 2026-11-05 — the six-window delivery loader (manifest,
 configuration, metadata graph and read-only verification); see `CHANGELOG.md` and `PLAN.md`
 Work item 35.

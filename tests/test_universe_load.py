@@ -21,7 +21,7 @@ from rdflib.namespace import RDF, RDFS, SH
 
 from etl import asset_master
 from kg_store import gate, universe
-from projection.backtest import universe_assets
+from projection.backtest import reference_assets, universe_assets
 from projection.score_snapshots import universe_symbols
 
 if TYPE_CHECKING:
@@ -160,8 +160,13 @@ def test_the_loader_and_the_backtest_projector_share_the_asset_set(tmp_path: Pat
     db = universe_db(tmp_path / "universe.db", rows)
     loader_assets = universe.plan(db, as_of=AS_OF).summary.tickers
     projector_assets = set(universe_assets(db))
-    assert loader_assets == projector_assets == {"META", "GOOG", "GOOGL", "GONE"}
-    # The score projector resolves the same set: a former ticker is not an asset.
+    # Work item 34: the backtest projector also links the reference.ttl individuals (SPY), which
+    # the loader deliberately does not re-emit; the universe rows remain the same set.
+    reference = set(reference_assets(SCHEMA / "reference.ttl"))
+    assert loader_assets == {"META", "GOOG", "GOOGL", "GONE"}
+    assert projector_assets == loader_assets | reference
+    assert {"SPY", "AAPL"} <= reference
+    # The score projector still resolves the universe database set: a former ticker is not an asset.
     assert universe_symbols(db) == loader_assets
 
 

@@ -405,7 +405,7 @@ calling out here are the ones that encode a design decision, not just a field:
   (`LIQUIDITY_DISTRESS`: stints raised before 2026-10-10 point at the old one, later ones at `_v11`), so a query by
   rule matches on `:ruleId` (`appliesRule/ruleId`), never on the rule's IRI.
 - **`Veto` is a stint** (T-102, 2026-10-03): `raisedOn` (required), `clearedOn`, `lastSeenOn` are cycle
-  dates mirroring upstream's `veto` rows; `vetoSeverity` (HARD | SOFT) is the per-stint severity. `lastSeenOn` and `expiresOn` (T-188) are both multi-valued, one value per cycle that saw the stint or per move upstream made, current = `MAX`. Four severity-like properties now coexist, deliberately: `severity` (`RiskEvent`, CRITICAL…LOW), `ruleSeverity` (`RuleDefinition`, the catalog default), `vetoSeverity` (`Veto`, per stint) and `dqSeverity` (`DataQualityIssue`, upstream's gate severity, unenumerated).
+  dates mirroring upstream's `veto` rows; `vetoSeverity` (HARD | SOFT) is the per-row severity and is authoritative, never the catalog's `ruleSeverity`: `LEVERAGE_EXTREME` is HARD in the catalog but emits SOFT for a negative-equity firm with no usable credit metric. `lastSeenOn` and `expiresOn` (T-188) are both multi-valued, one value per cycle that saw the stint or per move upstream made, current = `MAX`. Four severity-like properties now coexist, deliberately: `severity` (`RiskEvent`, CRITICAL…LOW), `ruleSeverity` (`RuleDefinition`, the catalog default), `vetoSeverity` (`Veto`, per stint/row) and `dqSeverity` (`DataQualityIssue`, upstream's gate severity, unenumerated).
   Active at cutoff C iff `raisedOn <= C` and (no `clearedOn` or `clearedOn > C`); the T-1 lag is that
   predicate at read time (SPARQL in `schema/README.md`). Stints are closed by writing `clearedOn`.
 - **`sharedExecutiveWith`** is declared `owl:SymmetricProperty` but is explicitly commented as
@@ -575,7 +575,7 @@ attractiveness-ranking feature, see §1.8, plus `VetoShape` added 2026-10-03 for
 | `BenchmarkObservationShape` (+ `QuantSubjectShape`) | portfolio, metric (free text) and value required; `quantPortfolio` must be a BENCHMARK or the LIVE book; `quantAsset`, `quantUnit`, `quantAsOf`, `quantBenchmark` and T-106 run provenance optional; a LIVE subject may only carry the four performance metrics | Carries upstream's finished quant numbers without interpreting them (T-108); upstream's columns, units and the `live_book` handling were pinned in T-109. |
 | `VetoShape` | `raisedOn` required; `clearedOn`/`lastSeenOn` optional, never before `raisedOn`; no `lastSeenOn` after `clearedOn` (T-185, same day passes); `vetoSeverity` ∈ {HARD, SOFT}; optional, multi-valued `expiresOn` (T-188, like `lastSeenOn`: upstream moves it, current = MAX), each value not before `raisedOn` (the same day passes); it never closes a stint, only `clearedOn` does; since T-206 a GUARD-category rule is refused as `appliesRule`/`primaryRule` | Veto stints (T-102): a stint is closed by `clearedOn`, never deleted. |
 | The 11 Contract v18 shapes (`TickerHistoryShape`, `OrchestratorRunShape`, `OrchestratorStepShape`, `StrategyBookShape`, `BookRebalanceShape`, `GuardAlertShape`, `GuardActionShape`, `BookWeightDailyShape`, `BookDailyPerformanceShape`, `PortfolioPeriodSummaryShape`, `BacktestTestShape`) | Required only what the view guarantees non-null; the handoff §3.3 nullable columns stay optional (cycle_run_id on MARKOWITZ_BASE, layer-1 alert value, layer-3/4 asset/ticker, action weights, CASH asset/name/targets, book guard_layers, ticker valid_to/evidence). `sh:pattern` for window_id (`^[PH][0-9]+$`) and segment (`^[PH][0-9]+[a-z]?$`) since T-234/Work item 33; `sh:in` for arm_code, GUARD rule ids, alert state, action status and test name; `:runLabel` required on StrategyBook/BacktestTest (T-233); no sign/range on drawdown, cost_return or max_drawdown. Sourcery review: `bookId` required on BookRebalance/GuardAction; `pValue` ∈ [0,1] and `nObs` ≥ 1 on BacktestTest; `sh:equals` for the six row-date/`knowledgeDate` pairs; a CASH row must have no `holdingAsset` | Carries the m015/m016/m018 views into the ontology (T-206, §1.10); a CASH row never needs an Asset node. |
-| `SelectionCycleShape`, `BacktestRankingShape`, `EffectiveWeightComponentShape` (Work item 26) | `SelectionCycle` requires its run id/type/as-of/status plus the projector's label/window/backtest-run context; a ranking snapshot reached by `:rankingOfCycle` requires rank, selection, vetoed flag and ticker (asset link or `:rankingTicker`); an effective-weight `WeightComponent` requires `:componentValue`. No shape requires a component for the 0.0 UNSCORED/UNPRICED placeholder. `:targetWeight`, `:vetoRulesJson` and the effective components stay optional. | Carries the six selection views into the ontology and keeps the reports agent's exclusion reasons visible (§1.11). |
+| `SelectionCycleShape`, `BacktestRankingShape`, `EffectiveWeightComponentShape` (Work item 26) | `SelectionCycle` requires its run id/type/as-of/status plus the projector's label/window/backtest-run context; a ranking snapshot reached by `:rankingOfCycle` requires rank, selection, vetoed flag and ticker (asset link or `:rankingTicker`); an effective-weight `WeightComponent` requires `:componentValue`. No shape requires a component for the 0.0 UNSCORED/UNPRICED placeholder. `:targetWeight`, `:vetoRulesJson` and the effective components stay optional; `:targetWeight` is the cycle's pool weight, never the portfolio weight. | Carries the six selection views into the ontology and keeps the reports agent's exclusion reasons visible (§1.11). |
 
 Validated end-to-end with `pyshacl` against the full worked dataset below: **conforms = True**.
 
@@ -875,9 +875,24 @@ Work item 26 and closes T-209.
 placeholder (score 0.0, `vetoRulesJson` `["UNSCORED"]`/`["UNPRICED"]`, no `:hasEffectiveWeight`),
 so the reports agent can explain why the asset was excluded; no shape requires a component for it.
 `v_veto.evidence_json` is not projected: it carries price-derived values (`close`, `vol_5d`,
-`vol_60d_base`) that the Tiingo non-redistribution rule keeps out of the graph. A ticker the shared
-universe database does not know keeps `:rankingTicker`/`:vetoTicker` and is counted; the asset link
-is omitted, never invented.
+`vol_60d_base`) that the Tiingo non-redistribution rule keeps out of the graph. A ticker the loaded
+asset set does not know keeps `:rankingTicker`/`:vetoTicker` and is counted; the asset link is
+omitted, never invented.
+
+**Ranking semantics (confirmed upstream, Work item 34).** `:selectedForBook` is membership of the
+candidate pool of 60 (exactly 60 rows with `selected = 1` per decision cycle), not the at most 30
+names actually held; the held satellite is `:finalTargetWeight > 0` on the Top-N arms'
+`:BookWeightDaily` rows, plus the SPY core and CASH. `:topN` (from `v_weight_scheme`) is that pool size (60);
+the 30-name cap is a backtest parameter in `params_json` that no view exposes. `:targetWeight` is
+the cycle's own weight over the 60 (score tilt, name and sector caps), never a portfolio weight and
+never used as one by the backtest. `:rankPosition` counts vetoed names too, so a selected name can
+have a rank above 60. `:vetoSeverity` is read per row and is authoritative; a SOFT veto penalises
+the score (the run's `soft_veto_penalty`, 15) instead of excluding the name.
+
+**Core ETF.** `SPY` is declared in `reference.ttl`, loaded in `urn:graph:reference`, and joined to
+the universe catalog by the projector, so a `SPY` holding, alert or action links to `:SPY` by the
+exact-symbol rule instead of being counted as unlinked. It is an `:ExchangeTradedFund` (an `:Asset`
+subclass), not an S&P 500 member: a sector read shows it as `ETF núcleo`, never as unclassified.
 
 **Graph and CLI.** The selection graph is accepted by the ingest gate as
 `urn:graph:derived:backtest:selection:{run label}:{P<n>|H<n>}:{positive integer}`. Run
@@ -950,6 +965,18 @@ has no exchange-traded-fund term, so it has no `rdfs:seeAlso`; `reference.ttl` d
 ticker and company name only (no CIK, membership or GICS classification). `AssetShape` adds the ETF
 branch; ordinary assets keep the CIK/closed-membership rule. The catalog is 643 written assets plus
 the six in `reference.ttl` = **649**.
+
+The Spanish `:StrategyBook` definition describes the Top-N arms as using the cycle's Top-N pool
+("selección del pool Top-N del ciclo"), not a fixed Top-30; the held cap is a backtest parameter.
+The projector never emits `:alertThreshold` on an `L1_BP_*` alert (its source threshold is the
+asset's stop price level); every other alert keeps the fixed-parameter threshold. The verifier
+therefore counts the Basing Points alerts, requires the source count, and requires zero
+`:alertThreshold` triples on them. It also recomputes every period summary's `:nGuardActions` from
+the `APPLIED` guard actions whose `decision_date` falls inside `[dateFrom, dateTo]`, once from the
+source and once from the graph; `effectiveDate` is not the count's date. This is why a summary can
+be one lower than the raw `APPLIED` total: an action decided before the segment and effective on
+its first day stays outside. The first decision date of a window has no weight rows on that date;
+the weights appear on the execution (formation) date, which is not a gap.
 
 `:BacktestRun` (one per label and window) and `:RunConfiguration` (one per label) are metadata
 leaves in the new append-only graph `urn:graph:derived:backtest:meta:{label}`. The run carries the

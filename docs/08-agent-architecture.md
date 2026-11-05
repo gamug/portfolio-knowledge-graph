@@ -205,7 +205,7 @@ gate, an existing graph reported and skipped, and `--to-production` for the prod
 The boundary checks the six views; the source check is `v_book.run_status = completed`, not the
 live REPLAY refusal, because a backtest database's cycle runs are REPLAY by construction.
 
-Two selection-specific rules:
+Three selection-specific rules:
 
 - **Rules resolve on the run date, never `raisedOn`.** Every backtest stint was raised in
   2020–2024, before every active rule's `validFrom`. `v_veto.rule_id` is matched against the
@@ -219,7 +219,14 @@ Two selection-specific rules:
   links by exact `:Asset` symbol first, else to the one loaded `:Asset` carrying the same CIK from
   `v_ticker_history` of the same database (`FBIN` → `:FBHS`, `GAP` → `:GPS`); otherwise it keeps
   `:rankingTicker`/`:vetoTicker` and is counted. Before T-351 the real unlinked rows were ranking
-  34/0/2 and veto 9/2/3 across P1/P2/P3; after the rule they are 0.
+  34/0/2 and veto 9/2/3 across P1/P2/P3; after the rule they are 0. The loaded set now also
+  includes `reference.ttl`, so the core ETF `SPY` links to `:SPY` instead of being counted.
+- **The ranking flags are not portfolio weights.** `:selectedForBook` is candidate-pool membership
+  (60 rows per decision cycle), not the at most 30 names held; `:targetWeight` is the cycle's own
+  weight over that pool and the backtest never uses it as a portfolio weight; the held weights are
+  `:finalTargetWeight` on `:BookWeightDaily`. `:rankPosition` counts vetoed names too. The verifier
+  recomputes each summary's `:nGuardActions` from `APPLIED` guard actions by `decision_date` inside
+  the segment, and requires the Basing Points alerts to have no `:alertThreshold`.
 
 The real dry-run counts are in `SPEC.md`/`TASKS.md` Work item 26.
 
@@ -244,8 +251,11 @@ The dry runs over `rule_P1/P2/P3.db` and their row/triple counts are recorded in
 
 The ontology, shapes and gate now accept the final backtest before any data arrives. The six
 windows are `P1`, `H1`, `P3`, `H2`, `P2` (with `P2a`/`P2b`) and `H3`, always ordered by date; the
-four arms are `MARKOWITZ_BASE`, `TOPN_MV_NOGUARD`, `TOPN_MV_GUARD_NO_NLP`, `TOPN_MV_GUARD` and
-`MARKOWITZ_BASE_GUARD`. `L1_BP_STOP`/`L1_BP_REENTRY` are layer-1 GUARD rules, not vetoes, and their
+four delivery arms are `MARKOWITZ_BASE`, `TOPN_MV_NOGUARD`, `TOPN_MV_GUARD_NO_NLP` and
+`MARKOWITZ_BASE_GUARD` (`TOPN_MV_GUARD` remains accepted by the shapes). The projector reads
+`guardLayers` as data: it does not assume the pilot's `[1, 3, 4]`, so an arm can carry `[1]` or
+`[1, 4]`, and an L3_VOL threshold may vary by date. `L1_BP_STOP`/`L1_BP_REENTRY`
+are layer-1 GUARD rules, not vetoes, and their
 alerts must not carry `:alertThreshold`. `SPY` is an `:ExchangeTradedFund` in
 `urn:graph:reference`, not an S&P 500 member; sector readers show its `ETF núcleo` label instead of
 counting it as unclassified.

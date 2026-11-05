@@ -614,7 +614,8 @@ def validation_context(assets: Mapping[str, AssetInfo]) -> rdflib.Graph:
     context.add((KG.SP500Index, RDF.type, KG.Universe))
     for symbol, info in assets.items():
         asset = KG[symbol]
-        context.add((asset, RDF.type, KG.Asset))
+        for kind in info.types:
+            context.add((asset, RDF.type, KG[kind]))
         context.add((asset, KG.tickerSymbol, rdflib.Literal(symbol)))
         if info.cik is not None:
             context.add((asset, KG.cikNumber, rdflib.Literal(info.cik)))

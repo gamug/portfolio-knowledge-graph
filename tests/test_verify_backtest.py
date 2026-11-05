@@ -9,10 +9,11 @@ The source database is the synthetic m018 fixture, not a real one.
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 import pytest
 import rdflib
-from fixtures.backtest_rows import ASSETS, backtest_db, load_catalog
+from fixtures.backtest_rows import ASSETS, backtest_db, load_catalog, scenario_rows
 from fixtures.dataset_store import DatasetStore
 from rdflib.namespace import RDF
 from rdflib.term import URIRef
@@ -50,6 +51,8 @@ CHECK_NAMES = {
     "unlinked v_guard_action",
     "GuardAlert by rule, layer and state",
     "GuardAction by status",
+    "nGuardActions by decision date",
+    "Basing Points publication",
     "last NAV per arm",
     "CASH rows",
     "runLabel through the book",
@@ -58,9 +61,12 @@ CHECK_NAMES = {
 
 
 def _built(
-    tmp_path: Path, label: str = "rule", window: str = "P1"
+    tmp_path: Path,
+    label: str = "rule",
+    window: str = "P1",
+    rows: dict[str, list[dict[str, Any]]] | None = None,
 ) -> tuple[Path, SourceProjection]:
-    path = backtest_db(tmp_path, window=window)
+    path = backtest_db(tmp_path, window=window, rows=rows)
     source = FinancialSource.open(path)
     try:
         return path, project_source(source, ASSETS, load_catalog(), label)
@@ -83,8 +89,9 @@ def _verification(
     graph: str = GRAPH,
     *,
     dataset: rdflib.Dataset | None = None,
+    rows: dict[str, list[dict[str, Any]]] | None = None,
 ) -> tuple[Verification, DatasetStore, Path]:
-    path, source_projection = _built(tmp_path, label=label)
+    path, source_projection = _built(tmp_path, label=label, rows=rows)
     store = DatasetStore(dataset if dataset is not None else _dataset(source_projection))
     result = verify(
         store,
@@ -138,7 +145,7 @@ def test_the_summary_names_the_repository_and_graph(tmp_path: Path) -> None:
     assert f"graph: {GRAPH}" in summary
     assert f"source: {path}" in summary
     assert "PASS  triples:" in summary
-    assert "21 checks: 21 passed, 0 failed" in summary
+    assert "23 checks: 23 passed, 0 failed" in summary
 
 
 def test_the_checks_report_real_source_rows_and_triples(tmp_path: Path) -> None:
@@ -195,6 +202,85 @@ def test_a_missing_link_is_reported(tmp_path: Path) -> None:
     assert not result.ok
     assert not _check(result, "holding links")
     assert not _check(result, "unlinked v_book_weight_daily")
+
+
+def test_n_guard_actions_counts_applied_actions_by_decision_date(tmp_path: Path) -> None:
+    """Work item 34: the segment counts APPLIED actions by decision_date, not effective_date."""
+    result, _, _ = _verification(tmp_path)
+    assert _check(result, "nGuardActions by decision date")
+    detail = next(c.detail for c in result.checks if c.name == "nGuardActions by decision date")
+    assert "2 (book, arm, segment)" in detail
+
+
+def test_a_wrong_n_guard_actions_value_is_reported(tmp_path: Path) -> None:
+    path, source_projection = _built(tmp_path)
+    dataset = _dataset(source_projection)
+    summary = next(dataset.graph(URIRef(GRAPH)).subjects(RDF.type, KG.PortfolioPeriodSummary))
+    graph = dataset.graph(URIRef(GRAPH))
+    graph.set((summary, KG.nGuardActions, rdflib.Literal("999", datatype=rdflib.XSD.integer)))
+    store = DatasetStore(dataset)
+    result = verify(
+        store, GRAPH, path, "rule", assets=ASSETS, catalog=load_catalog(), repository="test"
+    )
+    assert not result.ok
+    assert not _check(result, "nGuardActions by decision date")
+
+
+def test_a_source_summary_that_disagrees_with_its_actions_is_reported(tmp_path: Path) -> None:
+    rows = scenario_rows()
+    rows["backtest_summary"][0]["n_guard_actions"] = 999
+    result, _, _ = _verification(tmp_path, rows=rows)
+    assert not result.ok
+    assert not _check(result, "nGuardActions by decision date")
+
+
+def test_a_basing_points_alert_with_a_threshold_in_the_graph_is_reported(tmp_path: Path) -> None:
+    """Work item 34: no :alertThreshold may be published for an L1_BP_* alert."""
+    rows = scenario_rows()
+    rows["guard_alert"].append(
+        {
+            "id": 6,
+            "backtest_run_id": 1,
+            "date": "2022-02-13",
+            "layer": 1,
+            "asset_id": 6,
+            "rule_id": "L1_BP_STOP",
+            "value": 0.5,
+            "threshold": 401.25,
+            "state": "ENTER",
+        }
+    )
+    result, _, _ = _verification(tmp_path, rows=rows)
+    assert result.ok, result.summary()
+    assert _check(result, "Basing Points publication")
+    detail = next(c.detail for c in result.checks if c.name == "Basing Points publication")
+    assert "1 stored, 1 source L1_BP_* alerts; 0 :alertThreshold" in detail
+
+    path, source_projection = _built(tmp_path, rows=rows)
+    dataset = _dataset(source_projection)
+    alert = KG.GuardAlert_rule_P1_6
+    dataset.graph(URIRef(GRAPH)).add(
+        (alert, KG.alertThreshold, rdflib.Literal("401.25", datatype=rdflib.XSD.decimal))
+    )
+    store = DatasetStore(dataset)
+    result = verify(
+        store, GRAPH, path, "rule", assets=ASSETS, catalog=load_catalog(), repository="test"
+    )
+    assert not result.ok
+    assert not _check(result, "Basing Points publication")
+
+
+def test_the_first_decision_date_without_weight_rows_is_not_a_gap(tmp_path: Path) -> None:
+    """Weights appear on the execution date; the decision date itself is legitimately absent."""
+    _, source_projection = _built(tmp_path)
+    graph = _dataset(source_projection).graph(URIRef(GRAPH))
+    days = {str(day) for day in graph.objects(None, KG.weightDate)}
+    assert "2022-01-03" not in days  # the first decision date
+    assert "2022-01-04" in days  # its execution date
+    result, _, _ = _verification(tmp_path)
+    assert result.ok, result.summary()
+    assert _check(result, "individuals BookWeightDaily")
+    assert not any("gap" in check.name.lower() for check in result.checks)
 
 
 def test_a_wrong_label_is_reported(tmp_path: Path) -> None:
@@ -256,7 +342,7 @@ def test_the_cli_prints_the_repository_and_graph(
     printed = capsys.readouterr().out
     assert "repository: test" in printed
     assert f"graph: {GRAPH}" in printed
-    assert "21 checks: 21 passed, 0 failed" in printed
+    assert "23 checks: 23 passed, 0 failed" in printed
 
 
 def test_the_cli_returns_1_when_a_check_fails(

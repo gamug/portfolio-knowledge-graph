@@ -450,7 +450,21 @@ what the store *enforces*.
    Counts: **58 classes (44 disjoint leaves), 39 named shapes, 4913 quads; conforms: True.** The
    catalog is 643 written assets plus the six in `reference.ttl` = **649**.
 
-10. **Aggregates file (Work item 37, 2026-11-05).** Three new disjoint leaves under
+10. **Ranking and severity comments (Work item 34, 2026-11-05).** Comments only, no structural
+   change and no new count: `:selectedForBook` is candidate-pool membership (60 per decision
+   cycle), not the at most 30 names held; `:targetWeight` is the cycle's own weight over that pool,
+   never a portfolio weight (the held weights are `:finalTargetWeight`); `:rankPosition` counts
+   vetoed names too; `:vetoSeverity` is read per veto row and is authoritative, so
+   `LEVERAGE_EXTREME` can be `SOFT` although its catalog severity is `HARD`; `:topN` is the pool
+   size (60), not the held cap. The `:AttractivenessSnapshot` English comment and Spanish
+   `skos:definition` say the same, and `kg_target_schema.ttl` mirrors the four property comments.
+   The Spanish `:StrategyBook` definition now says the Top-N arms use the cycle's Top-N pool
+   ("selección del pool Top-N del ciclo"), not a fixed Top-30. No shape or term was added.
+   This item adds no terms or shapes; the merged bundle is **4913 quads; conforms: True** (Work
+   item 37 added the aggregates terms). The store must be reloaded afterwards (`cli/load_schema.py`,
+   then `cli/verify_store.py`) to pick up the changed comment/definition literals.
+
+11. **Aggregates file (Work item 37, 2026-11-05).** Three new disjoint leaves under
    `:Observation`: `:AggregatesSet` (one per label), `:TrendFilterState` (one per window and decision
    date) and `:ReferenceReturn` (one per window, segment and reference). The set carries the source
    file name, its lowercase manifest SHA-256, the `config_id` and the three textual source

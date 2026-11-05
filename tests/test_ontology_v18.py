@@ -111,8 +111,9 @@ NEW_CLASSES: dict[rdflib.URIRef, tuple[rdflib.URIRef, str, str]] = {
             "Brazo experimental de una corrida de backtest en una ventana histórica (P<n> o H<n>, "
             "por ejemplo P1, H1, P3, H2, P2 o H3): MARKOWITZ_BASE (optimización de mínima varianza "
             "sobre todo el universo elegible sin selección de ciclo), TOPN_MV_NOGUARD (selección "
-            "Top-30 del ciclo + mínima varianza sin GUARD), TOPN_MV_GUARD_NO_NLP (selección Top-30 + "
-            "mínima varianza con protección diaria GUARD activa) o MARKOWITZ_BASE_GUARD (la misma "
+            "del pool Top-N del ciclo + mínima varianza sin GUARD), TOPN_MV_GUARD_NO_NLP (selección "
+            "del pool Top-N del ciclo + mínima varianza con protección diaria GUARD activa) o "
+            "MARKOWITZ_BASE_GUARD (la misma "
             "optimización de MARKOWITZ_BASE con protección GUARD)."
         ),
     ),

@@ -18,15 +18,19 @@ import pytest
 import rdflib
 from fixtures.backtest_rows import (
     ASSETS,
+    SCHEMA,
     backtest_db,
     load_catalog,
     scenario_rows,
+    universe_db,
 )
+from fixtures.dataset_store import DatasetStore
 
 from kg_store import gate
 from kg_store.graphdb import GraphDB
 from projection.backtest import (
     VIEWS,
+    AssetInfo,
     Projection,
     ProjectionError,
     RunResult,
@@ -257,6 +261,123 @@ def test_the_view_masks_are_omitted_not_invented(tmp_path: Path) -> None:
     execution = KG.BookWeight_rule_P1_MARKOWITZ_BASE_20220104_AAA
     assert (execution, KG.markowitzTargetWeight, None) in graph
     assert (KG.BookWeight_rule_P1_MARKOWITZ_BASE_20220104_CASH, KG.holdingName, None) not in graph
+
+
+def test_a_basing_points_alert_never_carries_its_stop_price(tmp_path: Path) -> None:
+    """Work item 34: L1_BP_* thresholds are asset price levels, so no triple is written."""
+    rows = scenario_rows()
+    rows["guard_alert"].append(
+        {  # the source view still has the price level; the projector must not publish it
+            "id": 6,
+            "backtest_run_id": 1,
+            "date": "2022-02-13",
+            "layer": 1,
+            "asset_id": 6,
+            "rule_id": "L1_BP_STOP",
+            "value": 0.5,
+            "threshold": 401.25,
+            "state": "ENTER",
+        }
+    )
+    source = FinancialSource.open(backtest_db(tmp_path, rows=rows))
+    try:
+        projection = project(_rows(source), ASSETS, load_catalog(), "rule")
+    finally:
+        source.close()
+    graph = _graph(projection, "urn:graph:derived:backtest:rule:P1:1")
+    bp_alert = KG.GuardAlert_rule_P1_6
+    assert (bp_alert, rdflib.RDF.type, KG.GuardAlert) in graph
+    assert (bp_alert, KG.alertRule, KG.Rule_L1_BP_STOP) in graph
+    assert (bp_alert, KG.alertThreshold, None) not in graph
+    # The fixed-parameter rules keep theirs.
+    assert (KG.GuardAlert_rule_P1_1, KG.alertThreshold, None) in graph
+    assert (KG.GuardAlert_rule_P1_3, KG.alertThreshold, None) in graph
+
+
+def test_spy_links_to_the_reference_etf_and_the_store_context_accepts_it(tmp_path: Path) -> None:
+    """Work item 34: SPY is a reference :ExchangeTradedFund, not a universe/CIK row."""
+    rows = scenario_rows()
+    rows["book_weight_daily"].append(
+        {
+            "book_id": 3,
+            "date": "2022-01-06",
+            "holding_key": "SPY",
+            "asset_id": 6,
+            "markowitz_target_weight": 0.5,
+            "drifted_weight": 0.5,
+            "pre_guard_weight": 0.5,
+            "final_target_weight": 0.5,
+        }
+    )
+    rows["guard_alert"].append(
+        {
+            "id": 7,
+            "backtest_run_id": 1,
+            "date": "2022-02-14",
+            "layer": 1,
+            "asset_id": 6,
+            "rule_id": "L1_STOP_LOSS",
+            "value": 0.5,
+            "threshold": -0.1229,
+            "state": "ENTER",
+        }
+    )
+    rows["guard_action"].append(
+        {
+            "id": 7,
+            "book_id": 3,
+            "alert_id": 7,
+            "decision_date": "2022-02-14",
+            "effective_date": "2022-02-15",
+            "asset_id": 6,
+            "status": "APPLIED",
+            "weight_before": 0.1,
+            "weight_after": 0.0,
+        }
+    )
+    graph_name = "urn:graph:derived:backtest:rule:P1:1"
+    source = FinancialSource.open(backtest_db(tmp_path, rows=rows))
+    try:
+        projection = project(_rows(source), ASSETS, load_catalog(), "rule")
+    finally:
+        source.close()
+    graph = _graph(projection, graph_name)
+    weight = KG.BookWeight_rule_P1_TOPN_MV_GUARD_NO_NLP_20220106_SPY
+    assert (weight, KG.holdingKey, rdflib.Literal("SPY")) in graph
+    assert (weight, KG.holdingAsset, KG.SPY) in graph
+    assert (KG.GuardAlert_rule_P1_7, KG.guardAsset, KG.SPY) in graph
+    assert (KG.GuardAction_rule_P1_7, KG.guardAsset, KG.SPY) in graph
+    assert projection.asset_unlinked["v_book_weight_daily"] == 1  # only ZZZ remains
+
+    # The same context fetch --check-store uses: :SPY is typed in the store as the ETF, and
+    # :holdingAsset's sh:class :Asset must accept it through the subclass.
+    dataset = rdflib.Dataset(default_union=True)
+    context = dataset.graph(rdflib.URIRef("urn:graph:test:context"))
+    for triple in validation_context(ASSETS, load_catalog()):
+        context.add(triple)
+    store = DatasetStore(dataset)
+    plan = gate.plan(store, projection.turtle(graph_name), graph_name)  # type: ignore[arg-type]
+    assert plan.status is gate.IngestPlanStatus.WOULD_WRITE
+
+
+def test_universe_assets_merges_the_reference_individuals(tmp_path: Path) -> None:
+    """Work item 34: the loaded-asset set is the universe catalog plus reference.ttl."""
+    without_spy = {symbol: info for symbol, info in ASSETS.items() if symbol != "SPY"}
+    path = universe_db(tmp_path, without_spy)
+    assets = universe_assets(path, SCHEMA / "reference.ttl")
+    assert "SPY" in assets
+    assert assets["SPY"].types == ("ExchangeTradedFund",)
+    assert assets["SPY"].cik is None
+    assert assets["SPY"].stints == ()
+    assert assets["AAA"].types == ("Asset",)
+    assert "SPY" in universe_assets(path)  # the production default reads schema/reference.ttl
+
+    collision_dir = tmp_path / "collision"
+    collision_dir.mkdir()
+    with_spy = {**ASSETS, "SPY": AssetInfo("SPY", None, (("2000-01-01", None),))}
+    merged = universe_assets(universe_db(collision_dir, with_spy), SCHEMA / "reference.ttl")
+    assert merged["SPY"].stints == (("2000-01-01", None),)  # the universe row wins
+    assert merged["SPY"].types == ("ExchangeTradedFund",)  # the reference type is kept
 
 
 def test_a_book_links_its_children_and_actions_link_alerts(tmp_path: Path) -> None:

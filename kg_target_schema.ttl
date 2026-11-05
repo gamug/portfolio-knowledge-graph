@@ -837,7 +837,7 @@
 
 :vetoSeverity a owl:DatatypeProperty,
         owl:FunctionalProperty ;
-    rdfs:comment "HARD | SOFT -- this stint's severity, which can differ from its rule's :ruleSeverity (LEVERAGE_EXTREME emits SOFT for a negative-equity firm). A SOFT stint charges its rule's :penaltyPoints once, or the run's soft_veto_penalty if the rule declares none, a HARD rule's SOFT stint included (our assumption, not yet confirmed by upstream: T-189). Optional: absent means the severity of the stint's :primaryRule (:ruleSeverity; the superseded design-history rules carry none). Added 2026-10-03 (T-102)." ;
+    rdfs:comment "HARD | SOFT -- this veto row's severity, read per row and authoritative; never the rule catalog's :ruleSeverity. LEVERAGE_EXTREME is HARD in the catalog but emits SOFT for a negative-equity firm with no usable credit metric. A SOFT stint charges its rule's :penaltyPoints once, or the run's soft_veto_penalty if the rule declares none, a HARD rule's SOFT stint included (our assumption, not yet confirmed by upstream: T-189). Optional: absent means the severity of the stint's :primaryRule (:ruleSeverity; the superseded design-history rules carry none). Added 2026-10-03 (T-102)." ;
     rdfs:domain :Veto ;
     rdfs:range xsd:string .
 
@@ -918,7 +918,7 @@
 
 :ruleSeverity a owl:DatatypeProperty,
         owl:FunctionalProperty ;
-    rdfs:comment "HARD | SOFT — the severity upstream's rule_catalog assigns the rule (T-103). An individual veto stint's severity can differ (LEVERAGE_EXTREME emits SOFT for a negative-equity firm with no corroborating metric); :Veto carries the per-stint value as :vetoSeverity (T-102). Distinct from :severity, which is a RiskEvent field." ;
+    rdfs:comment "HARD | SOFT — this veto row's severity, read per row and authoritative; never the rule catalog's :ruleSeverity. LEVERAGE_EXTREME is HARD in the catalog but emits SOFT for a negative-equity firm with no usable credit metric. Distinct from :severity, which is a RiskEvent field." ;
     rdfs:domain :RuleDefinition ;
     rdfs:range xsd:string .
 
@@ -1209,13 +1209,13 @@
 # veto (with the T-1 lag) or "UNSCORED" (your third reply, Q2) -- never
 # for a SOFT veto alone.
 :rankPosition a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :AttractivenessSnapshot ; rdfs:range xsd:integer ;
-    rdfs:comment "PROPOSED (T-155). Upstream rank (1 = best)." .
+    rdfs:comment "PROPOSED (T-155). Upstream rank (1 = best). It counts vetoed names too, so a selected name can have a rank above the candidate-pool size (60 in the final backtest)." .
 :selectedForBook a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :AttractivenessSnapshot ; rdfs:range xsd:boolean ;
-    rdfs:comment "PROPOSED (T-155). Upstream selected." .
+    rdfs:comment "PROPOSED (T-155). Upstream selected: membership of the 60-name candidate pool, not the at most 30 names actually held (the held set is :finalTargetWeight > 0 on :BookWeightDaily)." .
 :vetoedAtRanking a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :AttractivenessSnapshot ; rdfs:range xsd:boolean ;
     rdfs:comment "PROPOSED (T-155). Upstream vetoed: true only for a HARD veto or \"UNSCORED\", never for a SOFT veto alone (your third reply, Q2). The stints themselves are :Veto individuals (v_veto)." .
 :targetWeight a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :AttractivenessSnapshot ; rdfs:range xsd:decimal ;
-    rdfs:comment "PROPOSED (T-155). Upstream target_weight verbatim. A fraction of the book (confirmed, your third reply, Q5); NULL for an unselected row and on a MONITORING run." .
+    rdfs:comment "PROPOSED (T-155). Upstream target_weight verbatim: the cycle's own weight over the 60-name candidate pool, not a portfolio weight (the portfolio weights are :finalTargetWeight on :BookWeightDaily). NULL for an unselected row and on a MONITORING run." .
 :hasEffectiveWeight a owl:ObjectProperty ; rdfs:domain :AttractivenessSnapshot ; rdfs:range :WeightComponent ;
     rdfs:comment "PROPOSED (T-155). The weight each component actually had for THIS asset (your per-asset renormalization), read from v_cycle_ranking_component.effective_weight. A component absent for the asset has no entry; the entries of one snapshot sum to 1 (upstream's rule, not recomputed here)." .
 :componentValue a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :WeightComponent ; rdfs:range xsd:decimal ;
@@ -1321,7 +1321,7 @@
     a owl:Class ;
     rdfs:label "Strategy Book" ;
     rdfs:label "libro de estrategia de backtest"@es ;
-    skos:definition "Brazo experimental de una corrida de backtest en una ventana histórica (P1, P2 o P3): MARKOWITZ_BASE (optimización de mínima varianza sobre todo el universo elegible sin selección de ciclo), TOPN_MV_NOGUARD (selección Top-30 del ciclo + mínima varianza sin GUARD) o TOPN_MV_GUARD_NO_NLP (selección Top-30 + mínima varianza con protección diaria GUARD activa)."@es ;
+    skos:definition "Brazo experimental de una corrida de backtest en una ventana histórica (P1, P2 o P3): MARKOWITZ_BASE (optimización de mínima varianza sobre todo el universo elegible sin selección de ciclo), TOPN_MV_NOGUARD (selección del pool Top-N del ciclo + mínima varianza sin GUARD) o TOPN_MV_GUARD_NO_NLP (selección del pool Top-N del ciclo + mínima varianza con protección diaria GUARD activa)."@es ;
     rdfs:comment "One row of v_book (m018): an experimental arm of one backtest run (the name :StrategyBook, not :BacktestBook). A named pool of holdings, so a Collection like Portfolio. The backtest run itself has no class (no v_backtest_run view); :backtestRunId is the literal link to it. :guardLayers is optional and :excludeHardVetoed is a boolean with no per-arm constraint (see their comments)." .
 
 :BookRebalance
@@ -1568,7 +1568,7 @@
     rdfs:comment "Optional: v_book_rebalance.quant_portfolio_id, an upstream id. It is a literal, not a :Portfolio node: no v_quant_portfolio individual is minted by this class." .
 :cycleRunId a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:range xsd:integer ;
     rdfs:comment "Upstream cycle_run id. No rdfs:domain: shared by BookRebalance, SelectionCycle and AttractivenessWeightScheme." ;
-    rdfs:comment "Optional: v_book_rebalance.cycle_run_id. Always NULL on MARKOWITZ_BASE (no cycle Top-30 selection); an upstream id literal, not a node." .
+    rdfs:comment "Optional: v_book_rebalance.cycle_run_id. Always NULL on MARKOWITZ_BASE (no cycle selection); an upstream id literal, not a node." .
 :riskModelId a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :BookRebalance ; rdfs:range xsd:integer ;
     rdfs:comment "Optional: v_book_rebalance.risk_model_id, an upstream id literal, not a node." .
 

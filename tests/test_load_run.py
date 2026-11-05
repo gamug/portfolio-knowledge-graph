@@ -160,7 +160,7 @@ def test_all_graphs_are_planned_then_written_and_verified(
     assert f"pre-flight {load_run.WOULD_WRITE}: {M018}" in printed.out
     assert f"pre-flight {load_run.WOULD_WRITE}: {SELECTION}" in printed.out
     assert "PASS" in printed.out
-    assert "21/21" in printed.out
+    assert "23/23" in printed.out
     assert "15/15" in printed.out
     assert [graph for graph, _ in store.writes] == [M018, SELECTION]
     assert len(_graph(store, M018)) == len(_m018_projection(path).projection.graphs[M018])
@@ -203,7 +203,7 @@ def test_a_graph_already_in_the_store_is_skipped_while_the_others_are_written(
     assert f"pre-flight {load_run.WOULD_WRITE}: {SELECTION}" in printed.out
     assert [graph for graph, _ in store.writes] == [SELECTION]
     assert len(_graph(store, M018)) == before
-    assert "21/21" in printed.out
+    assert "23/23" in printed.out
     assert "15/15" in printed.out
 
 

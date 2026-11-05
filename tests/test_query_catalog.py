@@ -442,7 +442,8 @@ def composition_dataset(tmp_path_factory: pytest.TempPathFactory) -> rdflib.Data
     # The guard-action view gets its ticker from the assets table, so the ETF needs an id there.
     connection = sqlite3.connect(db_path)
     connection.execute(
-        "INSERT INTO assets (id, ticker, company_name, cik) VALUES (6, 'SPY', 'SPDR S&P 500 ETF Trust', NULL)"
+        "INSERT OR IGNORE INTO assets (id, ticker, company_name, cik) "
+        "VALUES (6, 'SPY', 'SPDR S&P 500 ETF Trust', NULL)"
     )
     connection.commit()
     connection.close()

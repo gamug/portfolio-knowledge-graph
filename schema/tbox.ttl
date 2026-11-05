@@ -219,8 +219,8 @@
     a owl:Class ;
     rdfs:label "Attractiveness Snapshot" ;
     rdfs:label "instantánea de atractivo"@es ;
-    skos:definition "Resultado inmutable del ranking de atractivo de un activo en un ciclo de selección: su puntuación combinada de atractivo. No es lo contrario de un veto: un activo puede tener ambos, y un veto SOFT resta de la puntuación combinada los penaltyPoints de su regla."@es ;
-    rdfs:comment "The Orchestrator's immutable attractiveness ranking result for one Asset in one selection cycle: its combined attractiveness score. It is not the opposite of a Veto: an Asset can have both, and a SOFT veto subtracts its rule's penaltyPoints from the blended score. The class stores the Asset (or, when the universe database does not know the ticker, :rankingTicker), the score, the computation time, the scheme and, for the backtest selection side, the cycle, rank, selection flag, target weight and the upstream veto_rules_json. :rankPosition is the upstream rank, persisted for the backtest; for a live read it remains a query-time ORDER BY over the score. Closes part of critique #2/evolution layer B3's ranking half (not the position-sizing half). Added 2026-08-13; selection-side properties added by Work item 26 (T-322)." .
+    skos:definition "Resultado inmutable del ranking de atractivo de un activo en un ciclo de selección: su puntuación combinada de atractivo. No es lo contrario de un veto: un activo puede tener ambos, y un veto SOFT resta de la puntuación combinada los penaltyPoints de su regla. La marca selected indica pertenencia al conjunto candidato de 60, no a los como máximo 30 nombres mantenidos; targetWeight es el peso del ciclo sobre ese conjunto, nunca el peso de la cartera."@es ;
+    rdfs:comment "The Orchestrator's immutable attractiveness ranking result for one Asset in one selection cycle: its combined attractiveness score. It is not the opposite of a Veto: an Asset can have both, and a SOFT veto subtracts its rule's penaltyPoints from the blended score. The class stores the Asset (or, when the universe database does not know the ticker, :rankingTicker), the score, the computation time, the scheme and, for the backtest selection side, the cycle, rank, selection flag, target weight and the upstream veto_rules_json. :selectedForBook is candidate-pool membership (60 names), not the at most 30 held; :targetWeight is the cycle's own pool weight, not a portfolio weight; :rankPosition counts vetoed names too. For a live read the rank remains a query-time ORDER BY over the score. Closes part of critique #2/evolution layer B3's ranking half (not the position-sizing half). Added 2026-08-13; selection-side properties added by Work item 26 (T-322)." .
 
 :AttractivenessWeightScheme
     a owl:Class ;
@@ -274,7 +274,7 @@
     a owl:Class ;
     rdfs:label "Strategy Book" ;
     rdfs:label "libro de estrategia de backtest"@es ;
-    skos:definition "Brazo experimental de una corrida de backtest en una ventana histórica (P<n> o H<n>, por ejemplo P1, H1, P3, H2, P2 o H3): MARKOWITZ_BASE (optimización de mínima varianza sobre todo el universo elegible sin selección de ciclo), TOPN_MV_NOGUARD (selección Top-30 del ciclo + mínima varianza sin GUARD), TOPN_MV_GUARD_NO_NLP (selección Top-30 + mínima varianza con protección diaria GUARD activa) o MARKOWITZ_BASE_GUARD (la misma optimización de MARKOWITZ_BASE con protección GUARD)."@es ;
+    skos:definition "Brazo experimental de una corrida de backtest en una ventana histórica (P<n> o H<n>, por ejemplo P1, H1, P3, H2, P2 o H3): MARKOWITZ_BASE (optimización de mínima varianza sobre todo el universo elegible sin selección de ciclo), TOPN_MV_NOGUARD (selección del pool Top-N del ciclo + mínima varianza sin GUARD), TOPN_MV_GUARD_NO_NLP (selección del pool Top-N del ciclo + mínima varianza con protección diaria GUARD activa) o MARKOWITZ_BASE_GUARD (la misma optimización de MARKOWITZ_BASE con protección GUARD)."@es ;
     rdfs:comment "One row of v_book (m018): an experimental arm of one backtest run (the name :StrategyBook, not :BacktestBook). A named pool of holdings, so a Collection like Portfolio. The m018 row still links to its run by the literal :backtestRunId; run metadata is the separate :BacktestRun individual of Work item 33. :guardLayers is optional and :excludeHardVetoed is a boolean with no per-arm constraint (see their comments)." .
 
 :BookRebalance
@@ -794,7 +794,7 @@ original layer-1 stop-loss, inspired by Kaminski & Lo (2014).""" .
 :lastSeenOn a owl:DatatypeProperty ; rdfs:domain :Veto ; rdfs:range xsd:date ;
     rdfs:comment "Most recent cycle date on which the rule still fired for this stint (upstream last_seen_on). Optional and deliberately NOT functional: ORCHESTRATOR graphs are append-only, so each cycle adds a new value in its own graph and the current one is MAX(?lastSeenOn). Added 2026-10-03 (T-102)." .
 :vetoSeverity a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :Veto ; rdfs:range xsd:string ;
-    rdfs:comment "HARD | SOFT -- this stint's severity, which can differ from its rule's :ruleSeverity (LEVERAGE_EXTREME emits SOFT for a negative-equity firm). A SOFT stint charges its rule's :penaltyPoints once, or the run's soft_veto_penalty if the rule declares none, a HARD rule's SOFT stint included (assumed, not confirmed by upstream: T-189, T-191 ask 8). Optional: absent means the severity of the stint's :primaryRule (:ruleSeverity; the superseded design-history rules carry none). Added 2026-10-03 (T-102)." .
+    rdfs:comment "HARD | SOFT -- this veto row's severity, read per row and authoritative; never the rule catalog's :ruleSeverity. The two can differ: LEVERAGE_EXTREME is HARD in the catalog but emits SOFT for an asset with negative book equity and no usable credit metric. A SOFT stint charges its rule's :penaltyPoints once, or the run's soft_veto_penalty if the rule declares none, a HARD rule's SOFT stint included (assumed, not confirmed by upstream: T-189, T-191 ask 8). Optional: absent means the severity of the stint's :primaryRule (:ruleSeverity; the superseded design-history rules carry none). Added 2026-10-03 (T-102)." .
 
 # --- RuleDefinition / RuleClause / leaf comparisons ---
 :ruleId       a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :RuleDefinition ; rdfs:range xsd:string ;
@@ -883,7 +883,7 @@ original layer-1 stop-loss, inspired by Kaminski & Lo (2014).""" .
 :bookWeightingRule a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :AttractivenessWeightScheme ; rdfs:range xsd:string ;
     rdfs:comment "T-121 (D13): upstream v_weight_scheme.scheme_id, the rule that turns the ranking into book weights (score_proportional, score_tilt). Open vocabulary, read verbatim. NOT the blend, which is identified by the cycle_run (:schemeId)." .
 :topN a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :AttractivenessWeightScheme ; rdfs:range xsd:integer ;
-    rdfs:comment "T-121: upstream top_n, the number of assets a SELECTION run holds. At least 1." .
+    rdfs:comment "T-121: upstream top_n, the size of the CANDIDATE POOL of a SELECTION run (60 in the final backtest), not the cap of names actually held. The held cap (30) is a backtest parameter in params_json that no view exposes. At least 1." .
 :maxNameWeight a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :AttractivenessWeightScheme ; rdfs:range xsd:decimal ;
     rdfs:comment "T-121: upstream max_name_weight, a fraction of the book (0.05 = 5%), [0, 1]. Optional: NULL on a MONITORING run by default. The EFFECTIVE cap on a SELECTION run (derived from N since upstream's Work item 18, relaxations in params_json), the CONFIGURED one on a MONITORING run. Read verbatim." .
 :maxSectorWeight a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :AttractivenessWeightScheme ; rdfs:range xsd:decimal ;
@@ -893,13 +893,13 @@ original layer-1 stop-loss, inspired by Kaminski & Lo (2014).""" .
 
 # --- backtest selection side (Work item 26, T-322): rank/selection/weights ---
 :rankPosition a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :AttractivenessSnapshot ; rdfs:range xsd:integer ;
-    rdfs:comment "Upstream v_cycle_ranking.rank (1 = best), read verbatim for the backtest selection side. A live ranking may still be a query-time ORDER BY; the backtest keeps the row's own rank so a report does not have to break ties or reproduce upstream's comparison set." .
+    rdfs:comment "Upstream v_cycle_ranking.rank (1 = best), read verbatim for the backtest selection side. A live ranking may still be a query-time ORDER BY; the backtest keeps the row's own rank so a report does not have to break ties or reproduce upstream's comparison set. The rank counts vetoed names too, so a selected name can have a rank above the candidate-pool size (60 in the final backtest)." .
 :selectedForBook a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :AttractivenessSnapshot ; rdfs:range xsd:boolean ;
-    rdfs:comment "Upstream v_cycle_ranking.selected: whether the cycle's book construction selected the asset. Different from :vetoedAtRanking: a SOFT veto lowers the score but does not by itself exclude." .
+    rdfs:comment "Upstream v_cycle_ranking.selected: membership of the CANDIDATE POOL of 60 (exactly 60 rows with selected = 1 per decision cycle), not the at most 30 names actually held. It is not a portfolio-weight signal: the held satellite is :finalTargetWeight > 0 on the Top-N arms' :BookWeightDaily rows (a subset of the pool, plus the SPY core and CASH). Different from :vetoedAtRanking: a SOFT veto lowers the score but does not by itself exclude." .
 :vetoedAtRanking a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :AttractivenessSnapshot ; rdfs:range xsd:boolean ;
     rdfs:comment "Upstream v_cycle_ranking.vetoed: true only for a HARD veto or the UNSCORED/UNPRICED gaps, never for a SOFT veto alone. The stints themselves are :Veto individuals (v_veto)." .
 :targetWeight a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :AttractivenessSnapshot ; rdfs:range xsd:decimal ;
-    rdfs:comment "Upstream v_cycle_ranking.target_weight verbatim, a fraction of the book [0, 1]. Optional: NULL for an unselected row and on a MONITORING run; never filled in here." .
+    rdfs:comment "Upstream v_cycle_ranking.target_weight verbatim, a fraction in [0, 1]. It is the cycle's own weight over the 60-name candidate pool (score tilt, name and sector caps), NOT a portfolio weight and never used as one by the backtest; the portfolio weights are :finalTargetWeight on :BookWeightDaily. Optional: NULL for an unselected row and on a MONITORING run; never filled in here." .
 :vetoRulesJson a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :AttractivenessSnapshot ; rdfs:range xsd:string ;
     rdfs:comment "Upstream v_cycle_ranking.veto_rules_json verbatim: the rule ids/markers that applied at that ranking, including UNSCORED and UNPRICED, which have no :Veto row. A JSON string, like :paramsJson; never parsed or recomputed here. It names rules only, not price values." .
 :componentValue a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :WeightComponent ; rdfs:range xsd:decimal ;
@@ -1117,7 +1117,7 @@ original layer-1 stop-loss, inspired by Kaminski & Lo (2014).""" .
 :markowitzTargetWeight a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :BookWeightDaily ; rdfs:range xsd:decimal ;
     rdfs:comment "Optional: v_book_weight_daily.markowitz_target_weight; NULL on ordinary sessions (only decision/execution dates expose targets)." .
 :finalTargetWeight a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :BookWeightDaily ; rdfs:range xsd:decimal ;
-    rdfs:comment "Optional: v_book_weight_daily.final_target_weight; the same ordinary-session masking as :markowitzTargetWeight." .
+    rdfs:comment "Optional: v_book_weight_daily.final_target_weight; the same ordinary-session masking as :markowitzTargetWeight. This is the portfolio weight a held name (or the SPY core/CASH) actually has on a decision/execution date; it is not the cycle ranking's :targetWeight over the 60-name candidate pool." .
 
 # --- BookDailyPerformance ---
 :performanceDate a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :BookDailyPerformance ; rdfs:range xsd:date ;
