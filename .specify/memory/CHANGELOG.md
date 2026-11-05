@@ -1499,3 +1499,77 @@ number into the documentation.
 **Blocked on**: nothing. Work item 37 adds its own trend-filter/reference-return entries later.
 
 **Verified 2026-11-05**: `uv run pytest -q` = **1382 passed, 59 deselected, 6870 warnings in 1515.14 s (25:15)**; `mypy` = success, **106 source files**; the pinned pre-commit hooks (ruff-check, ruff-format, mypy) pass on every changed file. No GraphDB write or reload was made; the schema bundle and FR-001 counts are unchanged because no schema file changed.
+
+## Work item 37 — Project the upstream aggregates file (2026-11-05, T-570–T-599)
+
+**Goal**: project upstream's per-segment `aggregates_<label>.json` into its own append-only graph,
+with a whitelist parser, a strict `SHA256SUMS` check, a dry-run/default loader CLI and a read-only
+source verifier. No daily series, price level or 210-session average is projected.
+
+- [x] **T-570** Recorded the design in `PLAN.md` Work item 37 before any code (first commit).
+- [x] **T-571** `src/projection/aggregates.py` parses only the declared top-level keys, source keys,
+  dictionary tables/columns and row keys; it validates the label, windows, segments, states,
+  references, dates, decimals, session counts and the exact two Top-N arms, refuses duplicate row
+  identities, and validates (but never projects) `sources.spy_total_return_series_sha256`. The
+  local manifest reader is strict `sha256sum` format (64 lowercase hex, two spaces, bare file name)
+  and reports both hashes on a mismatch. Work item 35's ``delivery.read_manifest`` now exists, but
+  it accepts uppercase hashes and the binary marker; the aggregates contract is stricter, so the
+  reader stays local until the two contracts agree.
+- [x] **T-572** Added `:AggregatesSet`, `:TrendFilterState` and `:ReferenceReturn` as three disjoint
+  `:Observation` leaves with Spanish `skos:definition` and English comments. The new properties
+  (`:trendWindow`, `:trendDecisionDate`, `:trendState`, `:cashFraction`, `:appliesToArm`,
+  `:returnWindow`, `:returnSegment`, `:referenceDateFrom`, `:referenceDateTo`, `:nSessions`,
+  `:referenceName`, `:referenceTotalReturn`, `:referenceMaxDrawdown`, `:aggregatesSet` and the six
+  `:AggregatesSet` fields) avoid reusing a property whose `rdfs:domain` would entail a disjoint
+  class; every row-property comment is the file's dictionary text verbatim. The three shapes close
+  the label/window/segment/state/reference lists with `sh:pattern`/`sh:in`. Deterministic IRIs:
+  `AggregatesSet_{label}`, `TrendFilter_{label}_{window}_{YYYYMMDD}`,
+  `RefReturn_{label}_{segment}_{reference}`.
+- [x] **T-573** Added the append-only `urn:graph:derived:backtest:aggregates:{label}` target to
+  `kg_store.gate` and `docs/07`; it cannot collide with the m018/selection/meta names and no label
+  is reserved. `tests/test_kg_gate.py` covers accepted names, malformed names and a run labelled
+  `aggregates`.
+- [x] **T-574** Added `cli/load_aggregates.py` and `src/projection/load_aggregates.py`: dry run by
+  default (`gate.validate`), read-only `--check-store` (`gate.plan`), `--write`, the production
+  `--to-production` guard, manifest-first ordering, timings and the usual exit codes. An existing
+  graph is reported as already-in-the-store and its rows are checked against the file.
+- [x] **T-575** The read-only verifier checks (a) the manifest entry/hash; (b) each window's trend
+  dates against both Top-N arms' distinct `v_book_rebalance.decision_date`, including that the two
+  arm sets agree; (c) every `v_portfolio_period_summary` segment has exactly the two reference rows
+  with the summary's dates; (d) `below` implies a positive cash fraction and every other state is
+  exactly `0.0`; (e) P2 compounds P2a/P2b within `1e-6`; and (f) after a write the stored graph's
+  explicit triples equal the file's batch. Failures name the window, date or segment.
+- [x] **T-576** Added the aggregates graph family to the catalog's scope table and the two tagged
+  queries `trend-filter-on-in-window` and `reference-returns-and-arm`; the latter joins the
+  reference rows to the existing `:PortfolioPeriodSummary` arm return. The text states these are
+  per-segment aggregates and that no daily series exists in the graph. The hermetic fixture has
+  both references, `P2a`/`P2b` and a `not_evaluable` row.
+- [x] **T-577** Added `tests/test_aggregates.py` (parser rejects every extra/malformed value and
+  duplicate; manifest match/mismatch; deterministic IRIs; shape negatives; gate accepted once and
+  refused twice; source verifier including a date-differing window; stored-row equality) and
+  `tests/test_cli_load_aggregates.py` (help/arguments, dry-run table, manifest refusal, missing
+  file, production guard).
+- [x] **T-578** Updated `docs/06`, `docs/07`, `docs/08`, `docs/10`, the backtest runbook (step 1e
+  after `load_run`), `docs/graphdb-setup.md`, `schema/README.md`, `README.md`, `SPEC.md` and the
+  asserted counts: **58 classes (44 disjoint leaves), 39 named shapes, 4913 quads**, load plan
+  **5190 asserted triples**.
+- [x] **T-579** Ran `uv run pytest`, `mypy` and the pinned pre-commit hooks; see the verification
+  line below.
+- [x] **T-580** The real read-only dry run over
+  `/workspaces/thesis/scratch/final/candidate_y2` verified the manifest hash, every verifier check
+  and SHACL conforms, in 0.574 s CLI time (0.951 s wall including `uv`). The user performs the real
+  write.
+
+**Scope notes.** `src/projection/load_run.py` and `src/projection/verify_backtest.py` were not
+changed; `cli/load_aggregates.py` runs after `load_run` and only writes the new label's graph.
+`schema/protege-view.ttl` is generated and was not regenerated. `sources.
+spy_total_return_series_sha256` is validated and never projected. No result NAV or final-run count
+is recorded here.
+
+**No GraphDB write or reload was made.** The user reloads the schema afterwards with
+`cli/load_schema.py`, then `cli/verify_store.py`, and performs the real write.
+
+**Verified 2026-11-05**: `uv run pytest -q` = **1461 passed, 59 deselected, 8531 warnings in
+1217.63 s (20:17)** (the two count tests were fixed before the run); `mypy` = success, **116 source
+files**; the pinned pre-commit hooks pass on every changed file; FR-001 is **4913 quads (58
+classes, 44 disjoint leaves, 39 named shapes); conforms: True**.

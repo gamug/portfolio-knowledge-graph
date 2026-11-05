@@ -98,14 +98,15 @@ built upstream); it makes no portfolio or trading decision and renders no report
 
 ### 2.1 In scope
 
-- The formal ontology bundle in `schema/`: `tbox.ttl` (55 classes — 41
-  mutually-disjoint leaves under a 13-class `rdfs:subClassOf` backbone),
-  `shapes.ttl` (36 SHACL node shapes), `reference.ttl` (GICS taxonomy + 6
+- The formal ontology bundle in `schema/`: `tbox.ttl` (58 classes — 44
+  mutually-disjoint leaves under a 13-class `rdfs:subClassOf` backbone plus
+  `:ExchangeTradedFund` under `:Asset`),
+  `shapes.ttl` (39 named SHACL node shapes), `reference.ttl` (GICS taxonomy + 6
   worked-example assets + the `MetricType` vocabulary), `rules.ttl` (10
   active selection rules as `RuleDefinition`s, 7 GUARD protection rules in their own section,
   the 8 superseded definitions kept closed with `validTo`, + `AttractivenessWeightScheme`),
   `instances.trig` (a 16-named-graph worked-example ABox) — roadmap step 0,
-  done and verified (**4634 quads, `pyshacl conforms: True**). The FIBO 2026Q2
+  done and verified (**4913 quads, `pyshacl conforms: True**). The FIBO 2026Q2
   glossary slice `fibo.ttl` is a separate 277-statement reference graph loaded
   into `urn:graph:reference:fibo` (T-211).
 - The five numbered architecture/spec docs (`06`–`10`) plus
@@ -203,7 +204,7 @@ built upstream); it makes no portfolio or trading decision and renders no report
 
 | ID | Requirement | Acceptance criteria |
 |---|---|---|
-| **FR-001** | The `tbox.ttl`/`shapes.ttl`/`reference.ttl`/`rules.ttl`/`instances.trig` bundle parses as a single `rdflib.Dataset` in the documented load order and `pyshacl`-conforms against `shapes.ttl`. | The `schema/README.md` parse script reports `quads: 4634`; a `pyshacl.validate` run over the same combined graph reports `conforms: True` — both required after any schema edit. |
+| **FR-001** | The `tbox.ttl`/`shapes.ttl`/`reference.ttl`/`rules.ttl`/`instances.trig` bundle parses as a single `rdflib.Dataset` in the documented load order and `pyshacl`-conforms against `shapes.ttl`. | The `schema/README.md` parse script reports `quads: 4913`; a `pyshacl.validate` run over the same combined graph reports `conforms: True` — both required after any schema edit. |
 | **FR-002** | Every domain class in `tbox.ttl` that is not a shared-property superclass (`ObservationSnapshot`/`EvidenceSource`/`RuleOperand`) belongs to exactly one `AllDisjointClasses` set and reaches at least one of the 6 taxonomy roots via `rdfs:subClassOf`. | `tbox.ttl`'s `AllDisjointClasses` block lists exactly 25 leaf classes; a taxonomy audit (cycle/orphan/multi-parent detection over the `subClassOf` graph) reports 0 cycles, 0 self-loops, all 38 classes reaching a root, exactly 3 legitimately multi-parented classes (`schema/README.md`'s implementation addendum). |
 | **FR-003** | Every `RuleDefinition` in `rules.ttl` expresses its veto condition as an explicit `RuleClause` tree (`AND`/`OR` of `ThresholdComparison`/`CategoricalComparison`/`GraphPredicate` leaves), never as an infix boolean string. | No `RuleDefinition` in `rules.ttl` carries a rule condition as a literal string to be re-parsed; every `hasClause` path terminates in one of the three documented leaf operand kinds. A single leaf (upstream's rules, T-103; nine since T-187) is a valid tree. |
 | **FR-004** | `cli/build_data_ttl.py` projects `portfolio-data-mining`'s point-in-time `universe.db` (`SQL_UNIVERSE_DB`, read-only through `portfolio_common.db`) into one `:UniverseMembership` per `universe_membership` stint (`validFrom` = `valid_from`; `validTo` = `valid_to`, INCLUSIVE and the last day of membership, absent while the stint is open) in the single `:SP500Index` `:Universe`, and one `:Asset` per company line for a pure ticker succession (named by the latest symbol, carrying every stint), or per symbol for concurrent share classes, a mixed CIK and a CIK-less stint, with `:classifiedAs` when upstream has a sub-industry. A symbol whose stints are all closed has only `tickerSymbol` and `companyName`: upstream has no CIK or sector for it, and none is invented (`AssetShape` allows a missing `cikNumber` only then). Tickers `reference.ttl` already declares as `:Asset` get memberships but are not re-emitted (so `cikNumber` never collides under the functional-property `sh:maxCount 1` contract). Each run prints `universe.db`'s latest recorded change and its file modification date, because upstream refreshes it by hand. | A full run's `:Asset` count plus `reference.ttl`'s tickers equals `universe.db`'s distinct symbols minus the pure successions it folds; its `:UniverseMembership` count equals `universe_membership`'s rows; none of `reference.ttl`'s tickers appears as a second `:Asset` declaration in `data.ttl`; the run summary prints the freshness line. |
@@ -703,7 +704,7 @@ ontology terms: 11 classes (`TickerHistory`, `OrchestratorRun`, `OrchestratorSte
 `PortfolioPeriodSummary`, `BacktestTest`), one per view, placed under the backbone by property shape
 (`06` §1.2/§1.10): `TemporalRelation` for `TickerHistory`/`BookRebalance`, `Collection` for
 `StrategyBook`, `RiskAndDecision` for `GuardAction`, `Observation` for the other seven. `tbox.ttl`
-is 55 classes (41 disjoint leaves) and `shapes.ttl` 36 named shapes; `AllDisjointClasses` gained the
+is 58 classes (44 disjoint leaves) and `shapes.ttl` 39 named shapes; `AllDisjointClasses` gained the
 11 v18 leaves and, in Work item 33, the two metadata leaves. Each class carries the handoff §6.2 `rdfs:label`@es and `skos:definition`@es verbatim
 (outer « » dropped), plus the English label/comment; no new class has a FIBO `rdfs:seeAlso` (handoff
 §6.1). Every view column has a property; the shared ones (`bookId`, `backtestRunId`, `armCode`,
@@ -758,11 +759,11 @@ rows (before: ranking 34/0/2, veto 9/2/3 across P1/P2/P3; after: 0).
 Real dry runs (read-only): P1 42,700 rows/individuals, **321,324** triples, 56.45 s, 1,214,004 KB
 peak RSS; P2 41,259, **309,728**, 53.94 s, 1,155,632 KB; P3 45,440, **342,934**, 58.35 s,
 1,285,948 KB; all `pyshacl conforms: True`. The schema gains `:SelectionCycle` and the ranking
-properties; the FR-001 bundle is **4634 quads** (55 classes, 41 leaves, 36 shapes) and the load plan
-is 4911 asserted triples. The query catalog adds `selection-ranking-at-rebalance`,
-`selection-vetoes-in-force` and `selection-why-not-top30` (renamed
-`selection-why-not-selected` by Work item 36, because the pool is not a fixed top-N list), and moves
-Q9/B5 to `Today`. No GraphDB write or reload was made.
+properties; the FR-001 bundle is **4913 quads** (58 classes, 44 leaves, 39 shapes) and the load plan
+is 5190 asserted triples. The query catalog adds `selection-ranking-at-rebalance`,
+`selection-vetoes-in-force` and `selection-why-not-top30` (renamed `selection-why-not-selected` by
+Work item 36, because the pool is not a fixed top-N list), and moves Q9/B5 to `Today`. No GraphDB
+write or reload was made.
 
 **Contract v18 backtest/GUARD projector (2026-11-02, T-207; run labels 2026-11-03, T-230–T-236).**
 The eight m018 views (`v_book`,
@@ -831,7 +832,7 @@ counted; no `:Asset` is invented and no link crosses CIKs. The real dry runs ove
 ticker-history rows, built 198 triples and 21 individuals per database, linked 17 exact + 4 by CIK
 with 0 unlinked, omitted 4 multi-date evidence cells, and reported 0 orchestrator rows / nothing to
 write; each graph is `pyshacl`-conformant in 1.25–1.42 s at ~73 MB peak RSS. The gate accepts the
-two new graph patterns. No schema file changed; the bundle stays **4634 quads, conforms: True**
+two new graph patterns. No schema file changed; the bundle stays **4913 quads, conforms: True**
 (Work item 26's schema is the current revision).
 
 **FIBO Phase 1 alignment (2026-11-03, T-210).** FIBO is a reference vocabulary, not a dependency
@@ -878,7 +879,7 @@ adds one `@es` label and one `@es` definition to each of the 27 pre-existing lea
 v18 texts are unchanged), so the FR-001 bundle then held **4236 triples, `pyshacl conforms: True** at
 that revision. `schema/fibo.ttl` loads into `urn:graph:reference:fibo` after `reference.ttl`; a fresh
 load was 20 graphs and 4481 asserted triples (4513 at the T-212 reload; +2 for T-220's and T-227's `sh:class`
-triples and −34 for T-233/T-234; Work item 33 brings the current plan to 4911). The ETL emits
+triples and −34 for T-233/T-234; Work item 33 brings the plan to 4911 and Work item 37 to 5190). The ETL emits
 `:SP500Index rdfs:seeAlso <.../IND/MarketIndices/BasketIndices/EquityIndex>` (S3). Tests:
 `tests/test_fibo_slice.py` (counts, no `rdf:type`, every link target is an entry, the 38 leaves, the
 11 v18 digest, the Appendix A queries, the synthetic builder and the opt-in `FIBO_ZIP`
@@ -962,8 +963,8 @@ link is invented. `:BacktestRun` (one per label and window) and `:RunConfigurati
 are the run-metadata classes, written to the new append-only graph
 `urn:graph:derived:backtest:meta:{label}`; the configuration carries the code commit, PR, results
 document, optional `configId`/`configStatus` and the frozen English body text verbatim in its
-`rdfs:comment`. The bundle is **4634 quads (55 classes, 41 disjoint leaves, 36 named shapes);
-conforms: True**, the load plan is **4911 asserted triples**, and the catalog is 643 written assets
+`rdfs:comment`. The bundle is **4913 quads (58 classes, 44 disjoint leaves, 39 named shapes);
+conforms: True**, the load plan is **5190 asserted triples**, and the catalog is 643 written assets
 plus the six in `reference.ttl` = **649**. No GraphDB write or reload was made; pilot data stays
 valid, and the user reloads the schema with `cli/load_schema.py` then `cli/verify_store.py`.
 
@@ -1019,7 +1020,7 @@ re-litigated without a constitution amendment:
 
 ```mermaid
 flowchart TB
-    SCHEMA["schema/ -- step 0, DONE<br/>tbox+shapes+reference+rules+instances<br/>4634 quads * pyshacl conforms"]
+    SCHEMA["schema/ -- step 0, DONE<br/>tbox+shapes+reference+rules+instances<br/>4913 quads * pyshacl conforms"]
     STORE["triple store -- step 1, DONE<br/>GraphDB repository portfolio<br/>src/kg_store/, cli/load_schema.py"]
     GRAPHS["named graphs -- step 1, DONE<br/>static: tbox/reference/rules<br/>ingest:{agent}:{date} * portfolio:current<br/>worked example only"]
     GATE["SHACL ingest gate -- DONE<br/>pyshacl, src/kg_store/gate.py<br/>cli/ingest.py"]
@@ -1060,12 +1061,25 @@ overview](https://claude.ai/code/artifact/d3865a63-2894-4e20-b38a-7e50cf0d4040).
 
 ## 5. Data Model
 
+**Aggregates file (2026-11-05, Work item 37).** Upstream's `aggregates_<label>.json` is projected
+by `cli/load_aggregates.py` into the append-only
+`urn:graph:derived:backtest:aggregates:{label}`. The whitelist parser accepts only the file's
+declared keys, states, references, windows and segments; it verifies the file's entry in
+`SHA256SUMS` before building anything. `:TrendFilterState` carries the published trend state, the
+cash fraction and the two Top-N arms; `:ReferenceReturn` carries one segment's reference name,
+total return, max drawdown, dates and session count; `:AggregatesSet` is the per-label root with
+the source file name, lowercase SHA-256, configuration id and textual source descriptions. The
+read-only verifier compares both families with the source databases (decision dates of both Top-N
+arms, period-summary segments and dates, cash fractions, and P2 = P2a/P2b compounding within
+`1e-6`). No daily series, price level or 210-session mean is stored, and `sources.
+spy_total_return_series_sha256` is validated but not projected.
+
 Authoritative map: `schema/README.md`. File → named graph → format:
 
 | File | Format | Named graph | Contents |
 |---|---|---|---|
-| `tbox.ttl` | Turtle | `urn:graph:tbox` | 55 classes (41 disjoint leaves + 13-class backbone), properties, cardinality restrictions |
-| `shapes.ttl` | Turtle | `urn:graph:tbox` | 36 SHACL node shapes (the closed-world ingest gate) |
+| `tbox.ttl` | Turtle | `urn:graph:tbox` | 58 classes (44 disjoint leaves + 13-class backbone + `:ExchangeTradedFund` under `:Asset`), properties, cardinality restrictions |
+| `shapes.ttl` | Turtle | `urn:graph:tbox` | 39 named SHACL node shapes (the closed-world ingest gate) |
 | `reference.ttl` | Turtle | `urn:graph:reference` | GICS sector/industry taxonomy + 6 worked-example assets (5 S&P 500 constituents + the core ETF SPY) + `MetricType` vocab |
 | `fibo.ttl` | Turtle | `urn:graph:reference:fibo` | 25-term FIBO 2026Q2 glossary slice: 54 entries, 223 English statements, 50 Spanish `@es` statements and 4 header statements (277 total) |
 | `rules.ttl` | Turtle | `urn:graph:rules:catalog` | 10 active selection rules + 7 GUARD protection rules (`RuleDefinition`s) + the 8 superseded definitions (closed, `validTo`) + `AttractivenessWeightScheme` |
@@ -1095,7 +1109,7 @@ snapshot to carry a `rawValue` in `[-1, 1]` (option 1; see `schema/README.md`, r
 **Schema validation** (`schema/README.md`, run from inside `schema/`):
 
 1. Parse `tbox.ttl → shapes.ttl → reference.ttl → rules.ttl` then
-   `instances.trig` into one `rdflib.Dataset`; assert `quads: 4634`.
+   `instances.trig` into one `rdflib.Dataset`; assert `quads: 4913`.
 2. `pyshacl.validate` the same combined graph against `shapes.ttl`; assert
    `conforms: True`.
 3. Run after **every** schema edit — `tbox.ttl`'s `AllDisjointClasses` block

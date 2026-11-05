@@ -46,8 +46,9 @@ before it, and which repo owns it.
 
 **0. Formalize ontology TBox + SHACL shapes.** ✅ **Implemented.**
 `schema/tbox.ttl` + `schema/shapes.ttl` + `schema/reference.ttl` + `schema/rules.ttl` (this
-series' §1) — 55 classes (41 mutually disjoint leaf/domain classes under a 13-class taxonomic
-backbone added 2026-08-23), 36 SHACL shapes, the 10 selection rules + 7 GUARD rules (the 7-rule
+series' §1) — 58 classes (44 mutually disjoint leaf/domain classes under a 13-class taxonomic
+backbone added 2026-08-23, plus `:ExchangeTradedFund` under `:Asset`), 39 named SHACL shapes, the
+10 selection rules + 7 GUARD rules (the 7-rule
 tree catalog below is design history), and a
 six-asset reference master (five S&P 500 constituents plus the core ETF SPY) and its worked
 ABox (`schema/instances.trig`) that have been parsed, SHACL-validated

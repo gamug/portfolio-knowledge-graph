@@ -2597,3 +2597,153 @@ cycle kinds. The detailed record is in `CHANGELOG.md`.
 **Verified 2026-11-05**: `uv run pytest -q` = **1382 passed, 59 deselected, 6870 warnings in
 1515.14 s (25:15)**; `mypy` = success, **106 source files**; the pinned pre-commit hooks pass on
 every changed file; no GraphDB write or reload was made and no schema file changed.
+
+## Work item 37 — Project the upstream aggregates file (T-570–T-599)
+
+**Status: closed 2026-11-05.**
+
+**Why**: upstream now publishes a small `aggregates_<label>.json` beside the run databases and the
+`SHA256SUMS` manifest. The graph already holds the m018 per-arm summaries, but it cannot answer two
+reports-agent questions from one file: whether the trend filter was on at a decision date, and what
+the two references (`SPY`, `SP500_EW_INTERNAL`) returned in a reporting segment. This work item
+projects only those per-segment aggregates into their own append-only graph. It never reads or
+projects a daily series, a price level or the 210-session average.
+
+**Decisions**:
+
+1. **File contract and whitelist parser.** `src/projection/aggregates.py` reads the JSON with
+   `parse_float=Decimal` and accepts exactly the top-level keys `label`, `config_id`,
+   `trend_filter_applies_to_arms`, `sources`, `dictionary`, `trend_filter` and `reference_returns`;
+   exactly the `sources` keys `run_databases`, `spy_total_return_series_sha256`, `spy_source` and
+   `sp500_ew_internal`; exactly the two dictionary tables and their row keys; and exactly the row
+   keys `window`, `decision_date`, `spy_vs_sma210`, `cash_fraction` and `window`, `segment`,
+   `date_from`, `date_to`, `n_sessions`, `reference`, `total_return`, `max_drawdown`. It validates
+   the label, the `[PH][0-9]+` window and `[PH][0-9]+[a-z]?` segment patterns, the closed states
+   (`below`, `at_or_above`, `not_evaluable`), the closed references (`SPY`,
+   `SP500_EW_INTERNAL`), strict ISO dates, positive session counts, decimal fractions, the exact
+   two Top-N arms in `trend_filter_applies_to_arms` and a segment belonging to its window. An extra
+   or missing key, an unknown value, a duplicate row identity or a malformed description stops with
+   a message naming the table, row and key: upstream asked us to stop and ask, never to guess. The
+   parser reads `sources.spy_total_return_series_sha256` only to validate it and never projects it.
+2. **Ontology.** Three disjoint leaves under `:Observation`, each with a Spanish
+   `skos:definition` and an English class comment: `:AggregatesSet` (one per label),
+   `:TrendFilterState` (one row per window and decision date) and `:ReferenceReturn` (one row per
+   window, segment and reference). Names were chosen to read beside the existing backtest terms and
+   to avoid reusing a property whose `rdfs:domain` would entail another disjoint class:
+   - `:AggregatesSet`: reuses `:runLabel`; adds `:aggregatesSourceFile`,
+     `:aggregatesSourceSha256`, `:aggregatesConfigId`, `:aggregatesRunDatabasesSource`,
+     `:aggregatesSpySource` and `:aggregatesSp500EwInternalSource`.
+   - `:TrendFilterState`: reuses `:runLabel`; adds `:trendWindow`, `:trendDecisionDate`,
+     `:trendState` (`below | at_or_above | not_evaluable`), `:cashFraction` (xsd:decimal),
+     `:appliesToArm` (exactly the two Top-N arms) and `:aggregatesSet`.
+   - `:ReferenceReturn`: reuses `:runLabel`; adds `:returnWindow`, `:returnSegment`,
+     `:referenceDateFrom`, `:referenceDateTo`, `:nSessions` (xsd:integer), `:referenceName`
+     (`SPY | SP500_EW_INTERNAL`), `:referenceTotalReturn`, `:referenceMaxDrawdown` and
+     `:aggregatesSet`.
+   Every new property's English `rdfs:comment` is the corresponding `dictionary` text verbatim,
+   including its inline `v_*` references. `:aggregatesSet` is the shared link from both row classes
+   to the one per-label set; the set carries the file name, the lowercase manifest hash, the
+   configuration id and the three textual source descriptions (never the SPY-series hash).
+   Deterministic IRIs: `AggregatesSet_{label}`, `TrendFilter_{label}_{window}_{YYYYMMDD}` and
+   `RefReturn_{label}_{segment}_{reference}`.
+3. **SHACL.** `:AggregatesSetShape`, `:TrendFilterStateShape` and `:ReferenceReturnShape` use
+   `sh:pattern`/`sh:in` for every closed list (label, windows, segments, states, references, the
+   two arms), `^[0-9a-f]{64}$` for the source hash, `xsd:decimal` for the three aggregate numbers
+   and `xsd:integer` for the session count. `:ReferenceReturn` requires `dateFrom <= dateTo` and a
+   non-negative `maxDrawdown` (the dictionary calls it a positive drawdown fraction); the trend
+   filter's cash fraction stays a decimal in `[0, 1]` and is never hard-coded to `0.5`, because the
+   run's `filter_exit` is read from the file.
+4. **Graph and gate.** The new append-only target is
+   `urn:graph:derived:backtest:aggregates:{label}`, with the same label pattern as the meta graph.
+   It has three path segments after `backtest` where the m018 graph has four and the selection
+   graph five, and its literal third segment is `aggregates`, not a `[PH][0-9]+` window: it cannot
+   collide with either, nor with the three-segment `meta:{label}` name. `meta` and `selection` stay
+   usable as run labels and no label is reserved. A second write of the same label is refused by
+   the gate exactly like the other append-only graphs.
+5. **Loader CLI and manifest.** `cli/load_aggregates.py` is a thin wrapper around
+   `src/projection/load_aggregates.py`, with `--label L --dir D [--check-store | --write]
+   [--to-production]`, dry run by default, the production guard, the same exit codes as the other
+   store CLIs, and SHACL through `gate.validate` (dry run) / `gate.plan` (pre-flight and write).
+   Before anything is built it requires `aggregates_<label>.json` in `D/SHA256SUMS`, in strict
+   `sha256sum` format (64 lowercase hex digits, two spaces, the file name), and recomputes the
+   file's SHA-256; a missing entry or a mismatch exits 1 showing the manifest hash and the actual
+   hash. Work item 35's ``delivery.read_manifest`` is now merged, but its parser accepts uppercase
+   hashes and the sha256sum binary marker; the aggregates contract requires lowercase hashes and
+   exactly two spaces, so this work item keeps the strict reader local until the two contracts
+   agree.
+6. **Verifier.** `src/projection/aggregates.py` verifies, read-only, against `D/<label>_<window>.db`
+   opened through `FinancialSource` (`mode=ro`): (a) the file is in the manifest and its hash
+   matches; (b) each window's trend-filter decision dates equal the distinct
+   `v_book_rebalance.decision_date` of `TOPN_MV_NOGUARD` and of `TOPN_MV_GUARD_NO_NLP`, and the two
+   arm sets equal each other; (c) every segment in the databases' `v_portfolio_period_summary` has
+   exactly two `reference_returns` rows, one per reference, with the summary's `date_from` and
+   `date_to`, and no file segment is missing from the summaries; (d) a `below` row has a positive
+   cash fraction and every other state has `0.0`; (e) `P2`'s total return equals the compounded
+   `P2a` and `P2b` within `1e-6` (reported per reference); and (f) after a write, the stored graph's
+   triples equal the file's batch (counts and values, explicit statements only). Every failure names
+   the window, decision date or segment.
+7. **Catalog.** Add the aggregates graph family to the scope table and two tagged, executable
+   queries: the decision dates with the filter on in a window (with the cash fraction) and the
+   reference returns of a window and segment beside each arm's own `:cumulativeReturn`, read from
+   the existing `:PortfolioPeriodSummary` projection. The text states that these are per-segment
+   aggregates published by upstream and that no daily series, price level or 210-session average
+   exists in the graph. The hermetic catalog fixture carries both references, `P2a`/`P2b` and a
+   `not_evaluable` row.
+8. **Tests and docs.** Hermetic tests cover the real file shape (synthetic fixture, never the real
+   file), every rejected key/value/duplicate, manifest match and mismatch, deterministic IRIs, the
+   gate target accepted once and refused twice, the verifier (including a window whose dates
+   differ), the CLI dry run and the write path through the in-memory `DatasetStore`. Docs: `06`,
+   `07`, `08`, the backtest runbook (a step after `load_run`: `cli/load_aggregates.py`),
+   `graphdb-setup.md`, `schema/README.md`, `README.md`, `SPEC.md` counts, PLAN/TASKS/CHANGELOG. The
+   user reloads the schema afterwards (`cli/load_schema.py`, then `cli/verify_store.py`).
+
+**Tasks**:
+
+- [x] **T-570** *(done 2026-11-05: this section, first commit.)* Record this design in `PLAN.md` before any code.
+- [x] **T-571** *(done 2026-11-05: `src/projection/aggregates.py`.)* Add the whitelist parser, the local strict manifest reader and the deterministic
+  batch builder in `src/projection/aggregates.py`.
+- [x] **T-572** *(done 2026-11-05: 58 classes, 44 disjoint leaves, 39 named shapes.)* Add `:AggregatesSet`, `:TrendFilterState`, `:ReferenceReturn`, their properties
+  (dictionary comments verbatim), their shapes and the three disjoint leaves.
+- [x] **T-573** *(done 2026-11-05: `_BACKTEST_AGGREGATES_TARGET`, `tests/test_kg_gate.py`.)* Add `urn:graph:derived:backtest:aggregates:{label}` to the gate and `docs/07`, with
+  the accepted-once/refused-twice tests.
+- [x] **T-574** *(done 2026-11-05: dry run, read-only pre-flight, write and production guard.)* Add `cli/load_aggregates.py` and `src/projection/load_aggregates.py` (dry run,
+  `--check-store`, `--write`, `--to-production`, timings, manifest refusal).
+- [x] **T-575** *(done 2026-11-05: manifest, trend dates, segments, cash, P2 compounding and stored rows.)* Add the read-only source and stored-graph verifier checks (a)–(f).
+- [x] **T-576** *(done 2026-11-05: `trend-filter-on-in-window` and `reference-returns-and-arm`.)* Add the two tagged catalog queries, their fixture (both references, `P2a`/`P2b`, a
+  `not_evaluable` row) and the graph-scope text.
+- [x] **T-577** *(done 2026-11-05: `tests/test_aggregates.py` and `tests/test_cli_load_aggregates.py`.)* Add the hermetic tests for the parser, manifest, IRIs, gate, verifier and CLI.
+- [x] **T-578** *(done 2026-11-05: current counts are 58 classes / 44 leaves / 39 named shapes / 4913 quads; load plan 5190.)* Update `docs/06`–`docs/08`, the runbook, `graphdb-setup`, `schema/README.md`,
+  `README.md`, `SPEC.md` and the asserted counts.
+- [x] **T-579** *(measured 2026-11-05; see the verification line below.)* Run `uv run pytest`, `mypy` and the pinned pre-commit hooks; record the measured
+  results.
+- [x] **T-580** *(done 2026-11-05, read-only: every verifier check passed and SHACL conforms; 0.574 s CLI total.)* Run the real read-only dry run of `cli/load_aggregates.py` against
+  `/workspaces/thesis/scratch/final/candidate_y2` and report the counts, SHACL result, verifier
+  results and timings. The user performs the real write.
+
+**Acceptance criteria**:
+
+- The parser accepts only the contract above; any extra key, unknown value, unknown segment,
+  duplicate identity or bad manifest stops with a clear message.
+- The three classes conform, the two row shapes enforce the closed lists, and the FR-001 bundle
+  parses and `pyshacl`-conforms after the schema change.
+- The new graph is accepted once and refused on a second write like the other derived graphs; the
+  m018, selection and meta names still work and no label collides.
+- The CLI verifies the manifest hash, reads the databases only through `mode=ro`, writes only the
+  new label's graph through `gate.plan`/`gate.write`, and never projects a daily value, price level
+  or the 210-session average.
+- The verifier reports (a)–(f) with window, date or segment on every failure, including a window
+  whose decision dates differ from the file.
+- The two catalog queries run in the hermetic fixture and the text states the per-segment limit.
+- `uv run pytest`, `mypy` and the pinned pre-commit hooks pass; docs, counts and PLAN/TASKS/
+  CHANGELOG are consistent.
+- No GraphDB write or reload is made. The user reloads the schema and performs the real write.
+
+**Blocked on**: nothing. The user performs every GraphDB write.
+
+**Verified 2026-11-05**: `uv run pytest -q` = **1461 passed, 59 deselected, 8531 warnings in
+1217.63 s (20:17)** after the aggregate tests and the two count fixes; `mypy` = success, **116
+source files**; the pinned pre-commit hooks pass on every changed file; FR-001 is **4913 quads
+(58 classes, 44 disjoint leaves, 39 named shapes); conforms: True**, and the load plan is **5190
+asserted triples**. The real read-only dry run over `candidate_y2` verified the manifest hash,
+every verifier check and SHACL conforms, in 0.574 s of CLI time (0.951 s wall including `uv`). No
+GraphDB write or reload was made.

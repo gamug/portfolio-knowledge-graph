@@ -711,3 +711,65 @@
     sh:property [ sh:path :configResultsDoc ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ] ;
     sh:property [ sh:path :configId ; sh:datatype xsd:string ; sh:maxCount 1 ] ;
     sh:property [ sh:path :configStatus ; sh:datatype xsd:string ; sh:maxCount 1 ] .
+
+#################################################################
+# AGGREGATES FILE (Work item 37)
+#
+# aggregates_<label>.json projects into one append-only
+# urn:graph:derived:backtest:aggregates:{label} graph. One
+# AggregatesSet per label, one TrendFilterState per window and
+# decision date, one ReferenceReturn per window, segment and
+# reference. Only per-segment aggregates; no daily series, price
+# level or 210-session mean is stored.
+#################################################################
+
+:AggregatesSetShape
+    a sh:NodeShape ;
+    sh:targetClass :AggregatesSet ;
+    sh:property [ sh:path :runLabel ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ;
+                  sh:pattern "^[a-z][a-z0-9_]{1,31}$" ] ;
+    sh:property [ sh:path :aggregatesSourceFile ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ;
+                  sh:pattern "^aggregates_[a-z][a-z0-9_]{1,31}[.]json$" ] ;
+    sh:property [ sh:path :aggregatesSourceSha256 ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ;
+                  sh:pattern "^[0-9a-f]{64}$" ] ;
+    sh:property [ sh:path :aggregatesConfigId ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :aggregatesRunDatabasesSource ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :aggregatesSpySource ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :aggregatesSp500EwInternalSource ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ] .
+
+:TrendFilterStateShape
+    a sh:NodeShape ;
+    sh:targetClass :TrendFilterState ;
+    sh:property [ sh:path :runLabel ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ;
+                  sh:pattern "^[a-z][a-z0-9_]{1,31}$" ] ;
+    sh:property [ sh:path :trendWindow ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ;
+                  sh:pattern "^[PH][0-9]+$" ] ;
+    sh:property [ sh:path :trendDecisionDate ; sh:datatype xsd:date ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :trendState ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ;
+                  sh:in ("below" "at_or_above" "not_evaluable") ] ;
+    sh:property [ sh:path :cashFraction ; sh:datatype xsd:decimal ; sh:minCount 1 ; sh:maxCount 1 ;
+                  sh:minInclusive 0.0 ; sh:maxInclusive 1.0 ] ;
+    sh:property [ sh:path :appliesToArm ; sh:datatype xsd:string ; sh:minCount 2 ; sh:maxCount 2 ;
+                  sh:in ("TOPN_MV_NOGUARD" "TOPN_MV_GUARD_NO_NLP") ] ;
+    sh:property [ sh:path :aggregatesSet ; sh:class :AggregatesSet ; sh:minCount 1 ; sh:maxCount 1 ] .
+
+:ReferenceReturnShape
+    a sh:NodeShape ;
+    sh:targetClass :ReferenceReturn ;
+    sh:property [ sh:path :runLabel ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ;
+                  sh:pattern "^[a-z][a-z0-9_]{1,31}$" ] ;
+    sh:property [ sh:path :returnWindow ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ;
+                  sh:pattern "^[PH][0-9]+$" ] ;
+    sh:property [ sh:path :returnSegment ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ;
+                  sh:pattern "^[PH][0-9]+[a-z]?$" ] ;
+    sh:property [ sh:path :referenceDateFrom ; sh:datatype xsd:date ; sh:minCount 1 ; sh:maxCount 1 ;
+                  sh:lessThanOrEquals :referenceDateTo ] ;
+    sh:property [ sh:path :referenceDateTo ; sh:datatype xsd:date ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :nSessions ; sh:datatype xsd:integer ; sh:minCount 1 ; sh:maxCount 1 ;
+                  sh:minInclusive 1 ] ;
+    sh:property [ sh:path :referenceName ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ;
+                  sh:in ("SPY" "SP500_EW_INTERNAL") ] ;
+    sh:property [ sh:path :referenceTotalReturn ; sh:datatype xsd:decimal ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :referenceMaxDrawdown ; sh:datatype xsd:decimal ; sh:minCount 1 ; sh:maxCount 1 ;
+                  sh:minInclusive 0.0 ] ;
+    sh:property [ sh:path :aggregatesSet ; sh:class :AggregatesSet ; sh:minCount 1 ; sh:maxCount 1 ] .
