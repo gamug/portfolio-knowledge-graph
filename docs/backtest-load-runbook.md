@@ -47,7 +47,14 @@ The m018 graph holds the eight backtest/GUARD views; the selection graph holds t
 views (`v_cycle_run`, `v_weight_scheme`, `v_weight_component`, `v_cycle_ranking`,
 `v_cycle_ranking_component`, `v_veto`). The verifier's cross-graph check proves that every
 `:cycleRunId` on a TOPN `BookRebalance` in the m018 graph has its `SelectionCycle` in the
-selection graph; `MARKOWITZ_BASE` has none.
+selection graph; `MARKOWITZ_BASE` and `MARKOWITZ_BASE_GUARD` have none on purpose.
+
+The read side is [`reports-agent-query-catalog.md`](reports-agent-query-catalog.md). Every query
+there takes the run label and the window (and the arm where relevant) as parameters; its discovery
+queries list the labels, date-ordered windows, arms, rebalance dates and decision/warm-up cycles
+that a loaded store holds. The catalog shows the core ETF `SPY` as `ETF núcleo`, never as an
+unclassified asset, and it publishes only aggregates (no per-asset price, return, veto evidence or
+Basing Points threshold).
 
 The same database also carries the three remaining Contract v18 views. They are projected
 separately by `cli/project_reference.py` into:

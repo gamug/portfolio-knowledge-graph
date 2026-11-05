@@ -209,7 +209,8 @@ The executable forms of these two lookups, together with the backtest battery an
 what the graph can answer (including the not-projected-yet cases), live in
 [`reports-agent-query-catalog.md`](reports-agent-query-catalog.md);
 `tests/test_query_catalog.py` runs every query there against the schema bundle and the synthetic
-two-label, two-window backtest.
+multi-label, multi-window backtest, including the four final arms, the core ETF and the
+decision/warm-up cycle split.
 
 ## 1.2 Class taxonomy
 
