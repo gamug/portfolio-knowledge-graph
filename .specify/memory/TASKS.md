@@ -1304,6 +1304,10 @@ Work item 40 (T-660–T-689): closed 2026-11-09 — the curated CONSTRUCT and th
 instructions are in `docs/ttyg/`, with the agent-form map and a hermetic test; see `CHANGELOG.md`
 and `PLAN.md` Work item 40.
 
+Work item 41 (T-690–T-719): closed 2026-11-09 — the `:objective` comment now states upstream's
+fixed per-arm literal (not the `TOPN_MV_*` weighting objective) with the interpretation pending
+confirmation, and the property declaration and FR-001 counts are unchanged. See `CHANGELOG.md`
+and `PLAN.md` Work item 41.
 T-163 (function done, PR #68) closes with T-031, whose first slice (PR #72) calls it on the real read and re-reads the late keys for `v_score_snapshot`; T-164 done (PR #69).
 Work item 8 (T-070–T-071) is independent but needs a human at a Protégé
 session, not a coding session.
