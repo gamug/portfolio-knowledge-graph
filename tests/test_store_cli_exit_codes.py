@@ -106,16 +106,16 @@ def scratch(configured: GraphDB, monkeypatch: pytest.MonkeyPatch) -> Iterator[Gr
 def test_verify_store_passes_on_the_configured_store(configured: GraphDB) -> None:
     if configured.repository != PRODUCTION_REPOSITORY:
         pytest.skip(f"KG_REPOSITORY is {configured.repository}, not {PRODUCTION_REPOSITORY}")
-    assert _cli("verify_store")() == 0
+    assert _cli("verify_store")(["--to-production"]) == 0
 
 
 def test_verify_store_fails_on_an_empty_store_and_passes_after_the_schema_is_loaded(
     scratch: GraphDB,
 ) -> None:
     verify = _cli("verify_store")
-    assert verify() == 1
+    assert verify([]) == 1
     assert load_schema.main([]) == 0
-    assert verify() == 0
+    assert verify([]) == 0
 
 
 def test_load_schema_exits_0_twice_and_1_on_an_unreadable_directory(

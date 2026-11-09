@@ -33,13 +33,17 @@ from kg_store.gate import (
     fetch_context,
     ingest,
     load_gate_schema,
+    parse_batch,
     references,
     validate,
 )
-from kg_store.graphdb import EXPLICIT_GRAPH, GraphDB, schema_dir
+from kg_store.graphdb import EXPLICIT_GRAPH, PRODUCTION_REPOSITORY, GraphDB, schema_dir
 from kg_store.load_schema import SchemaError, expected_sizes, verify
 
-PREFIX = "PREFIX : <https://thesis.local/kg/portfolio#>\n"
+PREFIX = (
+    "PREFIX : <https://thesis.local/kg/portfolio#>\n"
+    "PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>\n"
+)
 #: The one SHACL result the probe must produce: ``(sh:resultPath, sh:sourceConstraintComponent)``.
 EXPECTED_VIOLATION = (
     rdflib.URIRef("https://thesis.local/kg/portfolio#timestamp"),
@@ -49,6 +53,15 @@ EXPECTED_VIOLATION = (
 PROBE_GRAPH = "urn:graph:ingest:SEMANTIC:2099-01-01"
 #: The worked example's quant batch, whose Portfolios and Assets the store holds once ``schema/`` is loaded.
 QUANT_GRAPH = "urn:graph:derived:quant:2026-08-05"
+#: The production-safe string probe: a Veto that points at a stored RuleDefinition, whose
+#: ``:ruleSeverity`` is a closed ``sh:in`` list. It exercises the same term comparison as T-181's
+#: quant batch without any ``instances.trig`` individual.
+RULE_PROBE = b"""@prefix : <https://thesis.local/kg/portfolio#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+:acceptance_vocabulary_probe a :Veto ;
+    :raisedOn "2099-01-01"^^xsd:date ; :lastSeenOn "2099-01-01"^^xsd:date ;
+    :appliesRule :Rule_LEVERAGE_EXTREME .
+"""
 #: A ScoreSnapshot that is valid except for the required ``:timestamp`` it lacks.
 MALFORMED = b"""@prefix : <https://thesis.local/kg/portfolio#> .
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
@@ -70,7 +83,10 @@ def violations(
 ) -> list[tuple[rdflib.term.Node | None, rdflib.term.Node | None]]:
     """``(sh:resultPath, sh:sourceConstraintComponent)`` of each ``sh:ValidationResult``."""
     return [
-        (results.value(r, SH.resultPath), results.value(r, SH.sourceConstraintComponent))
+        (
+            results.value(r, SH.resultPath),
+            results.value(r, SH.sourceConstraintComponent),
+        )
         for r in results.subjects(rdflib.RDF.type, SH.ValidationResult)
     ]
 
@@ -106,6 +122,21 @@ def check_reasoning(db: GraphDB) -> str:
     query = "SELECT (COUNT(DISTINCT ?x) AS ?n) {from_} WHERE {{ ?x a :Observation }}"
     inferred = int(db.select(PREFIX + query.format(from_=""))[0]["n"])
     explicit = int(db.select(PREFIX + query.format(from_=f"FROM <{EXPLICIT_GRAPH}>"))[0]["n"])
+    if not db.select(PREFIX + "SELECT ?x WHERE { ?x a :ScoreSnapshot } LIMIT 1"):
+        # A production schema load has no ABox yet. Prove the same two-step chain on the TBox:
+        # ScoreSnapshot -> ObservationSnapshot -> Observation is inferred, not asserted directly.
+        if not db.select(
+            PREFIX
+            + "SELECT ?x WHERE { VALUES ?x { :ScoreSnapshot } ?x rdfs:subClassOf :Observation } LIMIT 1"
+        ):
+            raise AssertionError(
+                "no :ScoreSnapshot individual and no inferred :ScoreSnapshot rdfs:subClassOf "
+                ":Observation: no transitive inference"
+            )
+        return (
+            f"ruleset {ruleset}, disableSameAs {same_as}; no ABox observation yet, "
+            ":ScoreSnapshot rdfs:subClassOf :Observation inferred via two subClassOf steps"
+        )
     if not (inferred > 0 and explicit == 0):
         raise AssertionError(f"inferred={inferred} explicit={explicit}")
     # PriceObservation is one hop below :Observation; a ScoreSnapshot is two (via
@@ -119,7 +150,9 @@ def check_reasoning(db: GraphDB) -> str:
 
 
 def check_schema_graphs(db: GraphDB) -> str:
-    expected = expected_sizes(schema_dir())
+    # A fake store without a repository is treated as non-production, the historical behaviour.
+    include_examples = getattr(db, "repository", "") != PRODUCTION_REPOSITORY
+    expected = expected_sizes(schema_dir(), include_examples=include_examples)
     problems, others = verify(db, expected)
     if problems:
         raise AssertionError("; ".join(problems))
@@ -154,24 +187,55 @@ def check_agent_origin(db: GraphDB) -> str:
     return f"every :agentOrigin is single and one of {', '.join(allowed)}"
 
 
-def check_quant_batch(db: GraphDB) -> str:
-    """The worked example's quant batch passes the gate beside what the store holds (T-181).
-
-    Its shapes compare a stored ``:portfolioKind`` by term (``sh:in ("LIVE" "BENCHMARK")``,
-    ``sh:hasValue "BENCHMARK"``), and a plain literal is not equal to one typed ``xsd:string``,
-    so this fails if the store writes a string in a form ``GraphDB.select_terms`` does not read
-    as the gate expects. Read-only: the batch is read from ``schema/`` and only validated.
-
-    ``schema/`` is parsed again here (as ``expected_sizes`` does for the schema-graphs check): a
-    sixth check that reads it should share the parse rather than add another.
-
-    Like the schema-graphs check, it takes the store to be a fresh ``schema/`` load, the worked
-    example included: a store that holds none of the individuals the batch points at fails with
-    that message (load ``schema/``), not with a gate rejection.
-    """
-    dataset = rdflib.Dataset(default_union=False)
+def _stored_batch(
+    db: GraphDB, batch: rdflib.Graph, label: str, empty_message: str | None = None
+) -> str:
+    """Validate one read-only batch beside what the store holds about its references."""
     try:
         schema = load_gate_schema(schema_dir())
+    except OSError as exc:
+        raise SchemaError(f"cannot read the schema files: {exc}") from exc
+    except Exception as exc:  # rdflib raises a different parser error per syntax, as in load_schema
+        raise SchemaError(f"cannot parse the schema files: {exc}") from exc
+    refs = references(batch, schema)
+    if not refs:  # an empty batch would pass vacuously
+        raise AssertionError(empty_message or f"{label} points at no individual")
+    context = fetch_context(db, refs, schema, batch)
+    held = set(context.subjects()) & refs  # the memberships an Asset hop adds are not counted
+    if not held:
+        raise AssertionError(
+            f"the store holds none of the individuals {label} points at: "
+            "load schema/ first (cli/load_schema.py)"
+        )
+    try:
+        validate(batch, context=context)
+    except IngestRejected as exc:
+        raise AssertionError(f"{label} fails beside the store: {exc}") from exc
+    return f"{label} passes beside the {len(held)} stored individual(s) it points at"
+
+
+def check_quant_batch(db: GraphDB) -> str:
+    """A stored vocabulary string passes the gate beside what the store holds (T-181).
+
+    Its shapes compare a stored string by term (the quant batch's ``:portfolioKind`` with
+    ``sh:in ("LIVE" "BENCHMARK")``, ``sh:hasValue "BENCHMARK"``; the production probe's
+    ``:ruleSeverity`` with ``sh:in ("HARD" "SOFT")``), so this fails if the store writes a
+    string in a form ``GraphDB.select_terms`` does not read as the gate expects. Read-only: the
+    batch is read from ``schema/`` or built here and only validated.
+
+    A non-production store holds the worked example, so this keeps T-181's quant-batch check
+    unchanged. The production repository never receives ``instances.trig``; there the same check
+    points at a stored ``:RuleDefinition`` from ``rules.ttl`` instead, so no example individual is
+    needed and the check is not weakened or skipped.
+
+    Like the schema-graphs check, it takes the store to be a fresh ``schema/`` load: a store that
+    holds none of the individuals the batch points at fails with that message (load
+    ``schema/``), not with a gate rejection.
+    """
+    if getattr(db, "repository", "") == PRODUCTION_REPOSITORY:
+        return _stored_batch(db, parse_batch(RULE_PROBE), "the rule-vocabulary probe")
+    dataset = rdflib.Dataset(default_union=False)
+    try:
         dataset.parse(schema_dir() / "instances.trig", format="trig")
     except OSError as exc:
         raise SchemaError(f"cannot read the schema files: {exc}") from exc
@@ -180,25 +244,12 @@ def check_quant_batch(db: GraphDB) -> str:
     batch = rdflib.Graph()
     for triple in dataset.graph(rdflib.URIRef(QUANT_GRAPH)):
         batch.add(triple)
-    refs = references(batch, schema)
-    if not refs:  # an empty batch would pass vacuously
-        raise AssertionError(
-            f"instances.trig has no batch {QUANT_GRAPH} that points at individuals"
-        )
-    context = fetch_context(db, refs, schema, batch)
-    held = set(context.subjects()) & refs  # the memberships the Asset hop adds are not counted
-    if not held:
-        raise AssertionError(
-            "the store holds none of the individuals the quant batch points at: "
-            "load schema/ first (cli/load_schema.py)"
-        )
-    try:
-        validate(batch, context=context)
-    except IngestRejected as exc:
-        raise AssertionError(
-            f"the quant batch of instances.trig fails beside the store: {exc}"
-        ) from exc
-    return f"the quant batch passes beside the {len(held)} stored individual(s) it points at"
+    return _stored_batch(
+        db,
+        batch,
+        "the quant batch of instances.trig",
+        empty_message=f"instances.trig has no batch {QUANT_GRAPH} that points at individuals",
+    )
 
 
 CHECKS: list[tuple[str, Callable[[GraphDB], str]]] = [
@@ -207,5 +258,5 @@ CHECKS: list[tuple[str, Callable[[GraphDB], str]]] = [
     ("reasoning profile matches 07", check_reasoning),
     ("schema graphs have their expected size", check_schema_graphs),
     ("every :agentOrigin is single and in the shape's list", check_agent_origin),
-    ("the quant batch passes beside the stored Portfolios", check_quant_batch),
+    ("a stored vocabulary string is read as the shapes compare", check_quant_batch),
 ]

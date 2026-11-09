@@ -11,6 +11,7 @@ import io
 import json
 import urllib.error
 from email.message import Message
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -75,6 +76,67 @@ def test_the_password_is_not_in_the_repr() -> None:
     assert "s3cret" not in repr(GraphDB("http://h", "r", "u", "s3cret"))
 
 
+def _isolated_env(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, text: str = "") -> None:
+    """Point the helper at a temporary ``.env`` and start from no target variables."""
+    (tmp_path / ".env").write_text(text, encoding="utf-8")
+    monkeypatch.setattr(graphdb, "REPO_ROOT", tmp_path)
+    for name in graphdb.TARGET_VARIABLES:
+        monkeypatch.delenv(name, raising=False)
+
+
+def test_announce_target_prints_only_host_and_repository(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Work item 39: target first, production named, never the credentials."""
+    _isolated_env(monkeypatch, tmp_path)
+    db = GraphDB("http://h:7200", "portfolio", "user", "s3cret")
+    graphdb.announce_target(db)
+    out = capsys.readouterr().out
+    assert out.splitlines() == ["target: GraphDB http://h:7200 repository portfolio [PRODUCTION]"]
+    assert "user" not in out and "s3cret" not in out
+
+
+def test_environment_override_warns_only_for_a_different_value(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    _isolated_env(
+        monkeypatch,
+        tmp_path,
+        "KG_HOST=http://env.example\nKG_REPOSITORY=portfolio_test\n",
+    )
+    monkeypatch.setenv("KG_HOST", "http://env.example")
+    monkeypatch.setenv("KG_REPOSITORY", "portfolio")
+    monkeypatch.setenv("KG_USER", "user")
+    monkeypatch.setenv("KG_PASSWORD", "s3cret")
+    db = GraphDB.from_env()
+    graphdb.announce_target(db)
+    out = capsys.readouterr().out
+    assert out.splitlines()[0] == (
+        "target: GraphDB http://env.example repository portfolio [PRODUCTION]"
+    )
+    assert "warning: KG_REPOSITORY='portfolio'" in out
+    assert "portfolio_test" in out
+    assert "warning: KG_HOST" not in out
+    assert "user" not in out and "s3cret" not in out
+    assert db.repository == "portfolio"
+
+
+def test_environment_override_stays_quiet_when_the_values_match(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    _isolated_env(
+        monkeypatch,
+        tmp_path,
+        "KG_HOST=http://env.example\nKG_REPOSITORY=portfolio_test\n",
+    )
+    monkeypatch.setenv("KG_HOST", "http://env.example")
+    monkeypatch.setenv("KG_REPOSITORY", "portfolio_test")
+    graphdb.announce_target(GraphDB.from_env())
+    out = capsys.readouterr().out
+    assert "warning:" not in out
+    assert out.splitlines()[0].endswith("[not production]")
+
+
 def _answering(
     monkeypatch: pytest.MonkeyPatch, bindings: list[dict[str, dict[str, str]]]
 ) -> GraphDB:
@@ -84,7 +146,9 @@ def _answering(
     return db
 
 
-def test_select_terms_keeps_the_kind_of_each_term(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_select_terms_keeps_the_kind_of_each_term(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """T-181: ``select`` returns lexical values only; ``select_terms`` keeps IRI, blank node,
     datatype and language, which a shape reads."""
     xsd = "http://www.w3.org/2001/XMLSchema#"
@@ -112,7 +176,14 @@ def test_select_terms_keeps_the_kind_of_each_term(monkeypatch: pytest.MonkeyPatc
     assert row["f"] == Literal("typed")
     assert row["f"].datatype is None  # type: ignore[attr-defined]
     assert db.select("SELECT * WHERE { ?a ?b ?c }") == [
-        {"a": "https://x.test/a", "b": "b0", "c": "7", "d": "hola", "e": "plain", "f": "typed"}
+        {
+            "a": "https://x.test/a",
+            "b": "b0",
+            "c": "7",
+            "d": "hola",
+            "e": "plain",
+            "f": "typed",
+        }
     ]
 
 

@@ -2987,3 +2987,80 @@ files took 118.21 s (six manifest hashes), the schema catalogs 0.07 s, and the t
 1,202.55 s. Every m018, selection and metadata graph reported `SHACL-valid, not written`; no
 GraphDB contact, write or `--check-store` was made. `/workspaces/thesis/scratch/final/final_b5`
 does not exist, so no final-run dry run was possible.
+
+## Work item 39 — Store CLI target banners and production guards (T-630–T-659)
+
+**Status: closed 2026-11-09.**
+
+**Why**: a schema was loaded into the production repository `portfolio` by mistake because the
+terminal exported `KG_REPOSITORY=portfolio`, which wins over `.env` (`load_dotenv(override=False)`),
+and no command printed the store it was about to use. The close-out requires that the maintainer, a
+colleague or the jury cannot repeat it: every store CLI names its target before doing anything, a
+process-environment override of `KG_HOST`/`KG_REPOSITORY` warns, `load_schema`/`verify_store` need
+an explicit production flag, and production never receives `instances.trig`'s worked-example ABox.
+
+**Decisions**:
+
+1. **One banner helper, called when the store is opened.** `kg_store.graphdb.announce_target` prints
+   `target: GraphDB <host> repository <name> [PRODUCTION]` or `[not production]`, followed by one
+   warning line per `KG_HOST`/`KG_REPOSITORY` whose process-environment value differs from `.env`.
+   Each listed CLI calls it on every path that will open the store; a dry run that never opens
+   the store prints nothing. Only those two values are read and printed, never
+   `KG_USER`/`KG_PASSWORD` or any other key.
+2. **The banner is the first line without moving the manifest check.** `load_run` and
+   `load_aggregates` announce the target before printing delivery/manifest output, but still open
+   the store only after the delivery is verified: the banner stays first and the first request
+   still waits for a valid manifest.
+3. **Production guards on the two schema commands.** `cli/load_schema.py` and
+   `cli/verify_store.py` accept `--to-production`. With `KG_REPOSITORY=portfolio` and no flag they
+   exit 2 before any request; `load_schema` has no `--write` because it always writes, and
+   `verify_store` takes the flag despite being read-only so aiming it at production is deliberate.
+4. **Examples stay out of production.** `load_schema.load`/`expected_sizes` gain
+   `include_examples`: production writes and verifies only `tbox`, `shapes`, `reference`, `fibo` and
+   `rules` (four graphs, 4671 triples), while `portfolio_test` and every other repository keep the
+   current 20 graphs and 5192 triples including `instances.trig`. No schema file is edited.
+5. **The acceptance checks follow what was loaded, without weakening one.** The schema-graphs check
+   uses the four-graph production plan; the reasoning check proves the same two-step
+   `:ScoreSnapshot` → `:Observation` chain on the TBox when production has no ABox yet; the sixth
+   check keeps T-181's quant batch outside production and, in production, runs the same stored-string
+   term comparison as a read-only Veto probe pointing at the stored `:Rule_LEVERAGE_EXTREME` whose
+   `:ruleSeverity` is a closed `sh:in` list. No check is removed, skipped or relaxed.
+6. **Runbook and docs.** The aggregates step becomes §1f, and a new "Removing a run label" section
+   gives the listing/building SELECT, the maintainer-only DROP rule, the backup requirement and the
+   warning that a ticker-history snapshot may be the only copy. README, `docs/graphdb-setup.md` and
+   SPEC FR-012 carry the banner, the guards and the production/schema-only load.
+
+**Tasks**:
+
+- [x] **T-630** Record this design in `PLAN.md` before any code.
+- [x] **T-631** Add `announce_target`/`environment_overrides` and call them from every CLI path
+      that opens the store; test the banner, the production marker and the secret-free output.
+- [x] **T-632** Add `--to-production` to `load_schema`/`verify_store`, the pre-request exit 2 and
+      the proceed-past-guard tests; update both module docstrings.
+- [x] **T-633** Add `include_examples` to `load_schema.load`/`expected_sizes`, skip `instances.trig`
+      in production, keep `portfolio_test` unchanged, and make the six acceptance checks consistent
+      (four-graph plan, TBox reasoning fallback, stored-rule vocabulary probe in production).
+- [x] **T-634** Announce the target before any other output in `load_run`/`load_aggregates` while
+      keeping the manifest check before the store is contacted; test the banner is first.
+- [x] **T-635** Rename the aggregates runbook step to §1f and add the "Removing a run label" section.
+- [x] **T-636** Update `README.md`, `docs/graphdb-setup.md` and SPEC FR-012.
+- [x] **T-637** Run `uv run pytest -q`, `mypy` and the pinned pre-commit hooks; record the results.
+
+**Acceptance criteria**:
+
+- Every listed CLI that opens GraphDB prints the target host/repository/production banner as its
+  first output line and never prints a credential; a CLI/dry run that does not connect prints no
+  banner.
+- The override warning appears only when the process environment and `.env` differ, names the
+  variable and both values, and never prints a secret.
+- `load_schema` and `verify_store` exit 2 on `portfolio` without `--to-production` before any
+  request, and proceed past the guard with it.
+- A production load sends no `instances.trig` bytes and verifies four graphs / 4671 triples; a
+  `portfolio_test` load still sends the examples and verifies 20 graphs / 5192 triples.
+- The six acceptance checks pass on both load shapes and none is removed, skipped or weakened.
+- The runbook has one §1e (delivery files) and one §1f (aggregates), plus "Removing a run label".
+- `uv run pytest`, `mypy` and the pinned pre-commit hooks pass; no GraphDB write or reload is made.
+
+**Blocked on**: nothing. The user performs every GraphDB write and the `.env` default change.
+
+**Verified 2026-11-09**: `uv run pytest -q` = **1503 passed, 59 deselected, 8802 warnings in 1322.93 s (22:02)**; `mypy --config-file=.code_quality/mypy.ini` = success, **119 source files**; the pinned pre-commit hooks pass on every changed file; the FR-001 parse is **4915 quads; conforms: True** (no schema file changed), and a production load plan is **4 graphs / 4671 asserted triples** against 20 / 5192 including the examples. No GraphDB write or reload was made.
