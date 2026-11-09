@@ -462,7 +462,7 @@ it gets no concept and no label. `B0`, `MCF`, `MARKOWITZ_SAMPLE`,
 `SP500_EW` are not final books either; they are not given run-data labels in this
 scope. `SPY` and `SP500_EW_INTERNAL` remain a reference asset and a reference
 series (`:SPY` is declared as an `:ExchangeTradedFund`, whose class carries the
-"ETF núcleo" label at `schema/tbox.ttl:47`), not strategy books. `TOPN_MV_GUARD`
+"ETF núcleo" label at `schema/tbox.ttl:46`), not strategy books. `TOPN_MV_GUARD`
 is accepted by the shape but not loaded by `final`; it gets no concept until a run
 uses it.
 
