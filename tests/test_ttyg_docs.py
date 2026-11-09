@@ -18,6 +18,7 @@ TTYG = REPO / "docs" / "ttyg"
 CONSTRUCT = TTYG / "ontology_construct_curated_v2.rq"
 INSTRUCTIONS = TTYG / "instructions-v1.2.md"
 README = TTYG / "README.md"
+CREATE_AGENT = TTYG / "create-agent.md"
 TBOX = REPO / "schema" / "tbox.ttl"
 
 TEXT_FENCE = re.compile(r"```text\n(?P<block>.*?)```", re.DOTALL)
@@ -110,3 +111,17 @@ def test_readme_records_the_construct_sha256_and_the_agent_form() -> None:
     assert "0.1" in readme
     assert "Additional instructions" in readme
     assert "read-only user" in readme
+
+
+def test_create_agent_doc_links_the_sources_and_keeps_the_key_placeholder() -> None:
+    """Work item 42 (T-722): the Workbench recipe links the two sources and never a real key."""
+    text = CREATE_AGENT.read_text(encoding="utf-8")
+    readme = README.read_text(encoding="utf-8")
+
+    assert "ontology_construct_curated_v2.rq" in text
+    assert "instructions-v1.2.md" in text
+    assert "graphdb.llm.api-key" in text
+    assert "<YOUR_LLM_API_KEY>" in text
+    assert "0.1" in text
+    assert "DeepSeek" in text and "Gemini 3.x" in text
+    assert "create-agent.md" in readme

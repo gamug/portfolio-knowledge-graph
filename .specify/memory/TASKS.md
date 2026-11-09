@@ -1308,6 +1308,10 @@ Work item 41 (T-690–T-719): closed 2026-11-09 — the `:objective` comment now
 fixed per-arm literal (not the `TOPN_MV_*` weighting objective) with the interpretation pending
 confirmation, and the property declaration and FR-001 counts are unchanged. See `CHANGELOG.md`
 and `PLAN.md` Work item 41.
+Work item 42 (T-720–T-749): closed 2026-11-09 — the end-to-end `final` production sequence, the
+by-hand TTYG agent recipe and the second-user setup are documented, and the runbook's reference
+numbers now carry the `final_corregida` dry run beside the pilot rows. See `CHANGELOG.md` and
+`PLAN.md` Work item 42.
 T-163 (function done, PR #68) closes with T-031, whose first slice (PR #72) calls it on the real read and re-reads the late keys for `v_score_snapshot`; T-164 done (PR #69).
 Work item 8 (T-070–T-071) is independent but needs a human at a Protégé
 session, not a coding session.
