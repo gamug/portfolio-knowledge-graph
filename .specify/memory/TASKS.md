@@ -1324,12 +1324,15 @@ starts at T-751. See `docs/labels-design.md` and `PLAN.md` Work item 43.*
 - [x] **T-750** *(done 2026-11-09: `docs/labels-design.md`; PLAN/TASKS entries.)*
       Record the graph mapping, concept vocabulary, window/strategy labels,
       drafting rules, English-review workflow, v1.3 instruction changes and the
-      14-question evaluation sheet.
+      16-question evaluation sheet (including the two label traps).
 - [ ] **T-751** Create `schema/labels.ttl` with the schemes, concepts,
       `skos:notation` codes, bilingual labels/comments/altLabels and the two
-      window condition fields; add `tests/test_labels.py` for notation uniqueness
-      per scheme, one label/comment per language, window fields, and the absence of
-      C1/`rule`/`candidate_y2`. No run IRI.
+      window condition fields; include `MARKOWITZ_MV` only once the WI44 arm code
+      exists; add `tests/test_labels.py` for notation uniqueness per scheme, one
+      label/comment per language, window fields, exactly the five StrategyScheme
+      notations when WI44 is loaded and no B0/MCF/`MARKOWITZ_SAMPLE*`/`BMK_*`/
+      `TOPN_MV_GUARD` concept, and the absence of C1/`rule`/`candidate_y2`. No run
+      IRI.
 - [ ] **T-752** Add `LabelConceptShape` to `shapes.ttl`; add `labels.ttl` to
       `LOAD_PLAN` and FR-001; update `expected_sizes`, the load-plan tests, the
       acceptance "4 schema graphs" expectation, the shape count (39 → 40) and every
@@ -1341,7 +1344,10 @@ starts at T-751. See `docs/labels-design.md` and `PLAN.md` Work item 43.*
 - [ ] **T-754** Add bilingual labels/comments to the schema classes/properties of
       the strategy-book, GUARD, veto, score, rank, configuration and process
       groups; label the `MetricTypeScheme` concepts; add the `objective` label
-      "Registered optimization class" and keep the WI 41 comment facts.
+      "Registered optimization class" and keep the WI 41 comment facts; the
+      `:nGuardActions` comment says it counts GUARD actions executed on the book,
+      and that 0 means "not applicable" (not "GUARD did not act") in
+      `MARKOWITZ_BASE`, `TOPN_MV_NOGUARD` and `MARKOWITZ_MV`.
 - [ ] **T-755** Write `docs/labels-en-review.md` (code, ES comment, EN draft,
       reviewer decision) and obtain Reviewer A's approval before freezing.
 - [ ] **T-756** Freeze the approved English; run the final label audit; decide the
@@ -1349,8 +1355,9 @@ starts at T-751. See `docs/labels-design.md` and `PLAN.md` Work item 43.*
       only if the global scope is confirmed.
 - [ ] **T-757** Write `docs/ttyg/instructions-v1.3.md` with the §9 changes and
       `ontology_construct_curated_v3.rq`; update `docs/ttyg/README.md` and its test.
-- [ ] **T-758** Write `docs/ttyg/evaluation-questions.md` with the 14 ES/EN
-      questions, answer/query columns and the four criteria; keep it empty.
+- [ ] **T-758** Write `docs/ttyg/evaluation-questions.md` with the 16 ES/EN
+      questions (including the two label traps), answer/query columns and the four
+      criteria; keep it empty.
 - [ ] **T-759** Human run of the evaluation sheet against the loaded graph; record
       the four criteria and file the findings outside the committed sheet.
 - [ ] **T-760–T-779** Reserve for review fixes or a second label pass.

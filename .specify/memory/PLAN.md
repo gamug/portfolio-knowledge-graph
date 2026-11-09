@@ -3336,9 +3336,12 @@ engine code and must not reload run data.
    final-configuration (in-sample) fields. C1 gets no concept or IRI.
 4. **Confirmed strategy mapping.** `TOPN_MV_GUARD_NO_NLP` = System (FINAL),
    `TOPN_MV_NOGUARD` = FINAL NOGUARD, `MARKOWITZ_BASE` = Markowitz minimum
-   variance (Ledoit-Wolf), `MARKOWITZ_BASE_GUARD` = the same with GUARD. The
-   mean-variance tangency portfolio ("Markowitz base") is not in the graph and
-   gets no concept. `L4_DD` scales all reference weights, including the SPY core.
+   variance (Ledoit-Wolf), `MARKOWITZ_BASE_GUARD` = the same with GUARD.
+   `MARKOWITZ_MV` = the mean-variance base Markowitz (tangency portfolio,
+   historical means and sample covariance), added by Work item 44
+   (T-780–T-809) as summary-only rows; only `MARKOWITZ_MV` may carry the name
+   "Markowitz base". `B0`, `MCF`, `MARKOWITZ_SAMPLE(_GUARD)`, `BMK_*` and C1 get
+   no concept. `L4_DD` scales all reference weights, including the SPY core.
 5. **English review first.** `docs/labels-en-review.md` (Phase 2) holds code, ES
    comment and EN draft; Reviewer A approves every row before the English enters
    `schema/`. The `objective` label is "Registered optimization class" and its
@@ -3350,9 +3353,11 @@ engine code and must not reload run data.
       mechanism, window/strategy labels, drafting rules, v1.3 instruction changes,
       evaluation sheet and PR breakdown; add these PLAN/TASKS entries.
 - [ ] **T-751** Create `schema/labels.ttl` (schemes, concepts, notations, bilingual
-      labels/comments/altLabels, window fields) and `tests/test_labels.py`
-      (notation uniqueness per scheme, one label/comment per language, absence of
-      C1/`rule`/`candidate_y2`).
+      labels/comments/altLabels, window fields; `MARKOWITZ_MV` only once the WI44
+      arm code exists) and `tests/test_labels.py` (notation uniqueness per scheme,
+      one label/comment per language, exactly the five StrategyScheme notations
+      when WI44 is loaded and no B0/MCF/`MARKOWITZ_SAMPLE*`/`BMK_*`/`TOPN_MV_GUARD`
+      concept, absence of C1/`rule`/`candidate_y2`).
 - [ ] **T-752** Add `LabelConceptShape`; add `labels.ttl` to `LOAD_PLAN` and
       FR-001; update `expected_sizes`, load-plan tests, acceptance expectation,
       shape count and every asserted count (`4915+D`, `5192+D`, `4671+D`, 21/5
@@ -3363,7 +3368,9 @@ engine code and must not reload run data.
 - [ ] **T-754** Add bilingual labels/comments to the schema classes/properties for
       strategy books, GUARD, veto, score, rank, configuration and process terms;
       label the `MetricTypeScheme` concepts; add the `objective` label and keep the
-      WI 41 comment.
+      WI 41 comment; the `:nGuardActions` comment says it counts GUARD actions
+      executed on the book, and that 0 means "not applicable" (not "GUARD did not
+      act") in `MARKOWITZ_BASE`, `TOPN_MV_NOGUARD` and `MARKOWITZ_MV`.
 - [ ] **T-755** Write `docs/labels-en-review.md` with every ES comment and EN
       draft; obtain Reviewer A's row-level approval.
 - [ ] **T-756** Freeze the approved English into the schema; run the final label
@@ -3372,8 +3379,9 @@ engine code and must not reload run data.
 - [ ] **T-757** Write `docs/ttyg/instructions-v1.3.md` and
       `ontology_construct_curated_v3.rq`; update `docs/ttyg/README.md` and its
       test.
-- [ ] **T-758** Write `docs/ttyg/evaluation-questions.md` with the 14 ES/EN
-      questions and the four criteria columns; keep the answers empty.
+- [ ] **T-758** Write `docs/ttyg/evaluation-questions.md` with the 16 ES/EN
+      questions (including the two label traps) and the four criteria columns;
+      keep the answers empty.
 - [ ] **T-759** Human run of the evaluation sheet against the loaded graph; record
       the four criteria and file the findings. No agent answer is committed.
 - [ ] **T-760–T-779** Reserve for review fixes or a second label pass.
@@ -3385,14 +3393,15 @@ engine code and must not reload run data.
   are absent; no run IRI gets a triple.
 - The vocabulary loads in production and test plans, pyshacl-conforms, and every
   asserted count is updated by the measured `D`.
-- Strategy labels use the nomenclature v3 full names; "Markowitz base" appears
-  nowhere except the explanation of the not-loaded tangency portfolio; `L4_DD`
-  says "all the reference weights, including the SPY core".
+- Strategy labels use the nomenclature v3 full names; only `MARKOWITZ_MV` may
+  carry the name "Markowitz base", and its comment says it is summary-only (no
+  daily series, weights or alerts); `L4_DD` says "all the reference weights,
+  including the SPY core".
 - `objective` is labelled "Registered optimization class" and its comment stays
   consistent with Work item 41.
 - Reviewer A has approved every English comment before it is frozen.
 - v1.3 implements the changes listed in `docs/labels-design.md` §9; the evaluation
-  sheet has 14 empty answer rows and the four criteria.
+  sheet has 16 empty answer rows, the two label traps and the four criteria.
 - No run data is reloaded and no engine code or IRI changes.
 
 **Blocked on**: Reviewer A's English review (T-755) and the human GraphDB schema

@@ -27,6 +27,11 @@ strategy names are `nomenclatura_estrategias_v3.md`.
    reference GUARD receives is the target of the twin arm without GUARD.
 4. A new concept vocabulary that does not touch any run IRI is approved.
 5. Reviewer A reviews the English comments before they are frozen.
+6. The mean-variance base Markowitz (`MARKOWITZ_MV`, constrained tangency
+   portfolio, historical means and sample covariance) **is in the graph from
+   Work item 44** (T-780–T-809, separate PR, adds the arm code to the shapes and a
+   loader). Only per-window and segment summaries are loaded; the concept waits
+   for the arm code before `labels.ttl` includes it.
 
 ---
 
@@ -61,7 +66,7 @@ concept vocabulary does not touch a run IRI).
 | Glossary item | Graph representation today | Can it carry a label directly? | Evidence |
 |---|---|---|---|
 | Strategy book / arm | `:StrategyBook` is a class; one individual per `(label, window, arm)` in the run graph, named `Book_{label}_{window}_{arm}` by the projector. The arm code is the literal `:armCode`. There is no separate arm class or concept. | **Yes on the individual, but the design does not do it.** A book IRI is run data; the approved vocabulary does not touch it. The user-facing name is attached to the arm concept and joined on `:armCode`. | Class `schema/tbox.ttl:273-278`; shape `schema/shapes.ttl:451-478`; `:armCode` `schema/tbox.ttl:937-938`; closed arm list `schema/shapes.ttl:464-465` (also 487-488, 543-544, 565-566, 587-588, 612-613, 642-645) |
-| `MARKOWITZ_BASE`, `TOPN_MV_NOGUARD`, `TOPN_MV_GUARD_NO_NLP`, `MARKOWITZ_BASE_GUARD` | Four literal `:armCode` values in the final load (the shape also accepts `TOPN_MV_GUARD`, not loaded by `final`). | **No.** Literal. | `schema/shapes.ttl:464-465`; `docs/07-ontology-topology.md:77, 87` and `docs/08-agent-architecture.md:254-255` record the final four |
+| `MARKOWITZ_BASE`, `TOPN_MV_NOGUARD`, `TOPN_MV_GUARD_NO_NLP`, `MARKOWITZ_BASE_GUARD`, `MARKOWITZ_MV` | The final arm vocabulary has five values: the four book arms plus `MARKOWITZ_MV`, added by Work item 44 (T-780–T-809, separate PR) for summary-only rows. The shape still accepts `TOPN_MV_GUARD`, not loaded by `final`. | **No.** Literal. | Current closed arm list `schema/shapes.ttl:464-465`; `docs/07-ontology-topology.md:77, 87` and `docs/08-agent-architecture.md:254-255` record the pre-WI44 four; WI44 extends the list |
 
 ### 1.3 GUARD: rules, layers, states and actions
 
@@ -196,7 +201,7 @@ parameter, but it cannot make a value queryable.
 | `stop_rule` = `bp4` | `:Rule_L1_BP_STOP` is a GUARD rule; the code `bp4` is not a literal. | **No direct join.** Concept maps `bp4` to the Basing Points rule. | `schema/rules.ttl:237-243` |
 | `cost_bps` (10) | `:costReturn` and `:totalCostBps` are per-session/per-period costs; the 10 bps rate is in the `:RunConfiguration` comment and the `BookDailyPerformance` definition. | **Partly:** label the cost properties; concept for `cost_bps`. | `schema/tbox.ttl:1127, 1148, 341-352`; `schema/tbox.ttl:308-313` |
 | `vol_target` = `fixed` | `:Rule_L3_VOL` records the configured layer; no target value property. | **No direct join.** Concept maps `fixed` to layer 3; comment says configured, no activations. | `schema/rules.ttl:261-267` |
-| `exclude_hard_vetoed` | Property `:excludeHardVetoed` (boolean) on `:StrategyBook`. It is 0 on all four final arms; the System excludes hard vetoes earlier, in the candidate selection. | **Yes** on the property; concept explains the trap. | `schema/tbox.ttl:1065-1066`; `schema/shapes.ttl:467-471` |
+| `exclude_hard_vetoed` | Property `:excludeHardVetoed` (boolean) on `:StrategyBook`. It is 0 on the four book arms; the System excludes hard vetoes earlier, in the candidate selection. `MARKOWITZ_MV` is summary-only and does not carry a book-level flag. | **Yes** on the property; concept explains the trap. | `schema/tbox.ttl:1065-1066`; `schema/shapes.ttl:467-471` |
 | `tilt`, `blend`, `rp`, `news_model`, `news_db`, `shadow_from` | Not projected. | **No.** Concepts marked internal; hide in ordinary answers. | No hits in `schema/`; glossary §7 lists them as internal |
 | `strategy_book.objective` = `min_var` | Property `:objective` (string literal). WI 41 corrected its comment: a fixed per-arm literal, not the weighting objective of the `TOPN_MV_*` books. | **Yes** on the property; a concept for the `min_var` value explains it. | `schema/tbox.ttl:1063-1064`; `PLAN.md` Work item 41 |
 
@@ -214,10 +219,11 @@ optimization class** / **Clasificación de optimización registrada**, and the
 | Candidate pool | `:selectedForBook` (boolean) means membership of the 60-name pool, not the held names; `:topN` is the pool size. | **Yes** on both properties. | `schema/tbox.ttl:885-886, 897-898` |
 | Maximum satellite holdings (30) | No property. `:topN` is 60; the held cap is in `params_json` and not exposed. | **No.** Concept only; never read 30 from `:topN`. | `schema/tbox.ttl:885-886` |
 | Selection | `:SelectionCycle` class and selection-side ranking individuals. | **Yes** on the class. | `schema/tbox.ttl:375-380` |
-| Weighting | `:bookWeightingRule` (upstream `scheme_id`, open vocabulary) and `:objective` (registered class, not the satellite weighting). | **Yes** on `:bookWeightingRule` and `:objective`; concepts distinguish the four ideas. | `schema/tbox.ttl:883-884, 1063-1064` |
+| Weighting | `:bookWeightingRule` belongs to the **attractiveness score scheme** (upstream `scheme_id`, open vocabulary), not to the portfolio; `:objective` is the registered optimization class, not the satellite weighting. | **Yes** on both properties, with separate comments; concepts distinguish the four ideas. | `schema/tbox.ttl:883-884, 1063-1064` |
 | Core / satellite / cash | `:ExchangeTradedFund`/`:SPY` for the core; `:BookWeightDaily` with `holdingKey "CASH"` and `:cashWeight`/`:cashFraction` for cash; the satellite is the non-core equity holdings. | **Partly:** labels on classes/properties; a process concept explains the trio. | `schema/tbox.ttl:42-48, 301-306, 1133, 1005-1006`; `schema/reference.ttl:100` |
 | Nominal / realized composition | `:markowitzTargetWeight` (pre-GUARD target) versus `:finalTargetWeight` (final); `:targetWeight` is the ranking's pool weight, not a portfolio weight. | **Yes** on the properties; process concept for the distinction. | `schema/tbox.ttl:901-902, 1117-1120` |
 | Scheduled rebalance | `:BookRebalance` class; every 21 NYSE sessions. | **Yes** on the class. | `schema/tbox.ttl:280-285` |
+| Number of GUARD actions | `:nGuardActions` on `:PortfolioPeriodSummary`; counts the actions GUARD executes on the book. In a book without GUARD, 0 means "not applicable", not "GUARD did not act" (`MARKOWITZ_BASE`, `TOPN_MV_NOGUARD`, `MARKOWITZ_MV`). | **Yes** on the property. | `schema/tbox.ttl:1150` |
 | Trading day | No term; a session with `:turnover > 0` on `:BookDailyPerformance`. | **No single term.** Process concept. | `schema/tbox.ttl:1125-1135` |
 | Gross / net return | `:grossReturn`, `:netReturn`, `:costReturn` properties. | **Yes** on the properties. | `schema/tbox.ttl:1125-1129` |
 | Sharpe | `:exPostSharpe` on `:PortfolioPeriodSummary`; benchmark observations can carry `:quantMetric "sharpe"`. | **Yes** on the properties; process concept states annualized or not. | `schema/tbox.ttl:1144, 851-856` |
@@ -271,7 +277,7 @@ They are descriptive (`:Strategy_MinVarianceLedoitWolf`, not
 |---|---|---|---|
 | `:WindowScheme` | `:Window_1` … `:Window_6` | `"P1"`, `"H1"`, `"P3"`, `"H2"`, `"P2"`, `"H3"` | `:windowId`, `:trendWindow`, `:returnWindow` |
 | `:RunLabelScheme` | `:RunLabel_final` | `"final"` | `:runLabel` |
-| `:StrategyScheme` | `:Strategy_System`, `:Strategy_SystemNoGuard`, `:Strategy_MinVarianceLedoitWolf`, `:Strategy_MinVarianceLedoitWolfGuard` | the four final `:armCode` values | `:armCode` |
+| `:StrategyScheme` | `:Strategy_System`, `:Strategy_SystemNoGuard`, `:Strategy_MinVarianceLedoitWolf`, `:Strategy_MinVarianceLedoitWolfGuard`, `:Strategy_MeanVarianceBase` | the five final `:armCode` values once WI44 is loaded | `:armCode` |
 | `:GuardScheme` | `:GuardSupervision`, `:GuardLayer_1` … `:GuardLayer_4`, `:AlertState_ENTER` … `:AlertState_SCALE`, `:ActionStatus_APPLIED` … `:ActionStatus_SUPERSEDED` | `"GUARD"`, `1`…`4` (xsd:integer), `"ENTER"`…, `"APPLIED"`… | `:guardLayer`, `:alertState`, `:status` on `:GuardAction` |
 | `:VetoClassScheme` | `:VetoClass_Hard`, `:VetoClass_Soft`, `:VetoClass_Indicator` | `"HARD"`, `"SOFT"`, `"INDICATOR"` | `:ruleSeverity`, `:vetoSeverity`; indicator via `:ruleId "BREAK_TREND_200"` |
 | `:MarkerScheme` | `:Marker_HARD`, `:Marker_UNSCORED`, `:Marker_UNPRICED`, `:Marker_NO_RISK_MODEL` | `"HARD"`, `"UNSCORED"`, `"UNPRICED"`, `"NO_RISK_MODEL"` | `:vetoSeverity` for HARD; `CONTAINS` on `:vetoRulesJson` for UNSCORED/UNPRICED; no anchor for NO_RISK_MODEL |
@@ -283,6 +289,11 @@ They are descriptive (`:Strategy_MinVarianceLedoitWolf`, not
 Scheme membership disambiguates `"HARD"` (veto class vs marker) and `"1"`
 (guard layer vs nothing else). A query MUST name the scheme; a bare
 `?concept skos:notation "HARD"` is ambiguous by design.
+
+`:Strategy_MeanVarianceBase` (`MARKOWITZ_MV`) is conditional on Work item 44: it
+enters `labels.ttl` only once the arm code exists in the shapes and the loader.
+Until then, the StrategyScheme has four concepts. `D` in §2.4/§3 is measured on
+top of Work item 44, not instead of it.
 
 ### 2.3 How the query agent finds a label from a code
 
@@ -363,8 +374,11 @@ say it is not loaded.
 | `schema/protege-view.ttl` | generated | untouched | Regenerate only in the existing Protégé task, never by hand |
 
 `D` is the net new triple count of `labels.ttl` plus the direct labels/comments
-added to `tbox.ttl`, `rules.ttl`, `reference.ttl` and `shapes.ttl`. It is measured
-with `rdflib` in the PR that adds each group; it is not guessed here.
+added to `tbox.ttl`, `rules.ttl`, `reference.ttl` and `shapes.ttl`, measured on
+top of Work item 44. It is measured with `rdflib` in the PR that adds each group;
+it is not guessed here. If `labels.ttl` lands before WI44, the
+`:Strategy_MeanVarianceBase` row is omitted and `D` does not include it; the row
+is a follow-up once the arm code is loaded.
 
 **SHACL shape.** One new named shape, `:LabelConceptShape`, in `shapes.ttl`
 (39 → 40). It targets `sh:targetSubjectsOf :labelScheme` (not all SKOS concepts),
@@ -378,8 +392,10 @@ second shape, to keep the shape count at 40.
 **No new acceptance check.** The existing schema-graphs check covers the new graph
 through `expected_sizes`; a seventh check would force a docs/count change for no
 additional safety. A hermetic `tests/test_labels.py` covers the vocabulary
-contract (notation uniqueness per scheme, one label/comment per language,
-absence of C1/`rule`/`candidate_y2`, window fields).
+contract (notation uniqueness per scheme, one label/comment per language, exactly
+the five StrategyScheme notations once WI44 is loaded and no B0/MCF/
+`MARKOWITZ_SAMPLE*`/`BMK_*`/`TOPN_MV_GUARD` concept, absence of C1/`rule`/
+`candidate_y2`, window fields).
 
 ### 2.5 What stays untouched
 
@@ -455,16 +471,18 @@ and stay as they are; the new work item records the new count. The generated
 
 ## 4. Strategy-book labels (confirmed mapping)
 
-The four labels below are the **only** strategy concepts in the final vocabulary.
-The mean-variance tangency portfolio ("Markowitz base") is **not in the graph**:
-it gets no concept and no label. `B0`, `MCF`, `MARKOWITZ_SAMPLE`,
-`MARKOWITZ_SAMPLE_GUARD`, `BMK_EXPO`, `BMK_BETA`, `BMK_VOL`, `SPY` and
-`SP500_EW` are not final books either; they are not given run-data labels in this
-scope. `SPY` and `SP500_EW_INTERNAL` remain a reference asset and a reference
-series (`:SPY` is declared as an `:ExchangeTradedFund`, whose class carries the
-"ETF núcleo" label at `schema/tbox.ttl:46`), not strategy books. `TOPN_MV_GUARD`
-is accepted by the shape but not loaded by `final`; it gets no concept until a run
-uses it.
+The five concepts below are the **only** strategy concepts in the final
+vocabulary. `MARKOWITZ_MV` is the mean-variance base Markowitz (constrained
+tangency portfolio, historical means and sample covariance); it is **in the
+graph** from Work item 44 (T-780–T-809) as summary-only rows, and it is the only
+strategy that may carry the user-facing name "Markowitz base". `B0`, `MCF`,
+`MARKOWITZ_SAMPLE`, `MARKOWITZ_SAMPLE_GUARD`, `BMK_EXPO`, `BMK_BETA`, `BMK_VOL`
+and `SP500_EW` are not final books and get no concept. `SPY` and
+`SP500_EW_INTERNAL` remain a reference asset and a reference series (`:SPY` is
+declared as an `:ExchangeTradedFund`, whose class carries the "ETF núcleo" label
+at `schema/tbox.ttl:46`), not strategy books. `TOPN_MV_GUARD` is accepted by the
+shape but not loaded by `final` and gets no concept. `MARKOWITZ_MV` enters
+`labels.ttl` only once the arm code exists in the shapes and the loader.
 
 | `skos:notation` | Concept IRI | `rdfs:label`@en | `rdfs:label`@es | `rdfs:comment` (one line, ES source) |
 |---|---|---|---|---|
@@ -472,6 +490,7 @@ uses it.
 | `TOPN_MV_NOGUARD` | `:Strategy_SystemNoGuard` | Core-satellite multifactor with CVaR weighting, without GUARD | Núcleo-satélite multifactorial con ponderación por CVaR, sin GUARD | Igual que el Sistema, sin la supervisión GUARD. |
 | `MARKOWITZ_BASE` | `:Strategy_MinVarianceLedoitWolf` | Markowitz minimum variance (Ledoit-Wolf covariance) | Markowitz de mínima varianza (covarianza Ledoit-Wolf) | Cartera de mínima varianza sobre los miembros elegibles del S&P 500, solo largos, máximo 5 % por acción y 30 % por sector, con covarianza con contracción de Ledoit-Wolf; no estima retornos esperados; sin SPY, filtro ni selección. |
 | `MARKOWITZ_BASE_GUARD` | `:Strategy_MinVarianceLedoitWolfGuard` | Markowitz minimum variance (Ledoit-Wolf covariance) with GUARD supervision | Markowitz de mínima varianza (covarianza Ledoit-Wolf) con supervisión GUARD | La cartera de mínima varianza (Ledoit-Wolf) con la supervisión GUARD (parada de 21 sesiones por acción y escalamiento por caída). |
+| `MARKOWITZ_MV` | `:Strategy_MeanVarianceBase` | Mean-variance base Markowitz (tangency portfolio; historical means and covariance) | Markowitz base de media-varianza (cartera de tangencia; medias y covarianza históricas) | Solo se cargan resúmenes por ventana y segmento (sin serie diaria, pesos ni alertas); calculada fuera del motor por un simulador independiente validado contra el libro MARKOWITZ_BASE del motor; resultados dentro de muestra; sin GUARD. |
 
 AltLabels (for search, never for display as the name):
 
@@ -479,12 +498,13 @@ AltLabels (for search, never for display as the name):
 - System no GUARD: `"FINAL NOGUARD"@en`, `"NS-CVaR"@en`/`@es`.
 - Min-variance Ledoit-Wolf: `"Mínima varianza (MV-LW)"@es`, `"Minimum variance (MV-LW)"@en`.
 - Min-variance Ledoit-Wolf + GUARD: `"Mínima varianza (MV-LW) + GUARD"@es`, `"Minimum variance (MV-LW) + GUARD"@en`.
+- Mean-variance base: `"Markowitz base (MV-Tangencia)"@es`, `"Mean-variance base Markowitz (MV-Tangency)"@en`.
 
 The internal code is `skos:notation`, not an altLabel and not part of the label.
-If the agent ever shows a code, it is in parentheses and visually secondary. The
-string `"Markowitz base"` must not appear in any label or comment; the only
-permitted use of "base" is `MARKOWITZ_BASE` as a technical code in a provenance
-field, never as a user-facing name.
+If the agent ever shows a code, it is in parentheses and visually secondary.
+Only `MARKOWITZ_MV` may be named **"Markowitz base"** (or "Markowitz base de
+media-varianza") in labels and comments; no other strategy may use that name.
+`MARKOWITZ_BASE` is a code only, never "Markowitz base".
 
 ---
 
@@ -572,6 +592,14 @@ in the project.
    individual. The labels are reached by `skos:notation` joins.
 10. **Freeze.** No English comment enters `schema/` until Reviewer A approves the
     row in `docs/labels-en-review.md`.
+11. **"Markowitz base" name.** Only `MARKOWITZ_MV` may carry the user-facing name
+    "Markowitz base" / "Markowitz base de media-varianza", exactly as nomenclature
+    v3 defines it. `MARKOWITZ_BASE` is a code only; no other strategy may use the
+    name.
+12. **`n_guard_actions`.** The `:nGuardActions` comment says it counts the actions
+    GUARD executes on the book. In a book without GUARD, 0 means **"not
+    applicable"**, not "GUARD did not act". This is true for `MARKOWITZ_BASE`,
+    `TOPN_MV_NOGUARD` and `MARKOWITZ_MV`; those books have no GUARD layer to act.
 
 ---
 
@@ -623,9 +651,13 @@ id, so a reviewer can diff the frozen text against the approved text.
 - **Notation ambiguity.** `"HARD"` exists in two schemes and `1` is a guard
   layer; queries must name the scheme. The test checks notation uniqueness **per
   scheme**.
-- **Implied data.** `rank_e`, `NO_RISK_MODEL`, `CVaR`, DSR/PBO and the
-  not-loaded strategies get concepts; the comments must say "not loaded" so the
-  agent does not invent values.
+- **Implied data.** `rank_e`, `NO_RISK_MODEL`, `CVaR` and DSR/PBO get explanatory
+  concepts; the comments must say "not loaded" so the agent does not invent
+  values. `MARKOWITZ_MV` is different: it is summary-only data, and the comment
+  must say that no daily series, weights or alerts exist.
+- **Orphaned `MARKOWITZ_MV` concept.** If `labels.ttl` lands before Work item 44,
+  the arm code does not exist and the concept would be an orphan. The test asserts
+  the concept is present only when the arm code is in the loaded vocabulary.
 - **C1 leak.** A future contributor may add a C1 concept "for completeness".
   The test asserts absence.
 - **Production guard.** If `labels.ttl` is not in the production plan, the
@@ -646,14 +678,14 @@ id, so a reviewer can diff the frozen text against the approved text.
 | PR | Tasks | Content | Acceptance |
 |---|---|---|---|
 | 1 | **T-750** | This design document and append-only PLAN/TASKS entries. | Design reviewed; no schema/src/cli/test change. |
-| 2 | **T-751** | `schema/labels.ttl`: schemes, concepts, notations, labels/comments/altLabels, window fields; `tests/test_labels.py` (notation uniqueness per scheme; one label/comment per language; window fields; absence of C1/`rule`/`candidate_y2`). | File parses; tests fail without the vocabulary; no run IRI in the file. |
+| 2 | **T-751** | `schema/labels.ttl`: schemes, concepts, notations, labels/comments/altLabels, window fields; `tests/test_labels.py` (notation uniqueness per scheme; one label/comment per language; window fields; exactly the five StrategyScheme notations once WI44 is loaded and no B0/MCF/`MARKOWITZ_SAMPLE*`/`BMK_*`/`TOPN_MV_GUARD` concept; absence of C1/`rule`/`candidate_y2`; `MARKOWITZ_MV` only when its arm code exists). | File parses; tests fail without the vocabulary; no run IRI in the file. |
 | 3 | **T-752** | `LabelConceptShape` in `shapes.ttl`, `LOAD_PLAN`, FR-001 file list, `expected_sizes`, counts and docs; update `test_kg_load_schema`, `test_acceptance_schema_checks`, `test_ontology_v18`, `test_schema_gate`. | 21/`5192+D` test plan, 5/`4671+D` production plan, FR-001 `4915+D`, 40 shapes, pyshacl conforms. |
 | 4 | **T-753** | Direct labels/comments for GUARD rules and the active veto rules in `rules.ttl`; label the three veto-class concepts and the markers; remove forbidden mentions from the touched L4_DD comment. | Rule labels present; no Grossman-Zhou/Tiingo in new comments; tests. |
-| 5 | **T-754** | Direct labels/comments for `StrategyBook`, `GuardAlert`, `GuardAction`, `Veto`, score/rank/config/process classes and properties; `MetricTypeScheme` concepts; `objective` label and WI 41-consistent comment. | Labels present; `objective` test still passes; no "Markowitz base"; no run IRI touched. |
+| 5 | **T-754** | Direct labels/comments for `StrategyBook`, `GuardAlert`, `GuardAction`, `Veto`, score/rank/config/process classes and properties; `MetricTypeScheme` concepts; `objective` label and WI 41-consistent comment; the `:nGuardActions` comment (GUARD actions executed; 0 = "not applicable" in `MARKOWITZ_BASE`, `TOPN_MV_NOGUARD` and `MARKOWITZ_MV`). | Labels present; `objective` test still passes; no "Markowitz base" except `MARKOWITZ_MV`; no run IRI touched. |
 | 6 | **T-755** | `docs/labels-en-review.md` with every row; Reviewer A sign-off. | All rows approved or changed; no schema change yet. |
 | 7 | **T-756** | Freeze the approved English into the schema; final label audit; `kg_target_schema.ttl` decision; comment-only cleanup of the remaining Tiingo/Grossman mentions if approved. | Frozen text matches review rows; counts `D` final; full label audit. |
 | 8 | **T-757** | `docs/ttyg/instructions-v1.3.md` + `ontology_construct_curated_v3.rq`; update `docs/ttyg/README.md` and its test. | v1.3 rules in §9; CONSTRUCT returns label concepts and rules; test passes. |
-| 9 | **T-758** | `docs/ttyg/evaluation-questions.md` (empty sheet, 14 questions, columns, audit checklist). | Sheet has all 14 ES/EN questions and no answers. |
+| 9 | **T-758** | `docs/ttyg/evaluation-questions.md` (empty sheet, 16 questions including the two label traps, columns, audit checklist). | Sheet has all 16 ES/EN questions, the label-trap expected behaviour and no answers. |
 | 10 | **T-759** | Human runs the sheet against the loaded graph; results recorded outside the repo or in the agreed record. | Four criteria filled per question; findings filed. |
 | — | **T-760–T-779** | Reserve for review fixes, a second label pass, or renumbering. | — |
 
@@ -669,14 +701,14 @@ pasteable `text` block, lines 10–47). Do not edit v1.2 now; v1.3 is a new file
 
 | v1.2 line | Current rule | v1.3 change |
 |---|---|---|
-| 11 | "If the graph does not have the data, say …" | Add: "not in the knowledge base used, not that it does not exist in the project." List C1, the mean-variance Markowitz tangency portfolio, Addendum 2, the later exploration, the news layer and GUARD v2. Do not estimate any of them. |
+| 11 | "If the graph does not have the data, say …" | Add: "not in the knowledge base used, not that it does not exist in the project." List C1, Addendum 2, the later exploration, the news layer and GUARD v2. For the mean-variance base Markowitz (`MARKOWITZ_MV`), say that only per-window and segment summaries are loaded: no daily series, weights or alerts. Do not estimate any missing figure. |
 | 15 | Every answer states the run label and counting rule. | Restrict to answers with **empirical results**. A conceptual explanation (e.g. "what is CVaR?") needs no window, run or counting rule. Every empirical answer still states run label, window, arm and counting rule. |
 | 16 | Default label `final`; default counting rule is rows inside the window. | Keep. Add: formation-day alerts and warm-up vetoes are reported separately as initialization/warm-up events; when a window total is given, say whether it includes them. |
 | 17 | All six windows were seen; final results are in-sample. | Keep and make it explicit in every result answer: no final-configuration result is out of sample. |
 | 20 | Layout; `rule` is an old pilot, do not use it. | Remove the `rule` line. State that `final` is the only loaded label; `rule` and `candidate_y2` are not loaded and must not be used or labelled. Add the `urn:graph:labels` lookup. |
 | 21 | Discover labels/windows/arms first. | Point to `urn:graph:labels`: `skos:notation` + `rdfs:label`/`rdfs:comment`, filter by language; scheme names disambiguate codes. |
 | 24 | Works/arms/windows list and dates; ambiguous window stated. | Add calendar numbers 1–6; window 5 is neutral ("Feb–Sep 2025 (P2)"); H windows carry two separate conditions (historical vs final in-sample); C1 not loaded; "bear market" does not automatically resolve to a window; use number, dates, code or scenario altLabels. |
-| 25 | "Arms: MARKOWITZ_BASE, …" | Replace with full strategy names and the confirmed mapping. Codes only in parentheses. Never say "Markowitz base" except for the mean-variance tangency portfolio, which is not in the graph. |
+| 25 | "Arms: MARKOWITZ_BASE, …" | Replace with full strategy names and the confirmed mapping. Codes only in parentheses. Only `MARKOWITZ_MV` may be named "Markowitz base" (the mean-variance base Markowitz, summary-only); `MARKOWITZ_BASE` is a code only. |
 | 26 | Statistical tests list. | Keep; use full arm names when naming a pair. |
 | 31 | List all actions; `ARM_DISABLED` are counterfactuals. | Keep; add that GUARD states/alerts are not orders and a weight change does not prove a trade. |
 | 32 | Read `:alertState`; do not assume ENTER/EXIT. | Replace with explicit semantics: `ENTER` = rule activated, `EXIT` = rule deactivated; neither is a buy or sell. `ACTIVE`/`COOLDOWN` may not appear. Only claim a buy/sell when transaction data exists; otherwise describe the exposure/weight change. |
@@ -685,8 +717,13 @@ pasteable `text` block, lines 10–47). Do not edit v1.2 now; v1.3 is a new file
 | 37 | `:selectedForBook` is the 60-name pool; `:rankPosition` includes vetoed names. | Add: `rank` includes excluded names; `rank_e` is the rank among eligible names and is **not loaded**; never estimate or substitute it. |
 | 38 | `:vetoRulesJson` only carries "HARD"; use the in-force Veto. | Add: `UNSCORED`/`UNPRICED` are markers, not financial vetoes; `NO_RISK_MODEL` is a coverage gap, not a catalog veto; severity is the stint's `:vetoSeverity`. |
 | 39 | Decision cycles and warm-up. | Add: formation-day alerts and warm-up vetoes are reported separately; when a window total is given, say it includes them. |
-| 42 | Do not present `:objective "min_var"` as the Sistema weighting objective. | Expand to four distinct concepts: registered optimization class (`objective`), satellite weighting (`satellite_weighting` = minimum CVaR in the System), risk model/covariance estimator, and candidate selection. Use the label "Registered optimization class". |
-| 44–46 | "What is not in the graph". | Expand the list (C1, mean-variance Markowitz tangency, Addendum 2, later exploration, news layer, GUARD v2, `rank_e`, CVaR values, DSR/PBO) and repeat the "not in the knowledge base used" wording. |
+| 42 | Do not present `:objective "min_var"` as the Sistema weighting objective. | Rewrite: the System's final weights are **minimum-CVaR** (`satellite_weighting = mincvar`); the minimum-variance stage is only the selection. Delete the v1.2 phrase "distinct from the satellite weighting (mincvar)" — it is wrong. Keep four distinct concepts: registered optimization class (`objective`), satellite weighting (`satellite_weighting`), risk model/covariance estimator, and candidate selection. Use the label "Registered optimization class". |
+| new | Configuration questions. | For weighting, selection, parameters or commit, read the `rdfs:comment` of `:RunConfiguration_<label>` in `urn:graph:derived:backtest:meta:<label>`; quote that comment instead of inferring from `:objective`. |
+| new | `:bookWeightingRule`. | It belongs to the **attractiveness score scheme**, not to the portfolio: do not present it as the portfolio's weighting rule or as `satellite_weighting`. |
+| new | "Which run labels exist?" | Count graphs or runs, never triples. A triple count is not an answer to a run-label question. |
+| new | IRI names. | Never show an IRI such as `GuardAlert_final_P2_305` as a user-facing name; use the asset/rule/window description and keep the IRI only in the query or a parenthetical technical note. |
+| new | Mean-variance base figures. | `MARKOWITZ_MV` may be called "Markowitz base" only as nomenclature v3 defines it. Its figures are per-window/segment summaries computed outside the engine; never present them as daily series, weights, alerts or engine-run results. |
+| 44–46 | "What is not in the graph". | Expand the list (C1, Addendum 2, later exploration, news layer, GUARD v2, `rank_e`, CVaR values, DSR/PBO) and repeat the "not in the knowledge base used" wording. For `MARKOWITZ_MV`, say that only summaries exist and that its daily series, weights and alerts are not loaded. |
 | new | Full names and first mention. | Add: every strategy is named with its complete v3 name and a one-line description the first time it appears; never use an internal code as the name; a code may appear only in parentheses and secondary. |
 | new | Operations. | Add: GUARD states/alerts and weight changes are not orders; the graph stores aggregate turnover and cost per session and target/derived weights, not per-asset orders; `EXIT` means the rule was deactivated. |
 | new | Conceptual answers. | Add: a conceptual answer (definition, formula, "what is CVaR?") needs no window, run or counting rule; an empirical answer does. |
@@ -708,7 +745,7 @@ Columns:
 
 | Column | Content |
 |---|---|
-| `#` | 1–14 |
+| `#` | 1–16 |
 | `question_es` | The Spanish question from glossary §10 |
 | `question_en` | The English question from glossary §10 |
 | `must_show` | What the question demonstrates (identification, context, honesty) |
@@ -720,7 +757,7 @@ Columns:
 | `honesty` | Empty; says when data is unavailable? |
 | `notes` | Empty; follow-up or ambiguity |
 
-The 14 questions (ES / EN):
+The 16 questions (ES / EN):
 
 1. ¿Qué ocurrió en la ventana 1? / What happened in window 1?
 2. ¿Y en el mercado bajista de 2022? / And in the 2022 bear market?
@@ -736,6 +773,17 @@ The 14 questions (ES / EN):
 12. ¿Cuál es el Markowitz base? / What is the base Markowitz?
 13. ¿Qué es el CVaR? / What is CVaR?
 14. ¿Cuál fue el CVaR del Sistema? / What was the System's CVaR?
+15. ¿Cuántas alertas hay en P1 para la corrida `rule` y cómo se compara con `final`? / How many alerts are there in P1 for the `rule` run, and how does it compare with `final`?
+16. ¿Cuántas alertas hay para `final_b5` y cuál es la suma de `rule` y `final`? / How many alerts are there for `final_b5`, and what is the sum of `rule` and `final`?
+
+Questions 15–16 are **label traps**. Expected behaviour: only `final` exists;
+never use or mix figures from another label; never answer 734, 1007 or 5,036. The
+agent must refuse the false premise ("only `final` is loaded") and report only
+`final` figures, or say that the requested label is not available.
+
+Question 12 must identify `MARKOWITZ_MV` as the mean-variance base Markowitz
+(tangency portfolio, summary-only) and must not confuse it with
+`MARKOWITZ_BASE`, which is a different, minimum-variance book.
 
 Criteria, applied per answer:
 
@@ -744,8 +792,9 @@ Criteria, applied per answer:
 - **Context**: configuration, run, period and version are stated when reporting
   empirical results; conceptual answers are exempt.
 - **Honesty**: unavailable data is recognised as unavailable, including C1,
-  `rank_e`, CVaR values, the tangency portfolio, Addendum 2, the later
-  exploration, the news layer and GUARD v2.
+  `rank_e`, CVaR values, the `MARKOWITZ_MV` daily series/weights/alerts,
+  Addendum 2, the later exploration, the news layer and GUARD v2. A label trap
+  is answered by naming only `final` and refusing to mix or invent figures.
 
 The sheet also carries the §10 audit checklist: classes/properties without
 `rdfs:label` or `rdfs:comment`; labels without a language or with the wrong
@@ -754,70 +803,61 @@ per run and period; obsolete elements (such as `rule`) outside default queries.
 
 ---
 
-## 11. Open questions not answerable from the repository
+## 11. Open questions and settled answers
 
-1. **`rank_e` name and availability.** No `rank_e`/`rankE`/`eligibleRank` exists
-   in `schema/`, `src/` or `docs/`. Confirm the upstream column/view name and
-   whether the `final_corregida` selection side exposes it. If not, the concept
-   stays explanatory and the agent must say it is not loaded.
-2. **Configuration parameters.** `core_weight`, `top_n`, `satellite_weighting`,
-   `cvar_scenarios`, `cov_estimator`, `lookback`, `min_history`,
-   `returns_members`, `trend_filter`, `filter_exit`, `stop_rule`, `cost_bps`,
-   `vol_target`, `tilt`, `blend`, `rp`, `news_model`, `news_db`, `shadow_from`
-   are not projected properties. Confirm that labels-only is enough for B1/B3,
-   or file a separate projection work item (which would need a run-data reload).
-3. **`NO_RISK_MODEL` representation.** Confirm it appears (or not) in
-   `veto_rules_json`, and whether a future derived marker property is wanted.
-   The graph has no literal for it today.
-4. **`UNSCORED`/`UNPRICED` structured join.** They live only inside
-   `:vetoRulesJson`. Is a `CONTAINS` lookup acceptable for the agent, or should a
-   later projector add a parsed marker property? The latter changes engine code
-   and needs a reload, so it is out of Phase 1.
-5. **`BREAK_TREND_200` class.** It is `SOFT` with `:penaltyPoints 0`, not a
-   separate class. Confirm the "indicator" class is presentation-only and must
-   not become an `owl:Class` or a new `:vetoClass` property.
-6. **Not-loaded strategies.** `B0`, `MCF`, `MARKOWITZ_SAMPLE`,
-   `MARKOWITZ_SAMPLE_GUARD`, `BMK_EXPO`, `BMK_BETA`, `BMK_VOL`, `SPY`,
-   `SP500_EW` and the mean-variance tangency portfolio are not final books.
-   Confirm they get no concept/label (recommended) rather than a concept marked
-   "not loaded".
-7. **`TOPN_MV_GUARD`.** The shape accepts it but `final` does not load it and
-   nomenclature v3 does not name it. Confirm it gets no concept until a run uses
-   it.
-8. **Direct labels on `StrategyBook` individuals.** The design labels the arm
-   concept, not the 24 `Book_*` run individuals. Confirm that is acceptable; the
-   alternative is an additive labels-graph statement per book, which does not
-   require a data reload but does touch run IRIs.
-9. **`final` comment details.** Confirm the comment may name the delivery
-   `final_corregida` and `code_commit 5958c6b`, and that `final_b5` must not
-   appear anywhere.
-10. **Forbidden mentions scope.** Are the existing Tiingo/Grossman-Zhou mentions
-    in untouched comments (`schema/tbox.ttl:349, 1094`) in scope for cleanup, or
-    only the new/edited comments? The design avoids them in all new text.
-11. **`skos:prefLabel`.** The request names `rdfs:label`; GICS and MetricType use
-    `skos:prefLabel`. Should the new concepts carry both (`rdfs:label` and
-    `skos:prefLabel`) for SKOS consumers, or only the requested `rdfs:label`?
-12. **FR-001 membership.** Should `labels.ttl` be part of FR-001 (recommended, so
-    it is pyshacl-validated and counted) or only part of the load plan? The
-    recommendation changes the `4915` assertion to `4915 + D`.
-13. **`kg_target_schema.ttl`.** It mirrors tbox terms but is not in FR-001 or the
-    load plan. Should the label vocabulary be mirrored there for consistency, or
-    left out because it is a target ontology, not presentation?
-14. **Window 5 scenario.** The glossary keeps it neutral until a numeric
-    definition exists. Confirm no scenario altLabel is added even though P2
-    contains the April 2025 shock.
-15. **H1 historical wording.** The glossary says "reserved originally in the
-    champion preregistration"; H2/H3 say "originally reserved". Confirm the H1
-    specificity is intended and not a copy of a champion-specific definition.
-16. **Other loaded labels.** The reports catalog mentions a `candidate` rehearsal
-    label; the request says `candidate_y2` is not loaded. Confirm the final store
-    contains only `final` and no `candidate`/`rule` label before the v1.3
-    instructions drop the defensive `rule` line.
-17. **B4 (Part A inventory).** The A4 SPARQL inventory (classes, properties,
-    relation types and frequencies; labels/comments per language; provenance;
-    obsolete elements) is not re-run in this Phase 1 design. It belongs with the
-    label audit in T-756. This design uses the static schema and the existing
-    docs; the inventory results are still outstanding.
+1. **ANSWERED — `rank_e` is not exposed in `final_corregida`.** The cycle ranking
+   exposes `rank`, `vetoed` and `veto_rules_json` (and the other projected
+   columns), but no eligible-rank column. The `rank_e` concept is explanatory
+   only; the agent must say it is not loaded and never estimate or substitute it.
+2. **ANSWERED — configuration parameters need labels only.** `core_weight`,
+   `top_n`, `satellite_weighting`, `cvar_scenarios`, `cov_estimator`, `lookback`,
+   `min_history`, `returns_members`, `trend_filter`, `filter_exit`, `stop_rule`,
+   `cost_bps`, `vol_target`, `tilt`, `blend`, `rp`, `news_model`, `news_db` and
+   `shadow_from` are not projected properties; no projection is added. Their
+   labels/comments explain them.
+3. **ANSWERED — `NO_RISK_MODEL` is concept-only.** Its concept comment says
+   **"not loaded"**; the graph adds no literal or marker property for it.
+4. **ANSWERED — `UNSCORED`/`UNPRICED` stay with `CONTAINS`.** They remain tokens
+   inside `:vetoRulesJson`; the agent uses the documented `CONTAINS` lookup,
+   presented as a marker, not a structured veto.
+5. **ANSWERED — "indicator" is presentation only.** `BREAK_TREND_200` stays a
+   `SOFT` rule with `:penaltyPoints 0`; no `owl:Class` or `:vetoClass` property is
+   added.
+6. **ANSWERED — `MARKOWITZ_MV` gets a concept; the other non-final strategies do
+   not.** `B0`, `MCF`, `MARKOWITZ_SAMPLE`, `MARKOWITZ_SAMPLE_GUARD`, `BMK_EXPO`,
+   `BMK_BETA`, `BMK_VOL` and `C1` stay without a concept. `MARKOWITZ_MV` is
+   summary-only and its concept enters `labels.ttl` only once the arm code exists
+   (Work item 44).
+7. **ANSWERED — `TOPN_MV_GUARD` stays without a concept.** The shape accepts it,
+   but `final` does not load it and nomenclature v3 does not name it.
+8. **ANSWERED — label the arm concept, not the `Book_*` individuals.** The 24
+   book IRIs stay untouched; the user-facing name is joined through `:armCode`.
+9. **ANSWERED — `final` comments may cite `final_corregida` and
+   `code_commit 5958c6b`.** They must never mention `final_b5`.
+10. **OPEN — forbidden mentions in untouched comments.** Reviewer A has not
+    decided whether the old Tiingo/Grossman-Zhou mentions in
+    `schema/tbox.ttl:349` and `schema/tbox.ttl:1094` must be cleaned up, or only
+    the new/edited comments. The design avoids them in all new text.
+11. **ANSWERED — `skos:prefLabel` is not added.** The new concepts carry
+    `rdfs:label` only, as requested; GICS/MetricType keep their existing
+    `skos:prefLabel`.
+12. **ANSWERED — `labels.ttl` enters FR-001.** It is pyshacl-validated and
+    counted, so the assertion becomes `4915 + D`.
+13. **ANSWERED — `kg_target_schema.ttl` does not mirror the label vocabulary.**
+    It remains a target ontology, not a presentation layer.
+14. **ANSWERED — window 5 has no scenario altLabel.** It remains neutral
+    ("Feb–Sep 2025 (P2)"); P2 contains the April 2025 shock, but that is not a
+    numeric scenario definition.
+15. **ANSWERED — H1 wording is the glossary's.** "Reserved originally in the
+    champion preregistration" is intentional and stays; H2/H3 keep "originally
+    reserved".
+16. **ANSWERED — the final store has only `final`.** There is no `candidate` or
+    `rule` label to use or mix.
+17. **OPEN — B4 (Part A inventory).** The A4 SPARQL inventory (classes,
+    properties, relation types and frequencies; labels/comments per language;
+    provenance; obsolete elements) is not re-run in this Phase 1 design. It
+    belongs with the label audit in T-756. This design uses the static schema and
+    the existing docs; the inventory results are still outstanding.
 
 ---
 
@@ -839,6 +879,9 @@ per run and period; obsolete elements (such as `rule`) outside default queries.
 - The not-loaded concepts (`rank_e`, `NO_RISK_MODEL`, CVaR, DSR/PBO) can be
   mistaken for data if the comments are not explicit; the evaluation sheet's
   honesty criterion is the control.
+- `MARKOWITZ_MV` is summary-only and depends on Work item 44. If the arm code is
+  not loaded, the concept must be omitted from `labels.ttl`; if it is loaded, the
+  comment must repeat that no daily series, weights or alerts exist.
 - C1 has no concept by design. If a future contributor adds one "for symmetry",
   the test must fail and the reviewer must reject it.
 - The three veto classes are presentation categories, not ontology classes; a
