@@ -3064,3 +3064,75 @@ an explicit production flag, and production never receives `instances.trig`'s wo
 **Blocked on**: nothing. The user performs every GraphDB write and the `.env` default change.
 
 **Verified 2026-11-09**: `uv run pytest -q` = **1503 passed, 59 deselected, 8802 warnings in 1322.93 s (22:02)**; `mypy --config-file=.code_quality/mypy.ini` = success, **119 source files**; the pinned pre-commit hooks pass on every changed file; the FR-001 parse is **4915 quads; conforms: True** (no schema file changed), and a production load plan is **4 graphs / 4671 asserted triples** against 20 / 5192 including the examples. No GraphDB write or reload was made.
+
+## Work item 40 — Reports-agent instructions and curated CONSTRUCT in the repo (T-660–T-689)
+
+**Status: closed 2026-11-09.**
+
+**Why**: the Talk to Your Graph (TTYG) agent in GraphDB answers questions about the final backtest,
+but its curated CONSTRUCT (`ontology_construct_curated_v2.rq`) and its "Additional instructions"
+(v1.1, Spanish) live only in the Workbench and in files outside the repository. Reviewer A's
+close-out request (`PARA_K_cierre_kg.md`, section A2) adds the default `final` label, the date-range
+counting rule, the in-sample warning and the ambiguous-window statement, and forbids presenting
+`:objective "min_var"` of the Sistema book as its weighting objective. `portfolio-app` appends a
+language line to every question, so the instructions must not fix an answer language. This item
+copies the two source files into `docs/ttyg/` and makes the repository the source of truth; it does
+not edit the Workbench agent.
+
+**Decisions**:
+
+1. **Byte-identical CONSTRUCT.** `docs/ttyg/ontology_construct_curated_v2.rq` is a byte-for-byte copy
+   of the source (40 lines). Its sha256 is recorded in `docs/ttyg/README.md`, and a hermetic test
+   recomputes it. No schema change.
+2. **English v1.2 instructions.** `docs/ttyg/instructions-v1.2.md` translates v1.1 and applies only
+   the requested changes: the answer language follows the final line of the question (or the
+   question itself), the default run label is `final`, the default counting rule is rows whose date
+   lies inside the window's own date range, the six windows are listed in calendar order with their
+   dates, results of the final configuration are called in-sample, an ambiguous window is stated,
+   and `:objective "min_var"` is not presented as the Sistema book's weighting objective. Every
+   other v1.1 rule is preserved and no result figures are added. The `min_var` explanation is
+   marked in the usage notes as pending upstream confirmation, and the `rule`-label line stays with
+   a note that it can be removed once that label leaves the store.
+3. **Docs only.** The new folder is linked from `README.md` and
+   `docs/reports-agent-query-catalog.md`. No `schema/`, `src/`, `cli/`, `view_expectations`, FR-001
+   or load-plan count changes. GraphDB is not contacted and the Workbench agent is not edited.
+4. **Hermetic test.** `tests/test_ttyg_docs.py` parses and runs the CONSTRUCT against
+   `schema/tbox.ttl`, extracts the single `text` fence and checks its required and forbidden
+   content, and compares the CONSTRUCT hash with the README.
+
+**Tasks**:
+
+- [x] **T-660** *(done 2026-11-09: this section.)* Recorded the design in `PLAN.md` Work item 40 before any file was copied.
+- [x] **T-661** *(done 2026-11-09: byte-identical, sha256 `9dd728d02c5e16bcb415cd3ed7db16bf70d45490684c83125369f9e7cd9561bd`.)* Copied the curated CONSTRUCT byte-identically to
+  `docs/ttyg/ontology_construct_curated_v2.rq` and recorded its sha256.
+- [x] **T-662** *(done 2026-11-09: one `text` fence, v1.2 changes, every v1.1 rule preserved.)* Wrote `docs/ttyg/instructions-v1.2.md` (English, one pasteable `text` fence, the v1.2
+  changes, every other v1.1 rule preserved).
+- [x] **T-663** *(done 2026-11-09: links in `README.md` and `docs/reports-agent-query-catalog.md`.)* Wrote `docs/ttyg/README.md` (folder purpose, the two files, the CONSTRUCT hash, the
+  agent-form mapping and the not-covered list) and linked the folder from `README.md` and
+  `docs/reports-agent-query-catalog.md`.
+- [x] **T-664** *(done 2026-11-09: 4 tests pass; the CONSTRUCT returns 26 `owl:Class` subjects.)* Added `tests/test_ttyg_docs.py` (CONSTRUCT parse and real class count, pasteable-block
+  content, README hash).
+- [x] **T-665** *(done 2026-11-09: `pytest` 1486 passed / 59 deselected; `mypy` 119 files; pinned hooks pass.)* Ran `uv run pytest -q`, `uv run mypy --config-file=.code_quality/mypy.ini` and the
+  pinned pre-commit hooks on the changed files; recorded the evidence.
+
+**Acceptance criteria**:
+
+- The CONSTRUCT is byte-identical to the source, parses with rdflib's `prepareQuery` and, run against
+  `schema/tbox.ttl`, returns the curated `owl:Class` subjects (the measured count is 26).
+- The pasteable block contains `final`, the six window dates, `in-sample`, the language rule and
+  `min_var`; it contains no fixed Spanish-language sentence and no backtest result figures.
+- `docs/ttyg/README.md` records the CONSTRUCT hash and maps the four agent-form pieces (SPARQL
+  method only, the CONSTRUCT, temperature 0.1, the instructions block), with the explicit
+  not-covered list.
+- The folder is linked from `README.md` and `docs/reports-agent-query-catalog.md`.
+- The new test fails without the change; `pytest`, `mypy` and the pinned pre-commit hooks pass.
+- No schema, source, CLI, expectations or asserted-count change, and no GraphDB command.
+
+**Blocked on**: nothing. Pasting v1.2 into the Workbench agent and confirming the full meaning of
+`min_var` upstream are human follow-ups; this item makes no GraphDB write.
+
+**Verified 2026-11-09**: `uv run pytest -q` = **1486 passed, 59 deselected, 8795 warnings in
+1332.62 s (22:12)**; `mypy` = success, **119 source files**; the pinned pre-commit hooks pass on
+every changed file. The CONSTRUCT parses with `prepareQuery` and returns **26 `owl:Class`
+subjects** against `schema/tbox.ttl`. No GraphDB command was run, and no `schema/`, `src/`, `cli/`,
+`view_expectations` or asserted FR-001/load-plan count changed.

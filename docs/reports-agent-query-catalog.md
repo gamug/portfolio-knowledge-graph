@@ -9,6 +9,10 @@ against the schema bundle and the synthetic multi-label, multi-window backtest o
 `tests/fixtures/backtest_rows.py`. Adding, renaming or deleting a query
 without updating its tag and its expectation fails that test.
 
+The Talk to Your Graph agent that consumes this catalog has its own source of truth in
+[`docs/ttyg/`](ttyg/README.md): the curated CONSTRUCT and the pasteable v1.2 additional
+instructions.
+
 This file is a query catalog, not a query service. It does not add an
 endpoint, a new package or a computation; it records how the reports agent
 reads what this repository already projects. The FIBO boundary is the brief's

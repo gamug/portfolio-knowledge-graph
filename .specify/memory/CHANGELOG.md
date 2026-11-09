@@ -1710,3 +1710,35 @@ command named its target. See `PLAN.md` Work item 39 and SPEC FR-012.*
 - [x] **T-636** Update `README.md`, `docs/graphdb-setup.md` and SPEC FR-012. → decision 6.
 - [x] **T-637** Run `uv run pytest -q`, `mypy` and the pinned pre-commit hooks; record the results
       in `PLAN.md`. → acceptance criteria.
+
+## Work item 40 — Reports-agent instructions and curated CONSTRUCT in the repo (2026-11-09, T-660–T-689)
+
+**Goal**: make the repository the source of truth for the Talk to Your Graph agent: the curated
+CONSTRUCT and the English v1.2 additional instructions, with their hermetic checks.
+
+- [x] **T-660** Recorded the design in `PLAN.md` Work item 40 before any file was copied.
+- [x] **T-661** Copied the curated CONSTRUCT byte-identically to
+      `docs/ttyg/ontology_construct_curated_v2.rq` and recorded its sha256
+      (`9dd728d02c5e16bcb415cd3ed7db16bf70d45490684c83125369f9e7cd9561bd`). The source and the copy
+      compare equal at 40 lines.
+- [x] **T-662** Wrote `docs/ttyg/instructions-v1.2.md`: one pasteable `text` fence, the answer
+      language follows the question, the default `final` label and date-range counting rule, the six
+      windows in calendar order, the in-sample warning, the ambiguous-window statement and the
+      `min_var` rule; every other v1.1 rule is preserved and no result figures are added.
+- [x] **T-663** Wrote `docs/ttyg/README.md` with the two files, the CONSTRUCT sha256, the agent-form
+      mapping (SPARQL only, the CONSTRUCT, temperature 0.1, the instructions block) and the
+      not-covered list; linked the folder from `README.md` and
+      `docs/reports-agent-query-catalog.md`.
+- [x] **T-664** Added `tests/test_ttyg_docs.py`: the CONSTRUCT parses with `prepareQuery` and returns
+      26 `owl:Class` subjects against `schema/tbox.ttl`; the pasteable block carries the required
+      rules and no backtest result figures; the README records the hash.
+- [x] **T-665** Ran `uv run pytest -q` = **1486 passed, 59 deselected, 8795 warnings in 1332.62 s
+      (22:12)**; `mypy` = success, **119 source files**; the pinned pre-commit hooks pass on every
+      changed file. The CONSTRUCT returns **26 `owl:Class` subjects**. No GraphDB command was run,
+      and no `schema/`, `src/`, `cli/`, `view_expectations` or asserted FR-001/load-plan count
+      changed.
+
+**Scope notes.** Docs-only change: no schema, source, CLI, expectation or asserted-count edit. The
+Workbench agent is not edited; pasting v1.2 into it is a human action. The `min_var` wording remains
+pending upstream confirmation (A6), and the `rule`-label line can be removed once that label leaves
+the store (A1).
