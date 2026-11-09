@@ -45,23 +45,23 @@ def test_tbox_and_shapes_share_one_graph() -> None:
     assert load_schema.expected_sizes(SCHEMA)["urn:graph:tbox"] == len(union)
 
 
-def test_the_load_plan_has_20_graphs_and_5192_asserted_triples() -> None:
+def test_the_load_plan_has_20_graphs_and_5217_asserted_triples() -> None:
     sizes = load_schema.expected_sizes(SCHEMA)
     assert len(sizes) == 20
     # 4513 at the T-212 reload; +2 for T-220's and T-227's sh:class triples, -34 for T-233/T-234
     # (two RDF lists removed, the run label added), +227 for Work item 26's selection terms/shapes,
     # +185 for Work item 33's final-backtest vocabulary (BP rules, ETF, metadata classes/shapes),
     # +279 for Work item 37's aggregates classes, properties and shapes, +2 for Work item 38's
-    # bootstrap_mdd test name.
-    assert sum(sizes.values()) == 5192
+    # bootstrap_mdd test name, +25 for Work item 44's external arm lists and :dataSource.
+    assert sum(sizes.values()) == 5217
     assert sizes["urn:graph:reference:fibo"] == 277
 
 
-def test_the_schema_only_plan_has_four_graphs_and_4671_triples() -> None:
+def test_the_schema_only_plan_has_four_graphs_and_4696_triples() -> None:
     """Work item 39: production loads only the files, never the worked-example ABox."""
     sizes = load_schema.expected_sizes(SCHEMA, include_examples=False)
     assert len(sizes) == 4
-    assert sum(sizes.values()) == 4671
+    assert sum(sizes.values()) == 4696
     assert set(sizes) == {
         "urn:graph:tbox",
         "urn:graph:reference",

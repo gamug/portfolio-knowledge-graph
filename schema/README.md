@@ -504,6 +504,17 @@ what the store *enforces*.
     **4915 quads; conforms: True**, load plan **5192 asserted triples**. The store must be reloaded
     afterwards to pick up the literal.
 
+14. **External mean-variance base Markowitz (Work item 44, 2026-11-09).** `MARKOWITZ_MV` joins
+    every closed `:armCode` `sh:in` list (the eight arm-bearing shapes) and `:dataSource`
+    (`xsd:string`, optional, at most one) is declared on `:StrategyBook`; the `:codeVersion`
+    comment now also covers the external simulator's SHA-256. `src/projection/mv_base.py` and
+    `cli/load_mv_base.py` load the external summary-only book into
+    `urn:graph:derived:backtest:external:{label}`; the gate accepts that graph name. No class or
+    named shape was added: **58 classes (44 disjoint leaves), 39 named shapes, 4940 quads;
+    conforms: True**, load plan **5217 asserted triples** (production **4696**). The store must be
+    reloaded afterwards (`cli/load_schema.py` with `KG_REPOSITORY=portfolio_test`, then
+    `cli/verify_store.py`).
+
 ## Validation
 
 Parsed and checked with `rdflib` (Turtle + TriG) and validated end-to-end with `pyshacl` —

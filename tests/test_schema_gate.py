@@ -1122,6 +1122,7 @@ def _summary(bundle: rdflib.Dataset, *, window: str = "P2", segment: str = "P2a"
         "TOPN_MV_GUARD_NO_NLP",
         "TOPN_MV_GUARD",
         "MARKOWITZ_BASE_GUARD",
+        "MARKOWITZ_MV",
     ],
 )
 def test_every_final_arm_conforms(bundle: rdflib.Dataset, shapes: rdflib.Graph, arm: str) -> None:

@@ -9,6 +9,7 @@ A batch is Turtle destined for one named graph. It is written only if
    ``urn:graph:derived:backtest:selection:{run_label}:{P<n>|H<n>}:{run}``,
    ``urn:graph:derived:backtest:meta:{run_label}``,
    ``urn:graph:derived:backtest:aggregates:{run_label}``,
+   ``urn:graph:derived:backtest:external:{run_label}``,
    ``urn:graph:derived:ticker-history:{run_label}:{date}``,
    ``urn:graph:derived:orchestrator:{run_label}:{run}``,
    ``urn:graph:universe:{year}-Q{n}`` (or its ``:delta:{n}`` incremental suffix),
@@ -134,6 +135,12 @@ _BACKTEST_META_TARGET = re.compile(r"urn:graph:derived:backtest:meta:([a-z][a-z0
 _BACKTEST_AGGREGATES_TARGET = re.compile(
     r"urn:graph:derived:backtest:aggregates:([a-z][a-z0-9_]{1,31})"
 )
+#: One external delivery graph per run label (Work item 44): the summary-only MARKOWITZ_MV
+#: book computed outside the engine. Its literal ``external`` segment cannot collide with the
+#: engine's m018 names, which have a window and a run id after the label.
+_BACKTEST_EXTERNAL_TARGET = re.compile(
+    r"urn:graph:derived:backtest:external:([a-z][a-z0-9_]{1,31})"
+)
 #: The incremental asset-catalog batch (T-371): a sequence-qualified suffix on the quarter graph,
 #: so the one-time catalog graph is never appended to and a later delta gets the next number.
 _UNIVERSE_DELTA_TARGET = re.compile(rf"urn:graph:universe:({_QUARTER}):delta:([1-9][0-9]*)")
@@ -151,6 +158,7 @@ APPEND_ONLY_PATTERNS = (
     _BACKTEST_SELECTION_TARGET,
     _BACKTEST_META_TARGET,
     _BACKTEST_AGGREGATES_TARGET,
+    _BACKTEST_EXTERNAL_TARGET,
     _TICKER_HISTORY_TARGET,
     _ORCHESTRATOR_TARGET,
     re.compile(rf"urn:graph:universe:({_QUARTER})"),
@@ -215,6 +223,7 @@ def check_target(graph: str) -> bool:
                 _BACKTEST_SELECTION_TARGET,
                 _BACKTEST_META_TARGET,
                 _BACKTEST_AGGREGATES_TARGET,
+                _BACKTEST_EXTERNAL_TARGET,
                 _ORCHESTRATOR_TARGET,
                 _UNIVERSE_DELTA_TARGET,
             ):
@@ -233,6 +242,7 @@ def check_target(graph: str) -> bool:
         "urn:graph:derived:backtest:selection:{run label}:{P<n>|H<n>}:{positive integer}, "
         "urn:graph:derived:backtest:meta:{run label}, "
         "urn:graph:derived:backtest:aggregates:{run label}, "
+        "urn:graph:derived:backtest:external:{run label}, "
         "urn:graph:derived:ticker-history:{run label}:YYYY-MM-DD, "
         "urn:graph:derived:orchestrator:{run label}:{positive integer}, "
         "urn:graph:universe:YYYY-Qn[:delta:{positive integer}], "

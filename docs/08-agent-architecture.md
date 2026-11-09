@@ -172,8 +172,8 @@ The window and segment vocabularies are patterns, not closed lists: `windowId` m
 `[PH][0-9]+` and `segment` `[PH][0-9]+[a-z]?`, in the projector, the gate's graph patterns and
 `shapes.ttl`. A new window (`P4`), a holdout window (`H1`) or a sub-period (`P2c`) therefore needs
 no schema change; the trade-off, stated in `docs/06` §1.10, is that SHACL no longer catches a
-mistyped window number. The arm list stays closed, with `MARKOWITZ_BASE_GUARD` as the fourth final
-arm.
+mistyped window number. The arm list stays closed, with `MARKOWITZ_BASE_GUARD` as the fourth engine
+arm and `MARKOWITZ_MV` as the external summary-only mean-variance base book added by Work item 44.
 
 The full asset master makes those links resolve. Load it once per repository with
 `uv run python cli/load_universe.py --write` (`docs/graphdb-setup.md`), then extend it with
@@ -251,8 +251,9 @@ The dry runs over `rule_P1/P2/P3.db` and their row/triple counts are recorded in
 
 The ontology, shapes and gate now accept the final backtest before any data arrives. The six
 windows are `P1`, `H1`, `P3`, `H2`, `P2` (with `P2a`/`P2b`) and `H3`, always ordered by date; the
-four delivery arms are `MARKOWITZ_BASE`, `TOPN_MV_NOGUARD`, `TOPN_MV_GUARD_NO_NLP` and
-`MARKOWITZ_BASE_GUARD` (`TOPN_MV_GUARD` remains accepted by the shapes). The projector reads
+four engine delivery arms are `MARKOWITZ_BASE`, `TOPN_MV_NOGUARD`, `TOPN_MV_GUARD_NO_NLP` and
+`MARKOWITZ_BASE_GUARD` (`TOPN_MV_GUARD` remains accepted by the shapes); `MARKOWITZ_MV` is the
+separate external summary-only arm of Work item 44. The projector reads
 `guardLayers` as data: it does not assume the pilot's `[1, 3, 4]`, so an arm can carry `[1]` or
 `[1, 4]`, and an L3_VOL threshold may vary by date. `L1_BP_STOP`/`L1_BP_REENTRY`
 are layer-1 GUARD rules, not vetoes, and their

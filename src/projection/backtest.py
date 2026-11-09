@@ -136,6 +136,7 @@ ARMS = frozenset(
         "TOPN_MV_GUARD_NO_NLP",
         "TOPN_MV_GUARD",
         "MARKOWITZ_BASE_GUARD",
+        "MARKOWITZ_MV",
     }
 )
 
