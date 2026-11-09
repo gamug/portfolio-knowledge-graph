@@ -39,7 +39,7 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from etl import config
-from kg_store.graphdb import PRODUCTION_REPOSITORY, GraphDB, GraphDBError
+from kg_store.graphdb import PRODUCTION_REPOSITORY, GraphDB, GraphDBError, announce_target
 from projection.boundary import BoundaryError
 from projection.score_snapshots import (
     ProjectionError,
@@ -127,6 +127,8 @@ def key_file(path: Path | None, store: GraphDB | None) -> Path | None:
 
 def project(args: argparse.Namespace) -> RunResult:
     """Open the store and the sources, then run; nothing is read before the store is settled."""
+    if args.write:
+        announce_target(GraphDB.from_env())
     store = open_store(args)
     keys = key_file(args.late_keys, store)
     if keys != args.late_keys:

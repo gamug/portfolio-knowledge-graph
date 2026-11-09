@@ -1293,6 +1293,7 @@ read-only source verifier; no daily series, price level or 210-session average i
 `CHANGELOG.md` and `PLAN.md` Work item 37.
 
 Work item 38 (T-600–T-629): closed 2026-11-05 — `bootstrap_mdd` joins the closed `:testName`
+Work item 39 (T-630–T-637): closed 2026-11-09 — every store CLI announces its target, process-environment overrides warn, `load_schema`/`verify_store` guard production, and production receives no `instances.trig` content; the six T-025 checks stay consistent. See `CHANGELOG.md` and `PLAN.md` Work item 39.
 vocabulary (the fourth legitimate upstream test, no per-asset values), with a hermetic fixture row
 that passes SHACL, the projector and the verifier, and the candidate store-free dry run reaching
 SHACL; no other closed list changed. The user reloads the schema afterwards. See `CHANGELOG.md`

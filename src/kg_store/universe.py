@@ -71,7 +71,13 @@ from etl import asset_master, config
 from etl.build_data_ttl import reference_asset_tickers
 from etl.common import gics_rollup
 from kg_store import gate
-from kg_store.graphdb import PRODUCTION_REPOSITORY, GraphDB, GraphDBError, schema_dir
+from kg_store.graphdb import (
+    PRODUCTION_REPOSITORY,
+    GraphDB,
+    GraphDBError,
+    announce_target,
+    schema_dir,
+)
 
 #: Stints closed before this date are dropped by default: a ticker reused by another company
 #: (``CEG``, ``DELL``, ``Q``) keeps only the era the backtests and the live index can see.
@@ -816,6 +822,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     db_path = config.universe_db_path()
     started = time.time()
     try:
+        if args.write or args.delta:
+            announce_target(GraphDB.from_env())
         store = open_store(args)
         if args.delta:
             assert store is not None  # --delta always opens it, even for the dry run

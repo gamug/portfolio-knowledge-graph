@@ -1,30 +1,49 @@
 #!/usr/bin/env python
 """Entry point: run the T-025 acceptance checks against the configured GraphDB.
 
-    python cli/verify_store.py
+    python cli/verify_store.py [--to-production]
 
-Exit status is 0 when all six pass, 1 otherwise; a graph in the store that ``schema/`` does
-not own is reported, not failed. See ``kg_store.acceptance``.
+The command is read-only. ``--to-production`` is still required when the target is the production
+repository, so aiming the checks at production is always deliberate. Exit status is 0 when all six
+pass, 1 otherwise, 2 when production is targeted without the flag; a graph in the store that
+``schema/`` does not own is reported, not failed. See ``kg_store.acceptance``.
 """
 
 from __future__ import annotations
 
+import argparse
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
 from kg_store.acceptance import CHECKS
-from kg_store.graphdb import GraphDB, GraphDBError
+from kg_store.graphdb import PRODUCTION_REPOSITORY, GraphDB, GraphDBError, announce_target
 from kg_store.load_schema import SchemaError
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser.add_argument(
+        "--to-production",
+        action="store_true",
+        help="target the production repository (required there, even though this command only reads)",
+    )
+    args = parser.parse_args(argv)
     try:
         db = GraphDB.from_env()
     except GraphDBError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
+    announce_target(db)
+    if db.repository == PRODUCTION_REPOSITORY and not args.to_production:
+        print(
+            f"--to-production is required to verify the production repository "
+            f"({PRODUCTION_REPOSITORY}): the command only reads, but aiming it at production must "
+            "be deliberate",
+            file=sys.stderr,
+        )
+        return 2
     failed = 0
     for name, check in CHECKS:
         try:

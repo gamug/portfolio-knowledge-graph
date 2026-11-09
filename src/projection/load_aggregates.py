@@ -29,7 +29,7 @@ from dataclasses import replace
 from pathlib import Path
 
 from kg_store import gate
-from kg_store.graphdb import PRODUCTION_REPOSITORY, GraphDB, GraphDBError
+from kg_store.graphdb import PRODUCTION_REPOSITORY, GraphDB, GraphDBError, announce_target
 from projection.aggregates import (
     AggregatesError,
     AggregatesFile,
@@ -165,9 +165,8 @@ def dry_run(data: AggregatesFile, directory: Path, started: float) -> int:
     return 0 if ok else 1
 
 
-def check_store(data: AggregatesFile, builder: GraphBuilder, started: float) -> int:
+def check_store(data: AggregatesFile, builder: GraphBuilder, started: float, store: GraphDB) -> int:
     """The read-only pre-flight: gate.plan with the store's context; write nothing."""
-    store = GraphDB.from_env()
     graph = graph_name(data.label)
     mark = time.perf_counter()
     try:
@@ -191,11 +190,9 @@ def write_store(
     data: AggregatesFile,
     builder: GraphBuilder,
     started: float,
-    args: argparse.Namespace,
+    store: GraphDB,
 ) -> int:
     """Plan through the real gate and write the one append-only graph, then verify it."""
-    store = open_store(args)
-    assert store is not None
     graph = graph_name(data.label)
     mark = time.perf_counter()
     try:
@@ -239,6 +236,10 @@ def main(argv: Sequence[str] | None = None) -> int:  # noqa: PLR0911
     started = time.perf_counter()
     directory = args.dir.resolve()
     try:
+        # Announce the target before any other output, without contacting the store: the manifest
+        # and source checks still run before the first request. A dry run prints no banner.
+        if args.check_store or args.write:
+            announce_target(GraphDB.from_env())
         data = load_file(args.label, directory)
         print(f"manifest: {data.source_file} is listed; SHA-256 {data.source_sha256} matches")
         print(f"timing: manifest+parse {time.perf_counter() - started:.3f} s")
@@ -258,8 +259,10 @@ def main(argv: Sequence[str] | None = None) -> int:  # noqa: PLR0911
         _show_build(data, builder)
         print(f"timing: build {time.perf_counter() - mark:.3f} s")
         if args.check_store:
-            return check_store(data, builder, started)
-        return write_store(data, builder, started, args)
+            return check_store(data, builder, started, GraphDB.from_env())
+        store = open_store(args)
+        assert store is not None
+        return write_store(data, builder, started, store)
     except (AggregatesError, LoadError) as exc:
         print(f"STOPPED\n{exc}", file=sys.stderr)
         return 1

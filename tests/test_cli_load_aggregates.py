@@ -110,6 +110,16 @@ def test_a_dry_run_prints_the_manifest_verifier_build_and_timings(
     assert "timing: total" in result.stdout
 
 
+def test_check_store_announces_the_target_before_the_manifest(tmp_path: Path) -> None:
+    """Work item 39: the store is opened before the file is read, so the banner is first."""
+    directory = _folder(tmp_path)
+    result = _run(tmp_path, "--label", "rule", "--dir", str(directory), "--check-store")
+    assert result.returncode == 1
+    assert result.stdout.splitlines()[0] == (
+        "target: GraphDB http://host.invalid repository test [not production]"
+    )
+
+
 def test_a_manifest_mismatch_exits_1_with_both_hashes(tmp_path: Path) -> None:
     directory = _folder(tmp_path)
     path = directory / "aggregates_rule.json"

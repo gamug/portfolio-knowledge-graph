@@ -22,7 +22,7 @@ from email.message import Message
 from pathlib import Path
 from typing import TypeVar
 
-from dotenv import load_dotenv
+from dotenv import dotenv_values, load_dotenv
 from rdflib import BNode, Literal, URIRef
 from rdflib.term import Node
 
@@ -50,6 +50,40 @@ PRODUCTION_REPOSITORY = "portfolio"
 
 #: Named graph holding explicit (asserted) statements, as opposed to inferred ones.
 EXPLICIT_GRAPH = "http://www.ontotext.com/explicit"
+
+#: The two settings whose process-environment value can silently override ``.env``.
+TARGET_VARIABLES = ("KG_HOST", "KG_REPOSITORY")
+
+
+def environment_overrides() -> list[str]:
+    """One warning per target setting set in the process environment with a different value in
+    ``.env``; secrets are never read or printed."""
+    values = dotenv_values(REPO_ROOT / ".env")
+    warnings: list[str] = []
+    for name in TARGET_VARIABLES:
+        process = os.environ.get(name)
+        file_value = values.get(name)
+        if process is not None and file_value is not None and process != file_value:
+            warnings.append(
+                f"warning: {name}={process!r} in the process environment overrides "
+                f".env's {name}={file_value!r} (the environment wins)"
+            )
+    return warnings
+
+
+def announce_target(db: GraphDB) -> None:
+    """Print the store a command will use, before anything else it writes.
+
+    Only the host and repository are shown, never ``KG_USER``, ``KG_PASSWORD`` or any other key.
+    Every CLI calls this on each path that will open the store; a dry run that never contacts
+    GraphDB prints nothing.
+    """
+    host = getattr(db, "host", "<unconfigured>")
+    repository = getattr(db, "repository", "<unconfigured>")
+    kind = "PRODUCTION" if repository == PRODUCTION_REPOSITORY else "not production"
+    print(f"target: GraphDB {host} repository {repository} [{kind}]")
+    for warning in environment_overrides():
+        print(warning)
 
 
 class GraphDBError(RuntimeError):
@@ -103,7 +137,10 @@ class GraphDB:
         if missing:
             raise GraphDBError(f"set {', '.join(missing)} (see .env.example)")
         return cls(
-            host, repository, os.environ.get("KG_USER", ""), os.environ.get("KG_PASSWORD", "")
+            host,
+            repository,
+            os.environ.get("KG_USER", ""),
+            os.environ.get("KG_PASSWORD", ""),
         )
 
     @property
@@ -156,7 +193,10 @@ class GraphDB:
         """Run a SPARQL Update (needs write access)."""
         body = urllib.parse.urlencode({"update": sparql}).encode()
         self._request(
-            "POST", f"{self._repo_url}/statements", body, "application/x-www-form-urlencoded"
+            "POST",
+            f"{self._repo_url}/statements",
+            body,
+            "application/x-www-form-urlencoded",
         )
 
     def _select(self, sparql: str, read: Callable[[dict[str, str]], _T]) -> list[dict[str, _T]]:
@@ -242,7 +282,10 @@ class Transaction:
 
     def update(self, sparql: str) -> None:
         self.db._request(
-            "PUT", f"{self.location}?action=UPDATE", sparql.encode(), "application/sparql-update"
+            "PUT",
+            f"{self.location}?action=UPDATE",
+            sparql.encode(),
+            "application/sparql-update",
         )
 
     def add(self, data: bytes, content_type: str, graph: str | None = None) -> None:
@@ -250,5 +293,8 @@ class Transaction:
         if graph:
             query["context"] = f"<{graph}>"
         self.db._request(
-            "PUT", f"{self.location}?{urllib.parse.urlencode(query)}", data, content_type
+            "PUT",
+            f"{self.location}?{urllib.parse.urlencode(query)}",
+            data,
+            content_type,
         )
