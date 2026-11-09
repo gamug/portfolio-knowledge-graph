@@ -1297,6 +1297,11 @@ vocabulary (the fourth legitimate upstream test, no per-asset values), with a he
 that passes SHACL, the projector and the verifier, and the candidate store-free dry run reaching
 SHACL; no other closed list changed. The user reloads the schema afterwards. See `CHANGELOG.md`
 and `PLAN.md` Work item 38.
+
+Work item 40 (T-660–T-689): closed 2026-11-09 — the curated CONSTRUCT and the English v1.2 TTYG
+instructions are in `docs/ttyg/`, with the agent-form map and a hermetic test; see `CHANGELOG.md`
+and `PLAN.md` Work item 40.
+
 T-163 (function done, PR #68) closes with T-031, whose first slice (PR #72) calls it on the real read and re-reads the late keys for `v_score_snapshot`; T-164 done (PR #69).
 Work item 8 (T-070–T-071) is independent but needs a human at a Protégé
 session, not a coding session.
