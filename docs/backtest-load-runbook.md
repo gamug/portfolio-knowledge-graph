@@ -239,7 +239,8 @@ receives only the `final` label. The pilot delivery is the older three-window fo
 ### 1d. Run it
 
 The rehearsal is a candidate delivery; the delivery is the `final` one. Use the same commands,
-changing only the folder and label:
+changing only the folder and label. The complete production sequence, including the backup, the
+graph clearing and the acceptance queries, is [`final-delivery.md`](final-delivery.md).
 
 ```bash
 # 1. candidate rehearsal: dry run (no store contacted), then read-only pre-flight
@@ -620,8 +621,30 @@ contacted). Time and peak RSS are for the whole one-command dry run:
 | `rule_P2.db` | 15,641 | 196,840 | 41,259 | 309,728 | 90.2 s | 1.10 GB |
 | `rule_P3.db` | 18,025 | 222,449 | 45,440 | 342,934 | 101.0 s | 1.22 GB |
 
-Unlinked tickers: 0 ranking and 0 veto in every database after the shared CIK-aware link rule. A
-final load with different data will differ; record what you measured.
+The 2026-11-04 rows above are the **pilot** (`rule` label, `rule_P1`–`rule_P3`); keep them for
+comparison. Unlinked tickers in that pilot: 0 ranking and 0 veto in every database after the shared
+CIK-aware link rule.
+
+The final delivery dry run of 2026-11-09 over
+`/workspaces/thesis/scratch/final/final_corregida` (`final_corregida`, label `final`) contacted no
+store and took 932 s. All 13 graphs were SHACL-valid. Windows are in calendar order:
+
+| Window | `v_guard_alert` rows | `v_book_weight_daily` rows | m018 triples | Selection triples |
+|---|---:|---:|---:|---:|
+| P1 | 978 | 21,085 | 276,819 | 321,954 |
+| H1 | 933 | 31,278 | 393,664 | 391,365 |
+| P3 | 603 | 26,335 | 324,780 | 343,594 |
+| H2 | 441 | 18,387 | 227,463 | 295,780 |
+| P2 | 714 | 23,806 | 297,392 | 310,341 |
+| H3 | 1,289 | 48,012 | 591,900 | 389,440 |
+
+The alerts sum to **4,958**. Graph names follow
+`urn:graph:derived:backtest:final:<window>:1` and
+`urn:graph:derived:backtest:selection:final:<window>:1`. The loader printed
+`unknown key 'revision' ignored` while reading `config_final.md`; the delivery's front matter has a
+`revision` key the loader does not use, and the warning is harmless. The 2026-11-04 rows above
+remain the pilot; the 2026-11-09 table is the final dry run. A future delivery will differ, so
+record what you measured.
 
 ## 8. Record the numbers
 

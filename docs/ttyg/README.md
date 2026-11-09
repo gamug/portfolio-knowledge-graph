@@ -2,8 +2,8 @@
 
 This folder is the repository's source of truth for the Talk to Your Graph (TTYG) agent in GraphDB
 Workbench that answers questions about the final backtest. The agent itself lives in the Workbench;
-the two files here are the reviewed copies of what the agent must use, so a change is made in the
-repository and then pasted into the agent form by hand.
+the two RDF sources here are the reviewed copies of what the agent must use, so a change is made in
+the repository and then pasted into the agent form by hand.
 
 ## Files
 
@@ -11,6 +11,7 @@ repository and then pasted into the agent form by hand.
 |---|---|
 | [`ontology_construct_curated_v2.rq`](ontology_construct_curated_v2.rq) | The curated CONSTRUCT that exposes only the classes and properties a reports agent needs. It is a byte-identical copy of the source file (40 lines). |
 | [`instructions-v1.2.md`](instructions-v1.2.md) | The English v1.2 "Additional instructions" (one pasteable `text` fence) plus usage notes. It applies Reviewer A's close-out changes and keeps every other v1.1 rule. |
+| [`create-agent.md`](create-agent.md) | The step-by-step Workbench form: SPARQL only, the curated CONSTRUCT, temperature `0.1`, the single instruction fence and the `graphdb.llm.*` placeholders. |
 
 SHA-256 of `ontology_construct_curated_v2.rq`:
 
@@ -33,7 +34,9 @@ subjects from the TBox (measured 2026-11-09).
 
 ## Not covered here
 
-- Switching the LLM provider or model behind the agent.
-- Creating the agent step by step in the Workbench.
-- The read-only user's setup, permissions and delivery: separate work.
-- Pasting the files into the Workbench: a manual human action.
+- Switching the LLM provider or model behind the agent: see [`create-agent.md`](create-agent.md)'s
+  `graphdb.llm.*` placeholders.
+- Pasting the files into the Workbench: a manual human action; the step-by-step form is
+  [`create-agent.md`](create-agent.md).
+- The read-only user's setup, permissions and delivery: see
+  [`../second-user-setup.md`](../second-user-setup.md).

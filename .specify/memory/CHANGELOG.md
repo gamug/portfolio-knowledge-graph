@@ -1742,3 +1742,50 @@ CONSTRUCT and the English v1.2 additional instructions, with their hermetic chec
 Workbench agent is not edited; pasting v1.2 into it is a human action. The `min_var` wording remains
 pending upstream confirmation (A6), and the `rule`-label line can be removed once that label leaves
 the store (A1).
+
+## Work item 42 — Close out the final delivery and the second-user setup (2026-11-09, T-720–T-749)
+
+**Goal**: give the maintainer one ordered production sequence for the delivered store (`portfolio`,
+label `final`, `final_corregida`), a by-hand recipe for recreating the TTYG Workbench agent, and a
+complete local setup for the second user, without inventing figures or credentials.
+
+- [x] **T-720** Recorded the design in `PLAN.md` Work item 42 before writing the documents.
+- [x] **T-721** Wrote `docs/final-delivery.md`: preconditions, backup/export with SHA-256, graph
+      listing and clearing through runbook §9a, schema load with no `instances.trig`, catalog,
+      ticker history, `load_run` (`--check-store` before `--write`), aggregates and acceptance.
+      Every write is marked and every step has its read-only check.
+- [x] **T-722** Wrote `docs/ttyg/create-agent.md` (SPARQL only, the curated CONSTRUCT, temperature
+      `0.1`, the single instruction fence, `graphdb.llm.*` with `<YOUR_LLM_API_KEY>`, DeepSeek works
+      and Gemini 3.x failed in testing, two attempts per question, language-neutral instructions),
+      linked it from `docs/ttyg/README.md`, and added the link/placeholder test to
+      `tests/test_ttyg_docs.py`.
+- [x] **T-723** Wrote `docs/second-user-setup.md`: GraphDB 11.5.1 Free, the `portfolio` repository
+      with `rdfsplus-optimized`, the verified export import, the agent recreation, a read-only user,
+      the `<pinned version>` placeholder for `portfolio-app`, the user's own LLM key and the first
+      smoke questions.
+- [x] **T-724** Added the `final_corregida` dry-run table to `docs/backtest-load-runbook.md` §7,
+      kept the 2026-11-04 pilot rows and labelled them, left §8/§9a unchanged, and linked the three
+      new documents from `README.md`.
+- [x] **T-725** Searched `docs/` and `tests/` for `final_b5`, `5,036`/`5036` and `portfolio_test` as
+      the final target. Only historical PLAN/CHANGELOG mentions of `final_b5` exist; there is no
+      `5,036`; no live document presents `portfolio_test` as the delivered store.
+- [x] **T-726** Ran the targeted tests and the pinned pre-commit hooks; see the verification line
+      below.
+- [x] **T-727** Recorded the evidence, closed the work item and moved this task section to
+      `CHANGELOG.md`.
+
+**Scope notes.** Documentation only: no schema or source-code changes; the only test change is a
+link/placeholder assertion for the new agent recipe. No GraphDB write, reload or credential was
+used. The 2026-11-04 rows in the runbook §7 remain the pilot; the new table is the 2026-11-09 dry
+run and states no other result figure.
+
+**No GraphDB write or reload was made.** The maintainer runs `docs/final-delivery.md` after the
+merge and creates the Workbench agent by hand; the second user follows
+`docs/second-user-setup.md`.
+
+**Verified 2026-11-09**: `uv run pytest tests/test_ttyg_docs.py -q` = **5 passed, 1 warning in
+0.72 s** (the targeted suite; the full suite and a separate mypy were not run, per the Work item 42
+instruction). The local-link check over the changed documents found **0 missing links**, and the
+five SPARQL blocks in `docs/final-delivery.md` all parse with `rdflib`'s `prepareQuery`. The pinned
+pre-commit hooks pass on every changed file (the mypy hook passed; `check yaml` skipped because no
+YAML file changed). No GraphDB command, write or reload was made.
