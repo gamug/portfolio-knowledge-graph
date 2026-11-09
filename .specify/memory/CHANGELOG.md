@@ -1743,6 +1743,46 @@ Workbench agent is not edited; pasting v1.2 into it is a human action. The `min_
 pending upstream confirmation (A6), and the `rule`-label line can be removed once that label leaves
 the store (A1).
 
+## Work item 41 — Correct the `:objective` comment (2026-11-09, T-690–T-719)
+
+**Goal**: stop the `:objective` field from being read as the Sistema's weighting objective. Keep
+the open/read-verbatim semantics, state the fixed per-arm literal upstream writes, and attribute
+the pending interpretation.
+
+- [x] **T-690** Recorded the design in `PLAN.md` Work item 41 before any code.
+- [x] **T-691** Rewrote the `:objective` comment in `schema/tbox.ttl` and mirrored it in
+      `kg_target_schema.ttl`: `v_book.objective` open and read verbatim; upstream's `_insert_books`
+      writes a fixed literal per arm (`min_var` for every optimized arm, `equal_weight` for the
+      benchmark `SP500_EW_INTERNAL`), independent of the run's `satellite_weighting`; the
+      delivery's `config_final.md` describes a minimum-variance optimisation keeping at most 30
+      names followed by minimum-CVaR weighting, so `min_var` is NOT the `TOPN_MV_*` weighting
+      objective and must not be presented as such; upstream's confirmation is pending.
+- [x] **T-692** Grepped `schema/`, `docs/`, `kg_target_schema.ttl`, `docs/06`,
+      `docs/reports-agent-query-catalog.md`, `schema/README.md` and `README.md` for `:objective`
+      and `min_var`. The only copies are `schema/tbox.ttl` and `kg_target_schema.ttl`; the
+      `docs/06` and `instances.trig` hits are the different `:benchmarkObjective` on `Portfolio`.
+      `schema/protege-view.ttl` is generated and was not edited.
+- [x] **T-693** Added the hermetic test in `tests/test_schema_gate.py`: it parses `schema/tbox.ttl`
+      and asserts the key facts and the unchanged `owl:DatatypeProperty`/`owl:FunctionalProperty`,
+      `rdfs:domain :StrategyBook` and `rdfs:range xsd:string` declaration. It fails on the old
+      comment (`assert '_insert_books' in comment`).
+- [x] **T-694** Ran the FR-001 parse and `pyshacl`; the counts are unchanged (4915 quads, 5192
+      load-plan triples) and the change is recorded in `schema/README.md` item 13.
+- [x] **T-695** Ran the full checks; see the verification line below.
+
+**Scope notes.** Comment only: no class, property, shape, cardinality, datatype, range or IRI was
+added, removed or changed, and no other term's comment was touched. `schema/protege-view.ttl` is
+generated and was not regenerated.
+
+**No GraphDB write or reload was made.** The user reloads the schema afterwards with
+`cli/load_schema.py` (`KG_REPOSITORY=portfolio_test`), then `cli/verify_store.py`; a clean reload
+performed after this change is merged also picks it up.
+
+**Verified 2026-11-09**: `uv run pytest -q` = **1483 passed, 59 deselected, 8794 warnings in
+1307.23 s (21:47)**; `mypy` = success, **118 source files**; the pinned pre-commit hooks pass on
+every changed file; FR-001 is **4915 quads; conforms: True**, and the load plan is **5192 asserted
+triples**.
+
 ## Work item 42 — Close out the final delivery and the second-user setup (2026-11-09, T-720–T-749)
 
 **Goal**: give the maintainer one ordered production sequence for the delivered store (`portfolio`,

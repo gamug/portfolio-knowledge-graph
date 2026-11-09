@@ -1280,3 +1280,35 @@ def test_a_config_status_with_quotes_round_trips() -> None:
     g.add((KG.Config_T470, KG.configStatus, rdflib.Literal(expected)))
     reparsed = rdflib.Graph().parse(data=g.serialize(format="turtle"), format="turtle")
     assert str(reparsed.value(KG.Config_T470, KG.configStatus)) == expected
+
+
+def test_strategy_book_objective_comment_does_not_read_min_var_as_the_weighting() -> None:
+    """Work item 41 (T-693): :objective is a fixed literal, not the TOPN_MV_* weighting objective.
+
+    The old comment called ``min_var`` the strategy book's objective. Upstream's ``_insert_books``
+    writes it as a fixed per-arm literal, the delivery's ``config_final.md`` describes a
+    minimum-variance optimisation followed by minimum-CVaR weighting, and upstream's confirmation
+    of the full meaning is pending. The property declaration itself must stay unchanged.
+    """
+    tbox = rdflib.Graph().parse(SCHEMA / "tbox.ttl", format="turtle")
+    comment = str(tbox.value(KG.objective, rdflib.RDFS.comment))
+
+    assert "v_book.objective" in comment
+    assert "read verbatim" in comment
+    assert "_insert_books" in comment
+    assert "fixed literal per arm" in comment
+    assert "'min_var' for every optimized arm" in comment
+    assert "'equal_weight' for the benchmark" in comment
+    assert "satellite_weighting" in comment
+    assert "config_final.md" in comment
+    assert "minimum-CVaR weighting" in comment
+    assert "NOT the weighting objective of the TOPN_MV_* books" in comment
+    assert "pending" in comment
+
+    assert (KG.objective, rdflib.RDF.type, rdflib.OWL.DatatypeProperty) in tbox
+    assert (KG.objective, rdflib.RDF.type, rdflib.OWL.FunctionalProperty) in tbox
+    assert tbox.value(KG.objective, rdflib.RDFS.domain) == KG.StrategyBook
+    assert tbox.value(KG.objective, rdflib.RDFS.range) == rdflib.XSD.string
+
+    target = rdflib.Graph().parse(SCHEMA.parent / "kg_target_schema.ttl", format="turtle")
+    assert str(target.value(KG.objective, rdflib.RDFS.comment)) == comment

@@ -494,6 +494,16 @@ what the store *enforces*.
    triples**. The store must be reloaded afterwards (`cli/load_schema.py` with
    `KG_REPOSITORY=portfolio_test`, then `cli/verify_store.py`).
 
+13. **`:objective` comment (Work item 41, 2026-11-09).** Comment only: the `:objective` comment in
+    `tbox.ttl` (and the `kg_target_schema.ttl` mirror) now says upstream's `_insert_books` writes
+    `'min_var'` as a fixed literal for every optimized arm and `'equal_weight'` for the benchmark
+    `SP500_EW_INTERNAL`, independent of the run's `satellite_weighting`; the delivery's
+    `config_final.md` describes a minimum-variance optimisation keeping at most 30 names followed
+    by minimum-CVaR weighting, so `'min_var'` is not the `TOPN_MV_*` weighting objective and must
+    not be presented as such; upstream's confirmation is pending. No shape, term or count changed:
+    **4915 quads; conforms: True**, load plan **5192 asserted triples**. The store must be reloaded
+    afterwards to pick up the literal.
+
 ## Validation
 
 Parsed and checked with `rdflib` (Turtle + TriG) and validated end-to-end with `pyshacl` —

@@ -3137,6 +3137,85 @@ every changed file. The CONSTRUCT parses with `prepareQuery` and returns **26 `o
 subjects** against `schema/tbox.ttl`. No GraphDB command was run, and no `schema/`, `src/`, `cli/`,
 `view_expectations` or asserted FR-001/load-plan count changed.
 
+## Work item 41 — Correct the `:objective` comment (T-690–T-719)
+
+**Status: closed 2026-11-09.**
+
+**Why**: reviewer A found that the field `:objective` of the Sistema book reads `min_var`, while
+the run parameters say `satellite_weighting = mincvar`, so a reader (or the reports agent) may say
+the Sistema minimizes variance. Verified read-only in the upstream repo: `_insert_books` in
+`portfolio-financial-analysis` `src/cycle/backtest/driver.py` (line 1168 at upstream master
+`d069a18`; line 1119 at `code_commit` `94e784b`) writes the literal `min_var` for every arm except
+the benchmark `SP500_EW_INTERNAL`, which gets `equal_weight`. It does not depend on
+`satellite_weighting`. The delivery's `config_final.md` (`code_commit` `5958c6b`) describes a
+minimum-variance optimisation step that keeps at most 30 names, followed by minimum-CVaR weighting
+of those names. The full tracing of the engine is not complete, so the comment states the verified
+facts and attributes the interpretation.
+
+**Decisions**:
+
+1. **Comment only.** Rewrite the `rdfs:comment` of `:objective` in `schema/tbox.ttl` and the
+   `kg_target_schema.ttl` mirror. The property stays an `owl:DatatypeProperty` and an
+   `owl:FunctionalProperty`, with `rdfs:domain :StrategyBook` and `rdfs:range xsd:string`, and
+   `StrategyBookShape` is unchanged. No IRI, class, property, cardinality, range or other term
+   changes.
+2. **Verified facts, attributed.** The comment keeps `v_book.objective` open and read verbatim, and
+   adds: upstream's `_insert_books` writes it as a fixed literal per arm (`min_var` for every
+   optimized arm, `equal_weight` for the benchmark `SP500_EW_INTERNAL`), independent of the run's
+   `satellite_weighting`; the delivery's `config_final.md` describes a minimum-variance optimisation
+   step that keeps at most 30 names, followed by minimum-CVaR weighting of those names, so the
+   literal `min_var` is NOT the weighting objective of the `TOPN_MV_*` books and must not be
+   presented as such; confirmation of the full meaning by upstream's maintainer is pending.
+3. **No other copy exists.** The grep over `schema/`, `docs/`, `kg_target_schema.ttl`, `docs/06`,
+   `docs/reports-agent-query-catalog.md`, `schema/README.md` and `README.md` found the `:objective`
+   comment only in `schema/tbox.ttl` and `kg_target_schema.ttl`. `docs/06` and `schema/README.md`
+   mention the different `:benchmarkObjective` on `Portfolio`, and `instances.trig` carries
+   `:benchmarkObjective "min_var"` on a benchmark portfolio, not `:objective`.
+4. **Test.** A hermetic test in `tests/test_schema_gate.py` parses `schema/tbox.ttl` and asserts the
+   key facts (fixed literal per arm, independent of `satellite_weighting`, not the weighting
+   objective of `TOPN_MV_*`, confirmation pending) plus the unchanged type/domain/range declaration.
+   It fails on the old comment.
+5. **Counts unchanged.** The change replaces one literal, so FR-001 stays **4915 quads** and the
+   load plan stays **5192 asserted triples**; no asserted count or other document changes.
+
+**Tasks**:
+
+- [x] **T-690** *(done 2026-11-09: this section.)* Record the design in `PLAN.md` before any code.
+- [x] **T-691** *(done 2026-11-09: two literals replaced; declarations untouched.)* Rewrite the
+  `:objective` comment in `schema/tbox.ttl` and mirror it in `kg_target_schema.ttl`.
+- [x] **T-692** *(done 2026-11-09: only the `kg_target_schema.ttl` mirror existed; the `docs/06`
+  and `instances.trig` hits are the different `:benchmarkObjective`.)* Grep every copy of the
+  comment and update each; leave `schema/protege-view.ttl` (generated) alone.
+- [x] **T-693** *(done 2026-11-09: fails on the old comment with
+  `assert '_insert_books' in comment`.)* Add the hermetic test for the comment facts and the
+  unchanged property declaration.
+- [x] **T-694** *(done 2026-11-09: FR-001 4915 quads; load plan 5192; `pyshacl` conforms.)* Run the
+  FR-001 parse and `pyshacl`, verify the counts, and record the comment change in
+  `schema/README.md`.
+- [x] **T-695** *(done 2026-11-09: see the verification line below.)* Run `pytest`, `mypy` and the
+  pinned pre-commit hooks; update PLAN/TASKS/CHANGELOG.
+
+**Acceptance criteria**:
+
+- The `:objective` comment states the fixed per-arm literal, its independence from
+  `satellite_weighting`, that `min_var` is not the `TOPN_MV_*` weighting objective, and that
+  upstream's confirmation is pending, while keeping the open/read-verbatim semantics.
+- The property keeps its type, functional flag, domain and range, and no shape or other term
+  changes.
+- The FR-001 bundle still parses, `pyshacl`-conforms, and keeps the asserted counts (4915 quads,
+  5192 load-plan triples).
+- The hermetic test fails on the old comment and passes on the new one.
+- Docs, counts and PLAN/TASKS/CHANGELOG are consistent; no GraphDB write or reload is made.
+
+**Blocked on**: nothing. The user reloads the schema afterwards (`cli/load_schema.py` with
+`KG_REPOSITORY=portfolio_test`, then `cli/verify_store.py`) or relies on the clean reload of the
+store if it happens after this change is merged.
+
+**Verified 2026-11-09**: `uv run pytest -q` = **1483 passed, 59 deselected, 8794 warnings in
+1307.23 s (21:47)**; `mypy` = success, **118 source files**; the pinned pre-commit hooks pass on
+every changed file; FR-001 is **4915 quads; conforms: True**, and the load plan is **5192 asserted
+triples**.
+
 ## Work item 42 — Close out the final delivery and the second-user setup (T-720–T-749)
 
 **Status: closed 2026-11-09.**
