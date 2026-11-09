@@ -57,6 +57,12 @@ curl -fsS -u "$KG_ADMIN_USER:$KG_ADMIN_PASSWORD" \
   "$KG_HOST/repositories/portfolio/statements"
 ```
 
+**Not yet verified on a live store.** The TriG export through
+`/repositories/portfolio/statements` and the re-import of a file of roughly 4.2 million triples have
+not been tried on this installation. A large single POST can hit timeouts or memory limits. Rehearse
+the export and import into a scratch repository first; if the POST fails, import with Workbench
+**Import** (upload or server files).
+
 Read-only checks after the import:
 
 ```bash

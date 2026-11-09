@@ -38,8 +38,8 @@ The checks are:
 - the repository is named `portfolio` and carries
   `graphdb:ruleset "rdfsplus-optimized"` and `graphdb:disable-sameAs "true"` (the profile in
   [`schema/graphdb-repo-config.ttl`](../schema/graphdb-repo-config.ttl));
-- contraction of `KG_REPOSITORY=portfolio` in the process environment wins over `.env`; the CLI
-  prints a warning when the two differ (Work item 39). Check the `target:` line of every command.
+- a `KG_REPOSITORY` exported in the terminal wins over `.env`, and the CLI prints a warning when
+  the two differ (Work item 39); check the `target:` line of every command.
 
 The catalog source is `/workspaces/thesis/data/universe_history_gics.db`. The final delivery folder
 contains `final_<window>.db` for the six windows, `SHA256SUMS`, `config_final.md` and
@@ -72,6 +72,12 @@ curl -fsS -u "$KG_USER:$KG_PASSWORD" -H 'Accept: text/turtle' \
 The export is a `GET`; the store's `/size` does not change. Keep `SHA256SUMS` with the backup and
 with the copy delivered to the second user. The TTYG agent is not in this export; it is recreated
 from [`ttyg/create-agent.md`](ttyg/create-agent.md).
+
+**Not yet verified on a live store.** The TriG export through
+`/repositories/portfolio/statements` and the re-import of a file of roughly 4.2 million triples have
+not been tried on this installation. A large single POST can hit timeouts or memory limits. Rehearse
+the export and import into a scratch repository first; if the POST fails, import with Workbench
+**Import** (upload or server files).
 
 ## 2. List the graphs and clear the old data (maintainer `DROP`)
 
@@ -140,8 +146,9 @@ KG_REPOSITORY=portfolio SQL_UNIVERSE_DB=/workspaces/thesis/data/universe_history
 uv run python cli/load_universe.py --delta --as-of 2026-11-09
 ```
 
-Expected: `0 new assets, 0 new memberships, 0 closures and 0 drift`. A non-empty delta means the
-source moved or the store differs; stop and inspect before continuing.
+The expected first-live-run result is `0 new assets, 0 new memberships, 0 closures and 0 drift`;
+confirm it on the first live run rather than treating it as a measured result. A non-empty delta
+means the source moved or the store differs; stop and inspect before continuing.
 
 ## 5. Load ticker history for label `final` (write)
 
@@ -322,7 +329,8 @@ Finally, `KG_REPOSITORY=portfolio uv run python cli/verify_store.py --to-product
 Run the same sequence in `portfolio_test` before touching production. Prefix every trial command
 with `KG_REPOSITORY=portfolio_test`; the terminal-exported value wins over `.env` and the CLI prints
 a warning when they differ (Work item 39). Do **not** add `--to-production` to a rehearsal command:
-the production flag is refused unless the target really is `portfolio`.
+the flag is only required on `portfolio` and is accepted without effect elsewhere, so omitting it in
+the rehearsal keeps a trial run from ever being mistaken for a production write.
 
 ```bash
 # rehearsal example: same flags, scratch repository, no --to-production
