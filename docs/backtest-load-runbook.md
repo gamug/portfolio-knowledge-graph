@@ -118,11 +118,14 @@ The store's shapes must know `:runLabel`, the open `P<number>`/`H<number>` windo
 terms (T-233/T-234, Work item 26). Reload after any `schema/` change:
 
 ```bash
-uv run python cli/load_schema.py
-uv run python cli/verify_store.py
+uv run python cli/load_schema.py --to-production
+uv run python cli/verify_store.py --to-production
 ```
 
-`verify_store` must exit 0. If it reports `urn:graph:tbox: expected N, store has M`, stop and reload
+Both commands refuse `KG_REPOSITORY=portfolio` without `--to-production`, even though
+`verify_store` only reads; the flag makes the target deliberate. The production schema load also
+skips `instances.trig` (the worked-example ABox), so its fresh-load count is the four schema graphs,
+not the 20 graphs of a `portfolio_test` load. `verify_store` must exit 0. If it reports `urn:graph:tbox: expected N, store has M`, stop and reload
 the schema; do not load a backtest against a stale store.
 
 The delivery folder must contain the six `<label>_<window>.db` files, the `SHA256SUMS` manifest in
@@ -314,7 +317,7 @@ commands for the graphs this run wrote (see §9); the command itself never drops
 error after the pre-flight names the graphs written, the graph in doubt (if any) and the same
 one-graph drops.
 
-### 1e. Load the aggregates file (after `load_run`)
+### 1f. Load the aggregates file (after `load_run`)
 
 Upstream publishes `aggregates_<label>.json` in the same folder as the run databases and
 `SHA256SUMS`. It contains only per-segment aggregates: the trend-filter state at each decision date
@@ -677,6 +680,49 @@ may not hold it. The command never runs a drop itself. Never use `CLEAR ALL`, `D
 source and label can create the graph again; the verifier should then pass. If only one arm or one
 file is wrong, still drop the whole graph (and its selection sibling when the failure is on that
 side) and re-project that database; never patch triples inside it.
+
+## 9a. Removing a run label
+
+The loaders never overwrite an append-only graph. A label's graphs are created once; a second write
+of the same graph is reported as `already-in-the-store` and skipped, and a changed delivery must use
+a new label (§3). Removing a label is therefore a deliberate destructive operation, not a retry:
+the maintainer decides that every artifact under that label may be lost.
+
+First list the label's graphs and their asserted triple counts, and let GraphDB build the exact
+`DROP GRAPH` statements as text. Review that text before copying anything; keep the result with the
+backup record.
+
+```sparql
+PREFIX : <https://thesis.local/kg/portfolio#>
+SELECT ?graph (COUNT(*) AS ?triples)
+       (CONCAT("DROP GRAPH <", STR(?graph), ">") AS ?dropStatement)
+FROM <http://www.ontotext.com/explicit>
+WHERE {
+  BIND("final" AS ?label)
+  GRAPH ?graph { ?s ?p ?o }
+  FILTER(
+    STRSTARTS(STR(?graph), CONCAT("urn:graph:derived:backtest:", ?label, ":")) ||
+    STRSTARTS(STR(?graph), CONCAT("urn:graph:derived:backtest:selection:", ?label, ":")) ||
+    STRSTARTS(STR(?graph), CONCAT("urn:graph:derived:ticker-history:", ?label, ":")) ||
+    STR(?graph) = CONCAT("urn:graph:derived:backtest:meta:", ?label) ||
+    STR(?graph) = CONCAT("urn:graph:derived:backtest:aggregates:", ?label)
+  )
+}
+GROUP BY ?graph
+ORDER BY ?graph
+```
+
+Replace `final` with the label to inspect. The result lists the m018, selection, metadata,
+aggregates and (when the same family label was used) ticker-history graphs; a graph printed with
+zero rows does not appear, so also search the repository's graph list for the label before
+concluding that nothing remains. A ticker-history snapshot may be the only copy of its kind in the
+repository: list it and export it before dropping anything, and never assume it can be rebuilt from
+the run databases.
+
+The agent never executes a `DROP`. The maintainer exports a backup first, checks every row of the
+result, and only then runs the one-graph statements from `?dropStatement` against the intended
+repository, never `CLEAR ALL`, `DROP ALL`, a repository delete or a broader pattern. If a single
+graph is wrong, prefer the one-graph rollback in §9 over removing the whole label.
 
 ## 10. Common failures
 

@@ -50,7 +50,7 @@ from typing import Any, Protocol
 import rdflib
 
 from etl import config
-from kg_store.graphdb import EXPLICIT_GRAPH, GraphDB, GraphDBError
+from kg_store.graphdb import EXPLICIT_GRAPH, GraphDB, GraphDBError, announce_target
 from projection.backtest import (
     GRAPH_PREFIX,
     RUN_LABEL_PATTERN,
@@ -1187,6 +1187,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = parse_args(argv)
     try:
         store = GraphDB.from_env()
+        announce_target(store)
         verification = verify(
             store,
             args.graph,

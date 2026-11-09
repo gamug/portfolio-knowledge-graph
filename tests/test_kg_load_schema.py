@@ -10,7 +10,7 @@ import pytest
 import rdflib
 
 from kg_store import load_schema
-from kg_store.graphdb import GraphDB, GraphDBError
+from kg_store.graphdb import PRODUCTION_REPOSITORY, GraphDB, GraphDBError
 
 if TYPE_CHECKING:
     from conftest import FakeGraphDB
@@ -57,6 +57,19 @@ def test_the_load_plan_has_20_graphs_and_5192_asserted_triples() -> None:
     assert sizes["urn:graph:reference:fibo"] == 277
 
 
+def test_the_schema_only_plan_has_four_graphs_and_4671_triples() -> None:
+    """Work item 39: production loads only the files, never the worked-example ABox."""
+    sizes = load_schema.expected_sizes(SCHEMA, include_examples=False)
+    assert len(sizes) == 4
+    assert sum(sizes.values()) == 4671
+    assert set(sizes) == {
+        "urn:graph:tbox",
+        "urn:graph:reference",
+        "urn:graph:reference:fibo",
+        "urn:graph:rules:catalog",
+    }
+
+
 def test_expected_sizes_refuses_a_missing_file(tmp_path: Path) -> None:
     with pytest.raises(load_schema.SchemaError, match="cannot read"):
         load_schema.expected_sizes(tmp_path)
@@ -97,6 +110,23 @@ def test_load_drops_then_uploads_in_load_order(
     ]
     assert [d for d, _, _ in fake.added][-1] == (SCHEMA / "instances.trig").read_bytes()
     assert capsys.readouterr().out.splitlines()[0] == "loaded tbox.ttl -> urn:graph:tbox"
+
+
+def test_load_without_examples_never_sends_instances_trig(make_db: MakeDB) -> None:
+    """Work item 39: production never receives the worked-example content."""
+    fake = make_db()
+    expected = load_schema.load(fake.db, SCHEMA, include_examples=False)
+    assert expected == load_schema.expected_sizes(SCHEMA, include_examples=False)
+    assert fake.updates == [f"DROP SILENT GRAPH <{g}>" for g in expected]
+    assert all(data != (SCHEMA / "instances.trig").read_bytes() for data, _, _ in fake.added)
+    assert all(content_type == "text/turtle" for _, content_type, _ in fake.added)
+    assert [str(graph) for _, _, graph in fake.added] == [
+        "urn:graph:tbox",
+        "urn:graph:tbox",
+        "urn:graph:reference",
+        "urn:graph:reference:fibo",
+        "urn:graph:rules:catalog",
+    ]
 
 
 def test_load_rolls_back_when_an_upload_fails(make_db: MakeDB) -> None:
@@ -177,6 +207,44 @@ def test_main_returns_1_on_a_bad_schema_directory(
 ) -> None:
     assert load_schema.main(["--dir", str(tmp_path)]) == 1
     assert "cannot read" in capsys.readouterr().err
+
+
+def test_main_refuses_production_without_the_flag_before_writing(
+    make_db: MakeDB, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    fake = make_db(sizes=load_schema.expected_sizes(SCHEMA, include_examples=False))
+    fake.repository = PRODUCTION_REPOSITORY
+    monkeypatch.setattr(GraphDB, "from_env", classmethod(lambda cls: fake))
+    assert load_schema.main(["--dir", str(SCHEMA)]) == 2
+    assert "--to-production" in capsys.readouterr().err
+    assert fake.updates == [] and fake.added == []
+
+
+def test_main_loads_only_the_schema_files_in_production_with_the_flag(
+    make_db: MakeDB, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    fake = make_db(sizes=load_schema.expected_sizes(SCHEMA, include_examples=False))
+    fake.repository = PRODUCTION_REPOSITORY
+    monkeypatch.setattr(GraphDB, "from_env", classmethod(lambda cls: fake))
+    assert load_schema.main(["--dir", str(SCHEMA), "--to-production"]) == 0
+    assert "examples: instances.trig not loaded in the production repository" in (
+        capsys.readouterr().out
+    )
+    assert all(data != (SCHEMA / "instances.trig").read_bytes() for data, _, _ in fake.added)
+
+
+def test_main_keeps_the_examples_outside_production(
+    make_db: MakeDB, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    fake = make_db(sizes=load_schema.expected_sizes(SCHEMA))
+    fake.repository = "portfolio_test"
+    monkeypatch.setattr(GraphDB, "from_env", classmethod(lambda cls: fake))
+    assert load_schema.main(["--dir", str(SCHEMA)]) == 0
+    assert fake.added[-1] == (
+        (SCHEMA / "instances.trig").read_bytes(),
+        "application/x-trig",
+        None,
+    )
 
 
 def _unconfigured(cls: type[GraphDB]) -> GraphDB:

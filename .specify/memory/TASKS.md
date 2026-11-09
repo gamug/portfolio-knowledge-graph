@@ -1297,6 +1297,9 @@ vocabulary (the fourth legitimate upstream test, no per-asset values), with a he
 that passes SHACL, the projector and the verifier, and the candidate store-free dry run reaching
 SHACL; no other closed list changed. The user reloads the schema afterwards. See `CHANGELOG.md`
 and `PLAN.md` Work item 38.
+
+Work item 39 (T-630–T-637): closed 2026-11-09 — every store CLI announces its target, process-environment overrides warn, `load_schema`/`verify_store` guard production, and production receives no `instances.trig` content; the six T-025 checks stay consistent. See `CHANGELOG.md` and `PLAN.md` Work item 39.
+
 Work item 41 (T-690–T-719): closed 2026-11-09 — the `:objective` comment now states upstream's
 fixed per-arm literal (not the `TOPN_MV_*` weighting objective) with the interpretation pending
 confirmation, and the property declaration and FR-001 counts are unchanged. See `CHANGELOG.md`

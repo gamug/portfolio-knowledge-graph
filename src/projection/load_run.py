@@ -54,7 +54,7 @@ from typing import Self
 
 from etl import config
 from kg_store import gate
-from kg_store.graphdb import GraphDB, GraphDBError
+from kg_store.graphdb import GraphDB, GraphDBError, announce_target
 from projection import project_backtest, project_selection
 from projection.backtest import (
     RUN_LABEL_PATTERN,
@@ -859,6 +859,10 @@ def main(  # noqa: C901, PLR0911, PLR0912, PLR0915 -- one branch per failure kin
     delivery: Delivery | None = None
     timings = Timings()
     try:
+        # Announce the target before any other output, without contacting the store: the delivery
+        # manifest must still be verified before the first request. A dry run prints no banner.
+        if args.check_store or args.write:
+            announce_target(GraphDB.from_env())
         required_windows = parse_windows(args.windows)
         with timings.stage("delivery files"):
             delivery = load_delivery(

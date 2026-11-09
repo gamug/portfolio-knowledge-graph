@@ -21,8 +21,14 @@ ORIGIN = rdflib.URIRef("https://thesis.local/kg/portfolio#agentOrigin")
 
 
 class FakeStore:
-    def __init__(self, sizes: dict[str, int], origins: list[tuple[str, str]] | None = None):
+    def __init__(
+        self,
+        sizes: dict[str, int],
+        origins: list[tuple[str, str]] | None = None,
+        repository: str = "test",
+    ):
         self.sizes = sizes
+        self.repository = repository
         self.data = rdflib.Dataset()
         explicit = self.data.graph(rdflib.URIRef(EXPLICIT_GRAPH))
         # rdflib tries to fetch a FROM graph it does not hold, so the graph must exist.
@@ -50,10 +56,56 @@ def _healthy() -> dict[str, int]:
     return dict(expected_sizes(schema_dir()))
 
 
+class ReasoningStore:
+    """A production schema-only store: no ABox observation, but the TBox chain is inferred."""
+
+    repository = acceptance.PRODUCTION_REPOSITORY
+
+    def __init__(self, subclass_inferred: bool = True) -> None:
+        self.subclass_inferred = subclass_inferred
+
+    def repository_params(self) -> dict[str, str]:
+        return {"ruleset": "rdfsplus-optimized", "disableSameAs": "true"}
+
+    def select(self, query: str) -> list[dict[str, str]]:
+        if "COUNT(DISTINCT ?x)" in query:
+            return [{"n": "0"}]
+        if "?x a :ScoreSnapshot }" in query:
+            return []
+        if "rdfs:subClassOf :Observation" in query:
+            return (
+                [{"x": str(rdflib.URIRef("https://thesis.local/kg/portfolio#ScoreSnapshot"))}]
+                if (self.subclass_inferred)
+                else []
+            )
+        return []
+
+
+def test_reasoning_passes_on_the_tbox_when_production_has_no_abox_yet() -> None:
+    """Work item 39: the same two-step chain is proved without an example ScoreSnapshot."""
+    message = acceptance.check_reasoning(cast(GraphDB, ReasoningStore()))
+    assert "no ABox observation yet" in message
+    assert "two subClassOf steps" in message
+
+
+def test_reasoning_fails_when_the_tbox_chain_is_not_inferred() -> None:
+    with pytest.raises(AssertionError, match="no transitive inference"):
+        acceptance.check_reasoning(cast(GraphDB, ReasoningStore(subclass_inferred=False)))
+
+
 def test_equal_sizes_pass() -> None:
     assert "have the size a fresh load gives" in acceptance.check_schema_graphs(
         _db(FakeStore(_healthy()))
     )
+
+
+def test_production_expected_sizes_exclude_the_worked_example() -> None:
+    """Work item 39: production's fresh load has only the four schema graphs."""
+    sizes = dict(expected_sizes(schema_dir(), include_examples=False))
+    message = acceptance.check_schema_graphs(
+        _db(FakeStore(sizes, repository=acceptance.PRODUCTION_REPOSITORY))
+    )
+    assert "4 schema graphs" in message
 
 
 def test_a_short_graph_fails() -> None:
@@ -125,7 +177,7 @@ def test_the_checks_are_registered_after_the_original_three() -> None:
         "reasoning profile matches 07",
     ]
     assert len(names) == 6
-    assert names[-1] == "the quant batch passes beside the stored Portfolios"
+    assert names[-1] == "a stored vocabulary string is read as the shapes compare"
 
 
 def test_an_unreadable_schema_is_a_fail_line_not_a_traceback(
@@ -135,13 +187,16 @@ def test_an_unreadable_schema_is_a_fail_line_not_a_traceback(
     monkeypatch.setattr(cli.GraphDB, "from_env", classmethod(lambda c: FakeStore({})))
     monkeypatch.setattr(cli, "CHECKS", [("schema graphs", acceptance.check_schema_graphs)])
     monkeypatch.setenv("KG_SCHEMA_DIR", str(tmp_path / "missing"))
-    assert cli.main() == 1
+    assert cli.main([]) == 1
     assert "FAIL  schema graphs" in capsys.readouterr().out
 
 
 @pytest.mark.parametrize("broken", ["instances.trig", "shapes.ttl"])
 def test_an_unparsable_schema_file_is_a_fail_line_for_the_quant_batch_check(
-    broken: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    broken: str,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
 ) -> None:
     """The quant-batch check reads the schema itself; a parse error is a FAIL line."""
     for name in ("tbox.ttl", "shapes.ttl", "instances.trig"):
@@ -151,5 +206,5 @@ def test_an_unparsable_schema_file_is_a_fail_line_for_the_quant_batch_check(
     monkeypatch.setattr(cli.GraphDB, "from_env", classmethod(lambda c: FakeStore({})))
     monkeypatch.setattr(cli, "CHECKS", [("quant batch", acceptance.check_quant_batch)])
     monkeypatch.setenv("KG_SCHEMA_DIR", str(tmp_path))
-    assert cli.main() == 1
+    assert cli.main([]) == 1
     assert "FAIL  quant batch: cannot parse the schema files" in capsys.readouterr().out

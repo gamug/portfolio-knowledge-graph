@@ -29,11 +29,13 @@ class FakeGraphDB:
         terms: list[dict[str, Node]] | None = None,
         sizes: dict[str, int] | None = None,
         fail_on_add: bool = False,
+        repository: str = "test",
     ) -> None:
         self.rows = rows or []
         self.terms = terms or []
         self.sizes = sizes or {}
         self.fail_on_add = fail_on_add
+        self.repository = repository
         self.queries: list[str] = []
         self.added: list[tuple[bytes, str, str | None]] = []
         self.updates: list[str] = []
