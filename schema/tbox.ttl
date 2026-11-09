@@ -743,7 +743,7 @@ original layer-1 stop-loss, inspired by Kaminski & Lo (2014).""" .
 :runAsOf a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:range xsd:date ;
     rdfs:comment "T-106 (D7): the run log's as_of (the date the run was evaluated for). NOT a read filter -- as-of reads use availableAt (T-101). Emit it only where it can differ from eventTime (FUNDAMENTAL, backfill replays); for cycle types it equals eventTime." .
 :codeVersion a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:range xsd:string ;
-    rdfs:comment "T-106 (D7): upstream git SHA of the code that produced the row ('-dirty' suffix only when upstream ran with --allow-dirty)." .
+    rdfs:comment "T-106 (D7): upstream git SHA of the code that produced the row ('-dirty' suffix only when upstream ran with --allow-dirty). On the external MARKOWITZ_MV book (Work item 44) it is the SHA-256 of sim_v3.py as written in config_mv_base.md, because that book is produced by an independent simulator outside the engine." .
 :engineVersion a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:range xsd:string ;
     rdfs:comment "T-106 (D7): upstream engine_version. Upstream writes parallel rows per engine_version and its v_* views pick the newest per key; this records which one was projected. It is a free string with no defined order: readers must NOT rank by it (docs/07 'Run provenance' gives the read rule)." .
 
@@ -935,7 +935,7 @@ original layer-1 stop-loss, inspired by Kaminski & Lo (2014).""" .
 :backtestRunId a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:range xsd:integer ;
     rdfs:comment "v_*.backtest_run_id. No rdfs:domain: shared across all eight m018 classes and the :BacktestRun metadata class (Work item 33). The m018 literal remains the link from a book or a test to its run; :BacktestRun is the labelled run artefact, not a per-row node." .
 :armCode a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:range xsd:string ;
-    rdfs:comment "MARKOWITZ_BASE | TOPN_MV_NOGUARD | TOPN_MV_GUARD_NO_NLP | TOPN_MV_GUARD | MARKOWITZ_BASE_GUARD. No rdfs:domain: shared across StrategyBook, BookRebalance, GuardAction, BookWeightDaily, BookDailyPerformance and PortfolioPeriodSummary. SHACL sh:in." .
+    rdfs:comment "MARKOWITZ_BASE | TOPN_MV_NOGUARD | TOPN_MV_GUARD_NO_NLP | TOPN_MV_GUARD | MARKOWITZ_BASE_GUARD | MARKOWITZ_MV. No rdfs:domain: shared across StrategyBook, BookRebalance, GuardAction, BookWeightDaily, BookDailyPerformance and PortfolioPeriodSummary. MARKOWITZ_MV is the external mean-variance base book (Work item 44), summary-only. SHACL sh:in." .
 :windowId a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:range xsd:string ;
     rdfs:comment "P<number> or H<number> (P1, P2, P3, H1, H2, H3, …; T-234 opened the vocabulary and Work item 33 added H<number> for the holdout windows). No rdfs:domain: shared across StrategyBook, GuardAlert, BookDailyPerformance, PortfolioPeriodSummary, BacktestTest and BacktestRun. SHACL sh:pattern ^[PH][0-9]+$: a typo in the letter or digits is no longer caught, only the P<number>/H<number> shape." .
 :knowledgeDate a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:range xsd:date ;
@@ -1061,7 +1061,9 @@ original layer-1 stop-loss, inspired by Kaminski & Lo (2014).""" .
 :runStatus a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :StrategyBook ; rdfs:range xsd:string ;
     rdfs:comment "v_book.run_status = backtest_run.status (running | completed | failed in the DDL; open). Distinct from :status." .
 :objective a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :StrategyBook ; rdfs:range xsd:string ;
-    rdfs:comment "v_book.objective, upstream's strategy_book.objective, open and read verbatim. Upstream's _insert_books function writes it as a fixed literal per arm: 'min_var' for every optimized arm and 'equal_weight' for the benchmark SP500_EW_INTERNAL, independent of the run's satellite_weighting. The delivery's config_final.md describes a minimum-variance optimisation step that keeps at most 30 names, followed by minimum-CVaR weighting of those names, so the literal 'min_var' is NOT the weighting objective of the TOPN_MV_* books and must not be presented as such. Confirmation of the full meaning by upstream's maintainer is pending." .
+    rdfs:comment "v_book.objective, upstream's strategy_book.objective, open and read verbatim. Upstream's _insert_books function writes it as a fixed literal per arm: 'min_var' for every optimized arm and 'equal_weight' for the benchmark SP500_EW_INTERNAL, independent of the run's satellite_weighting. The delivery's config_final.md describes a minimum-variance optimisation step that keeps at most 30 names, followed by minimum-CVaR weighting of those names, so the literal 'min_var' is NOT the weighting objective of the TOPN_MV_* books and must not be presented as such. Confirmation of the full meaning by upstream's maintainer is pending. On the external MARKOWITZ_MV book the loader writes 'tangency' as the registered class; it is not an engine arm." .
+:dataSource a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :StrategyBook ; rdfs:range xsd:string ;
+    rdfs:comment "Work item 44: the provenance label of a book computed outside the engine, read from the delivery's source string (e.g. 'independent simulator validated against the engine'). Optional and at most one; the engine arms carry no value." .
 :excludeHardVetoed a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :StrategyBook ; rdfs:range xsd:boolean ;
     rdfs:comment "v_book.exclude_hard_vetoed, upstream INTEGER 0/1 projected as false/true. The DDL comment says 0 on MARKOWITZ_BASE and 1 on TOPN_MV_*; the completed P1/P2/P3 databases hold 0 on all three arms, and MARKOWITZ_BASE_GUARD is 0 too, so the shape requires only a boolean and does NOT constrain it per arm (data over DDL comment)." .
 :guardLayers a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :StrategyBook ; rdfs:range xsd:string ;
@@ -1151,7 +1153,7 @@ original layer-1 stop-loss, inspired by Kaminski & Lo (2014).""" .
 
 # --- BacktestTest ---
 :armA a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :BacktestTest ; rdfs:range xsd:string ;
-    rdfs:comment "v_backtest_test.arm_a, the same five-value arm vocabulary as :armCode. SHACL sh:in." .
+    rdfs:comment "v_backtest_test.arm_a, the same six-value arm vocabulary as :armCode (including the external MARKOWITZ_MV). SHACL sh:in." .
 :armB a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :BacktestTest ; rdfs:range xsd:string ;
     rdfs:comment "v_backtest_test.arm_b. SHACL sh:in." .
 :testName a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :BacktestTest ; rdfs:range xsd:string ;

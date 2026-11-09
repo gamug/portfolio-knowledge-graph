@@ -3360,7 +3360,7 @@ engine code and must not reload run data.
       concept, absence of C1/`rule`/`candidate_y2`).
 - [ ] **T-752** Add `LabelConceptShape`; add `labels.ttl` to `LOAD_PLAN` and
       FR-001; update `expected_sizes`, load-plan tests, acceptance expectation,
-      shape count and every asserted count (`4915+D`, `5192+D`, `4671+D`, 21/5
+      shape count and every asserted count (`4940+D`, `5217+D`, `4696+D`, 21/5
       graphs, 40 shapes).
 - [ ] **T-753** Add bilingual labels/comments to the GUARD and veto rule
       individuals in `rules.ttl`, the three veto-class concepts and the markers;
@@ -3411,3 +3411,81 @@ reload (T-756). No run-data reload is needed.
 PLAN/TASKS appended; no `schema/`, `src/`, `cli/` or `tests/` file changed. The
 full pytest suite and mypy were not run, per the Phase 1 instruction. No GraphDB
 command, write or reload was made.
+
+## Work item 44 — External mean-variance base Markowitz loader (T-780–T-809)
+
+**Status: implementation complete 2026-11-09; PR open; the live schema reload is the maintainer's.**
+
+**Why**: Reviewer A delivered the thesis' mean-variance base case (tangency portfolio, arm
+`MARKOWITZ_MV`) as a summary-only folder produced outside the engine by `sim_v3.py` and validated
+against the engine's `MARKOWITZ_BASE` book. The graph already holds label `final` with four engine
+arms and six windows. The loader must add the fifth arm code and its summaries without touching the
+engine graphs, and it must not require `provenance/`.
+
+**Decisions**:
+
+1. **Separate external graph.** `cli/load_mv_base.py` writes
+   `urn:graph:derived:backtest:external:{label}` (one append-only graph), so the engine's
+   `urn:graph:derived:backtest:{label}:{window}:{run}` queries are unaffected. The gate accepts
+   `urn:graph:derived:backtest:external:{run label}`.
+2. **Arm vocabulary.** `MARKOWITZ_MV` joins every closed `:armCode` `sh:in` list (eight shapes) and
+   `src/projection/backtest.ARMS`. `:dataSource` is a new optional `xsd:string` (maxCount 1) on
+   `:StrategyBook`; `:codeVersion` carries the `sim_v3.py` SHA-256 from `config_mv_base.md`.
+3. **Summary rows only.** One `:StrategyBook` per window (IRI
+   `Book_{label}_{window}_MARKOWITZ_MV`, synthetic `bookId` 1–6, `backtestRunId` 1,
+   `objective "tangency"`, `excludeHardVetoed false`, `dataSource` from the JSON,
+   `knowledgeDate` = `date_to`) and one `:PortfolioPeriodSummary` per segment. No daily series,
+   weights, alerts, `n_sessions` or `cvar95` are projected; `n_sessions` is checked against the
+   dates and the P2 cuts, and `cvar95` is validated only.
+4. **Manifest scope.** `aggregates_mv_base.json` and `config_mv_base.md` must both be listed in
+   `SHA256SUMS` and match their hashes. `provenance/` is never read or required; optional
+   validation CSVs are warnings only.
+5. **Integrity rules.** The six-window `n_rebalances` sum must be 61; every `n_guard_actions` must
+   be the integer 0 ("not applicable"); P2a/P2b must be contiguous cuts of P2. `objective
+   "tangency"` is the loader's registered class for the external book (flagged as an assumption;
+   the engine's `:objective` semantics remain Work item 41).
+6. **No GraphDB write in this work.** The dry run and `--check-store` are the only commands run;
+   the maintainer performs the production write after review.
+
+**Tasks**:
+
+- [x] **T-780** Read the binding docs and the delivery; record this design before code.
+- [x] **T-781** Add `MARKOWITZ_MV` to every arm list and `:dataSource` to the schema/target schema.
+- [x] **T-782** Add the `external:{label}` gate target and its tests.
+- [x] **T-783** Implement the strict parser, manifest/config checks and projector in
+      `src/projection/mv_base.py`.
+- [x] **T-784** Add `cli/load_mv_base.py` with dry-run, `--check-store`, `--write` and the
+      production guard.
+- [x] **T-785** Add the hermetic parser/projector/gate and CLI tests.
+- [x] **T-786** Update the docs and every assertable count (`4940` FR-001, `5217` load plan,
+      `4696` production; 58 classes and 39 shapes unchanged).
+- [x] **T-787** Run the real store-free dry run and record `rows: 8`, `triples: 236`,
+      `SHACL: conforms`.
+- [ ] **T-788** Merge the PR and reload the schema in `portfolio_test`, then run
+      `cli/verify_store.py`; the maintainer's step.
+- [ ] **T-789** Load the external graph in production after the schema reload; the maintainer's
+      step.
+- [ ] **T-790–T-809** Reserved for review fixes and the production record.
+
+**Acceptance criteria**:
+
+- `MARKOWITZ_MV` is accepted by every arm-bearing shape and an unknown arm is still refused.
+- The `.dataSource`, `.codeVersion`, `.objective`, `.bookId`, `.backtestRunId` and summary fields
+  conform to the real shapes.
+- The loader refuses an extra/missing key, unknown window/segment, duplicate identity, malformed
+  date/decimal, hash mismatch, missing manifest listing and a non-zero `n_guard_actions`.
+- The six-window rebalances sum to 61; P2a/P2b are contiguous and add to P2; `provenance/` is not
+  required.
+- The batch writes only `urn:graph:derived:backtest:external:final`; no engine graph receives a
+  triple.
+- FR-001 is **4940 quads; conforms: True**, the load plan is **5217** and production **4696**.
+- The real dry run reports 8 rows and 236 triples and conforms; no GraphDB write is made.
+
+**Blocked on**: the maintainer's merge and schema reload. No run-data reload is needed for the
+external graph; `provenance/` is not required.
+
+**Verified 2026-11-09**: targeted tests `tests/test_mv_base.py`,
+`tests/test_cli_load_mv_base.py`, `tests/test_kg_gate.py`, the arm/shape cases of
+`tests/test_schema_gate.py`, `tests/test_kg_load_schema.py`,
+`tests/test_acceptance_schema_checks.py` and the selected `tests/test_ontology_v18.py` cases pass;
+real dry run output: 8 rows, 236 triples, `SHACL: conforms (gate.validate)`; no GraphDB write.

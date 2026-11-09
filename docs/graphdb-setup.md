@@ -59,8 +59,8 @@ uv run python cli/load_schema.py [--dir path/to/schema] [--to-production]
 Loads `tbox → shapes → reference → fibo → rules → instances.trig` per the graph map in
 [`schema/README.md`](../schema/README.md). The production repository is the exception: it never
 receives `instances.trig`'s worked-example ABox, so a production load writes only `tbox`, `shapes`,
-`reference`, `fibo` and `rules` (four graphs, 4671 asserted triples at this revision). A
-`portfolio_test` or other non-production load keeps the 20 graphs and 5192 triples including the
+`reference`, `fibo` and `rules` (four graphs, 4696 asserted triples at this revision). A
+`portfolio_test` or other non-production load keeps the 20 graphs and 5217 triples including the
 examples. The target must be deliberate: `KG_REPOSITORY=portfolio` without `--to-production` exits
 2 before any request, and `cli/verify_store.py` takes the same flag even though it only reads.
 A production repository loaded before this change may still hold old example graphs: the loader
@@ -242,6 +242,24 @@ already exists it also compares the stored rows with the file. `--write` appends
 append-only: a second write of the same label is refused, and no other backtest graph is touched. A
 mismatch between the manifest and the file's actual SHA-256 exits 1 and prints both hashes. There is
 no daily series, price level or 210-session mean in the graph.
+
+## Loading the external mean-variance base Markowitz (Work item 44)
+
+The external `MARKOWITZ_MV` delivery (`aggregates_mv_base.json`, `config_mv_base.md`,
+`SHA256SUMS`; `provenance/` is not required) is a separate summary-only stream:
+
+```bash
+uv run python cli/load_mv_base.py --label final --dir "/path/to/mv_base"        # dry run
+uv run python cli/load_mv_base.py --label final --dir "/path/to/mv_base" --check-store
+uv run python cli/load_mv_base.py --label final --dir "/path/to/mv_base" --write
+```
+
+It writes `urn:graph:derived:backtest:external:final` only: six `:StrategyBook` and eight
+`:PortfolioPeriodSummary` individuals, with no daily series, weights or alerts. The engine's m018,
+selection, meta and aggregates graphs are untouched, and the engine's
+`urn:graph:derived:backtest:{label}:{window}:{run}` queries are unaffected. The dry run checks both
+required manifest entries and hashes before parsing, and reports 8 rows / 236 triples / SHACL
+conforms.
 
 ## Ingest gate (T-023)
 

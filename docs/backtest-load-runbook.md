@@ -349,6 +349,39 @@ dates equal both Top-N arms' `v_book_rebalance.decision_date`, that every segmen
 within `1e-6`. It reports failures with the window, date or segment. A second write of the same
 label is refused by the gate; there is no daily series, price level or 210-session mean in the graph.
 
+### 1g. Load the external mean-variance base Markowitz delivery (Work item 44)
+
+Reviewer A publishes the mean-variance base case (tangency portfolio, arm `MARKOWITZ_MV`) as a
+separate folder beside the engine delivery: `aggregates_mv_base.json`, `config_mv_base.md` and
+`SHA256SUMS`. The book was produced outside the engine by `sim_v3.py`, validated against the
+engine's `MARKOWITZ_BASE` book; the loader does not require or read `provenance/`. It writes only
+the summary rows (eight segments), never a daily series, weights, alerts or per-asset data, into
+`urn:graph:derived:backtest:external:{label}`:
+
+```bash
+# dry run: verifies both required files against SHA256SUMS, parses the whitelist, extracts the
+# sim_v3.py hash from config_mv_base.md, builds and SHACL-validates; no store is contacted
+uv run python cli/load_mv_base.py --label final --dir "/workspaces/thesis/knoledge graph/mv_base"
+
+# read-only pre-flight: the real gate plan, write nothing
+uv run python cli/load_mv_base.py --label final --dir "/workspaces/thesis/knoledge graph/mv_base" --check-store
+
+# write the one graph after the dry run and pre-flight are clean
+uv run python cli/load_mv_base.py --label final --dir "/workspaces/thesis/knoledge graph/mv_base" --write
+
+# production, only with the maintainer's explicit go-ahead
+uv run python cli/load_mv_base.py --label final --dir "/workspaces/thesis/knoledge graph/mv_base" --write --to-production
+```
+
+The loader creates one `:StrategyBook` per window (`MARKOWITZ_MV`, `runLabel final`, synthetic
+`bookId` 1–6 and `backtestRunId` 1, `objective "tangency"`, `dataSource` from the JSON,
+`codeVersion` = the `sim_v3.py` SHA-256) and one `:PortfolioPeriodSummary` per segment. It verifies
+that the six windows sum to 61 rebalances, that P2a/P2b are contiguous cuts of P2, and that every
+`n_guard_actions` is 0 (not applicable: the book has no GUARD). `n_sessions` and `cvar95` are
+validated but not projected. The engine's m018/selection/meta/aggregates graphs and the
+`urn:graph:derived:backtest:{label}:{window}:{run}` queries are untouched; the external graph is a
+separate stream. The optional validation CSVs produce warnings only.
+
 ## 2. Manual fallback: check the pinned view contract
 
 Before reading the new database, confirm its views still match `src/projection/view_contract.py`:

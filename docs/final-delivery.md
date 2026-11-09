@@ -233,6 +233,27 @@ It writes `urn:graph:derived:backtest:aggregates:final` and touches no other gra
 check is a second `--check-store` after the write: it reads the stored rows and compares them with
 the file.
 
+## 7b. Load the external mean-variance base Markowitz delivery (write)
+
+The external `MARKOWITZ_MV` delivery is a separate stream and does not change the engine's 13
+graphs. Its folder is `/workspaces/thesis/knoledge graph/mv_base/`; `provenance/` is not required:
+
+```bash
+uv run python cli/load_mv_base.py --label final \
+  --dir "/workspaces/thesis/knoledge graph/mv_base"
+
+uv run python cli/load_mv_base.py --label final \
+  --dir "/workspaces/thesis/knoledge graph/mv_base" --check-store
+
+KG_REPOSITORY=portfolio uv run python cli/load_mv_base.py --label final \
+  --dir "/workspaces/thesis/knoledge graph/mv_base" --write --to-production
+```
+
+It writes `urn:graph:derived:backtest:external:final` with six `:StrategyBook` individuals and
+eight `:PortfolioPeriodSummary` rows; no daily series, weights or alerts are stored. The dry run
+must end with `SHACL: conforms (gate.validate)` and the pre-flight must report `would-be-written`
+(or `already-in-the-store` if the graph is already there). The engine graphs are untouched.
+
 ## 8. Acceptance (read-only)
 
 ### 8.1 The run label is only `final`
@@ -295,8 +316,9 @@ ORDER BY ?graph
 
 Expected: 13 rows, one for each `urn:graph:derived:backtest:final:{window}:1`, one for each
 `urn:graph:derived:backtest:selection:final:{window}:1`, and
-`urn:graph:derived:backtest:meta:final`. The ticker-history graph and the aggregates graph are
-separate streams and are checked in steps 5 and 7.
+`urn:graph:derived:backtest:meta:final`. The ticker-history graph, the aggregates graph and the
+external `urn:graph:derived:backtest:external:final` graph are separate streams and are checked in
+steps 5, 7 and 7b.
 
 ### 8.4 The old pilot is gone
 

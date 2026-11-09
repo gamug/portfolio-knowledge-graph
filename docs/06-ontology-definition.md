@@ -301,7 +301,7 @@ Portfolio Knowledge Graph
 | `TickerHistory` | Temporal Relation | T-206 (`v_ticker_history`, m016) | A point-in-time symbol for one CIK line over the INCLUSIVE interval `[validFrom, validTo]`; `validTo` absent = current symbol. Optional link to the canonical `Asset`. |
 | `OrchestratorRun` | Observation | T-206 (`v_orchestrator_run`, m015) | One Orchestrator run (pipeline or single command): handle, `as_of`, kind, status, surface, settings. Immutable process record, not a metric snapshot. |
 | `OrchestratorStep` | Observation | T-206 (`v_orchestrator_step`, m015) | One step of an `OrchestratorRun`, keyed by `(orchestrator_run_id, ordinal)`, with status, times, exit code and its own run-log id. |
-| `StrategyBook` | Domain Entity → Collection | T-206 (`v_book`, m018) | One experimental arm of a backtest run (`MARKOWITZ_BASE`, `TOPN_MV_NOGUARD`, `TOPN_MV_GUARD_NO_NLP`, `TOPN_MV_GUARD`, `MARKOWITZ_BASE_GUARD`); a named pool of holdings. |
+| `StrategyBook` | Domain Entity → Collection | T-206 (`v_book`, m018); T-780 (external `MARKOWITZ_MV`) | One experimental arm of a backtest run (`MARKOWITZ_BASE`, `TOPN_MV_NOGUARD`, `TOPN_MV_GUARD_NO_NLP`, `TOPN_MV_GUARD`, `MARKOWITZ_BASE_GUARD`, plus the summary-only external `MARKOWITZ_MV`); a named pool of holdings. |
 | `BookRebalance` | Temporal Relation | T-206 (`v_book_rebalance`, m018) | A scheduled 21-session rebalance: book × decision/execution dates × upstream quant-portfolio/cycle-run/risk-model ids (literals). |
 | `GuardAlert` | Observation | T-206 (`v_guard_alert`, m018) | A GUARD layer's daily alert, linked to its GUARD rule; value optional on layer 1, asset optional on layers 3–4. |
 | `GuardAction` | Risk And Decision | T-206 (`v_guard_action`, m018) | The effect of a `GuardAlert` on one book for the next session (`APPLIED`, `ARM_DISABLED`, `NOT_HELD`, `SUPERSEDED`); weights optional on layer 1. |
@@ -951,11 +951,14 @@ worked on the Apple instance above).*
 
 ## 1.12 Final-backtest vocabulary (Work item 33, 2026-11-04)
 
-The final backtest needs six date-ordered windows (`P1`, `H1`, `P3`, `H2`, `P2`, `H3`), four arms,
-two Basing Points GUARD rules, the core ETF `SPY` and run metadata. The vocabulary is open without a
-wildcard: `windowId` is `^[PH][0-9]+$` and `segment` `^[PH][0-9]+[a-z]?$` in every shape, in
-`projection.backtest` and in both gate graph patterns. `MARKOWITZ_BASE_GUARD` joins the closed arm
-list with `guardLayers "[1, 3, 4]"` and `excludeHardVetoed false`; the two non-guard arms keep NULL.
+The final backtest needs six date-ordered windows (`P1`, `H1`, `P3`, `H2`, `P2`, `H3`), four engine
+arms, two Basing Points GUARD rules, the core ETF `SPY` and run metadata. The vocabulary is open
+without a wildcard: `windowId` is `^[PH][0-9]+$` and `segment` `^[PH][0-9]+[a-z]?$` in every shape,
+in `projection.backtest` and in both gate graph patterns. `MARKOWITZ_BASE_GUARD` joins the closed
+arm list with `guardLayers "[1, 3, 4]"` and `excludeHardVetoed false`; the two non-guard arms keep
+NULL. Work item 44 adds `MARKOWITZ_MV` to the closed arm vocabulary for the external summary-only
+mean-variance base book, loaded into `urn:graph:derived:backtest:external:final`; it is not an engine
+arm and has no daily series, weights or alerts.
 
 `L1_BP_STOP` and `L1_BP_REENTRY` are `:category "GUARD"`, `:guardLayer 1`, one `GraphPredicate`
 each and `validFrom` 2026-11-04, exactly like the existing GUARD rules, with no
@@ -1020,3 +1023,17 @@ compound `P2a`/`P2b` within `1e-6`. It never writes and never stores a daily ser
 the 210-session mean. Counts after this addition: **58 classes (44 disjoint leaves), 39 named
 shapes, 4915 quads; conforms: True.** Work item 38 adds only the `bootstrap_mdd` `sh:in` member
 (+2 triples).
+
+## 1.14 External mean-variance base Markowitz (Work item 44, 2026-11-09)
+
+Reviewer A delivers the mean-variance base case (tangency portfolio, `MARKOWITZ_MV`) as an
+external, summary-only stream. `MARKOWITZ_MV` joins every closed `:armCode` `sh:in` list, and
+`:dataSource` (optional `xsd:string`, at most one on `:StrategyBook`) records the provenance label
+written by the loader; `:codeVersion` also covers the external simulator's SHA-256. The loader
+(`src/projection/mv_base.py`, entry point `cli/load_mv_base.py`) verifies
+`aggregates_mv_base.json` and `config_mv_base.md` against `SHA256SUMS` (never `provenance/`), writes
+one `:StrategyBook` per window and one `:PortfolioPeriodSummary` per segment into the append-only
+`urn:graph:derived:backtest:external:{label}`, and stores no daily series, weights or alerts. The
+engine's `urn:graph:derived:backtest:{label}:{window}:{run}` queries are untouched. Counts after
+this addition: **58 classes (44 disjoint leaves), 39 named shapes, 4940 quads; conforms: True**;
+the load plan is **5217 asserted triples** (production **4696**).

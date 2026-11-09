@@ -1336,7 +1336,7 @@ starts at T-751. See `docs/labels-design.md` and `PLAN.md` Work item 43.*
 - [ ] **T-752** Add `LabelConceptShape` to `shapes.ttl`; add `labels.ttl` to
       `LOAD_PLAN` and FR-001; update `expected_sizes`, the load-plan tests, the
       acceptance "4 schema graphs" expectation, the shape count (39 → 40) and every
-      live count (`4915+D`, `5192+D`, `4671+D`, 21/5 graphs).
+      live count (`4940+D`, `5217+D`, `4696+D`, 21/5 graphs).
 - [ ] **T-753** Add bilingual labels/comments to the seven GUARD rules and the
       active selection rules in `rules.ttl`; label the three veto-class concepts
       and the markers; rewrite the touched `L4_DD` comment with "all the reference
@@ -1361,3 +1361,26 @@ starts at T-751. See `docs/labels-design.md` and `PLAN.md` Work item 43.*
 - [ ] **T-759** Human run of the evaluation sheet against the loaded graph; record
       the four criteria and file the findings outside the committed sheet.
 - [ ] **T-760–T-779** Reserve for review fixes or a second label pass.
+
+## Work item 44 — External mean-variance base Markowitz loader (T-780–T-809)
+
+*From Reviewer A's mean-variance base delivery. The loader writes a separate external graph; no
+GraphDB write is made in this work. See `docs/labels-design.md` §8 and `PLAN.md` Work item 44.*
+
+- [x] **T-780** Record the design and read the delivery before code.
+- [x] **T-781** Add `MARKOWITZ_MV` to every closed `:armCode` list and `:dataSource` to
+      `tbox.ttl`/`shapes.ttl`/`kg_target_schema.ttl`.
+- [x] **T-782** Add the `urn:graph:derived:backtest:external:{label}` gate target.
+- [x] **T-783** Implement `src/projection/mv_base.py` (strict parser, manifest/config, projector,
+      stored-graph check, CLI logic).
+- [x] **T-784** Add `cli/load_mv_base.py` (dry run, `--check-store`, `--write`, production guard).
+- [x] **T-785** Add `tests/test_mv_base.py` and `tests/test_cli_load_mv_base.py`; extend the gate
+      and shape tests.
+- [x] **T-786** Update the runbook, final-delivery step 7b, schema/SPEC/README/docs counts and
+      `PLAN`/`TASKS`.
+- [x] **T-787** Run the real dry run and record 8 rows / 236 triples / SHACL conforms.
+- [ ] **T-788** Merge the PR and reload the schema in `portfolio_test`; run `verify_store`; the
+      maintainer's step.
+- [ ] **T-789** Load `urn:graph:derived:backtest:external:final` in production; the maintainer's
+      step.
+- [ ] **T-790–T-809** Reserved for review fixes and the production record.
