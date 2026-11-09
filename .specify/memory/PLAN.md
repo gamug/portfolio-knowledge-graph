@@ -3432,17 +3432,20 @@ engine graphs, and it must not require `provenance/`.
    `src/projection/backtest.ARMS`. `:dataSource` is a new optional `xsd:string` (maxCount 1) on
    `:StrategyBook`; `:codeVersion` carries the `sim_v3.py` SHA-256 from `config_mv_base.md`.
 3. **Summary rows only.** One `:StrategyBook` per window (IRI
-   `Book_{label}_{window}_MARKOWITZ_MV`, synthetic `bookId` 1–6, `backtestRunId` 1,
-   `objective "tangency"`, `excludeHardVetoed false`, `dataSource` from the JSON,
-   `knowledgeDate` = `date_to`) and one `:PortfolioPeriodSummary` per segment. No daily series,
-   weights, alerts, `n_sessions` or `cvar95` are projected; `n_sessions` is checked against the
-   dates and the P2 cuts, and `cvar95` is validated only.
+   `Book_{label}_{window}_MARKOWITZ_MV`, `bookId` = the engine's maximum `book_id` + 1 and
+   `backtestRunId` = the engine's own run id, both read read-only from
+   `final_<window>.db`, `objective "max_sharpe"` (pending Reviewer A),
+   `excludeHardVetoed false`, `dataSource` from the JSON, `knowledgeDate` = `date_to`) and one
+   `:PortfolioPeriodSummary` per segment. No daily series, weights, alerts, `n_sessions` or
+   `cvar95` are projected; `n_sessions` is checked against the dates and the P2 cuts, and
+   `cvar95` is validated only. Each segment's `date_from`/`date_to` is cross-checked against the
+   engine's `MARKOWITZ_BASE` rows; a date mismatch stops, an `n_rebalances` mismatch only warns.
 4. **Manifest scope.** `aggregates_mv_base.json` and `config_mv_base.md` must both be listed in
    `SHA256SUMS` and match their hashes. `provenance/` is never read or required; optional
    validation CSVs are warnings only.
 5. **Integrity rules.** The six-window `n_rebalances` sum must be 61; every `n_guard_actions` must
    be the integer 0 ("not applicable"); P2a/P2b must be contiguous cuts of P2. `objective
-   "tangency"` is the loader's registered class for the external book (flagged as an assumption;
+   "max_sharpe"` is the loader's named registered class for the external book (pending Reviewer A;
    the engine's `:objective` semantics remain Work item 41).
 6. **No GraphDB write in this work.** The dry run and `--check-store` are the only commands run;
    the maintainer performs the production write after review.
@@ -3465,13 +3468,16 @@ engine graphs, and it must not require `provenance/`.
       `cli/verify_store.py`; the maintainer's step.
 - [ ] **T-789** Load the external graph in production after the schema reload; the maintainer's
       step.
-- [ ] **T-790–T-809** Reserved for review fixes and the production record.
+- [x] **T-790** *(done 2026-11-09: `--engine-dir`, read-only engine ids/dates, tests.)* Read
+      the engine `book_id`/run id and cross-check the segment dates (follow-up review of PR 141).
+- [ ] **T-791–T-809** Reserved for review fixes and the production record.
 
 **Acceptance criteria**:
 
 - `MARKOWITZ_MV` is accepted by every arm-bearing shape and an unknown arm is still refused.
 - The `.dataSource`, `.codeVersion`, `.objective`, `.bookId`, `.backtestRunId` and summary fields
-  conform to the real shapes.
+  conform to the real shapes; `bookId` is the engine maximum + 1 and `backtestRunId` the engine's
+  own run id, and every segment's dates match the engine's `MARKOWITZ_BASE` row.
 - The loader refuses an extra/missing key, unknown window/segment, duplicate identity, malformed
   date/decimal, hash mismatch, missing manifest listing and a non-zero `n_guard_actions`.
 - The six-window rebalances sum to 61; P2a/P2b are contiguous and add to P2; `provenance/` is not

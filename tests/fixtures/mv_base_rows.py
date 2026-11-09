@@ -5,6 +5,7 @@ from __future__ import annotations
 import copy
 import hashlib
 import json
+import sqlite3
 from pathlib import Path
 from typing import Any
 
@@ -89,3 +90,88 @@ def write_mv_base(tmp_path: Path, doc: dict[str, Any] | None = None, config: str
     lines.append(f"{'0' * 64}  provenance/sim_v3.py")
     (tmp_path / "SHA256SUMS").write_text("\n".join(lines) + "\n", encoding="utf-8")
     return tmp_path
+
+
+def write_engine(
+    tmp_path: Path,
+    doc: dict[str, Any] | None = None,
+    *,
+    book_id: int = 5,
+    run_id: int = 42,
+    rebalances: dict[tuple[str, str], int] | None = None,
+) -> Path:
+    """A synthetic final_corregida folder with only the two views the loader reads."""
+    payload = copy.deepcopy(doc) if doc is not None else document()
+    engine = tmp_path / "engine"
+    engine.mkdir(exist_ok=True)
+    rows = payload["summary"]
+    by_window: dict[str, list[dict[str, Any]]] = {}
+    for row in rows:
+        by_window.setdefault(row["window"], []).append(row)
+    for window, window_rows in by_window.items():
+        path = engine / f"final_{window}.db"
+        connection = sqlite3.connect(path)
+        try:
+            connection.execute(
+                "CREATE TABLE v_book (book_id INTEGER, backtest_run_id INTEGER, window_id TEXT, "
+                "d_start TEXT, d_end TEXT, formation_date TEXT, run_status TEXT, arm_code TEXT, "
+                "objective TEXT, exclude_hard_vetoed INTEGER, guard_layers TEXT, "
+                "code_version TEXT, knowledge_date TEXT)"
+            )
+            connection.execute(
+                "CREATE TABLE v_portfolio_period_summary (book_id INTEGER, "
+                "backtest_run_id INTEGER, arm_code TEXT, window_id TEXT, segment TEXT, "
+                "date_from TEXT, date_to TEXT, cumulative_return REAL, annualized_return REAL, "
+                "annualized_vol REAL, ex_post_sharpe REAL, max_drawdown REAL, total_turnover REAL, "
+                "total_cost_bps REAL, n_rebalances INTEGER, n_guard_actions INTEGER, "
+                "knowledge_date TEXT)"
+            )
+            whole = next(row for row in window_rows if row["segment"] == window)
+            connection.execute(
+                "INSERT INTO v_book VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                (
+                    book_id,
+                    run_id,
+                    window,
+                    whole["date_from"],
+                    whole["date_to"],
+                    None,
+                    "completed",
+                    "MARKOWITZ_BASE",
+                    "min_var",
+                    0,
+                    None,
+                    None,
+                    whole["date_to"],
+                ),
+            )
+            for row in window_rows:
+                n_rebalances = row["n_rebalances"]
+                if rebalances and (window, row["segment"]) in rebalances:
+                    n_rebalances = rebalances[(window, row["segment"])]
+                connection.execute(
+                    "INSERT INTO v_portfolio_period_summary VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                    (
+                        book_id,
+                        run_id,
+                        "MARKOWITZ_BASE",
+                        window,
+                        row["segment"],
+                        row["date_from"],
+                        row["date_to"],
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        n_rebalances,
+                        0,
+                        row["date_to"],
+                    ),
+                )
+            connection.commit()
+        finally:
+            connection.close()
+    return engine

@@ -7,7 +7,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from fixtures.mv_base_rows import write_mv_base
+from fixtures.mv_base_rows import write_engine, write_mv_base
 
 CLI = Path(__file__).resolve().parent.parent / "cli" / "load_mv_base.py"
 
@@ -41,6 +41,7 @@ def test_help_exits_0() -> None:
     assert "--check-store" in result.stdout
     assert "--write" in result.stdout
     assert "--to-production" in result.stdout
+    assert "--engine-dir" in result.stdout
 
 
 def test_a_missing_label_or_dir_exits_2(tmp_path: Path) -> None:
@@ -73,7 +74,17 @@ def test_impossible_flag_combinations_exit_2(tmp_path: Path) -> None:
 
 
 def test_a_dry_run_prints_the_manifest_config_graph_and_shacl(tmp_path: Path) -> None:
-    result = _run(tmp_path, "--label", "final", "--dir", str(write_mv_base(tmp_path)))
+    directory = write_mv_base(tmp_path)
+    engine = write_engine(tmp_path)
+    result = _run(
+        tmp_path,
+        "--label",
+        "final",
+        "--dir",
+        str(directory),
+        "--engine-dir",
+        str(engine),
+    )
     assert result.returncode == 0, result.stderr
     assert "manifest: aggregates_mv_base.json is listed" in result.stdout
     assert "manifest: config_mv_base.md is listed" in result.stdout
@@ -81,6 +92,7 @@ def test_a_dry_run_prints_the_manifest_config_graph_and_shacl(tmp_path: Path) ->
     assert "code version: sim_v3.py 4d23" in result.stdout
     assert "urn:graph:derived:backtest:external:final" in result.stdout
     assert "rows: 8 (6 windows, 2 cuts)" in result.stdout
+    assert "engine P1: bookId 6 (max + 1), backtestRunId 42" in result.stdout
     assert "SHACL: conforms (gate.validate)" in result.stdout
     assert "timing: total" in result.stdout
 
@@ -95,12 +107,16 @@ def test_a_manifest_mismatch_exits_1(tmp_path: Path) -> None:
 
 
 def test_a_production_write_without_the_opt_in_exits_2(tmp_path: Path) -> None:
+    directory = write_mv_base(tmp_path)
+    engine = write_engine(tmp_path)
     result = _run(
         tmp_path,
         "--label",
         "final",
         "--dir",
-        str(write_mv_base(tmp_path)),
+        str(directory),
+        "--engine-dir",
+        str(engine),
         "--write",
         repository="portfolio",
     )

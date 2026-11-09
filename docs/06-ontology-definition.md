@@ -1032,8 +1032,10 @@ external, summary-only stream. `MARKOWITZ_MV` joins every closed `:armCode` `sh:
 written by the loader; `:codeVersion` also covers the external simulator's SHA-256. The loader
 (`src/projection/mv_base.py`, entry point `cli/load_mv_base.py`) verifies
 `aggregates_mv_base.json` and `config_mv_base.md` against `SHA256SUMS` (never `provenance/`), writes
-one `:StrategyBook` per window and one `:PortfolioPeriodSummary` per segment into the append-only
-`urn:graph:derived:backtest:external:{label}`, and stores no daily series, weights or alerts. The
+one `:StrategyBook` per window (using the engine's maximum `bookId` + 1 and its own run id, read
+read-only; `objective "max_sharpe"`, pending Reviewer A) and one `:PortfolioPeriodSummary` per
+segment into the append-only `urn:graph:derived:backtest:external:{label}`, and stores no daily
+series, weights or alerts. The
 engine's `urn:graph:derived:backtest:{label}:{window}:{run}` queries are untouched. Counts after
 this addition: **58 classes (44 disjoint leaves), 39 named shapes, 4940 quads; conforms: True**;
 the load plan is **5217 asserted triples** (production **4696**).

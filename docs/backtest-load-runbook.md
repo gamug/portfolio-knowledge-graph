@@ -374,7 +374,10 @@ uv run python cli/load_mv_base.py --label final --dir "/workspaces/thesis/knoled
 ```
 
 The loader creates one `:StrategyBook` per window (`MARKOWITZ_MV`, `runLabel final`, synthetic
-`bookId` 1–6 and `backtestRunId` 1, `objective "tangency"`, `dataSource` from the JSON,
+`bookId` = the engine's maximum + 1 and `backtestRunId` = the engine's own run id (read read-only
+from `final_<window>.db`; `--engine-dir` defaults to
+`/workspaces/thesis/scratch/final/final_corregida` and the loader stops if a database is missing),
+`objective "max_sharpe"` (pending Reviewer A), `dataSource` from the JSON,
 `codeVersion` = the `sim_v3.py` SHA-256) and one `:PortfolioPeriodSummary` per segment. It verifies
 that the six windows sum to 61 rebalances, that P2a/P2b are contiguous cuts of P2, and that every
 `n_guard_actions` is 0 (not applicable: the book has no GUARD). `n_sessions` and `cvar95` are

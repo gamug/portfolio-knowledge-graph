@@ -22,10 +22,11 @@ import datetime
 import hashlib
 import json
 import re
+import sqlite3
 import sys
 import time
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any, Protocol
@@ -41,7 +42,8 @@ from kg_store.graphdb import (
     GraphDBError,
     announce_target,
 )
-from projection.backtest import RUN_LABEL_PATTERN, GraphBuilder
+from projection.backtest import RUN_LABEL_PATTERN, GraphBuilder, read_view
+from projection.source import FinancialSource
 
 NS = "https://thesis.local/kg/portfolio#"
 KG = rdflib.Namespace(NS)
@@ -49,7 +51,9 @@ KG = rdflib.Namespace(NS)
 GRAPH_PREFIX = "urn:graph:derived:backtest:external:"
 FINAL_LABEL = "final"
 ARM = "MARKOWITZ_MV"
+OBJECTIVE = "max_sharpe"  # pending Reviewer A: named constant, not an engine value
 DATA_SOURCE_DEFAULT = "independent simulator validated against the engine"
+DEFAULT_ENGINE_DIR = Path("/workspaces/thesis/scratch/final/final_corregida")
 REQUIRED_FILES = ("aggregates_mv_base.json", "config_mv_base.md")
 MANIFEST_NAME = "SHA256SUMS"
 
@@ -137,8 +141,16 @@ class MvConfig:
 
 
 @dataclass(frozen=True)
+class EngineBook:
+    """The engine's MARKOWITZ_BASE book and run for one window."""
+
+    book_id: int
+    run_id: int
+
+
+@dataclass(frozen=True)
 class MvBaseFile:
-    """The accepted delivery plus the manifest identity of its two files."""
+    """The accepted delivery plus the manifest and engine identities."""
 
     label: str
     book_code: str
@@ -148,6 +160,8 @@ class MvBaseFile:
     config: MvConfig
     json_sha256: str = ""
     config_sha256: str = ""
+    engine: Mapping[str, EngineBook] = field(default_factory=dict)
+    warnings: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -435,6 +449,83 @@ def sha256_file(path: str | Path) -> str:
     return digest.hexdigest()
 
 
+def read_engine_books(  # noqa: C901, PLR0912 - one branch per engine/file failure
+    engine_dir: str | Path, label: str, data: MvBaseFile
+) -> tuple[dict[str, EngineBook], list[str]]:
+    """Read the engine's MARKOWITZ_BASE ids and segment dates, read-only, per window."""
+    engine_dir = Path(engine_dir)
+    out: dict[str, EngineBook] = {}
+    warnings: list[str] = []
+    for window in WINDOWS:
+        path = engine_dir / f"{label}_{window}.db"
+        if not path.is_file():
+            raise MvBaseError(
+                f"{path}: the engine database is missing; --engine-dir must point to the "
+                f"folder with {label}_<window>.db"
+            )
+        try:
+            source = FinancialSource.open(path)
+            try:
+                books = read_view(source, "v_book")
+                summaries = read_view(source, "v_portfolio_period_summary")
+            finally:
+                source.close()
+        except (OSError, sqlite3.Error) as exc:
+            raise MvBaseError(f"{path}: cannot read the engine database ({exc})") from exc
+        window_books = [row for row in books if str(row.get("window_id")) == window]
+        if not window_books:
+            raise MvBaseError(f"{path}: v_book has no row for window {window}")
+        try:
+            book_ids = {int(row["book_id"]) for row in window_books}
+            run_ids = {int(row["backtest_run_id"]) for row in window_books}
+        except (KeyError, TypeError, ValueError) as exc:
+            raise MvBaseError(f"{path}: v_book has a non-integer book/run id ({exc})") from exc
+        if not run_ids:
+            raise MvBaseError(f"{path}: v_book has no backtest_run_id for window {window}")
+        if len(run_ids) != 1:
+            raise MvBaseError(
+                f"{path}: v_book has {len(run_ids)} run ids for window {window}; "
+                "one database must describe one engine run"
+            )
+        engine_book = EngineBook(max(book_ids) + 1, next(iter(run_ids)))
+        out[window] = engine_book
+        by_segment = {
+            str(row.get("segment")): row
+            for row in summaries
+            if str(row.get("arm_code")) == "MARKOWITZ_BASE" and str(row.get("window_id")) == window
+        }
+        for row in data.rows:
+            if row.window != window:
+                continue
+            engine_row = by_segment.get(row.segment)
+            if engine_row is None:
+                raise MvBaseError(
+                    f"{path}: v_portfolio_period_summary has no MARKOWITZ_BASE row for "
+                    f"window {window}, segment {row.segment}"
+                )
+            for field_name in ("date_from", "date_to"):
+                expected = getattr(row, field_name).isoformat()
+                actual = str(engine_row.get(field_name))
+                if actual != expected:
+                    raise MvBaseError(
+                        f"{path}: MARKOWITZ_BASE {window}/{row.segment} {field_name} is "
+                        f"{actual}, the delivery says {expected}"
+                    )
+            try:
+                engine_rebalances = int(engine_row["n_rebalances"])
+            except (KeyError, TypeError, ValueError) as exc:
+                raise MvBaseError(
+                    f"{path}: MARKOWITZ_BASE {window}/{row.segment} has a non-integer "
+                    f"n_rebalances ({exc})"
+                ) from exc
+            if engine_rebalances != row.n_rebalances:
+                warnings.append(
+                    f"{path}: MARKOWITZ_BASE {window}/{row.segment} n_rebalances is "
+                    f"{engine_rebalances}, the delivery says {row.n_rebalances} (warning only)"
+                )
+    return out, warnings
+
+
 def verify_manifest(directory: str | Path, file_names: Sequence[str]) -> dict[str, str]:
     """Require each name in ``directory/SHA256SUMS`` and its actual hash to match."""
     directory = Path(directory)
@@ -553,7 +644,7 @@ def _decimal_literal(value: Decimal) -> rdflib.Literal:
     return rdflib.Literal(format(value, "f"), datatype=XSD.decimal)
 
 
-def project(data: MvBaseFile) -> GraphBuilder:
+def project(data: MvBaseFile) -> GraphBuilder:  # noqa: PLR0915 - one field per summary property
     """Build the deterministic Turtle batch for one external delivery."""
     if not data.json_sha256 or not data.config_sha256:
         raise MvBaseError(
@@ -571,19 +662,25 @@ def project(data: MvBaseFile) -> GraphBuilder:
     if len(windows) != len(WINDOWS):
         raise MvBaseError(f"expected {len(WINDOWS)} windows, got {len(windows)}")
     books: dict[str, rdflib.URIRef] = {}
-    for index, row in enumerate(windows, 1):
+    for row in windows:
+        engine = data.engine.get(row.window)
+        if engine is None:
+            raise MvBaseError(
+                f"window {row.window!r} has no engine book/run: read the engine databases before "
+                "projecting"
+            )
         iri = book_iri(label, row.window)
         books[row.window] = iri
         builder.add(iri, RDF.type, KG.StrategyBook)
-        builder.add(iri, KG.bookId, rdflib.Literal(index, datatype=XSD.integer))
-        builder.add(iri, KG.backtestRunId, rdflib.Literal(1, datatype=XSD.integer))
+        builder.add(iri, KG.bookId, rdflib.Literal(engine.book_id, datatype=XSD.integer))
+        builder.add(iri, KG.backtestRunId, rdflib.Literal(engine.run_id, datatype=XSD.integer))
         builder.add(iri, KG.runLabel, rdflib.Literal(label))
         builder.add(iri, KG.windowId, rdflib.Literal(row.window))
         builder.add(iri, KG.backtestStartDate, _date_literal(row.date_from))
         builder.add(iri, KG.backtestEndDate, _date_literal(row.date_to))
         builder.add(iri, KG.runStatus, rdflib.Literal("completed"))
         builder.add(iri, KG.armCode, rdflib.Literal(ARM))
-        builder.add(iri, KG.objective, rdflib.Literal("tangency"))
+        builder.add(iri, KG.objective, rdflib.Literal(OBJECTIVE))
         builder.add(iri, KG.excludeHardVetoed, rdflib.Literal(False))
         builder.add(iri, KG.dataSource, rdflib.Literal(data.source))
         builder.add(iri, KG.codeVersion, rdflib.Literal(data.config.code_version))
@@ -591,14 +688,11 @@ def project(data: MvBaseFile) -> GraphBuilder:
     for row in sorted(data.rows, key=lambda row: (row.date_from, row.segment)):
         iri = summary_iri(label, row.window, row.segment)
         book = books[row.window]
+        engine = data.engine[row.window]
         builder.add(iri, RDF.type, KG.PortfolioPeriodSummary)
         builder.add(iri, KG.summaryOfBook, book)
-        builder.add(
-            iri,
-            KG.bookId,
-            rdflib.Literal(_book_number(windows, row.window), datatype=XSD.integer),
-        )
-        builder.add(iri, KG.backtestRunId, rdflib.Literal(1, datatype=XSD.integer))
+        builder.add(iri, KG.bookId, rdflib.Literal(engine.book_id, datatype=XSD.integer))
+        builder.add(iri, KG.backtestRunId, rdflib.Literal(engine.run_id, datatype=XSD.integer))
         builder.add(iri, KG.armCode, rdflib.Literal(ARM))
         builder.add(iri, KG.windowId, rdflib.Literal(row.window))
         builder.add(iri, KG.segment, rdflib.Literal(row.segment))
@@ -619,13 +713,6 @@ def project(data: MvBaseFile) -> GraphBuilder:
         )
         builder.add(iri, KG.knowledgeDate, _date_literal(row.date_to))
     return builder
-
-
-def _book_number(windows: Sequence[MvSummaryRow], window: str) -> int:
-    for index, row in enumerate(windows, 1):
-        if row.window == window:
-            return index
-    raise MvBaseError(f"window {window!r} has no book")
 
 
 def batch(data: MvBaseFile) -> tuple[str, bytes]:
@@ -711,6 +798,13 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         metavar="DIR",
         help="the mv_base folder with aggregates_mv_base.json, config_mv_base.md and SHA256SUMS",
     )
+    parser.add_argument(
+        "--engine-dir",
+        type=Path,
+        default=DEFAULT_ENGINE_DIR,
+        metavar="DIR",
+        help="the final_corregida folder with final_<window>.db (read-only; default %(default)s)",
+    )
     parser.add_argument("--write", action="store_true", help="append the external graph")
     parser.add_argument(
         "--check-store",
@@ -732,16 +826,21 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     return args
 
 
-def load_file(label: str, directory: Path) -> MvBaseFile:
-    """Verify both required files, then parse the JSON and the config."""
+def load_file(
+    label: str, directory: Path, engine_dir: str | Path = DEFAULT_ENGINE_DIR
+) -> MvBaseFile:
+    """Verify both required files, parse them, and read the engine identities read-only."""
     hashes = verify_manifest(directory, REQUIRED_FILES)
     data = parse_aggregates(directory / REQUIRED_FILES[0], label=label)
     config = parse_config(directory / REQUIRED_FILES[1], label=label)
     data = with_config(data, config)
+    engine, warnings = read_engine_books(engine_dir, label, data)
     return replace(
         data,
         json_sha256=hashes[REQUIRED_FILES[0]],
         config_sha256=hashes[REQUIRED_FILES[1]],
+        engine=engine,
+        warnings=tuple(warnings),
     )
 
 
@@ -791,11 +890,18 @@ def main(argv: Sequence[str] | None = None) -> int:  # noqa: C901, PLR0911, PLR0
     try:
         if args.check_store or args.write:
             announce_target(GraphDB.from_env())
-        data = load_file(args.label, directory)
+        data = load_file(args.label, directory, args.engine_dir)
         print(f"manifest: {REQUIRED_FILES[0]} is listed; SHA-256 {data.json_sha256} matches")
         print(f"manifest: {REQUIRED_FILES[1]} is listed; SHA-256 {data.config_sha256} matches")
         print(f"config: {data.config.label} / {data.config.book_code} / {data.config.status}")
         print(f"code version: sim_v3.py {data.config.code_version}")
+        for window in WINDOWS:
+            engine = data.engine[window]
+            print(
+                f"engine {window}: bookId {engine.book_id} (max + 1), backtestRunId {engine.run_id}"
+            )
+        for warning in data.warnings:
+            print(f"WARN  {warning}")
         for warning in records_changed(directory):
             print(f"WARN  {warning}")
         builder = project(data)
