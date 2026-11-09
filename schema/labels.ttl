@@ -1,0 +1,753 @@
+@prefix :      <https://thesis.local/kg/portfolio#> .
+@prefix owl:   <http://www.w3.org/2002/07/owl#> .
+@prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix skos:  <http://www.w3.org/2004/02/skos/core#> .
+@prefix xsd:   <http://www.w3.org/2001/XMLSchema#> .
+
+#################################################################
+# Presentation vocabulary for the final graph (Work item 43, T-751).
+#
+# This file is not loaded yet: T-752 adds it to the load plan and
+# FR-001. It contains no run IRI and no engine data.
+#################################################################
+
+:PresentationScheme a skos:Collection ;
+    rdfs:label "Presentation vocabulary"@en, "Vocabulario de presentación"@es ;
+    rdfs:comment "Labels for codes and literals that cannot carry rdfs:label directly. A concept is found by its skos:inScheme and skos:notation."@en, "Etiquetas para códigos y literales que no pueden llevar rdfs:label directamente. Un concepto se encuentra por su skos:inScheme y skos:notation."@es .
+
+:labelScheme a owl:AnnotationProperty ;
+    rdfs:label "presentation vocabulary marker"@en, "marcador del vocabulario de presentación"@es ;
+    rdfs:comment "Marks a concept as part of this presentation vocabulary; the SHACL shape targets its subjects."@en, "Marca un concepto como parte de este vocabulario de presentación; la forma SHACL apunta a sus sujetos."@es .
+
+:windowStart a owl:DatatypeProperty ;
+    rdfs:label "window start"@en, "inicio de la ventana"@es ;
+    rdfs:range xsd:date ;
+    rdfs:comment "First calendar date of a window concept."@en, "Primera fecha de calendario de un concepto de ventana."@es .
+
+:windowEnd a owl:DatatypeProperty ;
+    rdfs:label "window end"@en, "fin de la ventana"@es ;
+    rdfs:range xsd:date ;
+    rdfs:comment "Last calendar date of a window concept."@en, "Última fecha de calendario de un concepto de ventana."@es .
+
+:historicalCondition a owl:AnnotationProperty ;
+    rdfs:label "historical condition"@en, "condición histórica"@es ;
+    rdfs:comment "The condition under which the window was originally defined or reserved, kept separate from the final-configuration condition."@en, "La condición con la que la ventana se definió o reservó originalmente, separada de la condición para la configuración final."@es .
+
+:finalConfigurationCondition a owl:AnnotationProperty ;
+    rdfs:label "final-configuration condition"@en, "condición para la configuración final"@es ;
+    rdfs:comment "The condition that applies to results from the final configuration (in-sample for every window)."@en, "La condición aplicable a los resultados de la configuración final (dentro de muestra en todas las ventanas)."@es .
+
+
+:WindowScheme a skos:ConceptScheme ;
+    rdfs:label "Window vocabulary"@en, "Vocabulario de ventanas"@es .
+
+:RunLabelScheme a skos:ConceptScheme ;
+    rdfs:label "Run-label vocabulary"@en, "Vocabulario de etiquetas de corrida"@es .
+
+:StrategyScheme a skos:ConceptScheme ;
+    rdfs:label "Strategy vocabulary"@en, "Vocabulario de estrategias"@es .
+
+:GuardScheme a skos:ConceptScheme ;
+    rdfs:label "GUARD vocabulary"@en, "Vocabulario de GUARD"@es .
+
+:VetoClassScheme a skos:ConceptScheme ;
+    rdfs:label "Veto-class vocabulary"@en, "Vocabulario de clases de veto"@es .
+
+:MarkerScheme a skos:ConceptScheme ;
+    rdfs:label "Ineligibility-marker vocabulary"@en, "Vocabulario de marcadores de inelegibilidad"@es .
+
+:ScoreComponentScheme a skos:ConceptScheme ;
+    rdfs:label "Score-component vocabulary"@en, "Vocabulario de componentes del puntaje"@es .
+
+:RankScheme a skos:ConceptScheme ;
+    rdfs:label "Rank-column vocabulary"@en, "Vocabulario de columnas de ranking"@es .
+
+:ConfigScheme a skos:ConceptScheme ;
+    rdfs:label "Configuration-parameter vocabulary"@en, "Vocabulario de parámetros de configuración"@es .
+
+:ProcessScheme a skos:ConceptScheme ;
+    rdfs:label "Process and evaluation vocabulary"@en, "Vocabulario de proceso y evaluación"@es .
+
+:Window_1 a skos:Concept ;
+    skos:inScheme :WindowScheme ;
+    skos:notation "P1" ;
+    :labelScheme :PresentationScheme ;
+    rdfs:label "Window 1 · Jan–Oct 2022, bear market with inflation"@en, "Ventana 1 · ene–oct 2022, mercado bajista con inflación"@es ;
+    rdfs:comment "A window of the final backtest, named by calendar number and dates."@en, "Una ventana del backtest final, nombrada por número de calendario y fechas."@es ;
+    skos:altLabel "Window 1"@en, "2022-01-03 to 2022-10-12"@en, "P1"@en, "bear market with inflation"@en ;
+    skos:altLabel "Ventana 1"@es, "2022-01-03 a 2022-10-12"@es, "P1"@es, "mercado bajista con inflación"@es ;
+    :windowStart "2022-01-03"^^xsd:date ;
+    :windowEnd "2022-10-12"^^xsd:date ;
+    :historicalCondition "Design window; bear market with inflation (docs/backtest.md)."@en, "Ventana de diseño; mercado bajista con inflación (docs/backtest.md)."@es ;
+    :finalConfigurationCondition "In-sample results."@en, "Resultados dentro de muestra."@es .
+
+:Window_2 a skos:Concept ;
+    skos:inScheme :WindowScheme ;
+    skos:notation "H1" ;
+    :labelScheme :PresentationScheme ;
+    rdfs:label "Window 2 · Oct 2022–Oct 2023"@en, "Ventana 2 · oct 2022–oct 2023"@es ;
+    rdfs:comment "A window of the final backtest, named by calendar number and dates."@en, "Una ventana del backtest final, nombrada por número de calendario y fechas."@es ;
+    skos:altLabel "Window 2"@en, "2022-10-13 to 2023-10-26"@en, "H1"@en ;
+    skos:altLabel "Ventana 2"@es, "2022-10-13 a 2023-10-26"@es, "H1"@es ;
+    :windowStart "2022-10-13"^^xsd:date ;
+    :windowEnd "2023-10-26"^^xsd:date ;
+    :historicalCondition "Originally reserved in the champion preregistration."@en, "Reservada originalmente en el preregistro del campeón."@es ;
+    :finalConfigurationCondition "In-sample results."@en, "Resultados dentro de muestra."@es .
+
+:Window_3 a skos:Concept ;
+    skos:inScheme :WindowScheme ;
+    skos:notation "P3" ;
+    :labelScheme :PresentationScheme ;
+    rdfs:label "Window 3 · Oct 2023–Aug 2024, bull market"@en, "Ventana 3 · oct 2023–ago 2024, mercado alcista"@es ;
+    rdfs:comment "A window of the final backtest, named by calendar number and dates."@en, "Una ventana del backtest final, nombrada por número de calendario y fechas."@es ;
+    skos:altLabel "Window 3"@en, "2023-10-27 to 2024-08-02"@en, "P3"@en, "bull market"@en ;
+    skos:altLabel "Ventana 3"@es, "2023-10-27 a 2024-08-02"@es, "P3"@es, "mercado alcista"@es ;
+    :windowStart "2023-10-27"^^xsd:date ;
+    :windowEnd "2024-08-02"^^xsd:date ;
+    :historicalCondition "Design window; bull market (docs/backtest.md)."@en, "Ventana de diseño; mercado alcista (docs/backtest.md)."@es ;
+    :finalConfigurationCondition "In-sample results."@en, "Resultados dentro de muestra."@es .
+
+:Window_4 a skos:Concept ;
+    skos:inScheme :WindowScheme ;
+    skos:notation "H2" ;
+    :labelScheme :PresentationScheme ;
+    rdfs:label "Window 4 · Aug 2024–Feb 2025"@en, "Ventana 4 · ago 2024–feb 2025"@es ;
+    rdfs:comment "A window of the final backtest, named by calendar number and dates."@en, "Una ventana del backtest final, nombrada por número de calendario y fechas."@es ;
+    skos:altLabel "Window 4"@en, "2024-08-05 to 2025-02-18"@en, "H2"@en ;
+    skos:altLabel "Ventana 4"@es, "2024-08-05 a 2025-02-18"@es, "H2"@es ;
+    :windowStart "2024-08-05"^^xsd:date ;
+    :windowEnd "2025-02-18"^^xsd:date ;
+    :historicalCondition "Originally reserved."@en, "Reservada originalmente."@es ;
+    :finalConfigurationCondition "In-sample results."@en, "Resultados dentro de muestra."@es .
+
+:Window_5 a skos:Concept ;
+    skos:inScheme :WindowScheme ;
+    skos:notation "P2" ;
+    :labelScheme :PresentationScheme ;
+    rdfs:label "Window 5 · Feb–Sep 2025 (P2)"@en, "Ventana 5 · feb–sep 2025 (P2)"@es ;
+    rdfs:comment "The neutral fifth window; its scenario is not labelled."@en, "La quinta ventana neutral; su escenario no está etiquetado."@es ;
+    skos:altLabel "Window 5"@en, "2025-02-19 to 2025-09-23"@en, "P2"@en ;
+    skos:altLabel "Ventana 5"@es, "2025-02-19 a 2025-09-23"@es, "P2"@es ;
+    :windowStart "2025-02-19"^^xsd:date ;
+    :windowEnd "2025-09-23"^^xsd:date ;
+    :historicalCondition "Design window; the scenario is not labelled in docs/backtest.md."@en, "Ventana de diseño; el escenario no está etiquetado en docs/backtest.md."@es ;
+    :finalConfigurationCondition "In-sample results."@en, "Resultados dentro de muestra."@es .
+
+:Window_6 a skos:Concept ;
+    skos:inScheme :WindowScheme ;
+    skos:notation "H3" ;
+    :labelScheme :PresentationScheme ;
+    rdfs:label "Window 6 · Sep 2025–Oct 2026"@en, "Ventana 6 · sep 2025–oct 2026"@es ;
+    rdfs:comment "A window of the final backtest, named by calendar number and dates."@en, "Una ventana del backtest final, nombrada por número de calendario y fechas."@es ;
+    skos:altLabel "Window 6"@en, "2025-09-24 to 2026-10-15"@en, "H3"@en ;
+    skos:altLabel "Ventana 6"@es, "2025-09-24 a 2026-10-15"@es, "H3"@es ;
+    :windowStart "2025-09-24"^^xsd:date ;
+    :windowEnd "2026-10-15"^^xsd:date ;
+    :historicalCondition "Originally reserved."@en, "Reservada originalmente."@es ;
+    :finalConfigurationCondition "In-sample results."@en, "Resultados dentro de muestra."@es .
+
+:RunLabel_final a skos:Concept ;
+    skos:inScheme :RunLabelScheme ;
+    skos:notation "final" ;
+    :labelScheme :PresentationScheme ;
+    rdfs:label "Final configuration run"@en, "Corrida de la configuración final"@es ;
+    rdfs:comment "The delivery final_corregida (code_commit 5958c6b): six windows, all results in-sample; the default run label for final results. It is not final_b5 and must not mention that name."@en, "La entrega final_corregida (code_commit 5958c6b): seis ventanas, todos los resultados dentro de muestra; etiqueta predeterminada para los resultados finales. No es final_b5 y no debe mencionar ese nombre."@es ;
+    skos:altLabel "final configuration"@en, "corrida final"@en ;
+    skos:altLabel "configuración final"@es, "corrida final"@es .
+
+:GuardSupervision a skos:Concept ;
+    skos:inScheme :GuardScheme ;
+    skos:notation "GUARD" ;
+    :labelScheme :PresentationScheme ;
+    rdfs:label "GUARD supervision"@en, "Supervisión GUARD"@es ;
+    rdfs:comment "Rules that reduce or close positions between rebalances to limit losses."@en, "Reglas que reducen o cierran posiciones entre rebalanceos para limitar pérdidas."@es .
+
+:GuardLayer_1 a skos:Concept ;
+    skos:inScheme :GuardScheme ;
+    skos:notation 1 ;
+    :labelScheme :PresentationScheme ;
+    rdfs:label "Per-stock stop (layer 1)"@en, "Parada por acción (capa 1)"@es ;
+    rdfs:comment "Determines the exit of a position when its layer-1 rule fires and allows a later re-entry when its recovery condition is met; it depends on the book: Basing Points in the System, a 21-session loss limit in the Markowitz book with GUARD."@en, "Determina la salida de una posición cuando se cumple la regla de capa 1 y permite una reentrada posterior cuando se satisface su condición de recuperación; depende del libro: Basing Points en el Sistema, límite de pérdida de 21 sesiones en el Markowitz con GUARD."@es .
+
+:GuardLayer_2 a skos:Concept ;
+    skos:inScheme :GuardScheme ;
+    skos:notation 2 ;
+    :labelScheme :PresentationScheme ;
+    rdfs:label "News trim (disabled in the final configuration)"@en, "Recorte por noticias (deshabilitada en la configuración final)"@es ;
+    rdfs:comment "Would trim positions on negative news; it is disabled."@en, "Recortaría posiciones por noticias negativas; está apagada."@es .
+
+:GuardLayer_3 a skos:Concept ;
+    skos:inScheme :GuardScheme ;
+    skos:notation 3 ;
+    :labelScheme :PresentationScheme ;
+    rdfs:label "Volatility scaling (configured, no activations)"@en, "Escalamiento por volatilidad (configurado; sin activaciones en las corridas evaluadas)"@es ;
+    rdfs:comment "Would reduce exposure when volatility rises; configured but no activations were observed."@en, "Reduciría la exposición si sube la volatilidad; configurado pero sin activaciones observadas."@es .
+
+:GuardLayer_4 a skos:Concept ;
+    skos:inScheme :GuardScheme ;
+    skos:notation 4 ;
+    :labelScheme :PresentationScheme ;
+    rdfs:label "Drawdown scaling"@en, "Escalamiento por caída"@es ;
+    rdfs:comment "Multiplies all the reference weights, including the SPY core, by clip(m*(VP - alpha*VPmax)/VP, 0, 1); it is 1 at the peak and falls with drawdown."@en, "Multiplica todos los pesos de referencia, incluido el núcleo SPY, por clip(m*(VP - alfa*VPmax)/VP, 0, 1); vale 1 en el máximo y baja con la caída."@es .
+
+:AlertState_ENTER a skos:Concept ;
+    skos:inScheme :GuardScheme ;
+    skos:notation "ENTER" ;
+    :labelScheme :PresentationScheme ;
+    rdfs:label "Rule activated"@en, "Regla activada"@es ;
+    rdfs:comment "The rule became active. It is not a buy or sell order."@en, "La regla pasó a estar activa. No es una orden de compra o venta."@es .
+
+:AlertState_EXIT a skos:Concept ;
+    skos:inScheme :GuardScheme ;
+    skos:notation "EXIT" ;
+    :labelScheme :PresentationScheme ;
+    rdfs:label "Rule deactivated"@en, "Regla desactivada"@es ;
+    rdfs:comment "The rule stopped being active. It is not a sale."@en, "La regla dejó de estar activa. No es una venta."@es .
+
+:AlertState_ACTIVE a skos:Concept ;
+    skos:inScheme :GuardScheme ;
+    skos:notation "ACTIVE" ;
+    :labelScheme :PresentationScheme ;
+    rdfs:label "Rule in effect"@en, "Regla vigente"@es ;
+    rdfs:comment "The rule is in effect; it may not appear in the final run."@en, "La regla está vigente; puede no aparecer en la corrida final."@es .
+
+:AlertState_COOLDOWN a skos:Concept ;
+    skos:inScheme :GuardScheme ;
+    skos:notation "COOLDOWN" ;
+    :labelScheme :PresentationScheme ;
+    rdfs:label "Rule in cool-down"@en, "Regla en enfriamiento"@es ;
+    rdfs:comment "The rule is in a cool-down period; it may not appear in the final run."@en, "La regla está en un período de enfriamiento; puede no aparecer en la corrida final."@es .
+
+:AlertState_SCALE a skos:Concept ;
+    skos:inScheme :GuardScheme ;
+    skos:notation "SCALE" ;
+    :labelScheme :PresentationScheme ;
+    rdfs:label "Exposure scaled"@en, "Exposición escalada"@es ;
+    rdfs:comment "Total exposure was scaled by layers 3 or 4."@en, "La exposición total se escaló por las capas 3 o 4."@es .
+
+:ActionStatus_APPLIED a skos:Concept ;
+    skos:inScheme :GuardScheme ;
+    skos:notation "APPLIED" ;
+    :labelScheme :PresentationScheme ;
+    rdfs:label "Action applied"@en, "Acción aplicada"@es ;
+    rdfs:comment "The book applied the action associated with the alert; it is an engine-rule application, not a market order."@en, "El libro aplicó la acción asociada a la alerta; es una aplicación de una regla del motor, no una orden ejecutada en el mercado."@es .
+
+:ActionStatus_ARM_DISABLED a skos:Concept ;
+    skos:inScheme :GuardScheme ;
+    skos:notation "ARM_DISABLED" ;
+    :labelScheme :PresentationScheme ;
+    rdfs:label "Arm without GUARD (shadow alert)"@en, "Brazo sin GUARD (alerta en sombra)"@es ;
+    rdfs:comment "The arm has no GUARD; the alert is informative only."@en, "El brazo no tiene GUARD; la alerta es solo informativa."@es .
+
+:ActionStatus_NOT_HELD a skos:Concept ;
+    skos:inScheme :GuardScheme ;
+    skos:notation "NOT_HELD" ;
+    :labelScheme :PresentationScheme ;
+    rdfs:label "Asset not held"@en, "Activo no mantenido"@es ;
+    rdfs:comment "The book did not hold the asset."@en, "El libro no tenía el activo."@es .
+
+:ActionStatus_SUPERSEDED a skos:Concept ;
+    skos:inScheme :GuardScheme ;
+    skos:notation "SUPERSEDED" ;
+    :labelScheme :PresentationScheme ;
+    rdfs:label "Alert superseded"@en, "Alerta reemplazada"@es ;
+    rdfs:comment "Another alert replaced this one."@en, "Otra alerta la reemplazó."@es .
+
+:VetoClass_Hard a skos:Concept ;
+    skos:inScheme :VetoClassScheme ;
+    skos:notation "HARD" ;
+    :labelScheme :PresentationScheme ;
+    rdfs:label "Excluded by a hard veto"@en, "Excluida por veto duro"@es ;
+    rdfs:comment "The asset has at least one hard veto and is excluded from the eligible universe while the condition holds."@en, "Tiene al menos un veto duro y queda excluida del universo elegible mientras la condición esté vigente."@es .
+
+:VetoClass_Soft a skos:Concept ;
+    skos:inScheme :VetoClassScheme ;
+    skos:notation "SOFT" ;
+    :labelScheme :PresentationScheme ;
+    rdfs:label "Soft penalty"@en, "Penalización suave"@es ;
+    rdfs:comment "Subtracts points from the combined score; the asset remains eligible."@en, "Resta puntos al puntaje combinado; el activo sigue elegible."@es .
+
+:VetoClass_Indicator a skos:Concept ;
+    skos:inScheme :VetoClassScheme ;
+    skos:notation "INDICATOR" ;
+    :labelScheme :PresentationScheme ;
+    rdfs:label "Informative indicator"@en, "Indicador informativo"@es ;
+    rdfs:comment "Marks the asset but neither excludes it nor subtracts points; BREAK_TREND_200 is the only member."@en, "Marca el activo pero no lo excluye ni resta puntos; BREAK_TREND_200 es el único miembro."@es .
+
+:Marker_HARD a skos:Concept ;
+    skos:inScheme :MarkerScheme ;
+    skos:notation "HARD" ;
+    :labelScheme :PresentationScheme ;
+    rdfs:label "Excluded by a hard veto"@en, "Excluida por veto duro"@es ;
+    rdfs:comment "The ranking marker for a hard veto or a hard-veto JSON token."@en, "Marcador de ranking de un veto duro o de un token HARD en el JSON."@es .
+
+:Marker_UNSCORED a skos:Concept ;
+    skos:inScheme :MarkerScheme ;
+    skos:notation "UNSCORED" ;
+    :labelScheme :PresentationScheme ;
+    rdfs:label "No score available"@en, "Sin puntaje"@es ;
+    rdfs:comment "The asset never had a fundamental score; it is ineligible, not penalized."@en, "El activo nunca tuvo puntaje fundamental; es inelegible, no penalizado."@es .
+
+:Marker_UNPRICED a skos:Concept ;
+    skos:inScheme :MarkerScheme ;
+    skos:notation "UNPRICED" ;
+    :labelScheme :PresentationScheme ;
+    rdfs:label "No price history"@en, "Sin historia de precios"@es ;
+    rdfs:comment "There is not enough price history."@en, "No hay precios suficientes."@es .
+
+:Marker_NO_RISK_MODEL a skos:Concept ;
+    skos:inScheme :MarkerScheme ;
+    skos:notation "NO_RISK_MODEL" ;
+    :labelScheme :PresentationScheme ;
+    rdfs:label "Not covered by the risk model"@en, "Sin cobertura del modelo de riesgo"@es ;
+    rdfs:comment "Not enough returns for the risk model; this is an ineligibility cause, not a catalog veto, and it is not loaded as a literal in the final graph."@en, "No hay retornos suficientes para el modelo de riesgo; es una causa de inelegibilidad, no un veto del catálogo, y no está cargada como literal en el grafo final."@es .
+
+:ScoreComponent_FUNDAMENTAL a skos:Concept ;
+    skos:inScheme :ScoreComponentScheme ;
+    skos:notation "FUNDAMENTAL" ;
+    :labelScheme :PresentationScheme ;
+    rdfs:label "Fundamental score"@en, "Puntaje fundamental"@es ;
+    rdfs:comment "Computed from each quarterly financial report."@en, "Se calcula por informe financiero trimestral."@es .
+
+:ScoreComponent_TECHNICAL a skos:Concept ;
+    skos:inScheme :ScoreComponentScheme ;
+    skos:notation "TECHNICAL" ;
+    :labelScheme :PresentationScheme ;
+    rdfs:label "Technical score"@en, "Puntaje técnico"@es ;
+    rdfs:comment "Price trend and momentum."@en, "Tendencia y momentum de precios."@es .
+
+:ScoreComponent_VALORIZATION a skos:Concept ;
+    skos:inScheme :ScoreComponentScheme ;
+    skos:notation "VALORIZATION" ;
+    :labelScheme :PresentationScheme ;
+    rdfs:label "Valuation score"@en, "Puntaje de valoración"@es ;
+    rdfs:comment "Valuation multiples."@en, "Múltiplos de valoración."@es .
+
+:ScoreComponent_SECTOR a skos:Concept ;
+    skos:inScheme :ScoreComponentScheme ;
+    skos:notation "SECTOR" ;
+    :labelScheme :PresentationScheme ;
+    rdfs:label "Sector-relative technical score"@en, "Puntaje técnico relativo al sector"@es ;
+    rdfs:comment "The asset technical raw score minus its GICS sector mean on the date; a diagnostic, not part of the combined score."@en, "Puntaje técnico bruto de la acción menos el promedio de su sector GICS en la fecha; diagnóstico, no entra en el puntaje combinado."@es .
+
+:RankColumn_Raw a skos:Concept ;
+    skos:inScheme :RankScheme ;
+    skos:notation "rank" ;
+    :labelScheme :PresentationScheme ;
+    rdfs:label "Raw ranking position (includes excluded names)"@en, "Posición en el ranking bruto (incluye excluidas)"@es ;
+    rdfs:comment "Order by combined score over every classified member of the date, including vetoed names."@en, "Orden por puntaje combinado sobre todos los miembros clasificados de la fecha, incluidas las vetadas."@es ;
+    skos:altLabel "rank"@en ;
+    skos:altLabel "rank"@es .
+
+:RankColumn_Eligible a skos:Concept ;
+    skos:inScheme :RankScheme ;
+    skos:notation "rank_e" ;
+    :labelScheme :PresentationScheme ;
+    rdfs:label "Rank among eligible companies"@en, "Posición entre empresas elegibles"@es ;
+    rdfs:comment "Order by combined score among eligible names only; not loaded as a column in the final graph, so it must never be estimated or substituted."@en, "Orden por puntaje combinado solo entre elegibles; no está cargada como columna en el grafo final, así que nunca debe estimarse ni sustituirse."@es ;
+    skos:altLabel "rank_e"@en ;
+    skos:altLabel "rank_e"@es .
+
+:Config_core_weight a skos:Concept ;
+    skos:inScheme :ConfigScheme ;
+    skos:notation "core_weight" ;
+    :labelScheme :PresentationScheme ;
+    rdfs:label "SPY core weight"@en, "Peso del núcleo SPY"@es ;
+    rdfs:comment "Nominal 50% SPY core."@en, "Núcleo SPY nominal del 50 %."@es .
+
+:Config_pool_m a skos:Concept ;
+    skos:inScheme :ConfigScheme ;
+    skos:notation "pool_m" ;
+    :labelScheme :PresentationScheme ;
+    rdfs:label "Candidate pool size"@en, "Tamaño del grupo de candidatas"@es ;
+    rdfs:comment "60 names."@en, "60 nombres."@es .
+
+:Config_top_n a skos:Concept ;
+    skos:inScheme :ConfigScheme ;
+    skos:notation "top_n" ;
+    :labelScheme :PresentationScheme ;
+    rdfs:label "Maximum satellite holdings"@en, "Máximo de acciones del satélite"@es ;
+    rdfs:comment "30; it is not the number actually held."@en, "30; no es el número real mantenido."@es .
+
+:Config_satellite_weighting a skos:Concept ;
+    skos:inScheme :ConfigScheme ;
+    skos:notation "satellite_weighting" ;
+    :labelScheme :PresentationScheme ;
+    rdfs:label "Satellite weighting: minimum CVaR"@en, "Ponderación del satélite: mínimo CVaR"@es ;
+    rdfs:comment "The effective satellite weighting (mincvar in the System); it is not objective."@en, "Ponderación efectiva del satélite (mincvar en el Sistema); no es objective."@es .
+
+:Config_cvar_scenarios a skos:Concept ;
+    skos:inScheme :ConfigScheme ;
+    skos:notation "cvar_scenarios" ;
+    :labelScheme :PresentationScheme ;
+    rdfs:label "CVaR optimizer scenarios: daily simple returns"@en, "Escenarios del optimizador CVaR: retornos simples diarios"@es ;
+    rdfs:comment "The risk model stores log returns; the optimizer converts them to simple returns."@en, "El modelo de riesgo guarda retornos logarítmicos; el optimizador los convierte a simples."@es .
+
+:Config_cov_estimator a skos:Concept ;
+    skos:inScheme :ConfigScheme ;
+    skos:notation "cov_estimator" ;
+    :labelScheme :PresentationScheme ;
+    rdfs:label "Covariance estimator: Ledoit-Wolf, constant correlation"@en, "Estimador de covarianza: Ledoit-Wolf con correlación constante"@es ;
+    rdfs:comment "Ledoit-Wolf constant-correlation covariance."@en, "Covarianza Ledoit-Wolf con correlación constante."@es .
+
+:Config_lookback a skos:Concept ;
+    skos:inScheme :ConfigScheme ;
+    skos:notation "lookback" ;
+    :labelScheme :PresentationScheme ;
+    rdfs:label "Return history"@en, "Historia de retornos"@es ;
+    rdfs:comment "756 return sessions."@en, "756 sesiones de retorno."@es .
+
+:Config_min_history a skos:Concept ;
+    skos:inScheme :ConfigScheme ;
+    skos:notation "min_history" ;
+    :labelScheme :PresentationScheme ;
+    rdfs:label "Minimum return history"@en, "Historia mínima de retornos"@es ;
+    rdfs:comment "740 return sessions."@en, "740 sesiones de retorno."@es .
+
+:Config_returns_members a skos:Concept ;
+    skos:inScheme :ConfigScheme ;
+    skos:notation "returns_members" ;
+    :labelScheme :PresentationScheme ;
+    rdfs:label "Return panel universe: every point-in-time member on any session of the window, leavers included"@en, "Panel de retornos: todos los miembros puntuales en alguna sesión de la ventana, incluidos los que salieron"@es ;
+    rdfs:comment "The old as-of panel used the members at the end of the window."@en, "El panel antiguo as-of usaba los miembros al final de la ventana."@es .
+
+:Config_trend_filter a skos:Concept ;
+    skos:inScheme :ConfigScheme ;
+    skos:notation "trend_filter" ;
+    :labelScheme :PresentationScheme ;
+    rdfs:label "Trend filter"@en, "Filtro de tendencia"@es ;
+    rdfs:comment "Evaluated at the decision date and in force until the next one; it affects the System core and satellite, not every strategy."@en, "Se evalúa en la fecha de decisión y rige hasta la siguiente; afecta al núcleo y al satélite del Sistema, no a toda estrategia."@es .
+
+:Config_filter_exit a skos:Concept ;
+    skos:inScheme :ConfigScheme ;
+    skos:notation "filter_exit" ;
+    :labelScheme :PresentationScheme ;
+    rdfs:label "Trend-filter exit fraction"@en, "Fracción de salida del filtro de tendencia"@es ;
+    rdfs:comment "With SPY below its 210-session mean, each target weight is multiplied by (1 - filter_exit); 0.5 moves half the exposure to cash."@en, "Con SPY por debajo de su media de 210 sesiones, cada peso objetivo se multiplica por (1 - filter_exit); 0.5 mueve la mitad de la exposición a efectivo."@es .
+
+:Config_stop_rule a skos:Concept ;
+    skos:inScheme :ConfigScheme ;
+    skos:notation "stop_rule" ;
+    :labelScheme :PresentationScheme ;
+    rdfs:label "Stop rule: Basing Points, variant 4"@en, "Regla de parada: Basing Points, variante 4"@es ;
+    rdfs:comment "Basing Points variant 4 for the System layer 1."@en, "Basing Points variante 4 para la capa 1 del Sistema."@es .
+
+:Config_cost_bps a skos:Concept ;
+    skos:inScheme :ConfigScheme ;
+    skos:notation "cost_bps" ;
+    :labelScheme :PresentationScheme ;
+    rdfs:label "Transaction cost (basis points of turnover)"@en, "Costo de transacción (puntos básicos de la rotación)"@es ;
+    rdfs:comment "10 basis points, applied to the sum of absolute equity-weight changes."@en, "10 puntos básicos, aplicados a la suma de los cambios absolutos de peso en acciones."@es .
+
+:Config_vol_target a skos:Concept ;
+    skos:inScheme :ConfigScheme ;
+    skos:notation "vol_target" ;
+    :labelScheme :PresentationScheme ;
+    rdfs:label "Volatility target (layer 3)"@en, "Meta de volatilidad (capa 3)"@es ;
+    rdfs:comment "Configured; the layer had no activity."@en, "Configurado; la capa no tuvo actividad."@es .
+
+:Config_exclude_hard_vetoed a skos:Concept ;
+    skos:inScheme :ConfigScheme ;
+    skos:notation "exclude_hard_vetoed" ;
+    :labelScheme :PresentationScheme ;
+    rdfs:label "Hard-veto filter in the shared covariance model (internal)"@en, "Filtro de vetos duros en el modelo de covarianza compartido (interno)"@es ;
+    rdfs:comment "It is 0 also in the System because the shared model includes vetoed names; the System excludes hard vetoes earlier, in the preselection. Never say the System does not exclude hard-vetoed companies."@en, "Vale 0 también en el Sistema porque el modelo compartido incluye los vetados; el Sistema excluye los vetos duros antes, en la preselección. Nunca decir que el Sistema no excluye empresas con veto duro."@es .
+
+:Config_tilt a skos:Concept ;
+    skos:inScheme :ConfigScheme ;
+    skos:notation "tilt" ;
+    :labelScheme :PresentationScheme ;
+    rdfs:label "Score tilt (internal)"@en, "Inclinación por puntaje (interno)"@es ;
+    rdfs:comment "Internal; hide in ordinary answers."@en, "Interno; ocultar en respuestas ordinarias."@es .
+
+:Config_blend a skos:Concept ;
+    skos:inScheme :ConfigScheme ;
+    skos:notation "blend" ;
+    :labelScheme :PresentationScheme ;
+    rdfs:label "Score blend (internal)"@en, "Mezcla de puntajes (interno)"@es ;
+    rdfs:comment "Internal; hide in ordinary answers."@en, "Interno; ocultar en respuestas ordinarias."@es .
+
+:Config_rp a skos:Concept ;
+    skos:inScheme :ConfigScheme ;
+    skos:notation "rp" ;
+    :labelScheme :PresentationScheme ;
+    rdfs:label "Risk parity (internal)"@en, "Paridad de riesgo (interno)"@es ;
+    rdfs:comment "Internal; hide in ordinary answers."@en, "Interno; ocultar en respuestas ordinarias."@es .
+
+:Config_news_model a skos:Concept ;
+    skos:inScheme :ConfigScheme ;
+    skos:notation "news_model" ;
+    :labelScheme :PresentationScheme ;
+    rdfs:label "News model (internal)"@en, "Modelo de noticias (interno)"@es ;
+    rdfs:comment "Internal; hide in ordinary answers."@en, "Interno; ocultar en respuestas ordinarias."@es .
+
+:Config_news_db a skos:Concept ;
+    skos:inScheme :ConfigScheme ;
+    skos:notation "news_db" ;
+    :labelScheme :PresentationScheme ;
+    rdfs:label "News database (internal)"@en, "Base de noticias (interno)"@es ;
+    rdfs:comment "Internal; hide in ordinary answers."@en, "Interno; ocultar en respuestas ordinarias."@es .
+
+:Config_shadow_from a skos:Concept ;
+    skos:inScheme :ConfigScheme ;
+    skos:notation "shadow_from" ;
+    :labelScheme :PresentationScheme ;
+    rdfs:label "Shadow start (internal)"@en, "Inicio en sombra (interno)"@es ;
+    rdfs:comment "Internal; hide in ordinary answers."@en, "Interno; ocultar en respuestas ordinarias."@es .
+
+:Config_objective_min_var a skos:Concept ;
+    skos:inScheme :ConfigScheme ;
+    skos:notation "min_var" ;
+    :labelScheme :PresentationScheme ;
+    rdfs:label "Registered optimization class"@en, "Clasificación de optimización registrada"@es ;
+    rdfs:comment "The fixed label the engine writes for every optimized arm; it is NOT the satellite weighting objective (use satellite_weighting, mincvar in the System). Upstream confirmation is pending."@en, "Etiqueta fija que el motor escribe para cada brazo optimizado; NO es la función objetivo de ponderación del satélite (usar satellite_weighting, mincvar en el Sistema). La confirmación de upstream está pendiente."@es ;
+    skos:altLabel "objective"@en, "min_var"@en ;
+    skos:altLabel "objective"@es, "min_var"@es .
+
+:Process_PIT_UNIVERSE a skos:Concept ;
+    skos:inScheme :ProcessScheme ;
+    skos:notation "PIT_UNIVERSE" ;
+    :labelScheme :PresentationScheme ;
+    rdfs:label "Point-in-time universe"@en, "Universo puntual en el tiempo"@es ;
+    rdfs:comment "S&P 500 members reconstructed by their membership on each date, not the current constituents."@en, "Los miembros del S&P 500 se reconstruyen según su pertenencia en cada fecha, no según los componentes actuales."@es .
+
+:Process_ELIGIBLE_UNIVERSE a skos:Concept ;
+    skos:inScheme :ProcessScheme ;
+    skos:notation "ELIGIBLE_UNIVERSE" ;
+    :labelScheme :PresentationScheme ;
+    rdfs:label "Eligible universe for selection"@en, "Universo elegible para la selección"@es ;
+    rdfs:comment "Members on the date that have score, prices and risk-model coverage and no hard veto (vetoed = 0); eligibility does not mean the asset reaches the final book."@en, "Miembros del índice en la fecha que cumplen la disponibilidad de puntaje, precios y cobertura del modelo de riesgo y no tienen veto duro (vetoed = 0); elegible no significa que llegue a la cartera final."@es .
+
+:Process_CANDIDATE_POOL a skos:Concept ;
+    skos:inScheme :ProcessScheme ;
+    skos:notation "CANDIDATE_POOL" ;
+    :labelScheme :PresentationScheme ;
+    rdfs:label "Candidate pool"@en, "Grupo de candidatas"@es ;
+    rdfs:comment "In the System and the multifactor variants, the top 60 by eligible rank; it is not the number of stocks finally held."@en, "En el Sistema y las variantes multifactoriales, las 60 mejores por posición entre elegibles; no es el número de acciones finalmente mantenidas."@es .
+
+:Process_MAX_SATELLITE a skos:Concept ;
+    skos:inScheme :ProcessScheme ;
+    skos:notation "MAX_SATELLITE" ;
+    :labelScheme :PresentationScheme ;
+    rdfs:label "Maximum satellite holdings"@en, "Máximo de acciones del satélite"@es ;
+    rdfs:comment "At most 30; the actual number of positions is lower."@en, "Hasta 30; el número real de posiciones es menor."@es .
+
+:Process_SELECTION a skos:Concept ;
+    skos:inScheme :ProcessScheme ;
+    skos:notation "SELECTION" ;
+    :labelScheme :PresentationScheme ;
+    rdfs:label "Selection"@en, "Selección"@es ;
+    rdfs:comment "In the multifactor strategies, scores and vetoes determine the candidate pool; the Markowitz comparison books start from eligible members without that selection."@en, "En las estrategias multifactoriales, los puntajes y los vetos determinan el grupo de candidatas; los Markowitz de comparación parten de los miembros elegibles sin esa selección."@es .
+
+:Process_WEIGHTING a skos:Concept ;
+    skos:inScheme :ProcessScheme ;
+    skos:notation "WEIGHTING" ;
+    :labelScheme :PresentationScheme ;
+    rdfs:label "Weighting"@en, "Ponderación"@es ;
+    rdfs:comment "In the System the satellite is weighted by minimum CVaR under its caps; the other strategies use their configured method (e.g. minimum variance)."@en, "En el Sistema el satélite se pondera por mínimo CVaR bajo sus topes; las demás estrategias usan el método de su configuración (p. ej. mínima varianza)."@es .
+
+:Process_CORE_SATELLITE_CASH a skos:Concept ;
+    skos:inScheme :ProcessScheme ;
+    skos:notation "CORE_SATELLITE_CASH" ;
+    :labelScheme :PresentationScheme ;
+    rdfs:label "Core / satellite / cash"@en, "Núcleo / satélite / efectivo"@es ;
+    rdfs:comment "In the System, the nominal 50% SPY core and 50% satellite; the realized exposure can differ."@en, "En el Sistema, núcleo SPY nominal del 50 % y satélite del 50 %; la exposición realizada puede diferir."@es .
+
+:Process_NOMINAL_REALIZED a skos:Concept ;
+    skos:inScheme :ProcessScheme ;
+    skos:notation "NOMINAL_REALIZED" ;
+    :labelScheme :PresentationScheme ;
+    rdfs:label "Nominal / realized composition"@en, "Composición nominal / realizada"@es ;
+    rdfs:comment "Nominal is what the configuration declares; realized is what results after the trend filter, the optimizer and GUARD."@en, "Nominal es la que declara la configuración; realizada es la que resulta tras el filtro de tendencia, el optimizador y GUARD."@es .
+
+:Process_SCHEDULED_REBALANCE a skos:Concept ;
+    skos:inScheme :ProcessScheme ;
+    skos:notation "SCHEDULED_REBALANCE" ;
+    :labelScheme :PresentationScheme ;
+    rdfs:label "Scheduled rebalance"@en, "Rebalanceo programado"@es ;
+    rdfs:comment "Every 21 sessions the engine books recompute selection and weights and trade the difference; this is distinct from GUARD daily adjustments."@en, "Cada 21 sesiones los libros del motor recalculan la selección y los pesos y operan la diferencia; es distinto de los ajustes diarios de GUARD."@es .
+
+:Process_TRADING_DAY a skos:Concept ;
+    skos:inScheme :ProcessScheme ;
+    skos:notation "TRADING_DAY" ;
+    :labelScheme :PresentationScheme ;
+    rdfs:label "Trading day"@en, "Día con operaciones"@es ;
+    rdfs:comment "A session with turnover greater than zero."@en, "Sesión con rotación mayor que cero."@es .
+
+:Process_GROSS_NET a skos:Concept ;
+    skos:inScheme :ProcessScheme ;
+    skos:notation "GROSS_NET" ;
+    :labelScheme :PresentationScheme ;
+    rdfs:label "Gross / net return"@en, "Retorno bruto / neto"@es ;
+    rdfs:comment "Net return subtracts transaction costs."@en, "El retorno neto descuenta los costos de transacción."@es .
+
+:Process_SHARPE a skos:Concept ;
+    skos:inScheme :ProcessScheme ;
+    skos:notation "SHARPE" ;
+    :labelScheme :PresentationScheme ;
+    rdfs:label "Sharpe ratio"@en, "Ratio de Sharpe"@es ;
+    rdfs:comment "Mean excess return over its standard deviation; state whether it is annualized."@en, "Media del retorno en exceso sobre su desviación estándar; indicar si está anualizado."@es .
+
+:Process_CVAR_95 a skos:Concept ;
+    skos:inScheme :ProcessScheme ;
+    skos:notation "CVAR_95" ;
+    :labelScheme :PresentationScheme ;
+    rdfs:label "95% CVaR"@en, "CVaR 95 %"@es ;
+    rdfs:comment "Mean loss conditional on being in the worst 5% of the evaluated returns; state the return frequency and sign convention."@en, "Pérdida media condicionada a estar en el 5 % de los peores retornos de la serie evaluada; indicar la frecuencia y la convención de signo."@es .
+
+:Process_MDD a skos:Concept ;
+    skos:inScheme :ProcessScheme ;
+    skos:notation "MDD" ;
+    :labelScheme :PresentationScheme ;
+    rdfs:label "Maximum drawdown"@en, "Máxima caída"@es ;
+    rdfs:comment "Largest percentage fall from a running peak to the later trough before recovering that peak; not a daily loss."@en, "Mayor caída porcentual desde un máximo acumulado hasta el mínimo posterior antes de recuperar ese máximo; no es una pérdida diaria."@es .
+
+:Process_TURNOVER a skos:Concept ;
+    skos:inScheme :ProcessScheme ;
+    skos:notation "TURNOVER" ;
+    :labelScheme :PresentationScheme ;
+    rdfs:label "Turnover"@en, "Rotación"@es ;
+    rdfs:comment "Full sum of absolute equity-weight changes, not divided by two; cash does not count; it is the cost base."@en, "Suma completa de los cambios absolutos de peso en acciones, sin dividir entre dos; el efectivo no cuenta; es la base del costo."@es .
+
+:Process_TRANSACTION_COSTS a skos:Concept ;
+    skos:inScheme :ProcessScheme ;
+    skos:notation "TRANSACTION_COSTS" ;
+    :labelScheme :PresentationScheme ;
+    rdfs:label "Transaction costs"@en, "Costos de transacción"@es ;
+    rdfs:comment "Basis points of turnover (10 in the main runs)."@en, "Puntos básicos de la rotación (10 en las corridas principales)."@es .
+
+:Process_BENCHMARK a skos:Concept ;
+    skos:inScheme :ProcessScheme ;
+    skos:notation "BENCHMARK" ;
+    :labelScheme :PresentationScheme ;
+    rdfs:label "Benchmark"@en, "Referencia"@es ;
+    rdfs:comment "A comparison strategy; see the strategy vocabulary."@en, "Estrategia de comparación; ver el vocabulario de estrategias."@es .
+
+:Process_DSR_PBO a skos:Concept ;
+    skos:inScheme :ProcessScheme ;
+    skos:notation "DSR_PBO" ;
+    :labelScheme :PresentationScheme ;
+    rdfs:label "Deflated Sharpe ratio / probability of backtest overfitting"@en, "Ratio de Sharpe deflactado / probabilidad de sobreajuste"@es ;
+    rdfs:comment "Selection and overfitting diagnostics; not superiority tests between strategies and not automatic acceptance criteria."@en, "Diagnósticos de selección y sobreajuste; no son pruebas de superioridad entre estrategias ni criterios automáticos de aceptación."@es .
+
+:Process_DATA_STATE a skos:Concept ;
+    skos:inScheme :ProcessScheme ;
+    skos:notation "DATA_STATE" ;
+    :labelScheme :PresentationScheme ;
+    rdfs:label "Data availability and quality"@en, "Disponibilidad y calidad del dato"@es ;
+    rdfs:comment "Available, unavailable, insufficient, stale or provisional."@en, "Disponible, no disponible, insuficiente, desactualizado o provisional."@es .
+
+:Process_DATA_NATURE a skos:Concept ;
+    skos:inScheme :ProcessScheme ;
+    skos:notation "DATA_NATURE" ;
+    :labelScheme :PresentationScheme ;
+    rdfs:label "Data nature"@en, "Naturaleza del dato"@es ;
+    rdfs:comment "Observed, calculated or derived; a different dimension from the data state."@en, "Observado, calculado o derivado; una dimensión distinta del estado del dato."@es .
+
+:Process_IN_SAMPLE a skos:Concept ;
+    skos:inScheme :ProcessScheme ;
+    skos:notation "IN_SAMPLE" ;
+    :labelScheme :PresentationScheme ;
+    rdfs:label "In-sample result"@en, "Resultado dentro de muestra"@es ;
+    rdfs:comment "A result from a window that was seen before the final configuration was chosen."@en, "Resultado de una ventana que se vio antes de elegir la configuración final."@es .
+
+:Process_OUT_OF_SAMPLE a skos:Concept ;
+    skos:inScheme :ProcessScheme ;
+    skos:notation "OUT_OF_SAMPLE" ;
+    :labelScheme :PresentationScheme ;
+    rdfs:label "Out-of-sample result"@en, "Resultado fuera de muestra"@es ;
+    rdfs:comment "A result from data not seen before the configuration was chosen; the final configuration has none."@en, "Resultado de datos no vistos antes de elegir la configuración; la configuración final no tiene ninguno."@es .
+
+:Process_COUNTING_RULE a skos:Concept ;
+    skos:inScheme :ProcessScheme ;
+    skos:notation "COUNTING_RULE" ;
+    :labelScheme :PresentationScheme ;
+    rdfs:label "Counting rule"@en, "Regla de conteo"@es ;
+    rdfs:comment "Rows whose date lies inside the window date range; formation-day alerts and warm-up vetoes are reported separately and included when a window total is given."@en, "Filas con fecha dentro de los límites de la ventana; las alertas del día de formación y los vetos del calentamiento se reportan aparte y se incluyen cuando se da el total de la ventana."@es .
+
+:Process_FORMATION_DAY_ALERT a skos:Concept ;
+    skos:inScheme :ProcessScheme ;
+    skos:notation "FORMATION_DAY_ALERT" ;
+    :labelScheme :PresentationScheme ;
+    rdfs:label "Formation-day alert"@en, "Alerta del día de formación"@es ;
+    rdfs:comment "A layer-1 alert dated on the last session before the window; report it separately from the in-window alerts."@en, "Alerta de capa 1 fechada en la última sesión antes de la ventana; reportarla aparte de las alertas dentro de la ventana."@es .
+
+:Process_WARMUP_VETO a skos:Concept ;
+    skos:inScheme :ProcessScheme ;
+    skos:notation "WARMUP_VETO" ;
+    :labelScheme :PresentationScheme ;
+    rdfs:label "Warm-up veto"@en, "Veto del calentamiento"@es ;
+    rdfs:comment "A veto dated before the window because the book starts its cycles 12 steps earlier; report it separately."@en, "Veto fechado antes de la ventana porque el libro arranca sus ciclos 12 pasos antes; reportarlo aparte."@es .
+
+:Process_NOT_IN_KNOWLEDGE_BASE a skos:Concept ;
+    skos:inScheme :ProcessScheme ;
+    skos:notation "NOT_IN_KNOWLEDGE_BASE" ;
+    :labelScheme :PresentationScheme ;
+    rdfs:label "Not in the knowledge base used"@en, "No está en la base de conocimiento usada"@es ;
+    rdfs:comment "The data is not available in the graph used for the answer; it does not mean the data does not exist in the project."@en, "El dato no está disponible en el grafo usado para la respuesta; no significa que no exista en el proyecto."@es .
+
+:Process_CONCEPTUAL_ANSWER a skos:Concept ;
+    skos:inScheme :ProcessScheme ;
+    skos:notation "CONCEPTUAL_ANSWER" ;
+    :labelScheme :PresentationScheme ;
+    rdfs:label "Conceptual answer"@en, "Respuesta conceptual"@es ;
+    rdfs:comment "A definition or explanation needs no window, run or counting rule."@en, "Una definición o explicación no necesita ventana, corrida ni regla de conteo."@es .
+
+:Process_OPERATIONS_NOT_ORDERS a skos:Concept ;
+    skos:inScheme :ProcessScheme ;
+    skos:notation "OPERATIONS_NOT_ORDERS" ;
+    :labelScheme :PresentationScheme ;
+    rdfs:label "GUARD states are not orders"@en, "Los estados de GUARD no son órdenes"@es ;
+    rdfs:comment "States and alerts are not buy or sell orders; a weight change alone does not prove a trade."@en, "Los estados y alertas no son órdenes de compra o venta; un cambio de peso por sí solo no demuestra una operación."@es .
+
+:Process_SCORE_NOT_WEIGHT a skos:Concept ;
+    skos:inScheme :ProcessScheme ;
+    skos:notation "SCORE_NOT_WEIGHT" ;
+    :labelScheme :PresentationScheme ;
+    rdfs:label "Score is not weight"@en, "El puntaje no es el peso"@es ;
+    rdfs:comment "The score determines the candidate pool; the weights come from the optimizer and satellite_weighting, not from the score or objective."@en, "El puntaje determina el grupo de candidatas; los pesos vienen del optimizador y de satellite_weighting, no del puntaje ni de objective."@es .
+
+:Strategy_System a skos:Concept ;
+    skos:inScheme :StrategyScheme ;
+    skos:notation "TOPN_MV_GUARD_NO_NLP" ;
+    :labelScheme :PresentationScheme ;
+    rdfs:label "Core-satellite multifactor with CVaR weighting and GUARD supervision"@en, "Núcleo-satélite multifactorial con ponderación por CVaR y supervisión GUARD"@es ;
+    rdfs:comment "Nominal mandate of 50% SPY and 50% in up to 30 stocks from the 60-name eligible candidate pool (technical, valuation and fundamental scores with vetoes), weighted by minimum CVaR with a per-name cap of 1.5 divided by the number of stocks, trend filter and GUARD supervision; the realized composition differs from the nominal mandate."@en, "Mandato nominal de 50 % en SPY y 50 % en hasta 30 acciones del grupo de 60 candidatas elegibles (puntajes técnico, de valoración y fundamental con vetos), ponderadas por mínimo CVaR con tope por nombre de 1.5 dividido entre el número de acciones, filtro de tendencia y supervisión GUARD; la composición realizada difiere del mandato nominal."@es ;
+    skos:altLabel "The System"@en, "Sistema"@en, "NS-CVaR-GUARD"@en ;
+    skos:altLabel "El Sistema"@es, "Sistema"@es, "NS-CVaR-GUARD"@es .
+
+:Strategy_SystemNoGuard a skos:Concept ;
+    skos:inScheme :StrategyScheme ;
+    skos:notation "TOPN_MV_NOGUARD" ;
+    :labelScheme :PresentationScheme ;
+    rdfs:label "Core-satellite multifactor with CVaR weighting, without GUARD"@en, "Núcleo-satélite multifactorial con ponderación por CVaR, sin GUARD"@es ;
+    rdfs:comment "The System without GUARD supervision."@en, "El Sistema sin la supervisión GUARD."@es ;
+    skos:altLabel "FINAL NOGUARD"@en, "NS-CVaR"@en ;
+    skos:altLabel "FINAL NOGUARD"@es, "NS-CVaR"@es .
+
+:Strategy_MinVarianceLedoitWolf a skos:Concept ;
+    skos:inScheme :StrategyScheme ;
+    skos:notation "MARKOWITZ_BASE" ;
+    :labelScheme :PresentationScheme ;
+    rdfs:label "Markowitz minimum variance (Ledoit-Wolf covariance)"@en, "Markowitz de mínima varianza (covarianza Ledoit-Wolf)"@es ;
+    rdfs:comment "Minimum-variance portfolio over the eligible S&P 500 members, long-only, at most 5% per stock and 30% per sector, with Ledoit-Wolf shrinkage covariance; it does not estimate expected returns; no SPY, trend filter or selection."@en, "Cartera de mínima varianza sobre los miembros elegibles del S&P 500, solo largos, máximo 5 % por acción y 30 % por sector, con covarianza con contracción de Ledoit-Wolf; no estima retornos esperados; sin SPY, filtro ni selección."@es ;
+    skos:altLabel "Minimum variance (MV-LW)"@en, "Mínima varianza (MV-LW)"@en ;
+    skos:altLabel "Minimum variance (MV-LW)"@es, "Mínima varianza (MV-LW)"@es .
+
+:Strategy_MinVarianceLedoitWolfGuard a skos:Concept ;
+    skos:inScheme :StrategyScheme ;
+    skos:notation "MARKOWITZ_BASE_GUARD" ;
+    :labelScheme :PresentationScheme ;
+    rdfs:label "Markowitz minimum variance (Ledoit-Wolf covariance) with GUARD supervision"@en, "Markowitz de mínima varianza (covarianza Ledoit-Wolf) con supervisión GUARD"@es ;
+    rdfs:comment "The Ledoit-Wolf minimum-variance portfolio with GUARD supervision (21-session per-stock stop and drawdown scaling)."@en, "La cartera de mínima varianza (Ledoit-Wolf) con la supervisión GUARD (parada de 21 sesiones por acción y escalamiento por caída)."@es ;
+    skos:altLabel "Minimum variance (MV-LW) + GUARD"@en, "Mínima varianza (MV-LW) + GUARD"@en ;
+    skos:altLabel "Minimum variance (MV-LW) + GUARD"@es, "Mínima varianza (MV-LW) + GUARD"@es .
+
+:Strategy_MeanVarianceBase a skos:Concept ;
+    skos:inScheme :StrategyScheme ;
+    skos:notation "MARKOWITZ_MV" ;
+    :labelScheme :PresentationScheme ;
+    rdfs:label "Mean-variance base Markowitz (tangency portfolio; historical means and covariance)"@en, "Markowitz base de media-varianza (cartera de tangencia; medias y covarianza históricas)"@es ;
+    rdfs:comment "Only per-window and segment summaries are loaded (no daily series, weights or alerts); computed outside the engine by an independent simulator validated against the engine MARKOWITZ_BASE book; in-sample; no GUARD."@en, "Solo se cargan resúmenes por ventana y segmento (sin serie diaria, pesos ni alertas); calculada fuera del motor por un simulador independiente validado contra el libro MARKOWITZ_BASE del motor; resultados dentro de muestra; sin GUARD."@es ;
+    skos:altLabel "Markowitz base (MV-Tangencia)"@en, "MV-Tangencia"@en ;
+    skos:altLabel "Markowitz base (MV-Tangencia)"@es, "MV-Tangencia"@es .
