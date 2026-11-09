@@ -1087,8 +1087,10 @@ Reviewer A's summary-only `MARKOWITZ_MV` delivery into the append-only
 required. The whitelist parser accepts exactly the eight segments, rejects an extra/missing key, an
 unknown window/segment, a duplicate identity, a malformed date/decimal, a non-zero
 `n_guard_actions` and a six-window rebalance total other than 61. It builds one `:StrategyBook` per
-window (`armCode "MARKOWITZ_MV"`, `:dataSource` from the file, `:codeVersion` = the `sim_v3.py`
-SHA-256 in the configuration) and one `:PortfolioPeriodSummary` per segment; `n_sessions` and
+window (`armCode "MARKOWITZ_MV"`, `bookId` = the engine's maximum + 1 and `backtestRunId` = the
+engine's own run id, read read-only; `objective "max_sharpe"`, pending Reviewer A; `:dataSource`
+from the file; `:codeVersion` = the `sim_v3.py` SHA-256 in the configuration) and one
+`:PortfolioPeriodSummary` per segment; `n_sessions` and
 `cvar95` are validated but not projected. The engine's 13 graphs are untouched.
 
 Authoritative map: `schema/README.md`. File → named graph → format:

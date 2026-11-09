@@ -249,8 +249,12 @@ KG_REPOSITORY=portfolio uv run python cli/load_mv_base.py --label final \
   --dir "/workspaces/thesis/knoledge graph/mv_base" --write --to-production
 ```
 
-It writes `urn:graph:derived:backtest:external:final` with six `:StrategyBook` individuals and
-eight `:PortfolioPeriodSummary` rows; no daily series, weights or alerts are stored. The dry run
+The loader reads `bookId` and `backtestRunId` read-only from the engine's `final_<window>.db`
+(`--engine-dir` defaults to `/workspaces/thesis/scratch/final/final_corregida`; it stops if a
+database is missing) and cross-checks every segment's `date_from`/`date_to` against the engine's
+`MARKOWITZ_BASE` rows. It writes `urn:graph:derived:backtest:external:final` with six
+`:StrategyBook` individuals and eight `:PortfolioPeriodSummary` rows; no daily series, weights or
+alerts are stored. The dry run
 must end with `SHACL: conforms (gate.validate)` and the pre-flight must report `would-be-written`
 (or `already-in-the-store` if the graph is already there). The engine graphs are untouched.
 

@@ -1383,4 +1383,7 @@ GraphDB write is made in this work. See `docs/labels-design.md` §8 and `PLAN.md
       maintainer's step.
 - [ ] **T-789** Load `urn:graph:derived:backtest:external:final` in production; the maintainer's
       step.
-- [ ] **T-790–T-809** Reserved for review fixes and the production record.
+- [x] **T-790** *(done 2026-11-09: `--engine-dir`, read-only engine ids/dates, tests.)* Read the
+      engine `book_id`/run id read-only and cross-check the segment dates against
+      `MARKOWITZ_BASE`.
+- [ ] **T-791–T-809** Reserved for review fixes and the production record.

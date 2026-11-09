@@ -5,12 +5,14 @@ from __future__ import annotations
 import copy
 import hashlib
 import json
+import sqlite3
 from pathlib import Path
 from typing import Any, cast
 
 import pytest
 import rdflib
 from fixtures.dataset_store import DatasetStore
+from fixtures.mv_base_rows import write_engine
 from rdflib.namespace import RDF, XSD
 
 from kg_store import gate
@@ -18,6 +20,7 @@ from kg_store.graphdb import GraphDB
 from projection.mv_base import (
     ARM,
     GRAPH_PREFIX,
+    OBJECTIVE,
     ManifestError,
     MvBaseError,
     book_iri,
@@ -121,7 +124,8 @@ def _write(tmp_path: Path, doc: dict[str, Any] | None = None, config: str = _CON
 
 def _data(tmp_path: Path, doc: dict[str, Any] | None = None) -> Any:
     directory = _write(tmp_path, doc)
-    return load_file("final", directory)
+    engine = write_engine(tmp_path, doc)
+    return load_file("final", directory, engine)
 
 
 def test_the_synthetic_document_has_the_real_shape() -> None:
@@ -176,6 +180,13 @@ def test_the_projection_has_one_book_per_window_and_one_summary_per_segment(
         assert (book, KG.armCode, rdflib.Literal(ARM)) in graph
         assert (book, KG.dataSource, rdflib.Literal(data.source)) in graph
         assert (book, KG.codeVersion, rdflib.Literal(_SIM_HASH)) in graph
+        assert (book, KG.bookId, rdflib.Literal(6, datatype=XSD.integer)) in graph
+        assert (
+            book,
+            KG.backtestRunId,
+            rdflib.Literal(42, datatype=XSD.integer),
+        ) in graph
+        assert (book, KG.objective, rdflib.Literal("max_sharpe")) in graph
     for summary in summaries:
         assert (
             summary,
@@ -333,3 +344,46 @@ def test_the_manifest_ignores_provenance_entries(tmp_path: Path) -> None:
     entries = (directory / "SHA256SUMS").read_text(encoding="utf-8")
     assert "provenance/sim_v3.py" in entries
     verify_manifest(directory, ("aggregates_mv_base.json", "config_mv_base.md"))
+
+
+def test_engine_book_id_is_max_plus_one_and_run_id_is_the_engines(
+    tmp_path: Path,
+) -> None:
+    data = _data(tmp_path)
+    assert data.engine["P1"].book_id == 6
+    assert data.engine["P1"].run_id == 42
+    assert set(data.engine) == {"P1", "H1", "P3", "H2", "P2", "H3"}
+
+
+def test_a_missing_engine_database_stops_with_a_clear_message(tmp_path: Path) -> None:
+    directory = _write(tmp_path)
+    with pytest.raises(MvBaseError, match="engine database is missing"):
+        load_file("final", directory, tmp_path / "missing")
+
+
+def test_an_engine_date_mismatch_stops(tmp_path: Path) -> None:
+    directory = _write(tmp_path)
+    engine = write_engine(tmp_path)
+    path = engine / "final_P1.db"
+    connection = sqlite3.connect(path)
+    try:
+        connection.execute(
+            "UPDATE v_portfolio_period_summary SET date_from = '2022-01-04' "
+            "WHERE window_id = 'P1' AND segment = 'P1'"
+        )
+        connection.commit()
+    finally:
+        connection.close()
+    with pytest.raises(MvBaseError, match="date_from is"):
+        load_file("final", directory, engine)
+
+
+def test_an_engine_rebalance_mismatch_warns_but_does_not_stop(tmp_path: Path) -> None:
+    directory = _write(tmp_path)
+    engine = write_engine(tmp_path, rebalances={("P1", "P1"): 999})
+    data = load_file("final", directory, engine)
+    assert any("n_rebalances is 999" in warning for warning in data.warnings)
+
+
+def test_the_objective_constant_is_max_sharpe() -> None:
+    assert OBJECTIVE == "max_sharpe"

@@ -509,7 +509,9 @@ what the store *enforces*.
     (`xsd:string`, optional, at most one) is declared on `:StrategyBook`; the `:codeVersion`
     comment now also covers the external simulator's SHA-256. `src/projection/mv_base.py` and
     `cli/load_mv_base.py` load the external summary-only book into
-    `urn:graph:derived:backtest:external:{label}`; the gate accepts that graph name. No class or
+    `urn:graph:derived:backtest:external:{label}`; its `bookId` is the engine's maximum + 1 and its
+    `backtestRunId` is the engine's own run id, both read read-only from `final_<window>.db`
+    (`objective "max_sharpe"`, pending Reviewer A). The gate accepts that graph name. No class or
     named shape was added: **58 classes (44 disjoint leaves), 39 named shapes, 4940 quads;
     conforms: True**, load plan **5217 asserted triples** (production **4696**). The store must be
     reloaded afterwards (`cli/load_schema.py` with `KG_REPOSITORY=portfolio_test`, then
