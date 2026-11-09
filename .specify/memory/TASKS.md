@@ -1315,3 +1315,42 @@ numbers now carry the `final_corregida` dry run beside the pilot rows. See `CHAN
 T-163 (function done, PR #68) closes with T-031, whose first slice (PR #72) calls it on the real read and re-reads the late keys for `v_score_snapshot`; T-164 done (PR #69).
 Work item 8 (T-070–T-071) is independent but needs a human at a Protégé
 session, not a coding session.
+
+## Work item 43 — Bilingual labels for the final graph (T-750–T-779)
+
+*From Reviewer A's Part B request (B1–B4). Phase 1 is design only; implementation
+starts at T-751. See `docs/labels-design.md` and `PLAN.md` Work item 43.*
+
+- [x] **T-750** *(done 2026-11-09: `docs/labels-design.md`; PLAN/TASKS entries.)*
+      Record the graph mapping, concept vocabulary, window/strategy labels,
+      drafting rules, English-review workflow, v1.3 instruction changes and the
+      14-question evaluation sheet.
+- [ ] **T-751** Create `schema/labels.ttl` with the schemes, concepts,
+      `skos:notation` codes, bilingual labels/comments/altLabels and the two
+      window condition fields; add `tests/test_labels.py` for notation uniqueness
+      per scheme, one label/comment per language, window fields, and the absence of
+      C1/`rule`/`candidate_y2`. No run IRI.
+- [ ] **T-752** Add `LabelConceptShape` to `shapes.ttl`; add `labels.ttl` to
+      `LOAD_PLAN` and FR-001; update `expected_sizes`, the load-plan tests, the
+      acceptance "4 schema graphs" expectation, the shape count (39 → 40) and every
+      live count (`4915+D`, `5192+D`, `4671+D`, 21/5 graphs).
+- [ ] **T-753** Add bilingual labels/comments to the seven GUARD rules and the
+      active selection rules in `rules.ttl`; label the three veto-class concepts
+      and the markers; rewrite the touched `L4_DD` comment with "all the reference
+      weights, including the SPY core" and without Grossman-Zhou.
+- [ ] **T-754** Add bilingual labels/comments to the schema classes/properties of
+      the strategy-book, GUARD, veto, score, rank, configuration and process
+      groups; label the `MetricTypeScheme` concepts; add the `objective` label
+      "Registered optimization class" and keep the WI 41 comment facts.
+- [ ] **T-755** Write `docs/labels-en-review.md` (code, ES comment, EN draft,
+      reviewer decision) and obtain Reviewer A's approval before freezing.
+- [ ] **T-756** Freeze the approved English; run the final label audit; decide the
+      `kg_target_schema.ttl` mirror; clean the remaining Tiingo/Grossman comments
+      only if the global scope is confirmed.
+- [ ] **T-757** Write `docs/ttyg/instructions-v1.3.md` with the §9 changes and
+      `ontology_construct_curated_v3.rq`; update `docs/ttyg/README.md` and its test.
+- [ ] **T-758** Write `docs/ttyg/evaluation-questions.md` with the 14 ES/EN
+      questions, answer/query columns and the four criteria; keep it empty.
+- [ ] **T-759** Human run of the evaluation sheet against the loaded graph; record
+      the four criteria and file the findings outside the committed sheet.
+- [ ] **T-760–T-779** Reserve for review fixes or a second label pass.
