@@ -1547,7 +1547,7 @@
 :runStatus a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :StrategyBook ; rdfs:range xsd:string ;
     rdfs:comment "v_book.run_status = backtest_run.status (running | completed | failed in the DDL; open). Distinct from :status." .
 :objective a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :StrategyBook ; rdfs:range xsd:string ;
-    rdfs:comment "v_book.objective, upstream's strategy_book.objective ('min_var' in the three backtest databases; 'equal_weight' is the benchmark in the DDL). Open, read verbatim." .
+    rdfs:comment "v_book.objective, upstream's strategy_book.objective, open and read verbatim. Upstream's _insert_books function writes it as a fixed literal per arm: 'min_var' for every optimized arm and 'equal_weight' for the benchmark SP500_EW_INTERNAL, independent of the run's satellite_weighting. The delivery's config_final.md describes a minimum-variance optimisation step that keeps at most 30 names, followed by minimum-CVaR weighting of those names, so the literal 'min_var' is NOT the weighting objective of the TOPN_MV_* books and must not be presented as such. Confirmation of the full meaning by upstream's maintainer is pending." .
 :excludeHardVetoed a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :StrategyBook ; rdfs:range xsd:boolean ;
     rdfs:comment "v_book.exclude_hard_vetoed, upstream INTEGER 0/1 projected as false/true. The DDL comment says 0 on MARKOWITZ_BASE and 1 on TOPN_MV_*; the completed P1/P2/P3 databases hold 0 on all three arms, so the shape requires only a boolean and does NOT constrain it per arm (data over DDL comment)." .
 :guardLayers a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :StrategyBook ; rdfs:range xsd:string ;
