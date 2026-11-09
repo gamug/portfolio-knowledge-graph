@@ -1,0 +1,40 @@
+PREFIX :     <https://thesis.local/kg/portfolio#>
+PREFIX rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX owl:  <http://www.w3.org/2002/07/owl#>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+
+# Only the classes a reports agent needs, and their properties.
+CONSTRUCT {
+  ?c a owl:Class ; rdfs:label ?cl ; rdfs:comment ?cc ; skos:definition ?cd .
+  ?p a ?ptype ; rdfs:comment ?pc ; rdfs:domain ?dom ; rdfs:range ?rng ; owl:inverseOf ?inv .
+}
+WHERE {
+  VALUES ?c { :StrategyBook :BookRebalance :BookWeightDaily :BookDailyPerformance :PortfolioPeriodSummary
+              :BacktestTest :GuardAlert :GuardAction :SelectionCycle :AttractivenessSnapshot :WeightComponent
+              :AttractivenessWeightScheme :Veto :RuleDefinition :Asset :ExchangeTradedFund :UniverseMembership
+              :Universe :Industry :Sector :TickerHistory :BacktestRun :RunConfiguration :AggregatesSet :TrendFilterState :ReferenceReturn }
+  GRAPH <urn:graph:tbox> {
+    {
+      ?c a owl:Class .
+      OPTIONAL { ?c rdfs:label ?cl }
+      OPTIONAL { ?c rdfs:comment ?cc . FILTER (STRLEN(?cc) <= 350) }
+      OPTIONAL { ?c skos:definition ?cd . FILTER (STRLEN(?cd) <= 350) }
+    }
+    UNION
+    {
+      VALUES ?ptype { owl:ObjectProperty owl:DatatypeProperty }
+      ?p a ?ptype .
+      OPTIONAL { ?p rdfs:domain ?dom . FILTER (isIRI(?dom)) }
+      FILTER (!BOUND(?dom) || ?dom IN (:StrategyBook, :BookRebalance, :BookWeightDaily, :BookDailyPerformance,
+              :PortfolioPeriodSummary, :BacktestTest, :GuardAlert, :GuardAction, :SelectionCycle,
+              :AttractivenessSnapshot, :WeightComponent, :AttractivenessWeightScheme, :Veto, :RuleDefinition,
+              :Asset, :ExchangeTradedFund, :UniverseMembership, :Universe, :Industry, :Sector, :TickerHistory,
+              :BacktestRun, :RunConfiguration,
+              :AggregatesSet, :TrendFilterState, :ReferenceReturn))
+      OPTIONAL { ?p rdfs:comment ?pc . FILTER (STRLEN(?pc) <= 350) }
+      OPTIONAL { ?p rdfs:range ?rng . FILTER (isIRI(?rng)) }
+      OPTIONAL { ?p owl:inverseOf ?inv }
+    }
+  }
+}

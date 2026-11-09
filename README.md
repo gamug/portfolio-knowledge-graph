@@ -34,6 +34,7 @@ the numbered docs, in order:
 | `09` | [`docs/09-nlp-finbert-architecture.md`](docs/09-nlp-finbert-architecture.md) | The Semantic Agent's NLP pipeline (FinBERT tone + NER + event/category classification). |
 | `10` | [`docs/10-integration-roadmap.md`](docs/10-integration-roadmap.md) | Dependency-ordered steps (0–9) with the owning repo and status of each. Step 0 (`schema/`) is the only one built here; steps 3–9 are computation built (or planned) in the sibling repos. |
 | — | [`docs/reports-agent-query-catalog.md`](docs/reports-agent-query-catalog.md) | The reports-agent query contract: scoped SPARQL for the FIBO glossary and the backtest battery, the brief's 11 evaluation questions (including what is not projected yet), and the executable test that keeps the catalog true. |
+| — | [`docs/ttyg/`](docs/ttyg/README.md) | Source of truth for the Talk to Your Graph agent: the curated CONSTRUCT, the English v1.2 additional instructions and how they map to the Workbench form. |
 | — | [`docs/backtest-load-runbook.md`](docs/backtest-load-runbook.md) | The final-backtest load procedure: the one-command `cli/load_run.py` flow first, the six date-ordered windows, the `SHA256SUMS` manifest and `config_<label>.md` configuration, the metadata graph, the manual fallback, schema and catalog prerequisites, contract check, label choice, both dry runs, the full read-only `--check-store` pre-flight, writes and production guard, `cli/verify_backtest.py` for m018 and selection graphs, the `cli/load_aggregates.py` step after the run, recording the numbers, single-graph rollback, whole-label removal, the one-time catalog load and its incremental `--delta` extension, and the common failure messages. |
 Each doc is a companion to its neighbors, not standalone — a class defined in `06` gets its
 storage location assigned in `07` and its writer assigned in `08`.
@@ -62,6 +63,7 @@ storage location assigned in `07` and its writer assigned in `08`.
     ├── 09-nlp-finbert-architecture.md     NLP / FinBERT pipeline design
     ├── 10-integration-roadmap.md          10-step roadmap, with owner repo per step
     ├── reports-agent-query-catalog.md     the reports-agent query contract + executable test
+    ├── ttyg/                              Talk to Your Graph agent sources: curated CONSTRUCT + v1.2 instructions
     ├── FAQ.md                             running Q&A log on graph population mechanics
     ├── portfolio-common-v1-migration-plan.md      decision record: adopting portfolio-common v1
     ├── portfolio-common-v1.2-engine-agnostic.md   how the engine-agnostic state was reached
