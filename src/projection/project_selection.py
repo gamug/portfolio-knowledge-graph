@@ -36,7 +36,7 @@ from collections.abc import Sequence
 from typing import Any
 
 from etl import config
-from kg_store.graphdb import GraphDB, GraphDBError
+from kg_store.graphdb import GraphDB, GraphDBError, announce_target
 from projection.backtest import (
     ProjectionError,
     RunResult,
@@ -172,6 +172,8 @@ def main(argv: Sequence[str] | None = None) -> int:  # noqa: PLR0911 -- one per 
     check_failed = False
     results: list[tuple[Database, Any]] = []
     try:
+        if args.check_store or args.write:
+            announce_target(GraphDB.from_env())
         if args.check_store:
             check_failed = check_store(args)
         else:

@@ -53,19 +53,35 @@ queries prove slow.
 ## Loading `schema/` (T-021)
 
 ```bash
-uv run python cli/load_schema.py [--dir path/to/schema]
+uv run python cli/load_schema.py [--dir path/to/schema] [--to-production]
 ```
 
 Loads `tbox → shapes → reference → fibo → rules → instances.trig` per the graph map in
-[`schema/README.md`](../schema/README.md). It first drops every graph it is about to write, so a
-re-run (for example after a schema edit) replaces rather than duplicates. It then parses the same
-files with `rdflib` and compares the asserted triple count of each of those graphs with the store's
-(inferred statements excluded), exiting non-zero on any mismatch; the counts are printed, not
-hard-coded here. The drops and uploads run in one transaction, so a failed load changes nothing.
-Graphs that are not in `schema/` (for example ingest graphs written later) are left alone and only
-counted in a closing note; a graph removed from `schema/` has to be dropped by hand. **T-105 migration:** a repository loaded before T-105 still holds `urn:graph:ingest:QUANTITATIVE:2026-08-05`; run `DROP GRAPH <urn:graph:ingest:QUANTITATIVE:2026-08-05>` once, or the same snapshots will exist under both `agentOrigin` values and fail `ScoreSnapshotShape`.
+[`schema/README.md`](../schema/README.md). The production repository is the exception: it never
+receives `instances.trig`'s worked-example ABox, so a production load writes only `tbox`, `shapes`,
+`reference`, `fibo` and `rules` (four graphs, 4671 asserted triples at this revision). A
+`portfolio_test` or other non-production load keeps the 20 graphs and 5192 triples including the
+examples. The target must be deliberate: `KG_REPOSITORY=portfolio` without `--to-production` exits
+2 before any request, and `cli/verify_store.py` takes the same flag even though it only reads.
+A production repository loaded before this change may still hold old example graphs: the loader
+does not drop graphs it no longer loads, so list them and drop only the example graphs by hand
+after a backup (never a real `urn:graph:portfolio:current` or ingest graph).
+
+The command first drops every graph it is about to write, so a re-run (for example after a schema
+edit) replaces rather than duplicates. It then parses the same files with `rdflib` and compares the
+asserted triple count of each of those graphs with the store's (inferred statements excluded),
+exiting non-zero on any mismatch; the counts are printed, not hard-coded here. The drops and
+uploads run in one transaction, so a failed load changes nothing. Graphs that are not in `schema/`
+(for example ingest graphs written later) are left alone and only counted in a closing note; a
+graph removed from `schema/` has to be dropped by hand. **T-105 migration:** a repository loaded before T-105 still holds `urn:graph:ingest:QUANTITATIVE:2026-08-05`; run `DROP GRAPH <urn:graph:ingest:QUANTITATIVE:2026-08-05>` once, or the same snapshots will exist under both `agentOrigin` values and fail `ScoreSnapshotShape`.
 Needs write access (`WRITE_REPO_portfolio`). It loads `schema/` only; the ETL's `data.ttl` and
 projected upstream data belong to Work item 4.
+
+Every CLI that opens the store prints its target as the first output line, for example
+`target: GraphDB http://host.docker.internal:7200 repository portfolio [PRODUCTION]`; a dry run
+that never contacts GraphDB prints no banner. If `KG_HOST` or `KG_REPOSITORY` is set in the process
+environment with a different value than `.env`, one warning line names the variable and both
+values. Neither line ever prints `KG_USER`, `KG_PASSWORD` or another key.
 
 ## Loading the asset master (T-220)
 
@@ -456,20 +472,20 @@ portfolio_test, 2026-11-04" below.
 ## Acceptance check (T-025)
 
 ```bash
-uv run python cli/verify_store.py
+uv run python cli/verify_store.py [--to-production]
 ```
 
 Runs the three checks Work item 3 requires of a running store with `schema/` loaded, plus the two
-of T-176 and the one of T-181 below, and exits non-zero if any fails ([`kg_store.acceptance`](../src/kg_store/acceptance.py)). It writes nothing.
+of T-176 and the one of T-181 below, and exits non-zero if any fails ([`kg_store.acceptance`](../src/kg_store/acceptance.py)). It writes nothing; `--to-production` is still required when the target is `portfolio`, so aiming the read-only checks at production is deliberate.
 
 | Check | What it proves |
 |---|---|
 | SPARQL query | `SELECT ?s WHERE { ?s a :Asset } LIMIT 5` over HTTP returns individuals |
 | Malformed write | a `ScoreSnapshot` that is valid except for the missing `:timestamp` is refused by the gate with a SHACL `minCount` violation on `:timestamp`, and that is the only violation reported (a rejection for any other reason fails the check; the probe carries `rawValue` and `availableAt` so `ScoreSnapshotShape` is otherwise satisfied); the store's size is unchanged and the target graph does not exist |
-| Reasoning profile | the repository reports `rdfsplus-optimized` and `disableSameAs` true, and `?x a :Observation` is answered by inference (nothing is asserted with it) and includes a `ScoreSnapshot`, which is two `rdfs:subClassOf` steps below it, so the chain is followed and not just one hop |
-| Schema graphs (T-176) | each graph `schema/` owns (read from `schema/` by `load_schema.expected_sizes`) has the asserted size a fresh load gives; a graph the store holds that `schema/` does not own is reported, not failed, so dated `urn:graph:ingest:…` graphs do not break a healthy store |
+| Reasoning profile | the repository reports `rdfsplus-optimized` and `disableSameAs` true, and `?x a :Observation` is answered by inference (nothing is asserted with it) and includes a `ScoreSnapshot`, which is two `rdfs:subClassOf` steps below it, so the chain is followed and not just one hop. A production store with no ABox yet proves the same two-step chain on the TBox (`:ScoreSnapshot rdfs:subClassOf :Observation`) instead of requiring an example individual |
+| Schema graphs (T-176) | each graph `schema/` owns (read from `schema/` by `load_schema.expected_sizes`) has the asserted size a fresh load gives; a graph the store holds that `schema/` does not own is reported, not failed, so dated `urn:graph:ingest:…` graphs do not break a healthy store. A production load owns four schema graphs; every other repository owns the 20 graphs that include the worked example |
 | `:agentOrigin` (T-176) | no individual has more than one `:agentOrigin`, and none has a value outside the `sh:in` list of `ScoreSnapshotShape`, read from `shapes.ttl` |
-| Quant batch (T-181) | the worked example's quant batch (`urn:graph:derived:quant:2026-08-05` in `instances.trig`, read from `schema/`, never written) passes the gate beside what the store holds about its Portfolios, fetched by `gate.fetch_context`: its `:portfolioKind` rules (`sh:in`, `sh:hasValue "BENCHMARK"`) compare terms, so it fails if a stored string is read in a form other than the plain literal the batches use. Like the schema-graphs check it takes the store to be a fresh `schema/` load, the worked example included (`instances.trig`, `reference.ttl`): on a store that holds none of the batch's individuals it fails with "load schema/ first", and an example batch missing from `instances.trig` fails instead of validating nothing. Added in T-181; it ran against the live repository with T-212 (2026-11-02) and passes |
+| Stored vocabulary (T-181) | a stored string passes the gate beside what the store holds, fetched by `gate.fetch_context`: a non-production store uses the worked example's quant batch (`urn:graph:derived:quant:2026-08-05` in `instances.trig`, read from `schema/`, never written) and its `:portfolioKind` rules (`sh:in`, `sh:hasValue "BENCHMARK"`); production, which never receives `instances.trig`, uses a read-only Veto probe pointing at the stored `:Rule_LEVERAGE_EXTREME`, whose `:ruleSeverity` is the same kind of closed `sh:in` list. Both compare terms, so either fails if a stored string is read in a form other than the plain literal the batches use. Added in T-181 and generalized for production in Work item 39; the quant-batch form ran against the live repository with T-212 (2026-11-02) and passes |
 
 ### Live run (T-141, 2026-10-08)
 

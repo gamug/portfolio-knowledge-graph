@@ -31,7 +31,7 @@ from kg_store.gate import (
     superseded_sections,
     validate,
 )
-from kg_store.graphdb import GraphDB, GraphDBError, schema_dir
+from kg_store.graphdb import GraphDB, GraphDBError, announce_target, schema_dir
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -72,7 +72,9 @@ def main(argv: list[str] | None = None) -> int:
                     file=sys.stderr,
                 )
         else:
-            n = ingest(GraphDB.from_env(), data, args.graph)
+            store = GraphDB.from_env()
+            announce_target(store)
+            n = ingest(store, data, args.graph)
             print(f"written: {n} triples to {args.graph}")
     except IngestRejected as exc:
         print(f"REJECTED: {exc}", file=sys.stderr)

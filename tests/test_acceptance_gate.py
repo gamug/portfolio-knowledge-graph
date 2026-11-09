@@ -52,7 +52,9 @@ def test_check_gate_ignores_report_wording(monkeypatch: pytest.MonkeyPatch) -> N
     assert "unchanged" in acceptance.check_gate(_db())
 
 
-def test_check_gate_fails_on_a_second_violation(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_check_gate_fails_on_a_second_violation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     batch = acceptance.MALFORMED.replace(b':agentOrigin "SEMANTIC" ;', b"")
     monkeypatch.setattr(acceptance, "ingest", _raiser(_rejection(batch)))
     with pytest.raises(AssertionError, match="only violation"):
@@ -64,7 +66,8 @@ def test_check_gate_fails_on_one_violation_of_another_kind(
 ) -> None:
     """Exactly one result is not enough: it must be the :timestamp minCount one."""
     batch = acceptance.MALFORMED.replace(
-        b':rawValue "-0.5"^^xsd:decimal ;', b':timestamp "2099-01-01T00:00:00"^^xsd:dateTime ;'
+        b':rawValue "-0.5"^^xsd:decimal ;',
+        b':timestamp "2099-01-01T00:00:00"^^xsd:dateTime ;',
     )
     rejection = _rejection(batch)
     assert len(acceptance.violations(rejection.results)) == 1
@@ -73,13 +76,17 @@ def test_check_gate_fails_on_one_violation_of_another_kind(
         acceptance.check_gate(_db())
 
 
-def test_check_gate_fails_when_rejected_but_not_by_shacl(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_check_gate_fails_when_rejected_but_not_by_shacl(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.setattr(acceptance, "ingest", _raiser(IngestRejected("bad graph name")))
     with pytest.raises(AssertionError, match="not by SHACL"):
         acceptance.check_gate(_db())
 
 
-def test_check_gate_fails_when_the_batch_is_accepted(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_check_gate_fails_when_the_batch_is_accepted(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.setattr(acceptance, "ingest", lambda *a, **k: 1)
     with pytest.raises(AssertionError, match="accepted"):
         acceptance.check_gate(_db())
@@ -98,7 +105,9 @@ def _raiser(exc: Exception) -> Callable[..., int]:
     return raise_
 
 
-def _stored_portfolios(kind: rdflib.term.Node | None = None) -> list[dict[str, rdflib.term.Node]]:
+def _stored_portfolios(
+    kind: rdflib.term.Node | None = None,
+) -> list[dict[str, rdflib.term.Node]]:
     """What the store holds about the quant batch's Portfolios and Assets, as ``select_terms``
     rows; ``kind`` replaces every stored ``:portfolioKind``."""
     rows: list[dict[str, rdflib.term.Node]] = []
@@ -132,6 +141,52 @@ def test_check_quant_batch_fails_for_a_kind_stored_in_another_form(
 def test_check_quant_batch_says_to_load_the_schema_for_an_empty_store() -> None:
     with pytest.raises(AssertionError, match=r"none of the individuals.*load schema/"):
         acceptance.check_quant_batch(FakeGraphDB().db)
+
+
+def _stored_rule(
+    severity: rdflib.term.Node | None = None,
+) -> list[dict[str, rdflib.term.Node]]:
+    """What the store holds about the production vocabulary probe's RuleDefinition."""
+    rule = KG.Rule_LEVERAGE_EXTREME
+    clause = rdflib.URIRef("urn:x:clause")
+    return [
+        {"s": rule, "p": rdflib.RDF.type, "o": KG.RuleDefinition},
+        {"s": rule, "p": KG.ruleId, "o": rdflib.Literal("LEVERAGE_EXTREME")},
+        {"s": rule, "p": KG.category, "o": rdflib.Literal("FINANCIAL")},
+        {
+            "s": rule,
+            "p": KG.priorityRank,
+            "o": rdflib.Literal(1, datatype=rdflib.XSD.integer),
+        },
+        {
+            "s": rule,
+            "p": KG.validFrom,
+            "o": rdflib.Literal("2026-10-02", datatype=rdflib.XSD.date),
+        },
+        {"s": rule, "p": KG.hasClause, "o": clause},
+        {"s": rule, "p": KG.ruleSeverity, "o": severity or rdflib.Literal("HARD")},
+    ]
+
+
+def test_check_quant_batch_uses_the_stored_rule_in_production() -> None:
+    """Work item 39: no ``instances.trig`` individual is needed; the same T-181 term check runs."""
+    fake = FakeGraphDB(terms=_stored_rule(), repository=acceptance.PRODUCTION_REPOSITORY)
+    assert "rule-vocabulary probe passes beside" in acceptance.check_quant_batch(fake.db)
+
+
+def test_check_quant_batch_fails_for_a_rule_severity_stored_in_another_form() -> None:
+    fake = FakeGraphDB(
+        terms=_stored_rule(rdflib.Literal("HARD", datatype=rdflib.XSD.token)),
+        repository=acceptance.PRODUCTION_REPOSITORY,
+    )
+    with pytest.raises(AssertionError, match="rule-vocabulary probe fails beside the store"):
+        acceptance.check_quant_batch(fake.db)
+
+
+def test_check_quant_batch_does_not_pass_on_an_empty_production_rule_set() -> None:
+    fake = FakeGraphDB(repository=acceptance.PRODUCTION_REPOSITORY)
+    with pytest.raises(AssertionError, match=r"none of the individuals.*load schema/"):
+        acceptance.check_quant_batch(fake.db)
 
 
 def test_check_quant_batch_does_not_pass_on_an_empty_batch(

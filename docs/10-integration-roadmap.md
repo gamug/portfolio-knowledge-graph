@@ -40,7 +40,7 @@ before it, and which repo owns it.
 | `portfolio-data-mining` (pricing service) | Built — Finnhub/yfinance daily OHLCV, corporate actions and an as-of universe over HTTP (`GET /pricing/{ticker}`); consumed by `portfolio-financial-analysis`'s `pricing_agent` (step 3). |
 | `portfolio-data-mining` (`universe.db`) | Built — point-in-time S&P 500 membership (valid-from/valid-to), read by every upstream agent; a direct input for this repo's projection. |
 | `gdelt_news_full.csv` | Real historical GDELT data — usable as calibration/backtest fuel (step 9). |
-| GraphDB repository `portfolio` | Built (step 1) — `schema/` loaded, reasoning profile `rdfsplus-optimized`, `cli/ingest.py` gate in front of writes. The ABox is still only the `instances.trig` worked example; real projection is PLAN Work item 4. |
+| GraphDB repository `portfolio` | Built (step 1) — `schema/` loaded, reasoning profile `rdfsplus-optimized`, `cli/ingest.py` gate in front of writes. Production holds the schema files only (no `instances.trig` worked example; that ABox stays in `portfolio_test`), and every store CLI prints its target first. Real projection is PLAN Work item 4. |
 
 ## The steps
 

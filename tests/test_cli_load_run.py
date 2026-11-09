@@ -121,6 +121,22 @@ def test_a_directory_dry_run_loads_every_final_file(tmp_path: Path) -> None:
     assert "urn:graph:derived:backtest:selection:rule:P2:1" in result.stdout
 
 
+def test_check_store_announces_the_target_before_anything_else(tmp_path: Path) -> None:
+    """Work item 39: the store is opened before the delivery is read, so the banner is first."""
+    result = _run(
+        tmp_path,
+        "--label",
+        "rule",
+        "--db",
+        str(backtest_db(tmp_path)),
+        "--check-store",
+    )
+    assert result.returncode == 1
+    assert result.stdout.splitlines()[0] == (
+        "target: GraphDB http://host.invalid repository test [not production]"
+    )
+
+
 def test_a_missing_database_exits_1(tmp_path: Path) -> None:
     result = _run(tmp_path, "--label", "rule", "--db", str(tmp_path / "no.db"))
     assert result.returncode == 1

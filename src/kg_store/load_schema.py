@@ -6,6 +6,12 @@ file-to-graph table; ``instances.trig`` is self-describing. The load order is
 every target graph is dropped first, so the result is the same as a load into a
 fresh repository, and edits to ``schema/`` replace rather than accumulate.
 
+The production repository never receives ``instances.trig``: its worked-example ABox is
+sample data, so a production load writes only the five schema files and verifies only
+the four graphs they own. Every other repository keeps loading the examples, as before.
+The production target must be deliberate: ``--to-production`` is required there because
+this command always writes.
+
 The drops and uploads run in one transaction: if anything fails, nothing changes.
 
 Verification parses the same files with ``rdflib`` and compares the asserted triple
@@ -23,7 +29,13 @@ from pathlib import Path
 
 import rdflib
 
-from kg_store.graphdb import GraphDB, GraphDBError, schema_dir
+from kg_store.graphdb import (
+    PRODUCTION_REPOSITORY,
+    GraphDB,
+    GraphDBError,
+    announce_target,
+    schema_dir,
+)
 
 #: (file, graph) in load order; ``None`` marks a TriG file that names its own graphs.
 LOAD_PLAN: list[tuple[str, str | None]] = [
@@ -40,10 +52,15 @@ class SchemaError(RuntimeError):
     """The schema files cannot be loaded as they stand (unreadable, unparsable, ill-formed)."""
 
 
-def expected_sizes(directory: Path) -> dict[str, int]:
+def _plan(include_examples: bool) -> list[tuple[str, str | None]]:
+    """The files a load writes: ``instances.trig`` is the worked example, never production's."""
+    return [entry for entry in LOAD_PLAN if include_examples or entry[0] != "instances.trig"]
+
+
+def expected_sizes(directory: Path, include_examples: bool = True) -> dict[str, int]:
     """Triples per named graph that a correct load must produce (parsed locally)."""
     ds = rdflib.Dataset(default_union=False)
-    for name, graph in LOAD_PLAN:
+    for name, graph in _plan(include_examples):
         try:
             if graph is None:
                 ds.parse(directory / name, format="trig")
@@ -53,19 +70,19 @@ def expected_sizes(directory: Path) -> dict[str, int]:
             raise SchemaError(f"cannot read {directory / name}: {exc}") from exc
         except Exception as exc:  # rdflib raises a different parser error per syntax
             raise SchemaError(f"cannot parse {name}: {exc}") from exc
-    if len(ds.default_context):
+    if include_examples and len(ds.default_context):
         raise SchemaError(
             "instances.trig has triples outside a GRAPH block; every triple must name its graph"
         )
     return {str(g.identifier): len(g) for g in ds.graphs() if len(g)}
 
 
-def load(db: GraphDB, directory: Path) -> dict[str, int]:
-    expected = expected_sizes(directory)
+def load(db: GraphDB, directory: Path, include_examples: bool = True) -> dict[str, int]:
+    expected = expected_sizes(directory, include_examples=include_examples)
     with db.transaction() as txn:
         for graph in expected:
             txn.update(f"DROP SILENT GRAPH <{graph}>")
-        for name, target in LOAD_PLAN:
+        for name, target in _plan(include_examples):
             data = (directory / name).read_bytes()
             txn.add(data, "application/x-trig" if target is None else "text/turtle", target)
             print(f"loaded {name}" + (f" -> {target}" if target else ""))
@@ -96,11 +113,30 @@ def main(argv: list[str] | None = None) -> int:
         default=None,
         help="schema directory (default: KG_SCHEMA_DIR or <repo>/schema)",
     )
+    parser.add_argument(
+        "--to-production",
+        action="store_true",
+        help="allow loading into the production repository (required there; always writes)",
+    )
     args = parser.parse_args(argv)
     directory = args.dir or schema_dir()
     try:
         db = GraphDB.from_env()
-        expected = load(db, directory)
+    except GraphDBError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+    announce_target(db)
+    if db.repository == PRODUCTION_REPOSITORY and not args.to_production:
+        print(
+            f"--to-production is required to load schema/ into the production repository "
+            f"({PRODUCTION_REPOSITORY}): this command always writes, so targeting production is "
+            "a deliberate maintainer decision",
+            file=sys.stderr,
+        )
+        return 2
+    include_examples = db.repository != PRODUCTION_REPOSITORY
+    try:
+        expected = load(db, directory, include_examples=include_examples)
         problems, others = verify(db, expected)
     except (GraphDBError, SchemaError) as exc:
         print(f"error: {exc}", file=sys.stderr)
@@ -109,6 +145,8 @@ def main(argv: list[str] | None = None) -> int:
     if problems:
         print("verification FAILED:", *problems, sep="\n  ", file=sys.stderr)
         return 1
+    if not include_examples:
+        print("examples: instances.trig not loaded in the production repository")
     print(f"verified: {len(expected)} graphs, {total} asserted triples match the local parse")
     if others:
         print(f"note: {len(others)} other graph(s) in the store were left untouched")

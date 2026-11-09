@@ -1683,6 +1683,34 @@ real candidate/final writes.
 every changed file; FR-001 is **4915 quads (58 classes, 44 disjoint leaves, 39 named shapes);
 conforms: True**, and the load plan is **5192 asserted triples**.
 
+## Work item 39 — Store CLI target banners and production guards (T-630–T-659)
+
+*The production schema incident: `KG_REPOSITORY=portfolio` in the shell won over `.env`, and no
+command named its target. See `PLAN.md` Work item 39 and SPEC FR-012.*
+
+- [x] **T-630** Record the design in `PLAN.md` Work item 39 before any code: the banner/override
+      helper, the two production guards, the schema-only production load and the acceptance
+      fallbacks. → `PLAN.md` Work item 39.
+- [x] **T-631** Add `announce_target`/`environment_overrides` and call them from every CLI path
+      that opens the store; test the target banner, the production marker and the absence of
+      credentials. → `PLAN.md` Work item 39, decision 1.
+- [x] **T-632** Add `--to-production` to `cli/load_schema.py` and `cli/verify_store.py`, exit 2
+      before any request on production without it, and test the guard and the proceed-past path;
+      update both module docstrings. → decision 3.
+- [x] **T-633** Add `include_examples` to `load_schema.load`/`expected_sizes`, skip
+      `instances.trig` in production, keep `portfolio_test` unchanged, and make the six acceptance
+      checks consistent (four-graph plan, TBox reasoning fallback, stored-rule vocabulary probe). →
+      decisions 4 and 5.
+- [x] **T-634** Announce the target before any other output in `load_run`/`load_aggregates` while
+      keeping the manifest check before the store is contacted, and test that their banner is
+      the first line. → decision 2.
+- [x] **T-635** Rename the aggregates runbook step to §1f and add the "Removing a run label"
+      section with the listing SELECT, the DROP-as-text review and the backup/only-copy warning. →
+      decision 6.
+- [x] **T-636** Update `README.md`, `docs/graphdb-setup.md` and SPEC FR-012. → decision 6.
+- [x] **T-637** Run `uv run pytest -q`, `mypy` and the pinned pre-commit hooks; record the results
+      in `PLAN.md`. → acceptance criteria.
+
 ## Work item 40 — Reports-agent instructions and curated CONSTRUCT in the repo (2026-11-09, T-660–T-689)
 
 **Goal**: make the repository the source of truth for the Talk to Your Graph agent: the curated

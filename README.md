@@ -35,7 +35,7 @@ the numbered docs, in order:
 | `10` | [`docs/10-integration-roadmap.md`](docs/10-integration-roadmap.md) | Dependency-ordered steps (0–9) with the owning repo and status of each. Step 0 (`schema/`) is the only one built here; steps 3–9 are computation built (or planned) in the sibling repos. |
 | — | [`docs/reports-agent-query-catalog.md`](docs/reports-agent-query-catalog.md) | The reports-agent query contract: scoped SPARQL for the FIBO glossary and the backtest battery, the brief's 11 evaluation questions (including what is not projected yet), and the executable test that keeps the catalog true. |
 | — | [`docs/ttyg/`](docs/ttyg/README.md) | Source of truth for the Talk to Your Graph agent: the curated CONSTRUCT, the English v1.2 additional instructions and how they map to the Workbench form. |
-| — | [`docs/backtest-load-runbook.md`](docs/backtest-load-runbook.md) | The final-backtest load procedure: the one-command `cli/load_run.py` flow first, the six date-ordered windows, the `SHA256SUMS` manifest and `config_<label>.md` configuration, the metadata graph, the manual fallback, schema and catalog prerequisites, contract check, label choice, both dry runs, the full read-only `--check-store` pre-flight, writes and production guard, `cli/verify_backtest.py` for m018 and selection graphs, the `cli/load_aggregates.py` step after the run, recording the numbers, single-graph rollback, the one-time catalog load and its incremental `--delta` extension, and the common failure messages. |
+| — | [`docs/backtest-load-runbook.md`](docs/backtest-load-runbook.md) | The final-backtest load procedure: the one-command `cli/load_run.py` flow first, the six date-ordered windows, the `SHA256SUMS` manifest and `config_<label>.md` configuration, the metadata graph, the manual fallback, schema and catalog prerequisites, contract check, label choice, both dry runs, the full read-only `--check-store` pre-flight, writes and production guard, `cli/verify_backtest.py` for m018 and selection graphs, the `cli/load_aggregates.py` step after the run, recording the numbers, single-graph rollback, whole-label removal, the one-time catalog load and its incremental `--delta` extension, and the common failure messages. |
 Each doc is a companion to its neighbors, not standalone — a class defined in `06` gets its
 storage location assigned in `07` and its writer assigned in `08`.
 
@@ -105,6 +105,8 @@ Protégé session, not something this pass could safely hand-patch.
 | `instances.trig` | TriG | *(self-describing — 14 `GRAPH` blocks)* | Dated ABox: universe membership, agent snapshots, evidence, vetoes, filings, portfolio, sector-aggregate and attractiveness-ranking output |
 
 Load order: `tbox.ttl` → `shapes.ttl` → `reference.ttl` → `fibo.ttl` → `rules.ttl` → `instances.trig`.
+The production repository stops before `instances.trig`: its worked-example ABox is sample data and
+never reaches production, while `portfolio_test` and other non-production repositories keep loading it.
 
 OWL (`tbox.ttl`) and SHACL (`shapes.ttl`) are deliberately both present and answer different
 questions — OWL is open-world (what can be *inferred*), SHACL is closed-world (what an ingestion
@@ -150,7 +152,7 @@ of configuration:
 | Roadmap step | Status |
 |---|---|
 | 0 — Ontology + SHACL shapes (this repo's `schema/`) | ✅ Done |
-| 1 — Stand up the triple store | ✅ Done — GraphDB repository `portfolio` with the reasoning profile of `07`, `schema/` loaded (`cli/load_schema.py`), ABox writes pass a SHACL gate (`cli/ingest.py`); see `docs/graphdb-setup.md`. Only the `instances.trig` worked example is loaded so far |
+| 1 — Stand up the triple store | ✅ Done — GraphDB repository `portfolio` with the reasoning profile of `07`, `schema/` loaded (`cli/load_schema.py --to-production`), ABox writes pass a SHACL gate (`cli/ingest.py`); see `docs/graphdb-setup.md`. The production repository holds the schema files only: the `instances.trig` worked example is loaded in `portfolio_test` and other non-production repositories, never in production |
 | 2 — Ingest already-collected data into the graph | Shortcut built — `src/etl/` projects the universe (`universe.db`: assets and membership history) and news (`portfolio-nlp` results) to a flat `data.ttl`; the real projection (`financial-analysis` `v_*` views, dated named graphs) is partly built: T-030 pinned the read contract and the score conversion (`src/projection/`), T-031 projects `v_score_snapshot`, T-207 projects the eight m018 backtest/GUARD views into `urn:graph:derived:backtest:{label}:{window}:{run}`, Work item 26 projects the selection side into `urn:graph:derived:backtest:selection:{label}:{window}:{run}`, T-280's `cli/verify_backtest.py` proves a loaded graph matches its source read-only (Work item 29 extends it to the selection graph and adds the cross-graph check), and `cli/load_run.py` verifies the delivery manifest/configuration, runs both dry runs, the read-only pre-flight of every graph, both writes, the run-metadata graph and every verification in one command (see `docs/backtest-load-runbook.md`) |
 | 3–9 — Pricing collector, EDGAR batch pipeline, NLP service, agent cycles, entity resolution, sector/portfolio construction, backtesting | Not this repo's to build — owned by `portfolio-data-mining`, `portfolio-nlp`, `portfolio-financial-analysis` (built or partly built there, per their docs; per-step owner table in the roadmap). This repo's part is projecting their outputs (step 2) |
 
@@ -159,8 +161,11 @@ Full dependency-ordered detail in [`docs/10-integration-roadmap.md`](docs/10-int
 graph once that build starts — node-vs-observation patterns, the two date mechanisms, and how
 named-graph filtering works in practice.
 
-Load a final backtest in one command, or verify one graph read-only. The verifier prints the
-repository and graph and one `PASS`/`FAIL` line per check; exit 0 only if all pass.
+Load a final backtest in one command, or verify one graph read-only. Every CLI that opens the store
+prints its target as the first output line (`target: GraphDB <host> repository <name> [PRODUCTION]`
+or `[not production]`) and warns when a process-environment `KG_HOST`/`KG_REPOSITORY` overrides
+`.env`; credentials are never printed. The verifier then prints the repository and graph and one
+`PASS`/`FAIL` line per check; exit 0 only if all pass.
 
 | Command | Purpose |
 |---|---|
