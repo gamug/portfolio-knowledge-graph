@@ -3307,3 +3307,107 @@ instruction). The local-link check over the changed documents found **0 missing 
 five SPARQL blocks in `docs/final-delivery.md` all parse with `rdflib`'s `prepareQuery`. The pinned
 pre-commit hooks pass on every changed file (the mypy hook passed; `check yaml` skipped because no
 YAML file changed). No GraphDB command, write or reload was made.
+
+## Work item 43 — Bilingual labels for the final graph (T-750–T-779)
+
+**Status: Phase 1 design complete 2026-11-09; implementation open.**
+
+**Why**: Reviewer A's Part B request (B1–B4) asks for bilingual
+`rdfs:label`/`rdfs:comment`/`skos:altLabel` on windows, strategy books, GUARD rules
+and states, the three veto classes, ineligibility markers, score components,
+`rank`/`rank_e`, configuration parameters and process/evaluation terms. The run
+label is `final` (`final_corregida`, `code_commit` `5958c6b`), not `final_b5`;
+`rule` and `candidate_y2` are not loaded. The work must not change an IRI or any
+engine code and must not reload run data.
+
+**Decisions**:
+
+1. **Codes become concepts; run IRIs stay untouched.** `schema/labels.ttl` in
+   `urn:graph:labels` holds `skos:Concept`s with `skos:notation` equal to the
+   literal code; the query joins `:windowId`, `:armCode`, `:runLabel`,
+   `:guardLayer`, `:alertState`, `:status` and the other literals to the concept.
+   No triple is added about a `Book_*`, `GuardAlert_*`, `GuardAction_*` or other
+   run individual.
+2. **Direct labels only on schema terms.** `:Rule_*` individuals, classes and
+   properties get bilingual labels/comments in their authoritative files
+   (`rules.ttl`, `tbox.ttl`, `reference.ttl`); the new file is for literals.
+3. **Six windows, no C1.** Window concepts 1–6 carry number, dates, code and only
+   backed scenario altLabels; H windows carry separate historical and
+   final-configuration (in-sample) fields. C1 gets no concept or IRI.
+4. **Confirmed strategy mapping.** `TOPN_MV_GUARD_NO_NLP` = System (FINAL),
+   `TOPN_MV_NOGUARD` = FINAL NOGUARD, `MARKOWITZ_BASE` = Markowitz minimum
+   variance (Ledoit-Wolf), `MARKOWITZ_BASE_GUARD` = the same with GUARD.
+   `MARKOWITZ_MV` = the mean-variance base Markowitz (tangency portfolio,
+   historical means and sample covariance), added by Work item 44
+   (T-780–T-809) as summary-only rows; only `MARKOWITZ_MV` may carry the name
+   "Markowitz base". `B0`, `MCF`, `MARKOWITZ_SAMPLE(_GUARD)`, `BMK_*` and C1 get
+   no concept. `L4_DD` scales all reference weights, including the SPY core.
+5. **English review first.** `docs/labels-en-review.md` (Phase 2) holds code, ES
+   comment and EN draft; Reviewer A approves every row before the English enters
+   `schema/`. The `objective` label is "Registered optimization class" and its
+   comment keeps the merged Work item 41 facts.
+
+**Tasks**:
+
+- [x] **T-750** *(done 2026-11-09: `docs/labels-design.md`.)* Record the mapping,
+      mechanism, window/strategy labels, drafting rules, v1.3 instruction changes,
+      evaluation sheet and PR breakdown; add these PLAN/TASKS entries.
+- [ ] **T-751** Create `schema/labels.ttl` (schemes, concepts, notations, bilingual
+      labels/comments/altLabels, window fields; `MARKOWITZ_MV` only once the WI44
+      arm code exists) and `tests/test_labels.py` (notation uniqueness per scheme,
+      one label/comment per language, exactly the five StrategyScheme notations
+      when WI44 is loaded and no B0/MCF/`MARKOWITZ_SAMPLE*`/`BMK_*`/`TOPN_MV_GUARD`
+      concept, absence of C1/`rule`/`candidate_y2`).
+- [ ] **T-752** Add `LabelConceptShape`; add `labels.ttl` to `LOAD_PLAN` and
+      FR-001; update `expected_sizes`, load-plan tests, acceptance expectation,
+      shape count and every asserted count (`4915+D`, `5192+D`, `4671+D`, 21/5
+      graphs, 40 shapes).
+- [ ] **T-753** Add bilingual labels/comments to the GUARD and veto rule
+      individuals in `rules.ttl`, the three veto-class concepts and the markers;
+      remove the forbidden mentions from the touched `L4_DD` comment.
+- [ ] **T-754** Add bilingual labels/comments to the schema classes/properties for
+      strategy books, GUARD, veto, score, rank, configuration and process terms;
+      label the `MetricTypeScheme` concepts; add the `objective` label and keep the
+      WI 41 comment; the `:nGuardActions` comment says it counts GUARD actions
+      executed on the book, and that 0 means "not applicable" (not "GUARD did not
+      act") in `MARKOWITZ_BASE`, `TOPN_MV_NOGUARD` and `MARKOWITZ_MV`.
+- [ ] **T-755** Write `docs/labels-en-review.md` with every ES comment and EN
+      draft; obtain Reviewer A's row-level approval.
+- [ ] **T-756** Freeze the approved English into the schema; run the final label
+      audit; decide the `kg_target_schema.ttl` mirror; clean the remaining
+      Tiingo/Grossman comments only if Reviewer A confirms the global scope.
+- [ ] **T-757** Write `docs/ttyg/instructions-v1.3.md` and
+      `ontology_construct_curated_v3.rq`; update `docs/ttyg/README.md` and its
+      test.
+- [ ] **T-758** Write `docs/ttyg/evaluation-questions.md` with the 16 ES/EN
+      questions (including the two label traps) and the four criteria columns;
+      keep the answers empty.
+- [ ] **T-759** Human run of the evaluation sheet against the loaded graph; record
+      the four criteria and file the findings. No agent answer is committed.
+- [ ] **T-760–T-779** Reserve for review fixes or a second label pass.
+
+**Acceptance criteria**:
+
+- Every glossary item in `docs/labels-design.md` §1 has a representation and a
+  label mechanism; literals are joined by `skos:notation`; C1/`rule`/`candidate_y2`
+  are absent; no run IRI gets a triple.
+- The vocabulary loads in production and test plans, pyshacl-conforms, and every
+  asserted count is updated by the measured `D`.
+- Strategy labels use the nomenclature v3 full names; only `MARKOWITZ_MV` may
+  carry the name "Markowitz base", and its comment says it is summary-only (no
+  daily series, weights or alerts); `L4_DD` says "all the reference weights,
+  including the SPY core".
+- `objective` is labelled "Registered optimization class" and its comment stays
+  consistent with Work item 41.
+- Reviewer A has approved every English comment before it is frozen.
+- v1.3 implements the changes listed in `docs/labels-design.md` §9; the evaluation
+  sheet has 16 empty answer rows, the two label traps and the four criteria.
+- No run data is reloaded and no engine code or IRI changes.
+
+**Blocked on**: Reviewer A's English review (T-755) and the human GraphDB schema
+reload (T-756). No run-data reload is needed.
+
+**Verified 2026-11-09**: Phase 1 only. `docs/labels-design.md` was added and
+PLAN/TASKS appended; no `schema/`, `src/`, `cli/` or `tests/` file changed. The
+full pytest suite and mypy were not run, per the Phase 1 instruction. No GraphDB
+command, write or reload was made.
