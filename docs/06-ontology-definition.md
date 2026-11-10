@@ -3,7 +3,7 @@
 **Implementation:** [`schema/`](../schema/) — the formal OWL/SHACL/TriG implementation of
 everything described below, split into `tbox.ttl` (classes/properties, **58 classes total** as of
 this revision — 44 mutually-disjoint leaf/domain classes, a 13-class `rdfs:subClassOf` taxonomic
-backbone and `:ExchangeTradedFund` under `:Asset`, see §1.2), `shapes.ttl` (SHACL, 39 named
+backbone and `:ExchangeTradedFund` under `:Asset`, see §1.2), `shapes.ttl` (SHACL, 40 named
 shapes), `reference.ttl` (GICS taxonomy +
 asset master data + the new `MetricType` controlled vocabulary, §1.9), `rules.ttl` (the ten active
 selection rules, the seven GUARD protection rules, and the seven original ones as trees), and
@@ -1039,3 +1039,16 @@ series, weights or alerts. The
 engine's `urn:graph:derived:backtest:{label}:{window}:{run}` queries are untouched. Counts after
 this addition: **58 classes (44 disjoint leaves), 39 named shapes, 4940 quads; conforms: True**;
 the load plan is **5217 asserted triples** (production **4696**).
+
+
+## 1.15 Presentation vocabulary (Work item 43, T-752, 2026-11-10)
+
+`schema/labels.ttl` loads into `urn:graph:labels` and supplies the bilingual labels for codes and
+literals that cannot carry `rdfs:label` directly: windows, run label, strategies, GUARD layers and
+states, veto classes, ineligibility markers, score components, `rank`/`rank_e`, configuration
+parameters and process/evaluation terms. `LabelConceptShape` (in `shapes.ttl`) requires one
+`skos:notation`, one `skos:inScheme`, one `rdfs:label` and one `rdfs:comment` per language, and only
+`@en`/`@es` `skos:altLabel`s; windows also carry `:windowStart`, `:windowEnd`, `:historicalCondition`
+and `:finalConfigurationCondition`. The file is in FR-001 and the load plan. Counts after this
+addition: **58 classes (44 disjoint leaves), 40 named shapes, 5900 quads; conforms: True**; load plan
+**21 graphs / 6177 asserted triples** (production **5 / 5656**).

@@ -100,12 +100,12 @@ def test_equal_sizes_pass() -> None:
 
 
 def test_production_expected_sizes_exclude_the_worked_example() -> None:
-    """Work item 39: production's fresh load has only the four schema graphs."""
+    """Work item 39: production's fresh load has only the five schema graphs."""
     sizes = dict(expected_sizes(schema_dir(), include_examples=False))
     message = acceptance.check_schema_graphs(
         _db(FakeStore(sizes, repository=acceptance.PRODUCTION_REPOSITORY))
     )
-    assert "4 schema graphs" in message
+    assert "5 schema graphs" in message
 
 
 def test_a_short_graph_fails() -> None:

@@ -428,9 +428,9 @@ def test_shared_properties_have_no_domain(tbox: rdflib.Graph) -> None:
         assert (KG[name], RDFS.domain, None) not in tbox, name
 
 
-def test_the_new_shapes_are_39_named_shapes(shapes: rdflib.Graph) -> None:
+def test_the_new_shapes_are_40_named_shapes(shapes: rdflib.Graph) -> None:
     named = {s for s in shapes.subjects(RDF.type, SH.NodeShape) if isinstance(s, rdflib.URIRef)}
-    assert len(named) == 39
+    assert len(named) == 40
     assert {
         KG.TickerHistoryShape,
         KG.OrchestratorRunShape,
@@ -448,6 +448,7 @@ def test_the_new_shapes_are_39_named_shapes(shapes: rdflib.Graph) -> None:
         KG.AggregatesSetShape,
         KG.TrendFilterStateShape,
         KG.ReferenceReturnShape,
+        KG.LabelConceptShape,
     } <= named
 
 

@@ -44,6 +44,7 @@ LOAD_PLAN: list[tuple[str, str | None]] = [
     ("reference.ttl", "urn:graph:reference"),
     ("fibo.ttl", "urn:graph:reference:fibo"),
     ("rules.ttl", "urn:graph:rules:catalog"),
+    ("labels.ttl", "urn:graph:labels"),
     ("instances.trig", None),
 ]
 

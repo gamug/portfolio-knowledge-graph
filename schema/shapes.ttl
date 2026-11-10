@@ -1,6 +1,8 @@
 @prefix :      <https://thesis.local/kg/portfolio#> .
 @prefix rdf:   <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
 @prefix sh:    <http://www.w3.org/ns/shacl#> .
+@prefix skos:  <http://www.w3.org/2004/02/skos/core#> .
 @prefix xsd:   <http://www.w3.org/2001/XMLSchema#> .
 
 #################################################################
@@ -776,3 +778,25 @@
     sh:property [ sh:path :referenceMaxDrawdown ; sh:datatype xsd:decimal ; sh:minCount 1 ; sh:maxCount 1 ;
                   sh:minInclusive 0.0 ] ;
     sh:property [ sh:path :aggregatesSet ; sh:class :AggregatesSet ; sh:minCount 1 ; sh:maxCount 1 ] .
+
+:LabelConceptShape
+    a sh:NodeShape ;
+    sh:targetSubjectsOf :labelScheme ;
+    sh:property [ sh:path :labelScheme ; sh:hasValue :PresentationScheme ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path skos:inScheme ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path skos:notation ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path rdfs:label ;
+                  sh:qualifiedValueShape [ sh:languageIn ( "en" ) ] ;
+                  sh:qualifiedMinCount 1 ; sh:qualifiedMaxCount 1 ] ;
+    sh:property [ sh:path rdfs:label ;
+                  sh:qualifiedValueShape [ sh:languageIn ( "es" ) ] ;
+                  sh:qualifiedMinCount 1 ; sh:qualifiedMaxCount 1 ] ;
+    sh:property [ sh:path rdfs:label ; sh:languageIn ( "en" "es" ) ] ;
+    sh:property [ sh:path rdfs:comment ;
+                  sh:qualifiedValueShape [ sh:languageIn ( "en" ) ] ;
+                  sh:qualifiedMinCount 1 ; sh:qualifiedMaxCount 1 ] ;
+    sh:property [ sh:path rdfs:comment ;
+                  sh:qualifiedValueShape [ sh:languageIn ( "es" ) ] ;
+                  sh:qualifiedMinCount 1 ; sh:qualifiedMaxCount 1 ] ;
+    sh:property [ sh:path rdfs:comment ; sh:languageIn ( "en" "es" ) ] ;
+    sh:property [ sh:path skos:altLabel ; sh:languageIn ( "en" "es" ) ] .

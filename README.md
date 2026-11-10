@@ -92,7 +92,7 @@ class taxonomy (§1.2 in `06-ontology-definition.md`) and MetricType vocabulary 
 directly into `tbox.ttl`/`reference.ttl`/`shapes.ttl` — not left as separate addendum files. Full
 `rdflib` parse + `pyshacl` conformance re-verified against the real files after the merge: **parses
 clean (1608 quads at the 2026-08-23 revision — `schema/taxonomy-quality-review-2026-08-23.md` has the +1 delta from a
-same-day `RuleClause` fix; 1771 after T-102/T-103, 1881 after T-104, 1951 after T-101, 1953 after T-105, 2064 after T-106, 2150 after T-107, 2298 after T-108, 2352 after T-109, 2366 after T-111, 2378 after T-100, 2383 after its review, 2400 after T-081, 2458 after T-140, 2648 after T-187/T-188, 4178 after T-206, 4182 after T-210, 4236 after T-211, 4237 after T-220, 4202 after T-233/T-234, 4203 after merging T-220 with T-233/T-234, 4204 after T-227, 4431 after Work item 26, 4634 after Work item 33, 4913 after Work item 37, 4915 after Work item 38, 4940 after Work item 44), conforms: True** (`schema/README.md`'s Validation section has the exact
+same-day `RuleClause` fix; 1771 after T-102/T-103, 1881 after T-104, 1951 after T-101, 1953 after T-105, 2064 after T-106, 2150 after T-107, 2298 after T-108, 2352 after T-109, 2366 after T-111, 2378 after T-100, 2383 after its review, 2400 after T-081, 2458 after T-140, 2648 after T-187/T-188, 4178 after T-206, 4182 after T-210, 4236 after T-211, 4237 after T-220, 4202 after T-233/T-234, 4203 after merging T-220 with T-233/T-234, 4204 after T-227, 4431 after Work item 26, 4634 after Work item 33, 4913 after Work item 37, 4915 after Work item 38, 4940 after Work item 44, 5900 after Work item 43), conforms: True** (`schema/README.md`'s Validation section has the exact
 command). `protege-view.ttl` is the one file *not* re-verified — it's a generated bundle
 (`schema/README.md`: "never hand-edit") that predates this revision's edits, the T-206 Contract
 v18 classes, T-210's FIBO links and T-211's Spanish layer, and needs regenerating from a real
@@ -104,13 +104,14 @@ Protégé session, not something this pass could safely hand-patch.
 | File | Format | Named graph | Contents |
 |---|---|---|---|
 | `tbox.ttl` | Turtle | `urn:graph:tbox` | 58 classes (44 mutually disjoint leaf/domain classes + a 13-class `rdfs:subClassOf` taxonomic backbone + `:ExchangeTradedFund` under `:Asset`), properties, cardinality restrictions |
-| `shapes.ttl` | Turtle | `urn:graph:tbox` | 39 named SHACL node shapes plus two blank-node conditional shapes |
+| `shapes.ttl` | Turtle | `urn:graph:tbox` | 40 named SHACL node shapes plus two blank-node conditional shapes |
 | `reference.ttl` | Turtle | `urn:graph:reference` | GICS sector/industry taxonomy + 6 worked-example assets (5 S&P 500 constituents + the core ETF SPY) |
 | `fibo.ttl` | Turtle | `urn:graph:reference:fibo` | 25-term FIBO 2026Q2 glossary slice (54 entries, 277 statements) + the authors' Spanish `@es` layer |
 | `rules.ttl` | Turtle | `urn:graph:rules:catalog` | 10 active selection rules + 7 GUARD protection rules (single-leaf `RuleDefinition`s) + 8 superseded definitions kept as history + `AttractivenessWeightScheme` |
+| `labels.ttl` | Turtle | `urn:graph:labels` | The bilingual SKOS presentation vocabulary (90 concepts, 892 triples): windows, run label, strategies, GUARD, veto classes, markers, score components, rank, configuration and process terms |
 | `instances.trig` | TriG | *(self-describing — 14 `GRAPH` blocks)* | Dated ABox: universe membership, agent snapshots, evidence, vetoes, filings, portfolio, sector-aggregate and attractiveness-ranking output |
 
-Load order: `tbox.ttl` → `shapes.ttl` → `reference.ttl` → `fibo.ttl` → `rules.ttl` → `instances.trig`.
+Load order: `tbox.ttl` → `shapes.ttl` → `reference.ttl` → `fibo.ttl` → `rules.ttl` → `labels.ttl` → `instances.trig`.
 The production repository stops before `instances.trig`: its worked-example ABox is sample data and
 never reaches production, while `portfolio_test` and other non-production repositories keep loading it.
 

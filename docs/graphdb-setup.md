@@ -59,8 +59,8 @@ uv run python cli/load_schema.py [--dir path/to/schema] [--to-production]
 Loads `tbox → shapes → reference → fibo → rules → instances.trig` per the graph map in
 [`schema/README.md`](../schema/README.md). The production repository is the exception: it never
 receives `instances.trig`'s worked-example ABox, so a production load writes only `tbox`, `shapes`,
-`reference`, `fibo` and `rules` (four graphs, 4696 asserted triples at this revision). A
-`portfolio_test` or other non-production load keeps the 20 graphs and 5217 triples including the
+`reference`, `fibo`, `rules` and `labels` (five graphs, 5656 asserted triples at this revision). A
+`portfolio_test` or other non-production load keeps the 21 graphs and 6177 triples including the
 examples. The target must be deliberate: `KG_REPOSITORY=portfolio` without `--to-production` exits
 2 before any request, and `cli/verify_store.py` takes the same flag even though it only reads.
 A production repository loaded before this change may still hold old example graphs: the loader
@@ -501,7 +501,7 @@ of T-176 and the one of T-181 below, and exits non-zero if any fails ([`kg_store
 | SPARQL query | `SELECT ?s WHERE { ?s a :Asset } LIMIT 5` over HTTP returns individuals |
 | Malformed write | a `ScoreSnapshot` that is valid except for the missing `:timestamp` is refused by the gate with a SHACL `minCount` violation on `:timestamp`, and that is the only violation reported (a rejection for any other reason fails the check; the probe carries `rawValue` and `availableAt` so `ScoreSnapshotShape` is otherwise satisfied); the store's size is unchanged and the target graph does not exist |
 | Reasoning profile | the repository reports `rdfsplus-optimized` and `disableSameAs` true, and `?x a :Observation` is answered by inference (nothing is asserted with it) and includes a `ScoreSnapshot`, which is two `rdfs:subClassOf` steps below it, so the chain is followed and not just one hop. A production store with no ABox yet proves the same two-step chain on the TBox (`:ScoreSnapshot rdfs:subClassOf :Observation`) instead of requiring an example individual |
-| Schema graphs (T-176) | each graph `schema/` owns (read from `schema/` by `load_schema.expected_sizes`) has the asserted size a fresh load gives; a graph the store holds that `schema/` does not own is reported, not failed, so dated `urn:graph:ingest:…` graphs do not break a healthy store. A production load owns four schema graphs; every other repository owns the 20 graphs that include the worked example |
+| Schema graphs (T-176) | each graph `schema/` owns (read from `schema/` by `load_schema.expected_sizes`) has the asserted size a fresh load gives; a graph the store holds that `schema/` does not own is reported, not failed, so dated `urn:graph:ingest:…` graphs do not break a healthy store. A production load owns five schema graphs; every other repository owns the 21 graphs that include the worked example |
 | `:agentOrigin` (T-176) | no individual has more than one `:agentOrigin`, and none has a value outside the `sh:in` list of `ScoreSnapshotShape`, read from `shapes.ttl` |
 | Stored vocabulary (T-181) | a stored string passes the gate beside what the store holds, fetched by `gate.fetch_context`: a non-production store uses the worked example's quant batch (`urn:graph:derived:quant:2026-08-05` in `instances.trig`, read from `schema/`, never written) and its `:portfolioKind` rules (`sh:in`, `sh:hasValue "BENCHMARK"`); production, which never receives `instances.trig`, uses a read-only Veto probe pointing at the stored `:Rule_LEVERAGE_EXTREME`, whose `:ruleSeverity` is the same kind of closed `sh:in` list. Both compare terms, so either fails if a stored string is read in a form other than the plain literal the batches use. Added in T-181 and generalized for production in Work item 39; the quant-batch form ran against the live repository with T-212 (2026-11-02) and passes |
 
