@@ -151,7 +151,7 @@
     skos:notation "final" ;
     :labelScheme :PresentationScheme ;
     rdfs:label "Final configuration run"@en, "Corrida de la configuración final"@es ;
-    rdfs:comment "The delivery final_corregida (code_commit 5958c6b): six windows, all results in-sample; the default run label for final results. It is not final_b5 and must not mention that name."@en, "La entrega final_corregida (code_commit 5958c6b): seis ventanas, todos los resultados dentro de muestra; etiqueta predeterminada para los resultados finales. No es final_b5 y no debe mencionar ese nombre."@es ;
+    rdfs:comment "The delivery final_corregida (code_commit 5958c6b): six windows, all results in-sample; the default run label for final results."@en, "La entrega final_corregida (code_commit 5958c6b): seis ventanas, todos los resultados dentro de muestra; etiqueta predeterminada para los resultados finales."@es ;
     skos:altLabel "final configuration"@en, "corrida final"@en ;
     skos:altLabel "configuración final"@es, "corrida final"@es .
 
