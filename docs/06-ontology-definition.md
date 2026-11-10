@@ -1050,5 +1050,5 @@ parameters and process/evaluation terms. `LabelConceptShape` (in `shapes.ttl`) r
 `skos:notation`, one `skos:inScheme`, one `rdfs:label` and one `rdfs:comment` per language, and only
 `@en`/`@es` `skos:altLabel`s; windows also carry `:windowStart`, `:windowEnd`, `:historicalCondition`
 and `:finalConfigurationCondition`. The file is in FR-001 and the load plan. Counts after this
-addition: **58 classes (44 disjoint leaves), 40 named shapes, 5954 quads; conforms: True**; load plan
-**21 graphs / 6231 asserted triples** (production **5 / 5710**).
+addition: **58 classes (44 disjoint leaves), 40 named shapes, 6072 quads; conforms: True**; load plan
+**21 graphs / 6349 asserted triples** (production **5 / 5828**).

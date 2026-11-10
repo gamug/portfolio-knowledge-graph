@@ -3360,7 +3360,7 @@ engine code and must not reload run data.
       concept, absence of C1/`rule`/`candidate_y2`).
 - [ ] **T-752** Add `LabelConceptShape`; add `labels.ttl` to `LOAD_PLAN` and
       FR-001; update `expected_sizes`, load-plan tests, acceptance expectation,
-      shape count and every asserted count (5954, 6231, 5710, 21/5
+      shape count and every asserted count (6072, 6349, 5828, 21/5
       graphs, 40 shapes).
 - [ ] **T-753** Add bilingual labels/comments to the GUARD and veto rule
       individuals in `rules.ttl`, the three veto-class concepts and the markers;

@@ -1336,7 +1336,7 @@ starts at T-751. See `docs/labels-design.md` and `PLAN.md` Work item 43.*
 - [ ] **T-752** Add `LabelConceptShape` to `shapes.ttl`; add `labels.ttl` to
       `LOAD_PLAN` and FR-001; update `expected_sizes`, the load-plan tests, the
       acceptance "4 schema graphs" expectation, the shape count (39 → 40) and every
-      live count (5954, 6231, 5710, 21/5 graphs).
+      live count (6072, 6349, 5828, 21/5 graphs).
 - [ ] **T-753** Add bilingual labels/comments to the seven GUARD rules and the
       active selection rules in `rules.ttl`; label the three veto-class concepts
       and the markers; rewrite the touched `L4_DD` comment with "all the reference
