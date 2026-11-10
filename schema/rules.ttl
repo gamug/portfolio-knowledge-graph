@@ -76,7 +76,10 @@
     :ruleId "LEVERAGE_EXTREME" ; :category "FINANCIAL" ; :priorityRank 1 ;
     :ruleSeverity "HARD" ; :validFrom "2026-10-02"^^xsd:date ;
     :hasClause :Cmp_LEVERAGE_EXTREME_DebtToEquity ;
-    rdfs:comment "Debt/equity above the threshold. Upstream also gates negative-book-equity firms (a negative ratio) on net_debt_to_ebitda > 5.0 or interest_coverage < 1.5 (HARD), and routes a negative-equity firm with neither metric to SOFT review — evaluated upstream, not re-encoded here. Exempt: financial firms (profile.financial_firm, APP-00/APP-02; handoff §5, T-071). The exemption is described here, not encoded: CategoricalComparison only tests equality and the profile is not a graph node." .
+    rdfs:label "Extreme leverage"@en ;
+    rdfs:label "Apalancamiento extremo"@es ;
+    rdfs:comment "Debt/equity above 3 with positive equity; with non-positive equity, EBITDA <= 0 with net debt, net debt/EBITDA > 5 or interest coverage < 1.5. Does not apply to financial firms."@en ;
+    rdfs:comment "Deuda/patrimonio > 3 con patrimonio positivo; con patrimonio no positivo, EBITDA <= 0 con deuda neta, deuda neta/EBITDA > 5 o cobertura de intereses < 1,5. No aplica a empresas financieras."@es .
 :Cmp_LEVERAGE_EXTREME_DebtToEquity a :ThresholdComparison ;
     :metricName "leverage.debt_to_equity" ; :operator ">" ; :thresholdValue "3.0"^^xsd:decimal .
 
@@ -84,7 +87,10 @@
     :ruleId "NEGATIVE_FCF" ; :category "FINANCIAL" ; :priorityRank 2 ;
     :ruleSeverity "HARD" ; :validFrom "2026-10-02"^^xsd:date ;
     :hasClause :Cmp_NEGATIVE_FCF_Margin ;
-    rdfs:comment "Negative trailing-twelve-month free-cash-flow margin. Exempt: regulated utilities (D-13) and equity REITs (D-14), both via the APP-00 company profile, never a GICS sector test (handoff §5, T-071). The exemption is described here, not encoded: CategoricalComparison only tests equality and the profile is not a graph node." .
+    rdfs:label "Negative free cash flow"@en ;
+    rdfs:label "Flujo de caja libre negativo"@es ;
+    rdfs:comment "Trailing-twelve-month free-cash-flow margin below zero. Does not apply to regulated utilities or equity REITs."@en ;
+    rdfs:comment "Margen de flujo de caja libre de los últimos doce meses menor que cero. No aplica a utilities reguladas ni a REIT."@es .
 :Cmp_NEGATIVE_FCF_Margin a :ThresholdComparison ;
     :metricName "cashflow.free_cash_flow_margin" ; :operator "<" ; :thresholdValue "0.0"^^xsd:decimal .
 
@@ -93,7 +99,10 @@
     :ruleSeverity "SOFT" ; :penaltyPoints "15"^^xsd:decimal ; :validFrom "2026-10-02"^^xsd:date ;
     :validTo "2026-10-10"^^xsd:date ;
     :hasClause :Cmp_LIQUIDITY_DISTRESS_CurrentRatio ;
-    rdfs:comment "SUPERSEDED on 2026-10-10 by :Rule_LIQUIDITY_DISTRESS_v11 (same :ruleId): current ratio below 1.0 alone. Kept, closed with :validTo, so a stint raised before 2026-10-10 resolves to the definition valid on its :raisedOn (T-187)." .
+    rdfs:label "Liquidity distress"@en ;
+    rdfs:label "Estrés de liquidez"@es ;
+    rdfs:comment "Superseded on 2026-10-10: current ratio below 1.0 alone. Kept closed with validTo so a stint raised before that date resolves to the definition in force."@en ;
+    rdfs:comment "Reemplazada el 2026-10-10: razón corriente inferior a 1,0 por sí sola. Se conserva cerrada con validTo para que un período abierto antes de esa fecha resuelva a la definición vigente."@es .
 :Cmp_LIQUIDITY_DISTRESS_CurrentRatio a :ThresholdComparison ;
     :metricName "liquidity.current_ratio" ; :operator "<" ; :thresholdValue "1.0"^^xsd:decimal .
 
@@ -104,7 +113,10 @@
     :ruleId "LIQUIDITY_DISTRESS" ; :category "FINANCIAL" ; :priorityRank 3 ;
     :ruleSeverity "SOFT" ; :penaltyPoints "15"^^xsd:decimal ; :validFrom "2026-10-10"^^xsd:date ;
     :hasClause :Clause_LIQUIDITY_DISTRESS_v11_Root ;
-    rdfs:comment "Current ratio below 1.0 and (interest coverage below 1.5 or operating cash-flow margin below 0). NOT applied to financial firms or regulated utilities, both via the APP-00 company profile since T-071 (handoff §5; never a GICS sector test). The exemption is described here, not encoded: CategoricalComparison only tests equality and the profile is not a graph node. Evaluated upstream: 'could not tell' (no current ratio, or below 1.0 with neither coverage metric) is an upstream evaluation state, the stint stays open. An older stint is re-evaluated by the first run with the new code (it keeps its :raisedOn and :primaryRule; it closes, stays open with a later :lastSeenOn, or stays open as 'could not tell')." .
+    rdfs:label "Liquidity distress"@en ;
+    rdfs:label "Estrés de liquidez"@es ;
+    rdfs:comment "Current ratio below 1.0 and (interest coverage below 1.5 or operating cash-flow margin below 0). Does not apply to financial firms or regulated utilities; \"could not tell\" is an upstream evaluation state and the stint stays open."@en ;
+    rdfs:comment "Razón corriente < 1,0 y (cobertura de intereses < 1,5 o margen de flujo operativo < 0). No aplica a financieras ni a utilities reguladas; \"no se pudo determinar\" es un estado de evaluación upstream y el período sigue abierto."@es .
 :Clause_LIQUIDITY_DISTRESS_v11_Root a :RuleClause ; :clauseType "AND" ;
     :operand1 :Cmp_LIQUIDITY_DISTRESS_v11_CurrentRatio ; :operand2 :Clause_LIQUIDITY_DISTRESS_v11_Coverage .
 :Clause_LIQUIDITY_DISTRESS_v11_Coverage a :RuleClause ; :clauseType "OR" ;
@@ -120,7 +132,10 @@
     :ruleId "PRICE_CRASH" ; :category "MARKET" ; :priorityRank 4 ;
     :ruleSeverity "SOFT" ; :penaltyPoints "15"^^xsd:decimal ; :validFrom "2026-10-02"^^xsd:date ;
     :hasClause :Cmp_PRICE_CRASH_Drawdown90d ;
-    rdfs:comment "90-day maximum drawdown worse than -35%. max_drawdown_90d is a price-derived metric computed upstream (not a ScoreSnapshot, and not a :PriceObservation property)." .
+    rdfs:label "Deep 90-day drawdown"@en ;
+    rdfs:label "Caída profunda de 90 días"@es ;
+    rdfs:comment "90-day maximum drawdown worse than -35%. max_drawdown_90d is a price-derived metric computed upstream."@en ;
+    rdfs:comment "Caída máxima de 90 días peor que -35 %. max_drawdown_90d es una métrica derivada de precios calculada upstream."@es .
 :Cmp_PRICE_CRASH_Drawdown90d a :ThresholdComparison ;
     :metricName "max_drawdown_90d" ; :operator "<" ; :thresholdValue "-0.35"^^xsd:decimal .
 
@@ -128,7 +143,10 @@
     :ruleId "EARNINGS_MISSING" ; :category "FINANCIAL" ; :priorityRank 5 ;
     :ruleSeverity "SOFT" ; :penaltyPoints "15"^^xsd:decimal ; :validFrom "2026-10-02"^^xsd:date ;
     :hasClause :Cmp_EARNINGS_MISSING_Age ;
-    rdfs:comment "A FUNDAMENTAL score exists but is older than 400 days at the cycle date. Upstream's param is max_age_days; the leaf expresses it as a derived age metric. An asset that never had a FUNDAMENTAL score is ineligible upstream, not vetoed by this rule." .
+    rdfs:label "Stale fundamentals"@en ;
+    rdfs:label "Fundamentales desactualizados"@es ;
+    rdfs:comment "A fundamental score exists but its latest filing is older than 400 days. An asset that never had a fundamental score is ineligible upstream, not vetoed by this rule."@en ;
+    rdfs:comment "Existe puntaje fundamental, pero el último informe tiene más de 400 días. Un activo que nunca tuvo puntaje fundamental es inelegible upstream, no vetado por esta regla."@es .
 :Cmp_EARNINGS_MISSING_Age a :ThresholdComparison ;
     :metricName "fundamental_score_age_days" ; :operator ">" ; :thresholdValue "400"^^xsd:decimal .
 
@@ -136,7 +154,10 @@
     :ruleId "DATA_QUALITY" ; :category "DATA_QUALITY" ; :priorityRank 6 ;
     :ruleSeverity "HARD" ; :validFrom "2026-10-02"^^xsd:date ;
     :hasClause :Pred_DATA_QUALITY_HardGate ;
-    rdfs:comment "A HARD Ring-1 DQ_* gate fired on the asset's latest filing (:dqIssueOfFiling). Evidence is upstream's data_quality_issue rows; they are projected as :DataQualityIssue individuals (T-104)." .
+    rdfs:label "Data-quality failure"@en ;
+    rdfs:label "Falla de calidad de datos"@es ;
+    rdfs:comment "A HARD Ring-1 data-quality gate fired on the asset's latest filing; the evidence is the data_quality_issue row."@en ;
+    rdfs:comment "Una verificación dura de calidad de datos de la Ronda 1 falló en el último informe del activo; la evidencia es la fila data_quality_issue."@es .
 :Pred_DATA_QUALITY_HardGate a :GraphPredicate ; :predicateName "HasHardDataQualityIssue" ;
     rdfs:comment "Upstream params: source=data_quality_issue, severity=HARD. Evaluated upstream." .
 
@@ -150,7 +171,10 @@
     :ruleId "VOLATILITY_SHOCK" ; :category "MARKET" ; :priorityRank 7 ;
     :ruleSeverity "HARD" ; :validFrom "2026-10-10"^^xsd:date ;
     :hasClause :Pred_VOLATILITY_SHOCK ;
-    rdfs:comment "Temporary HARD: vol_5d / vol_60d_base above 2.5 AND that ratio above 2.5 times its sector's median that day (fewer than 5 names in the sector: the whole cross-section's median). The figures are daily log-return volatilities, not annualized; the 60-day baseline ends 5 sessions before the date, and they are computed upstream, not :PriceObservation properties. Two quantities and a sector-relative test, so no ThresholdComparison fits; evaluated upstream. 'Temporary': once T-188 lands a stint may carry :expiresOn, which never closes it (the cycle writes cleared_on)." .
+    rdfs:label "Volatility shock"@en ;
+    rdfs:label "Choque de volatilidad"@es ;
+    rdfs:comment "Temporary HARD: 5-session log-return volatility divided by a 60-session baseline ending 5 sessions earlier is above 2.5 and above 2.5 times the sector median that day (fewer than 5 names: the cross-section median). Opens for 10 sessions and renews if the condition persists; evaluated upstream."@en ;
+    rdfs:comment "HARD temporal: la volatilidad de retornos logarítmicos de 5 sesiones dividida por una base de 60 sesiones que termina 5 sesiones antes es mayor que 2,5 y mayor que 2,5 veces la mediana sectorial de ese día (menos de 5 nombres: mediana de la sección transversal). Se abre por 10 sesiones y se renueva si la condición persiste; evaluada upstream."@es .
 :Pred_VOLATILITY_SHOCK a :GraphPredicate ; :predicateName "VolatilityShock" ;
     rdfs:comment "A label chosen here, not an upstream identifier. Evaluated upstream: vol_5d / vol_60d_base > 2.5 and above 2.5x the sector-median ratio (T-187)." .
 
@@ -158,7 +182,10 @@
     :ruleId "CRASH_Z_SCORE" ; :category "MARKET" ; :priorityRank 8 ;
     :ruleSeverity "HARD" ; :validFrom "2026-10-10"^^xsd:date ;
     :hasClause :Pred_CRASH_Z_SCORE ;
-    rdfs:comment "Temporary HARD: (ret_5d - 5*mu_60d_base) / (vol_60d_base*sqrt(5)) below -2.5 AND the same test against the sector's median ret_5d (same fallback to the cross-section under 5 names). Daily log-return figures computed upstream, not :PriceObservation properties. Two quantities and a sector-relative test; evaluated upstream. 'Temporary': once T-188 lands a stint may carry :expiresOn, which never closes it." .
+    rdfs:label "Abnormal price drop"@en ;
+    rdfs:label "Caída anormal de precio"@es ;
+    rdfs:comment "Temporary HARD: z = (ret_5d - 5*mu_60d)/(sigma_60d*sqrt(5)) below -2.5 and the same test against the sector median 5-day return below -2.5, with the asset's own 60-session sigma. Same 10-session persistence as VOLATILITY_SHOCK; evaluated upstream."@en ;
+    rdfs:comment "HARD temporal: z = (ret_5d - 5*mu_60d)/(sigma_60d*sqrt(5)) inferior a -2,5 y la misma prueba contra la mediana sectorial del retorno de 5 días inferior a -2,5, con la sigma de 60 sesiones de la propia acción. Misma persistencia de 10 sesiones que VOLATILITY_SHOCK; evaluada upstream."@es .
 :Pred_CRASH_Z_SCORE a :GraphPredicate ; :predicateName "CrashZScore" ;
     rdfs:comment "A label chosen here, not an upstream identifier. Evaluated upstream: the 5-day return's z-score against its 60-day baseline below -2.5, and the same against the sector median (T-187)." .
 
@@ -166,7 +193,10 @@
     :ruleId "BREAK_TREND_200" ; :category "MARKET" ; :priorityRank 9 ;
     :ruleSeverity "SOFT" ; :penaltyPoints "0"^^xsd:decimal ; :validFrom "2026-10-10"^^xsd:date ;
     :hasClause :Pred_BREAK_TREND_200 ;
-    rdfs:comment "Flag only: close below 0.95 x sma_200, a comparison of two quantities computed upstream (not :PriceObservation properties). SOFT with :penaltyPoints 0, so a stint is recorded but costs nothing; the only rule that declares its own points." .
+    rdfs:label "Below 200-day trend (flag only)"@en ;
+    rdfs:label "Bajo la tendencia de 200 días (solo indicador)"@es ;
+    rdfs:comment "Flag only: close more than 5% below its 200-session simple moving average. It marks the name but neither excludes it nor subtracts points; never say it was vetoed."@en ;
+    rdfs:comment "Solo indicador: cierre más de 5 % por debajo de su media simple de 200 sesiones. Marca la acción pero no la excluye ni resta puntos; nunca decir que fue vetada."@es .
 :Pred_BREAK_TREND_200 a :GraphPredicate ; :predicateName "BelowSma200Band" ;
     rdfs:comment "A label chosen here, not an upstream identifier. Evaluated upstream: close < 0.95 * sma_200 (T-187)." .
 
@@ -186,7 +216,10 @@
     :ruleId "UTILITY_CASH_COVERAGE" ; :category "FINANCIAL" ; :priorityRank 10 ;
     :ruleSeverity "HARD" ; :validFrom "2026-10-14"^^xsd:date ;
     :hasClause :Cmp_UTILITY_CASH_COVERAGE_3y ;
-    rdfs:comment "T-071 (D-13, Moody's C13 p.7), new in the Contract v18 catalog: applies only to regulated utilities (APP-00 profile). 3-year average (OCF before working capital) / total debt below 0.05 under both ambiguous-working-capital bounds. HARD. validFrom 2026-10-14 is the day T-071 part 2a (PR #167, merge commit 7ae8ba8) reached upstream master (2026-10-14 20:51:47 -0500, already 2026-10-15 in UTC); T-216 supplied that real date, replacing 2026-10-31, the last safe date, used until then. It is not backdated to 2019/2020: valid-time means when a definition was in force in production, not that a backtest applies a rule retroactively. The 2022-03-03 veto in the P1 backtest comes from the backtest replaying history with today's catalog, which is why backtest vetoes cannot resolve their rule by raisedOn (T-209). Upstream's v_rule_catalog.created_at (2026-10-31T19:37:32) is a technical persistence timestamp, not the adoption date. The profile exemption is not encoded in the tree: CategoricalComparison only tests equality and the profile is not a graph node." .
+    rdfs:label "Weak operating cash flow to debt (regulated utilities)"@en ;
+    rdfs:label "Flujo operativo débil frente a la deuda (utilities reguladas)"@es ;
+    rdfs:comment "Applies only to regulated utilities: 3-year average operating cash flow before working capital divided by total debt below 5%. HARD."@en ;
+    rdfs:comment "Aplica solo a utilities reguladas: flujo operativo medio de tres años antes de capital de trabajo dividido por la deuda total inferior al 5 %. HARD."@es .
 :Cmp_UTILITY_CASH_COVERAGE_3y a :ThresholdComparison ;
     :metricName "rule_input.utility_cash_coverage_3y" ; :operator "<" ; :thresholdValue "0.05"^^xsd:decimal .
 
@@ -222,7 +255,10 @@
     :ruleId "L1_STOP_LOSS" ; :category "GUARD" ; :guardLayer 1 ;
     :validFrom "2019-01-02"^^xsd:date ;
     :hasClause :Pred_L1_STOP_LOSS ;
-    rdfs:comment "GUARD layer 1, per held asset: cumulative J=5-session simple return S_i(5) < -gamma (gamma = 0.1229) cuts the weight to 0 (to CASH). Inspired by Kaminski & Lo (2014), Def. 1. Not a veto rule: no :ruleSeverity, :penaltyPoints or :priorityRank." .
+    rdfs:label "21-session loss-limit exit (Markowitz with GUARD)"@en ;
+    rdfs:label "Salida por límite de pérdida de 21 sesiones (Markowitz con GUARD)"@es ;
+    rdfs:comment "Layer 1 of the Markowitz minimum-variance book with GUARD, not a System rule: a held name is cut to cash when its cumulative 5-session simple return is below -0.1229; the name re-enters on the recovery condition."@en ;
+    rdfs:comment "Capa 1 del libro Markowitz de mínima varianza con GUARD, no una regla del Sistema: una acción mantenida pasa a efectivo cuando su retorno simple acumulado de 5 sesiones es inferior a -0,1229; reentra con la condición de recuperación."@es .
 :Pred_L1_STOP_LOSS a :GraphPredicate ; :predicateName "GuardStopLoss" ;
     rdfs:comment "A label chosen here, not an upstream identifier. Evaluated upstream: S_i(5) < -0.1229." .
 
@@ -230,7 +266,10 @@
     :ruleId "L1_REENTRY" ; :category "GUARD" ; :guardLayer 1 ;
     :validFrom "2019-01-02"^^xsd:date ;
     :hasClause :Pred_L1_REENTRY ;
-    rdfs:comment "GUARD layer 1 re-entry: after a stop-loss cut, re-enters when the asset's 1-session return is >= delta (delta = 0.0108). Inspired by Kaminski & Lo (2014), Def. 1. Not a veto rule: no :ruleSeverity, :penaltyPoints or :priorityRank." .
+    rdfs:label "Re-entry after loss-limit exit"@en ;
+    rdfs:label "Reentrada tras salida por límite de pérdida"@es ;
+    rdfs:comment "After an L1_STOP_LOSS cut, the name re-enters when its 1-session return is at least 0.0108."@en ;
+    rdfs:comment "Tras una salida por L1_STOP_LOSS, la acción reentra cuando su retorno de 1 sesión es al menos 0,0108."@es .
 :Pred_L1_REENTRY a :GraphPredicate ; :predicateName "GuardReentry" ;
     rdfs:comment "A label chosen here, not an upstream identifier. Evaluated upstream: 1-session return >= 0.0108." .
 
@@ -238,7 +277,10 @@
     :ruleId "L1_BP_STOP" ; :category "GUARD" ; :guardLayer 1 ;
     :validFrom "2026-11-04"^^xsd:date ;
     :hasClause :Pred_L1_BP_STOP ;
-    rdfs:comment "Basing Points stop (Edwards & Magee, Bassetti's rules 1–4) for satellite names: the name goes to cash when its close falls below its stop, the latest Basing Point low × (1 − d), with d from Edwards' Table of Stop Distances by price class and 252-session beta. The stop only rises. The name stays out until the next decision date." .
+    rdfs:label "Exit by Basing Points rule"@en ;
+    rdfs:label "Salida por regla Basing Points"@es ;
+    rdfs:comment "Layer 1 of the System: a satellite name goes to cash when its close falls below its rising Basing Points stop (latest Basing Point low times (1 - d), with d from Edwards' Table of Stop Distances and the 252-session beta); the name stays out until the next decision date."@en ;
+    rdfs:comment "Capa 1 del Sistema: una acción del satélite pasa a efectivo cuando su cierre cae por debajo de su stop Basing Points creciente (último mínimo Basing Point por (1 - d), con d de la tabla de distancias de Edwards y la beta de 252 sesiones); la acción queda fuera hasta la siguiente fecha de decisión."@es .
 :Pred_L1_BP_STOP a :GraphPredicate ; :predicateName "GuardBasingPointsStop" ;
     rdfs:comment "A label chosen here, not an upstream identifier. Evaluated upstream: close below the rising Basing Points stop (latest Basing Point low × (1 − d))." .
 
@@ -246,7 +288,10 @@
     :ruleId "L1_BP_REENTRY" ; :category "GUARD" ; :guardLayer 1 ;
     :validFrom "2026-11-04"^^xsd:date ;
     :hasClause :Pred_L1_BP_REENTRY ;
-    rdfs:comment "Re-entry, at a decision date, of a name stopped by L1_BP_STOP that is still selected, with a fresh Basing Points machine." .
+    rdfs:label "Re-entry after Basing Points exit"@en ;
+    rdfs:label "Reentrada tras salida Basing Points"@es ;
+    rdfs:comment "At a decision date, a name stopped by L1_BP_STOP that is still selected re-enters with a fresh Basing Points machine."@en ;
+    rdfs:comment "En una fecha de decisión, una acción detenida por L1_BP_STOP que sigue seleccionada reentra con una máquina Basing Points nueva."@es .
 :Pred_L1_BP_REENTRY a :GraphPredicate ; :predicateName "GuardBasingPointsReentry" ;
     rdfs:comment "A label chosen here, not an upstream identifier. Evaluated upstream: a stopped satellite that is still selected re-enters with a fresh Basing Points machine." .
 
@@ -254,7 +299,10 @@
     :ruleId "L2_NEWS" ; :category "GUARD" ; :guardLayer 2 ;
     :validFrom "2019-01-02"^^xsd:date ;
     :hasClause :Pred_L2_NEWS ;
-    rdfs:comment "GUARD layer 2 (news sentiment). DISABLED (enabled = false) in the 2022-2025 backtest because nlp.db's sentiment labels come from gamug/FinBERT-financial-news, trained on 2022-2026 data, so using them in that window would be look-ahead. Inspired by Tetlock (2007) and Loughran & McDonald (2011). Not a veto rule: no :ruleSeverity, :penaltyPoints or :priorityRank." .
+    rdfs:label "News trim (disabled in the final configuration)"@en ;
+    rdfs:label "Recorte por noticias (deshabilitada en la configuración final)"@es ;
+    rdfs:comment "Would trim positions on negative news; disabled in the final 2022-2025 backtest because the FinBERT training pool spans 2022-2026 (look-ahead)."@en ;
+    rdfs:comment "Recortaría posiciones por noticias negativas; deshabilitada en el backtest final 2022-2025 porque el conjunto de entrenamiento de FinBERT abarca 2022-2026 (look-ahead)."@es .
 :Pred_L2_NEWS a :GraphPredicate ; :predicateName "GuardNews" ;
     rdfs:comment "A label chosen here, not an upstream identifier. Evaluated upstream; disabled in the 2022-2025 backtest (see the rule's comment)." .
 
@@ -262,7 +310,10 @@
     :ruleId "L3_VOL" ; :category "GUARD" ; :guardLayer 3 ;
     :validFrom "2019-01-02"^^xsd:date ;
     :hasClause :Pred_L3_VOL ;
-    rdfs:comment "GUARD layer 3: ex-ante 21-session annualized volatility sigma_hat_21 of the reference weights held fixed; scale factor s_sigma = min(1, sigma* / sigma_hat_21) with sigma* = 0.2455. Inspired by Moreira & Muir (2017). Not a veto rule: no :ruleSeverity, :penaltyPoints or :priorityRank." .
+    rdfs:label "Volatility scaling (configured, no activations)"@en ;
+    rdfs:label "Escalamiento por volatilidad (configurado; sin activaciones en las corridas evaluadas)"@es ;
+    rdfs:comment "Layer 3 scales total exposure by s_sigma = min(1, 0.2455 / sigma_hat_21), where sigma_hat_21 is the ex-ante 21-session annualized volatility of the reference weights; configured, but no activations were observed in the evaluated runs."@en ;
+    rdfs:comment "La capa 3 escala la exposición total por s_sigma = min(1, 0,2455 / sigma_hat_21), donde sigma_hat_21 es la volatilidad anualizada ex-ante a 21 sesiones de los pesos de referencia; configurada, pero sin activaciones en las corridas evaluadas."@es .
 :Pred_L3_VOL a :GraphPredicate ; :predicateName "GuardVolatilityScale" ;
     rdfs:comment "A label chosen here, not an upstream identifier. Evaluated upstream: s_sigma = min(1, 0.2455 / sigma_hat_21)." .
 
@@ -270,7 +321,10 @@
     :ruleId "L4_DD" ; :category "GUARD" ; :guardLayer 4 ;
     :validFrom "2019-01-02"^^xsd:date ;
     :hasClause :Pred_L4_DD ;
-    rdfs:comment "GUARD layer 4: portfolio NAV W_t vs the running peak M_t since formation; scale factor s_DD = clip(m (W_t - alpha M_t) / W_t, 0, 1) with alpha = 0.6073 and m = 2.5467 (m(1-alpha) = 1.0001 >= 1). Inspired by Grossman & Zhou (1993) via Yang & Zhong (2012). Combined equity scale s = min(1, s_sigma, s_DD), remainder in CASH earning daily Kenneth French RF (FF_RF_DAILY). Not a veto rule: no :ruleSeverity, :penaltyPoints or :priorityRank." .
+    rdfs:label "Drawdown scaling"@en ;
+    rdfs:label "Escalamiento por caída"@es ;
+    rdfs:comment "Layer 4 multiplies all the reference weights, including the SPY core, by s_DD = clip(m*(W_t - alpha*M_t)/W_t, 0, 1), with m = 2.5467 and alpha = 0.6073; W_t is portfolio NAV and M_t its running peak. It is 1 at the peak, falls as NAV drops below it, and reaches 0 at a drawdown of about 39.3%. The reference GUARD receives is the target of the twin arm without GUARD."@en ;
+    rdfs:comment "La capa 4 multiplica todos los pesos de referencia, incluido el núcleo SPY, por s_DD = clip(m*(W_t - alfa*M_t)/W_t, 0, 1), con m = 2,5467 y alfa = 0,6073; W_t es el valor del portafolio y M_t su máximo acumulado. Vale 1 en el máximo, baja cuando el valor cae por debajo y llega a 0 con una caída de ≈ 39,3 %. La referencia que recibe GUARD es el objetivo del brazo gemelo sin GUARD."@es .
 :Pred_L4_DD a :GraphPredicate ; :predicateName "GuardDrawdownScale" ;
     rdfs:comment "A label chosen here, not an upstream identifier. Evaluated upstream: s_DD = clip(2.5467 (W_t - 0.6073 M_t) / W_t, 0, 1)." .
 
