@@ -522,8 +522,8 @@ what the store *enforces*.
     `urn:graph:labels`; `LabelConceptShape` requires one `skos:notation`, one `skos:inScheme`, one
     `rdfs:label`/`rdfs:comment` per language and only `@en`/`@es` `skos:altLabel`s on every concept
     marked with `:labelScheme :PresentationScheme`. The file is now in the FR-001 bundle and the
-    load plan. Counts: **58 classes (44 disjoint leaves), 40 named shapes, 5900 quads;
-    conforms: True**; load plan **21 graphs / 6177 asserted triples** (production **5 / 5656**).
+    load plan. Counts: **58 classes (44 disjoint leaves), 40 named shapes, 5954 quads;
+    conforms: True**; load plan **21 graphs / 6231 asserted triples** (production **5 / 5710**).
     The store must be reloaded afterwards.
 
 ## Validation
