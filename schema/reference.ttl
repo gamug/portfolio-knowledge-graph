@@ -131,3 +131,20 @@
 :ScoreTecnico           a skos:Concept ; skos:inScheme :MetricTypeScheme ; skos:prefLabel "ScoreTecnico"@es ; skos:altLabel "Technical Score"@en .
 :Sentiment              a skos:Concept ; skos:inScheme :MetricTypeScheme ; skos:prefLabel "Sentiment"@en ; rdfs:comment "rawValue-compared, not normalizedScore — see 06-ontology-definition.md §1.5's dispatch convention." .
 :SectorRelativeMomentum a skos:Concept ; skos:inScheme :MetricTypeScheme ; skos:prefLabel "SectorRelativeMomentum"@en ; rdfs:comment "Added 2026-08-13 with the Sector Agent; the metricType that leaves normalizedScore unset (see ScoreSnapshotShape's normalizedScore sh:or clause in shapes.ttl; T-140 requires its rawValue, T-155 in [-100,100], TECHNICAL points)." .
+
+# Direct bilingual labels/comments for the MetricType concepts (Work item 43, T-754).
+:ScoreFinanciero rdfs:label "Financial score"@en ; rdfs:label "Puntaje financiero"@es ;
+    rdfs:comment "Fundamental score from the quarterly filing; in this graph it compares on rawValue (0-100)."@en ;
+    rdfs:comment "Puntaje fundamental del informe trimestral; en este grafo compara por rawValue (0-100)."@es .
+:ScoreCuantitativo rdfs:label "Valuation score"@en ; rdfs:label "Puntaje de valoración"@es ;
+    rdfs:comment "Valuation-multiple score read from the VALORIZATION lane."@en ;
+    rdfs:comment "Puntaje de múltiplos de valoración leído del carril VALORIZATION."@es .
+:ScoreTecnico rdfs:label "Technical score"@en ; rdfs:label "Puntaje técnico"@es ;
+    rdfs:comment "Price trend and momentum score read from the TECHNICAL lane."@en ;
+    rdfs:comment "Puntaje de tendencia y momentum de precios leído del carril TECHNICAL."@es .
+:Sentiment rdfs:label "Sentiment score"@en ; rdfs:label "Puntaje de sentimiento"@es ;
+    rdfs:comment "Semantic sentiment score; it compares on rawValue in [-1, 1], not on normalizedScore."@en ;
+    rdfs:comment "Puntaje de sentimiento semántico; compara por rawValue en [-1, 1], no por normalizedScore."@es .
+:SectorRelativeMomentum rdfs:label "Sector-relative technical score"@en ; rdfs:label "Puntaje técnico relativo al sector"@es ;
+    rdfs:comment "The asset technical raw score minus its GICS sector mean; rawValue in [-100, 100], a diagnostic and not part of the combined score."@en ;
+    rdfs:comment "Puntaje técnico bruto de la acción menos la media de su sector GICS; rawValue en [-100, 100], diagnóstico y no parte del puntaje combinado."@es .

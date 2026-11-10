@@ -363,11 +363,11 @@ say it is not loaded.
 
 | Surface | Today | After this design | Action |
 |---|---|---|---|
-| `LOAD_PLAN` | 7 files, 20 graphs, 5,217 asserted triples | 8 files, 21 graphs, 6,231 asserted triples | Add `("labels.ttl", "urn:graph:labels")` before `instances.trig` |
+| `LOAD_PLAN` | 7 files, 20 graphs, 5,217 asserted triples | 8 files, 21 graphs, 6,349 asserted triples | Add `("labels.ttl", "urn:graph:labels")` before `instances.trig` |
 | Production (`include_examples=False`) | 5 files, 4 graphs, 4,671 triples | 6 files, 5 graphs, `4,671 + D` triples | Labels are schema, not ABox; they load in production with the WI 39 guard unchanged |
 | `expected_sizes` | 20 entries / 4 production | 21 entries / 5 production | No code change beyond the load plan; `verify_store` and the schema-graphs acceptance check follow automatically |
-| FR-001 bundle | 4,940 quads, 58 tbox classes, 39 named shapes | 5,954 quads, 58 tbox classes (unchanged), 40 named shapes | Add `labels.ttl` to the FR-001 file list; add one `LabelConceptShape` |
-| `tests/test_kg_load_schema.py` | asserts 20/5,217 and 4/4,696 | assert 21/6,231 and 5/5,710 | Update the two tests |
+| FR-001 bundle | 4,940 quads, 58 tbox classes, 39 named shapes | 6,072 quads, 58 tbox classes (unchanged), 40 named shapes | Add `labels.ttl` to the FR-001 file list; add one `LabelConceptShape` |
+| `tests/test_kg_load_schema.py` | asserts 20/5,217 and 4/4,696 | assert 21/6,349 and 5/5,828 | Update the two tests |
 | `tests/test_acceptance_schema_checks.py` | expects "4 schema graphs" in the production message | "5 schema graphs" | Update the expectation |
 | `verify_store` | six checks; the schema-graphs check uses `expected_sizes` | same six checks; the first reports 21 or 5 graphs | No new check; no change to the six |
 | `kg_target_schema.ttl` | mirrors tbox terms | not changed by this design | Decide in T-756; it is not in FR-001 or the load plan, so it has no asserted count |
@@ -442,7 +442,7 @@ there; that is a direct label edit, not the new vocabulary.
 **Effect on every asserted count (NR-001).** Let `D` be the net new triples. The
 following live assertions change:
 
-- `.specify/memory/SPEC.md` FR-001: `5954 quads` (after the labels vocabulary).
+- `.specify/memory/SPEC.md` FR-001: `6072 quads` (after the labels vocabulary).
 - `SPEC.md` §2.1 (in-scope bundle), §2.3 (FR-001/FR-012), §2.6 and the related
   work-item paragraphs that repeat the current count; the FR-012
   production-load sentence (`four schema graphs`, `20 graphs`) → `five schema
@@ -451,10 +451,10 @@ following live assertions change:
   (add `labels.ttl` / `urn:graph:labels`).
 - `schema/README.md`: file-to-graph table, load order, validation counts, class
   and shape counts (58 tbox classes unchanged; 39 → 40 named shapes), and the
-  current `5954`/`6231` statements.
+  current `6072`/`6349` statements.
 - `docs/06-ontology-definition.md`: current count statements and the shape list.
 - `docs/07-ontology-topology.md`: named-graph list adds `urn:graph:labels`.
-- `docs/graphdb-setup.md`: production/test load sizes (`5710`, `6231`, `21`).
+- `docs/graphdb-setup.md`: production/test load sizes (`5828`, `6349`, `21`).
 - `docs/backtest-load-runbook.md`: the `20 graphs` references.
 - `docs/reports-agent-query-catalog.md`: if it states the schema graph set, add
   the labels graph; otherwise no count change.
@@ -643,7 +643,7 @@ id, so a reviewer can diff the frozen text against the approved text.
 ### 8.1 Risks
 
 - **NR-001 count churn.** `D` must be measured and every live assertion updated;
-  a missed `5954`, `6231`, `5710`, `21 graphs`, `40 shapes` or `5 schema graphs`
+  a missed `6072`, `6349`, `5828`, `21 graphs`, `40 shapes` or `5 schema graphs`
   is a defect.
 - **Duplicate labels/comments.** Adding bilingual labels next to existing
   untagged ones can return two values. The design retags touched terms and
@@ -679,7 +679,7 @@ id, so a reviewer can diff the frozen text against the approved text.
 |---|---|---|---|
 | 1 | **T-750** | This design document and append-only PLAN/TASKS entries. | Design reviewed; no schema/src/cli/test change. |
 | 2 | **T-751** | `schema/labels.ttl`: schemes, concepts, notations, labels/comments/altLabels, window fields; `tests/test_labels.py` (notation uniqueness per scheme; one label/comment per language; window fields; exactly the five StrategyScheme notations once WI44 is loaded and no B0/MCF/`MARKOWITZ_SAMPLE*`/`BMK_*`/`TOPN_MV_GUARD` concept; absence of C1/`rule`/`candidate_y2`; `MARKOWITZ_MV` only when its arm code exists). | File parses; tests fail without the vocabulary; no run IRI in the file. |
-| 3 | **T-752** | `LabelConceptShape` in `shapes.ttl`, `LOAD_PLAN`, FR-001 file list, `expected_sizes`, counts and docs; update `test_kg_load_schema`, `test_acceptance_schema_checks`, `test_ontology_v18`, `test_schema_gate`. | 21/6,231 test plan, 5/5,710 production plan, FR-001 5,954, 40 shapes, pyshacl conforms. |
+| 3 | **T-752** | `LabelConceptShape` in `shapes.ttl`, `LOAD_PLAN`, FR-001 file list, `expected_sizes`, counts and docs; update `test_kg_load_schema`, `test_acceptance_schema_checks`, `test_ontology_v18`, `test_schema_gate`. | 21/6,349 test plan, 5/5,828 production plan, FR-001 6,072, 40 shapes, pyshacl conforms. |
 | 4 | **T-753** | Direct labels/comments for GUARD rules and the active veto rules in `rules.ttl`; label the three veto-class concepts and the markers; remove forbidden mentions from the touched L4_DD comment. | Rule labels present; no Grossman-Zhou/Tiingo in new comments; tests. |
 | 5 | **T-754** | Direct labels/comments for `StrategyBook`, `GuardAlert`, `GuardAction`, `Veto`, score/rank/config/process classes and properties; `MetricTypeScheme` concepts; `objective` label and WI 41-consistent comment; the `:nGuardActions` comment (GUARD actions executed; 0 = "not applicable" in `MARKOWITZ_BASE`, `TOPN_MV_NOGUARD` and `MARKOWITZ_MV`). | Labels present; `objective` test still passes; no "Markowitz base" except `MARKOWITZ_MV`; no run IRI touched. |
 | 6 | **T-755** | `docs/labels-en-review.md` with every row; Reviewer A sign-off. | All rows approved or changed; no schema change yet. |
@@ -842,7 +842,7 @@ per run and period; obsolete elements (such as `rule`) outside default queries.
     `rdfs:label` only, as requested; GICS/MetricType keep their existing
     `skos:prefLabel`.
 12. **ANSWERED — `labels.ttl` enters FR-001.** It is pyshacl-validated and
-    counted, so the assertion becomes `5954`.
+    counted, so the assertion becomes `6072`.
 13. **ANSWERED — `kg_target_schema.ttl` does not mirror the label vocabulary.**
     It remains a target ontology, not a presentation layer.
 14. **ANSWERED — window 5 has no scenario altLabel.** It remains neutral

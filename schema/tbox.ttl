@@ -145,10 +145,9 @@
 
 :Veto
     a owl:Class ;
-    rdfs:label "Veto" ;
+    rdfs:label "Veto"@en ;
     rdfs:label "veto"@es ;
-    skos:definition "Nodo de decisión del orquestador para un activo: qué regla o reglas se activaron y por qué. Desde T-102, un veto es un período (raisedOn..clearedOn, filas de veto del sistema de origen), no un evento de un solo ciclo."@es ;
-    rdfs:comment "The orchestrator's decision node for one Asset: which rule(s) fired and why (v1 §4). Since T-102 a Veto is a stint (raisedOn..clearedOn, upstream veto rows), not a single-cycle event." .
+    skos:definition "Nodo de decisión del orquestador para un activo: qué regla o reglas se activaron y por qué. Desde T-102, un veto es un período (raisedOn..clearedOn, filas de veto del sistema de origen), no un evento de un solo ciclo."@es  .
 
 :RuleDefinition
     a owl:Class ;
@@ -272,10 +271,9 @@
 
 :StrategyBook
     a owl:Class ;
-    rdfs:label "Strategy Book" ;
+    rdfs:label "Strategy Book"@en ;
     rdfs:label "libro de estrategia de backtest"@es ;
-    skos:definition "Brazo experimental de una corrida de backtest en una ventana histórica (P<n> o H<n>, por ejemplo P1, H1, P3, H2, P2 o H3): MARKOWITZ_BASE (optimización de mínima varianza sobre todo el universo elegible sin selección de ciclo), TOPN_MV_NOGUARD (selección del pool Top-N del ciclo + mínima varianza sin GUARD), TOPN_MV_GUARD_NO_NLP (selección del pool Top-N del ciclo + mínima varianza con protección diaria GUARD activa) o MARKOWITZ_BASE_GUARD (la misma optimización de MARKOWITZ_BASE con protección GUARD)."@es ;
-    rdfs:comment "One row of v_book (m018): an experimental arm of one backtest run (the name :StrategyBook, not :BacktestBook). A named pool of holdings, so a Collection like Portfolio. The m018 row still links to its run by the literal :backtestRunId; run metadata is the separate :BacktestRun individual of Work item 33. :guardLayers is optional and :excludeHardVetoed is a boolean with no per-arm constraint (see their comments)." .
+    skos:definition "Brazo experimental de una corrida de backtest en una ventana histórica (P<n> o H<n>, por ejemplo P1, H1, P3, H2, P2 o H3): MARKOWITZ_BASE (optimización de mínima varianza sobre todo el universo elegible sin selección de ciclo), TOPN_MV_NOGUARD (selección del pool Top-N del ciclo + mínima varianza sin GUARD), TOPN_MV_GUARD_NO_NLP (selección del pool Top-N del ciclo + mínima varianza con protección diaria GUARD activa) o MARKOWITZ_BASE_GUARD (la misma optimización de MARKOWITZ_BASE con protección GUARD)."@es  .
 
 :BookRebalance
     a owl:Class ;
@@ -286,17 +284,15 @@
 
 :GuardAlert
     a owl:Class ;
-    rdfs:label "Guard Alert" ;
+    rdfs:label "Guard Alert"@en ;
     rdfs:label "alerta diaria de GUARD"@es ;
-    skos:definition "Alerta de riesgo generada al cierre de una sesión por las capas de protección diaria GUARD: corte individual por pérdida acumulada o por Basing Points (capa 1, L1_STOP_LOSS / L1_REENTRY / L1_BP_STOP / L1_BP_REENTRY), volatilidad ex-ante del portafolio (capa 3, L3_VOL) o caída acumulada desde el máximo (capa 4, L4_DD)."@es ;
-    rdfs:comment "One row of v_guard_alert (m018): a GUARD layer's daily alert, with :alertRule pointing at its GUARD RuleDefinition. A dated measurement (value/threshold/state), so an Observation. :guardAsset and :guardTicker are optional (NULL on layers 3 and 4); :alertValue is optional (NULL on layer 1); :alertState is always populated and :alertThreshold on every rule except L1_BP_STOP/L1_BP_REENTRY, whose threshold is a price level and is forbidden (Work item 33). The view has no book_id: an alert reaches a book through its :alertHasGuardAction actions, never a direct alert-to-book property." .
+    skos:definition "Alerta de riesgo generada al cierre de una sesión por las capas de protección diaria GUARD: corte individual por pérdida acumulada o por Basing Points (capa 1, L1_STOP_LOSS / L1_REENTRY / L1_BP_STOP / L1_BP_REENTRY), volatilidad ex-ante del portafolio (capa 3, L3_VOL) o caída acumulada desde el máximo (capa 4, L4_DD)."@es  .
 
 :GuardAction
     a owl:Class ;
-    rdfs:label "Guard Action" ;
+    rdfs:label "Guard Action"@en ;
     rdfs:label "acción de GUARD sobre un libro"@es ;
-    skos:definition "Evaluación y efecto de una alerta de GUARD sobre un libro de estrategia para la sesión siguiente (effective_date): APPLIED (aplicada), ARM_DISABLED (registrada como contrafactual en el brazo sin GUARD), NOT_HELD (activo no mantenido en cartera) o SUPERSEDED."@es ;
-    rdfs:comment "One row of v_guard_action (m018): the effect of a GuardAlert on one StrategyBook for the next session. A decision/action record, so a RiskAndDecision leaf. :guardAsset/:guardTicker and :weightBefore/:weightAfter are optional (NULL on layer 1 asset actions and on NOT_HELD); :actionAlert and :actionOfBook are required." .
+    skos:definition "Evaluación y efecto de una alerta de GUARD sobre un libro de estrategia para la sesión siguiente (effective_date): APPLIED (aplicada), ARM_DISABLED (registrada como contrafactual en el brazo sin GUARD), NOT_HELD (activo no mantenido en cartera) o SUPERSEDED."@es  .
 
 :BookWeightDaily
     a owl:Class ;
@@ -869,8 +865,7 @@ original layer-1 stop-loss, inspired by Kaminski & Lo (2014).""" .
 :atr14            a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :PriceObservation ; rdfs:range xsd:decimal .
 
 # --- AttractivenessSnapshot / AttractivenessWeightScheme / WeightComponent (added 2026-08-13) ---
-:attractivenessScore a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :AttractivenessSnapshot ; rdfs:range xsd:decimal ;
-    rdfs:comment "Upstream v_cycle_ranking.blended_score / 100: higher = more attractive, at most 1.0, negative when SOFT-veto penalties exceed the blend (T-155). Read, never computed here (SPEC 2.5); the inverse sense of ScoreSnapshot.normalizedScore's risk convention." .
+:attractivenessScore a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :AttractivenessSnapshot ; rdfs:range xsd:decimal  .
 :computedAt a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :AttractivenessSnapshot ; rdfs:range xsd:dateTime .
 :schemeId a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :AttractivenessWeightScheme ; rdfs:range xsd:string .
 :weightMetricName a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :WeightComponent ; rdfs:range xsd:string ;
@@ -880,30 +875,21 @@ original layer-1 stop-loss, inspired by Kaminski & Lo (2014).""" .
     rdfs:comment "Design history (2026-08-13 formula, not computed here since T-155): true for risk-oriented metrics that would be read as (1 - normalizedScore) before weighting. Optional since T-121: upstream has no counterpart (D13 item 4), so it is emitted for no upstream scheme and kept only on WeightScheme_v1." .
 :cycleDate a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:range xsd:date ;
     rdfs:comment "T-121: the date of the cycle_run that recorded the individual; on an AttractivenessWeightScheme, upstream v_weight_scheme.cycle_date verbatim. No rdfs:domain, like :runId/:runAsOf: upstream also carries cycle_date on v_cycle_ranking, v_cycle_ranking_component, v_weight_component and v_sector_aggregate_snapshot, and a domain would type any such individual as a scheme (contradicting AllDisjointClasses); each class that uses it constrains it in its shape. An observation date, NOT valid time: a per-run scheme is never closed, and its lack of validTo does not mean 'still active'. Distinct from :runAsOf (the run log's as_of, v_cycle_run), which T-151's checks compare it with but which this repo does not assume equal." .
-:bookWeightingRule a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :AttractivenessWeightScheme ; rdfs:range xsd:string ;
-    rdfs:comment "T-121 (D13): upstream v_weight_scheme.scheme_id, the rule that turns the ranking into book weights (score_proportional, score_tilt). Open vocabulary, read verbatim. NOT the blend, which is identified by the cycle_run (:schemeId)." .
-:topN a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :AttractivenessWeightScheme ; rdfs:range xsd:integer ;
-    rdfs:comment "T-121: upstream top_n, the size of the CANDIDATE POOL of a SELECTION run (60 in the final backtest), not the cap of names actually held. The held cap (30) is a backtest parameter in params_json that no view exposes. At least 1." .
-:maxNameWeight a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :AttractivenessWeightScheme ; rdfs:range xsd:decimal ;
-    rdfs:comment "T-121: upstream max_name_weight, a fraction of the book (0.05 = 5%), [0, 1]. Optional: NULL on a MONITORING run by default. The EFFECTIVE cap on a SELECTION run (derived from N since upstream's Work item 18, relaxations in params_json), the CONFIGURED one on a MONITORING run. Read verbatim." .
-:maxSectorWeight a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :AttractivenessWeightScheme ; rdfs:range xsd:decimal ;
-    rdfs:comment "T-121: upstream max_sector_weight, a fraction of the book (0.25 = 25%), [0, 1]. The EFFECTIVE cap on a SELECTION run (relaxations are in upstream's params_json since its Work item 18), the CONFIGURED one on a MONITORING run, as for :maxNameWeight. Read verbatim." .
-:softVetoPenalty a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :AttractivenessWeightScheme ; rdfs:range xsd:decimal ;
-    rdfs:comment "T-121: upstream soft_veto_penalty, in points of upstream's 0-100 blend (15 by default), charged once per active SOFT veto stint whose rule declares no :penaltyPoints (the default for a SOFT rule, and for a SOFT stint of a HARD rule, which has none: assumed, T-191 ask 8; runs before upstream's version 11 charged it flat on every SOFT stint, T-189). Not a fraction: do not divide by 100 here. At least 0." .
+:bookWeightingRule a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :AttractivenessWeightScheme ; rdfs:range xsd:string  .
+:topN a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :AttractivenessWeightScheme ; rdfs:range xsd:integer  .
+:maxNameWeight a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :AttractivenessWeightScheme ; rdfs:range xsd:decimal  .
+:maxSectorWeight a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :AttractivenessWeightScheme ; rdfs:range xsd:decimal  .
+:softVetoPenalty a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :AttractivenessWeightScheme ; rdfs:range xsd:decimal  .
 
 # --- backtest selection side (Work item 26, T-322): rank/selection/weights ---
-:rankPosition a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :AttractivenessSnapshot ; rdfs:range xsd:integer ;
-    rdfs:comment "Upstream v_cycle_ranking.rank (1 = best), read verbatim for the backtest selection side. A live ranking may still be a query-time ORDER BY; the backtest keeps the row's own rank so a report does not have to break ties or reproduce upstream's comparison set. The rank counts vetoed names too, so a selected name can have a rank above the candidate-pool size (60 in the final backtest)." .
-:selectedForBook a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :AttractivenessSnapshot ; rdfs:range xsd:boolean ;
-    rdfs:comment "Upstream v_cycle_ranking.selected: membership of the CANDIDATE POOL of 60 (exactly 60 rows with selected = 1 per decision cycle), not the at most 30 names actually held. It is not a portfolio-weight signal: the held satellite is :finalTargetWeight > 0 on the Top-N arms' :BookWeightDaily rows (a subset of the pool, plus the SPY core and CASH). Different from :vetoedAtRanking: a SOFT veto lowers the score but does not by itself exclude." .
+:rankPosition a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :AttractivenessSnapshot ; rdfs:range xsd:integer  .
+:selectedForBook a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :AttractivenessSnapshot ; rdfs:range xsd:boolean  .
 :vetoedAtRanking a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :AttractivenessSnapshot ; rdfs:range xsd:boolean ;
     rdfs:comment "Upstream v_cycle_ranking.vetoed: true only for a HARD veto or the UNSCORED/UNPRICED gaps, never for a SOFT veto alone. The stints themselves are :Veto individuals (v_veto)." .
-:targetWeight a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :AttractivenessSnapshot ; rdfs:range xsd:decimal ;
-    rdfs:comment "Upstream v_cycle_ranking.target_weight verbatim, a fraction in [0, 1]. It is the cycle's own weight over the 60-name candidate pool (score tilt, name and sector caps), NOT a portfolio weight and never used as one by the backtest; the portfolio weights are :finalTargetWeight on :BookWeightDaily. Optional: NULL for an unselected row and on a MONITORING run; never filled in here." .
+:targetWeight a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :AttractivenessSnapshot ; rdfs:range xsd:decimal  .
 :vetoRulesJson a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :AttractivenessSnapshot ; rdfs:range xsd:string ;
     rdfs:comment "Upstream v_cycle_ranking.veto_rules_json verbatim: the rule ids/markers that applied at that ranking, including UNSCORED and UNPRICED, which have no :Veto row. A JSON string, like :paramsJson; never parsed or recomputed here. It names rules only, not price values." .
-:componentValue a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :WeightComponent ; rdfs:range xsd:decimal ;
-    rdfs:comment "Upstream v_cycle_ranking_component.component_value verbatim, on an effective-weight WeightComponent only (never on a configured one). 0-100, the same cohort-relative scale as normalized_score. For FUNDAMENTAL this is NOT a repeat of the ScoreSnapshot's normalizedScore: the stored score is rewritten in place by a later cycle, while this is the value THIS run used (T-171)." .
+:componentValue a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :WeightComponent ; rdfs:range xsd:decimal  .
 
 :cycleType a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :SelectionCycle ; rdfs:range xsd:string ;
     rdfs:comment "Upstream v_cycle_run.cycle_type: SELECTION, MONITORING, ENTITY_RESOLUTION or REPLAY. A backtest database's cycle runs are REPLAY by construction, which is why the backtest source check reads v_book.run_status rather than the live REPLAY refusal (T-320)." .
@@ -1000,10 +986,8 @@ original layer-1 stop-loss, inspired by Kaminski & Lo (2014).""" .
     rdfs:comment """backtest window id (P1, H1, P3, H2, P2, H3)""" .
 :trendDecisionDate a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :TrendFilterState ; rdfs:range xsd:date ;
     rdfs:comment """ISO date of the decision session (the close the filter reads); the same dates as v_book_rebalance.decision_date of the Top-N arms""" .
-:trendState a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :TrendFilterState ; rdfs:range xsd:string ;
-    rdfs:comment """'below' = SPY's close at decision_date is below the simple mean of its last 210 session closes (filter triggered); 'at_or_above' = not triggered; 'not_evaluable' = fewer than 210 sessions (filter off). No level or mean value is published""" .
-:cashFraction a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :TrendFilterState ; rdfs:range xsd:decimal ;
-    rdfs:comment """fraction of the Top-N target (SPY core + satellite) moved to cash by the filter at this decision, held until the next decision date: the run's filter_exit when 'below', else 0.0. GUARD layers act on top of it in TOPN_MV_GUARD_NO_NLP; the base arms (MARKOWITZ_BASE, MARKOWITZ_BASE_GUARD) never use the filter""" .
+:trendState a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :TrendFilterState ; rdfs:range xsd:string  .
+:cashFraction a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :TrendFilterState ; rdfs:range xsd:decimal  .
 :appliesToArm a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :TrendFilterState ; rdfs:range xsd:string ;
     rdfs:comment "TOPN_MV_NOGUARD | TOPN_MV_GUARD_NO_NLP: the arms the trend filter applies to, read from trend_filter_applies_to_arms (the MARKOWITZ_* arms never use it). SHACL requires exactly these two values on every row." .
 :returnWindow a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :ReferenceReturn ; rdfs:range xsd:string ;
@@ -1014,14 +998,10 @@ original layer-1 stop-loss, inspired by Kaminski & Lo (2014).""" .
     rdfs:comment """ISO date of the segment's first session (the same as backtest_summary.date_from)""" .
 :referenceDateTo a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :ReferenceReturn ; rdfs:range xsd:date ;
     rdfs:comment """ISO date of the segment's last session (the same as backtest_summary.date_to)""" .
-:nSessions a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :ReferenceReturn ; rdfs:range xsd:integer ;
-    rdfs:comment """number of sessions in the segment""" .
-:referenceName a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :ReferenceReturn ; rdfs:range xsd:string ;
-    rdfs:comment """'SPY' (total return, dividends reinvested) or 'SP500_EW_INTERNAL'""" .
-:referenceTotalReturn a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :ReferenceReturn ; rdfs:range xsd:decimal ;
-    rdfs:comment """prod(1 + r_t) - 1 over the segment's sessions, as a fraction (6 decimals)""" .
-:referenceMaxDrawdown a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :ReferenceReturn ; rdfs:range xsd:decimal ;
-    rdfs:comment """max_t(1 - NAV_t / max(1, NAV_1..NAV_t)), positive fraction, the same formula as backtest_summary.max_drawdown (6 decimals)""" .
+:nSessions a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :ReferenceReturn ; rdfs:range xsd:integer  .
+:referenceName a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :ReferenceReturn ; rdfs:range xsd:string  .
+:referenceTotalReturn a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :ReferenceReturn ; rdfs:range xsd:decimal  .
+:referenceMaxDrawdown a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :ReferenceReturn ; rdfs:range xsd:decimal  .
 
 # --- OrchestratorRun / OrchestratorStep ---
 :orchestratorRunId a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :OrchestratorRun ; rdfs:range xsd:integer ;
@@ -1061,11 +1041,13 @@ original layer-1 stop-loss, inspired by Kaminski & Lo (2014).""" .
 :runStatus a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :StrategyBook ; rdfs:range xsd:string ;
     rdfs:comment "v_book.run_status = backtest_run.status (running | completed | failed in the DDL; open). Distinct from :status." .
 :objective a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :StrategyBook ; rdfs:range xsd:string ;
-    rdfs:comment "v_book.objective, upstream's strategy_book.objective, open and read verbatim. Upstream's _insert_books function writes it as a fixed literal per arm: 'min_var' for every optimized arm and 'equal_weight' for the benchmark SP500_EW_INTERNAL, independent of the run's satellite_weighting. The delivery's config_final.md describes a minimum-variance optimisation step that keeps at most 30 names, followed by minimum-CVaR weighting of those names, so the literal 'min_var' is NOT the weighting objective of the TOPN_MV_* books and must not be presented as such. Confirmation of the full meaning by upstream's maintainer is pending. On the external MARKOWITZ_MV book the loader writes 'max_sharpe' as the registered class (pending Reviewer A); it is not an engine arm." .
+    rdfs:label "Registered optimization class"@en ;
+    rdfs:label "Clasificación de optimización registrada"@es ;
+    rdfs:comment "v_book.objective, upstream's strategy_book.objective, open and read verbatim. Upstream's _insert_books function writes it as a fixed literal per arm: 'min_var' for every optimized arm and 'equal_weight' for the benchmark SP500_EW_INTERNAL, independent of the run's satellite_weighting. The delivery's config_final.md describes a minimum-variance optimisation step that keeps at most 30 names, followed by minimum-CVaR weighting of those names, so the literal 'min_var' is NOT the weighting objective of the TOPN_MV_* books and must not be presented as such. Confirmation of the full meaning by upstream's maintainer is pending. On the external MARKOWITZ_MV book the loader writes 'max_sharpe' as the registered class (pending Reviewer A); it is not an engine arm."@en ;
+    rdfs:comment "v_book.objective, la etiqueta strategy_book.objective de upstream, abierta y leída verbatim. La función _insert_books de upstream la escribe como literal fijo por brazo: 'min_var' para todo brazo optimizado y 'equal_weight' para el benchmark SP500_EW_INTERNAL, independientemente de satellite_weighting de la corrida. El config_final.md de la entrega describe un paso de optimización de mínima varianza que mantiene como máximo 30 nombres, seguido de una ponderación por mínimo CVaR de esos nombres, así que el literal 'min_var' NO es la función objetivo de ponderación de los libros TOPN_MV_* y no debe presentarse como tal. La confirmación del significado completo por el mantenedor de upstream está pendiente. En el libro externo MARKOWITZ_MV el loader escribe 'max_sharpe' como clase registrada (pendiente de Reviewer A); no es un brazo del motor."@es .
 :dataSource a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :StrategyBook ; rdfs:range xsd:string ;
     rdfs:comment "Work item 44: the provenance label of a book computed outside the engine, read from the delivery's source string (e.g. 'independent simulator validated against the engine'). Optional and at most one; the engine arms carry no value." .
-:excludeHardVetoed a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :StrategyBook ; rdfs:range xsd:boolean ;
-    rdfs:comment "v_book.exclude_hard_vetoed, upstream INTEGER 0/1 projected as false/true. The DDL comment says 0 on MARKOWITZ_BASE and 1 on TOPN_MV_*; the completed P1/P2/P3 databases hold 0 on all three arms, and MARKOWITZ_BASE_GUARD is 0 too, so the shape requires only a boolean and does NOT constrain it per arm (data over DDL comment)." .
+:excludeHardVetoed a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :StrategyBook ; rdfs:range xsd:boolean  .
 :guardLayers a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :StrategyBook ; rdfs:range xsd:string ;
     rdfs:comment "v_book.guard_layers, the JSON list text verbatim. Optional: the DDL comment says '[]' on BASE/NOGUARD, but the completed P1/P2/P3 databases hold NULL there and '[1, 3, 4]' on the guard arms (TOPN_MV_GUARD_NO_NLP and MARKOWITZ_BASE_GUARD), so the shape does not require it and never parses it." .
 :backtestStartDate a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :StrategyBook ; rdfs:range xsd:date ;
@@ -1126,16 +1108,13 @@ original layer-1 stop-loss, inspired by Kaminski & Lo (2014).""" .
     rdfs:comment "v_book_daily_performance.date." .
 :grossReturn a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :BookDailyPerformance ; rdfs:range xsd:decimal .
 :turnover a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :BookDailyPerformance ; rdfs:range xsd:decimal .
-:costReturn a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :BookDailyPerformance ; rdfs:range xsd:decimal ;
-    rdfs:comment "v_book_daily_performance.cost_return. No sign or range constraint: the handoff states no sign convention." .
+:costReturn a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :BookDailyPerformance ; rdfs:range xsd:decimal  .
 :netReturn a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :BookDailyPerformance ; rdfs:range xsd:decimal .
 :nav a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :BookDailyPerformance ; rdfs:range xsd:decimal .
-:drawdown a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :BookDailyPerformance ; rdfs:range xsd:decimal ;
-    rdfs:comment "v_book_daily_performance.drawdown. No sign or range constraint: the handoff states no sign convention, even though P1/P2/P3 hold non-negative magnitudes (0 to 0.2492)." .
+:drawdown a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :BookDailyPerformance ; rdfs:range xsd:decimal  .
 :cashWeight a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :BookDailyPerformance ; rdfs:range xsd:decimal .
 :nEquity a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :BookDailyPerformance ; rdfs:range xsd:integer .
-:benchmarkReturn a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :BookDailyPerformance ; rdfs:range xsd:decimal ;
-    rdfs:comment "Optional: v_book_daily_performance.benchmark_return (SP500_EW_INTERNAL equal-weight total return); NULL upstream." .
+:benchmarkReturn a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :BookDailyPerformance ; rdfs:range xsd:decimal  .
 
 # --- PortfolioPeriodSummary ---
 :dateFrom a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :PortfolioPeriodSummary ; rdfs:range xsd:date .
@@ -1144,25 +1123,20 @@ original layer-1 stop-loss, inspired by Kaminski & Lo (2014).""" .
 :annualizedReturn a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :PortfolioPeriodSummary ; rdfs:range xsd:decimal .
 :annualizedVol a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :PortfolioPeriodSummary ; rdfs:range xsd:decimal .
 :exPostSharpe a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :PortfolioPeriodSummary ; rdfs:range xsd:decimal .
-:maxDrawdown a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :PortfolioPeriodSummary ; rdfs:range xsd:decimal ;
-    rdfs:comment "v_portfolio_period_summary.max_drawdown. No sign or range constraint: the handoff states no sign convention." .
+:maxDrawdown a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :PortfolioPeriodSummary ; rdfs:range xsd:decimal  .
 :totalTurnover a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :PortfolioPeriodSummary ; rdfs:range xsd:decimal .
 :totalCostBps a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :PortfolioPeriodSummary ; rdfs:range xsd:decimal .
 :nRebalances a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :PortfolioPeriodSummary ; rdfs:range xsd:integer .
 :nGuardActions a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :PortfolioPeriodSummary ; rdfs:range xsd:integer .
 
 # --- BacktestTest ---
-:armA a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :BacktestTest ; rdfs:range xsd:string ;
-    rdfs:comment "v_backtest_test.arm_a, the same six-value arm vocabulary as :armCode (including the external MARKOWITZ_MV). SHACL sh:in." .
-:armB a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :BacktestTest ; rdfs:range xsd:string ;
-    rdfs:comment "v_backtest_test.arm_b. SHACL sh:in." .
-:testName a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :BacktestTest ; rdfs:range xsd:string ;
-    rdfs:comment "v_backtest_test.test: memmel_jk | ledoit_wolf | hac_mean_diff | bootstrap_mdd. bootstrap_mdd is upstream's paired circular block bootstrap of the maximum-drawdown difference MDD(arm_a) − MDD(arm_b) in the segment (block 5, 4999 replicates, seed 20261104; the statistic is that difference as a fraction, positive when arm_a fell more; the p-value is two-sided). Source: src/cycle/backtest/stats.py::bootstrap_mdd_diff. SHACL sh:in." .
+:armA a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :BacktestTest ; rdfs:range xsd:string  .
+:armB a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :BacktestTest ; rdfs:range xsd:string  .
+:testName a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :BacktestTest ; rdfs:range xsd:string  .
 :statistic a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :BacktestTest ; rdfs:range xsd:decimal .
 :pValue a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :BacktestTest ; rdfs:range xsd:decimal .
 :nObs a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :BacktestTest ; rdfs:range xsd:integer .
-:paramsJson a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :BacktestTest ; rdfs:range xsd:string ;
-    rdfs:comment "Optional: v_backtest_test.params_json." .
+:paramsJson a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :BacktestTest ; rdfs:range xsd:string  .
 
 #################################################################
 # 4. OWL CARDINALITY RESTRICTIONS (semantic, complements SHACL's
@@ -1180,3 +1154,165 @@ original layer-1 stop-loss, inspired by Kaminski & Lo (2014).""" .
 
 :RiskEvent rdfs:subClassOf
     [ a owl:Restriction ; owl:onProperty :backedBy ; owl:minCardinality 1 ] .
+
+#################################################################
+# Direct bilingual labels/comments for the schema terms in the glossary
+# (Work item 43, T-754).
+#################################################################
+
+:StrategyBook rdfs:comment "One experimental arm of one backtest run in one window; a named pool of holdings."@en ;
+    rdfs:comment "Brazo experimental de una corrida de backtest en una ventana; un conjunto nombrado de tenencias."@es .
+
+:GuardAlert rdfs:comment "One GUARD layer daily alert for one asset, with its rule, value, threshold and state."@en ;
+    rdfs:comment "Alerta diaria de una capa de GUARD para un activo, con su regla, valor, umbral y estado."@es .
+
+:GuardAction rdfs:comment "The effect of one GUARD alert on one book for the next session."@en ;
+    rdfs:comment "Efecto de una alerta de GUARD sobre un libro para la sesión siguiente."@es .
+
+:Veto rdfs:comment "A veto stint for one asset: the rules that fired and the interval raisedOn..clearedOn."@en ;
+    rdfs:comment "Período de veto de un activo: las reglas activadas y el intervalo raisedOn..clearedOn."@es .
+
+:attractivenessScore rdfs:label "Combined score"@en ;
+    rdfs:label "Puntaje combinado"@es ;
+    rdfs:comment "Upstream blended_score / 100; higher is more attractive; it can be negative after soft penalties. The score is not the weight."@en ;
+    rdfs:comment "blended_score de upstream / 100; mayor es más atractivo; puede ser negativo tras penalizaciones suaves. El puntaje no es el peso."@es .
+
+:componentValue rdfs:label "Component value"@en ;
+    rdfs:label "Valor del componente"@es ;
+    rdfs:comment "The value one effective-weight component had for this asset in this cycle run, 0-100."@en ;
+    rdfs:comment "Valor que un componente de peso efectivo tuvo para este activo en esta corrida del ciclo, 0-100."@es .
+
+:targetWeight rdfs:label "Candidate-pool target weight"@en ;
+    rdfs:label "Peso objetivo en el grupo de candidatas"@es ;
+    rdfs:comment "The cycle own weight over the 60-name candidate pool; not a portfolio weight."@en ;
+    rdfs:comment "Peso del ciclo sobre el grupo de 60 candidatas; no es un peso de cartera."@es .
+
+:selectedForBook rdfs:label "Candidate-pool membership"@en ;
+    rdfs:label "Pertenencia al grupo de candidatas"@es ;
+    rdfs:comment "Membership of the 60-name candidate pool, not the at most 30 names held."@en ;
+    rdfs:comment "Pertenencia al grupo de 60 candidatas, no a los como máximo 30 nombres mantenidos."@es .
+
+:rankPosition rdfs:label "Raw ranking position (includes excluded names)"@en ;
+    rdfs:label "Posición en el ranking bruto (incluye excluidas)"@es ;
+    rdfs:comment "Order by combined score over all classified members of the date, including vetoed names."@en ;
+    rdfs:comment "Orden por puntaje combinado sobre todos los miembros clasificados de la fecha, incluidas las vetadas."@es .
+
+:nGuardActions rdfs:label "Number of GUARD actions"@en ;
+    rdfs:label "Número de acciones de GUARD"@es ;
+    rdfs:comment "Counts the actions GUARD executes on the book. In a book without GUARD, 0 means not applicable, not that GUARD did not act (MARKOWITZ_BASE, TOPN_MV_NOGUARD and MARKOWITZ_MV)."@en ;
+    rdfs:comment "Cuenta las acciones que GUARD ejecuta sobre el libro. En un libro sin GUARD, 0 significa no aplicable, no que GUARD no actuó (MARKOWITZ_BASE, TOPN_MV_NOGUARD y MARKOWITZ_MV)."@es .
+
+:bookWeightingRule rdfs:label "Attractiveness book-weighting rule"@en ;
+    rdfs:label "Regla de ponderación del libro de atractivo"@es ;
+    rdfs:comment "Upstream scheme_id: the rule that turns the ranking into book weights (for example score_proportional or score_tilt). It belongs to the attractiveness score scheme, not to the portfolio, and is not satellite_weighting."@en ;
+    rdfs:comment "scheme_id de upstream: la regla que convierte el ranking en pesos del libro (por ejemplo score_proportional o score_tilt). Pertenece al esquema de atractivo, no a la cartera, y no es satellite_weighting."@es .
+
+:topN rdfs:label "Candidate-pool size"@en ;
+    rdfs:label "Tamaño del grupo de candidatas"@es ;
+    rdfs:comment "The size of the candidate pool (60 in the final backtest), not the cap of names actually held."@en ;
+    rdfs:comment "Tamaño del grupo de candidatas (60 en el backtest final), no el máximo de nombres mantenidos."@es .
+
+:maxNameWeight rdfs:label "Maximum name weight"@en ;
+    rdfs:label "Peso máximo por nombre"@es ;
+    rdfs:comment "Fraction of the book; for example 0.05 = 5%."@en ;
+    rdfs:comment "Fracción del libro; por ejemplo 0,05 = 5 %."@es .
+
+:maxSectorWeight rdfs:label "Maximum sector weight"@en ;
+    rdfs:label "Peso máximo por sector"@es ;
+    rdfs:comment "Fraction of the book; for example 0.30 = 30%."@en ;
+    rdfs:comment "Fracción del libro; por ejemplo 0,30 = 30 %."@es .
+
+:softVetoPenalty rdfs:label "Soft-veto penalty"@en ;
+    rdfs:label "Penalización por veto suave"@es ;
+    rdfs:comment "Points of the upstream 0-100 blend charged once per active SOFT stint whose rule declares no penaltyPoints (15 by default); not a fraction."@en ;
+    rdfs:comment "Puntos de la mezcla 0-100 de upstream que se cargan una vez por período SOFT activo cuya regla no declara penaltyPoints (15 por defecto); no es una fracción."@es .
+
+:excludeHardVetoed rdfs:label "Hard-veto filter in the shared covariance model (internal)"@en ;
+    rdfs:label "Filtro de vetos duros en el modelo de covarianza compartido (interno)"@es ;
+    rdfs:comment "It is 0 also in the System because the shared model includes vetoed names; the System excludes hard vetoes earlier, in the preselection. Never say the System does not exclude hard-vetoed companies."@en ;
+    rdfs:comment "Vale 0 también en el Sistema porque el modelo compartido incluye los vetados; el Sistema excluye los vetos duros antes, en la preselección. Nunca decir que el Sistema no excluye empresas con veto duro."@es .
+
+:cashFraction rdfs:label "Trend-filter cash fraction"@en ;
+    rdfs:label "Fracción en efectivo del filtro de tendencia"@es ;
+    rdfs:comment "Fraction of the Top-N target moved to cash by the trend filter at this decision, held until the next decision date."@en ;
+    rdfs:comment "Fracción del objetivo Top-N movida a efectivo por el filtro de tendencia en esta decisión, mantenida hasta la siguiente fecha de decisión."@es .
+
+:trendState rdfs:label "Trend-filter state"@en ;
+    rdfs:label "Estado del filtro de tendencia"@es ;
+    rdfs:comment "below, at_or_above or not_evaluable; no price level or mean is published."@en ;
+    rdfs:comment "below, at_or_above o not_evaluable; no se publica nivel de precio ni media."@es .
+
+:nRebalances rdfs:label "Number of rebalances"@en ;
+    rdfs:label "Número de rebalanceos"@es ;
+    rdfs:comment "Number of the window decisions whose execution date falls inside the segment."@en ;
+    rdfs:comment "Número de decisiones de la ventana cuya fecha de ejecución cae dentro del segmento."@es .
+
+:totalTurnover rdfs:label "Total turnover"@en ;
+    rdfs:label "Rotación total"@es ;
+    rdfs:comment "Sum of the session turnover over the segment."@en ;
+    rdfs:comment "Suma de la rotación de las sesiones del segmento."@es .
+
+:totalCostBps rdfs:label "Total transaction cost (basis points)"@en ;
+    rdfs:label "Costo total de transacción (puntos básicos)"@es ;
+    rdfs:comment "Sum of the session cost over the segment, in basis points."@en ;
+    rdfs:comment "Suma del costo de las sesiones del segmento, en puntos básicos."@es .
+
+:maxDrawdown rdfs:label "Maximum drawdown"@en ;
+    rdfs:label "Máxima caída"@es ;
+    rdfs:comment "Largest fall from a running peak to the later trough before recovering the peak; not a daily loss."@en ;
+    rdfs:comment "Mayor caída desde un máximo acumulado hasta el mínimo posterior antes de recuperar el máximo; no es una pérdida diaria."@es .
+
+:exPostSharpe rdfs:label "Ex-post Sharpe ratio"@en ;
+    rdfs:label "Ratio de Sharpe ex-post"@es ;
+    rdfs:comment "Mean excess return over its standard deviation, annualized; state the convention when reporting it."@en ;
+    rdfs:comment "Media del retorno en exceso sobre su desviación estándar, anualizada; indicar la convención al informarlo."@es .
+
+:grossReturn rdfs:label "Gross return"@en ;
+    rdfs:label "Retorno bruto"@es ;
+    rdfs:comment "Daily book return before transaction costs."@en ;
+    rdfs:comment "Retorno diario del libro antes de costos de transacción."@es .
+
+:netReturn rdfs:label "Net return"@en ;
+    rdfs:label "Retorno neto"@es ;
+    rdfs:comment "Daily book return after transaction costs."@en ;
+    rdfs:comment "Retorno diario del libro después de costos de transacción."@es .
+
+:turnover rdfs:label "Turnover"@en ;
+    rdfs:label "Rotación"@es ;
+    rdfs:comment "Full sum of absolute equity-weight changes, not divided by two; cash does not count."@en ;
+    rdfs:comment "Suma completa de los cambios absolutos de peso en acciones, sin dividir entre dos; el efectivo no cuenta."@es .
+
+:costReturn rdfs:label "Transaction cost return"@en ;
+    rdfs:label "Retorno de costos de transacción"@es ;
+    rdfs:comment "Per-session cost as a return fraction."@en ;
+    rdfs:comment "Costo por sesión como fracción de retorno."@es .
+
+:referenceName rdfs:label "Reference name"@en ;
+    rdfs:label "Nombre de la referencia"@es ;
+    rdfs:comment "SPY (total return, dividends reinvested) or SP500_EW_INTERNAL."@en ;
+    rdfs:comment "SPY (retorno total, dividendos reinvertidos) o SP500_EW_INTERNAL."@es .
+
+:referenceTotalReturn rdfs:label "Reference total return"@en ;
+    rdfs:label "Retorno total de la referencia"@es ;
+    rdfs:comment "prod(1 + r_t) - 1 over the segment sessions, as a fraction."@en ;
+    rdfs:comment "prod(1 + r_t) - 1 sobre las sesiones del segmento, como fracción."@es .
+
+:referenceMaxDrawdown rdfs:label "Reference maximum drawdown"@en ;
+    rdfs:label "Máxima caída de la referencia"@es ;
+    rdfs:comment "max_t(1 - NAV_t / max(1, NAV_1..NAV_t)), positive fraction."@en ;
+    rdfs:comment "max_t(1 - NAV_t / max(1, NAV_1..NAV_t)), fracción positiva."@es .
+
+:nSessions rdfs:label "Number of sessions"@en ;
+    rdfs:label "Número de sesiones"@es ;
+    rdfs:comment "Number of sessions in the segment."@en ;
+    rdfs:comment "Número de sesiones del segmento."@es .
+
+:dateFrom rdfs:label "Segment start date"@en ;
+    rdfs:label "Fecha de inicio del segmento"@es ;
+    rdfs:comment "First session date of the segment."@en ;
+    rdfs:comment "Primera fecha de sesión del segmento."@es .
+
+:dateTo rdfs:label "Segment end date"@en ;
+    rdfs:label "Fecha de fin del segmento"@es ;
+    rdfs:comment "Last session date of the segment."@en ;
+    rdfs:comment "Última fecha de sesión del segmento."@es .
