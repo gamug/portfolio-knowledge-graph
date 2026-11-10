@@ -10,9 +10,10 @@ actually building it (each flagged inline in the file that surfaced it, and summ
 | File | Format | Loads into | Contents |
 |---|---|---|---|
 | `tbox.ttl` | Turtle | `urn:graph:tbox` | 58 classes (44 mutually disjoint leaf/domain classes + a 13-class `rdfs:subClassOf` taxonomic backbone + `:ExchangeTradedFund` under `:Asset`), properties, OWL cardinality restrictions. |
-| `shapes.ttl` | Turtle | `urn:graph:tbox` | 39 named SHACL node shapes plus two blank-node conditional shapes (data-quality shapes kept as a separate file/concern from `tbox.ttl` — OWL semantics vs. SHACL validation, see below). |
+| `shapes.ttl` | Turtle | `urn:graph:tbox` | 40 named SHACL node shapes plus two blank-node conditional shapes (data-quality shapes kept as a separate file/concern from `tbox.ttl` — OWL semantics vs. SHACL validation, see below). |
 | `reference.ttl` | Turtle | `urn:graph:reference` | GICS sector/industry taxonomy + asset master data (five worked-example S&P 500 tickers plus the core ETF `SPY`). |
 | `fibo.ttl` | Turtle | `urn:graph:reference:fibo` | The 25-term FIBO 2026Q2 glossary slice (54 entries, 277 statements) plus the authors' Spanish `@es` layer; built by `cli/build_fibo_slice.py`, never hand-edited. |
+| `labels.ttl` | Turtle | `urn:graph:labels` | The bilingual SKOS presentation vocabulary (90 concepts, 892 triples) for codes and literals; loaded after `rules.ttl` and before `instances.trig`. |
 | `rules.ttl` | Turtle | `urn:graph:rules:catalog` | The active catalog: 10 selection rules (upstream's 9 plus `UTILITY_CASH_COVERAGE` from T-071, T-206) as `RuleDefinition`s, 7 GUARD protection rules (`L1_STOP_LOSS`, `L1_REENTRY`, `L1_BP_STOP`, `L1_BP_REENTRY`, `L2_NEWS`, `L3_VOL`, `L4_DD`) in their own section, the 7 original tree rules plus the pre-2026-10-10 `LIQUIDITY_DISTRESS` kept closed as design history, and the `AttractivenessWeightScheme`. |
 | `instances.trig` | **TriG** | *(self-describing — see below)* | Dated ABox: universe membership, agent snapshots, evidence, vetoes, filings, portfolio; sector-aggregate and attractiveness-ranking output (added 2026-08-13). |
 
@@ -44,7 +45,7 @@ above):
   anything, kept as the record of that pass.
 
 **Load order for a fresh GraphDB/Fuseki repository:** `tbox.ttl` → `shapes.ttl` → `reference.ttl`
-→ `fibo.ttl` → `rules.ttl` → `instances.trig`. Nothing strictly requires this order at load time (a
+→ `fibo.ttl` → `rules.ttl` → `labels.ttl` → `instances.trig`. Nothing strictly requires this order at load time (a
 quad store doesn't validate on ingest unless SHACL validation is explicitly turned on), but it
 matches dependency order and is the sequence `10-integration-roadmap.md` step 1 assumes.
 
@@ -516,6 +517,14 @@ what the store *enforces*.
     conforms: True**, load plan **5217 asserted triples** (production **4696**). The store must be
     reloaded afterwards (`cli/load_schema.py` with `KG_REPOSITORY=portfolio_test`, then
     `cli/verify_store.py`).
+
+15. **Presentation vocabulary (Work item 43, T-752, 2026-11-10).** `labels.ttl` loads into
+    `urn:graph:labels`; `LabelConceptShape` requires one `skos:notation`, one `skos:inScheme`, one
+    `rdfs:label`/`rdfs:comment` per language and only `@en`/`@es` `skos:altLabel`s on every concept
+    marked with `:labelScheme :PresentationScheme`. The file is now in the FR-001 bundle and the
+    load plan. Counts: **58 classes (44 disjoint leaves), 40 named shapes, 5900 quads;
+    conforms: True**; load plan **21 graphs / 6177 asserted triples** (production **5 / 5656**).
+    The store must be reloaded afterwards.
 
 ## Validation
 

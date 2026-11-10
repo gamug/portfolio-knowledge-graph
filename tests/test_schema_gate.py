@@ -37,7 +37,7 @@ a minimum-variance book over the whole eligible universe, with and without GUARD
 original layer-1 stop-loss, inspired by Kaminski & Lo (2014)."""
 
 # Load order from schema/README.md; everything but instances.trig is Turtle.
-TURTLE_FILES = ("tbox.ttl", "shapes.ttl", "reference.ttl", "rules.ttl")
+TURTLE_FILES = ("tbox.ttl", "shapes.ttl", "reference.ttl", "rules.ttl", "labels.ttl")
 
 # Graph name prefixes docs/07-ontology-topology.md assigns to the worked-example ABox.
 ABOX_GRAPH_PREFIXES = (
