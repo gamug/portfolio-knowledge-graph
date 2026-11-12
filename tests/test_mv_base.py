@@ -17,6 +17,7 @@ from rdflib.namespace import RDF, XSD
 
 from kg_store import gate
 from kg_store.graphdb import GraphDB
+from projection import mv_base
 from projection.mv_base import (
     ARM,
     GRAPH_PREFIX,
@@ -213,6 +214,57 @@ def test_the_external_graph_is_accepted_by_the_gate(tmp_path: Path) -> None:
     assert written == len(project(data))
     assert {str(g.identifier) for g in fake.dataset.graphs() if len(g)} == {graph}
     assert verify_stored(store, data, project(data)).passed
+
+
+@pytest.mark.parametrize("already", [False, True], ids=["would-write", "already-in-store"])
+def test_check_store_opens_a_read_only_store_on_production(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    already: bool,
+) -> None:
+    """T-791: --check-store opens the store without --write and without the production opt-in."""
+    data = _data(tmp_path)
+    graph = graph_name(data.label)
+    builder = project(data)
+    fake = DatasetStore(rdflib.Dataset(), repository="portfolio")
+    store = cast(GraphDB, fake)
+    if already:
+        written = gate.write(store, gate.plan(store, builder.turtle(), graph))
+        assert written == len(builder)
+        fake.writes.clear()
+
+    class _GraphDB:
+        @staticmethod
+        def from_env() -> DatasetStore:
+            return fake
+
+    announced: list[DatasetStore] = []
+    monkeypatch.setattr(mv_base, "GraphDB", _GraphDB)
+    monkeypatch.setattr(mv_base, "announce_target", announced.append)
+
+    code = mv_base.main(
+        [
+            "--label",
+            "final",
+            "--dir",
+            str(tmp_path),
+            "--engine-dir",
+            str(tmp_path / "engine"),
+            "--check-store",
+        ]
+    )
+    out = capsys.readouterr().out
+    assert code == 0
+    expected = (
+        gate.IngestPlanStatus.ALREADY_IN_STORE if already else gate.IngestPlanStatus.WOULD_WRITE
+    )
+    assert f"pre-flight: {expected.value}:" in out
+    assert "timing: total" in out
+    assert fake.writes == []
+    assert announced == [fake]
+    if already:
+        assert "equal the batch" in out
 
 
 def test_a_write_never_touches_an_engine_graph(tmp_path: Path) -> None:
