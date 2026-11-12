@@ -751,3 +751,345 @@
     rdfs:comment "Only per-window and segment summaries are loaded (no daily series, weights or alerts); computed outside the engine by an independent simulator validated against the engine MARKOWITZ_BASE book; in-sample; no GUARD."@en, "Solo se cargan resúmenes por ventana y segmento (sin serie diaria, pesos ni alertas); calculada fuera del motor por un simulador independiente validado contra el libro MARKOWITZ_BASE del motor; resultados dentro de muestra; sin GUARD."@es ;
     skos:altLabel "Markowitz base (MV-Tangencia)"@en, "MV-Tangencia"@en ;
     skos:altLabel "Markowitz base (MV-Tangencia)"@es, "MV-Tangencia"@es .
+
+#################################################################
+# Fundamentals block C metric vocabulary (Work item 45, T-816)
+# 37 concepts = the 38 source names minus value_inputs. The approved
+# labels/comments are the frozen table in docs/labels-fundamentals-review.md.
+#################################################################
+
+:FundamentalMetricScheme a skos:ConceptScheme ;
+    rdfs:label "Fundamental metric vocabulary"@en, "Vocabulario de métricas fundamentales"@es .
+
+:FundamentalMetric_asset_turnover a skos:Concept ;
+    skos:inScheme :FundamentalMetricScheme ;
+    skos:notation "asset_turnover" ;
+    :labelScheme :PresentationScheme ;
+    :metricGroup "efficiency" ;
+    :metricUnit "x" ;
+    rdfs:label "Asset turnover"@en, "Rotación de activos"@es ;
+    rdfs:comment "Revenue divided by the total assets on the filing's balance sheet (not an average); times (x). Read verbatim from the delivery; absent when the source value is null."@en, "Ingresos divididos entre los activos totales del balance del informe (no el promedio); veces (x). Leído verbatim de la entrega; ausente cuando el valor de origen es nulo."@es .
+
+:FundamentalMetric_capex_intensity a skos:Concept ;
+    skos:inScheme :FundamentalMetricScheme ;
+    skos:notation "capex_intensity" ;
+    :labelScheme :PresentationScheme ;
+    :metricGroup "cashflow" ;
+    :metricUnit "ratio" ;
+    rdfs:label "Capex intensity"@en, "Intensidad de capex"@es ;
+    rdfs:comment "Capital expenditure divided by revenue; fraction. Read verbatim from the delivery; absent when the source value is null."@en, "Inversión de capital dividida entre los ingresos; fracción. Leído verbatim de la entrega; ausente cuando el valor de origen es nulo."@es .
+
+:FundamentalMetric_cash_ratio a skos:Concept ;
+    skos:inScheme :FundamentalMetricScheme ;
+    skos:notation "cash_ratio" ;
+    :labelScheme :PresentationScheme ;
+    :metricGroup "liquidity" ;
+    :metricUnit "x" ;
+    rdfs:label "Cash ratio"@en, "Ratio de caja"@es ;
+    rdfs:comment "Cash and cash equivalents plus short-term investments, divided by current liabilities; times. Read verbatim from the delivery; absent when the source value is null."@en, "Efectivo y equivalentes más inversiones de corto plazo, divididos entre los pasivos corrientes; veces. Leído verbatim de la entrega; ausente cuando el valor de origen es nulo."@es .
+
+:FundamentalMetric_current_ratio a skos:Concept ;
+    skos:inScheme :FundamentalMetricScheme ;
+    skos:notation "current_ratio" ;
+    :labelScheme :PresentationScheme ;
+    :metricGroup "liquidity" ;
+    :metricUnit "x" ;
+    rdfs:label "Current ratio"@en, "Ratio corriente"@es ;
+    rdfs:comment "Current assets divided by current liabilities; times. Read verbatim from the delivery; absent when the source value is null."@en, "Activos corrientes divididos entre pasivos corrientes; veces. Leído verbatim de la entrega; ausente cuando el valor de origen es nulo."@es .
+
+:FundamentalMetric_debt_to_assets a skos:Concept ;
+    skos:inScheme :FundamentalMetricScheme ;
+    skos:notation "debt_to_assets" ;
+    :labelScheme :PresentationScheme ;
+    :metricGroup "leverage" ;
+    :metricUnit "ratio" ;
+    rdfs:label "Debt to assets"@en, "Deuda sobre activos"@es ;
+    rdfs:comment "Total debt divided by total assets; fraction. Read verbatim from the delivery; absent when the source value is null."@en, "Deuda total dividida entre los activos totales; fracción. Leído verbatim de la entrega; ausente cuando el valor de origen es nulo."@es .
+
+:FundamentalMetric_debt_to_equity a skos:Concept ;
+    skos:inScheme :FundamentalMetricScheme ;
+    skos:notation "debt_to_equity" ;
+    :labelScheme :PresentationScheme ;
+    :metricGroup "leverage" ;
+    :metricUnit "x" ;
+    rdfs:label "Debt to equity"@en, "Deuda sobre patrimonio"@es ;
+    rdfs:comment "Total debt divided by parent stockholders' equity; times. Read verbatim from the delivery; absent when the source value is null."@en, "Deuda total dividida entre el patrimonio de la controladora; veces. Leído verbatim de la entrega; ausente cuando el valor de origen es nulo."@es .
+
+:FundamentalMetric_ebitda a skos:Concept ;
+    skos:inScheme :FundamentalMetricScheme ;
+    skos:notation "ebitda" ;
+    :labelScheme :PresentationScheme ;
+    :metricGroup "leverage" ;
+    :metricUnit "usd" ;
+    rdfs:label "EBITDA"@en, "EBITDA"@es ;
+    rdfs:comment "Operating income plus depreciation and amortization (never depreciation alone); USD. Read verbatim from the delivery; absent when the source value is null."@en, "Utilidad operativa más depreciación y amortización (nunca solo la depreciación); USD. Leído verbatim de la entrega; ausente cuando el valor de origen es nulo."@es .
+
+:FundamentalMetric_effective_tax_rate a skos:Concept ;
+    skos:inScheme :FundamentalMetricScheme ;
+    skos:notation "effective_tax_rate" ;
+    :labelScheme :PresentationScheme ;
+    :metricGroup "roic" ;
+    :metricUnit "ratio" ;
+    rdfs:label "Effective tax rate"@en, "Tasa impositiva efectiva"@es ;
+    rdfs:comment "Income tax expense divided by pre-tax income; fraction. Empty when pre-tax income is zero or negative. Read verbatim from the delivery; absent when the source value is null."@en, "Gasto por impuesto a la renta dividido entre la utilidad antes de impuestos; fracción. Vacío cuando la utilidad antes de impuestos es cero o negativa. Leído verbatim de la entrega; ausente cuando el valor de origen es nulo."@es .
+
+:FundamentalMetric_enterprise_fcf_yield a skos:Concept ;
+    skos:inScheme :FundamentalMetricScheme ;
+    skos:notation "enterprise_fcf_yield" ;
+    :labelScheme :PresentationScheme ;
+    :metricGroup "valuation" ;
+    :metricUnit "ratio" ;
+    rdfs:label "Enterprise FCF yield"@en, "Rendimiento del flujo de caja libre sobre el valor de empresa"@es ;
+    rdfs:comment "Free cash flow to the firm (NOPAT minus net investment: capex minus depreciation and amortization plus the change in non-cash working capital) divided by enterprise value; fraction. Read verbatim from the delivery; absent when the source value is null."@en, "Flujo de caja libre de la firma (NOPAT menos la inversión neta: capex menos depreciación y amortización más la variación del capital de trabajo no monetario) dividido entre el valor de empresa; fracción. Leído verbatim de la entrega; ausente cuando el valor de origen es nulo."@es .
+
+:FundamentalMetric_enterprise_value a skos:Concept ;
+    skos:inScheme :FundamentalMetricScheme ;
+    skos:notation "enterprise_value" ;
+    :labelScheme :PresentationScheme ;
+    :metricGroup "valuation" ;
+    :metricUnit "usd" ;
+    rdfs:label "Enterprise value"@en, "Valor de empresa"@es ;
+    rdfs:comment "Market capitalization plus debt plus noncontrolling interest, minus cash and short-term investments, at the end of the filing's period; USD. Empty when market capitalization, debt or cash is missing. Read verbatim from the delivery; absent when the source value is null."@en, "Capitalización de mercado más deuda más participación no controladora, menos efectivo e inversiones de corto plazo, al fin del período del informe; USD. Vacío si falta la capitalización, la deuda o el efectivo. Leído verbatim de la entrega; ausente cuando el valor de origen es nulo."@es .
+
+:FundamentalMetric_free_cash_flow_conversion a skos:Concept ;
+    skos:inScheme :FundamentalMetricScheme ;
+    skos:notation "free_cash_flow_conversion" ;
+    :labelScheme :PresentationScheme ;
+    :metricGroup "cashflow" ;
+    :metricUnit "x" ;
+    rdfs:label "Free cash flow conversion"@en, "Conversión de flujo de caja libre"@es ;
+    rdfs:comment "Free cash flow divided by net income; times. Read verbatim from the delivery; absent when the source value is null."@en, "Flujo de caja libre dividido entre la utilidad neta; veces. Leído verbatim de la entrega; ausente cuando el valor de origen es nulo."@es .
+
+:FundamentalMetric_free_cash_flow_growth a skos:Concept ;
+    skos:inScheme :FundamentalMetricScheme ;
+    skos:notation "free_cash_flow_growth" ;
+    :labelScheme :PresentationScheme ;
+    :metricGroup "growth" ;
+    :metricUnit "ratio" ;
+    rdfs:label "Free cash flow growth"@en, "Crecimiento del flujo de caja libre"@es ;
+    rdfs:comment "Year-over-year growth of free cash flow; fraction. Read verbatim from the delivery; absent when the source value is null."@en, "Crecimiento interanual del flujo de caja libre; fracción. Leído verbatim de la entrega; ausente cuando el valor de origen es nulo."@es .
+
+:FundamentalMetric_free_cash_flow_margin a skos:Concept ;
+    skos:inScheme :FundamentalMetricScheme ;
+    skos:notation "free_cash_flow_margin" ;
+    :labelScheme :PresentationScheme ;
+    :metricGroup "cashflow" ;
+    :metricUnit "ratio" ;
+    rdfs:label "Free cash flow margin"@en, "Margen de flujo de caja libre"@es ;
+    rdfs:comment "Free cash flow divided by revenue; fraction. Read verbatim from the delivery; absent when the source value is null."@en, "Flujo de caja libre dividido entre los ingresos; fracción. Leído verbatim de la entrega; ausente cuando el valor de origen es nulo."@es .
+
+:FundamentalMetric_free_cash_flow_yield a skos:Concept ;
+    skos:inScheme :FundamentalMetricScheme ;
+    skos:notation "free_cash_flow_yield" ;
+    :labelScheme :PresentationScheme ;
+    :metricGroup "valuation" ;
+    :metricUnit "ratio" ;
+    rdfs:label "Free cash flow yield"@en, "Rendimiento del flujo de caja libre"@es ;
+    rdfs:comment "Free cash flow divided by market capitalization; fraction. Read verbatim from the delivery; absent when the source value is null."@en, "Flujo de caja libre dividido entre la capitalización de mercado; fracción. Leído verbatim de la entrega; ausente cuando el valor de origen es nulo."@es .
+
+:FundamentalMetric_gross_margin a skos:Concept ;
+    skos:inScheme :FundamentalMetricScheme ;
+    skos:notation "gross_margin" ;
+    :labelScheme :PresentationScheme ;
+    :metricGroup "profitability" ;
+    :metricUnit "ratio" ;
+    rdfs:label "Gross margin"@en, "Margen bruto"@es ;
+    rdfs:comment "Gross profit divided by revenue; fraction. Read verbatim from the delivery; absent when the source value is null."@en, "Utilidad bruta dividida entre los ingresos; fracción. Leído verbatim de la entrega; ausente cuando el valor de origen es nulo."@es .
+
+:FundamentalMetric_interest_coverage a skos:Concept ;
+    skos:inScheme :FundamentalMetricScheme ;
+    skos:notation "interest_coverage" ;
+    :labelScheme :PresentationScheme ;
+    :metricGroup "leverage" ;
+    :metricUnit "x" ;
+    rdfs:label "Interest coverage"@en, "Cobertura de intereses"@es ;
+    rdfs:comment "Operating income divided by interest expense; times. Read verbatim from the delivery; absent when the source value is null."@en, "Utilidad operativa dividida entre el gasto por intereses; veces. Leído verbatim de la entrega; ausente cuando el valor de origen es nulo."@es .
+
+:FundamentalMetric_inventory_turnover a skos:Concept ;
+    skos:inScheme :FundamentalMetricScheme ;
+    skos:notation "inventory_turnover" ;
+    :labelScheme :PresentationScheme ;
+    :metricGroup "efficiency" ;
+    :metricUnit "x" ;
+    rdfs:label "Inventory turnover"@en, "Rotación de inventario"@es ;
+    rdfs:comment "Cost of revenue divided by the inventory on the filing's balance sheet (not an average); times. Read verbatim from the delivery; absent when the source value is null."@en, "Costo de ventas dividido entre el inventario del balance del informe (no el promedio); veces. Leído verbatim de la entrega; ausente cuando el valor de origen es nulo."@es .
+
+:FundamentalMetric_market_capitalization a skos:Concept ;
+    skos:inScheme :FundamentalMetricScheme ;
+    skos:notation "market_capitalization" ;
+    :labelScheme :PresentationScheme ;
+    :metricGroup "valuation" ;
+    :metricUnit "usd" ;
+    rdfs:label "Market capitalization"@en, "Capitalización de mercado"@es ;
+    rdfs:comment "Closing price at the end of the filing's period (or the last close before it) times the shares outstanding of every class; USD. Read verbatim from the delivery; absent when the source value is null."@en, "Precio de cierre al fin del período del informe (o el último cierre anterior) por las acciones en circulación de todas las clases; USD. Leído verbatim de la entrega; ausente cuando el valor de origen es nulo."@es .
+
+:FundamentalMetric_net_debt_to_ebitda a skos:Concept ;
+    skos:inScheme :FundamentalMetricScheme ;
+    skos:notation "net_debt_to_ebitda" ;
+    :labelScheme :PresentationScheme ;
+    :metricGroup "leverage" ;
+    :metricUnit "x" ;
+    rdfs:label "Net debt to EBITDA"@en, "Deuda neta sobre EBITDA"@es ;
+    rdfs:comment "Net debt divided by EBITDA; times. Read verbatim from the delivery; absent when the source value is null."@en, "Deuda neta dividida entre EBITDA; veces. Leído verbatim de la entrega; ausente cuando el valor de origen es nulo."@es .
+
+:FundamentalMetric_net_income_cagr a skos:Concept ;
+    skos:inScheme :FundamentalMetricScheme ;
+    skos:notation "net_income_cagr" ;
+    :labelScheme :PresentationScheme ;
+    :metricGroup "cagr" ;
+    :metricUnit "ratio" ;
+    rdfs:label "Net income CAGR"@en, "CAGR de la utilidad neta"@es ;
+    rdfs:comment "Compound annual growth rate of parent net income between the first and last years reported in the same 10-K (usually two years); fraction. Empty when either end is zero or negative. Read verbatim from the delivery; absent when the source value is null."@en, "Tasa de crecimiento anual compuesta de la utilidad neta de la controladora entre el primer y el último año que reporta el mismo 10-K (en general, dos años); fracción. Vacía si alguno de los extremos es cero o negativo. Leído verbatim de la entrega; ausente cuando el valor de origen es nulo."@es .
+
+:FundamentalMetric_net_income_growth a skos:Concept ;
+    skos:inScheme :FundamentalMetricScheme ;
+    skos:notation "net_income_growth" ;
+    :labelScheme :PresentationScheme ;
+    :metricGroup "growth" ;
+    :metricUnit "ratio" ;
+    rdfs:label "Net income growth"@en, "Crecimiento de la utilidad neta"@es ;
+    rdfs:comment "Year-over-year growth of net income; fraction. Read verbatim from the delivery; absent when the source value is null."@en, "Crecimiento interanual de la utilidad neta; fracción. Leído verbatim de la entrega; ausente cuando el valor de origen es nulo."@es .
+
+:FundamentalMetric_net_margin a skos:Concept ;
+    skos:inScheme :FundamentalMetricScheme ;
+    skos:notation "net_margin" ;
+    :labelScheme :PresentationScheme ;
+    :metricGroup "profitability" ;
+    :metricUnit "ratio" ;
+    rdfs:label "Net margin"@en, "Margen neto"@es ;
+    rdfs:comment "Net income divided by revenue; fraction. Read verbatim from the delivery; absent when the source value is null."@en, "Utilidad neta dividida entre los ingresos; fracción. Leído verbatim de la entrega; ausente cuando el valor de origen es nulo."@es .
+
+:FundamentalMetric_nopat a skos:Concept ;
+    skos:inScheme :FundamentalMetricScheme ;
+    skos:notation "nopat" ;
+    :labelScheme :PresentationScheme ;
+    :metricGroup "roic" ;
+    :metricUnit "usd" ;
+    rdfs:label "NOPAT"@en, "NOPAT"@es ;
+    rdfs:comment "Operating income times (1 − 21%), the statutory rate; zero tax on an operating loss; USD. Read verbatim from the delivery; absent when the source value is null."@en, "Utilidad operativa por (1 − 21%), la tasa legal; impuesto cero cuando hay pérdida operativa; USD. Leído verbatim de la entrega; ausente cuando el valor de origen es nulo."@es .
+
+:FundamentalMetric_operating_cash_flow_cagr a skos:Concept ;
+    skos:inScheme :FundamentalMetricScheme ;
+    skos:notation "operating_cash_flow_cagr" ;
+    :labelScheme :PresentationScheme ;
+    :metricGroup "cagr" ;
+    :metricUnit "ratio" ;
+    rdfs:label "Operating cash flow CAGR"@en, "CAGR del flujo de caja operativo"@es ;
+    rdfs:comment "Compound annual growth rate of operating cash flow between the first and last years reported in the same 10-K (usually two years); fraction. Empty when either end is zero or negative. Read verbatim from the delivery; absent when the source value is null."@en, "Tasa de crecimiento anual compuesta del flujo de caja operativo entre el primer y el último año que reporta el mismo 10-K (en general, dos años); fracción. Vacía si alguno de los extremos es cero o negativo. Leído verbatim de la entrega; ausente cuando el valor de origen es nulo."@es .
+
+:FundamentalMetric_operating_cash_flow_margin a skos:Concept ;
+    skos:inScheme :FundamentalMetricScheme ;
+    skos:notation "operating_cash_flow_margin" ;
+    :labelScheme :PresentationScheme ;
+    :metricGroup "cashflow" ;
+    :metricUnit "ratio" ;
+    rdfs:label "Operating cash flow margin"@en, "Margen de flujo de caja operativo"@es ;
+    rdfs:comment "Operating cash flow divided by revenue; fraction. Read verbatim from the delivery; absent when the source value is null."@en, "Flujo de caja operativo dividido entre los ingresos; fracción. Leído verbatim de la entrega; ausente cuando el valor de origen es nulo."@es .
+
+:FundamentalMetric_operating_income_growth a skos:Concept ;
+    skos:inScheme :FundamentalMetricScheme ;
+    skos:notation "operating_income_growth" ;
+    :labelScheme :PresentationScheme ;
+    :metricGroup "growth" ;
+    :metricUnit "ratio" ;
+    rdfs:label "Operating income growth"@en, "Crecimiento de la utilidad operativa"@es ;
+    rdfs:comment "Year-over-year growth of operating income; fraction. Read verbatim from the delivery; absent when the source value is null."@en, "Crecimiento interanual de la utilidad operativa; fracción. Leído verbatim de la entrega; ausente cuando el valor de origen es nulo."@es .
+
+:FundamentalMetric_operating_margin a skos:Concept ;
+    skos:inScheme :FundamentalMetricScheme ;
+    skos:notation "operating_margin" ;
+    :labelScheme :PresentationScheme ;
+    :metricGroup "profitability" ;
+    :metricUnit "ratio" ;
+    rdfs:label "Operating margin"@en, "Margen operativo"@es ;
+    rdfs:comment "Operating income divided by revenue; fraction. Read verbatim from the delivery; absent when the source value is null."@en, "Utilidad operativa dividida entre los ingresos; fracción. Leído verbatim de la entrega; ausente cuando el valor de origen es nulo."@es .
+
+:FundamentalMetric_quick_ratio a skos:Concept ;
+    skos:inScheme :FundamentalMetricScheme ;
+    skos:notation "quick_ratio" ;
+    :labelScheme :PresentationScheme ;
+    :metricGroup "liquidity" ;
+    :metricUnit "x" ;
+    rdfs:label "Quick ratio"@en, "Ratio rápido"@es ;
+    rdfs:comment "(Current assets minus inventory) divided by current liabilities; times. Read verbatim from the delivery; absent when the source value is null."@en, "(Activos corrientes menos inventario) divididos entre pasivos corrientes; veces. Leído verbatim de la entrega; ausente cuando el valor de origen es nulo."@es .
+
+:FundamentalMetric_receivables_turnover a skos:Concept ;
+    skos:inScheme :FundamentalMetricScheme ;
+    skos:notation "receivables_turnover" ;
+    :labelScheme :PresentationScheme ;
+    :metricGroup "efficiency" ;
+    :metricUnit "x" ;
+    rdfs:label "Receivables turnover"@en, "Rotación de cuentas por cobrar"@es ;
+    rdfs:comment "Revenue divided by the receivables on the filing's balance sheet (not an average); times. Read verbatim from the delivery; absent when the source value is null."@en, "Ingresos divididos entre las cuentas por cobrar del balance del informe (no el promedio); veces. Leído verbatim de la entrega; ausente cuando el valor de origen es nulo."@es .
+
+:FundamentalMetric_return_on_assets a skos:Concept ;
+    skos:inScheme :FundamentalMetricScheme ;
+    skos:notation "return_on_assets" ;
+    :labelScheme :PresentationScheme ;
+    :metricGroup "profitability" ;
+    :metricUnit "ratio" ;
+    rdfs:label "Return on assets"@en, "Retorno sobre activos"@es ;
+    rdfs:comment "Annual NOPAT divided by total assets at the end of the prior fiscal year; fraction. Read verbatim from the delivery; absent when the source value is null."@en, "NOPAT anual dividido entre los activos totales al cierre del año fiscal anterior; fracción. Leído verbatim de la entrega; ausente cuando el valor de origen es nulo."@es .
+
+:FundamentalMetric_return_on_equity a skos:Concept ;
+    skos:inScheme :FundamentalMetricScheme ;
+    skos:notation "return_on_equity" ;
+    :labelScheme :PresentationScheme ;
+    :metricGroup "profitability" ;
+    :metricUnit "ratio" ;
+    rdfs:label "Return on equity"@en, "Retorno sobre patrimonio"@es ;
+    rdfs:comment "Trailing-twelve-month parent net income divided by parent equity at the end of the prior fiscal year; fraction. Empty when that equity is zero or negative. Read verbatim from the delivery; absent when the source value is null."@en, "Utilidad neta de la controladora de los últimos doce meses dividida entre el patrimonio de la controladora al cierre del año fiscal anterior; fracción. Vacío cuando ese patrimonio es cero o negativo. Leído verbatim de la entrega; ausente cuando el valor de origen es nulo."@es .
+
+:FundamentalMetric_return_on_invested_capital a skos:Concept ;
+    skos:inScheme :FundamentalMetricScheme ;
+    skos:notation "return_on_invested_capital" ;
+    :labelScheme :PresentationScheme ;
+    :metricGroup "roic" ;
+    :metricUnit "ratio" ;
+    rdfs:label "Return on invested capital"@en, "Retorno sobre el capital invertido"@es ;
+    rdfs:comment "NOPAT divided by invested capital at the end of the prior fiscal year (debt plus parent equity plus noncontrolling interest, minus cash and short-term investments); fraction. Read verbatim from the delivery; absent when the source value is null."@en, "NOPAT dividido entre el capital invertido al cierre del año fiscal anterior (deuda más patrimonio de la controladora más participación no controladora, menos efectivo e inversiones de corto plazo); fracción. Leído verbatim de la entrega; ausente cuando el valor de origen es nulo."@es .
+
+:FundamentalMetric_return_on_invested_capital_effective_rate a skos:Concept ;
+    skos:inScheme :FundamentalMetricScheme ;
+    skos:notation "return_on_invested_capital_effective_rate" ;
+    :labelScheme :PresentationScheme ;
+    :metricGroup "roic" ;
+    :metricUnit "ratio" ;
+    rdfs:label "Return on invested capital (effective tax rate)"@en, "Retorno sobre el capital invertido (tasa impositiva efectiva)"@es ;
+    rdfs:comment "As ROIC, but with NOPAT computed at the filing's effective tax rate instead of the statutory rate; a robustness variant; fraction. Read verbatim from the delivery; absent when the source value is null."@en, "Como el ROIC, pero con el NOPAT calculado con la tasa impositiva efectiva del informe en lugar de la legal; variante de robustez; fracción. Leído verbatim de la entrega; ausente cuando el valor de origen es nulo."@es .
+
+:FundamentalMetric_revenue_cagr a skos:Concept ;
+    skos:inScheme :FundamentalMetricScheme ;
+    skos:notation "revenue_cagr" ;
+    :labelScheme :PresentationScheme ;
+    :metricGroup "cagr" ;
+    :metricUnit "ratio" ;
+    rdfs:label "Revenue CAGR"@en, "CAGR de los ingresos"@es ;
+    rdfs:comment "Compound annual growth rate of revenue between the first and last years reported in the same 10-K (usually two years); fraction. Empty when either end is zero or negative. Read verbatim from the delivery; absent when the source value is null."@en, "Tasa de crecimiento anual compuesta de los ingresos entre el primer y el último año que reporta el mismo 10-K (en general, dos años); fracción. Vacía si alguno de los extremos es cero o negativo. Leído verbatim de la entrega; ausente cuando el valor de origen es nulo."@es .
+
+:FundamentalMetric_revenue_growth a skos:Concept ;
+    skos:inScheme :FundamentalMetricScheme ;
+    skos:notation "revenue_growth" ;
+    :labelScheme :PresentationScheme ;
+    :metricGroup "growth" ;
+    :metricUnit "ratio" ;
+    rdfs:label "Revenue growth"@en, "Crecimiento de los ingresos"@es ;
+    rdfs:comment "Year-over-year growth of revenue; fraction. Read verbatim from the delivery; absent when the source value is null."@en, "Crecimiento interanual de los ingresos; fracción. Leído verbatim de la entrega; ausente cuando el valor de origen es nulo."@es .
+
+:FundamentalMetric_sbc_adjusted_fcf_yield a skos:Concept ;
+    skos:inScheme :FundamentalMetricScheme ;
+    skos:notation "sbc_adjusted_fcf_yield" ;
+    :labelScheme :PresentationScheme ;
+    :metricGroup "valuation" ;
+    :metricUnit "ratio" ;
+    rdfs:label "SBC-adjusted FCF yield"@en, "Rendimiento del flujo de caja libre ajustado por SBC"@es ;
+    rdfs:comment "SBC-adjusted free cash flow divided by market capitalization; fraction. Read verbatim from the delivery; absent when the source value is null."@en, "Flujo de caja libre ajustado por compensación en acciones dividido entre la capitalización de mercado; fracción. Leído verbatim de la entrega; ausente cuando el valor de origen es nulo."@es .
+
+:FundamentalMetric_utility_cash_coverage_3y a skos:Concept ;
+    skos:inScheme :FundamentalMetricScheme ;
+    skos:notation "utility_cash_coverage_3y" ;
+    :labelScheme :PresentationScheme ;
+    :metricGroup "rule_input" ;
+    :metricUnit "ratio" ;
+    rdfs:label "Utility cash coverage (3 years)"@en, "Cobertura de caja de servicios públicos (3 años)"@es ;
+    rdfs:comment "Three-year average of operating cash flow before working-capital changes, divided by total debt; regulated utilities only. It is the input of the `UTILITY_CASH_COVERAGE` rule; fraction. Read verbatim from the delivery; absent when the source value is null."@en, "Promedio de tres años del flujo de caja operativo antes de cambios en el capital de trabajo, dividido entre la deuda total; solo empresas de servicios públicos reguladas. Es la entrada de la regla `UTILITY_CASH_COVERAGE`; fracción. Leído verbatim de la entrega; ausente cuando el valor de origen es nulo."@es .

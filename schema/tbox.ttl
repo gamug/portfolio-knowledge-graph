@@ -713,8 +713,8 @@ so every result is in-sample.""" .
     rdfs:comment "SEC Central Index Key — stable join key to edgar_tool.py output." .
 :pricesNotPublished a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :Asset ; rdfs:range xsd:boolean ;
     rdfs:label "Prices not published"@en ; rdfs:label "Precios no publicados"@es ;
-    rdfs:comment "True when the asset's absolute prices and market capitalization must not be published; the loader writes it for all 33 masked Tiingo assets, including FRC and SBNY, which have no block C filing. Absent on every other asset."@en ;
-    rdfs:comment "True cuando los precios absolutos y la capitalización de mercado del activo no deben publicarse; el loader lo escribe para los 33 activos enmascarados de Tiingo, incluidos FRC y SBNY, que no tienen informe en el bloque C. Ausente en el resto de activos."@es .
+    rdfs:comment "True when the asset's absolute prices, daily returns and valuation metrics (market capitalization and enterprise value included) must not be published; the loader writes it for all 33 masked Tiingo assets, including FRC and SBNY, which have no block C filing. Absent on every other asset."@en ;
+    rdfs:comment "True cuando no deben publicarse los precios absolutos, los retornos diarios ni las métricas de valoración del activo (incluidas la capitalización de mercado y el valor de empresa); el loader lo escribe para los 33 activos enmascarados de Tiingo, incluidos FRC y SBNY, que no tienen informe en el bloque C. Ausente en el resto de activos."@es .
 
 # --- temporal (n-ary relation) properties, shared across UniverseMembership / PortfolioPosition / RuleDefinition ---
 :validFrom a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:range xsd:date ;
@@ -1376,8 +1376,8 @@ so every result is in-sample.""" .
 
 :assetTurnover a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :FundamentalMetricSet ; rdfs:range xsd:decimal ;
     rdfs:label "Asset turnover"@en ; rdfs:label "Rotación de activos"@es ;
-    rdfs:comment "Revenue divided by average total assets; times (x). Read verbatim from the delivery; absent when the source value is null."@en ;
-    rdfs:comment "Ingresos divididos entre los activos totales promedio; veces (x). Leído verbatim de la entrega; ausente cuando el valor de origen es nulo."@es .
+    rdfs:comment "Revenue divided by the total assets on the filing's balance sheet (not an average); times (x). Read verbatim from the delivery; absent when the source value is null."@en ;
+    rdfs:comment "Ingresos divididos entre los activos totales del balance del informe (no el promedio); veces (x). Leído verbatim de la entrega; ausente cuando el valor de origen es nulo."@es .
 
 :capexIntensity a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :FundamentalMetricSet ; rdfs:range xsd:decimal ;
     rdfs:label "Capex intensity"@en ; rdfs:label "Intensidad de capex"@es ;
@@ -1386,8 +1386,8 @@ so every result is in-sample.""" .
 
 :cashRatio a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :FundamentalMetricSet ; rdfs:range xsd:decimal ;
     rdfs:label "Cash ratio"@en ; rdfs:label "Ratio de caja"@es ;
-    rdfs:comment "Cash and cash equivalents divided by current liabilities; times. Read verbatim from the delivery; absent when the source value is null."@en ;
-    rdfs:comment "Efectivo y equivalentes divididos entre los pasivos corrientes; veces. Leído verbatim de la entrega; ausente cuando el valor de origen es nulo."@es .
+    rdfs:comment "Cash and cash equivalents plus short-term investments, divided by current liabilities; times. Read verbatim from the delivery; absent when the source value is null."@en ;
+    rdfs:comment "Efectivo y equivalentes más inversiones de corto plazo, divididos entre los pasivos corrientes; veces. Leído verbatim de la entrega; ausente cuando el valor de origen es nulo."@es .
 
 :currentRatio a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :FundamentalMetricSet ; rdfs:range xsd:decimal ;
     rdfs:label "Current ratio"@en ; rdfs:label "Ratio corriente"@es ;
@@ -1401,18 +1401,18 @@ so every result is in-sample.""" .
 
 :debtToEquity a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :FundamentalMetricSet ; rdfs:range xsd:decimal ;
     rdfs:label "Debt to equity"@en ; rdfs:label "Deuda sobre patrimonio"@es ;
-    rdfs:comment "Total debt divided by shareholders' equity; times. Read verbatim from the delivery; absent when the source value is null."@en ;
-    rdfs:comment "Deuda total dividida entre el patrimonio de los accionistas; veces. Leído verbatim de la entrega; ausente cuando el valor de origen es nulo."@es .
+    rdfs:comment "Total debt divided by parent stockholders' equity; times. Read verbatim from the delivery; absent when the source value is null."@en ;
+    rdfs:comment "Deuda total dividida entre el patrimonio de la controladora; veces. Leído verbatim de la entrega; ausente cuando el valor de origen es nulo."@es .
 
 :ebitda a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :FundamentalMetricSet ; rdfs:range xsd:decimal ;
     rdfs:label "EBITDA"@en ; rdfs:label "EBITDA"@es ;
-    rdfs:comment "Earnings before interest, taxes, depreciation and amortization; USD. Read verbatim from the delivery; absent when the source value is null."@en ;
-    rdfs:comment "Ganancias antes de intereses, impuestos, depreciación y amortización; USD. Leído verbatim de la entrega; ausente cuando el valor de origen es nulo."@es .
+    rdfs:comment "Operating income plus depreciation and amortization (never depreciation alone); USD. Read verbatim from the delivery; absent when the source value is null."@en ;
+    rdfs:comment "Utilidad operativa más depreciación y amortización (nunca solo la depreciación); USD. Leído verbatim de la entrega; ausente cuando el valor de origen es nulo."@es .
 
 :effectiveTaxRate a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :FundamentalMetricSet ; rdfs:range xsd:decimal ;
     rdfs:label "Effective tax rate"@en ; rdfs:label "Tasa impositiva efectiva"@es ;
-    rdfs:comment "Income tax expense divided by pre-tax income; fraction. Read verbatim from the delivery; absent when the source value is null."@en ;
-    rdfs:comment "Gasto por impuesto a la renta dividido entre la utilidad antes de impuestos; fracción. Leído verbatim de la entrega; ausente cuando el valor de origen es nulo."@es .
+    rdfs:comment "Income tax expense divided by pre-tax income; fraction. Empty when pre-tax income is zero or negative. Read verbatim from the delivery; absent when the source value is null."@en ;
+    rdfs:comment "Gasto por impuesto a la renta dividido entre la utilidad antes de impuestos; fracción. Vacío cuando la utilidad antes de impuestos es cero o negativa. Leído verbatim de la entrega; ausente cuando el valor de origen es nulo."@es .
 
 :freeCashFlowConversion a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :FundamentalMetricSet ; rdfs:range xsd:decimal ;
     rdfs:label "Free cash flow conversion"@en ; rdfs:label "Conversión de flujo de caja libre"@es ;
@@ -1436,13 +1436,13 @@ so every result is in-sample.""" .
 
 :interestCoverage a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :FundamentalMetricSet ; rdfs:range xsd:decimal ;
     rdfs:label "Interest coverage"@en ; rdfs:label "Cobertura de intereses"@es ;
-    rdfs:comment "EBIT divided by interest expense; times. Read verbatim from the delivery; absent when the source value is null."@en ;
-    rdfs:comment "EBIT dividido entre el gasto por intereses; veces. Leído verbatim de la entrega; ausente cuando el valor de origen es nulo."@es .
+    rdfs:comment "Operating income divided by interest expense; times. Read verbatim from the delivery; absent when the source value is null."@en ;
+    rdfs:comment "Utilidad operativa dividida entre el gasto por intereses; veces. Leído verbatim de la entrega; ausente cuando el valor de origen es nulo."@es .
 
 :inventoryTurnover a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :FundamentalMetricSet ; rdfs:range xsd:decimal ;
     rdfs:label "Inventory turnover"@en ; rdfs:label "Rotación de inventario"@es ;
-    rdfs:comment "Cost of goods sold divided by average inventory; times. Read verbatim from the delivery; absent when the source value is null."@en ;
-    rdfs:comment "Costo de los bienes vendidos dividido entre el inventario promedio; veces. Leído verbatim de la entrega; ausente cuando el valor de origen es nulo."@es .
+    rdfs:comment "Cost of revenue divided by the inventory on the filing's balance sheet (not an average); times. Read verbatim from the delivery; absent when the source value is null."@en ;
+    rdfs:comment "Costo de ventas dividido entre el inventario del balance del informe (no el promedio); veces. Leído verbatim de la entrega; ausente cuando el valor de origen es nulo."@es .
 
 :netDebtToEbitda a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :FundamentalMetricSet ; rdfs:range xsd:decimal ;
     rdfs:label "Net debt to EBITDA"@en ; rdfs:label "Deuda neta sobre EBITDA"@es ;
@@ -1451,8 +1451,8 @@ so every result is in-sample.""" .
 
 :netIncomeCagr a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :FundamentalMetricSet ; rdfs:range xsd:decimal ;
     rdfs:label "Net income CAGR"@en ; rdfs:label "CAGR de la utilidad neta"@es ;
-    rdfs:comment "Compound annual growth rate of net income; fraction. Read verbatim from the delivery; absent when the source value is null."@en ;
-    rdfs:comment "Tasa compuesta de crecimiento anual de la utilidad neta; fracción. Leído verbatim de la entrega; ausente cuando el valor de origen es nulo."@es .
+    rdfs:comment "Compound annual growth rate of parent net income between the first and last years reported in the same 10-K (usually two years); fraction. Empty when either end is zero or negative. Read verbatim from the delivery; absent when the source value is null."@en ;
+    rdfs:comment "Tasa de crecimiento anual compuesta de la utilidad neta de la controladora entre el primer y el último año que reporta el mismo 10-K (en general, dos años); fracción. Vacía si alguno de los extremos es cero o negativo. Leído verbatim de la entrega; ausente cuando el valor de origen es nulo."@es .
 
 :netIncomeGrowth a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :FundamentalMetricSet ; rdfs:range xsd:decimal ;
     rdfs:label "Net income growth"@en ; rdfs:label "Crecimiento de la utilidad neta"@es ;
@@ -1466,13 +1466,13 @@ so every result is in-sample.""" .
 
 :nopat a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :FundamentalMetricSet ; rdfs:range xsd:decimal ;
     rdfs:label "NOPAT"@en ; rdfs:label "NOPAT"@es ;
-    rdfs:comment "Net operating profit after tax; USD. Read verbatim from the delivery; absent when the source value is null."@en ;
-    rdfs:comment "Utilidad operativa neta después de impuestos; USD. Leído verbatim de la entrega; ausente cuando el valor de origen es nulo."@es .
+    rdfs:comment "Operating income times (1 − 21%), the statutory rate; zero tax on an operating loss; USD. Read verbatim from the delivery; absent when the source value is null."@en ;
+    rdfs:comment "Utilidad operativa por (1 − 21%), la tasa legal; impuesto cero cuando hay pérdida operativa; USD. Leído verbatim de la entrega; ausente cuando el valor de origen es nulo."@es .
 
 :operatingCashFlowCagr a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :FundamentalMetricSet ; rdfs:range xsd:decimal ;
     rdfs:label "Operating cash flow CAGR"@en ; rdfs:label "CAGR del flujo de caja operativo"@es ;
-    rdfs:comment "Compound annual growth rate of operating cash flow; fraction. Read verbatim from the delivery; absent when the source value is null."@en ;
-    rdfs:comment "Tasa compuesta de crecimiento anual del flujo de caja operativo; fracción. Leído verbatim de la entrega; ausente cuando el valor de origen es nulo."@es .
+    rdfs:comment "Compound annual growth rate of operating cash flow between the first and last years reported in the same 10-K (usually two years); fraction. Empty when either end is zero or negative. Read verbatim from the delivery; absent when the source value is null."@en ;
+    rdfs:comment "Tasa de crecimiento anual compuesta del flujo de caja operativo entre el primer y el último año que reporta el mismo 10-K (en general, dos años); fracción. Vacía si alguno de los extremos es cero o negativo. Leído verbatim de la entrega; ausente cuando el valor de origen es nulo."@es .
 
 :operatingCashFlowMargin a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :FundamentalMetricSet ; rdfs:range xsd:decimal ;
     rdfs:label "Operating cash flow margin"@en ; rdfs:label "Margen de flujo de caja operativo"@es ;
@@ -1496,33 +1496,33 @@ so every result is in-sample.""" .
 
 :receivablesTurnover a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :FundamentalMetricSet ; rdfs:range xsd:decimal ;
     rdfs:label "Receivables turnover"@en ; rdfs:label "Rotación de cuentas por cobrar"@es ;
-    rdfs:comment "Revenue divided by average accounts receivable; times. Read verbatim from the delivery; absent when the source value is null."@en ;
-    rdfs:comment "Ingresos divididos entre las cuentas por cobrar promedio; veces. Leído verbatim de la entrega; ausente cuando el valor de origen es nulo."@es .
+    rdfs:comment "Revenue divided by the receivables on the filing's balance sheet (not an average); times. Read verbatim from the delivery; absent when the source value is null."@en ;
+    rdfs:comment "Ingresos divididos entre las cuentas por cobrar del balance del informe (no el promedio); veces. Leído verbatim de la entrega; ausente cuando el valor de origen es nulo."@es .
 
 :returnOnAssets a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :FundamentalMetricSet ; rdfs:range xsd:decimal ;
     rdfs:label "Return on assets"@en ; rdfs:label "Retorno sobre activos"@es ;
-    rdfs:comment "Net income divided by average total assets; fraction. Read verbatim from the delivery; absent when the source value is null."@en ;
-    rdfs:comment "Utilidad neta dividida entre los activos totales promedio; fracción. Leído verbatim de la entrega; ausente cuando el valor de origen es nulo."@es .
+    rdfs:comment "Annual NOPAT divided by total assets at the end of the prior fiscal year; fraction. Read verbatim from the delivery; absent when the source value is null."@en ;
+    rdfs:comment "NOPAT anual dividido entre los activos totales al cierre del año fiscal anterior; fracción. Leído verbatim de la entrega; ausente cuando el valor de origen es nulo."@es .
 
 :returnOnEquity a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :FundamentalMetricSet ; rdfs:range xsd:decimal ;
     rdfs:label "Return on equity"@en ; rdfs:label "Retorno sobre patrimonio"@es ;
-    rdfs:comment "Net income divided by average shareholders' equity; fraction. Read verbatim from the delivery; absent when the source value is null."@en ;
-    rdfs:comment "Utilidad neta dividida entre el patrimonio promedio de los accionistas; fracción. Leído verbatim de la entrega; ausente cuando el valor de origen es nulo."@es .
+    rdfs:comment "Trailing-twelve-month parent net income divided by parent equity at the end of the prior fiscal year; fraction. Empty when that equity is zero or negative. Read verbatim from the delivery; absent when the source value is null."@en ;
+    rdfs:comment "Utilidad neta de la controladora de los últimos doce meses dividida entre el patrimonio de la controladora al cierre del año fiscal anterior; fracción. Vacío cuando ese patrimonio es cero o negativo. Leído verbatim de la entrega; ausente cuando el valor de origen es nulo."@es .
 
 :returnOnInvestedCapital a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :FundamentalMetricSet ; rdfs:range xsd:decimal ;
     rdfs:label "Return on invested capital"@en ; rdfs:label "Retorno sobre el capital invertido"@es ;
-    rdfs:comment "NOPAT divided by invested capital; fraction. Read verbatim from the delivery; absent when the source value is null."@en ;
-    rdfs:comment "NOPAT dividido entre el capital invertido; fracción. Leído verbatim de la entrega; ausente cuando el valor de origen es nulo."@es .
+    rdfs:comment "NOPAT divided by invested capital at the end of the prior fiscal year (debt plus parent equity plus noncontrolling interest, minus cash and short-term investments); fraction. Read verbatim from the delivery; absent when the source value is null."@en ;
+    rdfs:comment "NOPAT dividido entre el capital invertido al cierre del año fiscal anterior (deuda más patrimonio de la controladora más participación no controladora, menos efectivo e inversiones de corto plazo); fracción. Leído verbatim de la entrega; ausente cuando el valor de origen es nulo."@es .
 
 :returnOnInvestedCapitalEffectiveRate a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :FundamentalMetricSet ; rdfs:range xsd:decimal ;
     rdfs:label "Return on invested capital (effective tax rate)"@en ; rdfs:label "Retorno sobre el capital invertido (tasa impositiva efectiva)"@es ;
-    rdfs:comment "ROIC computed with the effective tax rate; fraction. Read verbatim from the delivery; absent when the source value is null."@en ;
-    rdfs:comment "ROIC calculado con la tasa impositiva efectiva; fracción. Leído verbatim de la entrega; ausente cuando el valor de origen es nulo."@es .
+    rdfs:comment "As ROIC, but with NOPAT computed at the filing's effective tax rate instead of the statutory rate; a robustness variant; fraction. Read verbatim from the delivery; absent when the source value is null."@en ;
+    rdfs:comment "Como el ROIC, pero con el NOPAT calculado con la tasa impositiva efectiva del informe en lugar de la legal; variante de robustez; fracción. Leído verbatim de la entrega; ausente cuando el valor de origen es nulo."@es .
 
 :revenueCagr a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :FundamentalMetricSet ; rdfs:range xsd:decimal ;
     rdfs:label "Revenue CAGR"@en ; rdfs:label "CAGR de los ingresos"@es ;
-    rdfs:comment "Compound annual growth rate of revenue; fraction. Read verbatim from the delivery; absent when the source value is null."@en ;
-    rdfs:comment "Tasa compuesta de crecimiento anual de los ingresos; fracción. Leído verbatim de la entrega; ausente cuando el valor de origen es nulo."@es .
+    rdfs:comment "Compound annual growth rate of revenue between the first and last years reported in the same 10-K (usually two years); fraction. Empty when either end is zero or negative. Read verbatim from the delivery; absent when the source value is null."@en ;
+    rdfs:comment "Tasa de crecimiento anual compuesta de los ingresos entre el primer y el último año que reporta el mismo 10-K (en general, dos años); fracción. Vacía si alguno de los extremos es cero o negativo. Leído verbatim de la entrega; ausente cuando el valor de origen es nulo."@es .
 
 :revenueGrowth a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :FundamentalMetricSet ; rdfs:range xsd:decimal ;
     rdfs:label "Revenue growth"@en ; rdfs:label "Crecimiento de los ingresos"@es ;
@@ -1531,8 +1531,8 @@ so every result is in-sample.""" .
 
 :enterpriseFcfYield a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :FundamentalMetricSet ; rdfs:range xsd:decimal ;
     rdfs:label "Enterprise FCF yield"@en ; rdfs:label "Rendimiento del flujo de caja libre sobre el valor de empresa"@es ;
-    rdfs:comment "Free cash flow divided by enterprise value; fraction. Read verbatim from the delivery; absent when the source value is null."@en ;
-    rdfs:comment "Flujo de caja libre dividido entre el valor de empresa; fracción. Leído verbatim de la entrega; ausente cuando el valor de origen es nulo."@es .
+    rdfs:comment "Free cash flow to the firm (NOPAT minus net investment: capex minus depreciation and amortization plus the change in non-cash working capital) divided by enterprise value; fraction. Read verbatim from the delivery; absent when the source value is null."@en ;
+    rdfs:comment "Flujo de caja libre de la firma (NOPAT menos la inversión neta: capex menos depreciación y amortización más la variación del capital de trabajo no monetario) dividido entre el valor de empresa; fracción. Leído verbatim de la entrega; ausente cuando el valor de origen es nulo."@es .
 
 :freeCashFlowYield a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :FundamentalMetricSet ; rdfs:range xsd:decimal ;
     rdfs:label "Free cash flow yield"@en ; rdfs:label "Rendimiento del flujo de caja libre"@es ;
@@ -1545,19 +1545,19 @@ so every result is in-sample.""" .
     rdfs:comment "Flujo de caja libre ajustado por compensación en acciones dividido entre la capitalización de mercado; fracción. Leído verbatim de la entrega; ausente cuando el valor de origen es nulo."@es .
 
 :utilityCashCoverage3y a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :FundamentalMetricSet ; rdfs:range xsd:decimal ;
-    rdfs:label "Utility cash coverage (3 years)"@en ; rdfs:label "Cobertura de caja de utility (3 años)"@es ;
-    rdfs:comment "Three-year operating cash flow coverage of debt for regulated utilities; fraction. Read verbatim from the delivery; absent when the source value is null."@en ;
-    rdfs:comment "Cobertura de la deuda con el flujo de caja operativo a tres años para utilities reguladas; fracción. Leído verbatim de la entrega; ausente cuando el valor de origen es nulo."@es .
+    rdfs:label "Utility cash coverage (3 years)"@en ; rdfs:label "Cobertura de caja de servicios públicos (3 años)"@es ;
+    rdfs:comment "Three-year average of operating cash flow before working-capital changes, divided by total debt; regulated utilities only. It is the input of the `UTILITY_CASH_COVERAGE` rule; fraction. Read verbatim from the delivery; absent when the source value is null."@en ;
+    rdfs:comment "Promedio de tres años del flujo de caja operativo antes de cambios en el capital de trabajo, dividido entre la deuda total; solo empresas de servicios públicos reguladas. Es la entrada de la regla `UTILITY_CASH_COVERAGE`; fracción. Leído verbatim de la entrega; ausente cuando el valor de origen es nulo."@es .
 
 :marketCapitalization a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :FundamentalMetricSet ; rdfs:range xsd:decimal ;
     rdfs:label "Market capitalization"@en ; rdfs:label "Capitalización de mercado"@es ;
-    rdfs:comment "Market capitalization at the filing date; USD. Read verbatim from the delivery; absent when the source value is null."@en ;
-    rdfs:comment "Capitalización de mercado en la fecha del informe; USD. Leído verbatim de la entrega; ausente cuando el valor de origen es nulo."@es .
+    rdfs:comment "Closing price at the end of the filing's period (or the last close before it) times the shares outstanding of every class; USD. Read verbatim from the delivery; absent when the source value is null."@en ;
+    rdfs:comment "Precio de cierre al fin del período del informe (o el último cierre anterior) por las acciones en circulación de todas las clases; USD. Leído verbatim de la entrega; ausente cuando el valor de origen es nulo."@es .
 
 :enterpriseValue a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :FundamentalMetricSet ; rdfs:range xsd:decimal ;
     rdfs:label "Enterprise value"@en ; rdfs:label "Valor de empresa"@es ;
-    rdfs:comment "Enterprise value at the filing date; USD. Read verbatim from the delivery; absent when the source value is null."@en ;
-    rdfs:comment "Valor de empresa en la fecha del informe; USD. Leído verbatim de la entrega; ausente cuando el valor de origen es nulo."@es .
+    rdfs:comment "Market capitalization plus debt plus noncontrolling interest, minus cash and short-term investments, at the end of the filing's period; USD. Empty when market capitalization, debt or cash is missing. Read verbatim from the delivery; absent when the source value is null."@en ;
+    rdfs:comment "Capitalización de mercado más deuda más participación no controladora, menos efectivo e inversiones de corto plazo, al fin del período del informe; USD. Vacío si falta la capitalización, la deuda o el efectivo. Leído verbatim de la entrega; ausente cuando el valor de origen es nulo."@es .
 
 :assessmentOfFiling a owl:ObjectProperty, owl:FunctionalProperty ; rdfs:domain :FundamentalAssessment ; rdfs:range :SECFiling ;
     rdfs:label "Assessment of filing"@en ; rdfs:label "Evaluación del informe"@es ;

@@ -32,6 +32,13 @@ subjects from the TBox (measured 2026-11-09).
 | Temperature | `0.1`. |
 | Additional instructions | The single `text` fence in [`instructions-v1.2.md`](instructions-v1.2.md). |
 
+## Pending evaluation questions (T-758)
+
+When the 16-question evaluation sheet is written, include Reviewer A's fundamentals note: the three
+turnover ratios and ROA/ROE divide a flow by a balance-sheet balance, not an average; 10-Q flows are
+annualized before the ROA/ROE division. A question that compares a 10-Q with a 10-K must not expect
+average-based turnover.
+
 ## Not covered here
 
 - Switching the LLM provider or model behind the agent: see [`create-agent.md`](create-agent.md)'s
