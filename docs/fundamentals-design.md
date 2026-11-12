@@ -705,8 +705,8 @@ never run a DROP; only the maintainer may drop the one graph after a failed writ
 ## 7. Questions for Reviewer A
 
 1. **Existing snapshots.** Are the 10,025 `score_snapshot` FUNDAMENTAL rows already in `portfolio`
-   (or in an `ingest:FUNDAMENTAL:*` graph)? If not, should T-811 load them first, or may the
-   assessment loader create the missing snapshot? What is the authoritative join key:
+   (or in an `ingest:FUNDAMENTAL:*` graph)? If not, should the implementation load them first, or
+   may the assessment loader create the missing snapshot? What is the authoritative join key:
    `snapshot_id` in the IRI, or `(asset, eventTime, availableAt, rawValue)`?
 2. **Price mask.** Confirm the default excludes the whole `valuation` group (73,195 rows) and
    `rule_input` (18,391 rows), with `--include-valuation-ratios` adding only the three ratio
