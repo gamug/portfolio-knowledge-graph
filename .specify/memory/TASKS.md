@@ -1388,11 +1388,18 @@ GraphDB write is made in this work. See `docs/labels-design.md` §8 and `PLAN.md
 - [x] **T-786** Update the runbook, final-delivery step 7b, schema/SPEC/README/docs counts and
       `PLAN`/`TASKS`.
 - [x] **T-787** Run the real dry run and record 8 rows / 236 triples / SHACL conforms.
-- [ ] **T-788** Merge the PR and reload the schema in `portfolio_test`; run `verify_store`; the
-      maintainer's step.
-- [ ] **T-789** Load `urn:graph:derived:backtest:external:final` in production; the maintainer's
-      step.
+- [x] **T-788** *(superseded 2026-11-12: `portfolio_test` is only the old rehearsal repo and will
+      be emptied; production was loaded directly.)* Merge the PR and reload the schema in
+      `portfolio_test`; run `verify_store`; the maintainer's step.
+- [x] **T-789** *(done 2026-11-12: `MARKOWITZ_MV` loaded in `portfolio` (production):
+      `urn:graph:derived:backtest:external:final`, 236 triples, 6 books (`objective`
+      `max_sharpe`), 8 summary rows, SHACL conforms, PASS stored graph. Schema reload at
+      `32f531a` (PR #148): 5 graphs / 5828 triples; `verify_store` 6/6 PASS.)* Load
+      `urn:graph:derived:backtest:external:final` in production; the maintainer's step.
 - [x] **T-790** *(done 2026-11-09: `--engine-dir`, read-only engine ids/dates, tests.)* Read the
       engine `book_id`/run id read-only and cross-check the segment dates against
       `MARKOWITZ_BASE`.
-- [ ] **T-791–T-809** Reserved for review fixes and the production record.
+- [x] **T-791** *(done 2026-11-12: `--check-store` opens the store without `--write` and needs
+      no production opt-in; the test covers `would-be-written` and `already-in-store` on a
+      read-only production store.)* Fix the `--check-store` pre-flight crash.
+- [ ] **T-792–T-809** Reserved for review fixes and the production record.

@@ -845,10 +845,10 @@ def load_file(
 
 
 def open_store(args: argparse.Namespace) -> GraphDB | None:
-    if not args.write:
+    if not (args.write or args.check_store):
         return None
     store = GraphDB.from_env()
-    if store.repository == PRODUCTION_REPOSITORY and not args.to_production:
+    if args.write and store.repository == PRODUCTION_REPOSITORY and not args.to_production:
         print(
             "--write to the production repository needs --to-production: the final label is the "
             "maintainer's decision",
