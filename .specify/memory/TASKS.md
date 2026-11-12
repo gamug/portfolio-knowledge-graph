@@ -1403,3 +1403,14 @@ GraphDB write is made in this work. See `docs/labels-design.md` §8 and `PLAN.md
       no production opt-in; the test covers `would-be-written` and `already-in-store` on a
       read-only production store.)* Fix the `--check-store` pre-flight crash.
 - [ ] **T-792–T-809** Reserved for review fixes and the production record.
+
+## Work item 45 — Fundamentals block C loader (T-810–T-839)
+
+*From Reviewer A's block C delivery (`bloque_c_fundamentales`). Design first; no code in T-810.
+See `docs/fundamentals-design.md` and `PLAN.md` Work item 45.*
+
+- [x] **T-810** *(done 2026-11-12: `docs/fundamentals-design.md`; design only, no code.)*
+      Record the delivery profile, the volume comparison, point-in-time reads, generated-text
+      provenance, price masking, keys/IRIs/graph name, loader plan and the questions for Reviewer A.
+- [ ] **T-811–T-839** Reserved for the implementation; specific IDs are assigned after Reviewer A
+      answers the design questions. No other IDs are introduced here.
