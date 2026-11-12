@@ -1580,7 +1580,7 @@
 :alertDate a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :GuardAlert ; rdfs:range xsd:date ;
     rdfs:comment "v_guard_alert.date, the session close the alert was raised at." .
 :alertValue a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :GuardAlert ; rdfs:range xsd:decimal ;
-    rdfs:comment "Optional: v_guard_alert.value. Always NULL on layer 1 (the asset's return is masked under the Tiingo non-redistribution rule); :alertThreshold and :alertState are always populated." .
+    rdfs:comment "Optional: v_guard_alert.value. Always NULL on layer 1 (per-asset returns are not published in the graph); :alertThreshold and :alertState are always populated." .
 :alertThreshold a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :GuardAlert ; rdfs:range xsd:decimal ;
     rdfs:comment "v_guard_alert.threshold; always populated (handoff §3.3)." .
 :alertState a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :GuardAlert ; rdfs:range xsd:string ;

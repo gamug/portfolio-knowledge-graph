@@ -157,7 +157,7 @@
     rdfs:label "Data-quality failure"@en ;
     rdfs:label "Falla de calidad de datos"@es ;
     rdfs:comment "A HARD Ring-1 data-quality gate fired on the asset's latest filing; the evidence is the data_quality_issue row."@en ;
-    rdfs:comment "Una verificación dura de calidad de datos de la Ronda 1 falló en el último informe del activo; la evidencia es la fila data_quality_issue."@es .
+    rdfs:comment "Una verificación dura de calidad de datos del anillo 1 (Ring 1) falló en el último informe del activo; la evidencia es la fila data_quality_issue."@es .
 :Pred_DATA_QUALITY_HardGate a :GraphPredicate ; :predicateName "HasHardDataQualityIssue" ;
     rdfs:comment "Upstream params: source=data_quality_issue, severity=HARD. Evaluated upstream." .
 
@@ -257,10 +257,10 @@
     :hasClause :Pred_L1_STOP_LOSS ;
     rdfs:label "21-session loss-limit exit (Markowitz with GUARD)"@en ;
     rdfs:label "Salida por límite de pérdida de 21 sesiones (Markowitz con GUARD)"@es ;
-    rdfs:comment "Layer 1 of the Markowitz minimum-variance book with GUARD, not a System rule: a held name is cut to cash when its cumulative 5-session simple return is below -0.1229; the name re-enters on the recovery condition."@en ;
-    rdfs:comment "Capa 1 del libro Markowitz de mínima varianza con GUARD, no una regla del Sistema: una acción mantenida pasa a efectivo cuando su retorno simple acumulado de 5 sesiones es inferior a -0,1229; reentra con la condición de recuperación."@es .
+    rdfs:comment "Layer 1 of the Markowitz minimum-variance book with GUARD, not a System rule: a held name is cut to cash when the sum of its last 21 daily simple returns is below -0.1229; the name re-enters on the recovery condition."@en ;
+    rdfs:comment "Capa 1 del libro Markowitz de mínima varianza con GUARD, no una regla del Sistema: una acción mantenida pasa a efectivo cuando la suma de sus últimos 21 retornos simples diarios es inferior a -0,1229; reentra con la condición de recuperación."@es .
 :Pred_L1_STOP_LOSS a :GraphPredicate ; :predicateName "GuardStopLoss" ;
-    rdfs:comment "A label chosen here, not an upstream identifier. Evaluated upstream: S_i(5) < -0.1229." .
+    rdfs:comment "A label chosen here, not an upstream identifier. Evaluated upstream: S_i(21) < -0.1229." .
 
 :Rule_L1_REENTRY a :RuleDefinition ;
     :ruleId "L1_REENTRY" ; :category "GUARD" ; :guardLayer 1 ;

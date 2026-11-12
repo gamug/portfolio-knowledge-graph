@@ -167,7 +167,7 @@
     skos:notation 1 ;
     :labelScheme :PresentationScheme ;
     rdfs:label "Per-stock stop (layer 1)"@en, "Parada por acción (capa 1)"@es ;
-    rdfs:comment "Determines the exit of a position when its layer-1 rule fires and allows a later re-entry when its recovery condition is met; it depends on the book: Basing Points in the System, a 21-session loss limit in the Markowitz book with GUARD."@en, "Determina la salida de una posición cuando se cumple la regla de capa 1 y permite una reentrada posterior cuando se satisface su condición de recuperación; depende del libro: Basing Points en el Sistema, límite de pérdida de 21 sesiones en el Markowitz con GUARD."@es .
+    rdfs:comment "Determines the exit of a position when its layer-1 rule fires and allows a later re-entry when its recovery condition is met; it depends on the book: Basing Points in the System, a loss limit on the sum of the last 21 daily returns in the Markowitz book with GUARD."@en, "Determina la salida de una posición cuando se cumple la regla de capa 1 y permite una reentrada posterior cuando se satisface su condición de recuperación; depende del libro: Basing Points en el Sistema, límite de pérdida sobre la suma de los últimos 21 retornos diarios en el Markowitz con GUARD."@es .
 
 :GuardLayer_2 a skos:Concept ;
     skos:inScheme :GuardScheme ;
@@ -423,7 +423,7 @@
     skos:notation "filter_exit" ;
     :labelScheme :PresentationScheme ;
     rdfs:label "Trend-filter exit fraction"@en, "Fracción de salida del filtro de tendencia"@es ;
-    rdfs:comment "With SPY below its 210-session mean, each target weight is multiplied by (1 - filter_exit); 0.5 moves half the exposure to cash."@en, "Con SPY por debajo de su media de 210 sesiones, cada peso objetivo se multiplica por (1 - filter_exit); 0.5 mueve la mitad de la exposición a efectivo."@es .
+    rdfs:comment "At a decision date, if SPY's total-return index is below its 210-session simple average, each target weight is multiplied by (1 - filter_exit); 0.5 moves half the exposure to cash until the next decision."@en, "En una fecha de decisión, si el índice de retorno total de SPY está por debajo de su media simple de 210 sesiones, cada peso objetivo se multiplica por (1 - filter_exit); 0,5 mueve la mitad de la exposición a efectivo hasta la siguiente decisión."@es .
 
 :Config_stop_rule a skos:Concept ;
     skos:inScheme :ConfigScheme ;
@@ -500,7 +500,7 @@
     skos:notation "min_var" ;
     :labelScheme :PresentationScheme ;
     rdfs:label "Registered optimization class"@en, "Clasificación de optimización registrada"@es ;
-    rdfs:comment "The fixed label the engine writes for every optimized arm; it is NOT the satellite weighting objective (use satellite_weighting, mincvar in the System). Upstream confirmation is pending."@en, "Etiqueta fija que el motor escribe para cada brazo optimizado; NO es la función objetivo de ponderación del satélite (usar satellite_weighting, mincvar en el Sistema). La confirmación de upstream está pendiente."@es ;
+    rdfs:comment "The fixed label the engine writes for every optimized arm; it documents the minimum-variance selection stage. It is NOT the satellite weighting objective (use satellite_weighting: mincvar in the System)."@en, "Etiqueta fija que el motor escribe para cada brazo optimizado; documenta la etapa de selección por mínima varianza. NO es la función objetivo de ponderación del satélite (usar satellite_weighting: mincvar en el Sistema)."@es ;
     skos:altLabel "objective"@en, "min_var"@en ;
     skos:altLabel "objective"@es, "min_var"@es .
 
