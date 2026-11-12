@@ -59,8 +59,8 @@ uv run python cli/load_schema.py [--dir path/to/schema] [--to-production]
 Loads `tbox → shapes → reference → fibo → rules → instances.trig` per the graph map in
 [`schema/README.md`](../schema/README.md). The production repository is the exception: it never
 receives `instances.trig`'s worked-example ABox, so a production load writes only `tbox`, `shapes`,
-`reference`, `fibo`, `rules` and `labels` (five graphs, 5828 asserted triples at this revision). A
-`portfolio_test` or other non-production load keeps the 21 graphs and 6349 triples including the
+`reference`, `fibo`, `rules` and `labels` (five graphs, 6610 asserted triples at this revision). A
+`portfolio_test` or other non-production load keeps the 21 graphs and 7131 triples including the
 examples. The target must be deliberate: `KG_REPOSITORY=portfolio` without `--to-production` exits
 2 before any request, and `cli/verify_store.py` takes the same flag even though it only reads.
 A production repository loaded before this change may still hold old example graphs: the loader

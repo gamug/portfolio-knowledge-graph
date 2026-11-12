@@ -3498,7 +3498,7 @@ real dry run output: 8 rows, 236 triples, `SHACL: conforms (gate.validate)`; no 
 
 ## Work item 45 — Fundamentals block C loader (T-810–T-839)
 
-**Status: design open 2026-11-12; no code yet.**
+**Status: implementation PR 1 (T-811/T-812) landed 2026-11-13; the loader (T-813–T-815) is PR 2.**
 
 **Why**: Reviewer A delivered `bloque_c_fundamentales` (`SHA256SUMS`
 `f640ba4d81ce94bc4bbfa2887b310f43651d9f600d6e295e16c23808afcb5d12`): 14,639
@@ -3509,23 +3509,41 @@ price-derived USD amounts and `metric_group=valuation` also carries three derive
 design must price the volume, point-in-time reads, generated-text provenance and price masking
 before any loader code.
 
-**Decision (T-810)**: recommend one `:FundamentalMetricSet` per filing with 31 direct decimal
-properties (all metrics except the five `valuation` and two `rule_input` metrics) and one
-`:FundamentalAssessment` per assessment that links to the existing FUNDAMENTAL `:ScoreSnapshot`
-instead of duplicating its score. The expected batch is 800,981 asserted triples (840,284 with the
-inferred type per individual; 815,620 / 855k with the optional `:containsPriceDerivedValue` guard),
-about 20% of the current ~4.18M-triple store. The default excludes the two absolute USD valuation
-metrics permanently and the three valuation yields behind an off-by-default flag. The graph is
-`urn:graph:derived:fundamentals:final`, append-only, one graph per label. The full design and the
-questions for Reviewer A are in `docs/fundamentals-design.md`.
+**Decision (T-810, revised 2026-11-13 by Reviewer A's addendum)**: one
+`:FundamentalMetricSet` per filing with **37 direct decimal properties** (the 38 source names
+minus `value_inputs`; includes `market_capitalization` and `enterprise_value`). The mask is a
+loader check, not a schema filter: the loader stops on any `valuation` or `value_inputs` row of a
+masked asset; the other 550 assets load all five valuation metrics. The loader also writes
+`:pricesNotPublished true` for **all 33** masked assets (33 triples, including FRC/SBNY, which
+have no block C filing); it derives the set from the SHA-256-checked
+`mascara_tiingo/tiingo_assets.csv`, resolves every masked ticker through the backtest
+universe/reference resolution and stops with the unresolved list rather than minting an asset.
+One `:FundamentalAssessment` per assessment carries its own `scoreRaw0to100` and `rating`; there
+is no `:assessmentOfSnapshot` link and no `:promptHash` (the delivery's prompt hash is one
+constant per run and stays in the delivery hash/`source.json`). The graph is
+`urn:graph:derived:fundamentals:final`, append-only, one graph per label. On the v2 delivery
+(SHA256SUMS `fd32daed…`, 509,933 metric rows) the 37 metrics are 495,294 rows / 406,570 non-null;
+the expected batch is **834,586 asserted triples** (873,889 with inference), including the 33
+flags. T-811/T-812 landed the schema (6854 quads, 21/7131 load plan, 5/6610 production, 60
+classes / 46 disjoint leaves / 44 shapes); the loader count is measured in T-813–T-815.
 
 **Tasks**:
 
 - [x] **T-810** *(done 2026-11-12: `docs/fundamentals-design.md`; design only.)* Record the
       delivery profile, three model counts from the real files, point-in-time pattern, generated
       text provenance, price masking, keys/IRIs/graph, loader plan and the questions for Reviewer A.
-- [ ] **T-811–T-839** Reserved for implementation; specific IDs are assigned after Reviewer A
-      answers the design questions. No other IDs are introduced here.
+- [x] **T-811** *(done 2026-11-13: `schema/tbox.ttl`; 60 classes / 46 disjoint leaves, 37 metric
+      properties, filing/assessment properties, `:pricesNotPublished` on Asset, widened domains.)*
+      Add the fundamentals TBox.
+- [x] **T-812** *(done 2026-11-13: `schema/shapes.ttl`, `tests/test_fundamentals_shapes.py`,
+      `docs/labels-fundamentals-review.md`, NR-001 counts.)* Add the four shapes, the AssetShape
+      boolean flag, the synthetic tests, the proposed label table (including
+      `:pricesNotPublished`) and the count updates.
+- [ ] **T-813–T-815** Loader (PR 2): strict parser/CLI, the 33-flag mask set (including a masked
+      asset without filings), a stop when a masked ticker is unknown, hermetic tests, the real dry
+      run with exactly 33 flags, the runbook and the production record. Only T-813–T-815 are
+      assigned.
+- [ ] **T-816–T-839** Reserved for review fixes; no specific IDs are assigned.
 
 **Acceptance criteria**:
 
@@ -3536,14 +3554,27 @@ questions for Reviewer A are in `docs/fundamentals-design.md`.
   and `validFrom` are not reused.
 - The generated-text section distinguishes the 9,896 model texts from the 129 rule texts and
   requires the generated/not-verified marker.
-- The price-masking section counts the excluded rows and never loads the absolute USD valuation
-  metrics.
+- The schema has 37 metric properties; only `value_inputs` has no property. The loader stops on
+  any `valuation` or `value_inputs` row of a masked asset; the other 550 assets load all five
+  valuation metrics.
+- The assessment shape has no `promptHash`; model rows and rule rows carry only the delivery's
+  `provenanceNote`, `generatedByLanguageModel` and `model`.
 - The loader plan includes the manifest, strict parser, dry run, `--check-store` without `--write`,
   `--write`/`--to-production`, no DROP and the runbook step.
-- T-810 changes only documentation; no schema, `src/`, `cli/` or test change and no GraphDB write.
+- T-810 changes only documentation; T-811/T-812 change the schema and its tests and make no
+  GraphDB write.
 
-**Blocked on**: Reviewer A's answers to the questions in `docs/fundamentals-design.md` §7.
+**Blocked on**: Reviewer A's approval of the proposed label table and the PR 1 merge; the loader
+(T-813–T-815) follows from master afterwards.
 
 **Verified 2026-11-12**: `docs/fundamentals-design.md` and the Work item 45 records only; no
 loader, schema, label, count or GraphDB change. The delivery was read-only; `sha256sum -c` passed
 for all six manifest entries.
+
+**Verified 2026-11-13 (T-811/T-812)**: the schema has 60 classes / 46 disjoint leaves / 44 named
+shapes and **6854 quads**, the load plan is **21/7131**, production **5/6610**, and FR-001/pyshacl
+conform. `tests/test_fundamentals_shapes.py` has 18 synthetic positive/negative cases; the
+existing explicit types are checked before/after the `:availableAt`/`:computedAt`/`:eventTime`
+domain widening. The 37 metric concepts and all new TBox terms are proposed in
+`docs/labels-fundamentals-review.md`; no metric concept has entered `labels.ttl`. No GraphDB
+write.
