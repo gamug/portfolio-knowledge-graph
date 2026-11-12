@@ -800,3 +800,163 @@
                   sh:qualifiedMinCount 1 ; sh:qualifiedMaxCount 1 ] ;
     sh:property [ sh:path rdfs:comment ; sh:languageIn ( "en" "es" ) ] ;
     sh:property [ sh:path skos:altLabel ; sh:languageIn ( "en" "es" ) ] .
+
+#################################################################
+# Work item 45 — fundamentals block C shapes (T-811/T-812)
+#################################################################
+
+:FundamentalFilingShape
+    a sh:NodeShape ;
+    sh:targetClass :SECFiling ;
+    sh:sparql [
+        sh:message "A fundamentals filing (identified by :filingId) needs filingOfAsset, formType, filingDate, periodEnd, fiscalYear, fiscalPeriod, availableAt and accessionNumber, with availableAt not before filingDate" ;
+        sh:select """
+            PREFIX : <https://thesis.local/kg/portfolio#>
+            SELECT ?this WHERE {
+              ?this a :SECFiling ; :filingId ?id .
+              FILTER (
+                NOT EXISTS { ?this :filingOfAsset ?asset } ||
+                NOT EXISTS { ?this :formType ?form } ||
+                NOT EXISTS { ?this :filingDate ?filed } ||
+                NOT EXISTS { ?this :periodEnd ?period } ||
+                NOT EXISTS { ?this :fiscalYear ?year } ||
+                NOT EXISTS { ?this :fiscalPeriod ?fp } ||
+                NOT EXISTS { ?this :availableAt ?available } ||
+                NOT EXISTS { ?this :accessionNumber ?accession } ||
+                EXISTS { ?this :filingDate ?filed ; :availableAt ?available . FILTER(?available < ?filed) }
+              )
+            }
+        """ ;
+    ] ;
+    sh:sparql [
+        sh:message "formType must be 10-K or 10-Q" ;
+        sh:select """
+            PREFIX : <https://thesis.local/kg/portfolio#>
+            SELECT ?this WHERE {
+              ?this a :SECFiling ; :filingId ?id ; :formType ?form .
+              FILTER (?form NOT IN ("10-K", "10-Q"))
+            }
+        """ ;
+    ] .
+
+:FundamentalMetricSetShape
+    a sh:NodeShape ;
+    sh:targetClass :FundamentalMetricSet ;
+    sh:closed true ;
+    sh:ignoredProperties ( rdf:type ) ;
+    sh:property [ sh:path :metricSetOfFiling ; sh:minCount 1 ; sh:maxCount 1 ; sh:class :SECFiling ] ;
+    sh:property [ sh:path :availableAt ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:date ] ;
+    sh:property [ sh:path :computedAt ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:dateTime ] ;
+    sh:property [ sh:path :engineVersion ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:string ] ;
+    sh:property [ sh:path :assetTurnover ; sh:datatype xsd:decimal ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :capexIntensity ; sh:datatype xsd:decimal ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :cashRatio ; sh:datatype xsd:decimal ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :currentRatio ; sh:datatype xsd:decimal ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :debtToAssets ; sh:datatype xsd:decimal ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :debtToEquity ; sh:datatype xsd:decimal ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :ebitda ; sh:datatype xsd:decimal ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :effectiveTaxRate ; sh:datatype xsd:decimal ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :freeCashFlowConversion ; sh:datatype xsd:decimal ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :freeCashFlowGrowth ; sh:datatype xsd:decimal ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :freeCashFlowMargin ; sh:datatype xsd:decimal ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :grossMargin ; sh:datatype xsd:decimal ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :interestCoverage ; sh:datatype xsd:decimal ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :inventoryTurnover ; sh:datatype xsd:decimal ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :netDebtToEbitda ; sh:datatype xsd:decimal ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :netIncomeCagr ; sh:datatype xsd:decimal ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :netIncomeGrowth ; sh:datatype xsd:decimal ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :netMargin ; sh:datatype xsd:decimal ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :nopat ; sh:datatype xsd:decimal ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :operatingCashFlowCagr ; sh:datatype xsd:decimal ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :operatingCashFlowMargin ; sh:datatype xsd:decimal ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :operatingIncomeGrowth ; sh:datatype xsd:decimal ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :operatingMargin ; sh:datatype xsd:decimal ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :quickRatio ; sh:datatype xsd:decimal ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :receivablesTurnover ; sh:datatype xsd:decimal ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :returnOnAssets ; sh:datatype xsd:decimal ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :returnOnEquity ; sh:datatype xsd:decimal ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :returnOnInvestedCapital ; sh:datatype xsd:decimal ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :returnOnInvestedCapitalEffectiveRate ; sh:datatype xsd:decimal ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :revenueCagr ; sh:datatype xsd:decimal ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :revenueGrowth ; sh:datatype xsd:decimal ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :enterpriseFcfYield ; sh:datatype xsd:decimal ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :freeCashFlowYield ; sh:datatype xsd:decimal ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :sbcAdjustedFcfYield ; sh:datatype xsd:decimal ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :utilityCashCoverage3y ; sh:datatype xsd:decimal ; sh:maxCount 1 ] .
+
+:FundamentalAssessmentShape
+    a sh:NodeShape ;
+    sh:targetClass :FundamentalAssessment ;
+    sh:property [ sh:path :assessmentOfFiling ; sh:minCount 1 ; sh:maxCount 1 ; sh:class :SECFiling ] ;
+    sh:property [ sh:path :assessmentOfAsset ; sh:minCount 1 ; sh:maxCount 1 ; sh:class :Asset ] ;
+    sh:property [ sh:path :snapshotId ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:integer ] ;
+    sh:property [ sh:path :narrative ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:string ] ;
+    sh:property [ sh:path :model ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:string ] ;
+    sh:property [ sh:path :computedAt ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:dateTime ] ;
+    sh:property [ sh:path :eventTime ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:date ] ;
+    sh:property [ sh:path :availableAt ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:date ] ;
+    sh:property [ sh:path :generatedByLanguageModel ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:boolean ] ;
+    sh:property [ sh:path :provenanceNote ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:string ] ;
+    sh:property [ sh:path :strength ; sh:datatype xsd:string ] ;
+    sh:property [ sh:path :risk ; sh:datatype xsd:string ] ;
+    sh:or (
+        [
+            sh:and (
+                [ sh:property [ sh:path :generatedByLanguageModel ; sh:hasValue true ] ]
+                [ sh:property [ sh:path :scoreRaw0to100 ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:decimal ] ]
+                [ sh:property [ sh:path :rating ; sh:minCount 1 ; sh:maxCount 1 ; sh:in ( "bullish" "neutral" "bearish" ) ] ]
+                [ sh:property [ sh:path :provenanceNote ; sh:hasValue "generated by a language model from computed ratios; not a verified fact" ] ]
+            )
+        ]
+        [
+            sh:and (
+                [ sh:property [ sh:path :generatedByLanguageModel ; sh:hasValue false ] ]
+                [ sh:property [ sh:path :scoreRaw0to100 ; sh:maxCount 0 ] ]
+                [ sh:property [ sh:path :rating ; sh:maxCount 0 ] ]
+                [ sh:property [ sh:path :model ; sh:hasValue "unscored-pillar-coverage-v1" ] ]
+                [ sh:property [ sh:path :provenanceNote ; sh:hasValue "rule-based text: no fundamental score (coverage rule); not generated by a model" ] ]
+            )
+        ]
+    ) .
+
+:FundamentalMetricDefinitionShape
+    a sh:NodeShape ;
+    sh:targetClass skos:Concept ;
+    sh:sparql [
+        sh:message "A fundamental metric definition needs skos:notation, :metricGroup and :metricUnit" ;
+        sh:select """
+            PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+            PREFIX : <https://thesis.local/kg/portfolio#>
+            SELECT ?this WHERE {
+              ?this a skos:Concept ; skos:inScheme :FundamentalMetricScheme .
+              FILTER (
+                NOT EXISTS { ?this skos:notation ?n } ||
+                NOT EXISTS { ?this :metricGroup ?g } ||
+                NOT EXISTS { ?this :metricUnit ?u }
+              )
+            }
+        """ ;
+    ] ;
+    sh:sparql [
+        sh:message "metricUnit must be ratio, x or usd" ;
+        sh:select """
+            PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+            PREFIX : <https://thesis.local/kg/portfolio#>
+            SELECT ?this WHERE {
+              ?this a skos:Concept ; skos:inScheme :FundamentalMetricScheme ; :metricUnit ?u .
+              FILTER (?u NOT IN ("ratio", "x", "usd"))
+            }
+        """ ;
+    ] ;
+    sh:sparql [
+        sh:message "The only usd fundamental metrics are ebitda and nopat" ;
+        sh:select """
+            PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+            PREFIX : <https://thesis.local/kg/portfolio#>
+            SELECT ?this WHERE {
+              ?this a skos:Concept ; skos:inScheme :FundamentalMetricScheme ;
+                    :metricUnit "usd" ; skos:notation ?n .
+              FILTER (?n NOT IN ("ebitda", "nopat"))
+            }
+        """ ;
+    ] .

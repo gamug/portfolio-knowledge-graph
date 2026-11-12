@@ -11,7 +11,16 @@ all six listed entries verify with `sha256sum -c`. `source.json` names `scored_l
 
 **Scope of T-810:** this document, the Work item 45 entries in `PLAN.md` and `TASKS.md`, tests only
 for the touched documentation, and a PR. No loader, schema, label, count or GraphDB change is made
-here. The implementation is reserved for T-811–T-839 after Reviewer A answers §7.
+here. The implementation is reserved for T-811–T-815 after Reviewer A answers §7.
+
+> **Addendum 2026-11-13 (Reviewer A, implementation).** The final metric set is **35** direct
+> properties: the 31 base metrics plus `enterprise_fcf_yield`, `free_cash_flow_yield`,
+> `sbc_adjusted_fcf_yield` and `utility_cash_coverage_3y`. The three valuation yields are skipped
+> row-level for the 33 masked assets; there is no `--include-valuation-ratios` flag and no
+> `:containsPriceDerivedValue`/`:metricIdsJson`. There is no `:assessmentOfSnapshot` link and no
+> `:promptHash`: the assessment carries its own score and rating, and the constant prompt hash
+> stays in the delivery hash/`source.json`. The loader count is measured in T-813–T-815; the
+> schema count is in `PLAN.md`/`TASKS.md` and `docs/labels-fundamentals-review.md`.
 
 ---
 

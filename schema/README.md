@@ -9,8 +9,8 @@ actually building it (each flagged inline in the file that surfaced it, and summ
 
 | File | Format | Loads into | Contents |
 |---|---|---|---|
-| `tbox.ttl` | Turtle | `urn:graph:tbox` | 58 classes (44 mutually disjoint leaf/domain classes + a 13-class `rdfs:subClassOf` taxonomic backbone + `:ExchangeTradedFund` under `:Asset`), properties, OWL cardinality restrictions. |
-| `shapes.ttl` | Turtle | `urn:graph:tbox` | 40 named SHACL node shapes plus two blank-node conditional shapes (data-quality shapes kept as a separate file/concern from `tbox.ttl` — OWL semantics vs. SHACL validation, see below). |
+| `tbox.ttl` | Turtle | `urn:graph:tbox` | 60 classes (46 mutually disjoint leaf/domain classes + a 13-class `rdfs:subClassOf` taxonomic backbone + `:ExchangeTradedFund` under `:Asset`), properties, OWL cardinality restrictions. |
+| `shapes.ttl` | Turtle | `urn:graph:tbox` | 44 named SHACL node shapes plus two blank-node conditional shapes (data-quality shapes kept as a separate file/concern from `tbox.ttl` — OWL semantics vs. SHACL validation, see below). |
 | `reference.ttl` | Turtle | `urn:graph:reference` | GICS sector/industry taxonomy + asset master data (five worked-example S&P 500 tickers plus the core ETF `SPY`). |
 | `fibo.ttl` | Turtle | `urn:graph:reference:fibo` | The 25-term FIBO 2026Q2 glossary slice (54 entries, 277 statements) plus the authors' Spanish `@es` layer; built by `cli/build_fibo_slice.py`, never hand-edited. |
 | `labels.ttl` | Turtle | `urn:graph:labels` | The bilingual SKOS presentation vocabulary (90 concepts, 892 triples) for codes and literals; loaded after `rules.ttl` and before `instances.trig`. |
@@ -522,9 +522,26 @@ what the store *enforces*.
     `urn:graph:labels`; `LabelConceptShape` requires one `skos:notation`, one `skos:inScheme`, one
     `rdfs:label`/`rdfs:comment` per language and only `@en`/`@es` `skos:altLabel`s on every concept
     marked with `:labelScheme :PresentationScheme`. The file is now in the FR-001 bundle and the
-    load plan. Counts: **58 classes (44 disjoint leaves), 40 named shapes, 6072 quads;
-    conforms: True**; load plan **21 graphs / 6349 asserted triples** (production **5 / 5828**).
+    load plan. Counts: **60 classes (46 disjoint leaves), 44 named shapes, 6816 quads;
+    conforms: True**; load plan **21 graphs / 7093 asserted triples** (production **5 / 6572**).
     The store must be reloaded afterwards.
+
+16. **Fundamentals block C schema (Work item 45, T-811/T-812, 2026-11-13).** `tbox.ttl` gains
+    `:FundamentalMetricSet` and `:FundamentalAssessment` (Observation leaves), the 35 direct
+    decimal metric properties (the 31 base metrics plus the three valuation yields and
+    `utility_cash_coverage_3y`; `market_capitalization`, `enterprise_value` and `value_inputs`
+    have no property; the loader skips the three valuation yields for the 33 masked assets, while
+    `utility_cash_coverage_3y` loads for all), the
+    filing support (`:filingId`, `:periodEnd`, `:fiscalYear`, `:fiscalPeriod`), the assessment
+    properties and the metric definition `:metricGroup`/`:metricUnit`. `:availableAt` loses its
+    `:ScoreSnapshot` domain; `:computedAt`/`:eventTime` widen to `:Observation`. `shapes.ttl`
+    gains `FundamentalFilingShape`, `FundamentalMetricSetShape`, `FundamentalAssessmentShape` and
+    `FundamentalMetricDefinitionShape`; the four have synthetic positive/negative tests in
+    `tests/test_fundamentals_shapes.py`. The 35 metric concepts are proposed in
+    `docs/labels-fundamentals-review.md` and stay out of `labels.ttl` until Reviewer A approves
+    them. Counts: **60 classes (46 disjoint leaves), 44 named shapes, 6816 quads; conforms:
+    True**; load plan **21 graphs / 7093 asserted triples** (production **5 / 6572**). The store
+    must be reloaded afterwards.
 
 ## Validation
 

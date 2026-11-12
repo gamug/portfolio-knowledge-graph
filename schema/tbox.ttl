@@ -549,7 +549,8 @@ so every result is in-sample.""" .
                  :GuardAlert :GuardAction :BookWeightDaily :BookDailyPerformance
                  :PortfolioPeriodSummary :BacktestTest :SelectionCycle
                  :BacktestRun :RunConfiguration
-                 :AggregatesSet :TrendFilterState :ReferenceReturn ) .
+                 :AggregatesSet :TrendFilterState :ReferenceReturn
+                 :FundamentalMetricSet :FundamentalAssessment ) .
 
 #################################################################
 # 2. OBJECT PROPERTIES
@@ -728,10 +729,10 @@ so every result is in-sample.""" .
 :timestamp   a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :ObservationSnapshot ; rdfs:range xsd:dateTime .
 :scoreMethod a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :ScoreSnapshot ; rdfs:range xsd:string ;
     rdfs:comment "T-111 (D14): optional method discriminator, so two ways of producing the same agentOrigin/metricType can coexist without a reader double-counting or picking the wrong one (upstream semantic-score-boundary.md W11, for the cut-over window). Open vocabulary: upstream has not fixed the value for its per-(asset, day) SEMANTIC aggregate yet, so SHACL does not enumerate it. Every SEMANTIC snapshot carries one: this repo's per-article FinBERT sentiment from src/etl/ is ARTICLE_SENTIMENT, and the worked per-(asset, day) snapshots in instances.trig use the illustrative placeholder ASSET_DAY_AGGREGATE until upstream names its value. A snapshot without scoreMethod is the single method of its agentOrigin (every non-SEMANTIC snapshot today); a new SEMANTIC producer must set it. Not the same as upstream's score_snapshot.model, a label that defaults to 'deterministic'." .
-:eventTime   a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :ScoreSnapshot ; rdfs:range xsd:date ;
-    rdfs:comment "T-101 (D2): what the observation is ABOUT -- filing period-end (FUNDAMENTAL), cycle date (TECHNICAL, VALORIZATION -- formerly QUANTITATIVE, SECTOR), article day (SEMANTIC). Never used to filter as-of reads; see availableAt." .
-:availableAt a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :ScoreSnapshot ; rdfs:range xsd:date ;
-    rdfs:comment "T-101 (D2): first date the observation may be used by a reader (look-ahead guard; for FUNDAMENTAL, the first NYSE trading day after the filing date; for TECHNICAL, VALORIZATION and SECTOR, the cycle date, as upstream's v_score_snapshot defines it). Read from upstream, never filled in here: a row without it is not projected. Every as-of-D query MUST filter availableAt <= D, never eventTime or timestamp. Distinct from timestamp, which is when the row was computed/ingested." .
+:eventTime   a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :Observation ; rdfs:range xsd:date ;
+    rdfs:comment "T-101 (D2): what the observation is ABOUT -- filing period-end (FUNDAMENTAL), cycle date (TECHNICAL, VALORIZATION -- formerly QUANTITATIVE, SECTOR), article day (SEMANTIC). On a FundamentalAssessment it is the filing period-end. Never used to filter as-of reads; see availableAt." .
+:availableAt a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:range xsd:date ;
+    rdfs:comment "T-101 (D2): first date the observation may be used by a reader (look-ahead guard; for FUNDAMENTAL, the first NYSE trading day after the filing date; for TECHNICAL, VALORIZATION and SECTOR, the cycle date, as upstream's v_score_snapshot defines it; for a fundamentals SECFiling, FundamentalMetricSet or FundamentalAssessment, the delivery's available_at). Read from upstream, never filled in here: a row without it is not projected. Every as-of-D query MUST filter availableAt <= D, never eventTime or timestamp. Distinct from timestamp, which is when the row was computed/ingested. No rdfs:domain: it is shared by ScoreSnapshot and the fundamentals classes, and every carrier is explicitly typed." .
 
 # T-106 (D7): upstream run provenance. No rdfs:domain on purpose (like :provenanceId): D7 says every upstream row carries run_id, and a domain would
 # entail :ScoreSnapshot on a :Veto/:PortfolioPosition, contradicting AllDisjointClasses. Per-class use is constrained by SHACL (ScoreSnapshot,
@@ -870,7 +871,8 @@ so every result is in-sample.""" .
 
 # --- AttractivenessSnapshot / AttractivenessWeightScheme / WeightComponent (added 2026-08-13) ---
 :attractivenessScore a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :AttractivenessSnapshot ; rdfs:range xsd:decimal  .
-:computedAt a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :AttractivenessSnapshot ; rdfs:range xsd:dateTime .
+:computedAt a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :Observation ; rdfs:range xsd:dateTime ;
+    rdfs:comment "When the row/text was computed. On an AttractivenessSnapshot, FundamentalMetricSet or FundamentalAssessment. It is not the as-of filter; use availableAt." .
 :schemeId a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :AttractivenessWeightScheme ; rdfs:range xsd:string .
 :weightMetricName a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :WeightComponent ; rdfs:range xsd:string ;
     rdfs:comment "Matches a ScoreSnapshot.metricType value. Named distinctly from ThresholdComparison's metricName to avoid a shared-property domain clash (see ObservationSnapshot's rationale)." .
@@ -1320,3 +1322,278 @@ so every result is in-sample.""" .
     rdfs:label "Fecha de fin del segmento"@es ;
     rdfs:comment "Last session date of the segment."@en ;
     rdfs:comment "Última fecha de sesión del segmento."@es .
+
+#################################################################
+# Work item 45 — fundamentals block C (T-811/T-812)
+# The 35 metric properties are the loaded vocabulary. The absolute
+# price-derived names (market_capitalization, enterprise_value) and
+# value_inputs have no property here, so the structural mask holds;
+# the three valuation yields are skipped per masked asset by the loader.
+#################################################################
+
+:FundamentalMetricSet
+    a owl:Class ;
+    rdfs:label "Fundamental metric set"@en ;
+    rdfs:label "Conjunto de métricas fundamentales"@es ;
+    skos:definition "Las razones calculadas para un informe de la SEC: un individuo por informe, con las 35 métricas cargadas (las 31 de operación, liquidez, apalancamiento, eficiencia, crecimiento, flujo de caja, ROIC y CAGR, más los tres rendimientos de valoración y utility_cash_coverage_3y). La capitalización de mercado, el valor de empresa y value_inputs no están representados."@es ;
+    rdfs:comment "The ratios computed for one SEC filing: one individual per filing, with the 35 loaded metrics (the 31 operating, liquidity, leverage, efficiency, growth, cashflow, ROIC and CAGR metrics plus the three valuation yields and utility_cash_coverage_3y). Market capitalization, enterprise value and value_inputs are not represented."@en ;
+    rdfs:comment "Las razones calculadas para un informe de la SEC: un individuo por informe, con las 35 métricas cargadas (las 31 de operación, liquidez, apalancamiento, eficiencia, crecimiento, flujo de caja, ROIC y CAGR, más los tres rendimientos de valoración y utility_cash_coverage_3y). La capitalización de mercado, el valor de empresa y value_inputs no están representados."@es .
+
+:FundamentalAssessment
+    a owl:Class ;
+    rdfs:label "Fundamental assessment"@en ;
+    rdfs:label "Evaluación fundamental"@es ;
+    skos:definition "La evaluación narrativa de un informe: puntaje, calificación, narrativa generada, fortalezas y riesgos, con procedencia explícita del modelo. El texto es una interpretación generada, no un hecho verificado del informe."@es ;
+    rdfs:comment "The narrative assessment of one filing: score, rating, generated narrative, strengths and risks, with explicit model provenance. The text is generated interpretation, not a verified filing fact."@en ;
+    rdfs:comment "La evaluación narrativa de un informe: puntaje, calificación, narrativa generada, fortalezas y riesgos, con procedencia explícita del modelo. El texto es una interpretación generada, no un hecho verificado del informe."@es .
+
+:FundamentalMetricSet rdfs:subClassOf :Observation .
+:FundamentalAssessment rdfs:subClassOf :Observation .
+
+:filingId a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :SECFiling ; rdfs:range xsd:integer ;
+    rdfs:label "Filing id"@en ; rdfs:label "Id del informe"@es ;
+    rdfs:comment "The delivery's integer filing_id; stable within the delivery and the key of the filing individual."@en ; rdfs:comment "El filing_id entero de la entrega; estable dentro de la entrega y clave del individuo del informe."@es .
+
+:periodEnd a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :SECFiling ; rdfs:range xsd:date ;
+    rdfs:label "Period end"@en ; rdfs:label "Fin del período"@es ;
+    rdfs:comment "The fiscal period end date the filing reports; it is the event time of its metrics and assessment."@en ; rdfs:comment "La fecha de fin del período fiscal que reporta el informe; es el tiempo del evento de sus métricas y evaluación."@es .
+
+:fiscalYear a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :SECFiling ; rdfs:range xsd:integer ;
+    rdfs:label "Fiscal year"@en ; rdfs:label "Año fiscal"@es ;
+    rdfs:comment "The fiscal year of the filing, as delivered."@en ; rdfs:comment "El año fiscal del informe, tal como se entrega."@es .
+
+:fiscalPeriod a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :SECFiling ; rdfs:range xsd:string ;
+    rdfs:label "Fiscal period"@en ; rdfs:label "Período fiscal"@es ;
+    rdfs:comment "The fiscal period label, for example 2022Q1 or FY, as delivered."@en ; rdfs:comment "La etiqueta del período fiscal, por ejemplo 2022Q1 o FY, tal como se entrega."@es .
+
+:metricSetOfFiling a owl:ObjectProperty, owl:FunctionalProperty ; rdfs:domain :FundamentalMetricSet ; rdfs:range :SECFiling ;
+    rdfs:label "Metric set of filing"@en ; rdfs:label "Conjunto de métricas del informe"@es ;
+    rdfs:comment "Links a fundamental metric set to the SEC filing it describes; one metric set per filing."@en ;
+    rdfs:comment "Vincula un conjunto de métricas fundamentales con el informe de la SEC que describe; un conjunto por informe."@es .
+
+:assetTurnover a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :FundamentalMetricSet ; rdfs:range xsd:decimal ;
+    rdfs:label "Asset turnover"@en ; rdfs:label "Rotación de activos"@es ;
+    rdfs:comment "Revenue divided by average total assets; times (x). Read verbatim from the delivery; absent when the source value is null."@en ;
+    rdfs:comment "Ingresos divididos entre los activos totales promedio; veces (x). Leído verbatim de la entrega; ausente cuando el valor de origen es nulo."@es .
+
+:capexIntensity a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :FundamentalMetricSet ; rdfs:range xsd:decimal ;
+    rdfs:label "Capex intensity"@en ; rdfs:label "Intensidad de capex"@es ;
+    rdfs:comment "Capital expenditure divided by revenue; fraction. Read verbatim from the delivery; absent when the source value is null."@en ;
+    rdfs:comment "Inversión de capital dividida entre los ingresos; fracción. Leído verbatim de la entrega; ausente cuando el valor de origen es nulo."@es .
+
+:cashRatio a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :FundamentalMetricSet ; rdfs:range xsd:decimal ;
+    rdfs:label "Cash ratio"@en ; rdfs:label "Ratio de caja"@es ;
+    rdfs:comment "Cash and cash equivalents divided by current liabilities; times. Read verbatim from the delivery; absent when the source value is null."@en ;
+    rdfs:comment "Efectivo y equivalentes divididos entre los pasivos corrientes; veces. Leído verbatim de la entrega; ausente cuando el valor de origen es nulo."@es .
+
+:currentRatio a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :FundamentalMetricSet ; rdfs:range xsd:decimal ;
+    rdfs:label "Current ratio"@en ; rdfs:label "Ratio corriente"@es ;
+    rdfs:comment "Current assets divided by current liabilities; times. Read verbatim from the delivery; absent when the source value is null."@en ;
+    rdfs:comment "Activos corrientes divididos entre pasivos corrientes; veces. Leído verbatim de la entrega; ausente cuando el valor de origen es nulo."@es .
+
+:debtToAssets a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :FundamentalMetricSet ; rdfs:range xsd:decimal ;
+    rdfs:label "Debt to assets"@en ; rdfs:label "Deuda sobre activos"@es ;
+    rdfs:comment "Total debt divided by total assets; fraction. Read verbatim from the delivery; absent when the source value is null."@en ;
+    rdfs:comment "Deuda total dividida entre los activos totales; fracción. Leído verbatim de la entrega; ausente cuando el valor de origen es nulo."@es .
+
+:debtToEquity a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :FundamentalMetricSet ; rdfs:range xsd:decimal ;
+    rdfs:label "Debt to equity"@en ; rdfs:label "Deuda sobre patrimonio"@es ;
+    rdfs:comment "Total debt divided by shareholders' equity; times. Read verbatim from the delivery; absent when the source value is null."@en ;
+    rdfs:comment "Deuda total dividida entre el patrimonio de los accionistas; veces. Leído verbatim de la entrega; ausente cuando el valor de origen es nulo."@es .
+
+:ebitda a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :FundamentalMetricSet ; rdfs:range xsd:decimal ;
+    rdfs:label "EBITDA"@en ; rdfs:label "EBITDA"@es ;
+    rdfs:comment "Earnings before interest, taxes, depreciation and amortization; USD. Read verbatim from the delivery; absent when the source value is null."@en ;
+    rdfs:comment "Ganancias antes de intereses, impuestos, depreciación y amortización; USD. Leído verbatim de la entrega; ausente cuando el valor de origen es nulo."@es .
+
+:effectiveTaxRate a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :FundamentalMetricSet ; rdfs:range xsd:decimal ;
+    rdfs:label "Effective tax rate"@en ; rdfs:label "Tasa impositiva efectiva"@es ;
+    rdfs:comment "Income tax expense divided by pre-tax income; fraction. Read verbatim from the delivery; absent when the source value is null."@en ;
+    rdfs:comment "Gasto por impuesto a la renta dividido entre la utilidad antes de impuestos; fracción. Leído verbatim de la entrega; ausente cuando el valor de origen es nulo."@es .
+
+:freeCashFlowConversion a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :FundamentalMetricSet ; rdfs:range xsd:decimal ;
+    rdfs:label "Free cash flow conversion"@en ; rdfs:label "Conversión de flujo de caja libre"@es ;
+    rdfs:comment "Free cash flow divided by net income; times. Read verbatim from the delivery; absent when the source value is null."@en ;
+    rdfs:comment "Flujo de caja libre dividido entre la utilidad neta; veces. Leído verbatim de la entrega; ausente cuando el valor de origen es nulo."@es .
+
+:freeCashFlowGrowth a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :FundamentalMetricSet ; rdfs:range xsd:decimal ;
+    rdfs:label "Free cash flow growth"@en ; rdfs:label "Crecimiento del flujo de caja libre"@es ;
+    rdfs:comment "Year-over-year growth of free cash flow; fraction. Read verbatim from the delivery; absent when the source value is null."@en ;
+    rdfs:comment "Crecimiento interanual del flujo de caja libre; fracción. Leído verbatim de la entrega; ausente cuando el valor de origen es nulo."@es .
+
+:freeCashFlowMargin a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :FundamentalMetricSet ; rdfs:range xsd:decimal ;
+    rdfs:label "Free cash flow margin"@en ; rdfs:label "Margen de flujo de caja libre"@es ;
+    rdfs:comment "Free cash flow divided by revenue; fraction. Read verbatim from the delivery; absent when the source value is null."@en ;
+    rdfs:comment "Flujo de caja libre dividido entre los ingresos; fracción. Leído verbatim de la entrega; ausente cuando el valor de origen es nulo."@es .
+
+:grossMargin a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :FundamentalMetricSet ; rdfs:range xsd:decimal ;
+    rdfs:label "Gross margin"@en ; rdfs:label "Margen bruto"@es ;
+    rdfs:comment "Gross profit divided by revenue; fraction. Read verbatim from the delivery; absent when the source value is null."@en ;
+    rdfs:comment "Utilidad bruta dividida entre los ingresos; fracción. Leído verbatim de la entrega; ausente cuando el valor de origen es nulo."@es .
+
+:interestCoverage a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :FundamentalMetricSet ; rdfs:range xsd:decimal ;
+    rdfs:label "Interest coverage"@en ; rdfs:label "Cobertura de intereses"@es ;
+    rdfs:comment "EBIT divided by interest expense; times. Read verbatim from the delivery; absent when the source value is null."@en ;
+    rdfs:comment "EBIT dividido entre el gasto por intereses; veces. Leído verbatim de la entrega; ausente cuando el valor de origen es nulo."@es .
+
+:inventoryTurnover a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :FundamentalMetricSet ; rdfs:range xsd:decimal ;
+    rdfs:label "Inventory turnover"@en ; rdfs:label "Rotación de inventario"@es ;
+    rdfs:comment "Cost of goods sold divided by average inventory; times. Read verbatim from the delivery; absent when the source value is null."@en ;
+    rdfs:comment "Costo de los bienes vendidos dividido entre el inventario promedio; veces. Leído verbatim de la entrega; ausente cuando el valor de origen es nulo."@es .
+
+:netDebtToEbitda a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :FundamentalMetricSet ; rdfs:range xsd:decimal ;
+    rdfs:label "Net debt to EBITDA"@en ; rdfs:label "Deuda neta sobre EBITDA"@es ;
+    rdfs:comment "Net debt divided by EBITDA; times. Read verbatim from the delivery; absent when the source value is null."@en ;
+    rdfs:comment "Deuda neta dividida entre EBITDA; veces. Leído verbatim de la entrega; ausente cuando el valor de origen es nulo."@es .
+
+:netIncomeCagr a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :FundamentalMetricSet ; rdfs:range xsd:decimal ;
+    rdfs:label "Net income CAGR"@en ; rdfs:label "CAGR de la utilidad neta"@es ;
+    rdfs:comment "Compound annual growth rate of net income; fraction. Read verbatim from the delivery; absent when the source value is null."@en ;
+    rdfs:comment "Tasa compuesta de crecimiento anual de la utilidad neta; fracción. Leído verbatim de la entrega; ausente cuando el valor de origen es nulo."@es .
+
+:netIncomeGrowth a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :FundamentalMetricSet ; rdfs:range xsd:decimal ;
+    rdfs:label "Net income growth"@en ; rdfs:label "Crecimiento de la utilidad neta"@es ;
+    rdfs:comment "Year-over-year growth of net income; fraction. Read verbatim from the delivery; absent when the source value is null."@en ;
+    rdfs:comment "Crecimiento interanual de la utilidad neta; fracción. Leído verbatim de la entrega; ausente cuando el valor de origen es nulo."@es .
+
+:netMargin a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :FundamentalMetricSet ; rdfs:range xsd:decimal ;
+    rdfs:label "Net margin"@en ; rdfs:label "Margen neto"@es ;
+    rdfs:comment "Net income divided by revenue; fraction. Read verbatim from the delivery; absent when the source value is null."@en ;
+    rdfs:comment "Utilidad neta dividida entre los ingresos; fracción. Leído verbatim de la entrega; ausente cuando el valor de origen es nulo."@es .
+
+:nopat a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :FundamentalMetricSet ; rdfs:range xsd:decimal ;
+    rdfs:label "NOPAT"@en ; rdfs:label "NOPAT"@es ;
+    rdfs:comment "Net operating profit after tax; USD. Read verbatim from the delivery; absent when the source value is null."@en ;
+    rdfs:comment "Utilidad operativa neta después de impuestos; USD. Leído verbatim de la entrega; ausente cuando el valor de origen es nulo."@es .
+
+:operatingCashFlowCagr a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :FundamentalMetricSet ; rdfs:range xsd:decimal ;
+    rdfs:label "Operating cash flow CAGR"@en ; rdfs:label "CAGR del flujo de caja operativo"@es ;
+    rdfs:comment "Compound annual growth rate of operating cash flow; fraction. Read verbatim from the delivery; absent when the source value is null."@en ;
+    rdfs:comment "Tasa compuesta de crecimiento anual del flujo de caja operativo; fracción. Leído verbatim de la entrega; ausente cuando el valor de origen es nulo."@es .
+
+:operatingCashFlowMargin a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :FundamentalMetricSet ; rdfs:range xsd:decimal ;
+    rdfs:label "Operating cash flow margin"@en ; rdfs:label "Margen de flujo de caja operativo"@es ;
+    rdfs:comment "Operating cash flow divided by revenue; fraction. Read verbatim from the delivery; absent when the source value is null."@en ;
+    rdfs:comment "Flujo de caja operativo dividido entre los ingresos; fracción. Leído verbatim de la entrega; ausente cuando el valor de origen es nulo."@es .
+
+:operatingIncomeGrowth a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :FundamentalMetricSet ; rdfs:range xsd:decimal ;
+    rdfs:label "Operating income growth"@en ; rdfs:label "Crecimiento de la utilidad operativa"@es ;
+    rdfs:comment "Year-over-year growth of operating income; fraction. Read verbatim from the delivery; absent when the source value is null."@en ;
+    rdfs:comment "Crecimiento interanual de la utilidad operativa; fracción. Leído verbatim de la entrega; ausente cuando el valor de origen es nulo."@es .
+
+:operatingMargin a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :FundamentalMetricSet ; rdfs:range xsd:decimal ;
+    rdfs:label "Operating margin"@en ; rdfs:label "Margen operativo"@es ;
+    rdfs:comment "Operating income divided by revenue; fraction. Read verbatim from the delivery; absent when the source value is null."@en ;
+    rdfs:comment "Utilidad operativa dividida entre los ingresos; fracción. Leído verbatim de la entrega; ausente cuando el valor de origen es nulo."@es .
+
+:quickRatio a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :FundamentalMetricSet ; rdfs:range xsd:decimal ;
+    rdfs:label "Quick ratio"@en ; rdfs:label "Ratio rápido"@es ;
+    rdfs:comment "(Current assets minus inventory) divided by current liabilities; times. Read verbatim from the delivery; absent when the source value is null."@en ;
+    rdfs:comment "(Activos corrientes menos inventario) divididos entre pasivos corrientes; veces. Leído verbatim de la entrega; ausente cuando el valor de origen es nulo."@es .
+
+:receivablesTurnover a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :FundamentalMetricSet ; rdfs:range xsd:decimal ;
+    rdfs:label "Receivables turnover"@en ; rdfs:label "Rotación de cuentas por cobrar"@es ;
+    rdfs:comment "Revenue divided by average accounts receivable; times. Read verbatim from the delivery; absent when the source value is null."@en ;
+    rdfs:comment "Ingresos divididos entre las cuentas por cobrar promedio; veces. Leído verbatim de la entrega; ausente cuando el valor de origen es nulo."@es .
+
+:returnOnAssets a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :FundamentalMetricSet ; rdfs:range xsd:decimal ;
+    rdfs:label "Return on assets"@en ; rdfs:label "Retorno sobre activos"@es ;
+    rdfs:comment "Net income divided by average total assets; fraction. Read verbatim from the delivery; absent when the source value is null."@en ;
+    rdfs:comment "Utilidad neta dividida entre los activos totales promedio; fracción. Leído verbatim de la entrega; ausente cuando el valor de origen es nulo."@es .
+
+:returnOnEquity a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :FundamentalMetricSet ; rdfs:range xsd:decimal ;
+    rdfs:label "Return on equity"@en ; rdfs:label "Retorno sobre patrimonio"@es ;
+    rdfs:comment "Net income divided by average shareholders' equity; fraction. Read verbatim from the delivery; absent when the source value is null."@en ;
+    rdfs:comment "Utilidad neta dividida entre el patrimonio promedio de los accionistas; fracción. Leído verbatim de la entrega; ausente cuando el valor de origen es nulo."@es .
+
+:returnOnInvestedCapital a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :FundamentalMetricSet ; rdfs:range xsd:decimal ;
+    rdfs:label "Return on invested capital"@en ; rdfs:label "Retorno sobre el capital invertido"@es ;
+    rdfs:comment "NOPAT divided by invested capital; fraction. Read verbatim from the delivery; absent when the source value is null."@en ;
+    rdfs:comment "NOPAT dividido entre el capital invertido; fracción. Leído verbatim de la entrega; ausente cuando el valor de origen es nulo."@es .
+
+:returnOnInvestedCapitalEffectiveRate a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :FundamentalMetricSet ; rdfs:range xsd:decimal ;
+    rdfs:label "Return on invested capital (effective tax rate)"@en ; rdfs:label "Retorno sobre el capital invertido (tasa impositiva efectiva)"@es ;
+    rdfs:comment "ROIC computed with the effective tax rate; fraction. Read verbatim from the delivery; absent when the source value is null."@en ;
+    rdfs:comment "ROIC calculado con la tasa impositiva efectiva; fracción. Leído verbatim de la entrega; ausente cuando el valor de origen es nulo."@es .
+
+:revenueCagr a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :FundamentalMetricSet ; rdfs:range xsd:decimal ;
+    rdfs:label "Revenue CAGR"@en ; rdfs:label "CAGR de los ingresos"@es ;
+    rdfs:comment "Compound annual growth rate of revenue; fraction. Read verbatim from the delivery; absent when the source value is null."@en ;
+    rdfs:comment "Tasa compuesta de crecimiento anual de los ingresos; fracción. Leído verbatim de la entrega; ausente cuando el valor de origen es nulo."@es .
+
+:revenueGrowth a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :FundamentalMetricSet ; rdfs:range xsd:decimal ;
+    rdfs:label "Revenue growth"@en ; rdfs:label "Crecimiento de los ingresos"@es ;
+    rdfs:comment "Year-over-year growth of revenue; fraction. Read verbatim from the delivery; absent when the source value is null."@en ;
+    rdfs:comment "Crecimiento interanual de los ingresos; fracción. Leído verbatim de la entrega; ausente cuando el valor de origen es nulo."@es .
+
+:enterpriseFcfYield a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :FundamentalMetricSet ; rdfs:range xsd:decimal ;
+    rdfs:label "Enterprise FCF yield"@en ; rdfs:label "Rendimiento del flujo de caja libre sobre el valor de empresa"@es ;
+    rdfs:comment "Free cash flow divided by enterprise value; fraction. Read verbatim from the delivery; absent when the source value is null."@en ;
+    rdfs:comment "Flujo de caja libre dividido entre el valor de empresa; fracción. Leído verbatim de la entrega; ausente cuando el valor de origen es nulo."@es .
+
+:freeCashFlowYield a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :FundamentalMetricSet ; rdfs:range xsd:decimal ;
+    rdfs:label "Free cash flow yield"@en ; rdfs:label "Rendimiento del flujo de caja libre"@es ;
+    rdfs:comment "Free cash flow divided by market capitalization; fraction. Read verbatim from the delivery; absent when the source value is null."@en ;
+    rdfs:comment "Flujo de caja libre dividido entre la capitalización de mercado; fracción. Leído verbatim de la entrega; ausente cuando el valor de origen es nulo."@es .
+
+:sbcAdjustedFcfYield a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :FundamentalMetricSet ; rdfs:range xsd:decimal ;
+    rdfs:label "SBC-adjusted FCF yield"@en ; rdfs:label "Rendimiento del flujo de caja libre ajustado por SBC"@es ;
+    rdfs:comment "SBC-adjusted free cash flow divided by market capitalization; fraction. Read verbatim from the delivery; absent when the source value is null."@en ;
+    rdfs:comment "Flujo de caja libre ajustado por compensación en acciones dividido entre la capitalización de mercado; fracción. Leído verbatim de la entrega; ausente cuando el valor de origen es nulo."@es .
+
+:utilityCashCoverage3y a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :FundamentalMetricSet ; rdfs:range xsd:decimal ;
+    rdfs:label "Utility cash coverage (3 years)"@en ; rdfs:label "Cobertura de caja de utility (3 años)"@es ;
+    rdfs:comment "Three-year operating cash flow coverage of debt for regulated utilities; fraction. Read verbatim from the delivery; absent when the source value is null."@en ;
+    rdfs:comment "Cobertura de la deuda con el flujo de caja operativo a tres años para utilities reguladas; fracción. Leído verbatim de la entrega; ausente cuando el valor de origen es nulo."@es .
+
+:assessmentOfFiling a owl:ObjectProperty, owl:FunctionalProperty ; rdfs:domain :FundamentalAssessment ; rdfs:range :SECFiling ;
+    rdfs:label "Assessment of filing"@en ; rdfs:label "Evaluación del informe"@es ;
+    rdfs:comment "Links the assessment to the filing it assesses; one assessment per snapshot."@en ; rdfs:comment "Vincula la evaluación con el informe que evalúa; una evaluación por instantánea."@es .
+
+:assessmentOfAsset a owl:ObjectProperty, owl:FunctionalProperty ; rdfs:domain :FundamentalAssessment ; rdfs:range :Asset ;
+    rdfs:label "Assessment of asset"@en ; rdfs:label "Evaluación del activo"@es ;
+    rdfs:comment "Links the assessment to its asset for one-hop asset queries; the filing already links the asset."@en ; rdfs:comment "Vincula la evaluación con su activo para consultas de un salto; el informe ya vincula el activo."@es .
+
+:snapshotId a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :FundamentalAssessment ; rdfs:range xsd:integer ;
+    rdfs:label "Snapshot id"@en ; rdfs:label "Id de la instantánea"@es ;
+    rdfs:comment "The delivery's integer snapshot_id; stable within the delivery and the key of the assessment individual."@en ; rdfs:comment "El snapshot_id entero de la entrega; estable dentro de la entrega y clave del individuo de la evaluación."@es .
+
+:scoreRaw0to100 a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :FundamentalAssessment ; rdfs:range xsd:decimal ;
+    rdfs:label "Raw fundamental score (0-100)"@en ; rdfs:label "Puntaje fundamental bruto (0-100)"@es ;
+    rdfs:comment "The assessment's score on the 0-100 scale, read verbatim; absent on the 129 rule-based rows. It is not a portfolio weight."@en ; rdfs:comment "El puntaje de la evaluación en la escala 0-100, leído verbatim; ausente en las 129 filas de regla. No es un peso de cartera."@es .
+
+:rating a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :FundamentalAssessment ; rdfs:range xsd:string ;
+    rdfs:label "Rating"@en ; rdfs:label "Calificación"@es ;
+    rdfs:comment "The assessment's rating: bullish, neutral or bearish; absent on the rule-based rows."@en ; rdfs:comment "La calificación de la evaluación: bullish, neutral o bearish; ausente en las filas de regla."@es .
+
+:narrative a owl:DatatypeProperty ; rdfs:domain :FundamentalAssessment ; rdfs:range xsd:string ;
+    rdfs:label "Narrative"@en ; rdfs:label "Narrativa"@es ;
+    rdfs:comment "The generated narrative text. It is model output or rule text, never a verified filing fact; read it with generatedByLanguageModel and provenanceNote."@en ; rdfs:comment "El texto narrativo generado. Es salida de un modelo o texto de regla, nunca un hecho verificado del informe; léalo con generatedByLanguageModel y provenanceNote."@es .
+
+:strength a owl:DatatypeProperty ; rdfs:domain :FundamentalAssessment ; rdfs:range xsd:string ;
+    rdfs:label "Strength"@en ; rdfs:label "Fortaleza"@es ;
+    rdfs:comment "One generated strength statement; repeated on the assessment. Never a verified filing fact."@en ; rdfs:comment "Una afirmación de fortaleza generada; repetida en la evaluación. Nunca un hecho verificado del informe."@es .
+
+:risk a owl:DatatypeProperty ; rdfs:domain :FundamentalAssessment ; rdfs:range xsd:string ;
+    rdfs:label "Risk"@en ; rdfs:label "Riesgo"@es ;
+    rdfs:comment "One generated risk statement; repeated on the assessment. Never a verified filing fact."@en ; rdfs:comment "Una afirmación de riesgo generada; repetida en la evaluación. Nunca un hecho verificado del informe."@es .
+
+:model a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :FundamentalAssessment ; rdfs:range xsd:string ;
+    rdfs:label "Model"@en ; rdfs:label "Modelo"@es ;
+    rdfs:comment "The producing model label, for example DeepSeek-V4.1-Flash [thinking=disabled], or unscored-pillar-coverage-v1 for the fixed rule text."@en ; rdfs:comment "La etiqueta del modelo productor, por ejemplo DeepSeek-V4.1-Flash [thinking=disabled], o unscored-pillar-coverage-v1 para el texto fijo de la regla."@es .
+
+:generatedByLanguageModel a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :FundamentalAssessment ; rdfs:range xsd:boolean ;
+    rdfs:label "Generated by language model"@en ; rdfs:label "Generado por un modelo de lenguaje"@es ;
+    rdfs:comment "True for the 9,896 model-generated assessments; false for the 129 fixed coverage-rule texts. It marks the text as generated, not a verified fact."@en ; rdfs:comment "True para las 9,896 evaluaciones generadas por un modelo; false para los 129 textos fijos de la regla de cobertura. Marca el texto como generado, no como un hecho verificado."@es .
+
+:provenanceNote a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :FundamentalAssessment ; rdfs:range xsd:string ;
+    rdfs:label "Provenance note"@en ; rdfs:label "Nota de procedencia"@es ;
+    rdfs:comment "The delivery's provenance text verbatim: generated by a language model from computed ratios; not a verified fact (true), or rule-based text: no fundamental score (coverage rule); not generated by a model (false)."@en ; rdfs:comment "El texto de procedencia de la entrega, verbatim: generated by a language model from computed ratios; not a verified fact (true), o rule-based text: no fundamental score (coverage rule); not generated by a model (false)."@es .
+
+:metricGroup a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain skos:Concept ; rdfs:range xsd:string ;
+    rdfs:label "Metric group"@en ; rdfs:label "Grupo de métrica"@es ;
+    rdfs:comment "One of the ten source metric groups; the 35 loaded concepts cover all ten, with only the three valuation yields and utility_cash_coverage_3y from the otherwise masked valuation/rule-input groups."@en ; rdfs:comment "Uno de los diez grupos de métricas de origen; los 35 conceptos cargados cubren los diez, con solo los tres rendimientos de valoración y utility_cash_coverage_3y de los grupos de valoración y entrada de reglas que por lo demás están enmascarados."@es .
+
+:metricUnit a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain skos:Concept ; rdfs:range xsd:string ;
+    rdfs:label "Metric unit"@en ; rdfs:label "Unidad de la métrica"@es ;
+    rdfs:comment "ratio, x or usd; the 35 loaded metric concepts use ratio or x, and only ebitda and nopat use usd."@en ; rdfs:comment "ratio, x o usd; los 35 conceptos de métricas cargados usan ratio o x, y solo ebitda y nopat usan usd."@es .
