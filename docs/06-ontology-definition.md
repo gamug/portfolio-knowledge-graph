@@ -1052,8 +1052,8 @@ parameters and process/evaluation terms. `LabelConceptShape` (in `shapes.ttl`) r
 `skos:notation`, one `skos:inScheme`, one `rdfs:label` and one `rdfs:comment` per language, and only
 `@en`/`@es` `skos:altLabel`s; windows also carry `:windowStart`, `:windowEnd`, `:historicalCondition`
 and `:finalConfigurationCondition`. The file is in FR-001 and the load plan. Counts after this
-addition: **60 classes (46 disjoint leaves), 44 named shapes, 6816 quads; conforms: True**; load plan
-**21 graphs / 7093 asserted triples** (production **5 / 6572**).
+addition: **60 classes (46 disjoint leaves), 44 named shapes, 6828 quads; conforms: True**; load plan
+**21 graphs / 7105 asserted triples** (production **5 / 6584**).
 
 ## 1.16 Fundamentals block C schema (Work item 45, T-811/T-812, 2026-11-13)
 
@@ -1068,5 +1068,5 @@ Reviewer A approves them. `:availableAt` loses its `:ScoreSnapshot` domain, and 
 `:eventTime` widen to `:Observation`; the existing explicit types are checked by
 `tests/test_fundamentals_shapes.py`. `shapes.ttl` adds `FundamentalFilingShape`,
 `FundamentalMetricSetShape`, `FundamentalAssessmentShape` and `FundamentalMetricDefinitionShape`.
-Counts: **60 classes (46 disjoint leaves), 44 named shapes, 6816 quads; conforms: True**; load plan
-**21 graphs / 7093 asserted triples** (production **5 / 6572**).
+Counts: **60 classes (46 disjoint leaves), 44 named shapes, 6828 quads; conforms: True**; load plan
+**21 graphs / 7105 asserted triples** (production **5 / 6584**).

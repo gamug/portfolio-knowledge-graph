@@ -287,6 +287,8 @@
     # a current (open-membership) Asset without a CIK still fails. Work item 33: an ExchangeTradedFund is a core
     # ETF, not an S&P 500 constituent, so it has no CIK, no membership and no GICS classification (classification
     # was never required by this shape). Every ordinary Asset keeps all of the above unchanged.
+    # Work item 45: the loader writes :pricesNotPublished true for the 33 masked Tiingo assets; other assets omit it.
+    sh:property [ sh:path :pricesNotPublished ; sh:datatype xsd:boolean ; sh:maxCount 1 ] ;
     sh:or (
         [ sh:path :cikNumber ; sh:minCount 1 ]
         [ sh:path :hasUniverseMembership ; sh:minCount 1 ;

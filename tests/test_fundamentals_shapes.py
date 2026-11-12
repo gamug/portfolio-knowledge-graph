@@ -181,6 +181,27 @@ def test_the_positive_fixture_conforms() -> None:
     assert conforms, results.serialize(format="turtle")
 
 
+def test_prices_not_published_is_a_boolean_asset_flag() -> None:
+    data = _base_graph()
+    data.add((ASSET, KG.pricesNotPublished, rdflib.Literal(True)))
+    conforms, results = _validate(data)
+    assert conforms, results.serialize(format="turtle")
+
+    data.remove((ASSET, KG.pricesNotPublished, None))
+    data.add((ASSET, KG.pricesNotPublished, rdflib.Literal("yes")))
+    conforms, results = _validate(data)
+    assert not conforms
+    assert ASSET in _foci(results)
+
+
+def test_prices_not_published_property_is_asset_boolean() -> None:
+    g = tbox()
+    assert (KG.pricesNotPublished, RDF.type, OWL.DatatypeProperty) in g
+    assert (KG.pricesNotPublished, RDF.type, OWL.FunctionalProperty) in g
+    assert g.value(KG.pricesNotPublished, RDFS.domain) == KG.Asset
+    assert g.value(KG.pricesNotPublished, RDFS.range) == XSD.boolean
+
+
 def test_a_fundamentals_filing_needs_period_end() -> None:
     data = _base_graph()
     data.remove((FILING, KG.periodEnd, None))

@@ -3515,12 +3515,16 @@ operating/liquidity/leverage/efficiency/growth/cashflow/ROIC/CAGR metrics plus t
 valuation yields (`enterprise_fcf_yield`, `free_cash_flow_yield`, `sbc_adjusted_fcf_yield`) and
 `utility_cash_coverage_3y`. The three valuation yields are skipped row-level for the 33 masked
 assets (driven by the SHA-256-checked `mascara_tiingo/tiingo_assets.csv`); `utility_cash_coverage_3y`
-loads for all. `market_capitalization`, `enterprise_value` and `value_inputs` have no property and
+loads for all. The loader also writes `:pricesNotPublished true` for **all 33** masked assets
+(33 triples, including FRC/SBNY, which have no block C filing); it derives the set from that
+SHA-256-verified file, resolves every masked ticker through the backtest universe/reference
+resolution and stops with the unresolved list rather than minting an asset.
+`market_capitalization`, `enterprise_value` and `value_inputs` have no property and
 are never loaded; there is no `--include-valuation-ratios` flag. One `:FundamentalAssessment` per
 assessment carries its own `scoreRaw0to100` and `rating`; there is no `:assessmentOfSnapshot` link
 and no `:promptHash` (the delivery's prompt hash is one constant per run and stays in the delivery
 hash/`source.json`). The graph is `urn:graph:derived:fundamentals:final`, append-only, one graph
-per label. T-811/T-812 landed the schema (6816 quads, 21/7093 load plan, 5/6572 production, 60
+per label. T-811/T-812 landed the schema (6828 quads, 21/7105 load plan, 5/6584 production, 60
 classes / 46 disjoint leaves / 44 shapes); the loader count is measured in T-813–T-815.
 
 **Tasks**:
@@ -3529,12 +3533,16 @@ classes / 46 disjoint leaves / 44 shapes); the loader count is measured in T-813
       delivery profile, three model counts from the real files, point-in-time pattern, generated
       text provenance, price masking, keys/IRIs/graph, loader plan and the questions for Reviewer A.
 - [x] **T-811** *(done 2026-11-13: `schema/tbox.ttl`; 60 classes / 46 disjoint leaves, 35 metric
-      properties, filing/assessment properties, widened domains.)* Add the fundamentals TBox.
+      properties, filing/assessment properties, `:pricesNotPublished` on Asset, widened domains.)*
+      Add the fundamentals TBox.
 - [x] **T-812** *(done 2026-11-13: `schema/shapes.ttl`, `tests/test_fundamentals_shapes.py`,
-      `docs/labels-fundamentals-review.md`, NR-001 counts.)* Add the four shapes, the synthetic
-      tests, the proposed label table and the count updates.
-- [ ] **T-813–T-815** Loader (PR 2): strict parser/CLI, hermetic tests and real dry run, runbook
-      and production record. Only T-813–T-815 are assigned.
+      `docs/labels-fundamentals-review.md`, NR-001 counts.)* Add the four shapes, the AssetShape
+      boolean flag, the synthetic tests, the proposed label table (including
+      `:pricesNotPublished`) and the count updates.
+- [ ] **T-813–T-815** Loader (PR 2): strict parser/CLI, the 33-flag mask set (including a masked
+      asset without filings), a stop when a masked ticker is unknown, hermetic tests, the real dry
+      run with exactly 33 flags, the runbook and the production record. Only T-813–T-815 are
+      assigned.
 - [ ] **T-816–T-839** Reserved for review fixes; no specific IDs are assigned.
 
 **Acceptance criteria**:
@@ -3564,7 +3572,7 @@ loader, schema, label, count or GraphDB change. The delivery was read-only; `sha
 for all six manifest entries.
 
 **Verified 2026-11-13 (T-811/T-812)**: the schema has 60 classes / 46 disjoint leaves / 44 named
-shapes and **6816 quads**, the load plan is **21/7093**, production **5/6572**, and FR-001/pyshacl
+shapes and **6828 quads**, the load plan is **21/7105**, production **5/6584**, and FR-001/pyshacl
 conform. `tests/test_fundamentals_shapes.py` has 15 synthetic positive/negative cases; the
 existing explicit types are checked before/after the `:availableAt`/`:computedAt`/`:eventTime`
 domain widening. The 35 metric concepts and all new TBox terms are proposed in

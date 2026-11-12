@@ -711,6 +711,10 @@ so every result is in-sample.""" .
 :companyName  a owl:DatatypeProperty ; rdfs:domain :Asset ; rdfs:range xsd:string .
 :cikNumber    a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :Asset ; rdfs:range xsd:string ;
     rdfs:comment "SEC Central Index Key — stable join key to edgar_tool.py output." .
+:pricesNotPublished a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :Asset ; rdfs:range xsd:boolean ;
+    rdfs:label "Prices not published"@en ; rdfs:label "Precios no publicados"@es ;
+    rdfs:comment "True when the asset's absolute prices and market capitalization must not be published; the loader writes it for all 33 masked Tiingo assets, including FRC and SBNY, which have no block C filing. Absent on every other asset."@en ;
+    rdfs:comment "True cuando los precios absolutos y la capitalización de mercado del activo no deben publicarse; el loader lo escribe para los 33 activos enmascarados de Tiingo, incluidos FRC y SBNY, que no tienen informe en el bloque C. Ausente en el resto de activos."@es .
 
 # --- temporal (n-ary relation) properties, shared across UniverseMembership / PortfolioPosition / RuleDefinition ---
 :validFrom a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:range xsd:date ;

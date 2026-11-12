@@ -522,8 +522,8 @@ what the store *enforces*.
     `urn:graph:labels`; `LabelConceptShape` requires one `skos:notation`, one `skos:inScheme`, one
     `rdfs:label`/`rdfs:comment` per language and only `@en`/`@es` `skos:altLabel`s on every concept
     marked with `:labelScheme :PresentationScheme`. The file is now in the FR-001 bundle and the
-    load plan. Counts: **60 classes (46 disjoint leaves), 44 named shapes, 6816 quads;
-    conforms: True**; load plan **21 graphs / 7093 asserted triples** (production **5 / 6572**).
+    load plan. Counts: **60 classes (46 disjoint leaves), 44 named shapes, 6828 quads;
+    conforms: True**; load plan **21 graphs / 7105 asserted triples** (production **5 / 6584**).
     The store must be reloaded afterwards.
 
 16. **Fundamentals block C schema (Work item 45, T-811/T-812, 2026-11-13).** `tbox.ttl` gains
@@ -539,8 +539,8 @@ what the store *enforces*.
     `FundamentalMetricDefinitionShape`; the four have synthetic positive/negative tests in
     `tests/test_fundamentals_shapes.py`. The 35 metric concepts are proposed in
     `docs/labels-fundamentals-review.md` and stay out of `labels.ttl` until Reviewer A approves
-    them. Counts: **60 classes (46 disjoint leaves), 44 named shapes, 6816 quads; conforms:
-    True**; load plan **21 graphs / 7093 asserted triples** (production **5 / 6572**). The store
+    them. Counts: **60 classes (46 disjoint leaves), 44 named shapes, 6828 quads; conforms:
+    True**; load plan **21 graphs / 7105 asserted triples** (production **5 / 6584**). The store
     must be reloaded afterwards.
 
 ## Validation

@@ -21,6 +21,15 @@ here. The implementation is reserved for T-811–T-815 after Reviewer A answers 
 > `:promptHash`: the assessment carries its own score and rating, and the constant prompt hash
 > stays in the delivery hash/`source.json`. The loader count is measured in T-813–T-815; the
 > schema count is in `PLAN.md`/`TASKS.md` and `docs/labels-fundamentals-review.md`.
+>
+> **Correction 2026-11-13 (mask flag).** `:pricesNotPublished true` is written for **all 33**
+> assets in `mascara_tiingo/tiingo_assets.csv`, not only the 31 with block C filings. FRC
+> (asset_id 229) and SBNY (469) have no block C filing but appear in rankings, positions and
+> alerts, so they carry the flag too. The loader derives the set from the SHA-256-verified
+> `tiingo_assets.csv`, independent of `filings.csv`; each masked ticker must resolve to an
+> `:Asset` through the same universe/reference resolution the backtest projector uses, and an
+> unresolved ticker stops the load with the list (no minted assets). The flag set is **33
+> triples**, not 31.
 
 ---
 
