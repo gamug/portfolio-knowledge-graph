@@ -1412,15 +1412,16 @@ See `docs/fundamentals-design.md` and `PLAN.md` Work item 45.*
 - [x] **T-810** *(done 2026-11-12: `docs/fundamentals-design.md`; design only, no code.)*
       Record the delivery profile, the volume comparison, point-in-time reads, generated-text
       provenance, price masking, keys/IRIs/graph name, loader plan and the questions for Reviewer A.
-- [x] **T-811** *(done 2026-11-13: `schema/tbox.ttl`; 60 classes / 46 disjoint leaves, the 35
+- [x] **T-811** *(done 2026-11-13: `schema/tbox.ttl`; 60 classes / 46 disjoint leaves, the 37
       metric properties, filing and assessment properties, `:pricesNotPublished` on Asset, widened
       domains.)* Add the fundamentals TBox terms and widen `:availableAt`/`:computedAt`/`:eventTime`.
 - [x] **T-812** *(done 2026-11-13: `schema/shapes.ttl`, `tests/test_fundamentals_shapes.py`,
       `docs/labels-fundamentals-review.md`, NR-001 counts.)* Add the four shapes, the AssetShape
-      boolean flag, the synthetic positive/negative tests, the proposed label table and the count
-      updates.
-- [ ] **T-813–T-815** Loader (PR 2): strict parser/CLI, the 33-flag mask set (including a masked
-      asset without filings), a stop when a masked ticker is unknown, hermetic tests, the real dry
-      run with exactly 33 flags, the runbook and the production record. Specific IDs are
-      T-813–T-815 only.
+      boolean flag, the synthetic positive/negative tests, the 58-row proposed label table and the
+      count updates.
+- [ ] **T-813–T-815** Loader (PR 2): strict parser/CLI, the 37-metric projection, the 33-flag mask
+      set (including a masked asset without filings), a stop on a masked valuation/value_inputs row
+      or an unknown masked ticker, the five valuation metrics for the other 550 assets, hermetic
+      tests, the real dry run with exactly 33 flags, the runbook and the production record.
+      Specific IDs are T-813–T-815 only.
 - [ ] **T-816–T-839** Reserved for review fixes; no specific IDs are assigned here.

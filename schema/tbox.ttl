@@ -1329,19 +1329,18 @@ so every result is in-sample.""" .
 
 #################################################################
 # Work item 45 — fundamentals block C (T-811/T-812)
-# The 35 metric properties are the loaded vocabulary. The absolute
-# price-derived names (market_capitalization, enterprise_value) and
-# value_inputs have no property here, so the structural mask holds;
-# the three valuation yields are skipped per masked asset by the loader.
+# The 37 metric properties are the loaded vocabulary: the 38 source
+# names minus value_inputs. The 33 masked assets must have no valuation
+# row; the loader checks that and stops on any violation.
 #################################################################
 
 :FundamentalMetricSet
     a owl:Class ;
     rdfs:label "Fundamental metric set"@en ;
     rdfs:label "Conjunto de métricas fundamentales"@es ;
-    skos:definition "Las razones calculadas para un informe de la SEC: un individuo por informe, con las 35 métricas cargadas (las 31 de operación, liquidez, apalancamiento, eficiencia, crecimiento, flujo de caja, ROIC y CAGR, más los tres rendimientos de valoración y utility_cash_coverage_3y). La capitalización de mercado, el valor de empresa y value_inputs no están representados."@es ;
-    rdfs:comment "The ratios computed for one SEC filing: one individual per filing, with the 35 loaded metrics (the 31 operating, liquidity, leverage, efficiency, growth, cashflow, ROIC and CAGR metrics plus the three valuation yields and utility_cash_coverage_3y). Market capitalization, enterprise value and value_inputs are not represented."@en ;
-    rdfs:comment "Las razones calculadas para un informe de la SEC: un individuo por informe, con las 35 métricas cargadas (las 31 de operación, liquidez, apalancamiento, eficiencia, crecimiento, flujo de caja, ROIC y CAGR, más los tres rendimientos de valoración y utility_cash_coverage_3y). La capitalización de mercado, el valor de empresa y value_inputs no están representados."@es .
+    skos:definition "Las razones calculadas para un informe de la SEC: un individuo por informe, con las 37 métricas cargadas (las 38 de origen menos value_inputs). Los 33 activos enmascarados no llevan filas de valoración; el resto de activos sí."@es ;
+    rdfs:comment "The ratios computed for one SEC filing: one individual per filing, with the 37 loaded metrics (the 38 source names minus value_inputs). The 33 masked assets carry no valuation rows; every other asset does."@en ;
+    rdfs:comment "Las razones calculadas para un informe de la SEC: un individuo por informe, con las 37 métricas cargadas (las 38 de origen menos value_inputs). Los 33 activos enmascarados no llevan filas de valoración; el resto de activos sí."@es .
 
 :FundamentalAssessment
     a owl:Class ;
@@ -1550,6 +1549,16 @@ so every result is in-sample.""" .
     rdfs:comment "Three-year operating cash flow coverage of debt for regulated utilities; fraction. Read verbatim from the delivery; absent when the source value is null."@en ;
     rdfs:comment "Cobertura de la deuda con el flujo de caja operativo a tres años para utilities reguladas; fracción. Leído verbatim de la entrega; ausente cuando el valor de origen es nulo."@es .
 
+:marketCapitalization a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :FundamentalMetricSet ; rdfs:range xsd:decimal ;
+    rdfs:label "Market capitalization"@en ; rdfs:label "Capitalización de mercado"@es ;
+    rdfs:comment "Market capitalization at the filing date; USD. Read verbatim from the delivery; absent when the source value is null."@en ;
+    rdfs:comment "Capitalización de mercado en la fecha del informe; USD. Leído verbatim de la entrega; ausente cuando el valor de origen es nulo."@es .
+
+:enterpriseValue a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :FundamentalMetricSet ; rdfs:range xsd:decimal ;
+    rdfs:label "Enterprise value"@en ; rdfs:label "Valor de empresa"@es ;
+    rdfs:comment "Enterprise value at the filing date; USD. Read verbatim from the delivery; absent when the source value is null."@en ;
+    rdfs:comment "Valor de empresa en la fecha del informe; USD. Leído verbatim de la entrega; ausente cuando el valor de origen es nulo."@es .
+
 :assessmentOfFiling a owl:ObjectProperty, owl:FunctionalProperty ; rdfs:domain :FundamentalAssessment ; rdfs:range :SECFiling ;
     rdfs:label "Assessment of filing"@en ; rdfs:label "Evaluación del informe"@es ;
     rdfs:comment "Links the assessment to the filing it assesses; one assessment per snapshot."@en ; rdfs:comment "Vincula la evaluación con el informe que evalúa; una evaluación por instantánea."@es .
@@ -1596,8 +1605,8 @@ so every result is in-sample.""" .
 
 :metricGroup a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain skos:Concept ; rdfs:range xsd:string ;
     rdfs:label "Metric group"@en ; rdfs:label "Grupo de métrica"@es ;
-    rdfs:comment "One of the ten source metric groups; the 35 loaded concepts cover all ten, with only the three valuation yields and utility_cash_coverage_3y from the otherwise masked valuation/rule-input groups."@en ; rdfs:comment "Uno de los diez grupos de métricas de origen; los 35 conceptos cargados cubren los diez, con solo los tres rendimientos de valoración y utility_cash_coverage_3y de los grupos de valoración y entrada de reglas que por lo demás están enmascarados."@es .
+    rdfs:comment "One of the ten source metric groups; the 37 loaded concepts cover all ten, and value_inputs is the only source name without a property."@en ; rdfs:comment "Uno de los diez grupos de métricas de origen; los 37 conceptos cargados cubren los diez, y value_inputs es el único nombre de origen sin propiedad."@es .
 
 :metricUnit a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain skos:Concept ; rdfs:range xsd:string ;
     rdfs:label "Metric unit"@en ; rdfs:label "Unidad de la métrica"@es ;
-    rdfs:comment "ratio, x or usd; the 35 loaded metric concepts use ratio or x, and only ebitda and nopat use usd."@en ; rdfs:comment "ratio, x o usd; los 35 conceptos de métricas cargados usan ratio o x, y solo ebitda y nopat usan usd."@es .
+    rdfs:comment "ratio, x or usd; the 37 loaded metric concepts use all three, and the USD ones are ebitda, nopat, market_capitalization and enterprise_value."@en ; rdfs:comment "ratio, x o usd; los 37 conceptos de métricas cargados usan las tres, y los USD son ebitda, nopat, market_capitalization y enterprise_value."@es .

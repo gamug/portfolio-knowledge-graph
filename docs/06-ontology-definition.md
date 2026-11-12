@@ -1052,21 +1052,22 @@ parameters and process/evaluation terms. `LabelConceptShape` (in `shapes.ttl`) r
 `skos:notation`, one `skos:inScheme`, one `rdfs:label` and one `rdfs:comment` per language, and only
 `@en`/`@es` `skos:altLabel`s; windows also carry `:windowStart`, `:windowEnd`, `:historicalCondition`
 and `:finalConfigurationCondition`. The file is in FR-001 and the load plan. Counts after this
-addition: **60 classes (46 disjoint leaves), 44 named shapes, 6828 quads; conforms: True**; load plan
-**21 graphs / 7105 asserted triples** (production **5 / 6584**).
+addition: **60 classes (46 disjoint leaves), 44 named shapes, 6854 quads; conforms: True**; load plan
+**21 graphs / 7131 asserted triples** (production **5 / 6610**).
 
 ## 1.16 Fundamentals block C schema (Work item 45, T-811/T-812, 2026-11-13)
 
-`tbox.ttl` adds two Observation leaves, `:FundamentalMetricSet` (the 35 loaded ratios of one SEC filing)
-and `:FundamentalAssessment` (the score, rating and generated text of one assessment), plus the
-filing support properties, the 35 direct decimal metric properties, the assessment properties and
-the metric definition `:metricGroup`/`:metricUnit`. The three valuation yields and `utility_cash_coverage_3y` are included;
-`market_capitalization`, `enterprise_value` and `value_inputs` have no property and are not
-loaded; the loader skips the three valuation yields for the 33 masked assets, while
-`utility_cash_coverage_3y` loads for all; the only USD metrics are `ebitda` and `nopat`. The 35 metric concepts are proposed in `docs/labels-fundamentals-review.md` and stay out of `labels.ttl` until
-Reviewer A approves them. `:availableAt` loses its `:ScoreSnapshot` domain, and `:computedAt` /
-`:eventTime` widen to `:Observation`; the existing explicit types are checked by
-`tests/test_fundamentals_shapes.py`. `shapes.ttl` adds `FundamentalFilingShape`,
-`FundamentalMetricSetShape`, `FundamentalAssessmentShape` and `FundamentalMetricDefinitionShape`.
-Counts: **60 classes (46 disjoint leaves), 44 named shapes, 6828 quads; conforms: True**; load plan
-**21 graphs / 7105 asserted triples** (production **5 / 6584**).
+`tbox.ttl` adds two Observation leaves, `:FundamentalMetricSet` (the 37 loaded ratios of one SEC
+filing) and `:FundamentalAssessment` (the score, rating and generated text of one assessment), plus
+the filing support properties, the 37 direct decimal metric properties (the 38 source names minus
+`value_inputs`; includes `market_capitalization` and `enterprise_value`), the assessment properties
+and the metric definition `:metricGroup`/`:metricUnit`. `:pricesNotPublished` on `:Asset` carries
+the 33 masked flags. The loader (PR 2) stops on any `valuation` or `value_inputs` row of a masked
+asset; the other 550 assets load all five valuation metrics. The 37 metric concepts are proposed in
+`docs/labels-fundamentals-review.md` and stay out of `labels.ttl` until Reviewer A approves them.
+`:availableAt` loses its `:ScoreSnapshot` domain, and `:computedAt` / `:eventTime` widen to
+`:Observation`; the existing explicit types are checked by `tests/test_fundamentals_shapes.py`.
+`shapes.ttl` adds `FundamentalFilingShape`, `FundamentalMetricSetShape`,
+`FundamentalAssessmentShape` and `FundamentalMetricDefinitionShape`.
+Counts: **60 classes (46 disjoint leaves), 44 named shapes, 6854 quads; conforms: True**; load plan
+**21 graphs / 7131 asserted triples** (production **5 / 6610**).

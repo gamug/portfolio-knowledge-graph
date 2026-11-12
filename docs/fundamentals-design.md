@@ -13,14 +13,20 @@ all six listed entries verify with `sha256sum -c`. `source.json` names `scored_l
 for the touched documentation, and a PR. No loader, schema, label, count or GraphDB change is made
 here. The implementation is reserved for T-811–T-815 after Reviewer A answers §7.
 
-> **Addendum 2026-11-13 (Reviewer A, implementation).** The final metric set is **35** direct
-> properties: the 31 base metrics plus `enterprise_fcf_yield`, `free_cash_flow_yield`,
-> `sbc_adjusted_fcf_yield` and `utility_cash_coverage_3y`. The three valuation yields are skipped
-> row-level for the 33 masked assets; there is no `--include-valuation-ratios` flag and no
-> `:containsPriceDerivedValue`/`:metricIdsJson`. There is no `:assessmentOfSnapshot` link and no
-> `:promptHash`: the assessment carries its own score and rating, and the constant prompt hash
-> stays in the delivery hash/`source.json`. The loader count is measured in T-813–T-815; the
-> schema count is in `PLAN.md`/`TASKS.md` and `docs/labels-fundamentals-review.md`.
+> **Addendum 4 (2026-11-13, Reviewer A, implementation).** The final metric set is **37** direct
+> properties: the 38 source names minus `value_inputs`; it includes the 31 base metrics, the three
+> valuation yields, `utility_cash_coverage_3y`, `market_capitalization` and `enterprise_value`.
+> The v2 delivery is `/workspaces/thesis/knoledge graph/2026-11-12_respuesta_4/bloque_c_fundamentales/`
+> (`SHA256SUMS` `fd32daed…`, 509,933 metric rows, 70,445 valuation rows, all for unmasked assets).
+> The 37 metrics are 495,294 rows / 406,570 non-null; the expected batch is **834,586 asserted
+> triples** (873,889 with inference), including the 33 `:pricesNotPublished` flags. The mask is a
+> loader check, not a schema filter: stop on any `valuation` or `value_inputs` row of a masked
+> asset; the other 550 assets load all five valuation metrics. There is no
+> `--include-valuation-ratios` flag and no `:containsPriceDerivedValue`/`:metricIdsJson`. There is
+> no `:assessmentOfSnapshot` link and no `:promptHash`: the assessment carries its own score and
+> rating, and the constant prompt hash stays in the delivery hash/`source.json`. The loader count is
+> measured in T-813–T-815; the schema count is in `PLAN.md`/`TASKS.md` and
+> `docs/labels-fundamentals-review.md`.
 >
 > **Correction 2026-11-13 (mask flag).** `:pricesNotPublished true` is written for **all 33**
 > assets in `mascara_tiingo/tiingo_assets.csv`, not only the 31 with block C filings. FRC
@@ -35,21 +41,25 @@ here. The implementation is reserved for T-811–T-815 after Reviewer A answers 
 
 ## 0. Recommendation in one paragraph
 
-Load **one `:FundamentalMetricSet` per filing** with **31 direct decimal properties** (the default
-set: every metric except the five `valuation` metrics and the two `rule_input` metrics), plus **one
-`:FundamentalAssessment` per assessment** that links to the existing `FUNDAMENTAL` `:ScoreSnapshot`
-instead of duplicating its score. The expected batch is **800,981 asserted triples** over all 14,639
-filings (about **840k** including the one inferred type per individual, or **815,620 / 855k** with
-the optional `:containsPriceDerivedValue` guard), roughly **20% of the current ~4.18M-triple
-production store**. The three reified-observation variants would add 2.6M–4.4M asserted triples and
-are rejected. The 31-metric set is every metric except the five `valuation` and two `rule_input`
-metrics; every one of the 31 is cited in at least 49 assessment records, and 30 of them in at least
-844. The three valuation yields are behind an explicit, off-by-default flag; the two price-derived
-absolute USD metrics are never loaded.
+Load **one `:FundamentalMetricSet` per filing** with **37 direct decimal properties** (the 38
+source names minus `value_inputs`; includes the five valuation metrics and
+`utility_cash_coverage_3y`), plus **one `:FundamentalAssessment` per assessment** that carries its
+own score and rating. The v2 delivery has 509,933 metric rows; the 37 properties are 495,294 rows
+(406,570 non-null), 70,445 valuation rows all for unmasked assets, and 14,639 `value_inputs` rows
+without a property. The expected batch is **834,586 asserted triples** over all 14,639 filings
+(873,889 with the one inferred type per individual, and 33 `:pricesNotPublished` flags), roughly
+**20% of the current ~4.18M-triple production store**. The mask is a loader check, not a schema
+filter: a masked valuation or `value_inputs` row stops the load; the other 550 assets load all five
+valuation metrics. `market_capitalization` and `enterprise_value` are in the graph; only
+`value_inputs` has no property. The reified-observation variants remain rejected on volume.
 
 ---
 
 ## 1. Delivery profile and the volume problem
+
+> The A/B/C tables below are the pre-Addendum-4 comparison on the first delivery (512,683 metric
+> rows, 31/35 metrics). They are retained as the volume argument that led to the metric-set model;
+> the final 37-metric v2 figures are in §0 and Addendum 4.
 
 ### 1.1 Files, keys and measured profile
 
@@ -103,7 +113,7 @@ The production repository is at about **4.18M asserted triples** today (the sche
 
 ```
 filings × 10
-+ metric sets × 6            (options B/C; not in A)
++ metric sets × 5            (options B/C; not in A)
 + metric observations × 7 + non-null values   (option A)
 + metric values (non-null)   (options B/C)
 + assessments × 12 + scored × 2 + strengths + risks
@@ -118,14 +128,14 @@ with these measured inputs:
 - assessments 10,025; scored 9,896; strengths 38,819; risks 39,512;
 - labels: 38 concepts = 386 triples, or 31 concepts = 316 triples (10 per concept + 6 for the scheme).
 
-The per-assessment budget is: type, filing, asset, `snapshot_id`, narrative, model, prompt hash,
-computed time, event time, available time, generated flag, provenance note (12 fixed); plus the
-`ScoreSnapshot` link and `rating` for the 9,896 scored rows (2 each); plus one triple per strength
-and risk. The score itself is **not** repeated; it is read from the linked snapshot. If the score is
-also stored on the assessment, add 9,896 triples.
+The per-assessment budget is: type, filing, asset, `snapshot_id`, narrative, model, computed
+time, event time, available time, generated flag, provenance note (11 fixed); plus
+`:scoreRaw0to100` and `:rating` for the 9,896 scored rows (2 each); plus one triple per strength and
+risk. The score is stored on the assessment; there is no `ScoreSnapshot` link and no `:promptHash`
+(the constant prompt hash stays in the delivery hash/`source.json`).
 
-The per-metric-set budget is: type, filing link, `availableAt`, `computedAt`, `engineVersion`,
-`metricIdsJson` (6 fixed). The per-filing budget is: type, asset, form, filing date, period end,
+The per-metric-set budget is: type, filing link, `availableAt`, `computedAt`, `engineVersion`
+(5 fixed). The per-filing budget is: type, asset, form, filing date, period end,
 fiscal year, fiscal period, `availableAt`, accession number, `filingId` (10 fixed).
 
 ### 1.3 Model A — one reified observation per metric row
@@ -199,56 +209,44 @@ One `:FundamentalMetricSet` per filing:
     :availableAt "<filing available_at>"^^xsd:date ;
     :computedAt "<latest row computed_at>"^^xsd:dateTime ;
     :engineVersion "metrics-v10" ;
-    :metricIdsJson "{\"return_on_invested_capital\": 1234, ...}" ;
     :returnOnInvestedCapital "0.184"^^xsd:decimal ;
     :netMargin "0.213"^^xsd:decimal ;
     ... .
 ```
 
-Each of the 38 metrics is a `owl:DatatypeProperty` with domain `:FundamentalMetricSet`, range
-`xsd:decimal` and `owl:FunctionalProperty`. A null value is **no triple**, not a null literal. The
-legacy `metric_id` of every metric in the selected set is preserved in the one `:metricIdsJson` map,
-with `null` for a missing value. The map covers all 31 (or 38) keys, so the delivery key is
-auditable even when the value is null; the value triple is absent for a null.
+Each metric is a `owl:DatatypeProperty` with domain `:FundamentalMetricSet`, range
+`xsd:decimal` and `owl:FunctionalProperty`. A null value is **no triple**, not a null literal. No
+per-metric ID map is stored in the final model: the graph keys a value by
+`(filing_id, metric_name)`, and the delivery's `metric_id` stays in the source file.
 
 | Variant | Asserted | Inferred | Total | Store after |
 |---|---:|---:|---:|---:|
-| B, all 38 metrics, all filings | 875,997 | 39,303 | 915,300 | ~5.1M |
-| B, default 31, all filings | 800,981 | 39,303 | 840,284 | ~5.0M |
+| B, all 38 metrics, first delivery (pre-addendum) | 875,997 | 39,303 | 915,300 | ~5.1M |
 
 **Agent query:** `?set :metricSetOfFiling ?filing ; :returnOnInvestedCapital ?value`, with the same
 `availableAt <= D` and latest-filing pattern as A (the property replaces the observation join).
 
-**SHACL/class/property needs:** `FundamentalMetricSetShape` with 38 (or 31) `sh:property` blocks,
+**SHACL/class/property needs:** `FundamentalMetricSetShape` with 38 (or 37) `sh:property` blocks,
 each `sh:datatype xsd:decimal` and `sh:maxCount 1`; `FundamentalAssessmentShape`;
-`FundamentalFilingShape`; two OWL classes and 38 properties plus the 38 metric concepts in
+`FundamentalFilingShape`; two OWL classes and the metric properties plus the metric concepts in
 `labels.ttl`.
 
 **Inference:** one extra `:Observation` type per set, assessment and filing (~39k). **Do not** make
-the 38 properties subproperties of a generic `:metricValue`: that would add one inferred triple per
-value (~0.42M) and defeat the compactness.
+the metric properties subproperties of a generic `:metricValue`: that would add one inferred triple
+per value and defeat the compactness.
 
-**Why not:** 38 properties and 38 `labels.ttl` rows are a lot of schema for metrics that the
-assessments rarely cite; the 31-metric set is the same model with a smaller, price-safe vocabulary.
+### 1.5 Model C — the final 37-metric set (recommended)
 
-### 1.5 Model C — the restricted metric set (recommended)
-
-Model B with **31 metrics** (all groups except `valuation` and `rule_input`), all 14,639 filings.
-This is the set the assessments actually cite: every one of the 31 appears in at least 49
-assessment records, and 30 of them appear in at least 844. The five valuation metrics (73,195 rows)
-and two `rule_input` metrics (18,391 rows) are excluded by the price-masking policy of §4. The
-optional `--include-valuation-ratios` flag adds only the three valuation **ratio** metrics
-(`enterprise_fcf_yield`, `free_cash_flow_yield`, `sbc_adjusted_fcf_yield`, 43,917 rows); the two
-absolute USD valuation metrics are never loaded.
-
-All C rows below are **before** the optional `:containsPriceDerivedValue` guard of §4.3; add
-14,639 to each asserted and total count if the guard is kept.
+Model B with the **37** source names minus `value_inputs`, all 14,639 filings. The five valuation
+metrics are included; the loader stops on any valuation or `value_inputs` row of a masked asset,
+while the other 550 assets load all five valuation metrics. `value_inputs` has no property and its
+14,639 rows are dropped. The v2 delivery has 509,933 metric rows; the 37 metrics are 495,294 rows
+and 406,570 non-null.
 
 | Variant | Asserted | Inferred | Total | Store after |
 |---|---:|---:|---:|---:|
-| C, default 31, all filings | 800,981 | 39,303 | 840,284 | ~5.0M |
-| C-pilot, default 31, assessed-only (10,025 filings) | 621,598 | 30,075 | 651,673 | ~4.8M |
-| C + flag, 34 metrics (31 + 3 valuation ratios), all filings | 844,898 | 39,303 | 884,201 | ~5.1M |
+| C, 37 metrics, all filings | **834,586** | 39,303 | **873,889** | ~5.0M |
+| C-pilot, 37 metrics, assessed-only (10,025 filings) | 644,512 | 30,075 | 674,587 | ~4.8M |
 
 **Agent query:** the same direct-property pattern as B, e.g.:
 
@@ -268,42 +266,38 @@ SELECT ?value ?available WHERE {
 ORDER BY DESC(?available) LIMIT 1
 ```
 
-**SHACL/class/property needs:** `FundamentalMetricSetShape` with 31 decimal properties,
+**SHACL/class/property needs:** `FundamentalMetricSetShape` with 37 decimal properties,
 `FundamentalAssessmentShape`, `FundamentalFilingShape`, `FundamentalMetricDefinitionShape`; two OWL
-classes (`FundamentalMetricSet`, `FundamentalAssessment`) and 31 metric properties plus the
-assessment/filing properties; 31 metric concepts in `labels.ttl` under a new
+classes (`FundamentalMetricSet`, `FundamentalAssessment`) and 37 metric properties plus the
+assessment/filing properties; 37 metric concepts in `labels.ttl` under a new
 `FundamentalMetricScheme`. Each TBox class/property gets bilingual `rdfs:label`/`rdfs:comment`
 (the T-754 pattern); each metric concept gets the full `labels.ttl` row (notation, scheme,
 `labelScheme`, bilingual label/comment, optional altLabels, group/unit).
 
 **Inference:** one extra `:Observation` type per metric set, assessment and filing (~39k for all
-filings, ~30k for the pilot). No subproperty hierarchy. The 31 properties' `rdfs:domain` infers the
+filings, ~30k for the pilot). No subproperty hierarchy. The 37 properties' `rdfs:domain` infers the
 already-asserted `:FundamentalMetricSet` type, so it adds no new triple beyond that type.
 
 ### 1.6 Comparison and recommendation
 
-| Criterion | A (reified) | B (all 38) | C (31, recommended) |
+| Criterion | A (reified, pre-addendum) | B (38 direct, pre-addendum) | C (37, final) |
 |---|---|---|---|
-| Asserted triples (all filings) | 4,376,944 | 875,997 | **800,981** |
-| Total with inference | 4,914,291 | 915,300 | **840,284** |
-| Store after (approx.) | ~2.2× | ~1.22× | **~1.20×** |
+| Asserted triples (all filings) | 4,376,944 | 875,997 | **834,586** |
+| Total with inference | 4,914,291 | 915,300 | **873,889** |
+| Store after (approx.) | ~2.2× | ~1.22× | **~1.21×** |
 | Agent query | observation join | direct property | **direct property** |
-| Per-`metric_id` IRI | yes | no (`metricIdsJson`) | no (`metricIdsJson`) |
-| New metric properties | 0 (one link) | 38 | **31** |
-| New `labels.ttl` concepts | 38 | 38 | **31** |
-| SHACL blocks | 4 shapes, one observation shape | 4 shapes, 38 property blocks | **4 shapes, 31 property blocks** |
+| Per-`metric_id` IRI | yes | no | no |
+| New metric properties | 0 (one link) | 38 | **37** |
+| New `labels.ttl` concepts | 38 | 38 | **37** |
+| SHACL blocks | 4 shapes, one observation shape | 4 shapes, 38 property blocks | **4 shapes, 37 property blocks** |
 | Inference per value | 1 type per observation | none | **none** |
-| Price-mask safety | needs a unit check per row | properties can omit the two USD names | **two USD names have no property at all** |
+| Mask | per-row unit check | property allowlist | **loader check on masked valuation/value_inputs rows; 33 flags** |
 
-**Recommendation: C.** It keeps the graph queryable with plain SPARQL, preserves the source
-`metric_id` in one map per filing, avoids the 4M reified observations, and makes the price-masking
-policy structural: the two price-derived absolute USD metrics have no property in the TBox, so a
-loader bug cannot write them. If Reviewer A needs per-`metric_id` RDF identity, the fallback is A
-restricted to the 31 metrics and the assessed-only pilot (2.58M asserted), not A all-38.
-
-The 17 metrics cited in at least 50% of assessments are a possible tier-1 first load, but they omit
-common questions (`debt_to_equity` at 4,999 records, `quick_ratio` at 3,638, the growth/cagr set) and
-are not recommended as the default. The 31-metric set is the best coverage/volume compromise.
+**Recommendation: C.** It keeps the graph queryable with plain SPARQL, avoids the 4M reified
+observations, and follows the final 37-metric delivery. The mask is not structural in the schema:
+the loader checks the SHA-256-verified mask file and stops on a masked valuation or `value_inputs`
+row; the other 550 assets load all five valuation metrics. If Reviewer A needs per-`metric_id` RDF
+identity, the fallback is model A restricted to the 37 metrics and the assessed-only pilot.
 
 ---
 
@@ -314,7 +308,7 @@ are not recommended as the default. The 31-metric set is the best coverage/volum
 | Field | Meaning | Measured |
 |---|---|---|
 | `filings.available_at` | first date the filing can be used | always **after** `filing_date` (0 exceptions) |
-| `metrics.available_at` | same date as the filing | 512,683 / 512,683 equal |
+| `metrics.available_at` | same date as the filing | 509,933 / 509,933 equal |
 | `assessments.available_at` | same date as the filing | 10,025 / 10,025 equal |
 | `assessments.event_time` | the period the assessment is about | 10,025 / 10,025 equal to `filings.period_end` |
 | `computed_at` | when the row/text was produced | one value per filing except 129 filings with two, one second apart |
@@ -388,13 +382,10 @@ SELECT ?assessment ?narrative ?available ?computed WHERE {
 ORDER BY DESC(?available) LIMIT 1
 ```
 
-**Text caveat:** the narrative was computed in 2026 (`computed_at` 2026-11-03) from a filing that
-became available years earlier. For a strict "what existed at D" answer, the agent must not present
-the narrative as a contemporaneous fact before `computedAt`. It may use the filing fact at
-`availableAt` and quote the narrative as a **current generated interpretation**, with the generated
-flag and note. If Reviewer A wants one filter for text, the loader can also write
-`:textAvailableAt = max(available_at, computed_at)` (one extra triple per assessment) and the agent
-filters text on that; this is question Q5 in §7.
+**Text rule:** Reviewer A's rule is `availableAt <= D` for every row, including the assessment text.
+There is no separate text clock and no `:textAvailableAt`. The generated flag and provenance note
+tell the reader that the narrative is a generated interpretation, not a verified fact; the agent
+must not present it as one.
 
 ---
 
@@ -418,20 +409,19 @@ rule provenance note, never the model label.
 - `:assessmentOfFiling` → `:SECFiling`;
 - `:assessmentOfAsset` → `:Asset` (redundant with the filing, but keeps the agent's asset query one
   hop);
-- `:assessmentOfSnapshot` → the existing `FUNDAMENTAL` `:ScoreSnapshot` (optional, 9,896 scored
-  rows; see §5.4);
 - `:snapshotId` (integer, the delivery key);
+- `:scoreRaw0to100` (decimal 0-100; absent on the 129 unscored rows);
 - `:rating` (`bullish | neutral | bearish`; absent on the 129 unscored rows);
 - `:narrative`, repeated `:strength`, repeated `:risk` (literals);
-- `:model`, `:promptHash`, `:computedAt`, `:eventTime`, `:availableAt`;
+- `:model`, `:computedAt`, `:eventTime`, `:availableAt`;
 - `:generatedByLanguageModel` (boolean, required);
 - `:provenanceNote` (string, required) with the delivery text **verbatim**:
   - true: `generated by a language model from computed ratios; not a verified fact`
   - false: `rule-based text: no fundamental score (coverage rule); not generated by a model`
 
-The score is **not** stored on the assessment when the snapshot link exists; it is
-`:ScoreSnapshot :rawValue`. This is the "do not duplicate, link" rule. The 129 unscored rows have no
-score to link and no `:rating`.
+The score and rating are stored **on the assessment**; the 129 unscored rows have neither. There is
+no `:assessmentOfSnapshot` link and no `:promptHash` (the constant prompt hash stays in the delivery
+hash/`source.json`).
 
 **Text isolation.** The narrative, strengths and risks live only on `:FundamentalAssessment`. They
 are never attached to `:SECFiling`, `:FundamentalMetricSet`, `:Asset` or `:ScoreSnapshot`, so a
@@ -445,11 +435,10 @@ the `:provenanceNote` are on the same node as the text. The graph also stores no
 
 - required: filing, asset, `snapshotId`, narrative, model, computed time, event time, available
   time, generated flag, provenance note;
-- `generatedByLanguageModel true` → `promptHash` required, `assessmentOfSnapshot` required,
-  `rating` in `{bullish, neutral, bearish}`, `provenanceNote` exactly the generated string;
-- `generatedByLanguageModel false` → `model "unscored-pillar-coverage-v1"`, no `rating`, no
-  `assessmentOfSnapshot`, `provenanceNote` exactly the rule string; the `promptHash` may be present
-  as source provenance but is not used as a model signal;
+- `generatedByLanguageModel true` → `scoreRaw0to100` required and in `[0, 100]`, `rating` in
+  `{bullish, neutral, bearish}`, `provenanceNote` exactly the generated string;
+- `generatedByLanguageModel false` → `model "unscored-pillar-coverage-v1"`, no score, no `rating`,
+  `provenanceNote` exactly the rule string;
 - `rating` `sh:in ("bullish" "neutral" "bearish")` when present;
 - `narrative` `sh:minLength 1`; `strength`/`risk` strings.
 
@@ -460,82 +449,67 @@ The implementation must copy the two provenance strings character-for-character 
 
 ## 4. Price masking
 
-### 4.1 What is and is not a price
+### 4.1 Why the mask
 
-The delivery contains **no literal price**. The valuation group has five metrics:
+The v2 delivery contains no literal price. The valuation group has five metrics:
 
-| Metric | Unit | What it is | Mask decision |
+| Metric | Unit | What it is | Load rule |
 |---|---|---|---|
-| `market_capitalization` | `usd` | absolute market cap at the filing; price-derived | **never load** |
-| `enterprise_value` | `usd` | absolute enterprise value; price-derived | **never load** |
-| `enterprise_fcf_yield` | `ratio` | FCF / enterprise value; derived ratio | flag only |
-| `free_cash_flow_yield` | `ratio` | FCF / market cap; derived ratio | flag only |
-| `sbc_adjusted_fcf_yield` | `ratio` | SBC-adjusted FCF yield; derived ratio | flag only |
+| `market_capitalization` | `usd` | absolute market cap at the filing | load for the 550 unmasked assets; a masked row stops the load |
+| `enterprise_value` | `usd` | absolute enterprise value | load for the 550 unmasked assets; a masked row stops the load |
+| `enterprise_fcf_yield` | `ratio` | FCF / enterprise value | load for the 550 unmasked assets; a masked row stops the load |
+| `free_cash_flow_yield` | `ratio` | FCF / market cap | load for the 550 unmasked assets; a masked row stops the load |
+| `sbc_adjusted_fcf_yield` | `ratio` | SBC-adjusted FCF yield | load for the 550 unmasked assets; a masked row stops the load |
 
-The other `usd` metrics are **not prices**:
+The reason is the one in Reviewer A's delivery note: market capitalization and the
+shares-outstanding figures can reconstruct the price at each filing date. That is why the **33
+Tiingo assets** in `mascara_tiingo/tiingo_assets.csv` get **no valuation group at all**, not just no
+absolute market cap: the three valuation yields are derived from the same market cap/EV, so they
+are masked together. The v2 delivery is already clean for that rule: 70,445 valuation rows, **0**
+for a masked asset, all five valuation metrics for the other 550 assets.
 
-- `ebitda` (leverage): income-statement amount;
-- `nopat` (roic): income-statement amount;
-- `value_inputs` (rule_input): a rule input amount, not a price.
+`value_inputs` is not a valuation metric and not a price; it is a rule input. It has **no
+property** (the 37 loaded properties are the 38 source names minus `value_inputs`), so its 14,639
+rows are not loaded. The loader also stops if a masked asset's `value_inputs` row is forced into the
+load set (negative test); the delivered v2 file still contains 550 such rows, which the allowlist
+drops before projection. If Reviewer A wants the literal stop on the delivered rows, the delivery
+must be regenerated without them.
 
-`market_capitalization` and `enterprise_value` are the two price-derived absolute USD values. They
-are the metrics the rule must never load, for any asset, not only the 33 masked ones. The three
-valuation yields are derived ratios, but they are still derived from market cap/EV; the default
-loader excludes them too, and only an explicit flag can add them. No metric in the delivery is a
-literal traded price, so the SHACL assertion below is written as "no absolute price-derived USD
-value", not "no price field" (there is no price field to forbid).
+Nothing else is filtered: the loader loads the other 37 metric names for every filing, including the
+five valuation metrics for the 550 unmasked assets.
 
-### 4.2 Default exclusion and counts
+### 4.2 Delivery v2 and counts
 
-Default batch (flag off):
+- v2 `metrics.csv`: **509,933 rows**, `SHA256SUMS` `fd32daed…`.
+- 37 loaded metrics: **495,294 rows**, **406,570 non-null** (the 38 names minus 14,639
+  `value_inputs` rows).
+- valuation: **70,445 rows**, all unmasked; **0** masked.
+- `value_inputs`: 14,639 rows (550 masked), no property, not loaded.
+- `:pricesNotPublished true`: **33 triples**, one per masked asset, including FRC and SBNY.
+- Expected data graph: **834,586 asserted triples** (873,889 with the one inferred type per metric
+  set, assessment and filing), about 20% of the current ~4.18M store.
+- The other 550 assets load all five valuation metrics; no price or daily-return property is
+  written.
 
-- exclude the whole `valuation` group: **73,195 rows** (14.3% of 512,683); of these **2,750** are
-  masked-asset rows. This is the price-mask requirement;
-- exclude the whole `rule_input` group: **18,391 rows**; of these **695** are masked-asset rows.
-  This is a separate coverage decision, not a price rule: `rule_input` is an internal rule input,
-  not an agent-facing ratio, and its two names are cited only 138 and 3 times;
-- total excluded: **91,586 rows** (17.9%), **3,445** masked-asset rows;
-- loaded: **421,097 rows** (31 metrics), **15,835** masked-asset rows.
+### 4.3 Planned loader tests
 
-Absolute price-derived rows excluded even with the flag on:
+- A masked asset with a `valuation` row stops the load with the row list.
+- A masked asset with a `value_inputs` row forced into the load set stops the load with the row
+  list.
+- An unmasked asset loads all five valuation metrics.
+- The batch contains no price or daily-return property: no `:closePrice`, `:PriceObservation`,
+  `:observationDate`, `:dailyReturnPct`, `:atr14` or equivalent; `:marketCapitalization` and
+  `:enterpriseValue` are the only valuation USD properties and they are metric values, not prices.
+- The 33 `:pricesNotPublished` flags are present, including FRC/SBNY.
 
-- `market_capitalization` 14,639 rows (550 masked);
-- `enterprise_value` 14,639 rows (550 masked);
-- total **29,278 rows** (1,100 masked).
+### 4.4 SHACL
 
-Flag `--include-valuation-ratios` (off by default):
-
-- adds the three ratio metrics: 43,917 rows (1,650 masked);
-- never adds the two absolute USD metrics;
-- the batch becomes 465,014 rows (34 metrics), 17,485 masked-asset rows.
-
-If a future flag ever includes `rule_input`, `value_inputs` (14,639 rows, 550 masked) is an
-absolute USD rule input, not a price; it may be loaded only if the agent needs it, and it is not part
-of the recommended set.
-
-### 4.3 Structural guard and SHACL assertion
-
-The compact model makes the mask structural: the TBox has **no property** for
-`market_capitalization` or `enterprise_value`, so the loader's allowlist cannot write them. The
-loader also refuses any input row whose metric name is outside the selected 31/34 and any `usd` row
-whose name is not `ebitda` or `nopat` (plus `value_inputs` only under a future rule-input flag).
-
-`FundamentalMetricSetShape` adds the auditable assertion:
-
-- `:containsPriceDerivedValue` (boolean, required, `sh:hasValue false`) on every metric set; the
-  loader writes `false` because it cannot write the two price-derived properties. This costs one
-  triple per filing (14,639) and gives the agent a direct check.
-- The 31 metric properties are decimal and have no `:metricUnit "usd"` value; the unit is a
-  property of the metric definition in `labels.ttl`. `FundamentalMetricDefinitionShape` asserts
-  `:metricUnit "usd"` only for `ebitda` and `nopat` (and `value_inputs` if the rule-input flag is
-  ever added), and never for `market_capitalization`/`enterprise_value`.
-- The target graph pattern is separate from `PriceObservation`/`derived:quant`; no price property
-  or price graph is touched. The batch contains no `:closePrice`, `:PriceObservation`,
-  `:marketCapitalization` or `:enterpriseValue` triple.
-
-The count with `:containsPriceDerivedValue` is 800,981 + 14,639 = **815,620 asserted** for C all
-filings (840,284 + 14,639 = **854,923 total** with inference). We include it in the recommendation;
-if Reviewer A prefers no extra guard triple, the shape-only version is 800,981.
+`FundamentalMetricSetShape` is closed over the 37 metric properties plus the metadata properties;
+it rejects any price or daily-return property (for example `:closePrice`) and any unknown metric.
+`FundamentalMetricDefinitionShape` allows `:metricUnit "usd"` on `ebitda`, `nopat`,
+`marketCapitalization` and `enterpriseValue`, and no other name. There is no
+`:containsPriceDerivedValue` property and no structural valuation exclusion; the mask is the loader
+check above.
 
 ---
 
@@ -575,51 +549,25 @@ filing IRI actually used.
 
 - `filing_id` unique in `filings.csv`; `accession_number` unique; one metric set per filing.
 - `metric_id` unique; `(filing_id, metric_name)` unique (one value per metric per filing). The
-  loader refuses a duplicate. The `metric_id` map is stored as `:metricIdsJson` on the set:
-  `{"return_on_invested_capital": 1234, "net_margin": 1235, ...}`. This keeps the delivery key
-  without 512k reified nodes. A reviewer who needs every `metric_id` as an IRI must choose model A.
+  loader refuses a duplicate. The final model does **not** store a per-metric ID map; a value is
+  keyed by `(filing_id, metric_name)`, and the delivery's `metric_id` stays in the source file. A
+  reviewer who needs every `metric_id` as an IRI must choose model A.
 - `snapshot_id` unique; one assessment node per row. `filing_id` may in principle repeat (this
   delivery has exactly one assessment per filing, but the loader keys by `snapshot_id` and does not
   enforce one-per-filing unless Reviewer A asks).
-- Every non-null `metric_id` in `:metricIdsJson` is an integer and a null value is `null`; the
-  loader checks the map has exactly the selected metric names (31 or 38) and that its non-null
-  entries equal the number of value triples.
+- The loader checks that the metric set has exactly the selected 37 metric names and that every
+  non-null value has its decimal triple; null values have no triple.
 - The loader refuses a metric row whose `filing_id` is not in `filings.csv`, a value that is not a
   decimal (empty is a legitimate null), an unknown unit, an unknown group/name, a `computed_at`
   that is not a dateTime, and an `available_at` that differs from the filing's.
 
 ### 5.4 Existing `ScoreSnapshot` data
 
-The 9,896 scored assessments are **not** a new score source; they are links to the `FUNDAMENTAL`
-`ScoreSnapshot` rows already in the graph (the `v_score_snapshot`/`score_snapshots.py` projection).
-The loader resolves the link with a read-only SPARQL query by natural key:
-
-```sparql
-PREFIX : <https://thesis.local/kg/portfolio#>
-SELECT ?snapshot ?timestamp WHERE {
-  VALUES ?asset { :A }
-  ?asset :hasScoreObservation ?snapshot .
-  ?snapshot :agentOrigin "FUNDAMENTAL" ;
-            :metricType "ScoreFinanciero" ;
-            :eventTime "2021-09-30"^^xsd:date ;
-            :availableAt "2021-10-22"^^xsd:date ;
-            :rawValue 26.2 ;
-            :timestamp ?timestamp .
-}
-ORDER BY DESC(?timestamp)
-```
-
-If exactly one snapshot matches, write `:assessmentOfSnapshot` and do not write
-`:scoreRaw0to100`. If the graph has several engine versions, choose the latest `:timestamp` among
-`availableAt <= D` (the existing `docs/07` rule), and report the choice. If no snapshot matches a
-scored assessment, the loader stops by default and lists the missing `snapshot_id`s; a pilot flag
-`--allow-missing-snapshot` may load the assessment without the link and without a score, with
-`:snapshotLinkStatus "missing"` (question Q1). The 129 unscored rows never have a snapshot link and
-never get a score.
-
-The assessment IRI includes `snapshot_id`; if the existing snapshot projector later adds a
-`:snapshotId` literal, the loader can use that as the primary key and fall back to the natural key
-above. No duplicate `ScoreSnapshot` is minted, and no `rawValue` is repeated on the assessment.
+The final model does **not** link to or require existing `ScoreSnapshot` individuals: production has
+zero `:ScoreSnapshot` individuals (checked 2026-11-13), and this loader does not create any. The
+assessment carries its own `:scoreRaw0to100` and `:rating`; the 129 rule rows have neither. No
+`ScoreSnapshot` is minted and no score is duplicated. If a later store has snapshots, a link can be
+added by a follow-up; it is not part of T-813–T-815.
 
 ---
 
@@ -642,10 +590,11 @@ Proposed TBox delta:
 | Layer | New terms | Reused terms |
 |---|---|---|
 | Filing | `:filingId` (integer), `:periodEnd` (date), `:fiscalYear` (integer), `:fiscalPeriod` (string) | `:formType`, `:filingDate`, `:accessionNumber`, `:filingOfAsset`, `:availableAt` |
-| Metric set | `:FundamentalMetricSet` (class, `rdfs:subClassOf :Observation`), `:metricSetOfFiling`, `:metricIdsJson`, 31 metric decimal properties | `:availableAt`, `:computedAt`, `:engineVersion` |
-| Assessment | `:FundamentalAssessment` (class, `rdfs:subClassOf :Observation`), `:assessmentOfFiling`, `:assessmentOfAsset`, `:assessmentOfSnapshot`, `:snapshotId`, `:rating`, `:narrative`, `:strength`, `:risk`, `:model`, `:promptHash`, `:generatedByLanguageModel`, `:provenanceNote` | `:computedAt`, `:eventTime`, `:availableAt` |
+| Asset | `:pricesNotPublished` (boolean, 33 masked assets) | `:tickerSymbol`, `:cikNumber` |
+| Metric set | `:FundamentalMetricSet` (class, `rdfs:subClassOf :Observation`), `:metricSetOfFiling`, 37 metric decimal properties | `:availableAt`, `:computedAt`, `:engineVersion` |
+| Assessment | `:FundamentalAssessment` (class, `rdfs:subClassOf :Observation`), `:assessmentOfFiling`, `:assessmentOfAsset`, `:snapshotId`, `:scoreRaw0to100`, `:rating`, `:narrative`, `:strength`, `:risk`, `:model`, `:generatedByLanguageModel`, `:provenanceNote` | `:computedAt`, `:eventTime`, `:availableAt` |
 | SHACL | `FundamentalFilingShape`, `FundamentalMetricSetShape`, `FundamentalAssessmentShape`, `FundamentalMetricDefinitionShape` | existing gate/shape machinery |
-| Labels | `:FundamentalMetricScheme` + 31 `:FundamentalMetric_<name>` concepts in `labels.ttl`; bilingual `rdfs:label`/`rdfs:comment` on every new TBox term | `:PresentationScheme`, `:LabelConceptShape` |
+| Labels | `:FundamentalMetricScheme` + 37 `:FundamentalMetric_<name>` concepts in `labels.ttl`; bilingual `rdfs:label`/`rdfs:comment` on every new TBox term | `:PresentationScheme`, `:LabelConceptShape` |
 
 `SECFiling` keeps its place under `SourceDocument`; the metric set and the assessment are
 `Observation`s. `:availableAt` loses its `:ScoreSnapshot` domain; `:computedAt`/`:eventTime` are
@@ -654,8 +603,8 @@ widened to `:Observation`.
 ### 6.2 Manifest and strict parser
 
 `SHA256SUMS` lists `README.md`, `filings.csv`, `metrics.csv`, `assessments.jsonl`, `source.json`
-and `provenance/export_bloque_c.py`; all six must be present and match. The loader also prints the
-manifest's own sha256 `f640ba4d…` and the `source.json` database hash for the run record. The
+and `provenance/export_bloque_c.py`; all six must be present and match. The v2 manifest's own hash
+is `fd32daed…`; the loader prints it and the `source.json` database hash for the run record. The
 manifest is checked before the store is contacted.
 
 Strict rules, all refused with a message naming the file/row/key:
@@ -665,14 +614,16 @@ Strict rules, all refused with a message naming the file/row/key:
 - `filing_id` foreign keys in metrics/assessments; `asset_id`/`ticker` consistent with the filing;
 - `form` in `10-K | 10-Q`; dates parse; `available_at` matches the filing; `computed_at` is a
   dateTime; `value` is a decimal or empty; `unit` in `ratio | x | usd` and matches the metric's
-  declared unit; `metric_group` in the 10 groups; `metric_name` in the 38 names (or the selected
-  subset); `engine_version` is `metrics-v10`;
+  declared unit; `metric_group` in the 10 groups; `metric_name` in the 38 names; `engine_version` is
+  `metrics-v10`;
 - `generated_by_language_model` is a JSON boolean; `model`, `prompt_hash`, `rating` strings;
   `strengths`/`risks` are arrays of strings; `narrative` non-empty; the 129 false rows have the
   rule model and null score/rating; the 9,896 true rows have a score and rating;
-- the default metric policy: `valuation` and `rule_input` rows are counted and skipped; if
-  `--include-valuation-ratios` is set, only the three ratio names are added; the two absolute USD
-  names are refused even with the flag;
+- **mask check:** if a masked asset has a `valuation` row, or a `value_inputs` row forced into the
+  load set, stop with the row list. The v2 delivery has no masked valuation rows; it still has 550
+  masked `value_inputs` rows, which the allowlist drops before projection (see §4.1 and question 1);
+- `value_inputs` has no property; its 14,639 rows are counted and dropped. There is no
+  `--include-valuation-ratios` flag;
 - unknown metric names/values and extra columns are refused, not ignored.
 
 ### 6.3 Dry run, `--check-store`, `--write`
@@ -688,26 +639,25 @@ Strict rules, all refused with a message naming the file/row/key:
   exact one-graph `DROP GRAPH <urn:graph:derived:fundamentals:final>` for the maintainer; the agent
   never runs it. Never `CLEAR ALL`, `DROP ALL`, a repository delete or a second graph.
 - **Verification**: stored graph triple count equals the batch, per-class counts, sample values,
-  the 31/34 metric policy, the `:containsPriceDerivedValue false` count, the 9,896 snapshot links
-  and the 129 rule rows; no engine graph receives a triple.
+  the 37-metric policy, the 33 `:pricesNotPublished` flags, the 9,896 scores/ratings and the 129
+  rule rows; no engine graph receives a triple.
 
 ### 6.4 Counts and tests
 
-The design's full-delivery expected count for C (31 metrics, all filings, including the
-`:containsPriceDerivedValue` guard) is **815,620 asserted**; without the guard triple it is
-**800,981**. The `--include-valuation-ratios` batch is 844,898 + 14,639 = **859,537 asserted**. The
-implementation must measure the actual `D` and update every asserted count in the same PR (NR-001):
-FR-001 and the `labels.ttl`/`tbox.ttl` schema counts, the load-plan/production counts if the schema
-files change, the shape count (40 → 44 if the four new shapes are added), and the loader test's
-fixture count. The full-delivery count is recorded in the runbook and the dry-run output, not in a
-hermetic test; the hermetic test uses a small fixture and asserts its exact batch count and the
-refusal cases.
+The design's full-delivery expected count for C (37 metrics, all filings, no metric ID map) is
+**834,586 asserted** (873,889 with inference). The assessed-only pilot is **644,512 asserted**
+(674,587 with inference). The schema counts are **6854 quads**, load plan **21/7131** and production
+**5/6610**; 60 classes, 46 disjoint leaves, 44 shapes. The implementation must measure the actual
+`D` and update every asserted count in the same PR (NR-001): FR-001, the schema/labels counts, the
+load-plan/production counts if the schema files change, and the loader fixture count. The
+full-delivery count is recorded in the runbook and the dry-run output, not in a hermetic test; the
+hermetic test uses a small fixture and asserts its exact batch count and the refusal cases.
 
 The test file should cover: manifest mismatch/missing entry, unknown column/value, duplicate
 `filing_id`/`metric_id`/`snapshot_id`, a metric row with a mismatched `available_at`, an unknown
-metric/unit/group, a `usd` price-derived row refusal, the default vs flag counts, the 129 rule rows,
-the 9,896 snapshot links, a missing snapshot, the exact fixture triple count, SHACL conformance, and
-the `--check-store` no-write path.
+metric/unit/group, a masked valuation row, a masked `value_inputs` row, the five valuation metrics
+for an unmasked asset, the 33 flags, the 9,896 scores and the 129 rule rows, the exact fixture
+triple count, SHACL conformance, and the `--check-store` no-write path.
 
 ### 6.5 Runbook and no DROP
 
@@ -722,53 +672,33 @@ never run a DROP; only the maintainer may drop the one graph after a failed writ
 
 ## 7. Questions for Reviewer A
 
-1. **Existing snapshots.** Are the 10,025 `score_snapshot` FUNDAMENTAL rows already in `portfolio`
-   (or in an `ingest:FUNDAMENTAL:*` graph)? If not, should the implementation load them first, or
-   may the assessment loader create the missing snapshot? What is the authoritative join key:
-   `snapshot_id` in the IRI, or `(asset, eventTime, availableAt, rawValue)`?
-2. **Price mask.** Confirm the default excludes the whole `valuation` group (73,195 rows) and
-   `rule_input` (18,391 rows), with `--include-valuation-ratios` adding only the three ratio
-   metrics. Is excluding the three valuation ratios acceptable for the first agent version, or
-   should they be on by default for non-masked assets? The two absolute USD metrics are never
-   loaded.
-3. **Metric subset.** Confirm the 31-metric default vs a narrower tier-1 set (17 metrics cited in
-   ≥50% of assessments). The 31 set includes `nopat` (USD, 12,827 non-null, cited 49 times); keep
-   or drop it? The 31 set covers all groups except valuation/rule_input.
-4. **Filing scope.** Load all 14,639 filings (800,981 asserted) or the 10,025 assessed filings
-   first (621,598 asserted, C-pilot)? The pilot drops 4,614 filings that have metrics but no
-   assessment.
-5. **Text clock.** For the generated narrative, should the agent filter on `availableAt` (filing
-   date) or `computedAt` (2026-11-03)? The design recommends marking it generated and not treating
-   it as a contemporaneous fact; a `:textAvailableAt = max(available_at, computed_at)` is the strict
-   alternative.
-6. **129 rule rows.** Keep their `prompt_hash` (present, same hash) or omit it? Confirm the exact
-   `provenance_note` and that `score_raw_0_100`/`rating` stay null.
+1. **`value_inputs` in the v2 delivery.** The v2 file has 550 `value_inputs` rows for masked assets.
+   The loader drops `value_inputs` before projection (no property); it stops only if such a row is
+   forced into the load set. Confirm that is the intended reading, or the delivery must be
+   regenerated without those 550 rows.
+2. **Filing scope.** Load all 14,639 filings (834,586 asserted) or the 10,025 assessed filings first
+   (644,512 asserted, C-pilot)? The pilot drops 4,614 filings that have metrics but no assessment.
+3. **Metric IDs.** The final model has no per-metric map; values are keyed by
+   `(filing_id, metric_name)`. Is that enough, or must every `metric_id` be an individually
+   addressable RDF resource? If the latter, the fallback is model A restricted to 37 metrics and
+   the assessed-only pilot.
+4. **Text nodes.** Is storing narrative/strengths/risks as repeated literals on the assessment
+   enough, or do you want separate narrative/point nodes?
+5. **Labels.** Approve the 58-row proposed table (2 classes + 19 properties + 37 metric concepts);
+   `labels.ttl` stays untouched until then.
+6. **Shape count.** Four new shapes take the named count from 40 to 44; confirm the rebaseline.
 7. **Graph name.** Confirm `urn:graph:derived:fundamentals:{label}` and the append-only/no-DROP
-   rule. Is `final` the only label for this delivery?
-8. **Metric IDs.** Is the one `:metricIdsJson` map per filing enough, or must every `metric_id` be
-   an individually addressable RDF resource? If the latter, the fallback is model A restricted to
-   31 metrics and the assessed-only pilot.
-9. **Text nodes.** Is storing narrative/strengths/risks as repeated literals on the assessment
-   enough, or do you want separate `:AssessmentNarrative`/`:AssessmentPoint` nodes? The design
-   recommends the repeated-literal form to keep the volume low; the boolean and note are on the
-   same node.
-10. **Labels.** Confirm the 31 metric concepts under a new `FundamentalMetricScheme` in
-    `labels.ttl`, with `skos:notation` = the source `metric_name`, bilingual labels/comments and
-    `metric_group`/`metric_unit`; and the TBox class/property labels in `tbox.ttl` (T-754 pattern).
-11. **Shape count.** Four new shapes (`FundamentalFilingShape`, `FundamentalMetricSetShape`,
-    `FundamentalAssessmentShape`, `FundamentalMetricDefinitionShape`) take the named shape count
-    from 40 to 44; confirm the count update and the FR-001 rebaseline in the implementation PR.
-
----
+   rule; `final` is the only label for this delivery.
 
 ## Appendix A — the 38 metrics and the assessment citations
 
 The citation column is a case-insensitive alias count over `narrative` + `strengths` + `risks`
 (e.g. `ROIC`, `return on invested capital`, `FCF margin`); it is an indicative count, not a
-semantic parse. `load` = default 31, `flag` = only with `--include-valuation-ratios`, `never` =
-not loaded.
+semantic parse. The v2 row counts are shown; `load` means the 37-metric allowlist loads it for every
+filing, with the loader stopping on a valuation row of a masked asset. `value_inputs` is the only
+`never` (no property; its rows are dropped).
 
-| Metric | Group | Unit | Rows | Non-null | Assessments citing | Default |
+| Metric | Group | Unit | Rows | Non-null | Assessments citing | Policy |
 |---|---|---|---:|---:|---:|---|
 | `return_on_equity` | profitability | ratio | 14,639 | 13,330 | 9,202 | load |
 | `return_on_invested_capital` | roic | ratio | 14,639 | 11,535 | 8,821 | load |
@@ -785,7 +715,7 @@ not loaded.
 | `return_on_assets` | profitability | ratio | 14,639 | 12,385 | 7,541 | load |
 | `cash_ratio` | liquidity | x | 14,639 | 12,124 | 6,761 | load |
 | `current_ratio` | liquidity | x | 14,639 | 12,315 | 6,380 | load |
-| `free_cash_flow_yield` | valuation | ratio | 14,639 | 12,053 | 6,098 | flag |
+| `free_cash_flow_yield` | valuation | ratio | 14,089 | 11,601 | 6,098 | load |
 | `revenue_growth` | growth | ratio | 14,612 | 14,585 | 5,246 | load |
 | `debt_to_equity` | leverage | x | 14,639 | 11,955 | 4,999 | load |
 | `quick_ratio` | liquidity | x | 14,639 | 11,136 | 3,638 | load |
@@ -795,17 +725,17 @@ not loaded.
 | `free_cash_flow_growth` | growth | ratio | 14,612 | 10,092 | 2,643 | load |
 | `return_on_invested_capital_effective_rate` | roic | ratio | 14,639 | 10,462 | 2,499 | load |
 | `asset_turnover` | efficiency | x | 14,639 | 14,145 | 2,458 | load |
-| `sbc_adjusted_fcf_yield` | valuation | ratio | 14,639 | 10,712 | 2,341 | flag |
+| `sbc_adjusted_fcf_yield` | valuation | ratio | 14,089 | 10,274 | 2,341 | load |
 | `effective_tax_rate` | roic | ratio | 14,639 | 13,053 | 2,081 | load |
-| `enterprise_fcf_yield` | valuation | ratio | 14,639 | 9,233 | 1,972 | flag |
+| `enterprise_fcf_yield` | valuation | ratio | 14,089 | 8,900 | 1,972 | load |
 | `receivables_turnover` | efficiency | x | 14,639 | 12,315 | 1,885 | load |
 | `inventory_turnover` | efficiency | x | 14,639 | 6,979 | 1,069 | load |
 | `net_income_cagr` | cagr | ratio | 3,771 | 3,157 | 1,013 | load |
 | `revenue_cagr` | cagr | ratio | 3,771 | 3,708 | 986 | load |
 | `operating_cash_flow_cagr` | cagr | ratio | 3,771 | 3,188 | 844 | load |
-| `enterprise_value` | valuation | usd | 14,639 | 11,981 | 273 | never |
-| `market_capitalization` | valuation | usd | 14,639 | 13,988 | 167 | never |
-| `utility_cash_coverage_3y` | rule_input | ratio | 3,752 | 2,783 | 138 | never |
+| `enterprise_value` | valuation | usd | 14,089 | 11,526 | 273 | load |
+| `market_capitalization` | valuation | usd | 14,089 | 13,468 | 167 | load |
+| `utility_cash_coverage_3y` | rule_input | ratio | 3,752 | 2,783 | 138 | load |
 | `nopat` | roic | usd | 14,639 | 12,827 | 49 | load |
 | `value_inputs` | rule_input | usd | 14,639 | 14,196 | 3 | never |
 

@@ -59,10 +59,10 @@ METRIC_PROPERTIES = {
     "freeCashFlowYield",
     "sbcAdjustedFcfYield",
     "utilityCashCoverage3y",
-}
-EXCLUDED_METRICS = {
     "marketCapitalization",
     "enterpriseValue",
+}
+EXCLUDED_METRICS = {
     "valueInputs",
 }
 
@@ -212,7 +212,7 @@ def test_a_fundamentals_filing_needs_period_end() -> None:
 
 def test_a_fundamentals_metric_set_rejects_a_price_property() -> None:
     data = _base_graph()
-    data.add((METRIC_SET, KG.marketCapitalization, _decimal("1000000")))
+    data.add((METRIC_SET, KG.closePrice, _decimal("1000000")))
     conforms, results = _validate(data)
     assert not conforms
     assert METRIC_SET in _foci(results)
@@ -252,6 +252,15 @@ def test_a_rule_text_cannot_carry_a_rating() -> None:
     assert RULE_ASSESSMENT in _foci(results)
 
 
+def test_a_generated_score_must_be_between_0_and_100() -> None:
+    data = _base_graph()
+    data.remove((ASSESSMENT, KG.scoreRaw0to100, None))
+    data.add((ASSESSMENT, KG.scoreRaw0to100, _decimal("150")))
+    conforms, results = _validate(data)
+    assert not conforms
+    assert ASSESSMENT in _foci(results)
+
+
 def test_a_metric_definition_needs_a_group() -> None:
     data = _base_graph()
     data.remove((CONCEPT, KG.metricGroup, None))
@@ -260,22 +269,22 @@ def test_a_metric_definition_needs_a_group() -> None:
     assert CONCEPT in _foci(results)
 
 
-def test_a_usd_metric_definition_must_be_ebitda_or_nopat() -> None:
+def test_a_usd_metric_definition_must_be_one_of_the_four_allowed() -> None:
     data = _base_graph()
-    price = KG.FundamentalMetric_market_capitalization
-    data.add((price, RDF.type, SKOS.Concept))
-    data.add((price, SKOS.inScheme, SCHEME))
-    data.add((price, SKOS.notation, rdflib.Literal("market_capitalization")))
-    data.add((price, KG.labelScheme, KG.PresentationScheme))
-    data.add((price, RDFS.label, rdflib.Literal("Market capitalization", lang="en")))
-    data.add((price, RDFS.label, rdflib.Literal("Capitalización de mercado", lang="es")))
-    data.add((price, RDFS.comment, rdflib.Literal("A price-derived amount.", lang="en")))
-    data.add((price, RDFS.comment, rdflib.Literal("Un importe derivado del precio.", lang="es")))
-    data.add((price, KG.metricGroup, rdflib.Literal("valuation")))
-    data.add((price, KG.metricUnit, rdflib.Literal("usd")))
+    bad = KG.FundamentalMetric_value_inputs
+    data.add((bad, RDF.type, SKOS.Concept))
+    data.add((bad, SKOS.inScheme, SCHEME))
+    data.add((bad, SKOS.notation, rdflib.Literal("value_inputs")))
+    data.add((bad, KG.labelScheme, KG.PresentationScheme))
+    data.add((bad, RDFS.label, rdflib.Literal("Value inputs", lang="en")))
+    data.add((bad, RDFS.label, rdflib.Literal("Entradas de valor", lang="es")))
+    data.add((bad, RDFS.comment, rdflib.Literal("A rule input.", lang="en")))
+    data.add((bad, RDFS.comment, rdflib.Literal("Una entrada de regla.", lang="es")))
+    data.add((bad, KG.metricGroup, rdflib.Literal("rule_input")))
+    data.add((bad, KG.metricUnit, rdflib.Literal("usd")))
     conforms, results = _validate(data)
     assert not conforms
-    assert price in _foci(results)
+    assert bad in _foci(results)
 
 
 def test_a_metric_definition_unit_must_be_ratio_x_or_usd() -> None:
@@ -301,7 +310,7 @@ def test_the_four_fundamentals_shapes_are_declared() -> None:
     } <= named
 
 
-def test_the_tbox_has_the_35_metric_properties_and_no_price_property() -> None:
+def test_the_tbox_has_the_37_metric_properties_and_no_value_inputs_property() -> None:
     g = tbox()
     actual = {
         subject
@@ -321,11 +330,11 @@ def test_prompt_hash_is_not_modelled() -> None:
     assert (KG.promptHash, RDFS.label, None) not in g
 
 
-def test_only_ebitda_and_nopat_are_usd_metrics() -> None:
+def test_the_usd_metrics_are_the_four_market_value_and_cash_flow_names() -> None:
     g = tbox()
     comments = {name: str(g.value(KG[name], RDFS.comment)) for name in METRIC_PROPERTIES}
     usd = {name for name, comment in comments.items() if "USD" in comment}
-    assert usd == {"ebitda", "nopat"}
+    assert usd == {"ebitda", "nopat", "marketCapitalization", "enterpriseValue"}
 
 
 def test_the_domain_widening_does_not_drop_an_existing_type() -> None:

@@ -522,25 +522,25 @@ what the store *enforces*.
     `urn:graph:labels`; `LabelConceptShape` requires one `skos:notation`, one `skos:inScheme`, one
     `rdfs:label`/`rdfs:comment` per language and only `@en`/`@es` `skos:altLabel`s on every concept
     marked with `:labelScheme :PresentationScheme`. The file is now in the FR-001 bundle and the
-    load plan. Counts: **60 classes (46 disjoint leaves), 44 named shapes, 6828 quads;
-    conforms: True**; load plan **21 graphs / 7105 asserted triples** (production **5 / 6584**).
+    load plan. Counts: **60 classes (46 disjoint leaves), 44 named shapes, 6854 quads;
+    conforms: True**; load plan **21 graphs / 7131 asserted triples** (production **5 / 6610**).
     The store must be reloaded afterwards.
 
 16. **Fundamentals block C schema (Work item 45, T-811/T-812, 2026-11-13).** `tbox.ttl` gains
-    `:FundamentalMetricSet` and `:FundamentalAssessment` (Observation leaves), the 35 direct
-    decimal metric properties (the 31 base metrics plus the three valuation yields and
-    `utility_cash_coverage_3y`; `market_capitalization`, `enterprise_value` and `value_inputs`
-    have no property; the loader skips the three valuation yields for the 33 masked assets, while
-    `utility_cash_coverage_3y` loads for all), the
-    filing support (`:filingId`, `:periodEnd`, `:fiscalYear`, `:fiscalPeriod`), the assessment
-    properties and the metric definition `:metricGroup`/`:metricUnit`. `:availableAt` loses its
+    `:FundamentalMetricSet` and `:FundamentalAssessment` (Observation leaves), the **37** direct
+    decimal metric properties (the 38 source names minus `value_inputs`; includes
+    `market_capitalization` and `enterprise_value`), the filing support (`:filingId`,
+    `:periodEnd`, `:fiscalYear`, `:fiscalPeriod`), the assessment properties and the metric
+    definition `:metricGroup`/`:metricUnit`. `:pricesNotPublished` on `:Asset` carries the 33
+    masked-asset flags. The loader (PR 2) stops on any `valuation` or `value_inputs` row of a
+    masked asset; the other 550 assets load all five valuation metrics. `:availableAt` loses its
     `:ScoreSnapshot` domain; `:computedAt`/`:eventTime` widen to `:Observation`. `shapes.ttl`
     gains `FundamentalFilingShape`, `FundamentalMetricSetShape`, `FundamentalAssessmentShape` and
     `FundamentalMetricDefinitionShape`; the four have synthetic positive/negative tests in
-    `tests/test_fundamentals_shapes.py`. The 35 metric concepts are proposed in
+    `tests/test_fundamentals_shapes.py`. The 37 metric concepts are proposed in
     `docs/labels-fundamentals-review.md` and stay out of `labels.ttl` until Reviewer A approves
-    them. Counts: **60 classes (46 disjoint leaves), 44 named shapes, 6828 quads; conforms:
-    True**; load plan **21 graphs / 7105 asserted triples** (production **5 / 6584**). The store
+    them. Counts: **60 classes (46 disjoint leaves), 44 named shapes, 6854 quads; conforms:
+    True**; load plan **21 graphs / 7131 asserted triples** (production **5 / 6610**). The store
     must be reloaded afterwards.
 
 ## Validation
