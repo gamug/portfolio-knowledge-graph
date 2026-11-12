@@ -425,8 +425,8 @@ what the store *enforces*.
    `:attractivenessOfAsset` optional and requires an asset link **or** `:rankingTicker`, because the
    shared universe database does not know every backtest ticker; a no-component row stays visible
    as upstream's placeholder (score 0.0, `vetoRulesJson` `["UNSCORED"]`/`["UNPRICED"]`, no
-   `:hasEffectiveWeight`). `v_veto.evidence_json` is not projected (price-derived values under the
-   Tiingo rule). The selection graph is the sibling
+   `:hasEffectiveWeight`). `v_veto.evidence_json` is not projected (price-derived per-asset values
+   are not published). The selection graph is the sibling
    `urn:graph:derived:backtest:selection:{run_label}:{P<n>|H<n>}:{run_id}`, accepted by the gate.
    `tbox.ttl` is now **58 classes (44 disjoint leaves, 13 backbone)** and `shapes.ttl` **39 named
    shapes** (the three new ones are `SelectionCycleShape`, `BacktestRankingShape` and

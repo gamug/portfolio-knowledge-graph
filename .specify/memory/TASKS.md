@@ -1325,7 +1325,8 @@ starts at T-751. See `docs/labels-design.md` and `PLAN.md` Work item 43.*
       Record the graph mapping, concept vocabulary, window/strategy labels,
       drafting rules, English-review workflow, v1.3 instruction changes and the
       16-question evaluation sheet (including the two label traps).
-- [ ] **T-751** Create `schema/labels.ttl` with the schemes, concepts,
+- [x] **T-751** *(done 2026-11-10: PR #143; `schema/labels.ttl`, `tests/test_labels.py`.)*
+      Create `schema/labels.ttl` with the schemes, concepts,
       `skos:notation` codes, bilingual labels/comments/altLabels and the two
       window condition fields; include `MARKOWITZ_MV` only once the WI44 arm code
       exists; add `tests/test_labels.py` for notation uniqueness per scheme, one
@@ -1333,24 +1334,32 @@ starts at T-751. See `docs/labels-design.md` and `PLAN.md` Work item 43.*
       notations when WI44 is loaded and no B0/MCF/`MARKOWITZ_SAMPLE*`/`BMK_*`/
       `TOPN_MV_GUARD` concept, and the absence of C1/`rule`/`candidate_y2`. No run
       IRI.
-- [ ] **T-752** Add `LabelConceptShape` to `shapes.ttl`; add `labels.ttl` to
+- [x] **T-752** *(done 2026-11-10: PR #144; `LabelConceptShape`, load plan, FR-001 and counts.)*
+      Add `LabelConceptShape` to `shapes.ttl`; add `labels.ttl` to
       `LOAD_PLAN` and FR-001; update `expected_sizes`, the load-plan tests, the
       acceptance "4 schema graphs" expectation, the shape count (39 → 40) and every
       live count (6072, 6349, 5828, 21/5 graphs).
-- [ ] **T-753** Add bilingual labels/comments to the seven GUARD rules and the
+- [x] **T-753** *(done 2026-11-10: PR #145; 18 bilingual rule labels/comments.)*
+      Add bilingual labels/comments to the seven GUARD rules and the
       active selection rules in `rules.ttl`; label the three veto-class concepts
       and the markers; rewrite the touched `L4_DD` comment with "all the reference
       weights, including the SPY core" and without Grossman-Zhou.
-- [ ] **T-754** Add bilingual labels/comments to the schema classes/properties of
+- [x] **T-754** *(done 2026-11-10: PR #146; class, property and MetricType labels.)*
+      Add bilingual labels/comments to the schema classes/properties of
       the strategy-book, GUARD, veto, score, rank, configuration and process
       groups; label the `MetricTypeScheme` concepts; add the `objective` label
       "Registered optimization class" and keep the WI 41 comment facts; the
       `:nGuardActions` comment says it counts GUARD actions executed on the book,
       and that 0 means "not applicable" (not "GUARD did not act") in
       `MARKOWITZ_BASE`, `TOPN_MV_NOGUARD` and `MARKOWITZ_MV`.
-- [ ] **T-755** Write `docs/labels-en-review.md` (code, ES comment, EN draft,
-      reviewer decision) and obtain Reviewer A's approval before freezing.
-- [ ] **T-756** Freeze the approved English; run the final label audit; decide the
+- [x] **T-755** *(done 2026-11-10: PR #147; 147-row review table; Reviewer A approved
+      on 2026-11-11, six corrections.)* Write `docs/labels-en-review.md` (code, ES
+      comment, EN draft, reviewer decision) and obtain Reviewer A's approval before
+      freezing.
+- [x] **T-756** *(done 2026-11-12: English frozen, six corrections applied,
+      Tiingo/Grossman cleanup, final label audit and counts verified; the mirror
+      keeps its target text and only the `:alertValue` phrase changed.)* Freeze the
+      approved English; run the final label audit; decide the
       `kg_target_schema.ttl` mirror; clean the remaining Tiingo/Grossman comments
       only if the global scope is confirmed.
 - [ ] **T-757** Write `docs/ttyg/instructions-v1.3.md` with the §9 changes and

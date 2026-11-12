@@ -334,18 +334,22 @@
     rdfs:label "Run Configuration" ;
     rdfs:label "configuración de la corrida"@es ;
     skos:definition "Configuración congelada de una etiqueta de backtest: la etiqueta, el identificador de configuración, el commit de código, la pull request, el documento de resultados y el estado que produjeron la familia de corridas."@es ;
-    rdfs:comment """Portfolio system configuration Y2 (round 4). Every 21 trading sessions the book is rebuilt as 50% SPY (core) and
-50% satellite. The satellite is chosen from the point-in-time S&P 500 members: technical, valuation and LLM-scored
-fundamental scores are blended, hard vetoes exclude a company and soft vetoes lower its score, and the top 60 names
-form the candidate pool. A minimum-variance optimisation (Ledoit-Wolf constant-correlation covariance, 756 sessions)
-then holds at most 30 names, with a 5% name cap and a 30% sector cap. A trend filter (SPY against its 210-session
-average, adapted from Faber 2007) moves half of the book to cash at a decision date when SPY is below its average.
-After every close, GUARD sets the next session's weights. Layer 1 is a Basing Points stop (Edwards & Magee,
-Bassetti's rules 1-4) on satellite names. Layer 3 scales exposure by volatility (Moreira & Muir 2017). Layer 4
-scales exposure by drawdown (Grossman & Zhou 1993). Layer 2 (news) is off. Costs are 10 basis points per trade, and
-cash earns the Kenneth French daily risk-free rate. The four arms compare this system with and without GUARD against
-a minimum-variance book over the whole eligible universe, with and without GUARD. That book's GUARD keeps the
-original layer-1 stop-loss, inspired by Kaminski & Lo (2014).""" .
+    rdfs:comment """Portfolio system configuration B5, the final configuration (label final, code_commit 5958c6b). Nominally, every 21
+trading sessions the book is rebuilt as 50% SPY (core) and 50% satellite; the realized composition differs because of
+the trend filter, the optimiser and GUARD. The satellite is chosen from the point-in-time S&P 500 members: technical,
+valuation and LLM-scored fundamental scores are blended, hard vetoes exclude a company and soft vetoes lower its score,
+and the top 60 names form the candidate pool; the score only delimits the pool and does not drive the weights. A
+minimum-variance optimisation (Ledoit-Wolf constant-correlation covariance, 756 sessions) keeps at most 30 names, with a
+name cap of 1.5 divided by the number of names held and a 30% sector cap; those names are then weighted by minimum
+conditional value-at-risk (confidence 0.95) over the same 756 sessions, under the same caps. A trend filter compares SPY's
+total-return index with its own 210-session simple average at each decision date and moves half of the book to cash
+when it is below. After every close GUARD sets the next session's weights: layer 1 is a Basing Points stop on satellite
+names; layer 3 scales exposure by volatility and never acted in any window; layer 4 scales all the reference weights,
+including the SPY core, by the fall of the portfolio's value from its running maximum; layer 2 (news) is off. Costs are
+10 basis points of turnover, and cash earns the Kenneth French daily risk-free rate. The four arms compare this system
+with and without GUARD against a minimum-variance book over the whole eligible universe, with and without GUARD; that
+book's GUARD keeps the original layer-1 stop-loss. All six windows were seen before the final configuration was chosen,
+so every result is in-sample.""" .
 
 :AggregatesSet
     a owl:Class ;
@@ -1043,8 +1047,8 @@ original layer-1 stop-loss, inspired by Kaminski & Lo (2014).""" .
 :objective a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :StrategyBook ; rdfs:range xsd:string ;
     rdfs:label "Registered optimization class"@en ;
     rdfs:label "Clasificación de optimización registrada"@es ;
-    rdfs:comment "v_book.objective, upstream's strategy_book.objective, open and read verbatim. Upstream's _insert_books function writes it as a fixed literal per arm: 'min_var' for every optimized arm and 'equal_weight' for the benchmark SP500_EW_INTERNAL, independent of the run's satellite_weighting. The delivery's config_final.md describes a minimum-variance optimisation step that keeps at most 30 names, followed by minimum-CVaR weighting of those names, so the literal 'min_var' is NOT the weighting objective of the TOPN_MV_* books and must not be presented as such. Confirmation of the full meaning by upstream's maintainer is pending. On the external MARKOWITZ_MV book the loader writes 'max_sharpe' as the registered class (pending Reviewer A); it is not an engine arm."@en ;
-    rdfs:comment "v_book.objective, la etiqueta strategy_book.objective de upstream, abierta y leída verbatim. La función _insert_books de upstream la escribe como literal fijo por brazo: 'min_var' para todo brazo optimizado y 'equal_weight' para el benchmark SP500_EW_INTERNAL, independientemente de satellite_weighting de la corrida. El config_final.md de la entrega describe un paso de optimización de mínima varianza que mantiene como máximo 30 nombres, seguido de una ponderación por mínimo CVaR de esos nombres, así que el literal 'min_var' NO es la función objetivo de ponderación de los libros TOPN_MV_* y no debe presentarse como tal. La confirmación del significado completo por el mantenedor de upstream está pendiente. En el libro externo MARKOWITZ_MV el loader escribe 'max_sharpe' como clase registrada (pendiente de Reviewer A); no es un brazo del motor."@es .
+    rdfs:comment "v_book.objective, upstream's strategy_book.objective, open and read verbatim. Upstream's _insert_books function writes it as a fixed literal per arm: 'min_var' for every optimized arm and 'equal_weight' for the benchmark SP500_EW_INTERNAL, independent of the run's satellite_weighting. The delivery's config_final.md describes a minimum-variance optimisation step that keeps at most 30 names, followed by minimum-CVaR weighting of those names, so the literal 'min_var' is NOT the weighting objective of the TOPN_MV_* books and must not be presented as such. Upstream confirmed (2026-11-09) that 'min_var' documents the minimum-variance selection stage; the final weights of the TOPN_MV_* books are minimum-CVaR. On the external MARKOWITZ_MV book the loader writes 'max_sharpe' as the registered class: the tangency portfolio maximises the Sharpe ratio; it is not an engine arm."@en ;
+    rdfs:comment "v_book.objective, la etiqueta strategy_book.objective de upstream, abierta y leída verbatim. La función _insert_books de upstream la escribe como literal fijo por brazo: 'min_var' para todo brazo optimizado y 'equal_weight' para el benchmark SP500_EW_INTERNAL, independientemente de satellite_weighting de la corrida. El config_final.md de la entrega describe un paso de optimización de mínima varianza que mantiene como máximo 30 nombres, seguido de una ponderación por mínimo CVaR de esos nombres, así que el literal 'min_var' NO es la función objetivo de ponderación de los libros TOPN_MV_* y no debe presentarse como tal. Upstream confirmó (2026-11-09) que 'min_var' documenta la etapa de selección por mínima varianza; los pesos finales de los libros TOPN_MV_* son de mínimo CVaR. En el libro externo MARKOWITZ_MV el loader escribe 'max_sharpe' como clase registrada: la cartera tangente maximiza la razón de Sharpe; no es un brazo del motor."@es .
 :dataSource a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :StrategyBook ; rdfs:range xsd:string ;
     rdfs:comment "Work item 44: the provenance label of a book computed outside the engine, read from the delivery's source string (e.g. 'independent simulator validated against the engine'). Optional and at most one; the engine arms carry no value." .
 :excludeHardVetoed a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :StrategyBook ; rdfs:range xsd:boolean  .
@@ -1075,7 +1079,7 @@ original layer-1 stop-loss, inspired by Kaminski & Lo (2014).""" .
 :alertDate a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :GuardAlert ; rdfs:range xsd:date ;
     rdfs:comment "v_guard_alert.date, the session close the alert was raised at." .
 :alertValue a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :GuardAlert ; rdfs:range xsd:decimal ;
-    rdfs:comment "Optional: v_guard_alert.value. Always NULL on layer 1 (the asset's return is masked under the Tiingo non-redistribution rule); :alertState is always populated, and :alertThreshold on every rule except the two Basing Points rules (Work item 33)." .
+    rdfs:comment "Optional: v_guard_alert.value. Always NULL on layer 1 (per-asset returns are not published in the graph); :alertState is always populated, and :alertThreshold on every rule except the two Basing Points rules (Work item 33)." .
 :alertThreshold a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :GuardAlert ; rdfs:range xsd:decimal ;
     rdfs:comment "v_guard_alert.threshold. Required for every alert except L1_BP_STOP/L1_BP_REENTRY, where it is the individual asset's stop price level and is therefore forbidden (Work item 33: upstream's licence does not allow redistributing it). L1_STOP_LOSS/L1_REENTRY keep their fixed parameter. SHACL enforces both sides." .
 :alertState a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :GuardAlert ; rdfs:range xsd:string ;

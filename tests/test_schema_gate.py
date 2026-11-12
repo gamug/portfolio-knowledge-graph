@@ -23,18 +23,22 @@ SPEC = SCHEMA.parent / ".specify" / "memory" / "SPEC.md"
 KG = rdflib.Namespace("https://thesis.local/kg/portfolio#")
 
 #: The frozen English configuration body from config_<label>.md, hard line breaks included.
-RUN_CONFIGURATION_TEXT = """Portfolio system configuration Y2 (round 4). Every 21 trading sessions the book is rebuilt as 50% SPY (core) and
-50% satellite. The satellite is chosen from the point-in-time S&P 500 members: technical, valuation and LLM-scored
-fundamental scores are blended, hard vetoes exclude a company and soft vetoes lower its score, and the top 60 names
-form the candidate pool. A minimum-variance optimisation (Ledoit-Wolf constant-correlation covariance, 756 sessions)
-then holds at most 30 names, with a 5% name cap and a 30% sector cap. A trend filter (SPY against its 210-session
-average, adapted from Faber 2007) moves half of the book to cash at a decision date when SPY is below its average.
-After every close, GUARD sets the next session's weights. Layer 1 is a Basing Points stop (Edwards & Magee,
-Bassetti's rules 1-4) on satellite names. Layer 3 scales exposure by volatility (Moreira & Muir 2017). Layer 4
-scales exposure by drawdown (Grossman & Zhou 1993). Layer 2 (news) is off. Costs are 10 basis points per trade, and
-cash earns the Kenneth French daily risk-free rate. The four arms compare this system with and without GUARD against
-a minimum-variance book over the whole eligible universe, with and without GUARD. That book's GUARD keeps the
-original layer-1 stop-loss, inspired by Kaminski & Lo (2014)."""
+RUN_CONFIGURATION_TEXT = """Portfolio system configuration B5, the final configuration (label final, code_commit 5958c6b). Nominally, every 21
+trading sessions the book is rebuilt as 50% SPY (core) and 50% satellite; the realized composition differs because of
+the trend filter, the optimiser and GUARD. The satellite is chosen from the point-in-time S&P 500 members: technical,
+valuation and LLM-scored fundamental scores are blended, hard vetoes exclude a company and soft vetoes lower its score,
+and the top 60 names form the candidate pool; the score only delimits the pool and does not drive the weights. A
+minimum-variance optimisation (Ledoit-Wolf constant-correlation covariance, 756 sessions) keeps at most 30 names, with a
+name cap of 1.5 divided by the number of names held and a 30% sector cap; those names are then weighted by minimum
+conditional value-at-risk (confidence 0.95) over the same 756 sessions, under the same caps. A trend filter compares SPY's
+total-return index with its own 210-session simple average at each decision date and moves half of the book to cash
+when it is below. After every close GUARD sets the next session's weights: layer 1 is a Basing Points stop on satellite
+names; layer 3 scales exposure by volatility and never acted in any window; layer 4 scales all the reference weights,
+including the SPY core, by the fall of the portfolio's value from its running maximum; layer 2 (news) is off. Costs are
+10 basis points of turnover, and cash earns the Kenneth French daily risk-free rate. The four arms compare this system
+with and without GUARD against a minimum-variance book over the whole eligible universe, with and without GUARD; that
+book's GUARD keeps the original layer-1 stop-loss. All six windows were seen before the final configuration was chosen,
+so every result is in-sample."""
 
 # Load order from schema/README.md; everything but instances.trig is Turtle.
 TURTLE_FILES = ("tbox.ttl", "shapes.ttl", "reference.ttl", "rules.ttl", "labels.ttl")
@@ -1288,8 +1292,8 @@ def test_strategy_book_objective_comment_does_not_read_min_var_as_the_weighting(
 
     The old comment called ``min_var`` the strategy book's objective. Upstream's ``_insert_books``
     writes it as a fixed per-arm literal, the delivery's ``config_final.md`` describes a
-    minimum-variance optimisation followed by minimum-CVaR weighting, and upstream's confirmation
-    of the full meaning is pending. The property declaration itself must stay unchanged.
+    minimum-variance optimisation followed by minimum-CVaR weighting, and upstream confirmed the
+    full meaning on 2026-11-09 (T-756). The property declaration itself must stay unchanged.
     """
     tbox = rdflib.Graph().parse(SCHEMA / "tbox.ttl", format="turtle")
     comment = str(tbox.value(KG.objective, rdflib.RDFS.comment))
@@ -1304,12 +1308,21 @@ def test_strategy_book_objective_comment_does_not_read_min_var_as_the_weighting(
     assert "config_final.md" in comment
     assert "minimum-CVaR weighting" in comment
     assert "NOT the weighting objective of the TOPN_MV_* books" in comment
-    assert "pending" in comment
+    assert "Upstream confirmed (2026-11-09)" in comment
+    assert "minimum-variance selection stage" in comment
+    assert "tangency portfolio maximises the Sharpe ratio" in comment
 
     assert (KG.objective, rdflib.RDF.type, rdflib.OWL.DatatypeProperty) in tbox
     assert (KG.objective, rdflib.RDF.type, rdflib.OWL.FunctionalProperty) in tbox
     assert tbox.value(KG.objective, rdflib.RDFS.domain) == KG.StrategyBook
     assert tbox.value(KG.objective, rdflib.RDFS.range) == rdflib.XSD.string
 
+    # The target mirror is a proposal sent upstream and is not part of the T-756 label freeze;
+    # it keeps the Work item 41 tail. Both schemas must keep the invariant below.
+    invariant = (
+        "so the literal 'min_var' is NOT the weighting objective of the TOPN_MV_* books "
+        "and must not be presented as such."
+    )
+    assert invariant in comment
     target = rdflib.Graph().parse(SCHEMA.parent / "kg_target_schema.ttl", format="turtle")
-    assert str(target.value(KG.objective, rdflib.RDFS.comment)) == comment
+    assert invariant in str(target.value(KG.objective, rdflib.RDFS.comment))
