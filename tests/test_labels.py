@@ -1,8 +1,8 @@
-"""The presentation vocabulary in ``schema/labels.ttl`` (Work item 43, T-751).
+"""The presentation vocabulary in ``schema/labels.ttl`` (Work item 43, T-751; T-816).
 
-It is not loaded yet: T-752 adds it to the load plan and FR-001. This test fixes the vocabulary
-contract before that: one label and one comment per language, one notation per scheme, the six
-windows, the five final strategies and the absence of C1/rule/candidate_y2.
+It is in FR-001 and the load plan. This test fixes the vocabulary contract: one label and one
+comment per language, one notation per scheme, the six windows, the five final strategies, the
+37 fundamental metric concepts and the absence of C1/rule/candidate_y2.
 """
 
 from __future__ import annotations
@@ -27,6 +27,7 @@ SCHEMES = {
     "RankScheme",
     "ConfigScheme",
     "ProcessScheme",
+    "FundamentalMetricScheme",
 }
 WINDOW_CODES = {"P1", "H1", "P3", "H2", "P2", "H3"}
 STRATEGY_CODES = {
@@ -63,7 +64,7 @@ def concepts(g: rdflib.Graph) -> set[rdflib.URIRef]:
     }
 
 
-def test_the_file_parses_and_has_the_ten_schemes() -> None:
+def test_the_file_parses_and_has_the_eleven_schemes() -> None:
     g = graph()
     schemes = {
         str(s).rsplit("#", 1)[-1]
@@ -71,6 +72,64 @@ def test_the_file_parses_and_has_the_ten_schemes() -> None:
         if isinstance(s, rdflib.URIRef)
     }
     assert schemes == SCHEMES
+
+
+FUNDAMENTAL_METRIC_CODES = {
+    "asset_turnover",
+    "capex_intensity",
+    "cash_ratio",
+    "current_ratio",
+    "debt_to_assets",
+    "debt_to_equity",
+    "ebitda",
+    "effective_tax_rate",
+    "free_cash_flow_conversion",
+    "free_cash_flow_growth",
+    "free_cash_flow_margin",
+    "gross_margin",
+    "interest_coverage",
+    "inventory_turnover",
+    "net_debt_to_ebitda",
+    "net_income_cagr",
+    "net_income_growth",
+    "net_margin",
+    "nopat",
+    "operating_cash_flow_cagr",
+    "operating_cash_flow_margin",
+    "operating_income_growth",
+    "operating_margin",
+    "quick_ratio",
+    "receivables_turnover",
+    "return_on_assets",
+    "return_on_equity",
+    "return_on_invested_capital",
+    "return_on_invested_capital_effective_rate",
+    "revenue_cagr",
+    "revenue_growth",
+    "enterprise_fcf_yield",
+    "free_cash_flow_yield",
+    "sbc_adjusted_fcf_yield",
+    "utility_cash_coverage_3y",
+    "market_capitalization",
+    "enterprise_value",
+}
+
+
+def test_the_fundamental_metric_scheme_has_the_37_final_concepts() -> None:
+    g = graph()
+    fundamental = [
+        concept
+        for concept in concepts(g)
+        if (concept, SKOS.inScheme, KG.FundamentalMetricScheme) in g
+    ]
+    assert len(fundamental) == 37
+    assert {
+        str(g.value(concept, SKOS.notation)) for concept in fundamental
+    } == FUNDAMENTAL_METRIC_CODES
+    assert "value_inputs" not in FUNDAMENTAL_METRIC_CODES
+    for concept in fundamental:
+        assert g.value(concept, KG.metricGroup) is not None
+        assert str(g.value(concept, KG.metricUnit)) in {"ratio", "x", "usd"}
 
 
 def test_every_concept_has_one_notation_per_scheme_and_both_languages() -> None:

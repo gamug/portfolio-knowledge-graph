@@ -1367,6 +1367,9 @@ starts at T-751. See `docs/labels-design.md` and `PLAN.md` Work item 43.*
 - [ ] **T-758** Write `docs/ttyg/evaluation-questions.md` with the 16 ES/EN
       questions (including the two label traps), answer/query columns and the four
       criteria; keep it empty.
+      Include Reviewer A's fundamentals note: the three turnover ratios and ROA/ROE divide a
+      flow by a balance-sheet balance, not an average; 10-Q flows are annualized before the
+      ROA/ROE division. Do not expect averages from the turnover questions.
 - [ ] **T-759** Human run of the evaluation sheet against the loaded graph; record
       the four criteria and file the findings outside the committed sheet.
 - [ ] **T-760–T-779** Reserve for review fixes or a second label pass.
@@ -1417,11 +1420,14 @@ See `docs/fundamentals-design.md` and `PLAN.md` Work item 45.*
       domains.)* Add the fundamentals TBox terms and widen `:availableAt`/`:computedAt`/`:eventTime`.
 - [x] **T-812** *(done 2026-11-13: `schema/shapes.ttl`, `tests/test_fundamentals_shapes.py`,
       `docs/labels-fundamentals-review.md`, NR-001 counts.)* Add the four shapes, the AssetShape
-      boolean flag, the synthetic positive/negative tests, the 58-row proposed label table and the
+      boolean flag, the synthetic positive/negative tests, the 58-row approved label table and the
       count updates.
+- [x] **T-816** *(done 2026-11-13: Reviewer A's label decisions applied; 37 approved + 21
+      approved after correction; 37 metric concepts in `labels.ttl`; TTYG turnover/ROA/ROE note
+      recorded for T-758.)* Apply the fundamentals label review fixes.
 - [ ] **T-813–T-815** Loader (PR 2): strict parser/CLI, the 37-metric projection, the 33-flag mask
       set (including a masked asset without filings), a stop on a masked valuation/value_inputs row
       or an unknown masked ticker, the five valuation metrics for the other 550 assets, hermetic
       tests, the real dry run with exactly 33 flags, the runbook and the production record.
       Specific IDs are T-813–T-815 only.
-- [ ] **T-816–T-839** Reserved for review fixes; no specific IDs are assigned here.
+- [ ] **T-817–T-839** Reserved for review fixes; no specific IDs are assigned here.

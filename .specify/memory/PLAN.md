@@ -3382,6 +3382,9 @@ engine code and must not reload run data.
 - [ ] **T-758** Write `docs/ttyg/evaluation-questions.md` with the 16 ES/EN
       questions (including the two label traps) and the four criteria columns;
       keep the answers empty.
+      Include Reviewer A's fundamentals note: the three turnover ratios and ROA/ROE divide a
+      flow by a balance-sheet balance, not an average; 10-Q flows are annualized before the
+      ROA/ROE division. Do not expect averages from the turnover questions.
 - [ ] **T-759** Human run of the evaluation sheet against the loaded graph; record
       the four criteria and file the findings. No agent answer is committed.
 - [ ] **T-760–T-779** Reserve for review fixes or a second label pass.
@@ -3524,7 +3527,7 @@ constant per run and stays in the delivery hash/`source.json`). The graph is
 `urn:graph:derived:fundamentals:final`, append-only, one graph per label. On the v2 delivery
 (SHA256SUMS `fd32daed…`, 509,933 metric rows) the 37 metrics are 495,294 rows / 406,570 non-null;
 the expected batch is **834,586 asserted triples** (873,889 with inference), including the 33
-flags. T-811/T-812 landed the schema (6854 quads, 21/7131 load plan, 5/6610 production, 60
+flags. T-811/T-812 landed the schema (7227 quads, 21/7504 load plan, 5/6983 production, 60
 classes / 46 disjoint leaves / 44 shapes); the loader count is measured in T-813–T-815.
 
 **Tasks**:
@@ -3537,13 +3540,16 @@ classes / 46 disjoint leaves / 44 shapes); the loader count is measured in T-813
       Add the fundamentals TBox.
 - [x] **T-812** *(done 2026-11-13: `schema/shapes.ttl`, `tests/test_fundamentals_shapes.py`,
       `docs/labels-fundamentals-review.md`, NR-001 counts.)* Add the four shapes, the AssetShape
-      boolean flag, the synthetic tests, the proposed label table (including
+      boolean flag, the synthetic tests, the approved label table (including
       `:pricesNotPublished`) and the count updates.
 - [ ] **T-813–T-815** Loader (PR 2): strict parser/CLI, the 33-flag mask set (including a masked
       asset without filings), a stop when a masked ticker is unknown, hermetic tests, the real dry
       run with exactly 33 flags, the runbook and the production record. Only T-813–T-815 are
       assigned.
-- [ ] **T-816–T-839** Reserved for review fixes; no specific IDs are assigned.
+- [x] **T-816** *(done 2026-11-13: Reviewer A's 58-row label decisions applied; 37 approved + 21
+      approved after correction; 37 metric concepts in `labels.ttl`; TTYG turnover/ROA/ROE note
+      recorded for T-758.)* Apply the fundamentals label review fixes.
+- [ ] **T-817–T-839** Reserved for review fixes; no specific IDs are assigned.
 
 **Acceptance criteria**:
 
@@ -3564,17 +3570,16 @@ classes / 46 disjoint leaves / 44 shapes); the loader count is measured in T-813
 - T-810 changes only documentation; T-811/T-812 change the schema and its tests and make no
   GraphDB write.
 
-**Blocked on**: Reviewer A's approval of the proposed label table and the PR 1 merge; the loader
-(T-813–T-815) follows from master afterwards.
+**Blocked on**: nothing; T-816 applied Reviewer A's label decisions. The loader (T-813–T-815)
+ follows from master after this review fix.
 
 **Verified 2026-11-12**: `docs/fundamentals-design.md` and the Work item 45 records only; no
 loader, schema, label, count or GraphDB change. The delivery was read-only; `sha256sum -c` passed
 for all six manifest entries.
 
 **Verified 2026-11-13 (T-811/T-812)**: the schema has 60 classes / 46 disjoint leaves / 44 named
-shapes and **6854 quads**, the load plan is **21/7131**, production **5/6610**, and FR-001/pyshacl
+shapes and **7227 quads**, the load plan is **21/7504**, production **5/6983**, and FR-001/pyshacl
 conform. `tests/test_fundamentals_shapes.py` has 18 synthetic positive/negative cases; the
 existing explicit types are checked before/after the `:availableAt`/`:computedAt`/`:eventTime`
-domain widening. The 37 metric concepts and all new TBox terms are proposed in
-`docs/labels-fundamentals-review.md`; no metric concept has entered `labels.ttl`. No GraphDB
-write.
+domain widening. Reviewer A approved the 58-row table; the 37 metric concepts are in `labels.ttl` and the labels
+graph is **1265 triples**. No GraphDB write.

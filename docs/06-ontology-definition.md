@@ -1052,8 +1052,8 @@ parameters and process/evaluation terms. `LabelConceptShape` (in `shapes.ttl`) r
 `skos:notation`, one `skos:inScheme`, one `rdfs:label` and one `rdfs:comment` per language, and only
 `@en`/`@es` `skos:altLabel`s; windows also carry `:windowStart`, `:windowEnd`, `:historicalCondition`
 and `:finalConfigurationCondition`. The file is in FR-001 and the load plan. Counts after this
-addition: **60 classes (46 disjoint leaves), 44 named shapes, 6854 quads; conforms: True**; load plan
-**21 graphs / 7131 asserted triples** (production **5 / 6610**).
+addition: **60 classes (46 disjoint leaves), 44 named shapes, 7227 quads; conforms: True**; load plan
+**21 graphs / 7504 asserted triples** (production **5 / 6983**).
 
 ## 1.16 Fundamentals block C schema (Work item 45, T-811/T-812, 2026-11-13)
 
@@ -1063,11 +1063,11 @@ the filing support properties, the 37 direct decimal metric properties (the 38 s
 `value_inputs`; includes `market_capitalization` and `enterprise_value`), the assessment properties
 and the metric definition `:metricGroup`/`:metricUnit`. `:pricesNotPublished` on `:Asset` carries
 the 33 masked flags. The loader (PR 2) stops on any `valuation` or `value_inputs` row of a masked
-asset; the other 550 assets load all five valuation metrics. The 37 metric concepts are proposed in
-`docs/labels-fundamentals-review.md` and stay out of `labels.ttl` until Reviewer A approves them.
+asset; the other 550 assets load all five valuation metrics. Reviewer A approved the 58-row table; the 37 metric concepts are now in `labels.ttl` under
+`:FundamentalMetricScheme`.
 `:availableAt` loses its `:ScoreSnapshot` domain, and `:computedAt` / `:eventTime` widen to
 `:Observation`; the existing explicit types are checked by `tests/test_fundamentals_shapes.py`.
 `shapes.ttl` adds `FundamentalFilingShape`, `FundamentalMetricSetShape`,
 `FundamentalAssessmentShape` and `FundamentalMetricDefinitionShape`.
-Counts: **60 classes (46 disjoint leaves), 44 named shapes, 6854 quads; conforms: True**; load plan
-**21 graphs / 7131 asserted triples** (production **5 / 6610**).
+Counts: **60 classes (46 disjoint leaves), 44 named shapes, 7227 quads; conforms: True**; load plan
+**21 graphs / 7504 asserted triples** (production **5 / 6983**).

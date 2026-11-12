@@ -646,8 +646,8 @@ Strict rules, all refused with a message naming the file/row/key:
 
 The design's full-delivery expected count for C (37 metrics, all filings, no metric ID map) is
 **834,586 asserted** (873,889 with inference). The assessed-only pilot is **644,512 asserted**
-(674,587 with inference). The schema counts are **6854 quads**, load plan **21/7131** and production
-**5/6610**; 60 classes, 46 disjoint leaves, 44 shapes. The implementation must measure the actual
+(674,587 with inference). The schema counts are **7227 quads**, load plan **21/7504** and production
+**5/6983**; 60 classes, 46 disjoint leaves, 44 shapes. The implementation must measure the actual
 `D` and update every asserted count in the same PR (NR-001): FR-001, the schema/labels counts, the
 load-plan/production counts if the schema files change, and the loader fixture count. The
 full-delivery count is recorded in the runbook and the dry-run output, not in a hermetic test; the
@@ -684,8 +684,8 @@ never run a DROP; only the maintainer may drop the one graph after a failed writ
    the assessed-only pilot.
 4. **Text nodes.** Is storing narrative/strengths/risks as repeated literals on the assessment
    enough, or do you want separate narrative/point nodes?
-5. **Labels.** Approve the 58-row proposed table (2 classes + 19 properties + 37 metric concepts);
-   `labels.ttl` stays untouched until then.
+5. **Labels.** Reviewer A approved the 58-row table (2 classes + 19 properties + 37 metric
+   concepts); the 37 concepts are now in `labels.ttl` under `:FundamentalMetricScheme`.
 6. **Shape count.** Four new shapes take the named count from 40 to 44; confirm the rebaseline.
 7. **Graph name.** Confirm `urn:graph:derived:fundamentals:{label}` and the append-only/no-DROP
    rule; `final` is the only label for this delivery.
