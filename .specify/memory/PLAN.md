@@ -3495,3 +3495,55 @@ external graph; `provenance/` is not required.
 `tests/test_schema_gate.py`, `tests/test_kg_load_schema.py`,
 `tests/test_acceptance_schema_checks.py` and the selected `tests/test_ontology_v18.py` cases pass;
 real dry run output: 8 rows, 236 triples, `SHACL: conforms (gate.validate)`; no GraphDB write.
+
+## Work item 45 — Fundamentals block C loader (T-810–T-839)
+
+**Status: design open 2026-11-12; no code yet.**
+
+**Why**: Reviewer A delivered `bloque_c_fundamentales` (`SHA256SUMS`
+`f640ba4d81ce94bc4bbfa2887b310f43651d9f600d6e295e16c23808afcb5d12`): 14,639
+filings, 512,683 metric rows over 38 names in 10 groups, and 10,025 assessments (9,896 generated
+by a language model and 129 fixed coverage-rule texts). Every row has a source `available_at`; the
+delivery contains no literal price, but `market_capitalization` and `enterprise_value` are absolute
+price-derived USD amounts and `metric_group=valuation` also carries three derived yields. The
+design must price the volume, point-in-time reads, generated-text provenance and price masking
+before any loader code.
+
+**Decision (T-810)**: recommend one `:FundamentalMetricSet` per filing with 31 direct decimal
+properties (all metrics except the five `valuation` and two `rule_input` metrics) and one
+`:FundamentalAssessment` per assessment that links to the existing FUNDAMENTAL `:ScoreSnapshot`
+instead of duplicating its score. The expected batch is 800,981 asserted triples (840,284 with the
+inferred type per individual; 815,620 / 855k with the optional `:containsPriceDerivedValue` guard),
+about 20% of the current ~4.18M-triple store. The default excludes the two absolute USD valuation
+metrics permanently and the three valuation yields behind an off-by-default flag. The graph is
+`urn:graph:derived:fundamentals:final`, append-only, one graph per label. The full design and the
+questions for Reviewer A are in `docs/fundamentals-design.md`.
+
+**Tasks**:
+
+- [x] **T-810** *(done 2026-11-12: `docs/fundamentals-design.md`; design only.)* Record the
+      delivery profile, three model counts from the real files, point-in-time pattern, generated
+      text provenance, price masking, keys/IRIs/graph, loader plan and the questions for Reviewer A.
+- [ ] **T-811–T-839** Reserved for implementation; specific IDs are assigned after Reviewer A
+      answers the design questions. No other IDs are introduced here.
+
+**Acceptance criteria**:
+
+- `docs/fundamentals-design.md` prices at least three models from the real files and recommends one,
+  with the agent SPARQL, SHACL/class/property needs, bilingual `labels.ttl` rows and
+  `rdfsplus-optimized` inference cost for each.
+- The point-in-time section gives the `availableAt <= D` pattern and explains why `knowledgeDate`
+  and `validFrom` are not reused.
+- The generated-text section distinguishes the 9,896 model texts from the 129 rule texts and
+  requires the generated/not-verified marker.
+- The price-masking section counts the excluded rows and never loads the absolute USD valuation
+  metrics.
+- The loader plan includes the manifest, strict parser, dry run, `--check-store` without `--write`,
+  `--write`/`--to-production`, no DROP and the runbook step.
+- T-810 changes only documentation; no schema, `src/`, `cli/` or test change and no GraphDB write.
+
+**Blocked on**: Reviewer A's answers to the questions in `docs/fundamentals-design.md` §7.
+
+**Verified 2026-11-12**: `docs/fundamentals-design.md` and the Work item 45 records only; no
+loader, schema, label, count or GraphDB change. The delivery was read-only; `sha256sum -c` passed
+for all six manifest entries.
