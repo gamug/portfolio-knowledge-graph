@@ -3376,15 +3376,16 @@ engine code and must not reload run data.
 - [ ] **T-756** Freeze the approved English into the schema; run the final label
       audit; decide the `kg_target_schema.ttl` mirror; clean the remaining
       Tiingo/Grossman comments only if Reviewer A confirms the global scope.
-- [ ] **T-757** Write `docs/ttyg/instructions-v1.3.md` and
-      `ontology_construct_curated_v3.rq`; update `docs/ttyg/README.md` and its
-      test.
-- [ ] **T-758** Write `docs/ttyg/evaluation-questions.md` with the 16 ES/EN
-      questions (including the two label traps) and the four criteria columns;
-      keep the answers empty.
-      Include Reviewer A's fundamentals note: the three turnover ratios and ROA/ROE divide a
-      flow by a balance-sheet balance, not an average; 10-Q flows are annualized before the
-      ROA/ROE division. Do not expect averages from the turnover questions.
+- [x] **T-757** *(done 2026-11-13: v1.3 instructions, v3 CONSTRUCT, README, create-agent and
+      test; includes the fundamentals, weighting and query-hygiene rules.)* Write
+      `docs/ttyg/instructions-v1.3.md` and `ontology_construct_curated_v3.rq`; update
+      `docs/ttyg/README.md` and its test.
+- [x] **T-758** *(done 2026-11-13: `docs/ttyg/evaluation-questions.md` has the 16 ES/EN
+      questions, the T-757 additions and the Apple query-hygiene question; answers empty;
+      T-759 is the human run.)* Write the evaluation sheet, including Reviewer A's note: the
+      three turnover ratios and ROA/ROE divide a flow by a balance-sheet balance, not an
+      average; 10-Q flows are annualized before the ROA/ROE division. Do not expect averages
+      from the turnover questions.
 - [ ] **T-759** Human run of the evaluation sheet against the loaded graph; record
       the four criteria and file the findings. No agent answer is committed.
 - [ ] **T-760–T-779** Reserve for review fixes or a second label pass.
