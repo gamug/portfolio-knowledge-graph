@@ -291,7 +291,7 @@ KG_REPOSITORY=portfolio uv run python cli/load_fundamentals.py --label final \
 The expected dry run (measured 2026-11-13, no store) is **834,586 asserted triples**, 14,639
 filings and metric sets, 10,025 assessments (9,896 scored and 129 rule rows) and exactly **33**
 `:pricesNotPublished` flags, including FRC and SBNY. It ends with `SHACL: conforms
-(gate.validate)`; the measured wall time was 628.5 s (602.5 s of it SHACL) and peak memory 4.5 GB.
+(gate.validate)`; the measured wall time was 604.0 s (580.9 s of it SHACL) and peak memory 4.5 GB.
 The whole-batch SHACL is acceptable at this size; a larger delivery should batch that pass before
 a write. `--check-store` must print `pre-flight: would-be-written:
 urn:graph:derived:fundamentals:final` (or `already-in-the-store` if a previous attempt wrote it).

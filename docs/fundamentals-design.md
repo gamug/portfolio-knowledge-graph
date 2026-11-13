@@ -677,8 +677,8 @@ drop the one graph after a failed write, following `docs/backtest-load-runbook.m
 The v2 delivery, the verified mask and `/workspaces/thesis/data/universe_history_gics.db` were
 read without a store. The loader printed **834,586 asserted triples**, **33**
 `:pricesNotPublished` flags, 14,639 filings/metric sets, 10,025 assessments (9,896 scored and 129
-rule rows), and `SHACL: conforms (gate.validate)`. Timing: 25.989 s manifest+parse+project,
-602.493 s SHACL and 628.484 s total; peak memory 4,536.3 MB. The whole-batch SHACL is the same
+rule rows), and `SHACL: conforms (gate.validate)`. Timing: 23.065 s manifest+parse+project,
+580.902 s SHACL and 603.967 s total; peak memory 4,511.8 MB. The whole-batch SHACL is the same
 order as the 932 s engine dry run recorded in `final-delivery.md`, so no batching is proposed for
 this delivery; a larger delivery should batch the SHACL pass before a write. Nothing was written.
 
