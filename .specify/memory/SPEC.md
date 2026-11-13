@@ -767,7 +767,7 @@ rows (before: ranking 34/0/2, veto 9/2/3 across P1/P2/P3; after: 0).
 Real dry runs (read-only): P1 42,700 rows/individuals, **321,324** triples, 56.45 s, 1,214,004 KB
 peak RSS; P2 41,259, **309,728**, 53.94 s, 1,155,632 KB; P3 45,440, **342,934**, 58.35 s,
 1,285,948 KB; all `pyshacl conforms: True`. The schema gains `:SelectionCycle` and the ranking
-properties; the FR-001 bundle is **7227 quads** (60 classes, 46 leaves, 44 shapes) and the load plan
+properties; the FR-001 bundle is **7,227 asserted triples at that revision** (60 classes, 46 leaves, 44 shapes) and the load plan
 is 7504 asserted triples. The query catalog adds `selection-ranking-at-rebalance`,
 `selection-vetoes-in-force` and `selection-why-not-top30` (renamed `selection-why-not-selected` by
 Work item 36, because the pool is not a fixed top-N list), and moves Q9/B5 to `Today`. No GraphDB
@@ -840,7 +840,7 @@ counted; no `:Asset` is invented and no link crosses CIKs. The real dry runs ove
 ticker-history rows, built 198 triples and 21 individuals per database, linked 17 exact + 4 by CIK
 with 0 unlinked, omitted 4 multi-date evidence cells, and reported 0 orchestrator rows / nothing to
 write; each graph is `pyshacl`-conformant in 1.25–1.42 s at ~73 MB peak RSS. The gate accepts the
-two new graph patterns. No schema file changed; the bundle stays **7227 quads, conforms: True**
+two new graph patterns. No schema file changed; the bundle stays **7,227 asserted triples, conforms: True**
 (Work item 26's schema is the current revision).
 
 **FIBO Phase 1 alignment (2026-11-03, T-210).** FIBO is a reference vocabulary, not a dependency
@@ -973,10 +973,23 @@ link is invented. `:BacktestRun` (one per label and window) and `:RunConfigurati
 are the run-metadata classes, written to the new append-only graph
 `urn:graph:derived:backtest:meta:{label}`; the configuration carries the code commit, PR, results
 document, optional `configId`/`configStatus` and the frozen English body text verbatim in its
-`rdfs:comment`. The bundle is **7227 quads (60 classes, 46 disjoint leaves, 44 named shapes);
+`rdfs:comment`. The bundle is **7,227 asserted triples (60 classes, 46 disjoint leaves, 44 named shapes);
 conforms: True**, the load plan is **7504 asserted triples**, and the catalog is 643 written assets
 plus the six in `reference.ttl` = **649**. No GraphDB write or reload was made; pilot data stays
 valid, and the user reloads the schema with `cli/load_schema.py` then `cli/verify_store.py`.
+
+**Veto Hierarchy detail events (Work item 46, T-853–T-859).** `src/projection/veto_events.py` reads
+the final delivery's `*.cartera_v1_3.kg.jsonl` with a strict per-`kind` allowlist and projects
+`DecisionEvent`, `FormationTarget`, retention, stop/menu/summary/memory and replacement individuals
+into the same configuration-keyed m018 graph. `blocked`/`reentry` lines create no new individuals:
+they cross-check the loaded `L1_BP_STOP_BLOCKED`/`L1_BP_REENTRY` alerts by `(date, asset)`;
+`stop` lines cross-check `L1_BP_STOP`, replacements link to their stop, and the decision
+pool/candidate/blocked counts cross-check the decision-only selection rows (never `rankings.json`).
+`stop_distance_pct` is parsed and never projected; `close`, `level`, `stop` and `stop_level` stop the
+parse. Pilot: **3,013** detail triples (design 2,993 + the 20 shape-required
+`:retentionOfBook`/`:retentionDate` triples), combined m018 + detail + selection **SHACL conforms**.
+No class or FR-001 count changed: **72 classes, 58 disjoint leaves, 57 named shapes, 8844 quads,
+21/9121 asserted triples, production 5/8600**.
 
 ## 3. Technology Stack & Architecture Decisions
 

@@ -1069,3 +1069,33 @@ the 33 masked flags. The loader (PR 2) stops on a `valuation` row of a masked as
 `FundamentalAssessmentShape` and `FundamentalMetricDefinitionShape`.
 Counts: **72 classes (58 disjoint leaves), 57 named shapes, 8844 quads; conforms: True**; load plan
 **21 graphs / 9121 asserted triples** (production **5 / 8600**).
+
+## 1.17 Veto Hierarchy detail events (Work item 46, T-853–T-859, 2026-11-13)
+
+The final delivery's `*.cartera_v1_3.kg.jsonl` is read by `src/projection/veto_events.py` with a
+strict per-`kind` allowlist. The parser rejects an unknown kind or field, a duplicate unique key, a
+null in a required field and any `close`/`level`/`stop`/`stop_level` key; `stop_distance_pct` is
+accepted and never projected. The projector attaches the event individuals to the same
+configuration/window graph as m018:
+
+| Class | Pilot nodes | Triples | Notes |
+|---|---:|---:|---|
+| `DecisionEvent` | 10 | 221 | 140 fixed + 81 `:refilledCandidate` links |
+| `FormationTarget` | 20 | 80 | first decision only |
+| `RetentionDecision` | 10 | 154 | 130 design + 2 shape-required props ×10 + 4 counter-dropped links |
+| `RetentionHold` | 22 | 110 | `:retentionCounter` 1..3 |
+| `RetentionRejection` | 6 | 36 | `:retentionCounter` 0 allowed when rejected before any hold |
+| `StopEvent` | 70 | 1,423 | no price, no `:stopDistancePct` |
+| `DestinationOption` | 33 | 429 | closed shape |
+| `StopRejectionSummary` | 20 | 211 | nonzero causes only; `zone_evaluated` stays on the stop |
+| `StopMemory` | 51 | 239 | first stop date; `:memoryReleasedOn` on reentry; no level |
+| `ReplacementPurchase` | 7 | 85 | 84 + one `:replacementStoppedBy` |
+| `ReplacementCheck` | 5 | 25 | |
+
+Total **3,013** detail triples on the pilot. The design's **2,993** excludes the two
+shape-required `:retentionOfBook`/`:retentionDate` triples per `RetentionDecision` (+20); the
+shapes are authoritative. Cross-checks are hard errors: every `blocked`/`reentry`/`stop` line must
+match exactly one loaded alert by `(date, asset)`, every replacement must link to its stop, and the
+decision pool/candidate/blocked counts must agree with the decision-only selection rows (never
+`rankings.json`). `RetentionRejectionShape` now admits counter 0; no class, shape or FR-001 count
+changes: **72 classes, 58 disjoint leaves, 57 named shapes, 8844 quads, 21/9121, 5/8600**.

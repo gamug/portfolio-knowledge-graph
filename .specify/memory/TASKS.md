@@ -1448,9 +1448,10 @@ implementation tasks wait for approval and the final manifest (2026-11-17/18).
       volume, concept map, loader plan, questions and staging.
 - [ ] **T-841–T-846** Schema, configuration class and rules; BLOCKED, C1, L1_BP price exclusions and
       new event shapes.
-- [ ] **T-847–T-852** Manifest/hash parser, filters, configuration-keyed graph/IRI names, meta and
-      m018.
-- [ ] **T-853–T-859** Detail events, price negative tests and selection cross-check.
+- [x] **T-847–T-852** *(done 2026-11-13, PR #157.)* Manifest/hash parser, filters,
+      configuration-keyed graph/IRI names, meta and m018.
+- [x] **T-853–T-859** *(done 2026-11-13, PR #158.)* Detail events, price negative tests and
+      selection cross-check.
 - [ ] **T-860–T-864** Second label table, C1 label, TTYG and runbook updates.
 - [ ] **T-865–T-869** Loader CLI, per-graph SHACL batching, rehearsal, final dry run and the
       production record.

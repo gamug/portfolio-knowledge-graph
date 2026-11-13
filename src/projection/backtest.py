@@ -40,7 +40,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
-from typing import Any, Protocol
+from typing import Any, Protocol, cast
 
 import rdflib
 from rdflib.namespace import RDF, XSD
@@ -60,6 +60,19 @@ from projection.boundary import (
 )
 from projection.expectations import load_expectations, load_source
 from projection.source import FinancialSource
+from projection.veto_events import (
+    DetailBatch,
+    DetailFile,
+    EventContext,
+    SelectionIndex,
+    build_detail_batch,
+)
+from projection.veto_manifest import (
+    FilterReport,
+    configuration_iri,
+    configuration_slug,
+    filter_rows,
+)
 from projection.view_contract import VIEW_COLUMNS
 
 NS = "https://thesis.local/kg/portfolio#"
@@ -126,9 +139,9 @@ SELECTION_GRAPH_PREFIX = "urn:graph:derived:backtest:selection:"
 RUN_LABEL_PATTERN = r"[a-z][a-z0-9_]{1,31}"
 #: A window id. It was the closed set ``P1|P2|P3``; it is now open to ``P<number>`` or
 #: ``H<number>`` so new data needs no schema change (T-234, Work item 33).
-WINDOW_PATTERN = r"[PH][0-9]+"
+WINDOW_PATTERN = r"(?:[PH][0-9]+|C[0-9]+)"
 #: A segment: a window id plus an optional lowercase sub-period suffix (``P2a``, ``P2b``).
-SEGMENT_PATTERN = r"[PH][0-9]+[a-z]?"
+SEGMENT_PATTERN = r"(?:[PH][0-9]+|C[0-9]+)[a-z]?"
 ARMS = frozenset(
     {
         "MARKOWITZ_BASE",
@@ -512,22 +525,30 @@ def _name(term: Node) -> str:
 # --- identifiers and value checks ---------------------------------------------------------------
 
 
-def graph_name(label: str, window: str, run_id: int) -> str:
-    """The named graph of one completed backtest run (``docs/07``)."""
-    return f"{GRAPH_PREFIX}{_graph_suffix(label, window, run_id)}"
+def graph_name(label: str, window: str, run_id: int, configuration: str | None = None) -> str:
+    """The named graph of one completed backtest run (``docs/07``).
+
+    Work item 46 names a final-delivery graph by configuration, not by the engine's local run id;
+    the old run-id form stays available for the pilot/worked-example loaders.
+    """
+    return f"{GRAPH_PREFIX}{_graph_suffix(label, window, run_id, configuration)}"
 
 
-def selection_graph_name(label: str, window: str, run_id: int) -> str:
+def selection_graph_name(
+    label: str, window: str, run_id: int, configuration: str | None = None
+) -> str:
     """The sibling graph of one run's selection side (Work item 26, ``docs/07``)."""
-    return f"{SELECTION_GRAPH_PREFIX}{_graph_suffix(label, window, run_id)}"
+    return f"{SELECTION_GRAPH_PREFIX}{_graph_suffix(label, window, run_id, configuration)}"
 
 
-def _graph_suffix(label: str, window: str, run_id: int) -> str:
-    """The label/window/id part both backtest graph names share."""
+def _graph_suffix(label: str, window: str, run_id: int, configuration: str | None = None) -> str:
+    """The label/window/key part both backtest graph names share."""
     if not _RUN_LABEL.fullmatch(label):
         raise ProjectionError(f"run label {label!r} does not match {RUN_LABEL_PATTERN}")
     if not _WINDOW.fullmatch(window):
         raise ProjectionError(f"window_id {window!r} does not match {WINDOW_PATTERN}")
+    if configuration is not None:
+        return f"{label}:{window}:{configuration_slug(configuration)}"
     if not isinstance(run_id, int) or isinstance(run_id, bool) or run_id < 1:
         raise ProjectionError(f"backtest_run_id {run_id!r} is not a positive integer")
     return f"{label}:{window}:{run_id}"
@@ -637,6 +658,12 @@ class _Book:
     run_id: int
     arm: str
     iri: rdflib.URIRef
+    configuration: str | None = None
+
+    @property
+    def stem(self) -> str:
+        """The IRI stem: the configuration slug for a final-delivery book, else the arm code."""
+        return configuration_slug(self.configuration) if self.configuration else self.arm
 
 
 @dataclass
@@ -649,6 +676,7 @@ class Projection:
     skipped: Counter[str] = field(default_factory=Counter)
     asset_unlinked: Counter[str] = field(default_factory=Counter)
     cash_rows: Counter[str] = field(default_factory=Counter)
+    detail: DetailBatch | None = None
 
     def builder(self, graph: str) -> GraphBuilder:
         return self.graphs.setdefault(graph, GraphBuilder())
@@ -678,11 +706,16 @@ class Projection:
         return counts
 
 
-def project(
+def project(  # noqa: PLR0913 -- the detail key is explicit
     rows: Mapping[str, Sequence[Row]],
     assets: Mapping[str, AssetInfo],
     catalog: GuardCatalog,
     label: str,
+    *,
+    configuration: str | None = None,
+    detail: DetailFile | None = None,
+    asset_tickers: Mapping[int, str] | None = None,
+    selection: SelectionIndex | None = None,
 ) -> Projection:
     """Turn the validated rows into one deterministic batch per backtest run.
 
@@ -692,10 +725,12 @@ def project(
     """
     if not _RUN_LABEL.fullmatch(label):
         raise ProjectionError(f"run label {label!r} does not match {RUN_LABEL_PATTERN}")
+    if configuration is not None:
+        configuration_slug(configuration)
     out = Projection()
     for view in VIEWS:
         out.rows[view] = len(rows.get(view, ()))
-    books = _books(rows.get("v_book", ()), label, out)
+    books = _books(rows.get("v_book", ()), label, out, configuration)
     by_book_id = {_int_row(book.row, "book_id", "v_book"): book for book in books}
     runs: dict[int, str] = {}
     for book in books:
@@ -703,21 +738,98 @@ def project(
             raise ProjectionError(
                 f"v_book: run {book.run_id} appears in windows {runs[book.run_id]} and {book.window}"
             )
-    alerts = _alerts(rows.get("v_guard_alert", ()), runs, assets, catalog, label, out)
+    alerts = _alerts(
+        rows.get("v_guard_alert", ()), runs, assets, catalog, label, out, configuration
+    )
     _rebalances(rows.get("v_book_rebalance", ()), by_book_id, out)
     _actions(rows.get("v_guard_action", ()), by_book_id, alerts, assets, out)
     _weights(rows.get("v_book_weight_daily", ()), by_book_id, assets, out)
     _performance(rows.get("v_book_daily_performance", ()), by_book_id, out)
     _summaries(rows.get("v_portfolio_period_summary", ()), by_book_id, out)
-    _tests(rows.get("v_backtest_test", ()), runs, label, out)
+    _tests(rows.get("v_backtest_test", ()), runs, label, out, configuration)
+    if detail is not None:
+        _detail_events(
+            detail,
+            rows,
+            by_book_id,
+            alerts,
+            configuration,
+            assets,
+            asset_tickers,
+            selection,
+            out,
+        )
     return out
+
+
+def _detail_events(  # noqa: PLR0913, PLR0917 -- the key fields are explicit
+    detail: DetailFile,
+    rows: Mapping[str, Sequence[Row]],
+    by_book_id: Mapping[int, _Book],
+    alerts: Mapping[tuple[str, int], rdflib.URIRef],
+    configuration: str | None,
+    assets: Mapping[str, AssetInfo],
+    asset_tickers: Mapping[int, str] | None,
+    selection: SelectionIndex | None,
+    out: Projection,
+) -> None:
+    """Project one validated detail file into the selected book's graph."""
+    if configuration is None or asset_tickers is None or selection is None:
+        raise ProjectionError(
+            "detail events need the manifest configuration, the engine asset map and the "
+            "decision-only selection index"
+        )
+    if len(by_book_id) != 1:
+        raise ProjectionError("detail events need exactly one loaded book")
+    book = next(iter(by_book_id.values()))
+    alert_map: dict[tuple[str, int, str], rdflib.URIRef] = {}
+    for row in rows.get("v_guard_alert", ()):
+        asset = row.get("asset_id")
+        if asset is None:
+            continue
+        alert = alerts.get((book.window, int(row["alert_id"])))
+        if alert is None:
+            continue
+        key = (str(row["date"]), int(asset), str(row["rule_id"]))
+        if key in alert_map:
+            raise ProjectionError(f"two loaded alerts share the detail key {key}")
+        alert_map[key] = alert
+    rebalances: dict[str, rdflib.URIRef] = {}
+    for row in rows.get("v_book_rebalance", ()):
+        if int(row["book_id"]) != int(book.row["book_id"]):
+            continue
+        rebalances[str(row["decision_date"])] = KG[
+            f"Rebalance_{book.label}_{book.window}_{book.stem}_"
+            f"{_day_key(str(row['execution_date']))}"
+        ]
+    context = EventContext(
+        label=book.label,
+        window=book.window,
+        configuration=configuration,
+        graph=book.graph,
+        book_iri=book.iri,
+        book_code=book.arm,
+        assets=assets,
+        asset_tickers=asset_tickers,
+        alerts=alert_map,
+        selection=selection,
+        rebalance_by_date=rebalances,
+    )
+    batch = build_detail_batch(detail, context)
+    builder = out.builder(batch.graph)
+    for triple in batch.triples:
+        builder.add(cast(rdflib.URIRef, triple[0]), cast(rdflib.URIRef, triple[1]), triple[2])
+    out.individuals.update(batch.individuals)
+    out.detail = batch
 
 
 def _int_row(row: Row, column: str, view: str, key: str = "id") -> int:
     return _integer(_required(row, column, _where(view, row, key)), column, _where(view, row, key))
 
 
-def _books(rows: Sequence[Row], label: str, out: Projection) -> list[_Book]:
+def _books(
+    rows: Sequence[Row], label: str, out: Projection, configuration: str | None = None
+) -> list[_Book]:
     books: list[_Book] = []
     seen: set[rdflib.URIRef] = set()
     for row in rows:
@@ -727,11 +839,21 @@ def _books(rows: Sequence[Row], label: str, out: Projection) -> list[_Book]:
         arm = _safe(_required(row, "arm_code", where), "arm_code", where)
         if arm not in ARMS:
             raise ProjectionError(f"{where}: arm_code {arm!r} is not a Contract v18 arm")
-        iri = KG[f"Book_{label}_{window}_{arm}"]
+        stem = configuration_slug(configuration) if configuration else arm
+        iri = KG[f"Book_{label}_{window}_{stem}"]
         if iri in seen:
             raise ProjectionError(f"{where}: two books would share the IRI {_n3(iri)}")
         seen.add(iri)
-        book = _Book(row, graph_name(label, window, run_id), label, window, run_id, arm, iri)
+        book = _Book(
+            row,
+            graph_name(label, window, run_id, configuration),
+            label,
+            window,
+            run_id,
+            arm,
+            iri,
+            configuration,
+        )
         books.append(book)
         builder = out.individual(book.graph, iri, "StrategyBook")
         builder.add(iri, KG.bookId, _int_lit(_int_row(row, "book_id", "v_book", "book_id")))
@@ -758,6 +880,8 @@ def _books(rows: Sequence[Row], label: str, out: Projection) -> list[_Book]:
         )
         if row.get("guard_layers") is not None:
             builder.add(iri, KG.guardLayers, rdflib.Literal(str(row["guard_layers"])))
+        if configuration is not None:
+            builder.add(iri, KG.configuration, KG[configuration_iri(configuration)])
         if row.get("formation_date") is not None:
             builder.add(
                 iri,
@@ -781,6 +905,7 @@ def _alerts(  # noqa: PLR0913, PLR0917 -- the call site reads better with the na
     catalog: GuardCatalog,
     label: str,
     out: Projection,
+    configuration: str | None = None,
 ) -> dict[tuple[str, int], rdflib.URIRef]:
     iris: dict[tuple[str, int], rdflib.URIRef] = {}
     for row in rows:
@@ -801,12 +926,17 @@ def _alerts(  # noqa: PLR0913, PLR0917 -- the call site reads better with the na
             raise ProjectionError(
                 f"{where}: layer {layer} disagrees with {rule_id}'s guardLayer {rule.layer}"
             )
-        iri = KG[f"GuardAlert_{label}_{window}_{alert_id}"]
+        stem = configuration_slug(configuration) if configuration else ""
+        iri = KG[
+            f"GuardAlert_{label}_{window}_{stem}_{alert_id}"
+            if stem
+            else f"GuardAlert_{label}_{window}_{alert_id}"
+        ]
         key = (window, alert_id)
         if key in iris:
             raise ProjectionError(f"{where}: two alerts would share the IRI {_n3(iri)}")
         iris[key] = iri
-        graph = graph_name(label, window, run_id)
+        graph = graph_name(label, window, run_id, configuration)
         builder = out.individual(graph, iri, "GuardAlert")
         builder.add(iri, KG.alertId, _int_lit(alert_id))
         builder.add(iri, KG.backtestRunId, _int_lit(run_id))
@@ -899,7 +1029,7 @@ def _rebalances(rows: Sequence[Row], books: Mapping[int, _Book], out: Projection
             raise ProjectionError(f"{where}: book_id is not a v_book row")
         _same_book(row, book, where)
         execution = _day(_required(row, "execution_date", where), "execution_date", where)
-        iri = KG[f"Rebalance_{book.label}_{book.window}_{book.arm}_{_day_key(execution)}"]
+        iri = KG[f"Rebalance_{book.label}_{book.window}_{book.stem}_{_day_key(execution)}"]
         if iri in seen:
             raise ProjectionError(f"{where}: two rebalances would share {_n3(iri)}")
         seen.add(iri)
@@ -972,7 +1102,11 @@ def _actions(
                 f"{where}: alert_id {alert_id} is not a v_guard_alert row of window {book.window}"
             )
         action_id = _int_row(row, "action_id", "v_guard_action", "action_id")
-        iri = KG[f"GuardAction_{book.label}_{book.window}_{action_id}"]
+        iri = KG[
+            f"GuardAction_{book.label}_{book.window}_{book.stem}_{action_id}"
+            if book.configuration
+            else f"GuardAction_{book.label}_{book.window}_{action_id}"
+        ]
         if iri in seen:
             raise ProjectionError(f"{where}: two actions would share the IRI {_n3(iri)}")
         seen.add(iri)
@@ -1038,7 +1172,7 @@ def _weights(
         _same_book(row, book, where)
         day = _day(_required(row, "date", where), "date", where)
         holding_key = _safe(_required(row, "holding_key", where), "holding_key", where)
-        iri = KG[f"BookWeight_{book.label}_{book.window}_{book.arm}_{_day_key(day)}_{holding_key}"]
+        iri = KG[f"BookWeight_{book.label}_{book.window}_{book.stem}_{_day_key(day)}_{holding_key}"]
         if iri in seen:
             raise ProjectionError(f"{where}: two weight rows would share the IRI {_n3(iri)}")
         seen.add(iri)
@@ -1105,7 +1239,7 @@ def _performance(rows: Sequence[Row], books: Mapping[int, _Book], out: Projectio
                 f"{where}: window_id {row.get('window_id')!r} disagrees with the book's {book.window!r}"
             )
         day = _day(_required(row, "date", where), "date", where)
-        iri = KG[f"BookPerf_{book.label}_{book.window}_{book.arm}_{_day_key(day)}"]
+        iri = KG[f"BookPerf_{book.label}_{book.window}_{book.stem}_{_day_key(day)}"]
         if iri in seen:
             raise ProjectionError(f"{where}: two performance rows would share {_n3(iri)}")
         seen.add(iri)
@@ -1166,7 +1300,7 @@ def _summaries(rows: Sequence[Row], books: Mapping[int, _Book], out: Projection)
                 f"{where}: window_id {row.get('window_id')!r} disagrees with the book's {book.window!r}"
             )
         segment = _segment(_required(row, "segment", where), where)
-        iri = KG[f"PeriodSummary_{book.label}_{book.window}_{book.arm}_{segment}"]
+        iri = KG[f"PeriodSummary_{book.label}_{book.window}_{book.stem}_{segment}"]
         if iri in seen:
             raise ProjectionError(f"{where}: two summaries would share {_n3(iri)}")
         seen.add(iri)
@@ -1223,7 +1357,13 @@ def _summaries(rows: Sequence[Row], books: Mapping[int, _Book], out: Projection)
         )
 
 
-def _tests(rows: Sequence[Row], runs: Mapping[int, str], label: str, out: Projection) -> None:
+def _tests(
+    rows: Sequence[Row],
+    runs: Mapping[int, str],
+    label: str,
+    out: Projection,
+    configuration: str | None = None,
+) -> None:
     seen: set[rdflib.URIRef] = set()
     for row in rows:
         where = _where("v_backtest_test", row, "test")
@@ -1237,11 +1377,18 @@ def _tests(rows: Sequence[Row], runs: Mapping[int, str], label: str, out: Projec
         arm_a = _safe(_required(row, "arm_a", where), "arm_a", where)
         arm_b = _safe(_required(row, "arm_b", where), "arm_b", where)
         test = _safe(_required(row, "test", where), "test", where)
-        iri = KG[f"BacktestTest_{label}_{window}_{segment}_{arm_a}_{arm_b}_{test}"]
+        stem = configuration_slug(configuration) if configuration else ""
+        iri = KG[
+            f"BacktestTest_{label}_{window}_{stem}_{segment}_{arm_a}_{arm_b}_{test}"
+            if stem
+            else f"BacktestTest_{label}_{window}_{segment}_{arm_a}_{arm_b}_{test}"
+        ]
         if iri in seen:
             raise ProjectionError(f"{where}: two tests would share {_n3(iri)}")
         seen.add(iri)
-        builder = out.individual(graph_name(label, window, run_id), iri, "BacktestTest")
+        builder = out.individual(
+            graph_name(label, window, run_id, configuration), iri, "BacktestTest"
+        )
         builder.add(iri, KG.backtestRunId, _int_lit(run_id))
         builder.add(iri, KG.runLabel, rdflib.Literal(label))
         builder.add(iri, KG.windowId, rdflib.Literal(window))
@@ -1700,6 +1847,7 @@ class RunResult:
     skipped: Counter[str] = field(default_factory=Counter)
     asset_unlinked: Counter[str] = field(default_factory=Counter)
     cash_rows: Counter[str] = field(default_factory=Counter)
+    detail: DetailBatch | None = None
     store_consulted: bool = True
     in_doubt: str | None = None
 
@@ -1750,32 +1898,55 @@ class SourceProjection:
 
     ``rows`` is the rows that passed the boundary, keyed by view; ``projection`` is the
     deterministic batch built from them. A dry run and a write share this exactly, so a verifier
-    can rebuild the expected graph without writing it (T-280).
+    can rebuild the expected graph without writing it (T-280). ``filter`` records the manifest
+    selection when the final-delivery key was used.
     """
 
     report: BoundaryReport
     rows: dict[str, list[Row]]
     projection: Projection
+    filter: FilterReport | None = None
 
 
-def project_source(
+def project_source(  # noqa: PLR0913 -- the manifest key is explicit
     source: FinancialSource,
     assets: Mapping[str, AssetInfo],
     catalog: GuardCatalog,
     label: str,
+    *,
+    configuration: str | None = None,
+    window: str | None = None,
+    book_code: str | None = None,
+    book_id: int | None = None,
+    detail: DetailFile | None = None,
+    asset_tickers: Mapping[int, str] | None = None,
+    selection: SelectionIndex | None = None,
 ) -> SourceProjection:
     """Read the eight views, run the boundary and project them; no store and no SHACL.
 
-    ``label`` is the operator's name for this run family (``--db LABEL=PATH``): the views expose
-    no run identity, so it is what keeps two families' graphs and individuals apart. The source
-    check runs before the other seven views are read: a database whose backtest run is not
-    ``completed`` is refused, never projected partially. The boundary then checks every view
-    against its shipped expectation file.
+    ``label`` is the operator's name for this run family (``--db LABEL=PATH``). Work item 46 adds
+    the manifest key: when ``configuration`` is given, the four key fields select the one book the
+    loader may project, before the boundary sees the twin. The source check always reads the whole
+    ``v_book`` and still refuses a database whose run is not ``completed``. The boundary then
+    checks every kept view against its shipped expectation file.
     """
     books = read_view(source, "v_book")
     source_failures = check_backtest_source(source.schema_version, books, load_source())
     rows = {"v_book": books}
     rows.update({view: read_view(source, view) for view in VIEWS if view != "v_book"})
+    filter_report: FilterReport | None = None
+    if configuration is not None:
+        if window is None or book_code is None or book_id is None:
+            raise ProjectionError(
+                "the manifest key needs configuration, window, book_code and book_id together"
+            )
+        rows, filter_report = filter_rows(
+            rows,
+            configuration=configuration,
+            window=window,
+            book_code=book_code,
+            book_id=book_id,
+        )
     expectations = load_expectations()
     result = validate(
         rows,
@@ -1783,7 +1954,19 @@ def project_source(
         source_failures=source_failures,
     )
     return SourceProjection(
-        result.report, result.rows, project(result.rows, assets, catalog, label)
+        result.report,
+        result.rows,
+        project(
+            result.rows,
+            assets,
+            catalog,
+            label,
+            configuration=configuration,
+            detail=detail,
+            asset_tickers=asset_tickers,
+            selection=selection,
+        ),
+        filter_report,
     )
 
 

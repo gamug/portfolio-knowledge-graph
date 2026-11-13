@@ -50,6 +50,9 @@ def test_the_mutable_graph_is_not_append_only() -> None:
         "urn:graph:derived:backtest:rule:P1:1",
         "urn:graph:derived:backtest:champ_v1:P2:42",
         "urn:graph:derived:backtest:rule_v2:P12:999999",
+        "urn:graph:derived:backtest:final:P1:system_with_hierarchy",
+        "urn:graph:derived:backtest:final:C1:system_without_hierarchy",
+        "urn:graph:derived:backtest:selection:final:C1:markowitz_base",
     ],
 )
 def test_a_backtest_graph_is_append_only_and_accepted(name: str) -> None:
@@ -69,7 +72,7 @@ def test_a_backtest_graph_is_append_only_and_accepted(name: str) -> None:
         "urn:graph:derived:backtest:rule:Q1:1",  # not P<number>
         "urn:graph:derived:backtest:rule:P1:0",  # id is not positive
         "urn:graph:derived:backtest:rule:P1:-1",
-        "urn:graph:derived:backtest:rule:P1:abc",
+        "urn:graph:derived:backtest:rule:P1:a",  # neither a positive id nor a 2-32 char slug
         "urn:graph:derived:backtest:rule:P1:01",  # leading zero, not the canonical integer
         "urn:graph:derived:backtest:rule:P1",
         "urn:graph:derived:backtest:rule:P1:1/extra",
@@ -239,7 +242,10 @@ def test_the_aggregates_literal_does_not_reserve_a_run_label() -> None:
 
 
 def test_the_refusal_lists_the_backtest_graph() -> None:
-    with pytest.raises(gate.IngestRejected, match=r"derived:backtest:\{run label\}:\{P<n>\|H<n>\}"):
+    with pytest.raises(
+        gate.IngestRejected,
+        match=r"derived:backtest:\{run label\}:\{P<n>\|H<n>\|C<n>\}",
+    ):
         gate.check_target("urn:graph:nope")
 
 

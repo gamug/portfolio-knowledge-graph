@@ -441,7 +441,9 @@ what the store *enforces*.
    2026-11-04, and the alert shape forbids `:alertThreshold` on them (the threshold is an
    individual asset's stop price level; upstream's licence forbids redistributing it). Work item 46
    widened that exclusion to every `L1_BP_*` rule and to `:alertValue`; the `L0_*` portfolio-risk
-   alerts keep their required threshold. `:ExchangeTradedFund` is an `:Asset` subclass for the
+   alerts keep their required threshold. The Work item 46 detail loader
+   (`src/projection/veto_events.py`) writes the event individuals into the same configuration-keyed
+   graph and never projects `stop_distance_pct`, `close`, `level`, `stop` or `stop_level`. `:ExchangeTradedFund` is an `:Asset` subclass for the
    core ETF; `SPY` is declared in `reference.ttl` with no CIK, membership or GICS classification,
    and `AssetShape` admits it while ordinary assets keep the CIK/closed-membership rule. There is
    no FIBO mapping for exchange-traded funds: the pinned 2026Q2 slice has no such term, so none is

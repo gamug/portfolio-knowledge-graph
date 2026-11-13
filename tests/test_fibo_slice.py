@@ -71,7 +71,7 @@ _V18 = (
     "PortfolioPeriodSummary",
     "BacktestTest",
 )
-_V18_SHA256 = "daf3ede72f45f4d047003af7673e6c0d2c375ddfa27f2e8674ad10f641a4955e"
+_V18_SHA256 = "be3ca1d9d83bdbe67b962ba0004695c0c3f6afc9aa0770591f8e7c33f66f6199"
 
 QUERY_A1 = """PREFIX :     <https://thesis.local/kg/portfolio#>
 PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
@@ -297,13 +297,15 @@ def _leaves(graph: rdflib.Graph) -> list[Node]:
     return leaves
 
 
-def test_each_of_the_44_leaf_classes_has_one_spanish_label_and_definition() -> None:
+def test_each_of_the_58_leaf_classes_has_one_spanish_label_and_description() -> None:
+    """The v18 leaves use skos:definition; the Work item 46 event leaves use rdfs:comment."""
     graph = rdflib.Graph().parse(SCHEMA / "tbox.ttl", format="turtle")
     leaves = _leaves(graph)
-    assert len(leaves) == 44
+    assert len(leaves) == 58
     for leaf in leaves:
         assert len(_spanish(graph, leaf, RDFS.label)) == 1, leaf
-        assert len(_spanish(graph, leaf, SKOS.definition)) == 1, leaf
+        description = _spanish(graph, leaf, SKOS.definition) or _spanish(graph, leaf, RDFS.comment)
+        assert len(description) == 1, leaf
 
 
 def test_the_11_v18_spanish_texts_are_unchanged() -> None:
