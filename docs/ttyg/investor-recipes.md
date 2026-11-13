@@ -249,13 +249,13 @@ side, plus the mask flag. **Read it as:** compare the two metric sets known on t
 missing value is not zero. **Honest limits:** a higher ROIC is not a forecast, the graph has no
 valuation, and a masked side has no valuation metric at all.
 
-## C3. What quality profile did the portfolio have at each decision, and how does it compare with Markowitz base?
+## C3. What quality profile did the portfolio have at each decision, and how does it compare with minimum variance (MARKOWITZ_BASE)?
 
 **Status:** partial. It works on the loaded books now; the five final configurations need the reload.
 **Graphs:** the System and `MARKOWITZ_BASE` final book graphs, `urn:graph:derived:fundamentals:final`.
 
 **Pregunta:** ¿Qué perfil de calidad tenía la cartera en cada decisión (rentabilidad y deuda
-ponderadas por peso) y cómo se compara con la de Markowitz base?
+ponderadas por peso) y cómo se compara con la cartera de mínima varianza (MARKOWITZ_BASE)?
 
 <!-- recipe: C3 -->
 ```sparql
@@ -833,6 +833,9 @@ price or valuation is read.
 
 ### C9d. Worst drawdowns in the window
 
+**Status:** the concentration and drawdown series are available now; the causal wording ("preceded")
+is not answerable.
+
 <!-- recipe: C9d -->
 ```sparql
 PREFIX : <https://thesis.local/kg/portfolio#>
@@ -1149,6 +1152,38 @@ LIMIT 100
 `:selectedForBook` is the candidate pool, not a holding; rank includes vetoed names. **Honest
 limits:** `vetoRulesJson` keeps only `"HARD"` for hard vetoes; use C4/C5 to resolve the rule.
 
+### C12d. Veto stints for X
+
+<!-- recipe: C12d -->
+```sparql
+PREFIX : <https://thesis.local/kg/portfolio#>
+
+SELECT ?raised ?cleared ?ruleId ?severity
+WHERE {
+  VALUES (?ticker ?label ?window ?configuration ?slug
+          ?selectionGraph ?rulesGraph ?universe) {
+    ("AAA" "final" "P1" "SYSTEM_WITH_HIERARCHY" "system_with_hierarchy"
+     <urn:graph:derived:backtest:selection:final:P1:system_with_hierarchy>
+     <urn:graph:rules:catalog>
+     <urn:graph:universe:2026-Q4>)
+  }
+  GRAPH ?universe { ?asset :tickerSymbol ?ticker }
+  GRAPH ?selectionGraph {
+    ?veto a :Veto ; :vetoOfAsset ?asset ; :appliesRule ?rule ;
+          :raisedOn ?raised ; :vetoSeverity ?severity .
+    OPTIONAL { ?veto :clearedOn ?cleared }
+  }
+  GRAPH ?rulesGraph { ?rule :ruleId ?ruleId }
+}
+ORDER BY ?raised
+LIMIT 40
+```
+
+**Columns:** raised/cleared dates, rule and severity. **Read it as:** a veto stint is in force from
+`raisedOn` until `clearedOn`; an absent `clearedOn` means it was still in force at the run's
+knowledge date. **Honest limits:** the graph has no reason beyond the rule and severity; a veto is
+not a market forecast.
+
 ## C13. What did the system know about X on date D?
 
 **Status:** available now (HOY). **Graphs:** `urn:graph:universe:2026-Q4`,
@@ -1336,13 +1371,13 @@ the destination is cash, SPY or the chosen ticker. **Honest limits:** the graph 
 manager prompt/answer, so it says who chose, not the quality of the choice. Masked stops are counted
 as events; no price is read.
 
-## C17. How does the System portfolio differ from Markowitz base on the same date?
+## C17. How does the System portfolio differ from minimum variance (MARKOWITZ_BASE) on the same date?
 
 **Status:** partial. It works for the loaded books now; the five final configurations need the reload.
 **Graphs:** the System and `MARKOWITZ_BASE` final book graphs, `urn:graph:universe:2026-Q4`,
 `urn:graph:reference`, `urn:graph:derived:fundamentals:final`.
 
-**Pregunta:** ¿En qué se diferencia la cartera del Sistema de la de Markowitz base en la misma fecha:
+**Pregunta:** ¿En qué se diferencia la cartera del Sistema de la cartera de mínima varianza (MARKOWITZ_BASE) en la misma fecha:
 sectores, nombres en común, número de posiciones?
 
 ### C17a. Composition side by side
@@ -1431,6 +1466,37 @@ LIMIT 50
 **Columns:** common ticker and both weights. **Read it as:** only names held by both books on the
 date appear; the count of rows is the overlap. **Honest limits:** a name in common can have very
 different weights; no return attribution.
+
+### C17c. Position count
+
+<!-- recipe: C17c -->
+```sparql
+PREFIX :   <https://thesis.local/kg/portfolio#>
+PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+
+SELECT ?configuration (COUNT(DISTINCT ?asset) AS ?positions) (SUM(?weight) AS ?investedWeight)
+WHERE {
+  VALUES (?label ?window ?asOf ?configuration ?slug ?bookGraph) {
+    ("final" "P1" "2022-06-30"^^xsd:date "SYSTEM_WITH_HIERARCHY" "system_with_hierarchy"
+     <urn:graph:derived:backtest:final:P1:system_with_hierarchy>)
+    ("final" "P1" "2022-06-30"^^xsd:date "MARKOWITZ_BASE" "markowitz_base"
+     <urn:graph:derived:backtest:final:P1:markowitz_base>)
+  }
+  GRAPH ?bookGraph {
+    ?weightRow a :BookWeightDaily ; :weightOfBook ?book ; :weightDate ?asOf ;
+               :holdingAsset ?asset ; :finalTargetWeight ?weight .
+    FILTER (?weight > 0)
+    ?book :runLabel ?label ; :windowId ?window .
+  }
+}
+GROUP BY ?configuration
+ORDER BY ?configuration
+LIMIT 10
+```
+
+**Columns:** configuration, number of held equity rows and their summed weight. **Read it as:** the
+count is equity holdings with a positive target weight; CASH and unlinked rows are excluded.
+**Honest limits:** a count of names is not diversification, and MARKOWITZ_MV has no composition.
 
 ## C18. Which held companies have weak fundamental signals on date D?
 

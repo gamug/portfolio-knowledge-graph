@@ -3594,7 +3594,7 @@ graph is **1265 triples**. No GraphDB write.
 
 ## Work item 46 — Veto Hierarchy projection (T-840–T-869)
 
-**Status: PR A/B/C/D/E merged (#156–#160); PR G open as PR #161 (T-867/T-868/T-869 control-count follow-up).**
+**Status: PR A–G merged (#156–#161); PR H open as PR #162 (T-863/T-864 investor recipes).**
 
 **Why**: Reviewer A delivered the frozen data dictionary and the pilot `H1C-B5-P1` for the complete
 System with the Veto Hierarchy. The engine arm codes no longer identify a configuration
@@ -3640,7 +3640,7 @@ measured pilot budget is in `docs/veto-hierarchy-design.md` §6.
       FR-001 9,125; load 21/9,402; production 5/8,881; labels 156/1,499; full suite 1,718
       passed / 61 deselected; orphan reentry check added.)* Second label table,
       C1 label and the label cleanup.
-- [ ] **T-863–T-864** TTYG instructions/evaluation sheet and the remaining runbook updates.
+- [x] **T-863–T-864** *(done 2026-11-14, PR #162: `docs/ttyg/investor-recipes.md`, R1–R9, 9 hermetic recipe tests; full suite pending.)* TTYG investor recipes, refusal table and the remaining runbook/rehearsal fixes.
 - [x] **T-865–T-869** *(done 2026-11-13, PR #159: configuration-keyed selection, per-window
       StopMemory rule, `cli/load_veto.py`, `verify_store --manifest`, runbook §0bis. Pilot dry run:
       meta 33, system_with 75,488, selection 322,794, system_without 56,705, selection 322,794,
