@@ -1428,6 +1428,12 @@ class _SelectionContext:
     run_id: int
     graph: str
     rule_date: str
+    configuration: str | None = None
+
+    @property
+    def stem(self) -> str:
+        """The IRI stem: configuration slug for the final delivery, else the old key."""
+        return configuration_slug(self.configuration) if self.configuration else ""
 
 
 @dataclass(frozen=True)
@@ -1445,7 +1451,16 @@ class _Scheme:
     cycle_id: int
 
 
-def _selection_context(books: Sequence[Row], label: str) -> _SelectionContext:
+def _selection_iri(context: _SelectionContext, kind: str, suffix: str) -> str:
+    """The local name of one selection IRI, configuration-keyed for the final delivery."""
+    if context.configuration is None:
+        return f"{kind}_{context.label}_{context.window}_{suffix}"
+    return f"{kind}_{context.label}_{context.window}_{context.stem}_{suffix}"
+
+
+def _selection_context(
+    books: Sequence[Row], label: str, configuration: str | None = None
+) -> _SelectionContext:
     """The run id, window and knowledge date shared by every ``v_book`` row."""
     if not books:
         raise ProjectionError("v_book: no backtest run to attach the selection side to")
@@ -1473,8 +1488,9 @@ def _selection_context(books: Sequence[Row], label: str) -> _SelectionContext:
         label,
         window,
         run_id,
-        selection_graph_name(label, window, run_id),
+        selection_graph_name(label, window, run_id, configuration),
         next(iter(days)),
+        configuration,
     )
 
 
@@ -1496,7 +1512,7 @@ def _cycles(rows: Sequence[Row], context: _SelectionContext, out: Projection) ->
         status = str(_required(row, "status", where))
         finished = row.get("finished_at")
         finished_at = None if finished is None else _timestamp(finished, "finished_at", where)
-        iri = KG[f"Cycle_{context.label}_{context.window}_{cycle_id}"]
+        iri = KG[_selection_iri(context, "Cycle", str(cycle_id))]
         builder = out.individual(context.graph, iri, "SelectionCycle")
         builder.add(iri, KG.cycleRunId, _int_lit(cycle_id))
         builder.add(iri, KG.cycleType, rdflib.Literal(str(_required(row, "cycle_type", where))))
@@ -1539,7 +1555,7 @@ def _schemes(
             raise ProjectionError(
                 f"{where}: two v_weight_scheme rows share cycle_run_id {cycle_id}"
             )
-        iri = KG[f"Scheme_{context.label}_{context.window}_{cycle_id}"]
+        iri = KG[_selection_iri(context, "Scheme", str(cycle_id))]
         builder = out.individual(context.graph, iri, "AttractivenessWeightScheme")
         builder.add(iri, KG.schemeId, rdflib.Literal(f"cycle_run:{cycle_id}"))
         builder.add(
@@ -1586,7 +1602,7 @@ def _configured_components(
             raise ProjectionError(f"{where}: cycle_run_id {cycle_id} has no v_weight_scheme row")
         score_type = str(_required(row, "score_type", where))
         metric = _metric(score_type, where)
-        iri = KG[f"Weight_{context.label}_{context.window}_{cycle_id}_{metric}"]
+        iri = KG[_selection_iri(context, "Weight", f"{cycle_id}_{metric}")]
         if iri in seen:
             raise ProjectionError(f"{where}: two configured components would share {_n3(iri)}")
         seen.add(iri)
@@ -1637,7 +1653,7 @@ def _rankings(  # noqa: PLR0913, PLR0917 -- the call site reads better with the 
         if key in iris:
             raise ProjectionError(f"{where}: two ranking rows share cycle_run_id/asset_id {key}")
         ticker = str(_required(row, "ticker", where))
-        iri = KG[f"Snap_{context.label}_{context.window}_{cycle_id}_{asset_id}"]
+        iri = KG[_selection_iri(context, "Snap", f"{cycle_id}_{asset_id}")]
         iris[key] = iri
         builder = out.individual(context.graph, iri, "AttractivenessSnapshot")
         builder.add(iri, KG.backtestRunId, _int_lit(context.run_id))
@@ -1717,7 +1733,7 @@ def _effective_components(
             continue
         score_type = str(_required(row, "score_type", where))
         metric = _metric(score_type, where)
-        iri = KG[f"RankComp_{context.label}_{context.window}_{cycle_id}_{asset_id}_{metric}"]
+        iri = KG[_selection_iri(context, "RankComp", f"{cycle_id}_{asset_id}_{metric}")]
         if iri in seen:
             raise ProjectionError(f"{where}: two effective components would share {_n3(iri)}")
         seen.add(iri)
@@ -1751,7 +1767,7 @@ def _vetoes(  # noqa: PLR0913, PLR0917 -- the call site reads better with the na
     for row in rows:
         where = _where("v_veto", row, "id")
         veto_id = _int_row(row, "id", "v_veto", "id")
-        iri = KG[f"Veto_{context.label}_{context.window}_{veto_id}"]
+        iri = KG[_selection_iri(context, "Veto", str(veto_id))]
         if iri in seen:
             raise ProjectionError(f"{where}: two v_veto rows share id {veto_id}")
         seen.add(iri)
@@ -1797,12 +1813,14 @@ def _vetoes(  # noqa: PLR0913, PLR0917 -- the call site reads better with the na
             builder.add(iri, KG.runAsOf, _day_lit(cycle.as_of))
 
 
-def project_selection(
+def project_selection(  # noqa: PLR0913 -- the manifest key is explicit
     rows: Mapping[str, Sequence[Row]],
     assets: Mapping[str, AssetInfo],
     catalog: SelectionRuleCatalog,
     label: str,
     ciks: Mapping[str, str] | None = None,
+    *,
+    configuration: str | None = None,
 ) -> Projection:
     """Turn the validated selection rows into one deterministic batch per backtest run.
 
@@ -1812,7 +1830,7 @@ def project_selection(
     """
     if not _RUN_LABEL.fullmatch(label):
         raise ProjectionError(f"run label {label!r} does not match {RUN_LABEL_PATTERN}")
-    context = _selection_context(rows.get("v_book", ()), label)
+    context = _selection_context(rows.get("v_book", ()), label, configuration)
     ticker_ciks = ciks or {}
     out = Projection()
     for view in SELECTION_VIEWS:
@@ -2091,6 +2109,8 @@ def project_selection_source(
     assets: Mapping[str, AssetInfo],
     catalog: SelectionRuleCatalog,
     label: str,
+    *,
+    configuration: str | None = None,
 ) -> SelectionSourceProjection:
     """Read the six selection views plus ``v_book``, run the boundary and project them.
 
@@ -2112,28 +2132,39 @@ def project_selection_source(
         source_failures=source_failures,
     )
     projection = project_selection(
-        {**result.rows, "v_book": books}, assets, catalog, label, ticker_ciks
+        {**result.rows, "v_book": books},
+        assets,
+        catalog,
+        label,
+        ticker_ciks,
+        configuration=configuration,
     )
     return SelectionSourceProjection(result.report, result.rows, projection)
 
 
-def plan_selection(
+def plan_selection(  # noqa: PLR0913 -- the manifest key is explicit
     source: FinancialSource,
     assets: Mapping[str, AssetInfo],
     catalog: SelectionRuleCatalog,
     label: str,
     store: GraphDB,
+    *,
+    configuration: str | None = None,
 ) -> RunPlan:
     """Read, check, project and pre-flight the six selection views; write nothing."""
-    return _plan_projection(project_selection_source(source, assets, catalog, label), store)
+    return _plan_projection(
+        project_selection_source(source, assets, catalog, label, configuration=configuration), store
+    )
 
 
-def run_selection(
+def run_selection(  # noqa: PLR0913 -- the manifest key is explicit
     source: FinancialSource,
     assets: Mapping[str, AssetInfo],
     catalog: SelectionRuleCatalog,
     label: str,
     store: GraphDB | None = None,
+    *,
+    configuration: str | None = None,
 ) -> RunResult:
     """Read, check, project and (when ``store`` is given) write the six selection views.
 
@@ -2143,7 +2174,9 @@ def run_selection(
     projector is writing a frozen backtest artifact, not a live ingest graph. A ranking row whose
     cycle run is not ``completed`` is counted as skipped; its components are counted too.
     """
-    source_projection = project_selection_source(source, assets, catalog, label)
+    source_projection = project_selection_source(
+        source, assets, catalog, label, configuration=configuration
+    )
     projection = source_projection.projection
     out = _result_from_projection(source_projection, store_consulted=store is not None)
     context = validation_context(assets, catalog) if store is None else None

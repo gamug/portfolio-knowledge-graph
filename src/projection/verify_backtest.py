@@ -71,6 +71,7 @@ from projection.backtest import (
 )
 from projection.boundary import BoundaryError, Row
 from projection.source import FinancialSource
+from projection.veto_manifest import VetoManifest
 
 #: The eight views, their one Contract v18 class and the natural key each check reports.
 VIEW_CLASS: tuple[tuple[str, str], ...] = (
@@ -167,6 +168,29 @@ class Verification:
 
 
 # --- source-side expectations -------------------------------------------------------------------
+
+
+def verify_veto_manifest(
+    store: ReadableStore,
+    manifest: VetoManifest,
+    label: str = "final",
+    *,
+    assets_db: str | Path | None = None,
+) -> None:
+    """Verify the configuration-keyed Veto graphs against a manifest, read-only.
+
+    The legacy run-id graphs keep :func:`verify`; this entry point re-projects the manifest's
+    engine runs (m018 + detail + selection) and compares every stored graph, its manifest control
+    counts, the removed-rule stop and the price mask. It only issues ``SELECT`` queries.
+    """
+    from projection.load_veto import verify_manifest_store  # noqa: PLC0415 -- avoids a cycle
+
+    verify_manifest_store(
+        store,  # type: ignore[arg-type]
+        manifest,
+        label,
+        assets_db=Path(assets_db) if assets_db is not None else None,
+    )
 
 
 def graph_identity(graph: str) -> GraphIdentity | None:

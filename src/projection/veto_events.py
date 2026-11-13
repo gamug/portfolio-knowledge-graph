@@ -1033,6 +1033,13 @@ def _memory(detail: DetailFile, context: EventContext, batch: DetailBatch) -> No
         date = str(line["date"])
         if asset not in first or date < first[asset]:
             first[asset] = date
+    for line in (*detail.blocked, *detail.reentry):
+        asset = int(line["asset_id"])
+        if asset not in first:
+            raise DetailError(
+                f"{detail.path}: {line['kind']} {line['date']}/{asset} has no stop line in the "
+                "same detail file; a window is an independent engine run with its own stop memory"
+            )
     released: dict[int, str] = {}
     for line in detail.reentry:
         asset = int(line["asset_id"])
@@ -1166,14 +1173,12 @@ def read_asset_tickers(source: _Source) -> dict[int, str]:
     return {int(row[0]): str(row[1]) for row in rows}
 
 
-def selection_index(  # noqa: PLR0913 -- the key fields are explicit
+def selection_index(
     source: _Source,
     label: str,
     window: str,
     configuration: str,
     decision_dates: Sequence[str],
-    *,
-    configured_names: bool = True,
 ) -> SelectionIndex:
     """Build the decision-only selection index from the engine DB, never from rankings.json."""
     cycle_by_date: dict[str, int] = {}
@@ -1200,14 +1205,9 @@ def selection_index(  # noqa: PLR0913 -- the key fields are explicit
         selected_by_date[date] = frozenset(int(row[0]) for row in rows)
 
     def snapshot(date: str, asset: int) -> rdflib.URIRef:
-        cycle = cycle_by_date[date]
-        if configured_names:
-            return KG[f"Snap_{label}_{window}_{slug}_{cycle}_{asset}"]
-        return KG[f"Snap_{label}_{window}_{cycle}_{asset}"]
+        return KG[f"Snap_{label}_{window}_{slug}_{cycle_by_date[date]}_{asset}"]
 
     def cycle_iri(date: str) -> rdflib.URIRef:
-        if configured_names:
-            return KG[f"Cycle_{label}_{window}_{slug}_{cycle_by_date[date]}"]
-        return KG[f"Cycle_{label}_{window}_{cycle_by_date[date]}"]
+        return KG[f"Cycle_{label}_{window}_{slug}_{cycle_by_date[date]}"]
 
     return SelectionIndex(cycle_by_date, selected_by_date, snapshot, cycle_iri)

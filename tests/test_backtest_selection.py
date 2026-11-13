@@ -376,3 +376,30 @@ def test_a_selection_graph_that_already_exists_is_not_written_again(
     result = _run_selection(backtest_db(tmp_path), store=store.db)
     assert result.already_in_store == ["urn:graph:derived:backtest:selection:rule:P1:1"]
     assert result.written == {}
+
+
+def test_a_configuration_keyed_selection_graph_uses_the_slug_in_every_iri(
+    tmp_path: Path,
+) -> None:
+    rows = _rows(tmp_path)
+    projection = project_selection(
+        rows,
+        ASSETS,
+        CATALOG,
+        "final",
+        ticker_cik_map(rows["v_ticker_history"]),
+        configuration="SYSTEM_WITH_HIERARCHY",
+    )
+    name = selection_graph_name("final", "P1", 1, "SYSTEM_WITH_HIERARCHY")
+    assert name == "urn:graph:derived:backtest:selection:final:P1:system_with_hierarchy"
+    assert set(projection.graphs) == {name}
+    graph = rdflib.Graph().parse(data=projection.turtle(name), format="turtle")
+    for kind in ("SelectionCycle", "AttractivenessSnapshot", "Veto", "AttractivenessWeightScheme"):
+        subjects = set(graph.subjects(rdflib.RDF.type, KG[kind]))
+        assert subjects
+        assert all("system_with_hierarchy" in str(subject) for subject in subjects), kind
+
+
+def test_the_legacy_selection_naming_is_unchanged(tmp_path: Path) -> None:
+    projection = _projection(tmp_path)
+    assert set(projection.graphs) == {"urn:graph:derived:backtest:selection:rule:P1:1"}
