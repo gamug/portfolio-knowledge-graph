@@ -117,7 +117,7 @@ urn:graph:derived:backtest:aggregates:{label}
 urn:graph:derived:backtest:external:{label}
 ```
 
-Proposed naming:
+Naming (implemented in PR E):
 
 ```text
 urn:graph:derived:backtest:{label}:{window}:{configuration_slug}
@@ -147,7 +147,7 @@ its book. This is question Q2. If the per-configuration form is chosen, the gate
 chosen, it stays unchanged. `MARKOWITZ_MV` stays in `external:{label}`; the new engine graphs do
 not touch it.
 
-Proposed IRI stems (the key is in every stem; a local integer id is only a suffix):
+IRI stems (implemented in PR E; the key is in every stem and a local integer id is only a suffix):
 
 | Entity | IRI |
 |---|---|

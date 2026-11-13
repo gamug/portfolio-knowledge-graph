@@ -411,7 +411,15 @@ def _price_properties(store: GraphDB) -> list[str]:
     return [f"{row.get('graph')}:{row.get('alert')}:{row.get('p')}" for row in rows]
 
 
-def _control_counts(manifest: VetoManifest) -> Mapping[str, int]:
+def _control_counts(  # noqa: C901, PLR0912 -- two accepted manifest shapes
+    manifest: VetoManifest,
+) -> Mapping[str, int]:
+    """Read the optional control counts as ``{graph: triples}``.
+
+    Two shapes are accepted: ``{"graphs": {iri: count}}`` and the per-key shape
+    ``{"configurations": {configuration: {window: {"m018": n, "selection": n}}}}``. Anything else
+    is reported as not machine-readable rather than guessed.
+    """
     value = manifest.control_counts
     if not isinstance(value, dict):
         print("control counts: not provided (draft or free-form); using projected counts")
@@ -419,7 +427,38 @@ def _control_counts(manifest: VetoManifest) -> Mapping[str, int]:
     graphs = value.get("graphs")
     if isinstance(graphs, dict):
         return {str(graph): int(count) for graph, count in graphs.items()}
-    return {}
+    configurations = value.get("configurations", value)
+    out: dict[str, int] = {}
+    if not isinstance(configurations, dict):
+        print(
+            "control counts: not provided as a graph or per-configuration map; using projected counts"
+        )
+        return {}
+    for configuration, windows in configurations.items():
+        if configuration not in (
+            "SYSTEM_WITH_HIERARCHY",
+            "SYSTEM_WITHOUT_HIERARCHY",
+            "MARKOWITZ_BASE",
+        ):
+            continue
+        if not isinstance(windows, dict):
+            continue
+        for window, counts in windows.items():
+            if not isinstance(counts, dict):
+                continue
+            for kind, count in counts.items():
+                key = str(kind).lower()
+                try:
+                    number = int(count)
+                except (TypeError, ValueError):
+                    continue
+                if key in ("m018", "m018_triples"):
+                    out[backtest_graph_name(manifest.label, str(window), configuration)] = number
+                elif key in ("selection", "selection_triples"):
+                    out[selection_graph_name(manifest.label, str(window), configuration)] = number
+                elif key in ("meta", "meta_triples"):
+                    out[f"urn:graph:derived:backtest:meta:{manifest.label}"] = number
+    return out
 
 
 def verify_manifest_store(
