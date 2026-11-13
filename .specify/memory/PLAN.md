@@ -3594,7 +3594,7 @@ graph is **1265 triples**. No GraphDB write.
 
 ## Work item 46 — Veto Hierarchy projection (T-840–T-869)
 
-**Status: design PR (T-840) 2026-11-13; PR A (T-841–T-846) open as PR #156, 2026-11-13; PR B in progress.**
+**Status: design PR (T-840) 2026-11-13; PR A (T-841–T-846) open as PR #156; PR B (T-847–T-852) draft as PR #157, stacked on PR A.**
 
 **Why**: Reviewer A delivered the frozen data dictionary and the pilot `H1C-B5-P1` for the complete
 System with the Veto Hierarchy. The engine arm codes no longer identify a configuration
@@ -3623,8 +3623,12 @@ measured pilot budget is in `docs/veto-hierarchy-design.md` §6.
       configuration class and rules: five configuration individuals,
       `:configuration`/`:systemVariant`/`:poolSize`/`:retentionEnabled`, the four new rules, the
       BLOCKED states, C1 patterns, the L1_BP price exclusions and the new event shapes.
-- [ ] **T-847–T-852** Manifest parser, SHA-256 order, filter rules, configuration-keyed graph/IRI
-      names, meta and m018 projection, with the pilot DB tests.
+- [x] **T-847–T-849** *(done 2026-11-13, PR #157: `src/projection/veto_manifest.py`, gate patterns
+      and 14 hermetic tests; draft manifest parses, hashes verify, filters and configuration-keyed
+      graph names are in place.)* Manifest parser, SHA-256 order, filter rules and
+      configuration-keyed graph/IRI names.
+- [ ] **T-850–T-852** Meta and m018 projection with the new key, plus the pilot DB integration
+      tests and the removed-rule load-stop regression.
 - [ ] **T-853–T-859** Detail model: decisions, retention, stop/menu/cash, replacement, stop memory,
       price negative tests and the selection cross-check; no full candidate/target duplication.
 - [ ] **T-860–T-864** Second label table (31 concepts + new schema elements), C1 label, TTYG
