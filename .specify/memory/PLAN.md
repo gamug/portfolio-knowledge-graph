@@ -3530,7 +3530,8 @@ constant per run and stays in the delivery hash/`source.json`). The graph is
 (SHA256SUMS `fd32daed…`, 509,933 metric rows) the 37 metrics are 495,294 rows / 406,570 non-null;
 the expected batch is **834,586 asserted triples** (873,889 with inference), including the 33
 flags. T-811/T-812 landed the schema (7227 quads, 21/7504 load plan, 5/6983 production, 60
-classes / 46 disjoint leaves / 44 shapes); the loader count is measured in T-813–T-815.
+classes / 46 disjoint leaves / 44 shapes); the loader measured **834,586 asserted triples** in
+T-813–T-815.
 
 **Tasks**:
 
