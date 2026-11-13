@@ -1270,7 +1270,7 @@ def final_scenario_rows(window: str = "P1", run_id: int = 1) -> dict[str, list[d
     if window == "P2":
         # Decided the day before the window starts and effective on its first day: inside the raw
         # APPLIED set, outside every P2/P2a/P2b [date_from, date_to] segment. It is a separate
-        # alert from id 1 because the boundary keys v_guard_action by (book_id, alert_id).
+        # alert from id 1 so both action decisions stay visible without sharing an alert id.
         guard_alert.append(
             {
                 "id": 6,

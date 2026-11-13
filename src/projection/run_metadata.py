@@ -29,6 +29,7 @@ from projection.backtest import read_view
 from projection.delivery import RunConfig, WindowSource
 from projection.source import FinancialSource
 from projection.verify_backtest import Check, ReadableStore, Verification
+from projection.veto_manifest import configuration_iri, configuration_slug
 
 KG = rdflib.Namespace("https://thesis.local/kg/portfolio#")
 META_GRAPH_PREFIX = "urn:graph:derived:backtest:meta:"
@@ -52,6 +53,7 @@ class RunInfo:
     date_to: str
     run_id: int
     knowledge_date: str
+    configuration: str | None = None
 
 
 @dataclass(frozen=True)
@@ -143,7 +145,7 @@ def _calendar(path: Path, column: str, value: str) -> datetime.date:
         raise MetadataError(f"{path}: v_book.{column} {value!r} is not a calendar date") from None
 
 
-def build_metadata(
+def build_metadata(  # noqa: C901, PLR0912, PLR0915 -- one branch per metadata field
     label: str,
     runs: Sequence[RunInfo | WindowSource],
     hashes: Mapping[Path, str],
@@ -152,9 +154,18 @@ def build_metadata(
     """Build the deterministic meta graph for every window of one delivery."""
     if not runs:
         raise MetadataError("no window to put in the metadata graph")
-    windows = [run.window for run in runs]
-    if len(set(windows)) != len(windows):
-        raise MetadataError("two runs share a window id: " + ", ".join(sorted(windows)))
+    configured = [run for run in runs if getattr(run, "configuration", None) is not None]
+    if configured and len(configured) != len(runs):
+        raise MetadataError("some runs carry a configuration and some do not")
+    if configured:
+        keys = [(str(run.configuration), run.window) for run in runs]
+        if len(set(keys)) != len(keys):
+            duplicates = sorted({key for key in keys if keys.count(key) > 1})
+            raise MetadataError("two runs share a (configuration, window) key: " + repr(duplicates))
+    else:
+        windows = [run.window for run in runs]
+        if len(set(windows)) != len(windows):
+            raise MetadataError("two runs share a window id: " + ", ".join(sorted(windows)))
     graph = meta_graph_name(label)
     config_iri = KG[f"RunConfiguration_{label}"]
     out = rdflib.Graph()
@@ -176,10 +187,16 @@ def build_metadata(
         digest = digest.lower()
         if not _SHA256.fullmatch(digest):
             raise MetadataError(f"{run.path}: {digest!r} is not a lowercase SHA-256")
-        iri = KG[f"BacktestRun_{label}_{run.window}"]
+        configuration = getattr(run, "configuration", None)
+        if configuration is None:
+            iri = KG[f"BacktestRun_{label}_{run.window}"]
+        else:
+            iri = KG[f"Run_{label}_{run.window}_{configuration_slug(configuration)}"]
         out.add((iri, RDF.type, KG.BacktestRun))
         out.add((iri, KG.runLabel, rdflib.Literal(label)))
         out.add((iri, KG.windowId, rdflib.Literal(run.window)))
+        if configuration is not None:
+            out.add((iri, KG.configuration, KG[configuration_iri(configuration)]))
         out.add((iri, KG.backtestRunId, rdflib.Literal(run.run_id)))
         out.add((iri, KG.sourceFile, rdflib.Literal(run.path.name)))
         out.add((iri, KG.sourceSha256, rdflib.Literal(digest)))
@@ -207,15 +224,17 @@ def verify_metadata(
     triples = _count(store, f"SELECT (COUNT(*) AS ?n) WHERE {{ GRAPH <{graph}> {{ ?s ?p ?o }} }}")
     rows = store.select(
         _PREFIXES
-        + "SELECT ?run ?window ?run_id ?file ?sha ?knowledge ?config WHERE { "
+        + "SELECT ?run ?window ?run_id ?file ?sha ?knowledge ?config ?configuration WHERE { "
         + f"GRAPH <{graph}> {{ "
         + "?run a :BacktestRun ; :windowId ?window ; :backtestRunId ?run_id ; "
         + ":sourceFile ?file ; :sourceSha256 ?sha ; :knowledgeDate ?knowledge ; "
-        + ":runConfiguration ?config . } }"
+        + ":runConfiguration ?config . "
+        + "OPTIONAL { ?run :configuration ?configuration } } }"
     )
-    by_window: dict[str, list[dict[str, str]]] = {}
+    configured = any(getattr(run, "configuration", None) is not None for run in projection.runs)
+    by_key: dict[str, list[dict[str, str]]] = {}
     for row in rows:
-        by_window.setdefault(row.get("window", ""), []).append(row)
+        by_key.setdefault(_stored_key(row, configured), []).append(row)
     checks = [
         Check(
             "metadata graph name",
@@ -228,13 +247,15 @@ def verify_metadata(
             f"stored {triples:,}, expected {projection.triples:,}",
         ),
     ]
-    expected_windows = [run.window for run in projection.runs]
+    expected_keys = [_run_key(run, configured) for run in projection.runs]
     checks.append(
         Check(
-            "one BacktestRun per window",
-            sorted(by_window) == sorted(expected_windows)
-            and all(len(by_window[window]) == 1 for window in expected_windows),
-            "stored windows: " + (", ".join(sorted(by_window)) or "none"),
+            "one BacktestRun per configuration/window"
+            if configured
+            else "one BacktestRun per window",
+            sorted(by_key) == sorted(expected_keys)
+            and all(len(by_key[key]) == 1 for key in expected_keys),
+            "stored keys: " + (", ".join(sorted(by_key)) or "none"),
         )
     )
     config_iris = {row.get("config", "") for row in rows if row.get("config")}
@@ -247,32 +268,45 @@ def verify_metadata(
         )
     )
     for run in projection.runs:
-        stored = by_window.get(run.window, [])
+        stored = by_key.get(_run_key(run, configured), [])
+        name = _run_display(run, configured)
         expected_sha = projection.hashes[run.path].lower()
+        expected_configuration = getattr(run, "configuration", None)
+        if expected_configuration is not None:
+            checks.append(
+                Check(
+                    f"configuration {name}",
+                    len(stored) == 1
+                    and stored[0].get("configuration", "")
+                    == configuration_iri(expected_configuration),
+                    f"stored {_one_value(stored, 'configuration')}, expected "
+                    f"{configuration_iri(expected_configuration)}",
+                )
+            )
         checks.append(
             Check(
-                f"source hash {run.window}",
+                f"source hash {name}",
                 len(stored) == 1 and stored[0].get("sha") == expected_sha,
                 f"stored {_one_value(stored, 'sha')}, expected {expected_sha}",
             )
         )
         checks.append(
             Check(
-                f"source file {run.window}",
+                f"source file {name}",
                 len(stored) == 1 and stored[0].get("file") == run.path.name,
                 f"stored {_one_value(stored, 'file')}, expected {run.path.name}",
             )
         )
         checks.append(
             Check(
-                f"knowledge date {run.window}",
+                f"knowledge date {name}",
                 len(stored) == 1 and stored[0].get("knowledge") == run.knowledge_date,
                 f"stored {_one_value(stored, 'knowledge')}, expected {run.knowledge_date}",
             )
         )
         checks.append(
             Check(
-                f"run id {run.window}",
+                f"run id {name}",
                 len(stored) == 1 and stored[0].get("run_id") == str(run.run_id),
                 f"stored {_one_value(stored, 'run_id')}, expected {run.run_id}",
             )
@@ -295,6 +329,23 @@ def verify_metadata(
         checks,
         triples,
     )
+
+
+def _run_key(run: RunInfo | WindowSource, configured: bool) -> str:
+    configuration = getattr(run, "configuration", None)
+    return f"{configuration}/{run.window}" if configured else run.window
+
+
+def _stored_key(row: Mapping[str, str], configured: bool) -> str:
+    if configured:
+        return f"{row.get('configuration', '')}/{row.get('window', '')}"
+    return row.get("window", "")
+
+
+def _run_display(run: RunInfo | WindowSource, configured: bool) -> str:
+    if not configured:
+        return run.window
+    return f"{getattr(run, 'configuration', '')}/{run.window}"
 
 
 def _read_configuration(store: ReadableStore, graph: str) -> list[dict[str, str]]:
