@@ -328,6 +328,7 @@ class WindowSource:
     run_id: int
     knowledge_date: str
     sha256: str | None = None
+    configuration: str | None = None
 
 
 @dataclass

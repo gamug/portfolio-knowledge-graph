@@ -1,6 +1,6 @@
 {
   "view": "v_guard_action",
-  "keys": [["action_id"], ["book_id", "alert_id"]],
+  "keys": [["action_id"]],
   "cap": 0,
   "null_rate": [
     {"column": "action_id", "max": 0},

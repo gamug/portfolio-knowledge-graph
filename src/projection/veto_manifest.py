@@ -666,6 +666,8 @@ def filter_rows(
             f"({book_code}), found {len(books)}"
         )
     out: dict[str, list[Mapping[str, Any]]] = {"v_book": books}
+    removed["v_book"] = len(rows.get("v_book", ())) - len(books)
+    reasons["twin or other book"] += removed["v_book"]
     actions = [
         row
         for row in rows.get("v_guard_action", ())
