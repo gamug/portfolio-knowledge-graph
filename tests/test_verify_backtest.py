@@ -255,7 +255,7 @@ def test_a_basing_points_alert_with_a_threshold_in_the_graph_is_reported(tmp_pat
     assert result.ok, result.summary()
     assert _check(result, "Basing Points publication")
     detail = next(c.detail for c in result.checks if c.name == "Basing Points publication")
-    assert "1 stored, 1 source L1_BP_* alerts; 0 :alertThreshold" in detail
+    assert "3 stored, 3 source L1_BP_* alerts; 0 :alertThreshold" in detail
 
     path, source_projection = _built(tmp_path, rows=rows)
     dataset = _dataset(source_projection)

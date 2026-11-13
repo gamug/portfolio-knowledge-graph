@@ -286,13 +286,13 @@
     a owl:Class ;
     rdfs:label "Guard Alert"@en ;
     rdfs:label "alerta diaria de GUARD"@es ;
-    skos:definition "Alerta de riesgo generada al cierre de una sesión por las capas de protección diaria GUARD: corte individual por pérdida acumulada o por Basing Points (capa 1, L1_STOP_LOSS / L1_REENTRY / L1_BP_STOP / L1_BP_REENTRY), volatilidad ex-ante del portafolio (capa 3, L3_VOL) o caída acumulada desde el máximo (capa 4, L4_DD)."@es  .
+    skos:definition "Alerta de riesgo generada al cierre de una sesión por las capas de protección diaria GUARD: eventos de riesgo de cola de la cartera (capa 0, L0_CARTERA_ACTIVATION / L0_CARTERA_SCALE_CHANGE / L0_CARTERA_RECOVERY) o corte y bloqueo individual por Basing Points (capa 1, L1_BP_STOP / L1_BP_REENTRY / L1_BP_STOP_BLOCKED)."@es  .
 
 :GuardAction
     a owl:Class ;
     rdfs:label "Guard Action"@en ;
     rdfs:label "acción de GUARD sobre un libro"@es ;
-    skos:definition "Evaluación y efecto de una alerta de GUARD sobre un libro de estrategia para la sesión siguiente (effective_date): APPLIED (aplicada), ARM_DISABLED (registrada como contrafactual en el brazo sin GUARD), NOT_HELD (activo no mantenido en cartera) o SUPERSEDED."@es  .
+    skos:definition "Evaluación y efecto de una alerta de GUARD sobre un libro de estrategia para la sesión siguiente (effective_date): APPLIED (aplicada), ARM_DISABLED (registrada como contrafactual en el brazo sin GUARD), NOT_HELD (activo no mantenido en cartera), SUPERSEDED o BLOCKED (el activo queda fuera del conjunto de candidatas por la memoria de parada)."@es  .
 
 :BookWeightDaily
     a owl:Class ;
@@ -531,7 +531,7 @@ so every result is in-sample.""" .
 
 #################################################################
 # 1.3 DISJOINTNESS — every individual belongs to exactly one of
-# these 44 classes. ExchangeTradedFund is deliberately absent: it is
+# these 58 classes. ExchangeTradedFund is deliberately absent: it is
 # a subclass of Asset, not a sibling. EvidenceSource/RuleOperand/ObservationSnapshot
 # (§1.1) and every §1.2 taxonomy class are deliberately excluded --
 # they're superclasses of members of this list, and a superclass is
@@ -550,7 +550,10 @@ so every result is in-sample.""" .
                  :PortfolioPeriodSummary :BacktestTest :SelectionCycle
                  :BacktestRun :RunConfiguration
                  :AggregatesSet :TrendFilterState :ReferenceReturn
-                 :FundamentalMetricSet :FundamentalAssessment ) .
+                  :FundamentalMetricSet :FundamentalAssessment :BacktestConfiguration
+                 :DecisionEvent :FormationTarget :RetentionDecision :RetentionHold :RetentionRejection
+                 :StopEvent :DestinationOption :StopRejectionSummary :StopMemory
+                 :ReplacementPurchase :ReplacementCheck ) .
 
 #################################################################
 # 2. OBJECT PROPERTIES
@@ -678,10 +681,10 @@ so every result is in-sample.""" .
 :alertHasGuardAction a owl:ObjectProperty ; rdfs:domain :GuardAlert ; rdfs:range :GuardAction .
 
 :alertRule a owl:ObjectProperty, owl:FunctionalProperty ; rdfs:domain :GuardAlert ; rdfs:range :RuleDefinition ;
-    rdfs:comment "v_guard_alert.rule_id, resolved to the GUARD RuleDefinition (L1_STOP_LOSS, L1_REENTRY, L1_BP_STOP, L1_BP_REENTRY, L2_NEWS, L3_VOL or L4_DD). This is the only way a GUARD rule is reached from an alert; it is not a Veto :appliesRule/:primaryRule target (VetoShape refuses category GUARD)." .
+    rdfs:comment "v_guard_alert.rule_id, resolved to the GUARD RuleDefinition (L0_CARTERA_ACTIVATION, L0_CARTERA_SCALE_CHANGE, L0_CARTERA_RECOVERY, L1_BP_STOP, L1_BP_REENTRY or L1_BP_STOP_BLOCKED). This is the only way a GUARD rule is reached from an alert; it is not a Veto :appliesRule/:primaryRule target (VetoShape refuses category GUARD)." .
 
 :guardAsset a owl:ObjectProperty, owl:FunctionalProperty ; rdfs:range :Asset ;
-    rdfs:comment "Optional on GuardAlert and GuardAction. No rdfs:domain so the two classes can share it without entailing each other (the :runId pattern). NULL on layer 3/4 portfolio-level alerts/actions; a CASH weight row uses no asset link at all." .
+    rdfs:comment "Optional on GuardAlert and GuardAction. No rdfs:domain so the two classes can share it without entailing each other (the :runId pattern). NULL on layer-0 portfolio-level alerts/actions; a CASH weight row uses no asset link at all." .
 
 :weightOfBook a owl:ObjectProperty, owl:FunctionalProperty ; rdfs:domain :BookWeightDaily ; rdfs:range :StrategyBook ;
     owl:inverseOf :bookHasWeight ;
@@ -754,7 +757,7 @@ so every result is in-sample.""" .
 
 # --- RiskEvent / Veto ---
 :category a owl:DatatypeProperty ; rdfs:range xsd:string ;
-    rdfs:comment "On RiskEvent: LEGAL | FINANCIAL | MARKET | NETWORK. On RuleDefinition: free-text category label (v1's catalog table for the superseded rules; upstream's FINANCIAL | MARKET | DATA_QUALITY for the ten active selection rules; GUARD for the seven GUARD protection rules, T-206 and Work item 33). A GUARD rule is not a veto rule: RuleDefinitionShape accepts it without :ruleSeverity, :penaltyPoints or :priorityRank, and VetoShape refuses it as an :appliesRule/:primaryRule target." .
+    rdfs:comment "On RiskEvent: LEGAL | FINANCIAL | MARKET | NETWORK. On RuleDefinition: free-text category label (v1's catalog table for the superseded rules; upstream's FINANCIAL | MARKET | DATA_QUALITY for the ten active selection rules; GUARD for the six GUARD protection rules, T-206 and Work item 46). A GUARD rule is not a veto rule: RuleDefinitionShape accepts it without :ruleSeverity, :penaltyPoints or :priorityRank, and VetoShape refuses it as an :appliesRule/:primaryRule target." .
 # --- AssetCoOccurrence (T-107, D10) ---
 :coOccurrenceAsset a owl:ObjectProperty ; rdfs:domain :AssetCoOccurrence ; rdfs:range :Asset ;
     rdfs:comment "The two assets linked (SHACL: exactly 2). Unordered, so no direction is implied." .
@@ -933,7 +936,7 @@ so every result is in-sample.""" .
 :armCode a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:range xsd:string ;
     rdfs:comment "MARKOWITZ_BASE | TOPN_MV_NOGUARD | TOPN_MV_GUARD_NO_NLP | TOPN_MV_GUARD | MARKOWITZ_BASE_GUARD | MARKOWITZ_MV. No rdfs:domain: shared across StrategyBook, BookRebalance, GuardAction, BookWeightDaily, BookDailyPerformance and PortfolioPeriodSummary. MARKOWITZ_MV is the external mean-variance base book (Work item 44), summary-only. SHACL sh:in." .
 :windowId a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:range xsd:string ;
-    rdfs:comment "P<number> or H<number> (P1, P2, P3, H1, H2, H3, …; T-234 opened the vocabulary and Work item 33 added H<number> for the holdout windows). No rdfs:domain: shared across StrategyBook, GuardAlert, BookDailyPerformance, PortfolioPeriodSummary, BacktestTest and BacktestRun. SHACL sh:pattern ^[PH][0-9]+$: a typo in the letter or digits is no longer caught, only the P<number>/H<number> shape." .
+    rdfs:comment "P<number>, H<number> or C<number> (P1, P2, P3, H1, H2, H3, C1, …; T-234 opened the vocabulary, Work item 33 added H<number> and Work item 46 added the continuous C1 window). No rdfs:domain: shared across StrategyBook, GuardAlert, BookDailyPerformance, PortfolioPeriodSummary, BacktestTest and BacktestRun. SHACL sh:pattern ^([PH][0-9]+|C[0-9]+)$: a typo in the letter or digits is no longer caught, only the P/H/C<number> shape." .
 :knowledgeDate a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:range xsd:date ;
     rdfs:comment "The date the m018 row became known (v_* knowledge_date, the view's own date or the run's created_at date). No rdfs:domain: every m018 individual carries it, so a knowledgeDate <= D query works uniformly (handoff checklist 3). It is not valid time and not a replacement for :knowledgeDate-less m015/m016 rows." .
 :status a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:range xsd:string ;
@@ -941,11 +944,11 @@ so every result is in-sample.""" .
 :decisionDate a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:range xsd:date ;
     rdfs:comment "The session close at which the decision was made. No rdfs:domain: shared by BookRebalance (the close before execution_date) and GuardAction (the alert's session)." .
 :guardTicker a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:range xsd:string ;
-    rdfs:comment "Optional on GuardAlert and GuardAction (v_*.ticker). No rdfs:domain, so the two classes share it without entailment. NULL on layers 3/4." .
+    rdfs:comment "Optional on GuardAlert and GuardAction (v_*.ticker). No rdfs:domain, so the two classes share it without entailment. NULL on layer-0 portfolio-level alerts/actions." .
 :guardLayer a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:range xsd:integer ;
-    rdfs:comment "T-206: 1..4, the GUARD protection layer. No rdfs:domain: it is the alert's v_guard_alert.layer and the GUARD RuleDefinition's layer. SHACL bounds it to 1..4 on both." .
+    rdfs:comment "T-206/Work item 46: 0..1, the GUARD protection layer (0 portfolio tail risk, 1 Basing Points). No rdfs:domain: it is the alert's v_guard_alert.layer and the GUARD RuleDefinition's layer. SHACL bounds it to 0..1 on both." .
 :segment a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:range xsd:string ;
-    rdfs:comment "P<number> or H<number> plus an optional lowercase sub-period suffix (P1, H1, P3, H2, P2a, P2b, H3, …; T-234 opened the vocabulary and Work item 33 added H<number>). No rdfs:domain: shared by PortfolioPeriodSummary and BacktestTest. SHACL sh:pattern ^[PH][0-9]+[a-z]?$." .
+    rdfs:comment "P<number>, H<number> or C<number> plus an optional lowercase sub-period suffix (P1, H1, P3, H2, P2a, P2b, H3, C1, …; T-234 opened the vocabulary, Work item 33 added H<number> and Work item 46 added C1). No rdfs:domain: shared by PortfolioPeriodSummary and BacktestTest. SHACL sh:pattern ^([PH][0-9]+|C[0-9]+)[a-z]?$." .
 :runLabel a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:range xsd:string ;
     rdfs:comment "The operator's name for one backtest result family (--db LABEL=PATH; T-233), the one run identity the m018 views do not expose (no input hash, no parameters). [a-z][a-z0-9_]{1,31}: lowercase, 2-32 characters. No rdfs:domain: StrategyBook and BacktestTest share it, the two m018 classes with no book link, and BacktestRun, AggregatesSet, TrendFilterState and ReferenceReturn carry it directly; every other class reaches its label through its book. SHACL sh:pattern, the same one the CLI and the graph-name pattern enforce." .
 :handle a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:range xsd:string ;
@@ -1085,11 +1088,11 @@ so every result is in-sample.""" .
 :alertDate a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :GuardAlert ; rdfs:range xsd:date ;
     rdfs:comment "v_guard_alert.date, the session close the alert was raised at." .
 :alertValue a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :GuardAlert ; rdfs:range xsd:decimal ;
-    rdfs:comment "Optional: v_guard_alert.value. Always NULL on layer 1 (per-asset returns are not published in the graph); :alertState is always populated, and :alertThreshold on every rule except the two Basing Points rules (Work item 33)." .
+    rdfs:comment "Optional: v_guard_alert.value. Always NULL on every L1_BP_* rule (per-asset returns and stop levels are not published in the graph); :alertState is always populated, and :alertThreshold only on the L0_* portfolio-risk rules." .
 :alertThreshold a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :GuardAlert ; rdfs:range xsd:decimal ;
-    rdfs:comment "v_guard_alert.threshold. Required for every alert except L1_BP_STOP/L1_BP_REENTRY, where it is the individual asset's stop price level and is therefore forbidden (Work item 33: upstream's licence does not allow redistributing it). L1_STOP_LOSS/L1_REENTRY keep their fixed parameter. SHACL enforces both sides." .
+    rdfs:comment "v_guard_alert.threshold. Required for every L0_* portfolio-risk alert; forbidden on every L1_BP_* alert, where it would be the individual asset's stop price level (Work item 33: upstream's licence does not allow redistributing it). SHACL enforces both sides." .
 :alertState a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :GuardAlert ; rdfs:range xsd:string ;
-    rdfs:comment "v_guard_alert.state: ENTER | EXIT | ACTIVE | COOLDOWN | SCALE. SHACL sh:in." .
+    rdfs:comment "v_guard_alert.state: ENTER | EXIT | ACTIVE | COOLDOWN | SCALE | BLOCKED. SHACL sh:in." .
 
 # --- GuardAction ---
 :actionId a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :GuardAction ; rdfs:range xsd:integer ;
@@ -1097,7 +1100,7 @@ so every result is in-sample.""" .
 :effectiveDate a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :GuardAction ; rdfs:range xsd:date ;
     rdfs:comment "v_guard_action.effective_date: the session the target applies to (t+1)." .
 :weightBefore a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :GuardAction ; rdfs:range xsd:decimal ;
-    rdfs:comment "Optional: v_guard_action.weight_before. NULL on layer 1 asset actions (masked) and on NOT_HELD; portfolio-level L3/L4 scale factors keep it." .
+    rdfs:comment "Optional: v_guard_action.weight_before. NULL on layer-1 asset actions (masked) and on NOT_HELD; layer-0 portfolio scale factors keep it." .
 :weightAfter a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :GuardAction ; rdfs:range xsd:decimal ;
     rdfs:comment "Optional: v_guard_action.weight_after, the same nullability as :weightBefore." .
 
@@ -1610,3 +1613,500 @@ so every result is in-sample.""" .
 :metricUnit a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain skos:Concept ; rdfs:range xsd:string ;
     rdfs:label "Metric unit"@en ; rdfs:label "Unidad de la métrica"@es ;
     rdfs:comment "ratio, x or usd; the 37 loaded metric concepts use all three, and the USD ones are ebitda, nopat, market_capitalization and enterprise_value."@en ; rdfs:comment "ratio, x o usd; los 37 conceptos de métricas cargados usan las tres, y los USD son ebitda, nopat, market_capitalization y enterprise_value."@es .
+
+#################################################################
+# VETO HIERARCHY (Work item 46, T-841–T-846) — configuration and event model.
+# Labels/comments are PROPOSED; the frozen table is docs/labels-veto-review.md.
+#################################################################
+
+:BacktestConfiguration a owl:Class ;
+    rdfs:label "Backtest configuration"@en ; rdfs:label "Configuración de backtest"@es ;
+    rdfs:comment "The five closed configurations of the new delivery: SYSTEM_WITH_HIERARCHY, SYSTEM_WITHOUT_HIERARCHY, MARKOWITZ_BASE, MARKOWITZ_MV and SPY. :armCode is engine provenance only."@en ; rdfs:comment "Las cinco configuraciones cerradas de la entrega nueva: SYSTEM_WITH_HIERARCHY, SYSTEM_WITHOUT_HIERARCHY, MARKOWITZ_BASE, MARKOWITZ_MV y SPY. :armCode es solo procedencia del motor."@es .
+
+:DecisionEvent a owl:Class ;
+    rdfs:subClassOf :Observation ;
+    rdfs:label "Decision event"@en ; rdfs:label "Evento de decisión"@es ;
+    rdfs:comment "One decision date of a System book: filter state, exposure scale, candidate-set sizes and the links to its selection cycle and rebalance."@en ; rdfs:comment "Una fecha de decisión de un libro del Sistema: estado del filtro, escala de exposición, tamaños del conjunto de candidatas y enlaces a su ciclo de selección y rebalanceo."@es .
+
+:FormationTarget a owl:Class ;
+    rdfs:subClassOf :Observation ;
+    rdfs:label "Formation target"@en ; rdfs:label "Objetivo de formación"@es ;
+    rdfs:comment "One target weight of the formation decision, which has no BookWeightDaily target rows."@en ; rdfs:comment "Un peso objetivo de la decisión de formación, que no tiene filas de objetivo en BookWeightDaily."@es .
+
+:RetentionDecision a owl:Class ;
+    rdfs:subClassOf :Observation ;
+    rdfs:label "Retention decision"@en ; rdfs:label "Decisión de retención"@es ;
+    rdfs:comment "The retention result of one decision: pool size, held names outside the pool, retained, rejected, counter drops and kept weight."@en ; rdfs:comment "El resultado de retención de una decisión: tamaño del grupo, mantenidas fuera del grupo, retenidas, rechazadas, salidas por contador y peso conservado."@es .
+
+:RetentionHold a owl:Class ;
+    rdfs:subClassOf :Observation ;
+    rdfs:label "Retained holding"@en ; rdfs:label "Mantenida retenida"@es ;
+    rdfs:comment "One held name retained as a candidate at a decision, with its retention counter and ranking snapshot."@en ; rdfs:comment "Una acción mantenida y retenida como candidata en una decisión, con su contador de retención y su instantánea de ranking."@es .
+
+:RetentionRejection a owl:Class ;
+    rdfs:subClassOf :Observation ;
+    rdfs:label "Retention rejection"@en ; rdfs:label "Rechazo de retención"@es ;
+    rdfs:comment "One held name rejected by the retention rule, with its cause and retention counter."@en ; rdfs:comment "Una acción mantenida rechazada por la regla de retención, con su causa y su contador de retención."@es .
+
+:StopEvent a owl:Class ;
+    rdfs:subClassOf :Observation ;
+    rdfs:label "Stop event"@en ; rdfs:label "Evento de parada"@es ;
+    rdfs:comment "One stop that sold an asset between decisions, with its weight, risk figures, cash cause, chosen destination and menu."@en ; rdfs:comment "Una parada que vendió una acción entre decisiones, con su peso, cifras de riesgo, causa de efectivo, destino elegido y menú."@es .
+
+:DestinationOption a owl:Class ;
+    rdfs:subClassOf :Observation ;
+    rdfs:label "Destination option"@en ; rdfs:label "Opción de destino"@es ;
+    rdfs:comment "One allowed destination in the menu of a stop, with its rho, R, beta, rank, score, sector, size and weight."@en ; rdfs:comment "Un destino permitido del menú de una parada, con su rho, R, beta, puesto, puntaje, sector, tamaño y peso."@es .
+
+:StopRejectionSummary a owl:Class ;
+    rdfs:subClassOf :Observation ;
+    rdfs:label "Stop rejection summary"@en ; rdfs:label "Resumen de rechazos de parada"@es ;
+    rdfs:comment "One stop's non-zero rejection counts by cause; zeros are omitted and the counts are integers, not a JSON blob."@en ; rdfs:comment "Los conteos de rechazo no nulos de una parada por causa; los ceros se omiten y los conteos son enteros, no un blob JSON."@es .
+
+:StopMemory a owl:Class ;
+    rdfs:subClassOf :Observation ;
+    rdfs:label "Stop memory"@en ; rdfs:label "Memoria de la parada"@es ;
+    rdfs:comment "The stop memory of one asset: the first stop date and, when it recovered, the release date. The stop level itself is a price and is never stored."@en ; rdfs:comment "La memoria de la parada de un activo: la primera fecha de parada y, si recuperó, la fecha de salida. El nivel de la parada es un precio y nunca se almacena."@es .
+
+:ReplacementPurchase a owl:Class ;
+    rdfs:subClassOf :Observation ;
+    rdfs:label "Replacement purchase"@en ; rdfs:label "Compra de reemplazo"@es ;
+    rdfs:comment "One replacement bought with the weight freed by a stop, with its order/execution dates, rank and filter state."@en ; rdfs:comment "Un reemplazo comprado con el peso liberado por una parada, con sus fechas de orden y ejecución, su puesto y el estado del filtro."@es .
+
+:ReplacementCheck a owl:Class ;
+    rdfs:subClassOf :Observation ;
+    rdfs:label "Replacement check"@en ; rdfs:label "Verificación del reemplazo"@es ;
+    rdfs:comment "The next-decision check of a replacement: whether it was a candidate and whether the optimiser kept it."@en ; rdfs:comment "La verificación en la decisión siguiente de un reemplazo: si fue candidata y si el optimizador la mantuvo."@es .
+
+:Configuration_SystemWithHierarchy a :BacktestConfiguration ;
+    skos:notation "SYSTEM_WITH_HIERARCHY" ;
+    rdfs:label "System with the Veto Hierarchy"@en ; rdfs:label "Sistema con la Jerarquía de Veto"@es ;
+    rdfs:comment "The System with rules, news and portfolio GUARD; the loaded book is TOPN_MV_GUARD_NO_NLP (TOPN_MV_GUARD if the chosen System carries news)."@en ; rdfs:comment "El Sistema con reglas, noticias y GUARD de cartera; el libro cargado es TOPN_MV_GUARD_NO_NLP (TOPN_MV_GUARD si el Sistema elegido lleva noticias)."@es .
+
+:Configuration_SystemWithoutHierarchy a :BacktestConfiguration ;
+    skos:notation "SYSTEM_WITHOUT_HIERARCHY" ;
+    rdfs:label "System without the Veto Hierarchy"@en ; rdfs:label "Sistema sin la Jerarquía de Veto"@es ;
+    rdfs:comment "The System with the risk rules, trend filter and portfolio GUARD off; it keeps DATA_QUALITY, EARNINGS_MISSING, pool 100 and retention."@en ; rdfs:comment "El Sistema con las reglas de riesgo, el filtro de tendencia y el GUARD de cartera apagados; conserva DATA_QUALITY, EARNINGS_MISSING, grupo 100 y retención."@es .
+
+:Configuration_MarkowitzBase a :BacktestConfiguration ;
+    skos:notation "MARKOWITZ_BASE" ;
+    rdfs:label "Minimum variance (Ledoit-Wolf)"@en ; rdfs:label "Mínima varianza (Ledoit-Wolf)"@es ;
+    rdfs:comment "The engine's minimum-variance book, loaded once per window from the DB named by the manifest."@en ; rdfs:comment "El libro de mínima varianza del motor, cargado una vez por ventana desde la base que nombra el manifiesto."@es .
+
+:Configuration_MarkowitzMV a :BacktestConfiguration ;
+    skos:notation "MARKOWITZ_MV" ;
+    rdfs:label "Mean-variance base Markowitz"@en ; rdfs:label "Markowitz base de media-varianza"@es ;
+    rdfs:comment "The external mean-variance tangency book from Work item 44; it stays in the external summary graph."@en ; rdfs:comment "El libro externo de tangencia de media-varianza del Work item 44; permanece en el grafo externo de resúmenes."@es .
+
+:Configuration_SPY a :BacktestConfiguration ;
+    skos:notation "SPY" ;
+    rdfs:label "SPY total-return reference"@en ; rdfs:label "Referencia de retorno total SPY"@es ;
+    rdfs:comment "The SPY total-return reference series; its daily series belongs to block E."@en ; rdfs:comment "La serie de referencia de retorno total de SPY; su serie diaria pertenece al bloque E."@es .
+
+:configuration a owl:ObjectProperty, owl:FunctionalProperty ; rdfs:range :BacktestConfiguration ;
+    rdfs:label "Backtest configuration"@en ; rdfs:label "Configuración de backtest"@es ;
+    rdfs:comment "The explicit configuration of a StrategyBook or BacktestRun; no rdfs:domain, shared by both carriers. Engine arm codes do not identify a configuration."@en ; rdfs:comment "La configuración explícita de un StrategyBook o BacktestRun; sin rdfs:domain, compartida por ambos portadores. Los códigos de brazo del motor no identifican una configuración."@es .
+
+:systemVariant a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:range xsd:string ;
+    rdfs:label "System variant"@en ; rdfs:label "Variante del Sistema"@es ;
+    rdfs:comment "basic (pool 60, retention off) or complete (pool 100, retention on); read from the manifest selected_variant."@en ; rdfs:comment "basic (grupo 60, retención apagada) o complete (grupo 100, retención encendida); se lee del selected_variant del manifiesto."@es .
+
+:poolSize a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:range xsd:integer ;
+    rdfs:label "Candidate-pool size"@en ; rdfs:label "Tamaño del grupo de candidatas"@es ;
+    rdfs:comment "The candidate-pool size of the System book: 60 for the basic system, 100 for the complete system."@en ; rdfs:comment "El tamaño del grupo de candidatas del libro del Sistema: 60 para el básico, 100 para el completo."@es .
+
+:retentionEnabled a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:range xsd:boolean ;
+    rdfs:label "Retention enabled"@en ; rdfs:label "Retención habilitada"@es ;
+    rdfs:comment "True when the retention rule is on for the book; false for the basic system."@en ; rdfs:comment "True cuando la regla de retención está encendida para el libro; false para el Sistema básico."@es .
+
+:decisionOfBook a owl:ObjectProperty, owl:FunctionalProperty ; rdfs:domain :DecisionEvent ; rdfs:range :StrategyBook ;
+    rdfs:label "Decision of book"@en ; rdfs:label "Decisión del libro"@es ;
+    rdfs:comment "Links a decision event to its StrategyBook."@en ; rdfs:comment "Vincula un evento de decisión con su StrategyBook."@es .
+
+:selectionCycle a owl:ObjectProperty, owl:FunctionalProperty ; rdfs:domain :DecisionEvent ; rdfs:range :SelectionCycle ;
+    rdfs:label "Selection cycle of decision"@en ; rdfs:label "Ciclo de selección de la decisión"@es ;
+    rdfs:comment "Links the decision event to the existing SelectionCycle of its date."@en ; rdfs:comment "Vincula el evento de decisión con el SelectionCycle existente de su fecha."@es .
+
+:bookRebalance a owl:ObjectProperty, owl:FunctionalProperty ; rdfs:domain :DecisionEvent ; rdfs:range :BookRebalance ;
+    rdfs:label "Rebalance of decision"@en ; rdfs:label "Rebalanceo de la decisión"@es ;
+    rdfs:comment "Links the decision event to the existing BookRebalance of its decision date."@en ; rdfs:comment "Vincula el evento de decisión con el BookRebalance existente de su fecha de decisión."@es .
+
+:refilledCandidate a owl:ObjectProperty ; rdfs:domain :DecisionEvent ; rdfs:range :Asset ;
+    rdfs:label "Refilled candidate"@en ; rdfs:label "Candidata de relleno"@es ;
+    rdfs:comment "One name added to the supervised candidate set by refill after blocked names were removed; the ordinary pool is in the selection graph."@en ; rdfs:comment "Un nombre agregado al conjunto supervisado de candidatas por relleno tras quitar las bloqueadas; el grupo ordinario está en el grafo de selección."@es .
+
+:targetOfDecision a owl:ObjectProperty, owl:FunctionalProperty ; rdfs:domain :FormationTarget ; rdfs:range :DecisionEvent ;
+    rdfs:label "Target of decision"@en ; rdfs:label "Objetivo de la decisión"@es ;
+    rdfs:comment "Links a formation target to its decision event."@en ; rdfs:comment "Vincula un objetivo de formación con su evento de decisión."@es .
+
+:targetAsset a owl:ObjectProperty, owl:FunctionalProperty ; rdfs:domain :FormationTarget ; rdfs:range :Asset ;
+    rdfs:label "Target asset"@en ; rdfs:label "Activo objetivo"@es ;
+    rdfs:comment "The asset whose formation target weight is recorded."@en ; rdfs:comment "El activo cuyo peso objetivo de formación se registra."@es .
+
+:formationTargetWeight a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :FormationTarget ; rdfs:range xsd:decimal ;
+    rdfs:label "Formation target weight"@en ; rdfs:label "Peso objetivo de formación"@es ;
+    rdfs:comment "The target weight of the formation decision; a fraction of the book, not a price."@en ; rdfs:comment "El peso objetivo de la decisión de formación; una fracción del libro, no un precio."@es .
+
+:retentionOfDecision a owl:ObjectProperty, owl:FunctionalProperty ; rdfs:domain :RetentionDecision ; rdfs:range :DecisionEvent ;
+    rdfs:label "Retention of decision"@en ; rdfs:label "Retención de la decisión"@es ;
+    rdfs:comment "Links a retention decision to its decision event when the event exists."@en ; rdfs:comment "Vincula una decisión de retención con su evento de decisión cuando existe."@es .
+
+:retentionOfBook a owl:ObjectProperty, owl:FunctionalProperty ; rdfs:domain :RetentionDecision ; rdfs:range :StrategyBook ;
+    rdfs:label "Retention of book"@en ; rdfs:label "Retención del libro"@es ;
+    rdfs:comment "Links a retention decision to its StrategyBook; used by the without-hierarchy System, which has no DecisionEvent."@en ; rdfs:comment "Vincula una decisión de retención con su StrategyBook; la usa el Sistema sin jerarquía, que no tiene DecisionEvent."@es .
+
+:retentionDate a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :RetentionDecision ; rdfs:range xsd:date ;
+    rdfs:label "Retention date"@en ; rdfs:label "Fecha de retención"@es ;
+    rdfs:comment "The decision date of the retention result."@en ; rdfs:comment "La fecha de decisión del resultado de retención."@es .
+
+:heldOutsidePoolCount a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :RetentionDecision ; rdfs:range xsd:integer ;
+    rdfs:label "Held outside pool count"@en ; rdfs:label "Mantenidas fuera del grupo"@es ;
+    rdfs:comment "Number of held names that were outside the pool at the decision."@en ; rdfs:comment "Número de acciones mantenidas que quedaron fuera del grupo en la decisión."@es .
+
+:retainedCount a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :RetentionDecision ; rdfs:range xsd:integer ;
+    rdfs:label "Retained count"@en ; rdfs:label "Retenidas"@es ;
+    rdfs:comment "Number of held names retained as candidates."@en ; rdfs:comment "Número de acciones mantenidas retenidas como candidatas."@es .
+
+:rejectedCount a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :RetentionDecision ; rdfs:range xsd:integer ;
+    rdfs:label "Rejected count"@en ; rdfs:label "Rechazadas"@es ;
+    rdfs:comment "Number of held names rejected by the retention rule."@en ; rdfs:comment "Número de acciones mantenidas rechazadas por la regla de retención."@es .
+
+:counterDroppedCount a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :RetentionDecision ; rdfs:range xsd:integer ;
+    rdfs:label "Counter-dropped count"@en ; rdfs:label "Salidas por contador"@es ;
+    rdfs:comment "Number of names that reached the retention counter limit and left the candidate set."@en ; rdfs:comment "Número de nombres que llegaron al límite del contador de retención y salieron del conjunto de candidatas."@es .
+
+:keptCount a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :RetentionDecision ; rdfs:range xsd:integer ;
+    rdfs:label "Kept count"@en ; rdfs:label "Conservadas"@es ;
+    rdfs:comment "Number of retained names to which the optimiser gave weight."@en ; rdfs:comment "Número de retenidas a las que el optimizador dio peso."@es .
+
+:keptWeight a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :RetentionDecision ; rdfs:range xsd:decimal ;
+    rdfs:label "Kept weight"@en ; rdfs:label "Peso conservado"@es ;
+    rdfs:comment "Total weight of the retained names the optimiser kept; a fraction of the book."@en ; rdfs:comment "Peso total de las retenidas que conservó el optimizador; una fracción del libro."@es .
+
+:maxDecisions a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :RetentionDecision ; rdfs:range xsd:integer ;
+    rdfs:label "Maximum retention decisions"@en ; rdfs:label "Máximo de decisiones de retención"@es ;
+    rdfs:comment "The retention limit in decisions (3)."@en ; rdfs:comment "El límite de retención en decisiones (3)."@es .
+
+:holdOfDecision a owl:ObjectProperty, owl:FunctionalProperty ; rdfs:domain :RetentionHold ; rdfs:range :RetentionDecision ;
+    rdfs:label "Hold of retention decision"@en ; rdfs:label "Mantenida de la decisión de retención"@es ;
+    rdfs:comment "Links a retained holding to its retention decision."@en ; rdfs:comment "Vincula una mantenida retenida con su decisión de retención."@es .
+
+:retainedAsset a owl:ObjectProperty, owl:FunctionalProperty ; rdfs:domain :RetentionHold ; rdfs:range :Asset ;
+    rdfs:label "Retained asset"@en ; rdfs:label "Activo retenido"@es ;
+    rdfs:comment "The held asset retained as a candidate."@en ; rdfs:comment "El activo mantenido retenido como candidata."@es .
+
+:retentionCounter a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain [ a owl:Class ; owl:unionOf ( :RetentionHold :RetentionRejection ) ] ; rdfs:range xsd:integer ;
+    rdfs:label "Retention counter"@en ; rdfs:label "Contador de retención"@es ;
+    rdfs:comment "Consecutive decisions in which the name was a candidate only by retention (1 to 3)."@en ; rdfs:comment "Decisiones consecutivas en que el nombre fue candidata solo por retención (1 a 3)."@es .
+
+:rankingSnapshot a owl:ObjectProperty, owl:FunctionalProperty ; rdfs:domain [ a owl:Class ; owl:unionOf ( :RetentionHold :RetentionRejection ) ] ; rdfs:range :AttractivenessSnapshot ;
+    rdfs:label "Ranking snapshot"@en ; rdfs:label "Instantánea de ranking"@es ;
+    rdfs:comment "The existing selection-graph snapshot of the name at the decision; rank and score are not duplicated."@en ; rdfs:comment "La instantánea existente del grafo de selección del nombre en la decisión; el puesto y el puntaje no se duplican."@es .
+
+:rejectionOfDecision a owl:ObjectProperty, owl:FunctionalProperty ; rdfs:domain :RetentionRejection ; rdfs:range :RetentionDecision ;
+    rdfs:label "Rejection of retention decision"@en ; rdfs:label "Rechazo de la decisión de retención"@es ;
+    rdfs:comment "Links a retention rejection to its retention decision."@en ; rdfs:comment "Vincula un rechazo de retención con su decisión de retención."@es .
+
+:rejectedAsset a owl:ObjectProperty, owl:FunctionalProperty ; rdfs:domain :RetentionRejection ; rdfs:range :Asset ;
+    rdfs:label "Rejected asset"@en ; rdfs:label "Activo rechazado"@es ;
+    rdfs:comment "The held asset rejected by the retention rule."@en ; rdfs:comment "El activo mantenido rechazado por la regla de retención."@es .
+
+:rejectionCause a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :RetentionRejection ; rdfs:range xsd:string ;
+    rdfs:label "Rejection cause"@en ; rdfs:label "Causa del rechazo"@es ;
+    rdfs:comment "The machine-readable reason the held name was not retained."@en ; rdfs:comment "La razón legible por máquina por la que la mantenida no se retuvo."@es .
+
+:stopOfBook a owl:ObjectProperty, owl:FunctionalProperty ; rdfs:domain :StopEvent ; rdfs:range :StrategyBook ;
+    rdfs:label "Stop of book"@en ; rdfs:label "Parada del libro"@es ;
+    rdfs:comment "Links a stop event to its StrategyBook."@en ; rdfs:comment "Vincula un evento de parada con su StrategyBook."@es .
+
+:stopDate a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :StopEvent ; rdfs:range xsd:date ;
+    rdfs:label "Stop date"@en ; rdfs:label "Fecha de parada"@es ;
+    rdfs:comment "The session in which the stop fired."@en ; rdfs:comment "La sesión en que se disparó la parada."@es .
+
+:stoppedAsset a owl:ObjectProperty, owl:FunctionalProperty ; rdfs:domain :StopEvent ; rdfs:range :Asset ;
+    rdfs:label "Stopped asset"@en ; rdfs:label "Activo detenido"@es ;
+    rdfs:comment "The asset sold by the stop."@en ; rdfs:comment "El activo vendido por la parada."@es .
+
+:stopWeightBefore a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :StopEvent ; rdfs:range xsd:decimal ;
+    rdfs:label "Weight before stop"@en ; rdfs:label "Peso antes de la parada"@es ;
+    rdfs:comment "The asset's weight before the stop; a fraction of the book, not a price."@en ; rdfs:comment "El peso del activo antes de la parada; una fracción del libro, no un precio."@es .
+
+:filterState a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain [ a owl:Class ; owl:unionOf ( :DecisionEvent :StopEvent ) ] ; rdfs:range xsd:boolean ;
+    rdfs:label "Trend-filter state"@en ; rdfs:label "Estado del filtro de tendencia"@es ;
+    rdfs:comment "True when the filter is invested or not evaluable; false when it is in cash."@en ; rdfs:comment "True cuando el filtro está invertido o no evaluable; false cuando está en efectivo."@es .
+
+:filterDecisionDate a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain [ a owl:Class ; owl:unionOf ( :DecisionEvent :StopEvent ) ] ; rdfs:range xsd:date ;
+    rdfs:label "Filter decision date"@en ; rdfs:label "Fecha de decisión del filtro"@es ;
+    rdfs:comment "The decision date from which the filter state comes."@en ; rdfs:comment "La fecha de decisión de la que viene el estado del filtro."@es .
+
+:coreWeightInForce a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :DecisionEvent ; rdfs:range xsd:decimal ;
+    rdfs:label "Core weight in force"@en ; rdfs:label "Peso del núcleo en vigor"@es ;
+    rdfs:comment "The nominal SPY weight at the decision (0.50 invested, 0.25 in cash); a fraction of the book."@en ; rdfs:comment "El peso nominal de SPY en la decisión (0,50 invertido, 0,25 en efectivo); una fracción del libro."@es .
+
+:exposureScale a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain [ a owl:Class ; owl:unionOf ( :DecisionEvent :StopEvent ) ] ; rdfs:range xsd:decimal ;
+    rdfs:label "Exposure scale"@en ; rdfs:label "Escala de exposición"@es ;
+    rdfs:comment "The exposure scale in force (1 = no cut); a fraction between 0 and 1."@en ; rdfs:comment "La escala de exposición en vigor (1 = sin recorte); una fracción entre 0 y 1."@es .
+
+:candidatePoolSize a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :DecisionEvent ; rdfs:range xsd:integer ;
+    rdfs:label "Candidate pool size"@en ; rdfs:label "Tamaño del grupo de candidatas"@es ;
+    rdfs:comment "The ordinary pool size P at the decision (60 or 100)."@en ; rdfs:comment "El tamaño del grupo ordinario P en la decisión (60 o 100)."@es .
+
+:candidateSetSize a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain [ a owl:Class ; owl:unionOf ( :DecisionEvent :RetentionDecision ) ] ; rdfs:range xsd:integer ;
+    rdfs:label "Candidate set size"@en ; rdfs:label "Tamaño del conjunto de candidatas"@es ;
+    rdfs:comment "The supervised candidate-set size after blocked removal, refill and retention."@en ; rdfs:comment "El tamaño del conjunto supervisado de candidatas tras quitar bloqueadas, rellenar y retener."@es .
+
+:blockedCount a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :DecisionEvent ; rdfs:range xsd:integer ;
+    rdfs:label "Blocked count"@en ; rdfs:label "Bloqueadas"@es ;
+    rdfs:comment "Number of names in the stop memory blocked at the decision."@en ; rdfs:comment "Número de nombres en la memoria de la parada bloqueados en la decisión."@es .
+
+:retainedCountOnDecision a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :DecisionEvent ; rdfs:range xsd:integer ;
+    rdfs:label "Retained count at decision"@en ; rdfs:label "Retenidas en la decisión"@es ;
+    rdfs:comment "Number of retained names added to the supervised candidate set."@en ; rdfs:comment "Número de retenidas agregadas al conjunto supervisado de candidatas."@es .
+
+:stopCashCause a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :StopEvent ; rdfs:range xsd:string ;
+    rdfs:label "Cash cause"@en ; rdfs:label "Causa de efectivo"@es ;
+    rdfs:comment "Why the freed weight stayed in cash: FILTER_OFF, SCALE_BELOW_ONE, NO_SIGNAL or NO_ALLOWED_DESTINATION."@en ; rdfs:comment "Por qué el peso liberado quedó en efectivo: FILTER_OFF, SCALE_BELOW_ONE, NO_SIGNAL o NO_ALLOWED_DESTINATION."@es .
+
+:rhoW0 a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :StopEvent ; rdfs:range xsd:decimal ;
+    rdfs:label "Risk ratio of w0"@en ; rdfs:label "Razón de riesgo de w0"@es ;
+    rdfs:comment "The book's risk ratio before the destination is chosen."@en ; rdfs:comment "La razón de riesgo del libro antes de elegir el destino."@es .
+
+:rho a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :StopEvent ; rdfs:range xsd:decimal ;
+    rdfs:label "Risk ratio"@en ; rdfs:label "Razón de riesgo"@es ;
+    rdfs:comment "The risk ratio reported for the stop book."@en ; rdfs:comment "La razón de riesgo reportada para el libro de la parada."@es .
+
+:chooser a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :StopEvent ; rdfs:range xsd:string ;
+    rdfs:label "Chooser"@en ; rdfs:label "Elector"@es ;
+    rdfs:comment "rule or agent: who chose the destination."@en ; rdfs:comment "rule o agent: quién eligió el destino."@es .
+
+:cashLeft a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :StopEvent ; rdfs:range xsd:decimal ;
+    rdfs:label "Cash left"@en ; rdfs:label "Efectivo restante"@es ;
+    rdfs:comment "The weight left in cash after the destination; a fraction of the book."@en ; rdfs:comment "El peso que quedó en efectivo tras el destino; una fracción del libro."@es .
+
+:portfolioCheckPassed a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :StopEvent ; rdfs:range xsd:boolean ;
+    rdfs:label "Portfolio check passed"@en ; rdfs:label "Verificación de cartera superada"@es ;
+    rdfs:comment "Whether the resulting portfolio passed the engine's checks."@en ; rdfs:comment "Si la cartera resultante pasó las verificaciones del motor."@es .
+
+:eligibleCount a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :StopEvent ; rdfs:range xsd:integer ;
+    rdfs:label "Eligible candidates"@en ; rdfs:label "Candidatas elegibles"@es ;
+    rdfs:comment "Number of candidates that reached the destination test."@en ; rdfs:comment "Número de candidatas que llegaron a la prueba de destino."@es .
+
+:zoneEvaluated a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :StopEvent ; rdfs:range xsd:integer ;
+    rdfs:label "Zone evaluated"@en ; rdfs:label "Zona evaluada"@es ;
+    rdfs:comment "Number of candidates evaluated by the zone test."@en ; rdfs:comment "Número de candidatas evaluadas por la prueba de zona."@es .
+
+:zonePass a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :StopEvent ; rdfs:range xsd:integer ;
+    rdfs:label "Zone pass"@en ; rdfs:label "Zona superada"@es ;
+    rdfs:comment "Number of candidates that passed the zone test."@en ; rdfs:comment "Número de candidatas que superaron la prueba de zona."@es .
+
+:aStar a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :StopEvent ; rdfs:range xsd:decimal ;
+    rdfs:label "Amount offered"@en ; rdfs:label "Monto ofrecido"@es ;
+    rdfs:comment "The amount offered to each candidate (min of the freed weight and the name cap); a fraction of the book."@en ; rdfs:comment "El monto ofrecido a cada candidata (mínimo entre el peso liberado y el tope por nombre); una fracción del libro."@es .
+
+:sizeFraction a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain [ a owl:Class ; owl:unionOf ( :StopEvent :ReplacementPurchase ) ] ; rdfs:range xsd:decimal ;
+    rdfs:label "Size fraction"@en ; rdfs:label "Fracción del tamaño"@es ;
+    rdfs:comment "The fraction of the amount invested (1 or 0.5)."@en ; rdfs:comment "La fracción del monto invertido (1 o 0,5)."@es .
+
+:chosenCash a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :StopEvent ; rdfs:range xsd:boolean ;
+    rdfs:label "Chosen cash"@en ; rdfs:label "Efectivo elegido"@es ;
+    rdfs:comment "True when the chosen destination was cash."@en ; rdfs:comment "True cuando el destino elegido fue efectivo."@es .
+
+:chosenOption a owl:ObjectProperty, owl:FunctionalProperty ; rdfs:domain :StopEvent ; rdfs:range :DestinationOption ;
+    rdfs:label "Chosen option"@en ; rdfs:label "Opción elegida"@es ;
+    rdfs:comment "The chosen destination option when it was an asset or SPY."@en ; rdfs:comment "La opción de destino elegida cuando fue un activo o SPY."@es .
+
+:rhoDeltaMin a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :StopEvent ; rdfs:range xsd:decimal ;
+    rdfs:label "Minimum rho delta"@en ; rdfs:label "Delta mínimo de rho"@es ;
+    rdfs:comment "Minimum change in rho produced by a candidate."@en ; rdfs:comment "Cambio mínimo de rho producido por una candidata."@es .
+
+:rhoDeltaMedian a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :StopEvent ; rdfs:range xsd:decimal ;
+    rdfs:label "Median rho delta"@en ; rdfs:label "Delta mediano de rho"@es ;
+    rdfs:comment "Median change in rho produced by a candidate."@en ; rdfs:comment "Cambio mediano de rho producido por una candidata."@es .
+
+:rhoDeltaMax a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :StopEvent ; rdfs:range xsd:decimal ;
+    rdfs:label "Maximum rho delta"@en ; rdfs:label "Delta máximo de rho"@es ;
+    rdfs:comment "Maximum change in rho produced by a candidate."@en ; rdfs:comment "Cambio máximo de rho producido por una candidata."@es .
+
+:weightAfterE3 a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :StopEvent ; rdfs:range xsd:decimal ;
+    rdfs:label "Weight after E3"@en ; rdfs:label "Peso tras E3"@es ;
+    rdfs:comment "The destination weight after the scale-recovery rescaling; only on that close (v1.3.3)."@en ; rdfs:comment "El peso del destino tras el reescalado de recuperación de escala; solo en ese cierre (v1.3.3)."@es .
+
+:optionOfStop a owl:ObjectProperty, owl:FunctionalProperty ; rdfs:domain :DestinationOption ; rdfs:range :StopEvent ;
+    rdfs:label "Option of stop"@en ; rdfs:label "Opción de la parada"@es ;
+    rdfs:comment "Links a destination option to its stop event."@en ; rdfs:comment "Vincula una opción de destino con su evento de parada."@es .
+
+:optionAsset a owl:ObjectProperty, owl:FunctionalProperty ; rdfs:domain :DestinationOption ; rdfs:range :Asset ;
+    rdfs:label "Option asset"@en ; rdfs:label "Activo de la opción"@es ;
+    rdfs:comment "The candidate asset of the option."@en ; rdfs:comment "El activo candidato de la opción."@es .
+
+:optionIsSpy a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :DestinationOption ; rdfs:range xsd:boolean ;
+    rdfs:label "Option is SPY"@en ; rdfs:label "La opción es SPY"@es ;
+    rdfs:comment "True when the option is the SPY core."@en ; rdfs:comment "True cuando la opción es el núcleo SPY."@es .
+
+:optionRho a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :DestinationOption ; rdfs:range xsd:decimal ;
+    rdfs:label "Option rho"@en ; rdfs:label "Rho de la opción"@es ;
+    rdfs:comment "The book's risk ratio with this option."@en ; rdfs:comment "La razón de riesgo del libro con esta opción."@es .
+
+:optionR a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :DestinationOption ; rdfs:range xsd:decimal ;
+    rdfs:label "Option R"@en ; rdfs:label "R de la opción"@es ;
+    rdfs:comment "The CVaR95 loss of the book with this option over the 756 scenarios."@en ; rdfs:comment "La pérdida CVaR95 del libro con esta opción sobre los 756 escenarios."@es .
+
+:optionBeta a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :DestinationOption ; rdfs:range xsd:decimal ;
+    rdfs:label "Option beta"@en ; rdfs:label "Beta de la opción"@es ;
+    rdfs:comment "The candidate's 252-session beta against SPY."@en ; rdfs:comment "La beta de la candidata a 252 sesiones contra SPY."@es .
+
+:optionRank a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :DestinationOption ; rdfs:range xsd:integer ;
+    rdfs:label "Option rank"@en ; rdfs:label "Puesto de la opción"@es ;
+    rdfs:comment "The multifactor rank of the candidate at the decision."@en ; rdfs:comment "El puesto multifactorial de la candidata en la decisión."@es .
+
+:optionScore a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :DestinationOption ; rdfs:range xsd:decimal ;
+    rdfs:label "Option score"@en ; rdfs:label "Puntaje de la opción"@es ;
+    rdfs:comment "The multifactor score of the candidate at the decision."@en ; rdfs:comment "El puntaje multifactorial de la candidata en la decisión."@es .
+
+:optionSector a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :DestinationOption ; rdfs:range xsd:integer ;
+    rdfs:label "Option sector"@en ; rdfs:label "Sector de la opción"@es ;
+    rdfs:comment "The engine sector id of the candidate; not a price."@en ; rdfs:comment "El id de sector del motor de la candidata; no es un precio."@es .
+
+:optionSizeFraction a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :DestinationOption ; rdfs:range xsd:decimal ;
+    rdfs:label "Option size fraction"@en ; rdfs:label "Fracción de tamaño de la opción"@es ;
+    rdfs:comment "The fraction of the amount offered for this option (1 or 0.5)."@en ; rdfs:comment "La fracción del monto ofrecido para esta opción (1 o 0,5)."@es .
+
+:optionWeight a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :DestinationOption ; rdfs:range xsd:decimal ;
+    rdfs:label "Option weight"@en ; rdfs:label "Peso de la opción"@es ;
+    rdfs:comment "The weight the option would give the asset; a fraction of the book."@en ; rdfs:comment "El peso que la opción daría al activo; una fracción del libro."@es .
+
+:menuPosition a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :DestinationOption ; rdfs:range xsd:integer ;
+    rdfs:label "Menu position"@en ; rdfs:label "Posición en el menú"@es ;
+    rdfs:comment "The option's position in the menu order (1 is best)."@en ; rdfs:comment "La posición de la opción en el orden del menú (1 es la mejor)."@es .
+
+:summaryOfStop a owl:ObjectProperty, owl:FunctionalProperty ; rdfs:domain :StopRejectionSummary ; rdfs:range :StopEvent ;
+    rdfs:label "Summary of stop"@en ; rdfs:label "Resumen de la parada"@es ;
+    rdfs:comment "Links a rejection summary to its stop event."@en ; rdfs:comment "Vincula un resumen de rechazos con su evento de parada."@es .
+
+:memoryOfBook a owl:ObjectProperty, owl:FunctionalProperty ; rdfs:domain :StopMemory ; rdfs:range :StrategyBook ;
+    rdfs:label "Memory of book"@en ; rdfs:label "Memoria del libro"@es ;
+    rdfs:comment "Links a stop memory to its StrategyBook."@en ; rdfs:comment "Vincula una memoria de parada con su StrategyBook."@es .
+
+:memoryAsset a owl:ObjectProperty, owl:FunctionalProperty ; rdfs:domain :StopMemory ; rdfs:range :Asset ;
+    rdfs:label "Memory asset"@en ; rdfs:label "Activo en memoria"@es ;
+    rdfs:comment "The asset in the stop memory."@en ; rdfs:comment "El activo en la memoria de la parada."@es .
+
+:memorySince a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :StopMemory ; rdfs:range xsd:date ;
+    rdfs:label "Memory since"@en ; rdfs:label "En memoria desde"@es ;
+    rdfs:comment "The first stop date that put the asset in the memory; no price level is stored."@en ; rdfs:comment "La primera fecha de parada que puso el activo en la memoria; no se almacena el nivel de precio."@es .
+
+:memoryReleasedOn a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :StopMemory ; rdfs:range xsd:date ;
+    rdfs:label "Memory released on"@en ; rdfs:label "Memoria liberada el"@es ;
+    rdfs:comment "The first decision date at which the asset recovered and left the memory."@en ; rdfs:comment "La primera fecha de decisión en que el activo recuperó y salió de la memoria."@es .
+
+:purchaseOfStop a owl:ObjectProperty, owl:FunctionalProperty ; rdfs:domain :ReplacementPurchase ; rdfs:range :StopEvent ;
+    rdfs:label "Purchase of stop"@en ; rdfs:label "Compra de la parada"@es ;
+    rdfs:comment "Links a replacement purchase to the stop that freed its weight."@en ; rdfs:comment "Vincula una compra de reemplazo con la parada que liberó su peso."@es .
+
+:replacementAsset a owl:ObjectProperty, owl:FunctionalProperty ; rdfs:domain :ReplacementPurchase ; rdfs:range :Asset ;
+    rdfs:label "Replacement asset"@en ; rdfs:label "Activo de reemplazo"@es ;
+    rdfs:comment "The asset bought as a replacement."@en ; rdfs:comment "El activo comprado como reemplazo."@es .
+
+:orderDate a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :ReplacementPurchase ; rdfs:range xsd:date ;
+    rdfs:label "Order date"@en ; rdfs:label "Fecha de orden"@es ;
+    rdfs:comment "The stop session in which the purchase was ordered."@en ; rdfs:comment "La sesión de la parada en que se ordenó la compra."@es .
+
+:replacementExecutionDate a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :ReplacementPurchase ; rdfs:range xsd:date ;
+    rdfs:label "Replacement execution date"@en ; rdfs:label "Fecha de ejecución del reemplazo"@es ;
+    rdfs:comment "The next session in which the replacement was executed."@en ; rdfs:comment "La sesión siguiente en que se ejecutó el reemplazo."@es .
+
+:machineEntrySession a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :ReplacementPurchase ; rdfs:range xsd:date ;
+    rdfs:label "Machine entry session"@en ; rdfs:label "Sesión de entrada de la máquina"@es ;
+    rdfs:comment "The session used to establish the replacement's fresh stop (the order date)."@en ; rdfs:comment "La sesión usada para establecer la nueva parada del reemplazo (la fecha de orden)."@es .
+
+:replacementWeight a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :ReplacementPurchase ; rdfs:range xsd:decimal ;
+    rdfs:label "Replacement weight"@en ; rdfs:label "Peso del reemplazo"@es ;
+    rdfs:comment "The weight bought; a fraction of the book."@en ; rdfs:comment "El peso comprado; una fracción del libro."@es .
+
+:replacementRank a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :ReplacementPurchase ; rdfs:range xsd:integer ;
+    rdfs:label "Replacement rank"@en ; rdfs:label "Puesto del reemplazo"@es ;
+    rdfs:comment "The replacement's multifactor rank at the decision."@en ; rdfs:comment "El puesto multifactorial del reemplazo en la decisión."@es .
+
+:rankBucket a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :ReplacementPurchase ; rdfs:range xsd:string ;
+    rdfs:label "Rank bucket"@en ; rdfs:label "Tramo de puesto"@es ;
+    rdfs:comment "The rank bucket: 1..M, M+1..250 or >250."@en ; rdfs:comment "El tramo de puesto: 1..M, M+1..250 o >250."@es .
+
+:checkOfPurchase a owl:ObjectProperty, owl:FunctionalProperty ; rdfs:domain :ReplacementCheck ; rdfs:range :ReplacementPurchase ;
+    rdfs:label "Check of purchase"@en ; rdfs:label "Verificación de la compra"@es ;
+    rdfs:comment "Links a replacement check to its purchase."@en ; rdfs:comment "Vincula una verificación de reemplazo con su compra."@es .
+
+:checkDate a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :ReplacementCheck ; rdfs:range xsd:date ;
+    rdfs:label "Check date"@en ; rdfs:label "Fecha de verificación"@es ;
+    rdfs:comment "The next decision date at which the replacement was checked."@en ; rdfs:comment "La fecha de decisión siguiente en que se verificó el reemplazo."@es .
+
+:candidate a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :ReplacementCheck ; rdfs:range xsd:boolean ;
+    rdfs:label "Was candidate"@en ; rdfs:label "Fue candidata"@es ;
+    rdfs:comment "Whether the replacement was a candidate at the next decision."@en ; rdfs:comment "Si el reemplazo fue candidata en la decisión siguiente."@es .
+
+:kept a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :ReplacementCheck ; rdfs:range xsd:boolean ;
+    rdfs:label "Was kept"@en ; rdfs:label "Fue conservada"@es ;
+    rdfs:comment "Whether the optimiser gave the replacement a weight."@en ; rdfs:comment "Si el optimizador dio peso al reemplazo."@es .
+
+:replacementStoppedBy a owl:ObjectProperty, owl:FunctionalProperty ; rdfs:domain :ReplacementPurchase ; rdfs:range :StopEvent ;
+    rdfs:label "Replacement stopped by"@en ; rdfs:label "Reemplazo detenido por"@es ;
+    rdfs:comment "Links a replacement that was later stopped to that stop event."@en ; rdfs:comment "Vincula un reemplazo detenido después con ese evento de parada."@es .
+
+:counterDroppedAsset a owl:ObjectProperty ; rdfs:domain :RetentionDecision ; rdfs:range :Asset ;
+    rdfs:label "Counter-dropped asset"@en ; rdfs:label "Activo salido por contador"@es ;
+    rdfs:comment "One name that reached the retention counter limit."@en ; rdfs:comment "Un nombre que llegó al límite del contador de retención."@es .
+
+:rejectedHardVeto a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :StopRejectionSummary ; rdfs:range xsd:integer ;
+    rdfs:label "Rejected: hard veto"@en ; rdfs:label "Rechazadas: veto duro"@es ;
+    rdfs:comment "Count of candidates rejected by a hard veto."@en ; rdfs:comment "Conteo de candidatas rechazadas por un veto duro."@es .
+
+:rejectedSoftPenalty a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :StopRejectionSummary ; rdfs:range xsd:integer ;
+    rdfs:label "Rejected: soft penalty"@en ; rdfs:label "Rechazadas: penalización suave"@es ;
+    rdfs:comment "Count of candidates rejected by a soft penalty."@en ; rdfs:comment "Conteo de candidatas rechazadas por una penalización suave."@es .
+
+:rejectedNewsVeto a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :StopRejectionSummary ; rdfs:range xsd:integer ;
+    rdfs:label "Rejected: news veto"@en ; rdfs:label "Rechazadas: veto de noticias"@es ;
+    rdfs:comment "Count of candidates rejected by the news rule."@en ; rdfs:comment "Conteo de candidatas rechazadas por la regla de noticias."@es .
+
+:rejectedHeld a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :StopRejectionSummary ; rdfs:range xsd:integer ;
+    rdfs:label "Rejected: held"@en ; rdfs:label "Rechazadas: mantenidas"@es ;
+    rdfs:comment "Count of candidates rejected because the book holds them."@en ; rdfs:comment "Conteo de candidatas rechazadas porque el libro las mantiene."@es .
+
+:rejectedMemory a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :StopRejectionSummary ; rdfs:range xsd:integer ;
+    rdfs:label "Rejected: stop memory"@en ; rdfs:label "Rechazadas: memoria de parada"@es ;
+    rdfs:comment "Count of candidates rejected by the stop memory."@en ; rdfs:comment "Conteo de candidatas rechazadas por la memoria de la parada."@es .
+
+:rejectedNotRanked a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :StopRejectionSummary ; rdfs:range xsd:integer ;
+    rdfs:label "Rejected: not ranked"@en ; rdfs:label "Rechazadas: sin ranking"@es ;
+    rdfs:comment "Count of candidates not in the ranking."@en ; rdfs:comment "Conteo de candidatas que no están en el ranking."@es .
+
+:rejectedNoRiskModel a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :StopRejectionSummary ; rdfs:range xsd:integer ;
+    rdfs:label "Rejected: no risk model"@en ; rdfs:label "Rechazadas: sin modelo de riesgo"@es ;
+    rdfs:comment "Count of candidates without a risk model."@en ; rdfs:comment "Conteo de candidatas sin modelo de riesgo."@es .
+
+:rejectedNoBar a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :StopRejectionSummary ; rdfs:range xsd:integer ;
+    rdfs:label "Rejected: no bar"@en ; rdfs:label "Rechazadas: sin barra"@es ;
+    rdfs:comment "Count of candidates without a session bar."@en ; rdfs:comment "Conteo de candidatas sin barra de la sesión."@es .
+
+:rejectedMissingReturn a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :StopRejectionSummary ; rdfs:range xsd:integer ;
+    rdfs:label "Rejected: missing return"@en ; rdfs:label "Rechazadas: retorno faltante"@es ;
+    rdfs:comment "Count of candidates with a missing return."@en ; rdfs:comment "Conteo de candidatas con un retorno faltante."@es .
+
+:rejectedTrendBreak a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :StopRejectionSummary ; rdfs:range xsd:integer ;
+    rdfs:label "Rejected: trend break"@en ; rdfs:label "Rechazadas: quiebre de tendencia"@es ;
+    rdfs:comment "Count of candidates below the 200-session trend condition."@en ; rdfs:comment "Conteo de candidatas por debajo de la condición de tendencia de 200 sesiones."@es .
+
+:rejectedSectorCap a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :StopRejectionSummary ; rdfs:range xsd:integer ;
+    rdfs:label "Rejected: sector cap"@en ; rdfs:label "Rechazadas: tope de sector"@es ;
+    rdfs:comment "Count of candidates that would break the sector cap."@en ; rdfs:comment "Conteo de candidatas que romperían el tope de sector."@es .
+
+:rejectedSpyLimit a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :StopRejectionSummary ; rdfs:range xsd:integer ;
+    rdfs:label "Rejected: SPY limit"@en ; rdfs:label "Rechazadas: límite de SPY"@es ;
+    rdfs:comment "Count of times SPY had no room for the amount."@en ; rdfs:comment "Conteo de veces que SPY no tenía espacio para el monto."@es .
+
+:rejectedZoneHigh a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :StopRejectionSummary ; rdfs:range xsd:integer ;
+    rdfs:label "Rejected: zone high"@en ; rdfs:label "Rechazadas: zona alta"@es ;
+    rdfs:comment "Count of candidates that failed the zone test."@en ; rdfs:comment "Conteo de candidatas que fallaron la prueba de zona."@es .
+
+:rejectedNoAllowedDestination a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :StopRejectionSummary ; rdfs:range xsd:integer ;
+    rdfs:label "Rejected: no allowed destination"@en ; rdfs:label "Rechazadas: ningún destino permitido"@es ;
+    rdfs:comment "Count of stops with no allowed destination."@en ; rdfs:comment "Conteo de paradas sin destino permitido."@es .

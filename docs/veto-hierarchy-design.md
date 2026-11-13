@@ -38,10 +38,14 @@ the old `final` family:
   `scales.json` and `retention.jsonl` are cross-checks, not separate loads.
 - The old `final` graphs are replaced by the maintainer, not by an append.
 
-The full 7-window budget is **5,991,280 asserted triples** if both System selection graphs keep all
-22 cycles per window, or **3,707,726** if only the 10 decision cycles are kept. The current store is
-about 5.0M; replacing the old 4,164,492 m018+selection triples leaves about **6.83M** in the first
-case and **4.54M** in the second. The selection-cycle choice is question Q1 in §10.
+Q1 is settled: the selection side loads **only the decision cycles**; warm-up vetoes are not
+loaded. The budget must scale by session and decision, not by seven P1 copies: the six windows are
+1,201 sessions and 61 decisions; C1 is about 1,200 sessions and 57 decisions; that is about
+**2,401 sessions and 118 decisions per configuration**. At the pilot rates (1,055.72 m018
+triples/session for the three configurations, 341.3 event triples/decision pair, 15,968.3
+selection triples per System-decision), the 7-window budget is about **6,343,574 asserted
+triples**. Replacing the old 4,164,492 m018+selection triples leaves the store at about **7.18M**,
+not 4.54M. The final manifest control counts will replace these per-window estimates.
 
 ---
 
@@ -275,11 +279,11 @@ Reviewer A may prefer a different `validFrom`; it is question Q3.
 
 ### 3.2 `GuardAlertShape`
 
-Current shape (`schema/shapes.ttl:507-540`) rejects the new data:
+The pre-46 shape (`schema/shapes.ttl`) rejected the new data; PR A applies the change below:
 
-- `:guardLayer` is `minInclusive 1`, `maxInclusive 4`; L0 alerts have 0.
-- `:alertRule` is a closed `sh:in` of the seven old rule IRIs; L0 and `L1_BP_STOP_BLOCKED` would
-  be rejected.
+- `:guardLayer` was `minInclusive 1`, `maxInclusive 4`; L0 alerts have 0.
+- `:alertRule` was a closed `sh:in` of the seven old rule IRIs; L0 and `L1_BP_STOP_BLOCKED` would
+  have been rejected.
 - `:alertState` `sh:in ("ENTER" "EXIT" "ACTIVE" "COOLDOWN" "SCALE")`; `BLOCKED` is missing.
 - The `sh:xone` first branch lists only `L1_BP_STOP` and `L1_BP_REENTRY`; an
   `L1_BP_STOP_BLOCKED` alert falls into the second branch and is forced to carry a decimal
@@ -290,12 +294,11 @@ Change:
 
 ```turtle
 sh:property [ sh:path :guardLayer ; sh:datatype xsd:integer ;
-              sh:minCount 1 ; sh:maxCount 1 ; sh:minInclusive 0 ; sh:maxInclusive 4 ] ;
+              sh:minCount 1 ; sh:maxCount 1 ; sh:minInclusive 0 ; sh:maxInclusive 1 ] ;
 sh:property [ sh:path :alertRule ; sh:class :RuleDefinition ; sh:minCount 1 ; sh:maxCount 1 ;
               sh:in ( :Rule_L0_CARTERA_ACTIVATION :Rule_L0_CARTERA_SCALE_CHANGE
-                      :Rule_L0_CARTERA_RECOVERY :Rule_L1_STOP_LOSS :Rule_L1_REENTRY
-                      :Rule_L1_BP_STOP :Rule_L1_BP_REENTRY :Rule_L1_BP_STOP_BLOCKED
-                      :Rule_L2_NEWS :Rule_L3_VOL :Rule_L4_DD ) ] ;
+                      :Rule_L0_CARTERA_RECOVERY :Rule_L1_BP_STOP :Rule_L1_BP_REENTRY
+                      :Rule_L1_BP_STOP_BLOCKED ) ] ;
 sh:property [ sh:path :alertState ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ;
               sh:in ("ENTER" "EXIT" "ACTIVE" "COOLDOWN" "SCALE" "BLOCKED") ] ;
 sh:xone (
@@ -313,7 +316,8 @@ sh:xone (
 The `L1_BP_*` rule ids are the **only** price-publishing rules. For every one of them, neither
 `:alertThreshold` nor `:alertValue` is written. `L0_*` value/threshold are portfolio tail-risk
 figures (CVaR95 of 63 sessions and the 80th percentile of 252 sessions), not prices; they load.
-`L4_DD` is not loaded by the new delivery; its old value/threshold rules are historical.
+The old `L4_DD` rule was removed from the catalog by Work item 46; its value/threshold history is
+not loaded.
 
 ### 3.3 `GuardActionShape`
 
@@ -366,17 +370,18 @@ source value must fail.
 
 ### 3.7 The old rules
 
-The old layer-1/3/4 rules are `L1_STOP_LOSS`, `L1_REENTRY`, `L2_NEWS`, `L3_VOL`, `L4_DD`.
-The new hierarchy drops layers 3 and 4; `L2_NEWS` is off in the pilot and belongs to the future news
-module. Options:
+Reviewer A decided on 2026-11-13 to **remove** the five old rules (`L1_STOP_LOSS`, `L1_REENTRY`,
+`L2_NEWS`, `L3_VOL`, `L4_DD`) from `schema/rules.ttl`, not to keep them with a comment or a
+`:validTo`. The pilot verifies that none is used by a loaded row. Their history belongs in the
+thesis report, not in the graph. `L2_NEWS` is not reused: if the final System carries news, the new
+news rule gets its own id. The catalog keeps `L1_BP_STOP`, `L1_BP_REENTRY` and adds
+`L0_CARTERA_ACTIVATION`, `L0_CARTERA_SCALE_CHANGE`, `L0_CARTERA_RECOVERY` and
+`L1_BP_STOP_BLOCKED`.
 
-| Option | Effect | Recommendation |
-|---|---|---|
-| `:validTo` at the adoption boundary | The rule stays in the catalog, resolves for historical data, and is not in force for the new delivery. | **Recommended** for `L3_VOL` and `L4_DD`: keep the definitions, add a bilingual comment “registered System only; not part of the Veto Hierarchy”, and close them with `:validTo` at the new adoption date. `L1_STOP_LOSS`/`L1_REENTRY`/`L2_NEWS` stay historical with the same comment; no new alert uses them. |
-| Comment only, no `:validTo` | The rules remain “in force” in the resolver although unused; the agent may describe them as current. | Not recommended. |
-| Delete | Breaks the valid-time history and the old graph resolution; the repository never deletes rules. | Rejected. |
-
-The exact `:validTo` date and whether `L3_VOL` remains a definition are question Q4 for Reviewer A.
+**Production ordering constraint.** Do not load this `rules.ttl` in production before the final
+reload: the current `final` alerts still reference the removed rules, and the projector rejects any
+rule id missing from the catalog. PR B adds the regression test that a loaded alert using one of the
+removed ids stops the load with an error, never a warning.
 
 ---
 
@@ -526,7 +531,7 @@ earlier claim that the threshold was no longer projected.
 | `guard_alert.threshold` on `L1_BP_STOP_BLOCKED` | **Omit** | The level stored in the stop memory (a price). |
 | `guard_alert.value`/`threshold` on `L1_BP_REENTRY` | **Omit** | The value is the stop level; the threshold is 0. |
 | `guard_alert.value`/`threshold` on `L0_*` | **Load** | Portfolio CVaR95 (63 sessions) and its 80th-percentile threshold, not prices. |
-| `guard_alert.value`/`threshold` on `L4_DD` | **Not loaded** | L4 is not part of the new hierarchy; historical data only. |
+| `guard_alert.value`/`threshold` on `L4_DD` | **Not loaded** | The old L4_DD rule was removed by Work item 46; historical data only. |
 | `book_daily_performance.nav` | **Load** | Book net asset value (an index), not a company price. |
 | `gross_return`, `net_return`, `cost_return`, `drawdown`, `cash_weight`, `turnover`, `n_equity` | **Load** | Book-level returns/weights/counts, not individual asset prices or daily returns. |
 | `book_weight_daily.markowitz_target_weight`, `final_target_weight` | **Load** | Fractions of the book. |
@@ -621,40 +626,42 @@ System books (6), and removes the 197 `L1_BP_*` `:alertValue` triples (70 stop +
 `210,292` triples per window (206,921 + 3,371). P2 adds two segment summaries per book
 (6 × 20 = 120), so the 7-window m018+events budget is `210,292 × 7 + 120 = 1,472,164`.
 
-### 6.4 Selection side
+### 6.4 Selection side (decision-only)
 
-The existing selection projector on the pilot produces **322,794 triples** for 22 cycles, 10,484
-rankings, 30,664 ranking components and 1,442 vetoes. Filtered to the 10 decision cycles it is
-**159,683** triples (5,040 rankings, 14,819 components, 1,010 vetoes). The without-hierarchy DB has
-its own selection set; the pilot's count is the proxy.
+Q1 is settled: the selection side loads only the decision cycles. The existing selection projector
+on the pilot produces **159,683 triples** for the 10 decision cycles (5,040 rankings, 14,819
+ranking components, 1,010 vetoes); the 12 warm-up replay cycles are not loaded. The
+without-hierarchy DB has its own selection set; the pilot's count is the proxy.
 
-### 6.5 Total and store impact
+### 6.5 Total and store impact (per session and per decision)
 
-| Scope | Per window | 7 windows |
-|---|---:|---:|
-| m018 + new events (3 configs) | 210,292 | 1,472,164 |
-| selection, 2 System configs, all 22 cycles | 645,588 | 4,519,116 |
-| **Total, all cycles** | **855,880** | **5,991,280** |
-| selection, 2 System configs, 10 decision cycles | 319,366 | 2,235,562 |
-| **Total, decision-only** | **529,658** | **3,707,726** |
+The six final windows are 1,201 sessions and 61 decisions; C1 is about 1,200 sessions and 57
+decisions; the model is ~2,401 sessions and ~118 decisions per configuration. The pilot is 196
+sessions and 10 decisions. The corrected budget is:
+
+| Component | Pilot | Scaling | 7-window budget |
+|---|---:|---|---:|
+| m018 (3 configs) | 206,921 / 196 sessions = 1,055.72 per session | × 2,401 sessions | **2,534,782** |
+| events (with + without) | 3,371 / 10 decisions = 341.3 per decision pair | × 118 decisions | **40,273** |
+| selection (2 System configs, decision-only) | 159,683 / 10 decisions = 15,968.3 per System-decision | × 2 × 118 | **3,768,519** |
+| **Total asserted** | | | **6,343,574** |
 
 The old `final` m018+selection graphs measure **4,164,492** triples in the last delivery's dry-run
 table (`docs/final-delivery.md` step 10). The current store is about 5.0M after the fundamentals
-load. If the old final graphs are replaced:
+load. Replacing the old final graphs gives:
 
-- all cycles: `5.0M − 4.164M + 5.991M ≈ 6.83M` asserted, a net **+1.83M**;
-- decision-only: `5.0M − 4.164M + 3.708M ≈ 4.54M` asserted, a net **−0.46M**.
+`5.0M − 4.164M + 6.344M ≈ 7.18M` asserted, a net **+2.18M** over the current store.
 
-The selection side is the swing: two System selection graphs are **4.52M** all-cycles, more than
-the old one-selection 2.05M. The old `final` graph's m018+selection is replaced, but the new graph
-is not automatically smaller. This is question Q1.
+The old 7×P1 figure (5,991,280) and the 4.54M decision-only figure are superseded: they assumed
+seven identical P1 windows. The selection side is still the largest component (3.77M); the m018
+side is 2.53M. Use the manifest `control_counts` for the exact per-window values.
 
 ### 6.6 `rdfsplus-optimized` inference
 
 The new event classes are proposed as `:Observation` subclasses. The pilot event model has 313 new
-individuals per window (254 with hierarchy + 59 without), so inference adds about **2,191**
-`:Observation` types across 7 windows if every new event class is an `:Observation` subclass; the
-exact count is measured on the rehearsal. The existing `GuardAlert`/`GuardAction`/`BookWeightDaily`
+individuals per 10 decisions (254 with hierarchy + 59 without), so the corrected 118-decision
+budget adds about **3,700** `:Observation` types if every new event class is an `:Observation`
+subclass; the exact count is measured on the rehearsal. The existing `GuardAlert`/`GuardAction`/`BookWeightDaily`
 etc. already receive their inferred types today; no subproperty hierarchy is added, and no
 per-value inference is introduced. The asserted budget above excludes those ~2.2k inferred
 triples. Measure the actual closure on the rehearsal; do not assume a percentage.
@@ -850,16 +857,15 @@ mask hash and the source DB hashes for the run record.
 
 ### Questions
 
-1. **Selection cycles.** Keep all 22 cycles per System (store ≈6.83M, warm-up vetoes preserved) or
-   only the 10 decision cycles (store ≈4.54M, warm-up vetoes not loaded)? The old final graphs are
-   replaced; this is the main volume decision.
+1. **Selection cycles (resolved).** Decision-only is chosen; warm-up vetoes are not loaded. The
+   corrected store estimate is ≈7.18M. No further decision is needed.
 2. **Aggregates graph.** Per configuration (`aggregates:{label}:{config}`) or one label-level graph
    with `:configuration` links? The manifest structure will decide; the design prefers per config.
 3. **New rule dates.** Use `:validFrom "2019-01-02"` for `L0_*`/`L1_BP_STOP_BLOCKED` (the GUARD
    calibration convention) or a later date?
-4. **Old rules.** Confirm the recommendation in §3.7: keep `L1_STOP_LOSS`, `L1_REENTRY`,
-   `L2_NEWS`, `L3_VOL`, `L4_DD` with a “registered System only” comment and `:validTo` at the
-   adoption boundary; L3/L4 are not part of the hierarchy. Which exact `:validTo`?
+4. **Old rules (resolved).** Remove `L1_STOP_LOSS`, `L1_REENTRY`, `L2_NEWS`, `L3_VOL`, `L4_DD`
+   from `rules.ttl`; no `:validTo`, no comment-only survival. History goes to the thesis report.
+   Production must not receive this `rules.ttl` before the final reload.
 5. **`stop_distance_pct`.** Confirm omitting it for every company, including unmasked names, and
    that `:nav` remains allowed. If it is wanted for unmasked names, a later separate property and
    mask test are needed.

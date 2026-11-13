@@ -59,9 +59,13 @@ uv run python cli/load_schema.py [--dir path/to/schema] [--to-production]
 Loads `tbox → shapes → reference → fibo → rules → instances.trig` per the graph map in
 [`schema/README.md`](../schema/README.md). The production repository is the exception: it never
 receives `instances.trig`'s worked-example ABox, so a production load writes only `tbox`, `shapes`,
-`reference`, `fibo`, `rules` and `labels` (five graphs, 6983 asserted triples at this revision). A
-`portfolio_test` or other non-production load keeps the 21 graphs and 7504 triples including the
-examples. The target must be deliberate: `KG_REPOSITORY=portfolio` without `--to-production` exits
+`reference`, `fibo`, `rules` and `labels` (five graphs, 8600 asserted triples at this revision). A
+`portfolio_test` or other non-production load keeps the 21 graphs and 9121 triples including the
+examples. **Do not load this `rules.ttl` into production before the final reload:** the current
+`final` alerts still reference the five rules removed by Work item 46 (`L1_STOP_LOSS`, `L1_REENTRY`,
+`L2_NEWS`, `L3_VOL`, `L4_DD`), and the projector rejects any alert whose rule id is absent from the
+catalog. The final reload replaces both the `final` graphs and the rule catalog together. The target
+must be deliberate: `KG_REPOSITORY=portfolio` without `--to-production` exits
 2 before any request, and `cli/verify_store.py` takes the same flag even though it only reads.
 A production repository loaded before this change may still hold old example graphs: the loader
 does not drop graphs it no longer loads, so list them and drop only the example graphs by hand

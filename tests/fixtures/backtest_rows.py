@@ -445,7 +445,7 @@ def scenario_rows(
                 "date": "2022-02-08",
                 "layer": 1,
                 "asset_id": 1,
-                "rule_id": "L1_STOP_LOSS",
+                "rule_id": "L1_BP_STOP",
                 "value": 0.5,
                 "threshold": -0.1229,
                 "state": "ENTER",
@@ -456,7 +456,7 @@ def scenario_rows(
                 "date": "2022-02-09",
                 "layer": 1,
                 "asset_id": 2,
-                "rule_id": "L1_REENTRY",
+                "rule_id": "L1_BP_REENTRY",
                 "value": 0.6,
                 "threshold": 0.0108,
                 "state": "EXIT",
@@ -465,9 +465,9 @@ def scenario_rows(
                 "id": 3,
                 "backtest_run_id": run_id,
                 "date": "2022-02-10",
-                "layer": 2,
+                "layer": 0,
                 "asset_id": 1,
-                "rule_id": "L2_NEWS",
+                "rule_id": "L0_CARTERA_ACTIVATION",
                 "value": 0.3,
                 "threshold": 0.0,
                 "state": "ACTIVE",
@@ -476,9 +476,9 @@ def scenario_rows(
                 "id": 4,
                 "backtest_run_id": run_id,
                 "date": "2022-02-11",
-                "layer": 3,
+                "layer": 0,
                 "asset_id": None,
-                "rule_id": "L3_VOL",
+                "rule_id": "L0_CARTERA_SCALE_CHANGE",
                 "value": 0.8,
                 "threshold": 0.2455,
                 "state": "SCALE",
@@ -487,9 +487,9 @@ def scenario_rows(
                 "id": 5,
                 "backtest_run_id": run_id,
                 "date": "2022-02-12",
-                "layer": 4,
+                "layer": 0,
                 "asset_id": None,
-                "rule_id": "L4_DD",
+                "rule_id": "L0_CARTERA_RECOVERY",
                 "value": 0.7,
                 "threshold": 0.6073,
                 "state": "SCALE",
@@ -1127,7 +1127,7 @@ def final_scenario_rows(window: str = "P1", run_id: int = 1) -> dict[str, list[d
             "date": d0,
             "layer": 1,
             "asset_id": 1,
-            "rule_id": "L1_STOP_LOSS",
+            "rule_id": "L1_BP_STOP",
             "value": 0.5,
             "threshold": -0.1229,
             "state": "ENTER",
@@ -1149,7 +1149,7 @@ def final_scenario_rows(window: str = "P1", run_id: int = 1) -> dict[str, list[d
             "date": d1,
             "layer": 1,
             "asset_id": 1,
-            "rule_id": "L1_REENTRY",
+            "rule_id": "L1_BP_REENTRY",
             "value": 0.6,
             "threshold": 0.0108,
             "state": "EXIT",
@@ -1169,9 +1169,9 @@ def final_scenario_rows(window: str = "P1", run_id: int = 1) -> dict[str, list[d
             "id": 5,
             "backtest_run_id": run_id,
             "date": d2,
-            "layer": 4,
+            "layer": 0,
             "asset_id": None,
-            "rule_id": "L4_DD",
+            "rule_id": "L0_CARTERA_RECOVERY",
             "value": 0.8,
             "threshold": 0.2455,
             "state": "SCALE",
@@ -1278,7 +1278,7 @@ def final_scenario_rows(window: str = "P1", run_id: int = 1) -> dict[str, list[d
                 "date": _plus(start, -1),
                 "layer": 1,
                 "asset_id": 1,
-                "rule_id": "L1_STOP_LOSS",
+                "rule_id": "L1_BP_STOP",
                 "value": 0.5,
                 "threshold": -0.1229,
                 "state": "ENTER",
@@ -1447,8 +1447,8 @@ def guard_layer_scenario_rows(
     window: str = "P1",
     guard_layers: str = "[1]",
     alert_rules: tuple[str, ...] = (
-        "L1_STOP_LOSS",
-        "L1_REENTRY",
+        "L1_BP_STOP",
+        "L1_BP_REENTRY",
         "L1_BP_STOP",
         "L1_BP_REENTRY",
     ),
@@ -1456,8 +1456,8 @@ def guard_layer_scenario_rows(
     """A final-backtest scenario with a chosen guard-layer set and only those alert rules.
 
     The projector must treat ``guard_layers`` as data, not as the fixed ``[1, 3, 4]`` set: the
-    ``[1]`` case has neither an L3_VOL nor an L4_DD alert, and the ``[1, 4]`` case has no L3_VOL
-    alert but keeps L4_DD. The summaries are recomputed after the alert/action pruning.
+    ``[1]`` case has neither an L0_CARTERA_SCALE_CHANGE nor an L0_CARTERA_RECOVERY alert, and the ``[1, 4]`` case has no L0_CARTERA_SCALE_CHANGE
+    alert but keeps L0_CARTERA_RECOVERY. The summaries are recomputed after the alert/action pruning.
     """
     data = final_scenario_rows(window)
     for book in data["strategy_book"]:
@@ -1474,9 +1474,9 @@ def guard_layer_scenario_rows(
 
 
 def varying_threshold_scenario_rows(window: str = "P1") -> dict[str, list[dict[str, Any]]]:
-    """A final-backtest scenario with two portfolio-level L3_VOL alerts and different thresholds.
+    """A final-backtest scenario with two portfolio-level L0_CARTERA_SCALE_CHANGE alerts and different thresholds.
 
-    The L3_VOL threshold is a portfolio-level value, not an individual asset price. The projector
+    The L0_CARTERA_SCALE_CHANGE threshold is a portfolio-level value, not an individual asset price. The projector
     must emit each row's own ``:alertThreshold`` (no fixed/date-invariant assumption) and the
     verifier must accept both.
     """
@@ -1489,9 +1489,9 @@ def varying_threshold_scenario_rows(window: str = "P1") -> dict[str, list[dict[s
                 "id": 20,
                 "backtest_run_id": 1,
                 "date": d0,
-                "layer": 3,
+                "layer": 0,
                 "asset_id": None,
-                "rule_id": "L3_VOL",
+                "rule_id": "L0_CARTERA_SCALE_CHANGE",
                 "value": 0.80,
                 "threshold": 0.20,
                 "state": "SCALE",
@@ -1500,9 +1500,9 @@ def varying_threshold_scenario_rows(window: str = "P1") -> dict[str, list[dict[s
                 "id": 21,
                 "backtest_run_id": 1,
                 "date": d2,
-                "layer": 3,
+                "layer": 0,
                 "asset_id": None,
-                "rule_id": "L3_VOL",
+                "rule_id": "L0_CARTERA_SCALE_CHANGE",
                 "value": 0.90,
                 "threshold": 0.25,
                 "state": "SCALE",

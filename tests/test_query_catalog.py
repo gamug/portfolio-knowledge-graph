@@ -413,7 +413,7 @@ def composition_dataset(tmp_path_factory: pytest.TempPathFactory) -> rdflib.Data
             "date": "2022-02-08",
             "layer": 1,
             "asset_id": 6,
-            "rule_id": "L1_STOP_LOSS",
+            "rule_id": "L1_BP_STOP",
             "value": 0.2,
             "threshold": -0.1229,
             "state": "ENTER",
@@ -694,13 +694,13 @@ def test_fibo_does_not_define_sharpe(catalog_dataset: rdflib.Dataset) -> None:
     }
 
 
-def test_active_rules_are_ten_selection_and_seven_guard(
+def test_active_rules_are_ten_selection_and_six_guard(
     catalog_dataset: rdflib.Dataset,
 ) -> None:
     rows: list[ResultRow] = _rows(catalog_dataset, _query("active-rules"))
     counts = Counter(str(row["category"]) for row in rows)
-    assert counts == {"FINANCIAL": 5, "DATA_QUALITY": 1, "MARKET": 4, "GUARD": 7}
-    assert sum(counts.values()) == 17
+    assert counts == {"FINANCIAL": 5, "DATA_QUALITY": 1, "MARKET": 4, "GUARD": 6}
+    assert sum(counts.values()) == 16
 
 
 def test_a_membership_on_its_last_day_is_still_in(catalog_dataset: rdflib.Dataset) -> None:
