@@ -1082,7 +1082,7 @@ configuration/window graph as m018:
 |---|---:|---:|---|
 | `DecisionEvent` | 10 | 221 | 140 fixed + 81 `:refilledCandidate` links |
 | `FormationTarget` | 20 | 80 | first decision only |
-| `RetentionDecision` | 10 | 154 | 130 design + 2 shape-required props ×10 |
+| `RetentionDecision` | 10 | 154 | 130 design + 2 shape-required props ×10 + 4 counter-dropped links |
 | `RetentionHold` | 22 | 110 | `:retentionCounter` 1..3 |
 | `RetentionRejection` | 6 | 36 | `:retentionCounter` 0 allowed when rejected before any hold |
 | `StopEvent` | 70 | 1,423 | no price, no `:stopDistancePct` |

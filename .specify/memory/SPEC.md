@@ -978,6 +978,19 @@ conforms: True**, the load plan is **7504 asserted triples**, and the catalog is
 plus the six in `reference.ttl` = **649**. No GraphDB write or reload was made; pilot data stays
 valid, and the user reloads the schema with `cli/load_schema.py` then `cli/verify_store.py`.
 
+**Veto Hierarchy detail events (Work item 46, T-853–T-859).** `src/projection/veto_events.py` reads
+the final delivery's `*.cartera_v1_3.kg.jsonl` with a strict per-`kind` allowlist and projects
+`DecisionEvent`, `FormationTarget`, retention, stop/menu/summary/memory and replacement individuals
+into the same configuration-keyed m018 graph. `blocked`/`reentry` lines create no new individuals:
+they cross-check the loaded `L1_BP_STOP_BLOCKED`/`L1_BP_REENTRY` alerts by `(date, asset)`;
+`stop` lines cross-check `L1_BP_STOP`, replacements link to their stop, and the decision
+pool/candidate/blocked counts cross-check the decision-only selection rows (never `rankings.json`).
+`stop_distance_pct` is parsed and never projected; `close`, `level`, `stop` and `stop_level` stop the
+parse. Pilot: **3,013** detail triples (design 2,993 + the 20 shape-required
+`:retentionOfBook`/`:retentionDate` triples), combined m018 + detail + selection **SHACL conforms**.
+No class or FR-001 count changed: **72 classes, 58 disjoint leaves, 57 named shapes, 8844 quads,
+21/9121 asserted triples, production 5/8600**.
+
 ## 3. Technology Stack & Architecture Decisions
 
 Full stack and rationale: `.specify/memory/constitution.md` §Technological
