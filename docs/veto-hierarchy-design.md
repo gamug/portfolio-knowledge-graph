@@ -653,7 +653,8 @@ is not automatically smaller. This is question Q1.
 
 The new event classes are proposed as `:Observation` subclasses. The pilot event model has 313 new
 individuals per window (254 with hierarchy + 59 without), so inference adds about **2,191**
-`:Observation` types across 7 windows. The existing `GuardAlert`/`GuardAction`/`BookWeightDaily`
+`:Observation` types across 7 windows if every new event class is an `:Observation` subclass; the
+exact count is measured on the rehearsal. The existing `GuardAlert`/`GuardAction`/`BookWeightDaily`
 etc. already receive their inferred types today; no subproperty hierarchy is added, and no
 per-value inference is introduced. The asserted budget above excludes those ~2.2k inferred
 triples. Measure the actual closure on the rehearsal; do not assume a percentage.
