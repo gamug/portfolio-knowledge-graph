@@ -3640,7 +3640,7 @@ measured pilot budget is in `docs/veto-hierarchy-design.md` §6.
       FR-001 9,125; load 21/9,402; production 5/8,881; labels 156/1,499; full suite 1,718
       passed / 61 deselected; orphan reentry check added.)* Second label table,
       C1 label and the label cleanup.
-- [x] **T-863–T-864** *(done 2026-11-14, PR #162: `docs/ttyg/investor-recipes.md`, R1–R9, 9 hermetic recipe tests; full suite pending.)* TTYG investor recipes, refusal table and the remaining runbook/rehearsal fixes.
+- [x] **T-863–T-864** *(done 2026-11-14, PR #162: `docs/ttyg/investor-recipes.md`, R1–R9, 9 hermetic recipe tests; full suite 1,748 passed / 62 deselected.)* TTYG investor recipes, refusal table and the remaining runbook/rehearsal fixes.
 - [x] **T-865–T-869** *(done 2026-11-13, PR #159: configuration-keyed selection, per-window
       StopMemory rule, `cli/load_veto.py`, `verify_store --manifest`, runbook §0bis. Pilot dry run:
       meta 33, system_with 75,488, selection 322,794, system_without 56,705, selection 322,794,

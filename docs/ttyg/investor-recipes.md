@@ -180,7 +180,8 @@ PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
 
 SELECT ?stopDate ?soldTicker ?replacementTicker
        ?soldRoic ?replacementRoic ?soldDebt ?replacementDebt
-       ?soldScore ?replacementScore ?pricesNotPublished
+       ?soldScore ?replacementScore ?oldGeneratedByLanguageModel ?newGeneratedByLanguageModel
+       ?pricesNotPublished
 WHERE {
   VALUES (?label ?window ?configuration ?slug ?bookGraph ?fundGraph ?universe) {
     ("final" "P1" "SYSTEM_WITH_HIERARCHY" "system_with_hierarchy"
@@ -225,14 +226,16 @@ WHERE {
   OPTIONAL {
     GRAPH ?fundGraph {
       ?oldAssessment :assessmentOfAsset ?oldAsset ; :availableAt ?oldAssessmentAvailable ;
-                     :scoreRaw0to100 ?soldScore .
+                     :scoreRaw0to100 ?soldScore ;
+                     :generatedByLanguageModel ?oldGeneratedByLanguageModel .
       FILTER (?oldAssessmentAvailable <= ?orderDate)
     }
   }
   OPTIONAL {
     GRAPH ?fundGraph {
       ?newAssessment :assessmentOfAsset ?newAsset ; :availableAt ?newAssessmentAvailable ;
-                     :scoreRaw0to100 ?replacementScore .
+                     :scoreRaw0to100 ?replacementScore ;
+                     :generatedByLanguageModel ?newGeneratedByLanguageModel .
       FILTER (?newAssessmentAvailable <= ?orderDate)
     }
   }
@@ -244,8 +247,8 @@ ORDER BY ?stopDate ?soldTicker
 LIMIT 100
 ```
 
-**Columns:** the same stop/replacement pair with ROIC, debt-to-equity and assessment score for each
-side, plus the mask flag. **Read it as:** compare the two metric sets known on the order date; a
+**Columns:** the same stop/replacement pair with ROIC, debt-to-equity, assessment score and the
+generated-text flag for each side, plus the mask flag. **Read it as:** compare the two metric sets known on the order date; a
 missing value is not zero. **Honest limits:** a higher ROIC is not a forecast, the graph has no
 valuation, and a masked side has no valuation metric at all.
 
