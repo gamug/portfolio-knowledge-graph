@@ -532,8 +532,8 @@ what the store *enforces*.
     `market_capitalization` and `enterprise_value`), the filing support (`:filingId`,
     `:periodEnd`, `:fiscalYear`, `:fiscalPeriod`), the assessment properties and the metric
     definition `:metricGroup`/`:metricUnit`. `:pricesNotPublished` on `:Asset` carries the 33
-    masked-asset flags. The loader (PR 2) stops on any `valuation` or `value_inputs` row of a
-    masked asset; the other 550 assets load all five valuation metrics. `:availableAt` loses its
+    masked-asset flags. The loader (PR 2) stops on a `valuation` row of a masked asset and discards every
+    `value_inputs` row; the other 550 assets load all five valuation metrics. `:availableAt` loses its
     `:ScoreSnapshot` domain; `:computedAt`/`:eventTime` widen to `:Observation`. `shapes.ttl`
     gains `FundamentalFilingShape`, `FundamentalMetricSetShape`, `FundamentalAssessmentShape` and
     `FundamentalMetricDefinitionShape`; the four have synthetic positive/negative tests in

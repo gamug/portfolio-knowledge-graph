@@ -3501,12 +3501,13 @@ real dry run output: 8 rows, 236 triples, `SHACL: conforms (gate.validate)`; no 
 
 ## Work item 45 — Fundamentals block C loader (T-810–T-839)
 
-**Status: implementation PR 1 (T-811/T-812) landed 2026-11-13; the loader (T-813–T-815) is PR 2.**
+**Status: implementation PR 1 (T-811/T-812) landed 2026-11-13; PR 2 (T-813–T-815) is implemented and awaiting merge.**
 
-**Why**: Reviewer A delivered `bloque_c_fundamentales` (`SHA256SUMS`
-`f640ba4d81ce94bc4bbfa2887b310f43651d9f600d6e295e16c23808afcb5d12`): 14,639
-filings, 512,683 metric rows over 38 names in 10 groups, and 10,025 assessments (9,896 generated
-by a language model and 129 fixed coverage-rule texts). Every row has a source `available_at`; the
+**Why**: Reviewer A delivered the v2 `bloque_c_fundamentales` (2026-11-12,
+`SHA256SUMS` `fd32daed391f515e5ff76e030acaab2dd018fea8dadf4d206429274bbe6ee677`): 14,639
+filings, 509,933 metric rows over 38 names in 10 groups, and 10,025 assessments (9,896 generated
+by a language model and 129 fixed coverage-rule texts). The first delivery's 512,683 rows remain
+only as the historical comparison in the design. Every row has a source `available_at`; the
 delivery contains no literal price, but `market_capitalization` and `enterprise_value` are absolute
 price-derived USD amounts and `metric_group=valuation` also carries three derived yields. The
 design must price the volume, point-in-time reads, generated-text provenance and price masking
@@ -3515,8 +3516,9 @@ before any loader code.
 **Decision (T-810, revised 2026-11-13 by Reviewer A's addendum)**: one
 `:FundamentalMetricSet` per filing with **37 direct decimal properties** (the 38 source names
 minus `value_inputs`; includes `market_capitalization` and `enterprise_value`). The mask is a
-loader check, not a schema filter: the loader stops on any `valuation` or `value_inputs` row of a
-masked asset; the other 550 assets load all five valuation metrics. The loader also writes
+loader check, not a schema filter: the loader stops on a `valuation` row of a masked asset and
+discards every `value_inputs` row; the other 550 assets load all five valuation metrics. The
+loader also writes
 `:pricesNotPublished true` for **all 33** masked assets (33 triples, including FRC/SBNY, which
 have no block C filing); it derives the set from the SHA-256-checked
 `mascara_tiingo/tiingo_assets.csv`, resolves every masked ticker through the backtest
@@ -3542,10 +3544,12 @@ classes / 46 disjoint leaves / 44 shapes); the loader count is measured in T-813
       `docs/labels-fundamentals-review.md`, NR-001 counts.)* Add the four shapes, the AssetShape
       boolean flag, the synthetic tests, the approved label table (including
       `:pricesNotPublished`) and the count updates.
-- [ ] **T-813–T-815** Loader (PR 2): strict parser/CLI, the 33-flag mask set (including a masked
-      asset without filings), a stop when a masked ticker is unknown, hermetic tests, the real dry
-      run with exactly 33 flags, the runbook and the production record. Only T-813–T-815 are
-      assigned.
+- [x] **T-813–T-815** *(done 2026-11-13: `src/projection/fundamentals.py`,
+      `cli/load_fundamentals.py`, hermetic tests, the final-delivery runbook step; real dry run
+      834,586 triples, 33 flags, SHACL conformance, no GraphDB write.)* Loader (PR 2): strict
+      parser/CLI, the 33-flag mask set (including a masked asset without filings), a stop when a
+      masked ticker is unknown, hermetic tests, the real dry run with exactly 33 flags, the runbook
+      and the production record. Only T-813–T-815 are assigned.
 - [x] **T-816** *(done 2026-11-13: Reviewer A's 58-row label decisions applied; 37 approved + 21
       approved after correction; 37 metric concepts in `labels.ttl`; TTYG turnover/ROA/ROE note
       recorded for T-758.)* Apply the fundamentals label review fixes.
@@ -3561,8 +3565,8 @@ classes / 46 disjoint leaves / 44 shapes); the loader count is measured in T-813
 - The generated-text section distinguishes the 9,896 model texts from the 129 rule texts and
   requires the generated/not-verified marker.
 - The schema has 37 metric properties; only `value_inputs` has no property. The loader stops on
-  any `valuation` or `value_inputs` row of a masked asset; the other 550 assets load all five
-  valuation metrics.
+  a `valuation` row of a masked asset and discards every `value_inputs` row; the other 550 assets
+  load all five valuation metrics.
 - The assessment shape has no `promptHash`; model rows and rule rows carry only the delivery's
   `provenanceNote`, `generatedByLanguageModel` and `model`.
 - The loader plan includes the manifest, strict parser, dry run, `--check-store` without `--write`,

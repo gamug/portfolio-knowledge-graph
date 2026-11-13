@@ -207,6 +207,32 @@ def test_a_malformed_backtest_external_graph_is_refused(name: str) -> None:
         gate.check_target(name)
 
 
+@pytest.mark.parametrize(
+    "name",
+    [
+        "urn:graph:derived:fundamentals:final",
+        "urn:graph:derived:fundamentals:rule_20261105",
+    ],
+)
+def test_a_fundamentals_graph_is_append_only_and_accepted(name: str) -> None:
+    # Work item 45: one append-only fundamentals graph per run label.
+    assert gate.check_target(name) is True
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        "urn:graph:derived:fundamentals",  # label required
+        "urn:graph:derived:fundamentals:Final",  # lowercase label
+        "urn:graph:derived:fundamentals:r",  # label is 2-32 characters
+        "urn:graph:derived:fundamentals:final:extra",
+    ],
+)
+def test_a_malformed_fundamentals_graph_is_refused(name: str) -> None:
+    with pytest.raises(gate.IngestRejected, match="not an ingest target"):
+        gate.check_target(name)
+
+
 def test_the_aggregates_literal_does_not_reserve_a_run_label() -> None:
     # A run labelled "aggregates" still writes the ordinary four-segment m018 name.
     assert gate.check_target("urn:graph:derived:backtest:aggregates:P1:1") is True
@@ -374,6 +400,25 @@ def test_untyped_subject_writes_are_flagged(triple: bytes, schema: gate.GateSche
 def test_a_typed_subject_is_not_an_untyped_write(schema: gate.GateSchema) -> None:
     batch = gate.parse_batch(PREFIXES + b':a a :Asset ; :tickerSymbol "A" .')
     assert gate.untyped_writes(batch, schema) == []
+
+
+def test_a_masked_asset_flag_is_an_allowed_untyped_write(schema: gate.GateSchema) -> None:
+    # Work item 45: :pricesNotPublished is written on the existing, already-typed Asset IRI,
+    # and the batch never restates that type.
+    batch = gate.parse_batch(PREFIXES + b":FRC :pricesNotPublished true .")
+    assert gate.untyped_writes(batch, schema) == []
+
+
+@pytest.mark.parametrize(
+    "triple",
+    [
+        b':FRC :pricesNotPublished "true" .',  # plain string, not xsd:boolean
+        b":FRC :pricesNotPublished 1 .",  # integer, not xsd:boolean
+        b':FRC :pricesNotPublished true ; :tickerSymbol "FRC" .',  # a second stray write
+    ],
+)
+def test_a_malformed_masked_asset_flag_is_flagged(triple: bytes, schema: gate.GateSchema) -> None:
+    assert gate.untyped_writes(gate.parse_batch(PREFIXES + triple), schema)
 
 
 # --- validate ---------------------------------------------------------------------------------

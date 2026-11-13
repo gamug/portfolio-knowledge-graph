@@ -1,13 +1,16 @@
 # Fundamentals block C loader — design (Work item 45, T-810)
 
-**Status:** design, 2026-11-12. No code, no schema edit, no GraphDB write.
+**Status:** design, 2026-11-12; implemented in T-813–T-815, 2026-11-13.
 
-**Source delivery:** `/workspaces/thesis/knoledge graph/bloque_c_fundamentales/`.
-`SHA256SUMS` hashes to `f640ba4d81ce94bc4bbfa2887b310f43651d9f600d6e295e16c23808afcb5d12`;
+**Source delivery:** `/workspaces/thesis/knoledge graph/2026-11-12_respuesta_4/bloque_c_fundamentales/`
+(the v2 delivery; the first delivery's figures remain only in the historical tables of §1).
+`SHA256SUMS` hashes to `fd32daed391f515e5ff76e030acaab2dd018fea8dadf4d206429274bbe6ee677`;
 all six listed entries verify with `sha256sum -c`. `source.json` names `scored_llm.db` with
 `sha256 2187c36bae42296b84d63031e9058df5aba997a77da2a4aa6665279452e184ca`. The
 `provenance/export_bloque_c.py` script is listed in the manifest and is required for this delivery
-(unlike Work item 44, where `provenance/` was optional).
+(unlike Work item 44, where `provenance/` was optional). The Tiingo mask,
+`mascara_tiingo/tiingo_assets.csv`, hashes to
+`4712c7c224bd76b4661260d77d95ce3c62fe80710c0b7d30a1ce44ac00c39dce`.
 
 **Scope of T-810:** this document, the Work item 45 entries in `PLAN.md` and `TASKS.md`, tests only
 for the touched documentation, and a PR. No loader, schema, label, count or GraphDB change is made
@@ -20,8 +23,9 @@ here. The implementation is reserved for T-811–T-815 after Reviewer A answers 
 > (`SHA256SUMS` `fd32daed…`, 509,933 metric rows, 70,445 valuation rows, all for unmasked assets).
 > The 37 metrics are 495,294 rows / 406,570 non-null; the expected batch is **834,586 asserted
 > triples** (873,889 with inference), including the 33 `:pricesNotPublished` flags. The mask is a
-> loader check, not a schema filter: stop on any `valuation` or `value_inputs` row of a masked
-> asset; the other 550 assets load all five valuation metrics. There is no
+> loader check, not a schema filter: stop on any `valuation` row of a masked asset; `value_inputs`
+> rows are discarded for every asset and never raise an error. The other 550 assets load all five
+> valuation metrics. There is no
 > `--include-valuation-ratios` flag and no `:containsPriceDerivedValue`/`:metricIdsJson`. There is
 > no `:assessmentOfSnapshot` link and no `:promptHash`: the assessment carries its own score and
 > rating, and the constant prompt hash stays in the delivery hash/`source.json`. The loader count is
@@ -49,9 +53,10 @@ own score and rating. The v2 delivery has 509,933 metric rows; the 37 properties
 without a property. The expected batch is **834,586 asserted triples** over all 14,639 filings
 (873,889 with the one inferred type per individual, and 33 `:pricesNotPublished` flags), roughly
 **20% of the current ~4.18M-triple production store**. The mask is a loader check, not a schema
-filter: a masked valuation or `value_inputs` row stops the load; the other 550 assets load all five
-valuation metrics. `market_capitalization` and `enterprise_value` are in the graph; only
-`value_inputs` has no property. The reified-observation variants remain rejected on volume.
+filter: a masked valuation row stops the load and `value_inputs` rows are discarded for every
+asset; the other 550 assets load all five valuation metrics. `market_capitalization` and
+`enterprise_value` are in the graph; only `value_inputs` has no property. The reified-observation
+variants remain rejected on volume.
 
 ---
 
@@ -238,9 +243,9 @@ per value and defeat the compactness.
 ### 1.5 Model C — the final 37-metric set (recommended)
 
 Model B with the **37** source names minus `value_inputs`, all 14,639 filings. The five valuation
-metrics are included; the loader stops on any valuation or `value_inputs` row of a masked asset,
-while the other 550 assets load all five valuation metrics. `value_inputs` has no property and its
-14,639 rows are dropped. The v2 delivery has 509,933 metric rows; the 37 metrics are 495,294 rows
+metrics are included; a valuation row of a masked asset stops the load, while the other 550 assets
+load all five valuation metrics. `value_inputs` has no property and its 14,639 rows are discarded
+for every asset. The v2 delivery has 509,933 metric rows; the 37 metrics are 495,294 rows
 and 406,570 non-null.
 
 | Variant | Asserted | Inferred | Total | Store after |
@@ -291,13 +296,14 @@ already-asserted `:FundamentalMetricSet` type, so it adds no new triple beyond t
 | New `labels.ttl` concepts | 38 | 38 | **37** |
 | SHACL blocks | 4 shapes, one observation shape | 4 shapes, 38 property blocks | **4 shapes, 37 property blocks** |
 | Inference per value | 1 type per observation | none | **none** |
-| Mask | per-row unit check | property allowlist | **loader check on masked valuation/value_inputs rows; 33 flags** |
+| Mask | per-row unit check | property allowlist | **loader check on a masked valuation row; value_inputs discarded; 33 flags** |
 
 **Recommendation: C.** It keeps the graph queryable with plain SPARQL, avoids the 4M reified
 observations, and follows the final 37-metric delivery. The mask is not structural in the schema:
-the loader checks the SHA-256-verified mask file and stops on a masked valuation or `value_inputs`
-row; the other 550 assets load all five valuation metrics. If Reviewer A needs per-`metric_id` RDF
-identity, the fallback is model A restricted to the 37 metrics and the assessed-only pilot.
+the loader checks the SHA-256-verified mask file and stops on a valuation row of a masked asset;
+`value_inputs` rows are discarded for every asset. The other 550 assets load all five valuation
+metrics. If Reviewer A needs per-`metric_id` RDF identity, the fallback is model A restricted to
+the 37 metrics and the assessed-only pilot.
 
 ---
 
@@ -470,10 +476,9 @@ for a masked asset, all five valuation metrics for the other 550 assets.
 
 `value_inputs` is not a valuation metric and not a price; it is a rule input. It has **no
 property** (the 37 loaded properties are the 38 source names minus `value_inputs`), so its 14,639
-rows are not loaded. The loader also stops if a masked asset's `value_inputs` row is forced into the
-load set (negative test); the delivered v2 file still contains 550 such rows, which the allowlist
-drops before projection. If Reviewer A wants the literal stop on the delivered rows, the delivery
-must be regenerated without them.
+rows are discarded for every asset, masked or not, and never raise an error. Only a `valuation`
+row of a masked asset stops the load. The delivered v2 file still contains 550 masked
+`value_inputs` rows; they are dropped before projection and are not an error.
 
 Nothing else is filtered: the loader loads the other 37 metric names for every filing, including the
 five valuation metrics for the 550 unmasked assets.
@@ -494,8 +499,7 @@ five valuation metrics for the 550 unmasked assets.
 ### 4.3 Planned loader tests
 
 - A masked asset with a `valuation` row stops the load with the row list.
-- A masked asset with a `value_inputs` row forced into the load set stops the load with the row
-  list.
+- A `value_inputs` row of a masked asset is discarded, not an error.
 - An unmasked asset loads all five valuation metrics.
 - The batch contains no price or daily-return property: no `:closePrice`, `:PriceObservation`,
   `:observationDate`, `:dailyReturnPct`, `:atr14` or equivalent; `:marketCapitalization` and
@@ -555,8 +559,8 @@ filing IRI actually used.
 - `snapshot_id` unique; one assessment node per row. `filing_id` may in principle repeat (this
   delivery has exactly one assessment per filing, but the loader keys by `snapshot_id` and does not
   enforce one-per-filing unless Reviewer A asks).
-- The loader checks that the metric set has exactly the selected 37 metric names and that every
-  non-null value has its decimal triple; null values have no triple.
+- The loader loads only the selected 37 metric names; a missing name is null (no triple), never an
+  error, and every non-null value has its decimal triple. Null values have no triple.
 - The loader refuses a metric row whose `filing_id` is not in `filings.csv`, a value that is not a
   decimal (empty is a legitimate null), an unknown unit, an unknown group/name, a `computed_at`
   that is not a dateTime, and an `available_at` that differs from the filing's.
@@ -619,9 +623,9 @@ Strict rules, all refused with a message naming the file/row/key:
 - `generated_by_language_model` is a JSON boolean; `model`, `prompt_hash`, `rating` strings;
   `strengths`/`risks` are arrays of strings; `narrative` non-empty; the 129 false rows have the
   rule model and null score/rating; the 9,896 true rows have a score and rating;
-- **mask check:** if a masked asset has a `valuation` row, or a `value_inputs` row forced into the
-  load set, stop with the row list. The v2 delivery has no masked valuation rows; it still has 550
-  masked `value_inputs` rows, which the allowlist drops before projection (see §4.1 and question 1);
+- **mask check:** if a masked asset has a `valuation` row, stop with the row list. The v2
+  delivery has no masked valuation rows; its 550 masked `value_inputs` rows are discarded before
+  projection and never raise an error (see §4.1);
 - `value_inputs` has no property; its 14,639 rows are counted and dropped. There is no
   `--include-valuation-ratios` flag;
 - unknown metric names/values and extra columns are refused, not ignored.
@@ -655,27 +659,38 @@ hermetic test uses a small fixture and asserts its exact batch count and the ref
 
 The test file should cover: manifest mismatch/missing entry, unknown column/value, duplicate
 `filing_id`/`metric_id`/`snapshot_id`, a metric row with a mismatched `available_at`, an unknown
-metric/unit/group, a masked valuation row, a masked `value_inputs` row, the five valuation metrics
-for an unmasked asset, the 33 flags, the 9,896 scores and the 129 rule rows, the exact fixture
-triple count, SHACL conformance, and the `--check-store` no-write path.
+metric/unit/group, a masked valuation row, a masked `value_inputs` row that is discarded without
+an error, the five valuation metrics for an unmasked asset, the 33 flags, the 9,896 scores and the
+129 rule rows, the exact fixture triple count, SHACL conformance, and the `--check-store` no-write
+path.
 
 ### 6.5 Runbook and no DROP
 
 Add a section to `docs/backtest-load-runbook.md` after the external Markowitz step, and a step 7c
 to `docs/final-delivery.md` if the maintainer wants one command sequence: dry run → `--check-store`
-→ `--write --to-production` → verify. The runbook records the measured counts, the manifest hash,
-the `source.json` hash, the graph name and the one-graph rollback command. The loader and the agent
-never run a DROP; only the maintainer may drop the one graph after a failed write, following
-`docs/backtest-load-runbook.md` §9.
+→ `--write --to-production` → verify. Both are added (runbook §1h and final-delivery §7c). The
+runbook records the measured counts, the manifest hash, the `source.json` hash, the graph name and
+the one-graph rollback command. The loader and the agent never run a DROP; only the maintainer may
+drop the one graph after a failed write, following `docs/backtest-load-runbook.md` §9.
+
+### 6.6 Measured dry run (2026-11-13)
+
+The v2 delivery, the verified mask and `/workspaces/thesis/data/universe_history_gics.db` were
+read without a store. The loader printed **834,586 asserted triples**, **33**
+`:pricesNotPublished` flags, 14,639 filings/metric sets, 10,025 assessments (9,896 scored and 129
+rule rows), and `SHACL: conforms (gate.validate)`. Timing: 25.989 s manifest+parse+project,
+602.493 s SHACL and 628.484 s total; peak memory 4,536.3 MB. The whole-batch SHACL is the same
+order as the 932 s engine dry run recorded in `final-delivery.md`, so no batching is proposed for
+this delivery; a larger delivery should batch the SHACL pass before a write. Nothing was written.
 
 ---
 
 ## 7. Questions for Reviewer A
 
-1. **`value_inputs` in the v2 delivery.** The v2 file has 550 `value_inputs` rows for masked assets.
-   The loader drops `value_inputs` before projection (no property); it stops only if such a row is
-   forced into the load set. Confirm that is the intended reading, or the delivery must be
-   regenerated without those 550 rows.
+1. **`value_inputs` in the v2 delivery (resolved 2026-11-13).** The v2 file has 550
+   `value_inputs` rows for masked assets. The loader discards `value_inputs` for every asset (no
+   property) and never treats those rows as an error; it stops only on a `valuation` row of a
+   masked asset. The delivery does not need to be regenerated.
 2. **Filing scope.** Load all 14,639 filings (834,586 asserted) or the 10,025 assessed filings first
    (644,512 asserted, C-pilot)? The pilot drops 4,614 filings that have metrics but no assessment.
 3. **Metric IDs.** The final model has no per-metric map; values are keyed by

@@ -1425,9 +1425,12 @@ See `docs/fundamentals-design.md` and `PLAN.md` Work item 45.*
 - [x] **T-816** *(done 2026-11-13: Reviewer A's label decisions applied; 37 approved + 21
       approved after correction; 37 metric concepts in `labels.ttl`; TTYG turnover/ROA/ROE note
       recorded for T-758.)* Apply the fundamentals label review fixes.
-- [ ] **T-813–T-815** Loader (PR 2): strict parser/CLI, the 37-metric projection, the 33-flag mask
-      set (including a masked asset without filings), a stop on a masked valuation/value_inputs row
-      or an unknown masked ticker, the five valuation metrics for the other 550 assets, hermetic
-      tests, the real dry run with exactly 33 flags, the runbook and the production record.
-      Specific IDs are T-813–T-815 only.
+- [x] **T-813–T-815** *(done 2026-11-13: `src/projection/fundamentals.py`,
+      `cli/load_fundamentals.py`, hermetic tests, the final-delivery runbook step; real dry run
+      834,586 triples, 33 flags, SHACL conformance, no GraphDB write.)* Loader (PR 2): strict
+      parser/CLI, the 37-metric projection, the 33-flag mask set (including a masked asset without
+      filings), a stop on a masked valuation row, discarded value_inputs rows, or an unknown masked
+      ticker, the five valuation metrics for the other 550 assets, hermetic tests, the real dry run
+      with exactly 33 flags, the runbook and the production record. Specific IDs are T-813–T-815
+      only.
 - [ ] **T-817–T-839** Reserved for review fixes; no specific IDs are assigned here.
