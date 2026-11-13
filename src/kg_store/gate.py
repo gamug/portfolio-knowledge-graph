@@ -105,9 +105,12 @@ _QUARTER = r"\d{4}-Q[1-4]"
 #: A backtest graph is run-label- and window-qualified (each run database starts its ids at 1,
 #: and several result families can share a window) and ends in a positive run id, not a date, so
 #: :func:`check_target` validates it separately. The label pattern is the one ``:runLabel``
-#: enforces (T-233); the window is ``P<n>`` or ``H<n>``, open to new data (T-234, Work item 33).
+#: enforces (T-233); the window is ``P<n>``, ``H<n>`` or ``C<n>``, open to new data (T-234,
+#: Work item 33); the last segment is a positive run id (old naming) or a configuration slug
+#: (Work item 46).
 _BACKTEST_TARGET = re.compile(
-    r"urn:graph:derived:backtest:([a-z][a-z0-9_]{1,31}):([PH][0-9]+):([1-9][0-9]*)"
+    r"urn:graph:derived:backtest:([a-z][a-z0-9_]{1,31}):([PH][0-9]+|C[0-9]+):"
+    r"([a-z][a-z0-9_]{1,31}|[1-9][0-9]*)"
 )
 #: A ticker-history snapshot is labelled and dated: a later refresh writes a new graph, never an
 #: edit to the existing one (T-352). The date is the snapshot date (``--as-of``).
@@ -122,7 +125,8 @@ _ORCHESTRATOR_TARGET = re.compile(
 #: The selection side of one backtest run (Work item 26) lives beside the m018 graph, not inside
 #: it: the m018 graph is append-only and may already be written. Same label/window vocabulary.
 _BACKTEST_SELECTION_TARGET = re.compile(
-    r"urn:graph:derived:backtest:selection:([a-z][a-z0-9_]{1,31}):([PH][0-9]+):([1-9][0-9]*)"
+    r"urn:graph:derived:backtest:selection:([a-z][a-z0-9_]{1,31}):([PH][0-9]+|C[0-9]+):"
+    r"([a-z][a-z0-9_]{1,31}|[1-9][0-9]*)"
 )
 #: One metadata graph per run label (Work item 33): the :BacktestRun and :RunConfiguration
 #: individuals. It has three path segments after ``backtest`` where the m018 and selection names
@@ -134,6 +138,7 @@ _BACKTEST_META_TARGET = re.compile(r"urn:graph:derived:backtest:meta:([a-z][a-z0
 #: the window and run id, so their full matches cannot collide with it.
 _BACKTEST_AGGREGATES_TARGET = re.compile(
     r"urn:graph:derived:backtest:aggregates:([a-z][a-z0-9_]{1,31})"
+    r"(?::([a-z][a-z0-9_]{1,31}))?"
 )
 #: One external delivery graph per run label (Work item 44): the summary-only MARKOWITZ_MV
 #: book computed outside the engine. Its literal ``external`` segment cannot collide with the
@@ -243,10 +248,12 @@ def check_target(graph: str) -> bool:
         "{SEMANTIC|VALORIZATION|TECHNICAL|SECTOR|ORCHESTRATOR}:YYYY-MM-DD, "
         "urn:graph:ingest:FUNDAMENTAL:YYYY-Qn, urn:graph:ingest:EDGAR:{date|quarter}, "
         "urn:graph:derived:entity-resolution:{date|quarter}, urn:graph:derived:quant:YYYY-MM-DD, "
-        "urn:graph:derived:backtest:{run label}:{P<n>|H<n>}:{positive integer}, "
-        "urn:graph:derived:backtest:selection:{run label}:{P<n>|H<n>}:{positive integer}, "
+        "urn:graph:derived:backtest:{run label}:{P<n>|H<n>|C<n>}:"
+        "{positive integer|configuration slug}, "
+        "urn:graph:derived:backtest:selection:{run label}:{P<n>|H<n>|C<n>}:"
+        "{positive integer|configuration slug}, "
         "urn:graph:derived:backtest:meta:{run label}, "
-        "urn:graph:derived:backtest:aggregates:{run label}, "
+        "urn:graph:derived:backtest:aggregates:{run label}[:{configuration slug}], "
         "urn:graph:derived:backtest:external:{run label}, "
         "urn:graph:derived:fundamentals:{run label}, "
         "urn:graph:derived:ticker-history:{run label}:YYYY-MM-DD, "

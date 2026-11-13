@@ -126,9 +126,9 @@ SELECTION_GRAPH_PREFIX = "urn:graph:derived:backtest:selection:"
 RUN_LABEL_PATTERN = r"[a-z][a-z0-9_]{1,31}"
 #: A window id. It was the closed set ``P1|P2|P3``; it is now open to ``P<number>`` or
 #: ``H<number>`` so new data needs no schema change (T-234, Work item 33).
-WINDOW_PATTERN = r"[PH][0-9]+"
+WINDOW_PATTERN = r"(?:[PH][0-9]+|C[0-9]+)"
 #: A segment: a window id plus an optional lowercase sub-period suffix (``P2a``, ``P2b``).
-SEGMENT_PATTERN = r"[PH][0-9]+[a-z]?"
+SEGMENT_PATTERN = r"(?:[PH][0-9]+|C[0-9]+)[a-z]?"
 ARMS = frozenset(
     {
         "MARKOWITZ_BASE",
