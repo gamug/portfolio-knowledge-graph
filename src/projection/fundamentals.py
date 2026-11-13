@@ -67,9 +67,6 @@ GRAPH_PREFIX = "urn:graph:derived:fundamentals:"
 FINAL_LABEL = "final"
 MANIFEST_NAME = "SHA256SUMS"
 DEFAULT_MASK = Path("/workspaces/thesis/knoledge graph/mascara_tiingo/tiingo_assets.csv")
-DEFAULT_DELIVERY = Path(
-    "/workspaces/thesis/knoledge graph/2026-11-12_respuesta_4/bloque_c_fundamentales"
-)
 
 #: SHA-256 of the v2 delivery's own ``SHA256SUMS``.
 MANIFEST_SHA256 = "fd32daed391f515e5ff76e030acaab2dd018fea8dadf4d206429274bbe6ee677"
