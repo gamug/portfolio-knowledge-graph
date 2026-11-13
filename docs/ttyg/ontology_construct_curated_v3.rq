@@ -1,0 +1,105 @@
+PREFIX :     <https://thesis.local/kg/portfolio#>
+PREFIX rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX owl:  <http://www.w3.org/2002/07/owl#>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+
+# Only the classes and properties a reports agent needs, their labels/comments,
+# the presentation vocabulary (urns:graph:labels), the rule labels, and the
+# MetricType labels. The v2 query projected only tbox classes/properties; this
+# v3 adds the fundamentals model (SECFiling, FundamentalMetricSet,
+# FundamentalAssessment), the label concepts and the rule/MetricType labels.
+CONSTRUCT {
+  ?c a owl:Class ; rdfs:label ?cl ; rdfs:comment ?cc ; skos:definition ?cd .
+  ?p a ?ptype ; rdfs:label ?pl ; rdfs:comment ?pc ; rdfs:domain ?dom ; rdfs:range ?rng ; owl:inverseOf ?inv .
+  ?concept a skos:Concept ; skos:inScheme ?scheme ; skos:notation ?notation ;
+           skos:prefLabel ?pref ; skos:altLabel ?alt ; rdfs:label ?conceptLabel ;
+           rdfs:comment ?conceptComment ; :metricGroup ?metricGroup ; :metricUnit ?metricUnit ;
+           :labelScheme ?labelScheme .
+  ?scheme a skos:ConceptScheme ; skos:prefLabel ?schemePref ; rdfs:label ?schemeLabel ;
+          rdfs:comment ?schemeComment .
+  ?rule a :RuleDefinition ; :ruleId ?ruleId ; :category ?ruleCategory ;
+        :ruleSeverity ?ruleSeverity ; :validFrom ?ruleFrom ; :validTo ?ruleTo ;
+        rdfs:label ?ruleLabel ; rdfs:comment ?ruleComment .
+}
+WHERE {
+  {
+    GRAPH <urn:graph:tbox> {
+      VALUES ?c { :StrategyBook :BookRebalance :BookWeightDaily :BookDailyPerformance :PortfolioPeriodSummary
+                  :BacktestTest :GuardAlert :GuardAction :SelectionCycle :AttractivenessSnapshot :WeightComponent
+                  :AttractivenessWeightScheme :Veto :RuleDefinition :Asset :ExchangeTradedFund :UniverseMembership
+                  :Universe :Industry :Sector :TickerHistory :BacktestRun :RunConfiguration :AggregatesSet
+                  :TrendFilterState :ReferenceReturn :SECFiling :FundamentalMetricSet :FundamentalAssessment }
+      ?c a owl:Class .
+      OPTIONAL { ?c rdfs:label ?cl }
+      OPTIONAL { ?c rdfs:comment ?cc . FILTER (STRLEN(?cc) <= 350) }
+      OPTIONAL { ?c skos:definition ?cd . FILTER (STRLEN(?cd) <= 350) }
+    }
+  }
+  UNION
+  {
+    GRAPH <urn:graph:tbox> {
+      VALUES ?ptype { owl:ObjectProperty owl:DatatypeProperty }
+      ?p a ?ptype .
+      OPTIONAL { ?p rdfs:label ?pl }
+      OPTIONAL { ?p rdfs:domain ?dom . FILTER (isIRI(?dom)) }
+      FILTER (!BOUND(?dom) || ?dom IN (:StrategyBook, :BookRebalance, :BookWeightDaily, :BookDailyPerformance,
+              :PortfolioPeriodSummary, :BacktestTest, :GuardAlert, :GuardAction, :SelectionCycle,
+              :AttractivenessSnapshot, :WeightComponent, :AttractivenessWeightScheme, :Veto, :RuleDefinition,
+              :Asset, :ExchangeTradedFund, :UniverseMembership, :Universe, :Industry, :Sector, :TickerHistory,
+              :BacktestRun, :RunConfiguration, :AggregatesSet, :TrendFilterState, :ReferenceReturn,
+              :SECFiling, :FundamentalMetricSet, :FundamentalAssessment, :Observation))
+      OPTIONAL { ?p rdfs:comment ?pc . FILTER (STRLEN(?pc) <= 350) }
+      OPTIONAL { ?p rdfs:range ?rng . FILTER (isIRI(?rng)) }
+      OPTIONAL { ?p owl:inverseOf ?inv }
+    }
+  }
+  UNION
+  {
+    GRAPH <urn:graph:labels> {
+      ?concept a skos:Concept ; :labelScheme :PresentationScheme .
+      BIND(:PresentationScheme AS ?labelScheme)
+      OPTIONAL { ?concept skos:inScheme ?scheme }
+      OPTIONAL { ?concept skos:notation ?notation }
+      OPTIONAL { ?concept skos:prefLabel ?pref }
+      OPTIONAL { ?concept skos:altLabel ?alt }
+      OPTIONAL { ?concept rdfs:label ?conceptLabel }
+      OPTIONAL { ?concept rdfs:comment ?conceptComment }
+      OPTIONAL { ?concept :metricGroup ?metricGroup }
+      OPTIONAL { ?concept :metricUnit ?metricUnit }
+    }
+  }
+  UNION
+  {
+    GRAPH <urn:graph:labels> {
+      ?scheme a skos:ConceptScheme .
+      OPTIONAL { ?scheme skos:prefLabel ?schemePref }
+      OPTIONAL { ?scheme rdfs:label ?schemeLabel }
+      OPTIONAL { ?scheme rdfs:comment ?schemeComment }
+    }
+  }
+  UNION
+  {
+    GRAPH <urn:graph:reference> {
+      ?concept a skos:Concept ; skos:inScheme :MetricTypeScheme .
+      BIND(:MetricTypeScheme AS ?scheme)
+      OPTIONAL { ?concept skos:prefLabel ?pref }
+      OPTIONAL { ?concept skos:altLabel ?alt }
+      OPTIONAL { ?concept rdfs:label ?conceptLabel }
+      OPTIONAL { ?concept rdfs:comment ?conceptComment }
+    }
+  }
+  UNION
+  {
+    GRAPH <urn:graph:rules:catalog> {
+      ?rule a :RuleDefinition .
+      OPTIONAL { ?rule :ruleId ?ruleId }
+      OPTIONAL { ?rule :category ?ruleCategory }
+      OPTIONAL { ?rule :ruleSeverity ?ruleSeverity }
+      OPTIONAL { ?rule :validFrom ?ruleFrom }
+      OPTIONAL { ?rule :validTo ?ruleTo }
+      OPTIONAL { ?rule rdfs:label ?ruleLabel }
+      OPTIONAL { ?rule rdfs:comment ?ruleComment }
+    }
+  }
+}

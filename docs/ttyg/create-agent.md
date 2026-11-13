@@ -2,7 +2,7 @@
 
 The agent is Workbench state, not graph data: it is **not** carried by a repository export and does
 not travel with a GraphDB backup. Recreate it in the Workbench after the `portfolio` repository has
-the final schema and data. The repository is the source of truth for the two inputs; this page is
+the final schema and data. The repository is the source of truth for the RDF and instruction inputs; this page is
 only the form recipe.
 
 ## Prerequisites
@@ -51,11 +51,11 @@ form:
 | Agent name | `portfolio-final` (a descriptive local name; it is not part of the graph). |
 | Repository ID | `portfolio`. |
 | Query methods | **SPARQL only**. Disable full-text search, similarity search and the ChatGPT retrieval connector. |
-| SPARQL ontology | Choose **Use a CONSTRUCT query** and paste the whole file [`ontology_construct_curated_v2.rq`](ontology_construct_curated_v2.rq). Do not retype or edit it; [`README.md`](README.md) records its SHA-256. |
+| SPARQL ontology | Choose **Use a CONSTRUCT query** and paste the whole file [`ontology_construct_curated_v3.rq`](ontology_construct_curated_v3.rq). Do not retype or edit it; [`README.md`](README.md) records its SHA-256. |
 | Auto-add missing namespaces | Leave the form default unless the Workbench requires it for the CONSTRUCT; the curated query declares its own prefixes. |
 | Model | The model from `graphdb.llm.model`, or the provider's equivalent offered by the form. |
 | Temperature | `0.1`. |
-| Additional instructions | The **single `text` fence** in [`instructions-v1.2.md`](instructions-v1.2.md). Open the file and paste that one block; do not copy it into this page. |
+| Additional instructions | The **single `text` fence** in [`instructions-v1.3.md`](instructions-v1.3.md). Open the file and paste that one block; do not copy it into this page. |
 | Context window / Top P / base instructions | Leave the defaults unless the provider rejects one of them. |
 
 Click **Create Agent**.
@@ -74,12 +74,20 @@ Spanish-only or English-only rule to the agent.
   performance. It never invents a figure, date or cause.
 - For the Sistema's `:objective`, the answer must not present `min_var` as the weighting objective.
   The literal is a fixed per-arm label; the delivery describes a minimum-variance selection of up
-  to 30 names followed by minimum-CVaR weighting (Work item 41).
+  to 30 names followed by minimum-CVaR weighting (Work item 41). The book weighting and caps come
+  from the `RunConfiguration_final` comment, not from `:bookWeightingRule` or the
+  `:AttractivenessWeightScheme` knobs.
+- For a fundamentals question, the agent looks up the metric by its label in `urn:graph:labels` and
+  uses the direct property (`:returnOnInvestedCapital`, not a predicate containing "roic"). A masked
+  asset (`:pricesNotPublished true`) has no published price or valuation metrics.
+- Never run a full `?s ?p ?o` scan filtered by `CONTAINS`/`REGEX` on `STR(?s)`/`STR(?o)`. Find a
+  company inside `:Asset` by `:tickerSymbol` (e.g. `:tickerSymbol "AAPL"`) or `:companyName`, and
+  bound every query to a graph with `LIMIT`.
 
 ## Related
 
 - [`README.md`](README.md) — the source files and the CONSTRUCT hash.
-- [`instructions-v1.2.md`](instructions-v1.2.md) — the single instruction block.
+- [`instructions-v1.3.md`](instructions-v1.3.md) — the single instruction block.
 - [`../second-user-setup.md`](../second-user-setup.md) — the colleague's local repository, read-only
   user and first smoke questions.
 - [`../final-delivery.md`](../final-delivery.md) — the production load sequence.
