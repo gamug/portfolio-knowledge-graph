@@ -1047,6 +1047,7 @@ def _memory(detail: DetailFile, context: EventContext, batch: DetailBatch) -> No
     _derive_releases(detail, context, episodes, blocked)
     _enforce_no_overlap(detail, episodes)
     _memory_control(detail, context, episodes, blocked)
+    _check_orphan_reentries(detail, episodes)
     batch.rows["memory_episodes_stop"] = sum(1 for item in episodes if item.kind == "stop")
     batch.rows["memory_episodes_decision_close"] = sum(
         1 for item in episodes if item.kind == "decision_close"
@@ -1138,6 +1139,20 @@ def _enforce_no_overlap(detail: DetailFile, episodes: Sequence[_Episode]) -> Non
                     f"{detail.path}: overlapping memory episodes for asset {asset}: "
                     f"{previous.since} releases {previous.release}, next starts {current.since}"
                 )
+
+
+def _check_orphan_reentries(detail: DetailFile, episodes: Sequence[_Episode]) -> None:
+    """A reentry must belong to an episode that is still open on its date."""
+    for line in detail.reentry:
+        asset = int(line["asset_id"])
+        date = str(line["date"])
+        if not any(
+            episode.asset == asset
+            and episode.since <= date
+            and (episode.release is None or date <= episode.release)
+            for episode in episodes
+        ):
+            raise DetailError(f"{detail.path}: reentry {date}/{asset} has no open memory episode")
 
 
 def _memory_control(

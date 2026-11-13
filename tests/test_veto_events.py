@@ -308,3 +308,59 @@ def test_memory_control_mismatch_names_the_date_and_assets(tmp_path: Path) -> No
             _memory_context({"2022-02-01": frozenset({1}), "2022-03-01": frozenset({1})}),
             DetailBatch("urn:graph:derived:backtest:final:P1:system_with_hierarchy"),
         )
+
+
+def test_an_orphan_reentry_without_any_episode_is_a_hard_error(tmp_path: Path) -> None:
+    detail = _memory_detail(
+        tmp_path,
+        stops=[],
+        blocked=[],
+        reentry=[{"asset_id": 1, "date": "2022-02-01"}],
+    )
+    with pytest.raises(DetailError, match="reentry 2022-02-01/1 has no open memory episode"):
+        _memory(
+            detail,
+            _memory_context({"2022-02-01": frozenset({1})}),
+            DetailBatch("urn:graph:derived:backtest:final:P1:system_with_hierarchy"),
+        )
+
+
+def test_a_reentry_after_a_ranking_release_is_an_orphan(tmp_path: Path) -> None:
+    detail = _memory_detail(
+        tmp_path,
+        stops=[{"asset_id": 1, "date": "2022-02-01"}],
+        blocked=[{"asset_id": 1, "date": "2022-02-01"}],
+        reentry=[{"asset_id": 1, "date": "2022-03-01"}],
+    )
+    with pytest.raises(DetailError, match="reentry 2022-03-01/1 has no open memory episode"):
+        _memory(
+            detail,
+            _memory_context(
+                {
+                    "2022-02-01": frozenset({1}),
+                    "2022-02-02": frozenset(),
+                    "2022-03-01": frozenset({1}),
+                }
+            ),
+            DetailBatch("urn:graph:derived:backtest:final:P1:system_with_hierarchy"),
+        )
+
+
+def test_a_reentry_with_an_open_episode_releases_by_price(tmp_path: Path) -> None:
+    detail = _memory_detail(
+        tmp_path,
+        stops=[{"asset_id": 1, "date": "2022-02-01"}],
+        blocked=[{"asset_id": 1, "date": "2022-02-01"}],
+        reentry=[{"asset_id": 1, "date": "2022-02-02"}],
+    )
+    batch = DetailBatch("urn:graph:derived:backtest:final:P1:system_with_hierarchy")
+    _memory(
+        detail,
+        _memory_context({"2022-02-01": frozenset({1}), "2022-02-02": frozenset({1})}),
+        batch,
+    )
+    causes = {
+        str(value) for _, predicate, value in batch.triples if predicate == KG.memoryReleaseCause
+    }
+    assert causes == {"price"}
+    assert batch.rows["memory_episodes_decision_close"] == 0
