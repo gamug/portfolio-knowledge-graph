@@ -3649,7 +3649,7 @@ measured pilot budget is in `docs/veto-hierarchy-design.md` §6.
       production record.
 - [x] **T-867/T-868/T-869 follow-up** *(done 2026-11-13, PR #161: full `control_counts`
       computation and comparison, store-side checks and the pilot rehearsal kit; A's SH/MB P1
-      values match; no write.)*
+      values match; full suite 1,725 passed / 62 deselected; no write.)*
 
 **Acceptance criteria**:
 
