@@ -29,6 +29,7 @@ from projection.veto_events import (
     KG,
     parse_detail_file,
     read_asset_tickers,
+    read_rankings,
     selection_index,
 )
 
@@ -53,7 +54,7 @@ DESIGN_COUNTS = {
     "StopEvent": 1423,
     "DestinationOption": 429,
     "StopRejectionSummary": 211,
-    "StopMemory": 239,
+    "StopMemory": 434,
     "ReplacementPurchase": 85,  # 84 + the replacementStoppedBy link
     "ReplacementCheck": 25,
 }
@@ -91,6 +92,7 @@ def test_the_pilot_detail_counts_and_shacl() -> None:  # noqa: C901, PLR0912
             "SYSTEM_WITH_HIERARCHY",
             [str(line["date"]) for line in detail.decisions],
         )
+        rankings = read_rankings(PILOT_JSONL.with_name("H1C-B5-P1.rankings.json"))
         m018 = project_source(
             source,
             assets,
@@ -103,6 +105,7 @@ def test_the_pilot_detail_counts_and_shacl() -> None:  # noqa: C901, PLR0912
             detail=detail,
             asset_tickers=tickers,
             selection=selection,
+            rankings_by_date=rankings,
         )
         selection_projection = project_selection_source(
             source,
@@ -118,7 +121,7 @@ def test_the_pilot_detail_counts_and_shacl() -> None:  # noqa: C901, PLR0912
     detail_graph = rdflib.Graph()
     for triple in m018.projection.detail.triples:
         detail_graph.add(triple)
-    assert len(detail_graph) == 3013
+    assert len(detail_graph) == 3208
     for prop in (
         KG.stopDistancePct,
         KG.closePrice,

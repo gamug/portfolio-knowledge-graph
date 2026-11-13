@@ -649,8 +649,8 @@ Strict rules, all refused with a message naming the file/row/key:
 
 The design's full-delivery expected count for C (37 metrics, all filings, no metric ID map) is
 **834,586 asserted** (873,889 with inference). The assessed-only pilot is **644,512 asserted**
-(674,587 with inference). The schema counts are **8844 quads**, load plan **21/9121** and production
-**5/8600**; 72 classes, 58 disjoint leaves, 57 named shapes. The implementation must measure the actual
+(674,587 with inference). The schema counts are **9125 quads**, load plan **21/9402** and production
+**5/8881**; 72 classes, 58 disjoint leaves, 57 named shapes. The implementation must measure the actual
 `D` and update every asserted count in the same PR (NR-001): FR-001, the schema/labels counts, the
 load-plan/production counts if the schema files change, and the loader fixture count. The
 full-delivery count is recorded in the runbook and the dry-run output, not in a hermetic test; the

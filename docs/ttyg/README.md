@@ -27,7 +27,7 @@ SHA-256 of `ontology_construct_curated_v3.rq`:
 `schema/tbox.ttl`, `schema/labels.ttl`, `schema/reference.ttl` and `schema/rules.ttl`, and checks
 the pasteable instruction block. The CONSTRUCT selects 29 `owl:Class` subjects from the TBox
 (measured 2026-11-13), including the three new fundamentals classes. Its output also carries the
-132 label/metric-type concepts (127 presentation concepts plus the 5 MetricType concepts), the 12
+161 label/metric-type concepts (156 presentation concepts plus the 5 MetricType concepts), the 12
 concept schemes and the rule definitions with their bilingual labels.
 
 ## How the files map to the agent form

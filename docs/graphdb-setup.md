@@ -59,8 +59,8 @@ uv run python cli/load_schema.py [--dir path/to/schema] [--to-production]
 Loads `tbox → shapes → reference → fibo → rules → instances.trig` per the graph map in
 [`schema/README.md`](../schema/README.md). The production repository is the exception: it never
 receives `instances.trig`'s worked-example ABox, so a production load writes only `tbox`, `shapes`,
-`reference`, `fibo`, `rules` and `labels` (five graphs, 8600 asserted triples at this revision). A
-`portfolio_test` or other non-production load keeps the 21 graphs and 9121 triples including the
+`reference`, `fibo`, `rules` and `labels` (five graphs, 8881 asserted triples at this revision). A
+`portfolio_test` or other non-production load keeps the 21 graphs and 9402 triples including the
 examples. **Do not load this `rules.ttl` into production before the final reload:** the current
 `final` alerts still reference the five rules removed by Work item 46 (`L1_STOP_LOSS`, `L1_REENTRY`,
 `L2_NEWS`, `L3_VOL`, `L4_DD`), and the projector rejects any alert whose rule id is absent from the

@@ -29,7 +29,7 @@ SCHEMES = {
     "ProcessScheme",
     "FundamentalMetricScheme",
 }
-WINDOW_CODES = {"P1", "H1", "P3", "H2", "P2", "H3"}
+WINDOW_CODES = {"P1", "H1", "P3", "H2", "P2", "H3", "C1"}
 STRATEGY_CODES = {
     "TOPN_MV_GUARD_NO_NLP",
     "TOPN_MV_NOGUARD",
@@ -155,18 +155,18 @@ def test_every_concept_has_one_notation_per_scheme_and_both_languages() -> None:
             assert getattr(alt, "language", None) in {"en", "es"}, (concept, alt)
 
 
-def test_the_six_windows_have_dates_and_two_condition_fields() -> None:
+def test_the_seven_windows_have_dates_and_the_six_have_conditions() -> None:
     g = graph()
     window_concepts = [c for c in concepts(g) if (c, SKOS.inScheme, KG.WindowScheme) in g]
-    assert len(window_concepts) == 6
+    assert len(window_concepts) == 7
     codes = {str(g.value(c, SKOS.notation)) for c in window_concepts}
     assert codes == WINDOW_CODES
     for concept in window_concepts:
         assert (concept, KG.windowStart, None) in g
         assert (concept, KG.windowEnd, None) in g
-        assert len(list(g.objects(concept, KG.historicalCondition))) == 2
-        assert len(list(g.objects(concept, KG.finalConfigurationCondition))) == 2
-    assert not any(str(g.value(c, SKOS.notation)) == "C1" for c in concepts(g))
+        if str(g.value(concept, SKOS.notation)) != "C1":
+            assert len(list(g.objects(concept, KG.historicalCondition))) == 2
+            assert len(list(g.objects(concept, KG.finalConfigurationCondition))) == 2
     window_5 = next(c for c in window_concepts if str(g.value(c, SKOS.notation)) == "P2")
     assert "Feb\u2013Sep 2025 (P2)" in str(_lang(g, window_5, RDFS.label, "en"))
     assert not any("volatil" in str(alt).lower() for alt in g.objects(window_5, SKOS.altLabel))
@@ -208,7 +208,7 @@ def test_the_five_strategy_notations_are_the_only_ones() -> None:
     mean_variance = next(
         c for c in concepts(g) if g.value(c, SKOS.notation) == rdflib.Literal("MARKOWITZ_MV")
     )
-    assert "Mean-variance base Markowitz" in str(_lang(g, mean_variance, RDFS.label, "en"))
+    assert "Base Markowitz (mean-variance)" in str(_lang(g, mean_variance, RDFS.label, "en"))
     assert "Markowitz base de media-varianza" in str(_lang(g, mean_variance, RDFS.label, "es"))
 
 
@@ -216,12 +216,14 @@ def test_guard_layers_states_and_action_statuses_are_present() -> None:
     g = graph()
     guard = [c for c in concepts(g) if (c, SKOS.inScheme, KG.GuardScheme) in g]
     notations = {str(g.value(c, SKOS.notation)) for c in guard}
-    assert {"GUARD", "1", "2", "3", "4"} <= notations
+    assert {"GUARD", "1"} <= notations
     assert {"ENTER", "EXIT", "ACTIVE", "COOLDOWN", "SCALE"} <= notations
     assert {"APPLIED", "ARM_DISABLED", "NOT_HELD", "SUPERSEDED"} <= notations
-    layer_4 = next(c for c in guard if g.value(c, SKOS.notation) == rdflib.Literal(4))
-    assert "including the SPY core" in str(_lang(g, layer_4, RDFS.comment, "en"))
-    assert "incluido el núcleo SPY" in str(_lang(g, layer_4, RDFS.comment, "es"))
+    layer_1 = next(c for c in guard if g.value(c, SKOS.notation) == rdflib.Literal(1))
+    assert "Basing Points" in str(_lang(g, layer_1, RDFS.comment, "en"))
+    assert "Basing Points" in str(_lang(g, layer_1, RDFS.comment, "es"))
+    assert KG.Concept_PortfolioGuard in guard
+    assert KG.Concept_RetentionCounter not in guard
 
 
 def test_the_three_veto_classes_and_markers_are_present() -> None:

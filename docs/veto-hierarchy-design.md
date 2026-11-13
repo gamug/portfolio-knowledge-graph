@@ -43,7 +43,7 @@ loaded. The budget must scale by session and decision, not by seven P1 copies: t
 1,201 sessions and 61 decisions; C1 is about 1,200 sessions and 57 decisions; that is about
 **2,401 sessions and 118 decisions per configuration**. At the pilot rates (1,055.72 m018
 triples/session for the three configurations, 341.3 event triples/decision pair, 15,968.3
-selection triples per System-decision), the 7-window budget is about **6,343,574 asserted
+selection triples per System-decision), the 7-window budget is about **6,345,380 asserted
 triples**. Replacing the old 4,164,492 m018+selection triples leaves the store at about **7.18M**,
 not 4.54M. The final manifest control counts will replace these per-window estimates.
 
@@ -464,13 +464,42 @@ on 63; `:chosenOption` on 7; `:rhoDeltaMin`/`:rhoDeltaMedian`/`:rhoDeltaMax` on 
   `SCALE_BELOW_ONE`), 7 replacements, 0 SPY. The 7 replacement choices are linked to
   `:ReplacementPurchase`; the 63 cash choices carry `:chosenCash true` and `:stopCashCause`.
 
-**`:StopMemory`** — 51 unique stopped assets. Properties: type, `:memoryOfBook`, `:memoryAsset`,
-`:memorySince` (first stop date); `:memoryReleasedOn` for the 35 unique assets that reentered.
-204 +35 = **239**. The stop memory level is a **price and is not stored**; the blocked/reentry
-alerts and the stop date answer “since when” without it. **Memory is per window:** each window is
-an independent engine run starting at scale 1.0, and the pilot has no `blocked`/`reentry` line
-whose asset lacks a `stop` line in the same detail file. A blocked/reentry line without that stop
-line is therefore a hard error, not a cross-window carry-over.
+**`:StopMemory`** — **one node per episode** (key: label, configuration, window, asset, start
+date), not one per asset: 70 stop episodes over 51 assets in P1. Properties: type, `:memoryOfBook`,
+`:memoryAsset`, `:memorySince` (episode start), required `:memoryStartKind` (`stop` or
+`decision_close`); when it left, `:memoryReleasedOn` and `:memoryReleaseCause` (`price` from a
+`reentry` line, or `not_ranked` when the asset is not in that decision's ranking). Pilot: 70 nodes /
+**434 triples** (350 base + 84 release triples; 42 price releases, 0 ranking releases). The stop
+memory level is a **price and is not stored**.
+
+**Complete control rule.** At every decision date D: (a) a blocked asset with no open episode opens
+a new `decision_close` episode with `:memorySince = D` (the engine writes no `stop` record); (b)
+episodes open before D, plus stops up to D including that close, must split exactly into price
+releases at D + ranking releases at D + `L1_BP_STOP_BLOCKED` rows at D; (c) any other difference is a
+hard error naming the date and assets; (d) ranking releases use all ranking rows, including
+`vetoed` ones; (e) episodes of one asset never overlap (a release before the next start).
+
+**Memory is per window:** each window is an independent engine run starting at scale 1.0, so a
+`reentry` line with no open episode is a hard error; a blocked line with no open episode is the
+`decision_close` case, not an error. **Declared limitation:** if an asset stops on the close of a
+decision date and is already out of that decision's ranking, the engine releases it with no record;
+it cannot be detected from the files and is not represented in the graph.
+
+**Indicative `decision_close` episodes (13-Nov run, rule-like chooser; not a loader constant):**
+
+| Window | Episodes | Dates |
+|---|---:|---|
+| P1 | 0 | — |
+| H1 | 2 | 2023-06-14, 2023-07-17 |
+| P3 | 0 | — |
+| H2 | 1 | 2024-10-31 |
+| P2 | 2 | 2025-06-18, 2025-09-18 |
+| H3 | 3 | 2025-11-20, 2026-03-25, 2026-06-25 |
+
+The table is indicative, from the 13-Nov run with a rule-like chooser; **the authoritative number is
+`control_counts` of the final manifest**, because the final chooser (rule or agent) changes the
+stops. All 236 releases in the six windows were by price, none by ranking; the ranking rule is still
+needed.
 
 ### 4.4 Replacement
 
@@ -621,13 +650,13 @@ System books (6), and removes the 197 `L1_BP_*` `:alertValue` triples (70 stop +
 | `:ReplacementPurchase` | 7 | 84 |
 | `:ReplacementCheck` | 5 | 25 |
 | `:replacementStoppedBy` link | 1 | 1 |
-| `:StopMemory` | 51 | 239 |
-| **With-hierarchy event total** | | **2,993** |
+| `:StopMemory` | 70 | 434 |
+| **With-hierarchy event total** | | **3,188** |
 | Without-hierarchy retention (proxy: 9 records, 43 retained, 7 rejected, 4 drops) | 59 | **378** |
-| **Both System configurations** | | **3,371** |
+| **Both System configurations** | | **3,566** |
 
-`210,292` triples per window (206,921 + 3,371). P2 adds two segment summaries per book
-(6 × 20 = 120), so the 7-window m018+events budget is `210,292 × 7 + 120 = 1,472,164`.
+`210,487` triples per window (206,921 + 3,566). P2 adds two segment summaries per book
+(6 × 20 = 120), so the 7-window m018+events budget is `210,487 × 7 + 120 = 1,473,529`.
 
 ### 6.4 Selection side (decision-only)
 
@@ -645,15 +674,15 @@ sessions and 10 decisions. The corrected budget is:
 | Component | Pilot | Scaling | 7-window budget |
 |---|---:|---|---:|
 | m018 (3 configs) | 206,921 / 196 sessions = 1,055.72 per session | × 2,401 sessions | **2,534,782** |
-| events (with + without) | 3,371 / 10 decisions = 341.3 per decision pair | × 118 decisions | **40,273** |
+| events (with + without) | 3,566 / 10 decisions = 356.6 per decision pair | × 118 decisions | **42,079** |
 | selection (2 System configs, decision-only) | 159,683 / 10 decisions = 15,968.3 per System-decision | × 2 × 118 | **3,768,519** |
-| **Total asserted** | | | **6,343,574** |
+| **Total asserted** | | | **6,345,380** |
 
 The old `final` m018+selection graphs measure **4,164,492** triples in the last delivery's dry-run
 table (`docs/final-delivery.md` step 10). The current store is about 5.0M after the fundamentals
 load. Replacing the old final graphs gives:
 
-`5.0M − 4.164M + 6.344M ≈ 7.18M` asserted, a net **+2.18M** over the current store.
+`5.0M − 4.164M + 6.345M ≈ 7.18M` asserted, a net **+2.18M** over the current store.
 
 The old 7×P1 figure (5,991,280) and the 4.54M decision-only figure are superseded: they assumed
 seven identical P1 windows. The selection side is still the largest component (3.77M); the m018
@@ -732,7 +761,7 @@ table, not in `labels.ttl` yet.
 | Reemplazo / Replacement | `:ReplacementPurchase`; label concept. |
 | Menú de destinos / Destination menu | `:DestinationOption` + `:optionOfStop`; label concept. |
 | Causa de efectivo / Cash cause | `:stopCashCause` on `:StopEvent`; label concept. |
-| Memoria de la parada / Stop memory | `:StopMemory` (`:memoryAsset`, `:memorySince`, `:memoryReleasedOn`); label concept. |
+| Memoria de la parada / Stop memory | `:StopMemory` per episode (`:memoryAsset`, `:memorySince`, `:memoryStartKind`, `:memoryReleasedOn`, `:memoryReleaseCause`); label concept. |
 | Reentrada bloqueada / Blocked re-entry | `L1_BP_STOP_BLOCKED` `:GuardAlert`/`:GuardAction` with `BLOCKED`; label concept. |
 | Sistema básico / Basic system | `:StrategyBook :systemVariant "basic"`, `:poolSize 60`, `:retentionEnabled false`; label concept. |
 | Sistema completo / Complete system | Same, `"complete"`, `:poolSize 100`, `:retentionEnabled true`; label concept. |
@@ -761,7 +790,7 @@ proposed in §7 and implemented later.
 `:stopOfBook`, `:stopDate`, `:chosenOption`, `:chosenCash`, `:stopCashCause`, `:rhoW0`, `:rho`,
 `:optionRho`, `:optionR`, `:optionBeta`, `:optionRank`, `:optionScore`, `:optionSector`,
 `:optionSizeFraction`, `:optionWeight`, `:menuPosition`, `:rejectionCause`,
-`:retentionCounter`, `:candidatePoolSize`, `:candidateSetSize`, `:blockedCount`,
+`:retentionCounter`, `:candidatePoolSize`, `:candidateSetSize`, `:blockedCount`, `:rejectedZoneNoSignal`,
 `:retainedCount`, `:refilledCandidate`, `:formationTarget`, `:memorySince`,
 `:memoryReleasedOn`, `:replacementStoppedBy`; the rules `L0_CARTERA_*`, `L1_BP_STOP_BLOCKED`;
 the states `BLOCKED`; and the future news/manager/narrator classes of §7.

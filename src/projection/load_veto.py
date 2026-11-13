@@ -43,6 +43,7 @@ from projection.veto_events import (
     DetailFile,
     parse_detail_file,
     read_asset_tickers,
+    read_rankings,
     selection_index,
 )
 from projection.veto_manifest import (
@@ -139,7 +140,7 @@ def _run_info(path: Path, label: str, configuration: str) -> RunInfo:
     return dataclasses.replace(info, configuration=configuration)
 
 
-def build_delivery(
+def build_delivery(  # noqa: C901, PLR0912, PLR0915 -- one branch per graph kind
     manifest: VetoManifest,
     label: str,
     *,
@@ -151,7 +152,14 @@ def build_delivery(
         raise LoadVetoError(
             f"{manifest.path}: label {manifest.label!r} differs from --label {label!r}"
         )
-    hashes = verify_files(manifest)
+    try:
+        hashes = verify_files(manifest)
+    except VetoManifestError as exc:
+        for run in manifest.engine_runs:
+            for path in run.files.values():
+                if str(path) in str(exc) or path.name in str(exc):
+                    raise LoadVetoError(f"{run.configuration}/{run.window}: {exc}") from exc
+        raise
     print(f"\nmanifest: {manifest.path} ({manifest.status or 'final'})")
     print(f"manifest: {len(hashes)} file(s) verified")
     if assets_db is None:
@@ -179,10 +187,29 @@ def build_delivery(
     for run in manifest.engine_runs:
         source = FinancialSource.open(run.db_file)
         try:
+            if run.configuration.startswith("SYSTEM_") and not manifest.draft:
+                if "jsonl_file" not in run.files:
+                    raise LoadVetoError(
+                        f"{run.db_file}: {run.configuration}/{run.window} has no jsonl_file; "
+                        "every final System run ships its detail file"
+                    )
+                if "rankings_file" not in run.files:
+                    raise LoadVetoError(
+                        f"{run.db_file}: {run.configuration}/{run.window} has no rankings_file; "
+                        "every final System run ships its rankings JSON"
+                    )
             detail = _read_detail(run.files)
             tickers = read_asset_tickers(source)
+            rankings = None
+            if "rankings_file" in run.files:
+                rankings = read_rankings(run.files["rankings_file"])
             selection = None
             if run.configuration.startswith("SYSTEM_") and detail is not None:
+                if rankings is None:
+                    raise LoadVetoError(
+                        f"{run.db_file}: {run.configuration}/{run.window} has no rankings_file; "
+                        "every System run that enters the graph must ship its rankings JSON"
+                    )
                 dates = [str(line["date"]) for line in detail.decisions]
                 if not dates:
                     dates = [str(line["date"]) for line in detail.retention_decisions]
@@ -199,6 +226,7 @@ def build_delivery(
                 detail=detail,
                 asset_tickers=tickers,
                 selection=selection,
+                rankings_by_date=rankings,
             )
             graph_name = backtest_graph_name(label, run.window, run.configuration)
             m018 = rdflib.Graph().parse(
@@ -237,6 +265,12 @@ def build_delivery(
                         run.window,
                     )
                 )
+            if m018_projection.projection.detail is not None:
+                _check_decision_close_count(
+                    manifest, run.configuration, run.window, m018_projection.projection.detail.rows
+                )
+            elif not manifest.draft:
+                raise LoadVetoError(f"{run.db_file}: the detail projection is missing")
             batch = VetoBatch(
                 (label, run.configuration, run.window),
                 graphs,
@@ -409,6 +443,52 @@ def _price_properties(store: GraphDB) -> list[str]:
         "FILTER (?p IN (:alertValue, :alertThreshold)) } }"
     )
     return [f"{row.get('graph')}:{row.get('alert')}:{row.get('p')}" for row in rows]
+
+
+def _decision_close_expected(manifest: VetoManifest, configuration: str, window: str) -> int | None:
+    """The optional per-configuration/window ``decision_close_episodes`` control count."""
+    value = manifest.control_counts
+    if not isinstance(value, dict):
+        return None
+    configurations = value.get("configurations", value)
+    if not isinstance(configurations, dict):
+        return None
+    windows = configurations.get(configuration)
+    if not isinstance(windows, dict):
+        return None
+    counts = windows.get(window)
+    if not isinstance(counts, dict):
+        return None
+    for key in ("decision_close_episodes", "decision_close_episode_count"):
+        if key in counts:
+            try:
+                return int(counts[key])
+            except (TypeError, ValueError):
+                raise LoadVetoError(
+                    f"manifest control count {configuration}/{window}.{key} is not an integer"
+                ) from None
+    return None
+
+
+def _check_decision_close_count(
+    manifest: VetoManifest,
+    configuration: str,
+    window: str,
+    rows: Mapping[str, int],
+) -> None:
+    expected = _decision_close_expected(manifest, configuration, window)
+    computed = int(rows.get("memory_episodes_decision_close", 0))
+    if expected is None:
+        print(
+            f"control count decision_close_episodes not provided for {configuration}/{window}; "
+            f"computed {computed}"
+        )
+        return
+    if computed != expected:
+        raise LoadVetoError(
+            f"decision_close_episodes mismatch for {configuration}/{window}: "
+            f"manifest {expected}, computed {computed}"
+        )
 
 
 def _control_counts(  # noqa: C901, PLR0912 -- two accepted manifest shapes

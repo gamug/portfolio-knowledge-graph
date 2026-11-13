@@ -5,10 +5,9 @@
 @prefix xsd:   <http://www.w3.org/2001/XMLSchema#> .
 
 #################################################################
-# Presentation vocabulary for the final graph (Work item 43, T-751).
-#
-# This file is not loaded yet: T-752 adds it to the load plan and
-# FR-001. It contains no run IRI and no engine data.
+# Presentation vocabulary for the final graph (Work item 43, T-751;
+# Work item 46, PR D). It is in the load plan and FR-001 and contains
+# no run IRI and no engine data.
 #################################################################
 
 :PresentationScheme a skos:Collection ;
@@ -166,29 +165,8 @@
     skos:inScheme :GuardScheme ;
     skos:notation 1 ;
     :labelScheme :PresentationScheme ;
-    rdfs:label "Per-stock stop (layer 1)"@en, "Parada por acción (capa 1)"@es ;
-    rdfs:comment "Determines the exit of a position when its layer-1 rule fires and allows a later re-entry when its recovery condition is met; it depends on the book: Basing Points in the System, a loss limit on the sum of the last 21 daily returns in the Markowitz book with GUARD."@en, "Determina la salida de una posición cuando se cumple la regla de capa 1 y permite una reentrada posterior cuando se satisface su condición de recuperación; depende del libro: Basing Points en el Sistema, límite de pérdida sobre la suma de los últimos 21 retornos diarios en el Markowitz con GUARD."@es .
-
-:GuardLayer_2 a skos:Concept ;
-    skos:inScheme :GuardScheme ;
-    skos:notation 2 ;
-    :labelScheme :PresentationScheme ;
-    rdfs:label "News trim (disabled in the final configuration)"@en, "Recorte por noticias (deshabilitada en la configuración final)"@es ;
-    rdfs:comment "Would trim positions on negative news; it is disabled."@en, "Recortaría posiciones por noticias negativas; está apagada."@es .
-
-:GuardLayer_3 a skos:Concept ;
-    skos:inScheme :GuardScheme ;
-    skos:notation 3 ;
-    :labelScheme :PresentationScheme ;
-    rdfs:label "Volatility scaling (configured, no activations)"@en, "Escalamiento por volatilidad (configurado; sin activaciones en las corridas evaluadas)"@es ;
-    rdfs:comment "Would reduce exposure when volatility rises; configured but no activations were observed."@en, "Reduciría la exposición si sube la volatilidad; configurado pero sin activaciones observadas."@es .
-
-:GuardLayer_4 a skos:Concept ;
-    skos:inScheme :GuardScheme ;
-    skos:notation 4 ;
-    :labelScheme :PresentationScheme ;
-    rdfs:label "Drawdown scaling"@en, "Escalamiento por caída"@es ;
-    rdfs:comment "Multiplies all the reference weights, including the SPY core, by clip(m*(VP - alpha*VPmax)/VP, 0, 1); it is 1 at the peak and falls with drawdown."@en, "Multiplica todos los pesos de referencia, incluido el núcleo SPY, por clip(m*(VP - alfa*VPmax)/VP, 0, 1); vale 1 en el máximo y baja con la caída."@es .
+    rdfs:label "Per-stock stop and stop memory (layer 1)"@en, "Parada por acción y memoria de la parada (capa 1)"@es ;
+    rdfs:comment "Layer 1 of the Veto Hierarchy: Basing Points stop, stop memory and blocked re-entry; the stop level is a price and is never stored."@en, "Capa 1 de la Jerarquía de Veto: parada Basing Points, memoria de la parada y reentrada bloqueada; el nivel de la parada es un precio y nunca se almacena."@es .
 
 :AlertState_ENTER a skos:Concept ;
     skos:inScheme :GuardScheme ;
@@ -223,7 +201,7 @@
     skos:notation "SCALE" ;
     :labelScheme :PresentationScheme ;
     rdfs:label "Exposure scaled"@en, "Exposición escalada"@es ;
-    rdfs:comment "Total exposure was scaled by layers 3 or 4."@en, "La exposición total se escaló por las capas 3 o 4."@es .
+    rdfs:comment "Total exposure was scaled by the portfolio tail-risk layer (L0_* rules)."@en, "La exposición total se escaló por la capa de riesgo de cola de la cartera (reglas L0_*)."@es .
 
 :ActionStatus_APPLIED a skos:Concept ;
     skos:inScheme :GuardScheme ;
@@ -747,7 +725,7 @@
     skos:inScheme :StrategyScheme ;
     skos:notation "MARKOWITZ_MV" ;
     :labelScheme :PresentationScheme ;
-    rdfs:label "Mean-variance base Markowitz (tangency portfolio; historical means and covariance)"@en, "Markowitz base de media-varianza (cartera de tangencia; medias y covarianza históricas)"@es ;
+    rdfs:label "Base Markowitz (mean-variance)"@en, "Markowitz base de media-varianza (cartera de tangencia; medias y covarianza históricas)"@es ;
     rdfs:comment "Only per-window and segment summaries are loaded (no daily series, weights or alerts); computed outside the engine by an independent simulator validated against the engine MARKOWITZ_BASE book; in-sample; no GUARD."@en, "Solo se cargan resúmenes por ventana y segmento (sin serie diaria, pesos ni alertas); calculada fuera del motor por un simulador independiente validado contra el libro MARKOWITZ_BASE del motor; resultados dentro de muestra; sin GUARD."@es ;
     skos:altLabel "Markowitz base (MV-Tangencia)"@en, "MV-Tangencia"@en ;
     skos:altLabel "Markowitz base (MV-Tangencia)"@es, "MV-Tangencia"@es .
@@ -1093,3 +1071,235 @@
     :metricUnit "ratio" ;
     rdfs:label "Utility cash coverage (3 years)"@en, "Cobertura de caja de servicios públicos (3 años)"@es ;
     rdfs:comment "Three-year average of operating cash flow before working-capital changes, divided by total debt; regulated utilities only. It is the input of the `UTILITY_CASH_COVERAGE` rule; fraction. Read verbatim from the delivery; absent when the source value is null."@en, "Promedio de tres años del flujo de caja operativo antes de cambios en el capital de trabajo, dividido entre la deuda total; solo empresas de servicios públicos reguladas. Es la entrada de la regla `UTILITY_CASH_COVERAGE`; fracción. Leído verbatim de la entrega; ausente cuando el valor de origen es nulo."@es .
+
+#################################################################
+# Veto Hierarchy labels (Work item 46, PR D, T-860–T-862)
+# Reviewer A approved the texts in the 2026-11-13 letter; the
+# frozen table is docs/labels-veto-review.md.
+#################################################################
+
+:Concept_Window_C1 a skos:Concept ;
+    skos:inScheme :WindowScheme ;
+    skos:notation "C1" ;
+    :labelScheme :PresentationScheme ;
+    rdfs:label "Window C1"@en, "Ventana C1"@es ;
+    rdfs:comment "The continuous C1 window, 2022-01 to 2026-10: an independent run that starts at scale 1.0 and shares no state (scale, memory or holdings) with P1-P3/H1-H3. It is added as a label concept in PR D; the loader does not write it to `labels.ttl` in PR A."@en, "La ventana continua C1, de 2022-01 a 2026-10: una corrida independiente que empieza con escala 1,0 y no comparte estado (escala, memoria ni posiciones) con P1-P3/H1-H3. Se añade como concepto de etiqueta en el PR D; el cargador no la escribe en `labels.ttl` en el PR A."@es ;
+    :windowStart "2022-01-03"^^xsd:date ;
+    :windowEnd "2026-10-15"^^xsd:date .
+
+:Concept_VetoHierarchy a skos:Concept ;
+    skos:inScheme :GuardScheme ;
+    skos:notation "VETO_HIERARCHY" ;
+    :labelScheme :PresentationScheme ;
+    rdfs:label "Veto Hierarchy"@en, "Jerarquía de Veto"@es ;
+    rdfs:comment "The System's layered protection scheme: rule veto in selection, the trend filter on the index, the portfolio GUARD (per-stock stops, stop memory, exposure scale and destination of freed weight) and, if the final variant carries it, the news rule. The rules bound the manager agent; the agent never loosens them."@en, "El esquema de protección del Sistema, por capas: el veto de reglas en la selección, el filtro de tendencia sobre el índice, el GUARD de cartera (paradas por acción, memoria de la parada, escala de exposición y destino del peso liberado) y, si la variante final la lleva, la regla de noticias. Las reglas limitan al agente gestor; el agente nunca las afloja."@es .
+
+:Concept_RulesGuard a skos:Concept ;
+    skos:inScheme :GuardScheme ;
+    skos:notation "RULES_GUARD" ;
+    :labelScheme :PresentationScheme ;
+    rdfs:label "Rules GUARD"@en, "GUARD de reglas"@es ;
+    rdfs:comment "The hard/soft rule layer that excludes or penalises names before selection; not the portfolio GUARD."@en, "La capa de reglas duras y suaves que excluyen o penalizan nombres antes de la selección; no es el GUARD de cartera."@es .
+
+:Concept_NewsGuard a skos:Concept ;
+    skos:inScheme :GuardScheme ;
+    skos:notation "NEWS_GUARD" ;
+    :labelScheme :PresentationScheme ;
+    rdfs:label "News GUARD"@en, "GUARD de noticias"@es ;
+    rdfs:comment "The news layer: at each decision date it removes from the candidate pool the companies whose recent news are clearly more negative than their base rate, and brings in companies just outside the pool whose news are clearly more positive. Loaded only if the System's final variant carries news."@en, "La capa de noticias: en cada fecha de decisión saca del grupo de candidatas a las empresas cuyas noticias recientes son claramente más negativas que su tasa base, y hace entrar a empresas cercanas al grupo con noticias claramente más positivas. Se carga solo si la variante final del Sistema lleva noticias."@es .
+
+:Concept_PortfolioGuard a skos:Concept ;
+    skos:inScheme :GuardScheme ;
+    skos:notation "PORTFOLIO_GUARD" ;
+    :labelScheme :PresentationScheme ;
+    rdfs:label "Portfolio GUARD"@en, "GUARD de cartera"@es ;
+    rdfs:comment "The daily supervision layer between decisions: per-stock stops (Basing Points, L1_BP_* rules), stop memory, exposure scale driven by the portfolio's tail risk (L0_* rules) and destination of the weight a stop frees."@en, "La capa de supervisión diaria entre decisiones: paradas por acción (Basing Points, reglas L1_BP_*), memoria de la parada, escala de exposición por el riesgo de cola de la cartera (reglas L0_*) y destino del peso que libera una parada."@es .
+
+:Concept_SystemWithoutHierarchy a skos:Concept ;
+    skos:inScheme :ProcessScheme ;
+    skos:notation "SYSTEM_WITHOUT_HIERARCHY" ;
+    :labelScheme :PresentationScheme ;
+    rdfs:label "System without the Veto Hierarchy"@en, "Sistema sin jerarquía"@es ;
+    rdfs:comment "The control arm without risk rules, trend filter or portfolio GUARD; it keeps data quality, earnings-missing, pool 100 and retention."@en, "El brazo de control sin reglas de riesgo, filtro de tendencia ni GUARD de cartera; conserva calidad de datos, faltantes de resultados, grupo 100 y retención."@es .
+
+:Concept_TailRiskThreshold a skos:Concept ;
+    skos:inScheme :GuardScheme ;
+    skos:notation "TAIL_RISK_THRESHOLD" ;
+    :labelScheme :PresentationScheme ;
+    rdfs:label "Tail-risk threshold"@en, "Umbral de riesgo de cola"@es ;
+    rdfs:comment "The 80th percentile of the previous 252 values of the 63-session CVaR95 that triggers layer-0 activation; published as `:alertThreshold` on L0_* alerts."@en, "El percentil 80 de los 252 valores anteriores del CVaR95 a 63 sesiones que dispara la activación de capa 0; se publica como `:alertThreshold` en las alertas L0_*."@es .
+
+:Concept_PortfolioTailRisk a skos:Concept ;
+    skos:inScheme :GuardScheme ;
+    skos:notation "PORTFOLIO_TAIL_RISK" ;
+    :labelScheme :PresentationScheme ;
+    rdfs:label "Portfolio tail risk"@en, "Riesgo de cola de la cartera"@es ;
+    rdfs:comment "The portfolio's 63-session CVaR95 that layer 0 measures; published as `:alertValue` on L0_* alerts."@en, "El CVaR95 a 63 sesiones de la cartera que la capa 0 mide; se publica como `:alertValue` en las alertas L0_*."@es .
+
+:Concept_RiskRatio a skos:Concept ;
+    skos:inScheme :GuardScheme ;
+    skos:notation "RISK_RATIO" ;
+    :labelScheme :PresentationScheme ;
+    rdfs:label "Risk ratio (rho)"@en, "Razón de riesgo (ρ)"@es ;
+    rdfs:comment "ρ = C/θ: the book's 95% CVaR over the last 63 sessions (weights held fixed) divided by its threshold θ, the 80th percentile of its previous 252 values; 1 is the threshold and lower values mean less risk. Published in `:rhoW0`, `:rho` and `:optionRho`."@en, "ρ = C/θ: el CVaR al 95% de las últimas 63 sesiones del libro (pesos fijos) dividido por su umbral θ, el percentil 80 de sus 252 valores anteriores; 1 es el umbral y los valores menores indican menos riesgo. Se publica en `:rhoW0`, `:rho` y `:optionRho`."@es .
+
+:Concept_RiskZone a skos:Concept ;
+    skos:inScheme :GuardScheme ;
+    skos:notation "RISK_ZONE" ;
+    :labelScheme :PresentationScheme ;
+    rdfs:label "Risk zone"@en, "Zona de riesgo"@es ;
+    rdfs:comment "Derived rho classification: LOW with rho ≤ 0.90, MIDDLE with rho ≤ 1 and HIGH with rho > 1; not stored as a literal."@en, "Clasificación derivada de rho: LOW con rho ≤ 0,90, MIDDLE con rho ≤ 1 y HIGH con rho > 1; no se almacena como literal."@es .
+
+:Concept_ExposureScale a skos:Concept ;
+    skos:inScheme :GuardScheme ;
+    skos:notation "EXPOSURE_SCALE" ;
+    :labelScheme :PresentationScheme ;
+    rdfs:label "Exposure scale"@en, "Escala de exposición"@es ;
+    rdfs:comment "The exposure multiplier in force; 1 means no cut and values between 0 and 1 cut the book. Published on decisions, stops and L0_* alerts."@en, "El multiplicador de exposición en vigor; 1 significa sin recorte y los valores entre 0 y 1 recortan el libro. Se publica en decisiones, paradas y alertas L0_*."@es .
+
+:Concept_RiskEpisode a skos:Concept ;
+    skos:inScheme :GuardScheme ;
+    skos:notation "RISK_EPISODE" ;
+    :labelScheme :PresentationScheme ;
+    rdfs:label "Risk episode"@en, "Episodio de riesgo"@es ;
+    rdfs:comment "The interval between layer-0 activation and recovery, derived from the `:exposureScale` dates and the L0_* alerts; it has no individual of its own."@en, "El intervalo entre la activación de capa 0 y su recuperación, derivado de las fechas de `:exposureScale` y de las alertas L0_*; no tiene individuo propio."@es .
+
+:Concept_FreedWeightDestination a skos:Concept ;
+    skos:inScheme :GuardScheme ;
+    skos:notation "FREED_WEIGHT_DESTINATION" ;
+    :labelScheme :PresentationScheme ;
+    rdfs:label "Destination of the freed weight"@en, "Destino del peso liberado"@es ;
+    rdfs:comment "What receives a stop's weight: a menu option, SPY or cash, through `:chosenOption`, `:chosenCash` and `:cashLeft`."@en, "Lo que recibe el peso de una parada: una opción del menú, SPY o efectivo, con `:chosenOption`, `:chosenCash` y `:cashLeft`."@es .
+
+:Concept_Replacement a skos:Concept ;
+    skos:inScheme :GuardScheme ;
+    skos:notation "REPLACEMENT" ;
+    :labelScheme :PresentationScheme ;
+    rdfs:label "Replacement"@en, "Reemplazo"@es ;
+    rdfs:comment "The purchase that uses the weight freed by a stop and the check of whether it was still a candidate at the next decision."@en, "La compra que usa el peso liberado por una parada y la verificación de si seguía siendo candidata en la decisión siguiente."@es .
+
+:Concept_DestinationMenu a skos:Concept ;
+    skos:inScheme :GuardScheme ;
+    skos:notation "DESTINATION_MENU" ;
+    :labelScheme :PresentationScheme ;
+    rdfs:label "Destination menu"@en, "Menú de destinos"@es ;
+    rdfs:comment "The ordered set of allowed destinations of a stop, each with its rho, R, beta, rank, score, sector, size and weight."@en, "El conjunto ordenado de destinos permitidos de una parada, cada uno con su rho, R, beta, puesto, puntaje, sector, tamaño y peso."@es .
+
+:Concept_CashCause a skos:Concept ;
+    skos:inScheme :GuardScheme ;
+    skos:notation "CASH_CAUSE" ;
+    :labelScheme :PresentationScheme ;
+    rdfs:label "Cash cause"@en, "Causa de efectivo"@es ;
+    rdfs:comment "Why the freed weight stayed in cash: FILTER_OFF, SCALE_BELOW_ONE, NO_SIGNAL or NO_ALLOWED_DESTINATION."@en, "Por qué el peso liberado quedó en efectivo: FILTER_OFF, SCALE_BELOW_ONE, NO_SIGNAL o NO_ALLOWED_DESTINATION."@es .
+
+:Concept_StopMemory a skos:Concept ;
+    skos:inScheme :GuardScheme ;
+    skos:notation "STOP_MEMORY" ;
+    :labelScheme :PresentationScheme ;
+    rdfs:label "Stop memory"@en, "Memoria de la parada"@es ;
+    rdfs:comment "The per-asset record of the first stop and of its release from the memory (by price or by leaving the ranking); the stop level is not stored because it is a price."@en, "El registro por activo de la primera parada y de su salida de la memoria (por precio o por salir del ranking); el nivel de la parada no se almacena porque es un precio."@es .
+
+:Concept_BlockedReentry a skos:Concept ;
+    skos:inScheme :GuardScheme ;
+    skos:notation "BLOCKED_REENTRY" ;
+    :labelScheme :PresentationScheme ;
+    rdfs:label "Blocked re-entry"@en, "Reentrada bloqueada"@es ;
+    rdfs:comment "The state of a name in the stop memory that is still below the stored level at a decision; published as a BLOCKED alert and action of `L1_BP_STOP_BLOCKED`."@en, "La situación de un nombre en la memoria de la parada que sigue por debajo del nivel guardado en una decisión; se publica como alerta y acción BLOCKED de `L1_BP_STOP_BLOCKED`."@es .
+
+:Concept_BasicSystem a skos:Concept ;
+    skos:inScheme :ConfigScheme ;
+    skos:notation "BASIC_SYSTEM" ;
+    :labelScheme :PresentationScheme ;
+    rdfs:label "Basic system"@en, "Sistema básico"@es ;
+    rdfs:comment "The System variant with pool 60 and retention off; read from `:systemVariant \"basic\"`, `:poolSize 60` and `:retentionEnabled false`."@en, "La variante del Sistema con grupo 60 y retención apagada; se lee de `:systemVariant \"basic\"`, `:poolSize 60` y `:retentionEnabled false`."@es .
+
+:Concept_CompleteSystem a skos:Concept ;
+    skos:inScheme :ConfigScheme ;
+    skos:notation "COMPLETE_SYSTEM" ;
+    :labelScheme :PresentationScheme ;
+    rdfs:label "Complete system"@en, "Sistema completo"@es ;
+    rdfs:comment "The System variant with pool 100 and retention on; read from `:systemVariant \"complete\"`, `:poolSize 100` and `:retentionEnabled true`."@en, "La variante del Sistema con grupo 100 y retención encendida; se lee de `:systemVariant \"complete\"`, `:poolSize 100` y `:retentionEnabled true`."@es .
+
+:Concept_Retention a skos:Concept ;
+    skos:inScheme :ConfigScheme ;
+    skos:notation "RETENTION" ;
+    :labelScheme :PresentationScheme ;
+    rdfs:label "Retention"@en, "Retención"@es ;
+    rdfs:comment "The rule that keeps held names as candidates for up to three decisions; published in `:RetentionDecision` and `:RetentionHold`."@en, "La regla que mantiene nombres del libro como candidatas hasta tres decisiones; se publica en `:RetentionDecision` y `:RetentionHold`."@es .
+
+:Concept_RetentionCounter a skos:Concept ;
+    skos:inScheme :ConfigScheme ;
+    skos:notation "RETENTION_COUNTER" ;
+    :labelScheme :PresentationScheme ;
+    rdfs:label "Retention counter"@en, "Contador de retención"@es ;
+    rdfs:comment "The number of decisions in which a held name was a candidate only by retention; 1 to 3 on retained holdings and 0 to 3 on rejections (0 = rejected before its first retention)."@en, "El número de decisiones en que una mantenida fue candidata solo por retención; de 1 a 3 en las retenidas y de 0 a 3 en los rechazos (0 = rechazada antes de su primera retención)."@es .
+
+:Concept_NewsVeto a skos:Concept ;
+    skos:inScheme :GuardScheme ;
+    skos:notation "NEWS_VETO" ;
+    :labelScheme :PresentationScheme ;
+    rdfs:label "News veto"@en, "Veto por noticias"@es ;
+    rdfs:comment "A company's removal from the candidate pool at one decision because of news clearly more negative than its base rate; it lasts one decision. Loaded only if the final variant carries news."@en, "La salida de una empresa del grupo de candidatas en una decisión por noticias claramente más negativas que su tasa base; dura una decisión. Se carga solo si la variante final lleva noticias."@es .
+
+:Concept_NewsPromotion a skos:Concept ;
+    skos:inScheme :GuardScheme ;
+    skos:notation "NEWS_PROMOTION" ;
+    :labelScheme :PresentationScheme ;
+    rdfs:label "News promotion"@en, "Promoción por noticias"@es ;
+    rdfs:comment "The entry into the candidate pool of a company just outside it because of news clearly more positive than its base rate. Loaded only if the final variant carries news."@en, "La entrada al grupo de candidatas de una empresa cercana al grupo por noticias claramente más positivas que su tasa base. Se carga solo si la variante final lleva noticias."@es .
+
+:Concept_NewsBaseRate a skos:Concept ;
+    skos:inScheme :GuardScheme ;
+    skos:notation "NEWS_BASE_RATE" ;
+    :labelScheme :PresentationScheme ;
+    rdfs:label "News base rate"@en, "Tasa base de noticias"@es ;
+    rdfs:comment "The future news base rate, with numerator and denominator; it has no pilot data."@en, "La tasa base futura de noticias, con numerador y denominador; no tiene datos en el piloto."@es .
+
+:Concept_NewsTemporalCoverage a skos:Concept ;
+    skos:inScheme :GuardScheme ;
+    skos:notation "NEWS_TEMPORAL_COVERAGE" ;
+    :labelScheme :PresentationScheme ;
+    rdfs:label "News temporal coverage"@en, "Cobertura temporal de noticias"@es ;
+    rdfs:comment "The future interval covered by news evidence, with first and last dates; it has no pilot data."@en, "El intervalo futuro que cubre la evidencia de noticias, con primera y última fecha; no tiene datos en el piloto."@es .
+
+:Concept_ManagerAgent a skos:Concept ;
+    skos:inScheme :ProcessScheme ;
+    skos:notation "MANAGER_AGENT" ;
+    :labelScheme :PresentationScheme ;
+    rdfs:label "Manager agent"@en, "Agente gestor"@es ;
+    rdfs:comment "The language agent that, as chooser, decides the destination of the weight a stop frees within what the rules allow, and writes its reason; it does not narrate events (the narrator does). Its calls are loaded only if the final chooser is the agent."@en, "El agente de lenguaje que, como elector, decide el destino del peso que libera una parada dentro de lo que permiten las reglas, y escribe su razón; no narra eventos (eso lo hace el narrador). Sus llamadas se cargan solo si el elector final es el agente."@es .
+
+:Concept_Chooser a skos:Concept ;
+    skos:inScheme :ProcessScheme ;
+    skos:notation "CHOOSER" ;
+    :labelScheme :PresentationScheme ;
+    rdfs:label "Chooser"@en, "Elector"@es ;
+    rdfs:comment "Who chose the destination: `rule` or `agent`; published in `:chooser` and, in the future, in `:answerChoice`."@en, "Quién eligió el destino: `rule` o `agent`; se publica en `:chooser` y, en el futuro, en `:answerChoice`."@es .
+
+:Concept_Narrator a skos:Concept ;
+    skos:inScheme :ProcessScheme ;
+    skos:notation "NARRATOR" ;
+    :labelScheme :PresentationScheme ;
+    rdfs:label "Narrator"@en, "Narrador"@es ;
+    rdfs:comment "The future component that produces narrative text; it has no texts in the pilot."@en, "El componente futuro que produce texto narrativo; no tiene textos en el piloto."@es .
+
+:Concept_ManagerInvestmentPolicy a skos:Concept ;
+    skos:inScheme :ProcessScheme ;
+    skos:notation "MANAGER_INVESTMENT_POLICY" ;
+    :labelScheme :PresentationScheme ;
+    rdfs:label "Manager investment policy"@en, "Política de inversión del gestor"@es ;
+    rdfs:comment "The future manager policy with skill/policy hashes; it has no file in the pilot."@en, "La política futura del gestor con hashes de habilidad y política; no tiene archivo en el piloto."@es .
+
+:Concept_FallbackChoice a skos:Concept ;
+    skos:inScheme :ProcessScheme ;
+    skos:notation "FALLBACK_CHOICE" ;
+    :labelScheme :PresentationScheme ;
+    rdfs:label "Fallback choice"@en, "Elección de respaldo"@es ;
+    rdfs:comment "The rule's choice used when the call to the agent fails or its answer does not pass the validator, with the cause."@en, "La elección de la regla que se usa cuando la llamada al agente falla o su respuesta no pasa el validador, con la causa."@es .
+
+:Concept_Validator a skos:Concept ;
+    skos:inScheme :ProcessScheme ;
+    skos:notation "VALIDATOR" ;
+    :labelScheme :PresentationScheme ;
+    rdfs:label "Validator"@en, "Validador"@es ;
+    rdfs:comment "The future validation of a manager choice, with the result and the cause."@en, "La validación futura de una elección del agente, con el resultado y la causa."@es .

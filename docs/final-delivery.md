@@ -119,6 +119,24 @@ The write is append-only and refuses a target graph that already holds triples. 
 graph, then each m018/detail graph and its selection sibling, one graph at a time, and prints the
 written list. A failure stops and lists what was already written; no graph is dropped.
 
+The detail loader derives `not_ranked` stop-memory releases from the run's `rankings_file` (the
+manifest hash is already verified). At every decision date it enforces the control rule: the assets
+in memory (including stops of that close) must split exactly into price releases, ranking releases
+and `L1_BP_STOP_BLOCKED` rows. A mismatch stops the load with the date and assets; it is never
+adjusted. The pilot reconciles on all ten decision dates (0 ranking releases).
+
+A blocked asset with no open memory episode opens a `decision_close` episode at that date (the engine
+writes no stop record); its count is not hard-coded. If the final manifest carries
+`control_counts.<configuration>.<window>.decision_close_episodes`, a mismatch stops the load with
+configuration, window, expected and computed; if absent, the loader prints "control count not
+provided" and continues. Ranking releases use every row of the ranking file, including vetoed rows.
+The loader fails clearly if a final System run lacks its `rankings_file` or the manifest hash
+differs.
+
+**Declared limitation:** if an asset stops on the close of a decision date and is already out of
+that same decision's ranking, the engine releases it from memory with no record; it cannot be
+detected from the files and is not represented in the graph.
+
 ### 0bis.6 MARKOWITZ_MV, fundamentals and aggregates
 
 The external MARKOWITZ_MV statistics depend on the new engine run ids; point `--engine-dir` at the

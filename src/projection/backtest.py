@@ -716,6 +716,7 @@ def project(  # noqa: PLR0913 -- the detail key is explicit
     detail: DetailFile | None = None,
     asset_tickers: Mapping[int, str] | None = None,
     selection: SelectionIndex | None = None,
+    rankings_by_date: Mapping[str, frozenset[int]] | None = None,
 ) -> Projection:
     """Turn the validated rows into one deterministic batch per backtest run.
 
@@ -757,12 +758,13 @@ def project(  # noqa: PLR0913 -- the detail key is explicit
             assets,
             asset_tickers,
             selection,
+            rankings_by_date,
             out,
         )
     return out
 
 
-def _detail_events(  # noqa: PLR0913, PLR0917 -- the key fields are explicit
+def _detail_events(  # noqa: C901, PLR0913, PLR0917 -- the key fields are explicit
     detail: DetailFile,
     rows: Mapping[str, Sequence[Row]],
     by_book_id: Mapping[int, _Book],
@@ -771,6 +773,7 @@ def _detail_events(  # noqa: PLR0913, PLR0917 -- the key fields are explicit
     assets: Mapping[str, AssetInfo],
     asset_tickers: Mapping[int, str] | None,
     selection: SelectionIndex | None,
+    rankings_by_date: Mapping[str, frozenset[int]] | None,
     out: Projection,
 ) -> None:
     """Project one validated detail file into the selected book's graph."""
@@ -779,6 +782,8 @@ def _detail_events(  # noqa: PLR0913, PLR0917 -- the key fields are explicit
             "detail events need the manifest configuration, the engine asset map and the "
             "decision-only selection index"
         )
+    if rankings_by_date is None:
+        raise ProjectionError("detail events need the run's rankings file for the memory control")
     if len(by_book_id) != 1:
         raise ProjectionError("detail events need exactly one loaded book")
     book = next(iter(by_book_id.values()))
@@ -814,6 +819,7 @@ def _detail_events(  # noqa: PLR0913, PLR0917 -- the key fields are explicit
         alerts=alert_map,
         selection=selection,
         rebalance_by_date=rebalances,
+        rankings_by_date=rankings_by_date,
     )
     batch = build_detail_batch(detail, context)
     builder = out.builder(batch.graph)
@@ -1939,6 +1945,7 @@ def project_source(  # noqa: PLR0913 -- the manifest key is explicit
     detail: DetailFile | None = None,
     asset_tickers: Mapping[int, str] | None = None,
     selection: SelectionIndex | None = None,
+    rankings_by_date: Mapping[str, frozenset[int]] | None = None,
 ) -> SourceProjection:
     """Read the eight views, run the boundary and project them; no store and no SHACL.
 
@@ -1983,6 +1990,7 @@ def project_source(  # noqa: PLR0913 -- the manifest key is explicit
             detail=detail,
             asset_tickers=asset_tickers,
             selection=selection,
+            rankings_by_date=rankings_by_date,
         ),
         filter_report,
     )
