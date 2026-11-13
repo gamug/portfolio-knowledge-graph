@@ -349,9 +349,7 @@ including the SPY core, by the fall of the portfolio's value from its running ma
 10 basis points of turnover, and cash earns the Kenneth French daily risk-free rate. The four arms compare this system
 with and without GUARD against a minimum-variance book over the whole eligible universe, with and without GUARD; that
 book's GUARD keeps the original layer-1 stop-loss. All six windows were seen before the final configuration was chosen,
-so every result is in-sample. Work item 46 supersedes the GUARD block: the new delivery uses layer 0 (L0_CARTERA_*)
-and layer 1 (L1_BP_STOP/L1_BP_REENTRY/L1_BP_STOP_BLOCKED); the old L1_STOP_LOSS, L1_REENTRY, L2_NEWS, L3_VOL and
-L4_DD rules were removed from the catalog.""" .
+so every result is in-sample.""" .
 
 :AggregatesSet
     a owl:Class ;
