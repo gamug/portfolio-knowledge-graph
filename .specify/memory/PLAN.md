@@ -3639,8 +3639,9 @@ measured pilot budget is in `docs/veto-hierarchy-design.md` §6.
 - [x] **T-865–T-869** *(done 2026-11-13, PR #159: configuration-keyed selection, per-window
       StopMemory rule, `cli/load_veto.py`, `verify_store --manifest`, runbook §0bis. Pilot dry run:
       meta 33, system_with 75,488, selection 322,794, system_without 56,705, selection 322,794,
-      markowitz_base 77,932 triples; all SHACL conform; no store contact.)* Loader CLI, per-graph
-      SHACL batching, rehearsal, final dry run and the production record.
+      markowitz_base 77,932 triples; all SHACL conform; no store contact; full suite 1,708 passed /
+      61 deselected.)* Loader CLI, per-graph SHACL batching, rehearsal, final dry run and the
+      production record.
 
 **Acceptance criteria**:
 
