@@ -10,12 +10,22 @@ from fixtures.backtest_rows import AssetInfo
 
 from projection.backtest import load_guard_catalog, project_source
 from projection.control_counts import (
+    ACTION_STATUSES,
+    ALERT_RULES,
+    CASH_CAUSES,
     GROUP_5,
+    REJECTION_CAUSES,
     ControlCountError,
     _check_identities,
     _compare_value,
+    _group_2,
+    _group_4,
+    _news,
     compare_control_counts,
     compute_control_counts,
+    compute_series_counts,
+    store_control_counts,
+    validate_control_counts,
 )
 from projection.source import FinancialSource
 from projection.veto_events import (
@@ -83,7 +93,10 @@ def _pilot_control() -> dict:
             detail=detail,
             memory_rows=sh.projection.detail.rows,
             rankings=rankings,
-            files={"scales_file": PILOT / "H1C-B5-P1.scales.json"},
+            files={
+                "scales_file": PILOT / "H1C-B5-P1.scales.json",
+                "rankings_file": PILOT / "H1C-B5-P1.rankings.json",
+            },
         ),
         "MARKOWITZ_BASE": compute_control_counts(
             "MARKOWITZ_BASE",
@@ -212,3 +225,136 @@ def test_a_null_group5_value_does_not_hide_a_non_null_file() -> None:
 def test_decision_close_episodes_is_compared_like_the_other_counts() -> None:
     with pytest.raises(ControlCountError, match="decision_close_episodes"):
         _compare_value("SYSTEM_WITH_HIERARCHY", "P1", "decision_close_episodes", 1, 0)
+
+
+def _ss_detail(**attributes: object) -> object:
+    values: dict[str, object] = {"decisions": (), "stops": ()}
+    values.update(attributes)
+    return type("Detail", (), values)()
+
+
+def test_ss_group2_is_zero_and_computed_from_its_file(tmp_path: Path) -> None:
+    scales = tmp_path / "scales.json"
+    scales.write_text("[]", encoding="utf-8")
+    values = _group_2(
+        "SYSTEM_WITHOUT_HIERARCHY",
+        _ss_detail(),
+        {},
+        {"scales_file": scales},
+    )
+    assert values["decision_events"] == 0
+    assert values["stop_events"] == 0
+    assert values["memory_episodes"] == 0
+    assert values["scale_changes"] == 0
+
+
+def test_ss_group2_fails_when_its_file_carries_an_engine_stop(tmp_path: Path) -> None:
+    scales = tmp_path / "scales.json"
+    scales.write_text("[]", encoding="utf-8")
+    detail = _ss_detail(stops=({"chosen": {"cash": True}},))
+    with pytest.raises(ControlCountError, match="not zero"):
+        _group_2("SYSTEM_WITHOUT_HIERARCHY", detail, {}, {"scales_file": scales})
+
+
+def test_ss_group2_fails_when_its_scales_file_is_not_empty(tmp_path: Path) -> None:
+    scales = tmp_path / "scales.json"
+    scales.write_text('[{"rule_id": "L0_CARTERA_ACTIVATION"}]', encoding="utf-8")
+    with pytest.raises(ControlCountError, match="scale_changes"):
+        _group_2("SYSTEM_WITHOUT_HIERARCHY", _ss_detail(), {}, {"scales_file": scales})
+
+
+def test_formation_targets_use_the_first_decision_by_date() -> None:
+    detail = _ss_detail(
+        decisions=(
+            {"date": "2022-02-01", "target": {"a": 1}},
+            {"date": "2022-01-03", "target": {"a": 1, "b": 1, "c": 1}},
+        )
+    )
+    values = _group_2("SYSTEM_WITH_HIERARCHY", detail, {}, {})
+    assert values["formation_targets"] == 3
+
+
+def test_ranking_rows_count_raw_rows_including_duplicates(tmp_path: Path) -> None:
+    path = tmp_path / "rankings.json"
+    path.write_text(
+        json.dumps(
+            {
+                "2022-01-03": {"rows": [{"asset_id": 1}, {"asset_id": 1}, {"asset_id": 2}]},
+                "2022-02-01": {"rows": [{"asset_id": 3}]},
+            }
+        ),
+        encoding="utf-8",
+    )
+    rankings = {"2022-01-03": frozenset({1, 2}), "2022-02-01": frozenset({3})}
+    assert _group_4(rankings, {"rankings_file": path}) == {
+        "ranking_decisions": 2,
+        "ranking_rows": 4,
+    }
+
+
+def test_news_reads_date_records_and_pool_actions_without_a_kind_field(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "news.jsonl"
+    records = [
+        {
+            "decision_date": "2022-10-12",
+            "coverage": {"first": "2020-01-02", "last": "2022-10-11"},
+            "admitted": 10,
+            "actions": [{"action": "veto"}],
+        },
+        {
+            "decision_date": "2022-10-12",
+            "asset_id": 42,
+            "ticker": "XYZ",
+            "action": "veto",
+        },
+    ]
+    path.write_text("".join(json.dumps(record) + "\n" for record in records), encoding="utf-8")
+    assert _news(path) == ({"veto": 1, "promotion": 0}, 1)
+
+
+def test_a_spy_csv_without_a_window_column_fails(tmp_path: Path) -> None:
+    path = tmp_path / "spy.csv"
+    path.write_text("date,value\n2022-01-03,1\n", encoding="utf-8")
+    with pytest.raises(ControlCountError, match="window"):
+        compute_series_counts("P1", {"daily_file": path}, window_filter=True)
+
+
+class _EmptyStore:
+    def select(self, query: str) -> list[dict[str, str]]:
+        if "GROUP BY" in query or "?cumulative" in query:
+            return []
+        return [{"n": "0"}]
+
+
+def test_store_grouped_counts_keep_the_full_zero_filled_key_sets() -> None:
+    values = store_control_counts(_EmptyStore(), "urn:graph:test", "MARKOWITZ_BASE")
+    assert set(values["alerts_by_rule"]) == set(ALERT_RULES)
+    assert set(values["actions_by_status"]) == set(ACTION_STATUSES)
+    assert set(values["stops_cash_by_cause"]) == set(CASH_CAUSES)
+    assert set(values["retention_rejections_by_cause"]) == set(REJECTION_CAUSES)
+    assert all(value == 0 for value in values["alerts_by_rule"].values())
+
+
+def test_an_unknown_configuration_or_window_fails_even_in_a_draft() -> None:
+    with pytest.raises(ControlCountError, match="unknown configuration"):
+        validate_control_counts(
+            {"SURPRISE": {"P1": {}}},
+            ("SYSTEM_WITH_HIERARCHY",),
+            ("P1",),
+            final=False,
+        )
+    with pytest.raises(ControlCountError, match="unknown window"):
+        validate_control_counts(
+            {"SYSTEM_WITH_HIERARCHY": {"P9": {}}},
+            ("SYSTEM_WITH_HIERARCHY",),
+            ("P1",),
+            final=False,
+        )
+
+
+def test_a_final_manifest_must_carry_control_counts() -> None:
+    with pytest.raises(ControlCountError, match="has no control_counts"):
+        validate_control_counts(None, ("SYSTEM_WITH_HIERARCHY",), ("P1",), final=True)
+    validate_control_counts(None, ("SYSTEM_WITH_HIERARCHY",), ("P1",), final=False)

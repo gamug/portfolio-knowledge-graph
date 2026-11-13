@@ -39,6 +39,7 @@ from projection.control_counts import (
     compare_control_counts,
     compute_control_counts,
     compute_series_counts,
+    validate_control_counts,
     verify_store_control_counts,
 )
 from projection.delivery import ConfigError, read_config
@@ -167,6 +168,12 @@ def build_delivery(  # noqa: C901, PLR0912, PLR0915 -- one branch per graph kind
                 if str(path) in str(exc) or path.name in str(exc):
                     raise LoadVetoError(f"{run.configuration}/{run.window}: {exc}") from exc
         raise
+    validate_control_counts(
+        manifest.control_counts,
+        tuple(dict.fromkeys(run.configuration for run in manifest.runs)),
+        manifest.windows,
+        final=not manifest.draft,
+    )
     print(f"\nmanifest: {manifest.path} ({manifest.status or 'final'})")
     print(f"manifest: {len(hashes)} file(s) verified")
     if assets_db is None:

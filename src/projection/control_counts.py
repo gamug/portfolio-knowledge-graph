@@ -138,7 +138,7 @@ def compute_control_counts(  # noqa: PLR0913 -- the source bundle is explicit
         if configuration in (GH, SS):
             values.update(_group_2(configuration, detail, memory_rows, files))
             values.update(_group_3(configuration, detail))
-            values.update(_group_4(rankings))
+            values.update(_group_4(rankings, files))
         if configuration == GH:
             values.update(_group_5(files))
         return values
@@ -156,9 +156,45 @@ def compute_series_counts(
         reader = csv.DictReader(handle)
         if reader.fieldnames is None:
             raise ControlCountError(f"{path}: the daily CSV has no header")
-        if "window" not in reader.fieldnames or not window_filter:
+        if not window_filter:
             return {"daily_rows": sum(1 for _ in reader)}
+        if "window" not in reader.fieldnames:
+            raise ControlCountError(f"{path}: the series daily CSV has no window column")
         return {"daily_rows": sum(1 for row in reader if row.get("window") == window)}
+
+
+def validate_control_counts(  # noqa: C901 -- one branch per malformed level
+    control_counts: object,
+    configurations: Sequence[str],
+    windows: Sequence[str],
+    *,
+    final: bool,
+) -> None:
+    """Reject unknown configurations/windows and non-object windows before comparing runs."""
+    if control_counts is None:
+        if final:
+            raise ControlCountError("the final manifest has no control_counts")
+        return
+    if not isinstance(control_counts, dict):
+        if final:
+            raise ControlCountError("control_counts must be an object")
+        return
+    unknown = sorted(set(control_counts) - set(configurations))
+    if unknown:
+        raise ControlCountError(f"control_counts: unknown configuration(s): {', '.join(unknown)}")
+    for configuration, by_window in control_counts.items():
+        if not isinstance(by_window, dict):
+            raise ControlCountError(f"control_counts.{configuration}: must be an object")
+        unknown_windows = sorted(set(by_window) - set(windows))
+        if unknown_windows:
+            raise ControlCountError(
+                f"control_counts.{configuration}: unknown window(s): {', '.join(unknown_windows)}"
+            )
+        for window, values in by_window.items():
+            if not isinstance(values, dict):
+                raise ControlCountError(
+                    f"control_counts.{configuration}.{window}: must be an object"
+                )
 
 
 def compare_control_counts(
@@ -352,28 +388,8 @@ def _group_2(
         detail = _empty_detail()
     decisions = list(getattr(detail, "decisions", ()))
     stops = list(getattr(detail, "stops", ()))
-    if configuration == SS:
-        return {
-            "decision_events": 0,
-            "formation_targets": 0,
-            "stop_events": 0,
-            "stops_by_destination": {key: 0 for key in DESTINATIONS},
-            "stops_cash_by_cause": {key: 0 for key in CASH_CAUSES},
-            "destination_options": 0,
-            "stop_rejection_summaries": 0,
-            "replacement_purchases": 0,
-            "replacement_checks": 0,
-            "replacements_stopped": 0,
-            "blocked_records": 0,
-            "reentry_records": 0,
-            "memory_episodes": 0,
-            "decision_close_episodes": 0,
-            "memory_released_price": 0,
-            "memory_released_not_ranked": 0,
-            "memory_open_at_end": 0,
-            "scale_changes": _scale_changes(files),
-        }
-    first_target = decisions[0].get("target", {}) if decisions else {}
+    first_decision = min(decisions, key=lambda line: str(line["date"])) if decisions else {}
+    first_target = first_decision.get("target", {}) if first_decision else {}
     destinations: Counter[str] = Counter()
     causes: Counter[str] = Counter()
     options = 0
@@ -392,7 +408,7 @@ def _group_2(
         counts = stop.get("eligible_counts") or {}
         if any(int(value) != 0 for key, value in counts.items() if key != "zone_evaluated"):
             summaries += 1
-    return {
+    values = {
         "decision_events": len(decisions),
         "formation_targets": len(first_target),
         "stop_events": len(stops),
@@ -412,6 +428,20 @@ def _group_2(
         "memory_open_at_end": int(memory_rows.get("memory_open_at_end", 0)),
         "scale_changes": _scale_changes(files),
     }
+    if configuration == SS:
+        nonzero = {key: value for key, value in values.items() if _nonzero(value)}
+        if nonzero:
+            raise ControlCountError(
+                f"{SS}: its JSON-lines only carries retention_decision, but group-2 "
+                f"control count(s) are not zero: {nonzero}"
+            )
+    return values
+
+
+def _nonzero(value: object) -> bool:
+    if isinstance(value, dict):
+        return any(_nonzero(item) for item in value.values())
+    return value not in (0, None)
 
 
 def _group_3(configuration: str, detail: object | None) -> dict[str, Any]:
@@ -441,9 +471,23 @@ def _group_3(configuration: str, detail: object | None) -> dict[str, Any]:
     }
 
 
-def _group_4(rankings: Mapping[str, frozenset[int]] | None) -> dict[str, int]:
+def _group_4(
+    rankings: Mapping[str, frozenset[int]] | None, files: Mapping[str, Path]
+) -> dict[str, int]:
     if rankings is None:
         raise ControlCountError("rankings are required for ranking_decisions/ranking_rows")
+    path = files.get("rankings_file")
+    if path is not None:
+        payload = _json_payload(path)
+        if not isinstance(payload, dict):
+            raise ControlCountError(f"{path}: rankings must be an object keyed by decision date")
+        rows_total = 0
+        for date, item in payload.items():
+            rows = item.get("rows") if isinstance(item, dict) else item
+            if not isinstance(rows, list):
+                raise ControlCountError(f"{path}: {date}: rankings must carry a rows list")
+            rows_total += len(rows)
+        return {"ranking_decisions": len(rankings), "ranking_rows": rows_total}
     return {
         "ranking_decisions": len(rankings),
         "ranking_rows": sum(len(rows) for rows in rankings.values()),
@@ -487,10 +531,20 @@ def _news(path: Path | None) -> tuple[dict[str, int] | None, int | None]:
         action = row.get("action")
         if action in ("veto", "promotion"):
             actions[str(action)] += 1
-        kind = str(row.get("kind", "")).lower()
-        if kind in ("date_record", "daterecord") or "coverage_first" in row:
+        if _is_date_record(row):
             date_records += 1
     return {"veto": actions.get("veto", 0), "promotion": actions.get("promotion", 0)}, date_records
+
+
+def _is_date_record(row: Mapping[str, Any]) -> bool:
+    kind = str(row.get("kind", "")).lower().replace("-", "_")
+    if kind in ("date_record", "daterecord"):
+        return True
+    if "coverage_first" in row:
+        return True
+    return (
+        "decision_date" in row and "coverage" in row and "admitted" in row and "action" not in row
+    )
 
 
 def _scale_changes(files: Mapping[str, Path]) -> int:
@@ -498,6 +552,17 @@ def _scale_changes(files: Mapping[str, Path]) -> int:
     if path is None:
         return 0
     return len(_records(path))
+
+
+def _json_payload(path: Path) -> object:
+    try:
+        raw = path.read_text(encoding="utf-8")
+    except OSError as exc:
+        raise ControlCountError(f"{path}: {exc}") from exc
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise ControlCountError(f"{path}: invalid JSON: {exc}") from exc
 
 
 def _records(path: Path) -> list[dict[str, Any]]:
@@ -578,6 +643,10 @@ def store_control_counts(store: ReadableStore, graph: str, configuration: str) -
         )
         return {str(row["k"]): int(row["n"]) for row in rows}
 
+    alerts = grouped('?a a :GuardAlert ; :alertRule ?r . BIND(STRAFTER(STR(?r), "#Rule_") AS ?k)')
+    statuses = grouped("?a a :GuardAction ; :status ?k")
+    cash_causes = grouped("?s a :StopEvent ; :stopCashCause ?k")
+    rejection_causes = grouped("?s a :RetentionRejection ; :rejectionCause ?k")
     values: dict[str, Any] = {
         "rebalances": count("?s a :BookRebalance"),
         "daily_rows": count("?s a :BookDailyPerformance"),
@@ -596,17 +665,17 @@ def store_control_counts(store: ReadableStore, graph: str, configuration: str) -
         "retention_holds": count("?s a :RetentionHold"),
         "retention_rejections": count("?s a :RetentionRejection"),
         "retention_counter_drops": count("?s :counterDroppedAsset ?asset"),
-        "alerts_by_rule": grouped(
-            '?a a :GuardAlert ; :alertRule ?r . BIND(STRAFTER(STR(?r), "#Rule_") AS ?k)'
-        ),
-        "actions_by_status": grouped("?a a :GuardAction ; :status ?k"),
+        "alerts_by_rule": {rule: alerts.get(rule, 0) for rule in ALERT_RULES},
+        "actions_by_status": {status: statuses.get(status, 0) for status in ACTION_STATUSES},
         "stops_by_destination": {
             "cash": count("?s a :StopEvent ; :chosenCash true"),
             "spy": count("?s a :StopEvent ; :chosenOption ?o . ?o :optionIsSpy true"),
             "stock": count("?s a :StopEvent ; :chosenOption ?o . ?o :optionIsSpy false"),
         },
-        "stops_cash_by_cause": grouped("?s a :StopEvent ; :stopCashCause ?k"),
-        "retention_rejections_by_cause": grouped("?s a :RetentionRejection ; :rejectionCause ?k"),
+        "stops_cash_by_cause": {cause: cash_causes.get(cause, 0) for cause in CASH_CAUSES},
+        "retention_rejections_by_cause": {
+            cause: rejection_causes.get(cause, 0) for cause in REJECTION_CAUSES
+        },
     }
     rows = store.select(
         prefix
@@ -644,6 +713,12 @@ def verify_store_control_counts(
     failures: list[str] = []
     for key, value in expected.items():
         if key not in actual:
+            if key == "final_values":
+                failures.append(
+                    f"{configuration}/{window}.final_values: "
+                    "the store has no PortfolioPeriodSummary for the graph"
+                )
+                continue
             reason = STORE_NON_VERIFIABLE.get(key, "not derivable from the loaded graph")
             print(f"control count not store-verifiable: {configuration}/{window}.{key}: {reason}")
             continue

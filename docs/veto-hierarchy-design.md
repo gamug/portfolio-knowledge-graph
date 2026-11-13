@@ -834,8 +834,10 @@ memory_released_not_ranked + memory_open_at_end`, `scale_changes = sum of the th
 alerts_by_rule`, and `retention_counter_drops = retention_rejections_by_cause.counter`.
 `decision_close_episodes` is group 2 and is compared like every other key; it is never hard-coded.
 `SYSTEM_WITHOUT_HIERARCHY` ships `scales_file: []`, so its `scale_changes` is 0 by the same
-computation; every System run ships a `rankings_file` and every final System run ships a
-`scales_file`, and a missing file or hash mismatch names the run and file.
+computation; every group-2 key is computed from its JSON-lines (which only carries
+`retention_decision`) and any nonzero value is a hard error. Every System run ships a
+`rankings_file` and every final System run ships a `scales_file`, and a missing file or hash
+mismatch names the run and file.
 
 ### 9.2 SHA-256 before parsing
 
