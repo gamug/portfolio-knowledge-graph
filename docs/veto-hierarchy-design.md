@@ -795,9 +795,8 @@ proposed in §7 and implemented later.
 `:memoryReleasedOn`, `:replacementStoppedBy`; the rules `L0_CARTERA_*`, `L1_BP_STOP_BLOCKED`;
 the states `BLOCKED`; and the future news/manager/narrator classes of §7.
 
-The second label table (Reviewer A approves in one pass after 2026-11-14) must include the 31
-concept labels plus these new schema elements, with A's English name unless it clashes with the
-existing style. Do not write `labels.ttl` in this PR.
+The second label table was approved by Reviewer A and applied in PR D: the 31 concept labels,
+`:Window_C1`, the new schema elements and the removed-rule cleanup are in `labels.ttl`.
 
 ---
 
@@ -822,6 +821,21 @@ existing style. Do not write `labels.ttl` in this PR.
   file are errors. The global key is the triple `(label, configuration, window)`; duplicate keys
   are errors.
 - The manifest's `price_mask` SHA-256 must match the real mask file; otherwise stop before parsing.
+
+**`control_counts` (Reviewer A, 2026-11-13).** The shape is
+`control_counts -> configuration -> window -> key -> value`. The loader computes every key from the
+filtered run DB, the detail file and the manifest files, never from the manifest. `SH` carries
+groups 1–5, `SS` groups 1–4, `MB` group 1, and `MARKOWITZ_MV`/`SPY` group 6 (`daily_rows`). Group 5
+is `null` exactly when its file is `null` in the manifest. Integers and fixed-key integer objects
+compare exactly; `final_values` reals compare with `abs(diff) <= 1e-12`; a final missing/unknown key
+or any difference is a hard error; a draft may omit `control_counts` but a present key still
+compares. The identities are `memory_episodes = memory_released_price +
+memory_released_not_ranked + memory_open_at_end`, `scale_changes = sum of the three L0 rules in
+alerts_by_rule`, and `retention_counter_drops = retention_rejections_by_cause.counter`.
+`decision_close_episodes` is group 2 and is compared like every other key; it is never hard-coded.
+`SYSTEM_WITHOUT_HIERARCHY` ships `scales_file: []`, so its `scale_changes` is 0 by the same
+computation; every System run ships a `rankings_file` and every final System run ships a
+`scales_file`, and a missing file or hash mismatch names the run and file.
 
 ### 9.2 SHA-256 before parsing
 

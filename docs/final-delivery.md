@@ -172,6 +172,84 @@ verification and the full suite: if either fails, stop and restore the backup; i
 delivery is accepted. Plan B is the §0bis.2 TriG backup. Restore only after a deliberate decision,
 into an emptied repository or with Workbench **Import**; a large single POST can time out (see §1).
 
+## 0ter. Rehearsal kit — scratch `portfolio_test` with the P1 pilot
+
+**The manifest is outside the repository** at
+`/workspaces/thesis/scratch/rehearsal/manifest_pilot_draft.json`. It is a `BORRADOR` with the real
+pilot hashes (DB, JSON-lines, rankings, scales and mask) and Reviewer A's real `control_counts` for
+`SYSTEM_WITH_HIERARCHY`/P1 and `MARKOWITZ_BASE`/P1 from
+`18b_A_control_counts_piloto_P1.json`. The other configurations are present as draft entries without
+control counts; the loader prints "control counts not provided" for them.
+
+To regenerate it: copy `H1C-B5-P1.db`, `H1C-B5-P1.cartera_v1_3.kg.jsonl`,
+`H1C-B5-P1.rankings.json`, `H1C-B5-P1.scales.json` and the Tiingo mask into
+`/workspaces/thesis/scratch/rehearsal/`, hash each file into the manifest, set `status` to a
+`BORRADOR...` string, and copy the `control_counts` object verbatim from A's JSON. The manifest is
+draft-only; never use it for production.
+
+### 0ter.1 Empty `portfolio_test` safely
+
+Set the target and list every graph (read-only):
+
+```bash
+export KG_REPOSITORY=portfolio_test
+export SQL_UNIVERSE_DB=/workspaces/thesis/data/universe_history_gics.db
+set -a; . ./.env; set +a
+
+curl -fsS -u "$KG_USER:$KG_PASSWORD" -H 'Accept: application/sparql-results+json' \
+  --data-urlencode 'query=SELECT ?g (COUNT(*) AS ?n) WHERE { GRAPH ?g { ?s ?p ?o } } GROUP BY ?g' \
+  "$KG_HOST/repositories/portfolio_test/statements"
+```
+
+For the pilot kit the expected graph list is the five schema graphs
+(`urn:graph:tbox`, `urn:graph:reference`, `urn:graph:reference:fibo`, `urn:graph:rules:catalog`,
+`urn:graph:labels`), `urn:graph:universe:2026-Q4`, `urn:graph:derived:fundamentals:final`, and any
+`urn:graph:derived:backtest:*` family. Drop **one exact graph per request**, repeating for every IRI
+the listing returns; never use `CLEAR ALL`, `DROP ALL`, `DROP DEFAULT` or a repository delete:
+
+```bash
+curl -fsS -u "$KG_USER:$KG_PASSWORD" -X POST \
+  -H 'Content-Type: application/sparql-update' \
+  --data-binary 'DROP GRAPH <urn:graph:tbox>' \
+  "$KG_HOST/repositories/portfolio_test/statements"
+```
+
+### 0ter.2 Load the scratch rehearsal
+
+```bash
+export KG_REPOSITORY=portfolio_test
+export SQL_UNIVERSE_DB=/workspaces/thesis/data/universe_history_gics.db
+
+uv run python cli/load_schema.py
+uv run python cli/load_universe.py --as-of 2026-11-09 --write
+uv run python cli/load_fundamentals.py --label final \
+  --dir "/workspaces/thesis/knoledge graph/2026-11-12_respuesta_4/bloque_c_fundamentales" \
+  --mask "/workspaces/thesis/knoledge graph/mascara_tiingo/tiingo_assets.csv" \
+  --universe-db "$SQL_UNIVERSE_DB" --write
+uv run python cli/load_veto.py \
+  --manifest /workspaces/thesis/scratch/rehearsal/manifest_pilot_draft.json --write
+uv run python cli/verify_store.py \
+  --manifest /workspaces/thesis/scratch/rehearsal/manifest_pilot_draft.json
+```
+
+`load_veto --write` accepts the draft only because the repository is `portfolio_test`; the loader
+refuses a draft on production. It writes the meta, m018/detail and selection graphs and never drops.
+
+### 0ter.3 Record the sizing table
+
+Fill this after each write (explicit triple count from `store.size()` or the statements count;
+inferred from the repository's inferred statement count; elapsed from the loader's `time:` lines):
+
+| Step | Explicit before | Explicit after | Inferred before | Inferred after | Elapsed |
+|---|---:|---:|---:|---:|---:|
+| load_schema | | | | | |
+| load_universe | | | | | |
+| load_fundamentals | | | | | |
+| load_veto meta | | | | | |
+| load_veto m018/detail | | | | | |
+| load_veto selection | | | | | |
+| verify_store | | | | | |
+
 ## 0. Preconditions (read-only)
 
 From the repository root, with the delivery folder present:
