@@ -3594,7 +3594,7 @@ graph is **1265 triples**. No GraphDB write.
 
 ## Work item 46 — Veto Hierarchy projection (T-840–T-869)
 
-**Status: design PR (T-840) 2026-11-13; implementation waits for the maintainer's approval.**
+**Status: design PR (T-840) 2026-11-13; PR A (T-841–T-846) open as PR #156, 2026-11-13; PR B in progress.**
 
 **Why**: Reviewer A delivered the frozen data dictionary and the pilot `H1C-B5-P1` for the complete
 System with the Veto Hierarchy. The engine arm codes no longer identify a configuration
@@ -3616,7 +3616,11 @@ measured pilot budget is in `docs/veto-hierarchy-design.md` §6.
 - [x] **T-840** *(done 2026-11-13: `docs/veto-hierarchy-design.md`; design only, no code, schema or
       GraphDB write.)* Record the configuration identity, filters, rules/shapes, detail model,
       price masking, volume, concept map, loader plan, questions and staging.
-- [ ] **T-841–T-846** Schema, configuration class and rules: five configuration individuals,
+- [x] **T-841–T-846** *(done 2026-11-13, PR #156: schema only; FR-001 8844 quads / 9121 load
+      plan / 8600 production, 72 classes / 58 disjoint leaves / 57 named shapes; five old rules
+      removed, four new rules and BLOCKED added, C1 admitted, proposed labels in
+      `docs/labels-veto-review.md`; no `labels.ttl` edit and no GraphDB write.)* Schema,
+      configuration class and rules: five configuration individuals,
       `:configuration`/`:systemVariant`/`:poolSize`/`:retentionEnabled`, the four new rules, the
       BLOCKED states, C1 patterns, the L1_BP price exclusions and the new event shapes.
 - [ ] **T-847–T-852** Manifest parser, SHA-256 order, filter rules, configuration-keyed graph/IRI
