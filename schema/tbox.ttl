@@ -1797,7 +1797,7 @@ so every result is in-sample.""" .
 
 :retentionCounter a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain [ a owl:Class ; owl:unionOf ( :RetentionHold :RetentionRejection ) ] ; rdfs:range xsd:integer ;
     rdfs:label "Retention counter"@en ; rdfs:label "Contador de retención"@es ;
-    rdfs:comment "Consecutive decisions in which the name was a candidate only by retention (1 to 3)."@en ; rdfs:comment "Decisiones consecutivas en que el nombre fue candidata solo por retención (1 a 3)."@es .
+    rdfs:comment "Consecutive decisions in which the name was a candidate only by retention (1 to 3 on a hold; 0 when a rejection happens before the first retention decision)."@en ; rdfs:comment "Decisiones consecutivas en que el nombre fue candidata solo por retención (1 a 3 en una mantenida; 0 cuando el rechazo ocurre antes de la primera decisión de retención)."@es .
 
 :rankingSnapshot a owl:ObjectProperty, owl:FunctionalProperty ; rdfs:domain [ a owl:Class ; owl:unionOf ( :RetentionHold :RetentionRejection ) ] ; rdfs:range :AttractivenessSnapshot ;
     rdfs:label "Ranking snapshot"@en ; rdfs:label "Instantánea de ranking"@es ;

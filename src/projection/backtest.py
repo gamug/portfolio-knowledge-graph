@@ -40,7 +40,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
-from typing import Any, Protocol
+from typing import Any, Protocol, cast
 
 import rdflib
 from rdflib.namespace import RDF, XSD
@@ -60,6 +60,13 @@ from projection.boundary import (
 )
 from projection.expectations import load_expectations, load_source
 from projection.source import FinancialSource
+from projection.veto_events import (
+    DetailBatch,
+    DetailFile,
+    EventContext,
+    SelectionIndex,
+    build_detail_batch,
+)
 from projection.veto_manifest import (
     FilterReport,
     configuration_iri,
@@ -669,6 +676,7 @@ class Projection:
     skipped: Counter[str] = field(default_factory=Counter)
     asset_unlinked: Counter[str] = field(default_factory=Counter)
     cash_rows: Counter[str] = field(default_factory=Counter)
+    detail: DetailBatch | None = None
 
     def builder(self, graph: str) -> GraphBuilder:
         return self.graphs.setdefault(graph, GraphBuilder())
@@ -698,13 +706,16 @@ class Projection:
         return counts
 
 
-def project(
+def project(  # noqa: PLR0913 -- the detail key is explicit
     rows: Mapping[str, Sequence[Row]],
     assets: Mapping[str, AssetInfo],
     catalog: GuardCatalog,
     label: str,
     *,
     configuration: str | None = None,
+    detail: DetailFile | None = None,
+    asset_tickers: Mapping[int, str] | None = None,
+    selection: SelectionIndex | None = None,
 ) -> Projection:
     """Turn the validated rows into one deterministic batch per backtest run.
 
@@ -736,7 +747,78 @@ def project(
     _performance(rows.get("v_book_daily_performance", ()), by_book_id, out)
     _summaries(rows.get("v_portfolio_period_summary", ()), by_book_id, out)
     _tests(rows.get("v_backtest_test", ()), runs, label, out, configuration)
+    if detail is not None:
+        _detail_events(
+            detail,
+            rows,
+            by_book_id,
+            alerts,
+            configuration,
+            asset_tickers,
+            selection,
+            out,
+        )
     return out
+
+
+def _detail_events(  # noqa: PLR0913, PLR0917 -- the key fields are explicit
+    detail: DetailFile,
+    rows: Mapping[str, Sequence[Row]],
+    by_book_id: Mapping[int, _Book],
+    alerts: Mapping[tuple[str, int], rdflib.URIRef],
+    configuration: str | None,
+    asset_tickers: Mapping[int, str] | None,
+    selection: SelectionIndex | None,
+    out: Projection,
+) -> None:
+    """Project one validated detail file into the selected book's graph."""
+    if configuration is None or asset_tickers is None or selection is None:
+        raise ProjectionError(
+            "detail events need the manifest configuration, the engine asset map and the "
+            "decision-only selection index"
+        )
+    if len(by_book_id) != 1:
+        raise ProjectionError("detail events need exactly one loaded book")
+    book = next(iter(by_book_id.values()))
+    alert_map: dict[tuple[str, int, str], rdflib.URIRef] = {}
+    for row in rows.get("v_guard_alert", ()):
+        asset = row.get("asset_id")
+        if asset is None:
+            continue
+        alert = alerts.get((book.window, int(row["alert_id"])))
+        if alert is None:
+            continue
+        key = (str(row["date"]), int(asset), str(row["rule_id"]))
+        if key in alert_map:
+            raise ProjectionError(f"two loaded alerts share the detail key {key}")
+        alert_map[key] = alert
+    rebalances: dict[str, rdflib.URIRef] = {}
+    for row in rows.get("v_book_rebalance", ()):
+        if int(row["book_id"]) != int(book.row["book_id"]):
+            continue
+        rebalances[str(row["decision_date"])] = KG[
+            f"Rebalance_{book.label}_{book.window}_{book.stem}_"
+            f"{_day_key(str(row['execution_date']))}"
+        ]
+    context = EventContext(
+        label=book.label,
+        window=book.window,
+        configuration=configuration,
+        graph=book.graph,
+        book_iri=book.iri,
+        book_code=book.arm,
+        assets={ticker: None for ticker in asset_tickers.values()},
+        asset_tickers=asset_tickers,
+        alerts=alert_map,
+        selection=selection,
+        rebalance_by_date=rebalances,
+    )
+    batch = build_detail_batch(detail, context)
+    builder = out.builder(batch.graph)
+    for triple in batch.triples:
+        builder.add(cast(rdflib.URIRef, triple[0]), cast(rdflib.URIRef, triple[1]), triple[2])
+    out.individuals.update(batch.individuals)
+    out.detail = batch
 
 
 def _int_row(row: Row, column: str, view: str, key: str = "id") -> int:
@@ -1763,6 +1845,7 @@ class RunResult:
     skipped: Counter[str] = field(default_factory=Counter)
     asset_unlinked: Counter[str] = field(default_factory=Counter)
     cash_rows: Counter[str] = field(default_factory=Counter)
+    detail: DetailBatch | None = None
     store_consulted: bool = True
     in_doubt: str | None = None
 
@@ -1833,6 +1916,9 @@ def project_source(  # noqa: PLR0913 -- the manifest key is explicit
     window: str | None = None,
     book_code: str | None = None,
     book_id: int | None = None,
+    detail: DetailFile | None = None,
+    asset_tickers: Mapping[int, str] | None = None,
+    selection: SelectionIndex | None = None,
 ) -> SourceProjection:
     """Read the eight views, run the boundary and project them; no store and no SHACL.
 
@@ -1868,7 +1954,16 @@ def project_source(  # noqa: PLR0913 -- the manifest key is explicit
     return SourceProjection(
         result.report,
         result.rows,
-        project(result.rows, assets, catalog, label, configuration=configuration),
+        project(
+            result.rows,
+            assets,
+            catalog,
+            label,
+            configuration=configuration,
+            detail=detail,
+            asset_tickers=asset_tickers,
+            selection=selection,
+        ),
         filter_report,
     )
 
