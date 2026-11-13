@@ -844,7 +844,9 @@ loaded m018 graphs: `alerts_by_rule`, `actions_by_status`, `rebalances`, `daily_
 `weight_daily_rows`, `final_values`, `decision_events`, `formation_targets`, `stop_events`,
 `stops_by_destination`, `stops_cash_by_cause`, `destination_options`,
 `stop_rejection_summaries`, `replacement_purchases`/`checks`/`stopped`, `memory_episodes`,
-`decision_close_episodes`, `retention_decisions`/`holds`/`rejections`/`counter_drops` and
+`decision_close_episodes`, `memory_released_price`, `memory_released_not_ranked`,
+`memory_open_at_end` (from `StopMemory` release causes and the absence of `memoryReleasedOn`),
+`retention_decisions`/`holds`/`rejections`/`counter_drops` and
 `retention_rejections_by_cause`. It prints why the rest cannot be checked from the store:
 `ranking_decisions`/`ranking_rows` and `scale_changes` (files not projected), `blocked_records` and
 `reentry_records` (detail records are not graph nodes), the group-5 manager/narrator/news keys

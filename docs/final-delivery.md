@@ -168,7 +168,8 @@ uv run pytest -q
 ```
 
 `verify_store --manifest` re-projects the manifest read-only and checks every stored graph count,
-the control counts, the removed-rule stop and the price mask. The decision point is after the
+the control counts (including the three memory-release totals derived from `StopMemory`), the
+removed-rule stop and the price mask. The decision point is after the
 verification and the full suite: if either fails, stop and restore the backup; if both pass, the
 delivery is accepted. Plan B is the §0bis.2 TriG backup. Restore only after a deliberate decision,
 into an emptied repository or with Workbench **Import**; a large single POST can time out (see §1).
@@ -199,7 +200,7 @@ set -a; . ./.env; set +a
 
 curl -fsS -u "$KG_USER:$KG_PASSWORD" -H 'Accept: application/sparql-results+json' \
   --data-urlencode 'query=SELECT ?g (COUNT(*) AS ?n) WHERE { GRAPH ?g { ?s ?p ?o } } GROUP BY ?g' \
-  "$KG_HOST/repositories/portfolio_test/statements"
+  "$KG_HOST/repositories/portfolio_test"
 ```
 
 For the pilot kit the expected graph list is the five schema graphs
@@ -242,6 +243,9 @@ uv run python cli/verify_store.py \
 
 `load_veto --write` accepts the draft only because the repository is `portfolio_test`; the loader
 refuses a draft on production. It writes the meta, m018/detail and selection graphs and never drops.
+`verify_store --manifest` derives `memory_released_price` and `memory_released_not_ranked` from the
+stored `StopMemory` `memoryReleaseCause`, and `memory_open_at_end` from `StopMemory` individuals with
+no `memoryReleasedOn`.
 
 ### 0ter.3 Record the sizing table
 

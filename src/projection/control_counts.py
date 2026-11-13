@@ -663,6 +663,11 @@ def store_control_counts(store: ReadableStore, graph: str, configuration: str) -
         "replacements_stopped": count("?s a :ReplacementPurchase ; :replacementStoppedBy ?stop"),
         "memory_episodes": count("?s a :StopMemory"),
         "decision_close_episodes": count('?s a :StopMemory ; :memoryStartKind "decision_close"'),
+        "memory_released_price": count('?s a :StopMemory ; :memoryReleaseCause "price"'),
+        "memory_released_not_ranked": count('?s a :StopMemory ; :memoryReleaseCause "not_ranked"'),
+        "memory_open_at_end": count(
+            "?s a :StopMemory . FILTER NOT EXISTS { ?s :memoryReleasedOn ?released }"
+        ),
         "retention_decisions": count("?s a :RetentionDecision"),
         "retention_holds": count("?s a :RetentionHold"),
         "retention_rejections": count("?s a :RetentionRejection"),
@@ -736,10 +741,7 @@ def expected_control_counts(
 ) -> Mapping[str, Any] | None:
     if not isinstance(control_counts, dict):
         return None
-    configurations = control_counts.get("configurations", control_counts)
-    if not isinstance(configurations, dict):
-        return None
-    windows = configurations.get(configuration)
+    windows = control_counts.get(configuration)
     if not isinstance(windows, dict):
         return None
     value = windows.get(window)

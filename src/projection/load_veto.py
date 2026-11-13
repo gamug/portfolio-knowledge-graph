@@ -528,10 +528,7 @@ def _has_control_counts(manifest: VetoManifest, configuration: str, window: str)
     value = manifest.control_counts
     if not isinstance(value, dict):
         return False
-    configurations = value.get("configurations", value)
-    if not isinstance(configurations, dict):
-        return False
-    windows = configurations.get(configuration)
+    windows = value.get(configuration)
     return isinstance(windows, dict) and window in windows
 
 
@@ -541,7 +538,7 @@ def _control_counts(  # noqa: C901, PLR0912 -- two accepted manifest shapes
     """Read the optional control counts as ``{graph: triples}``.
 
     Two shapes are accepted: ``{"graphs": {iri: count}}`` and the per-key shape
-    ``{"configurations": {configuration: {window: {"m018": n, "selection": n}}}}``. Anything else
+    ``{configuration: {window: {"m018": n, "selection": n}}}``. Anything else
     is reported as not machine-readable rather than guessed.
     """
     value = manifest.control_counts
@@ -551,7 +548,7 @@ def _control_counts(  # noqa: C901, PLR0912 -- two accepted manifest shapes
     graphs = value.get("graphs")
     if isinstance(graphs, dict):
         return {str(graph): int(count) for graph, count in graphs.items()}
-    configurations = value.get("configurations", value)
+    configurations = value
     out: dict[str, int] = {}
     if not isinstance(configurations, dict):
         print(

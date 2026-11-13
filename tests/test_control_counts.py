@@ -24,8 +24,10 @@ from projection.control_counts import (
     compare_control_counts,
     compute_control_counts,
     compute_series_counts,
+    expected_control_counts,
     store_control_counts,
     validate_control_counts,
+    verify_store_control_counts,
 )
 from projection.source import FinancialSource
 from projection.veto_events import (
@@ -358,3 +360,63 @@ def test_a_final_manifest_must_carry_control_counts() -> None:
     with pytest.raises(ControlCountError, match="has no control_counts"):
         validate_control_counts(None, ("SYSTEM_WITH_HIERARCHY",), ("P1",), final=True)
     validate_control_counts(None, ("SYSTEM_WITH_HIERARCHY",), ("P1",), final=False)
+
+
+class _MemoryStore:
+    def __init__(
+        self,
+        *,
+        memory_released_price: int = 42,
+        memory_released_not_ranked: int = 0,
+        memory_open_at_end: int = 28,
+    ) -> None:
+        self.memory_released_price = memory_released_price
+        self.memory_released_not_ranked = memory_released_not_ranked
+        self.memory_open_at_end = memory_open_at_end
+
+    def select(self, query: str) -> list[dict[str, str]]:
+        if 'memoryReleaseCause "price"' in query:
+            return [{"n": str(self.memory_released_price)}]
+        if 'memoryReleaseCause "not_ranked"' in query:
+            return [{"n": str(self.memory_released_not_ranked)}]
+        if "memoryReleasedOn" in query:
+            return [{"n": str(self.memory_open_at_end)}]
+        if "GROUP BY" in query or "?cumulative" in query:
+            return []
+        return [{"n": "0"}]
+
+
+@pytest.mark.parametrize(
+    ("key", "loaded"),
+    [
+        ("memory_released_price", 41),
+        ("memory_released_not_ranked", 1),
+        ("memory_open_at_end", 27),
+    ],
+)
+def test_a_store_memory_release_mismatch_names_the_key(key: str, loaded: int) -> None:
+    expected = {
+        "SYSTEM_WITH_HIERARCHY": {
+            "P1": {
+                "memory_released_price": 42,
+                "memory_released_not_ranked": 0,
+                "memory_open_at_end": 28,
+            }
+        }
+    }
+    failures = verify_store_control_counts(
+        _MemoryStore(**{key: loaded}),
+        "urn:graph:test",
+        "SYSTEM_WITH_HIERARCHY",
+        "P1",
+        expected,
+    )
+    assert len(failures) == 1
+    assert f"SYSTEM_WITH_HIERARCHY/P1.{key}" in failures[0]
+
+
+def test_a_wrapped_final_manifest_is_rejected() -> None:
+    wrapped: object = {"configurations": {"SYSTEM_WITH_HIERARCHY": {"P1": {}}}}
+    with pytest.raises(ControlCountError, match=r"unknown configuration\(s\): configurations"):
+        validate_control_counts(wrapped, ("SYSTEM_WITH_HIERARCHY",), ("P1",), final=True)
+    assert expected_control_counts(wrapped, "SYSTEM_WITH_HIERARCHY", "P1") is None
