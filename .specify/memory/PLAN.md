@@ -3637,7 +3637,8 @@ measured pilot budget is in `docs/veto-hierarchy-design.md` §6.
 - [x] **T-860–T-862** *(done 2026-11-13, PR #160: Reviewer A's 25 changes applied verbatim,
       `:memoryReleaseCause`, `:memoryStartKind`, `:rejectedZoneNoSignal`, `:Window_C1` and the 31
       glossary concepts in `labels.ttl`, per-episode StopMemory and the complete control rule.
-      FR-001 9,125; load 21/9,402; production 5/8,881; labels 156/1,499.)* Second label table,
+      FR-001 9,125; load 21/9,402; production 5/8,881; labels 156/1,499; full suite 1,715
+      passed / 61 deselected.)* Second label table,
       C1 label and the label cleanup.
 - [ ] **T-863–T-864** TTYG instructions/evaluation sheet and the remaining runbook updates.
 - [x] **T-865–T-869** *(done 2026-11-13, PR #159: configuration-keyed selection, per-window
