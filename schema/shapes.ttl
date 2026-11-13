@@ -215,8 +215,8 @@
              sh:or ( [ sh:path :ruleSeverity ; sh:minCount 1 ]
                      [ sh:path :penaltyPoints ; sh:minCount 1 ]
                      [ sh:path :priorityRank ; sh:minCount 1 ] ) ] ;
-    # T-206: the GUARD layer is optional on a rule, but bounded 1..4 when present.
-    sh:property [ sh:path :guardLayer ; sh:datatype xsd:integer ; sh:minInclusive 1 ; sh:maxInclusive 4 ; sh:maxCount 1 ] .
+    # T-206/Work item 46: the GUARD layer is optional on a rule, but bounded 0..1 when present.
+    sh:property [ sh:path :guardLayer ; sh:datatype xsd:integer ; sh:minInclusive 0 ; sh:maxInclusive 1 ; sh:maxCount 1 ] .
 
 :RuleClauseShape
     a sh:NodeShape ;
@@ -461,7 +461,7 @@
     # segment are patterns since T-234: a typo in a window's letter or digits is no longer caught.
     sh:property [ sh:path :runLabel ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ;
                   sh:pattern "^[a-z][a-z0-9_]{1,31}$" ] ;
-    sh:property [ sh:path :windowId ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ; sh:pattern "^[PH][0-9]+$" ] ;
+    sh:property [ sh:path :windowId ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ; sh:pattern "^([PH][0-9]+|C[0-9]+)$" ] ;
     sh:property [ sh:path :backtestStartDate ; sh:datatype xsd:date ; sh:minCount 1 ; sh:maxCount 1 ] ;
     sh:property [ sh:path :backtestEndDate ; sh:datatype xsd:date ; sh:minCount 1 ; sh:maxCount 1 ] ;
     sh:property [ sh:path :runStatus ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ] ;
@@ -482,6 +482,12 @@
     sh:property [ sh:path :codeVersion ; sh:datatype xsd:string ; sh:maxCount 1 ] ;
     # Work item 44: the external MARKOWITZ_MV book's provenance label; the engine arms omit it.
     sh:property [ sh:path :dataSource ; sh:datatype xsd:string ; sh:maxCount 1 ] ;
+    # Work item 46: the explicit configuration of a new delivery book. Optional in PR A so the
+    # historical worked examples stay valid; PR B requires it on every new book.
+    sh:property [ sh:path :configuration ; sh:class :BacktestConfiguration ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :systemVariant ; sh:datatype xsd:string ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :poolSize ; sh:datatype xsd:integer ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :retentionEnabled ; sh:datatype xsd:boolean ; sh:maxCount 1 ] ;
     sh:property [ sh:path :knowledgeDate ; sh:datatype xsd:date ; sh:minCount 1 ; sh:maxCount 1 ] .
 
 :BookRebalanceShape
@@ -509,31 +515,34 @@
     sh:targetClass :GuardAlert ;
     sh:property [ sh:path :alertId ; sh:datatype xsd:integer ; sh:minCount 1 ; sh:maxCount 1 ] ;
     sh:property [ sh:path :backtestRunId ; sh:datatype xsd:integer ; sh:minCount 1 ; sh:maxCount 1 ] ;
-    sh:property [ sh:path :windowId ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ; sh:pattern "^[PH][0-9]+$" ] ;
+    sh:property [ sh:path :windowId ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ; sh:pattern "^([PH][0-9]+|C[0-9]+)$" ] ;
     # v_guard_alert.knowledge_date = date (handoff §3.2).
     sh:property [ sh:path :alertDate ; sh:datatype xsd:date ; sh:minCount 1 ; sh:maxCount 1 ;
                   sh:equals :knowledgeDate ] ;
     sh:property [ sh:path :guardLayer ; sh:datatype xsd:integer ; sh:minCount 1 ; sh:maxCount 1 ;
-                  sh:minInclusive 1 ; sh:maxInclusive 4 ] ;
-    # The rule id is resolved to its GUARD RuleDefinition; the seven IRIs are the closed vocabulary.
+                  sh:minInclusive 0 ; sh:maxInclusive 1 ] ;
+    # Work item 46: the new Veto Hierarchy rules are the closed vocabulary. The five old rules
+    # (L1_STOP_LOSS, L1_REENTRY, L2_NEWS, L3_VOL, L4_DD) were removed from the catalog.
     sh:property [ sh:path :alertRule ; sh:class :RuleDefinition ; sh:minCount 1 ; sh:maxCount 1 ;
-                  sh:in ( :Rule_L1_STOP_LOSS :Rule_L1_REENTRY :Rule_L1_BP_STOP :Rule_L1_BP_REENTRY
-                          :Rule_L2_NEWS :Rule_L3_VOL :Rule_L4_DD ) ] ;
-    # PUBLICATION RULE (Work item 33): the Basing Points stop's threshold is the individual
-    # asset's stop price level, which upstream's licence forbids redistributing. It is therefore
-    # forbidden on L1_BP_STOP/L1_BP_REENTRY alerts and still required, as before, on every other
-    # alert (L1_STOP_LOSS/L1_REENTRY keep their fixed parameter). sh:xone is the conditional
-    # mechanism already used in this file (AttractivenessWeightSchemeShape).
+                  sh:in ( :Rule_L0_CARTERA_ACTIVATION :Rule_L0_CARTERA_SCALE_CHANGE
+                          :Rule_L0_CARTERA_RECOVERY :Rule_L1_BP_STOP :Rule_L1_BP_REENTRY
+                          :Rule_L1_BP_STOP_BLOCKED ) ] ;
+    # PUBLICATION RULE (Work item 33, widened by Work item 46): every L1_BP_* alert forbids both
+    # the stop level (threshold) and the close/level value; those are prices. L0_* alerts carry
+    # portfolio tail-risk figures and keep their value/threshold. sh:xone is the conditional
+    # mechanism already used in this file.
     sh:xone (
-        [ sh:property [ sh:path :alertRule ; sh:in ( :Rule_L1_BP_STOP :Rule_L1_BP_REENTRY ) ] ;
-          sh:property [ sh:path :alertThreshold ; sh:maxCount 0 ] ]
         [ sh:property [ sh:path :alertRule ;
-                        sh:not [ sh:in ( :Rule_L1_BP_STOP :Rule_L1_BP_REENTRY ) ] ] ;
+                        sh:in ( :Rule_L1_BP_STOP :Rule_L1_BP_REENTRY :Rule_L1_BP_STOP_BLOCKED ) ] ;
+          sh:property [ sh:path :alertThreshold ; sh:maxCount 0 ] ;
+          sh:property [ sh:path :alertValue ; sh:maxCount 0 ] ]
+        [ sh:property [ sh:path :alertRule ;
+                        sh:not [ sh:in ( :Rule_L1_BP_STOP :Rule_L1_BP_REENTRY :Rule_L1_BP_STOP_BLOCKED ) ] ] ;
           sh:property [ sh:path :alertThreshold ; sh:datatype xsd:decimal ; sh:minCount 1 ; sh:maxCount 1 ] ]
     ) ;
     sh:property [ sh:path :alertState ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ;
-                  sh:in ("ENTER" "EXIT" "ACTIVE" "COOLDOWN" "SCALE") ] ;
-    # Optional: asset/ticker are NULL on layers 3 and 4; value is NULL on layer 1.
+                  sh:in ("ENTER" "EXIT" "ACTIVE" "COOLDOWN" "SCALE" "BLOCKED") ] ;
+    # Optional: asset/ticker are NULL on layer-0 portfolio alerts; value is NULL on every L1_BP_* alert.
     sh:property [ sh:path :guardAsset ; sh:class :Asset ; sh:maxCount 1 ] ;
     sh:property [ sh:path :guardTicker ; sh:datatype xsd:string ; sh:maxCount 1 ] ;
     sh:property [ sh:path :alertValue ; sh:datatype xsd:decimal ; sh:maxCount 1 ] ;
@@ -554,9 +563,9 @@
     sh:property [ sh:path :effectiveDate ; sh:datatype xsd:date ; sh:minCount 1 ; sh:maxCount 1 ;
                   sh:equals :knowledgeDate ] ;
     sh:property [ sh:path :status ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ;
-                  sh:in ("APPLIED" "ARM_DISABLED" "NOT_HELD" "SUPERSEDED") ] ;
-    # Optional: asset/ticker are NULL on L3/L4 portfolio-scale actions; weight_before/after are NULL
-    # on layer 1 asset actions and on NOT_HELD.
+                  sh:in ("APPLIED" "ARM_DISABLED" "NOT_HELD" "SUPERSEDED" "BLOCKED") ] ;
+    # Optional: asset/ticker are NULL on layer-0 portfolio-scale actions; weight_before/after are NULL
+    # on layer-1 asset actions and on NOT_HELD.
     sh:property [ sh:path :guardAsset ; sh:class :Asset ; sh:maxCount 1 ] ;
     sh:property [ sh:path :guardTicker ; sh:datatype xsd:string ; sh:maxCount 1 ] ;
     sh:property [ sh:path :weightBefore ; sh:datatype xsd:decimal ; sh:maxCount 1 ] ;
@@ -593,7 +602,7 @@
     sh:property [ sh:path :backtestRunId ; sh:datatype xsd:integer ; sh:minCount 1 ; sh:maxCount 1 ] ;
     sh:property [ sh:path :armCode ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ;
                   sh:in ("MARKOWITZ_BASE" "TOPN_MV_NOGUARD" "TOPN_MV_GUARD_NO_NLP" "TOPN_MV_GUARD" "MARKOWITZ_BASE_GUARD" "MARKOWITZ_MV") ] ;
-    sh:property [ sh:path :windowId ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ; sh:pattern "^[PH][0-9]+$" ] ;
+    sh:property [ sh:path :windowId ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ; sh:pattern "^([PH][0-9]+|C[0-9]+)$" ] ;
     # v_book_daily_performance.knowledge_date = date (handoff §3.2).
     sh:property [ sh:path :performanceDate ; sh:datatype xsd:date ; sh:minCount 1 ; sh:maxCount 1 ;
                   sh:equals :knowledgeDate ] ;
@@ -618,9 +627,9 @@
     sh:property [ sh:path :backtestRunId ; sh:datatype xsd:integer ; sh:minCount 1 ; sh:maxCount 1 ] ;
     sh:property [ sh:path :armCode ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ;
                   sh:in ("MARKOWITZ_BASE" "TOPN_MV_NOGUARD" "TOPN_MV_GUARD_NO_NLP" "TOPN_MV_GUARD" "MARKOWITZ_BASE_GUARD" "MARKOWITZ_MV") ] ;
-    sh:property [ sh:path :windowId ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ; sh:pattern "^[PH][0-9]+$" ] ;
+    sh:property [ sh:path :windowId ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ; sh:pattern "^([PH][0-9]+|C[0-9]+)$" ] ;
     sh:property [ sh:path :segment ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ;
-                  sh:pattern "^[PH][0-9]+[a-z]?$" ] ;
+                  sh:pattern "^([PH][0-9]+|C[0-9]+)[a-z]?$" ] ;
     sh:property [ sh:path :dateFrom ; sh:datatype xsd:date ; sh:minCount 1 ; sh:maxCount 1 ] ;
     # v_portfolio_period_summary.knowledge_date = date_to (handoff §3.2).
     sh:property [ sh:path :dateTo ; sh:datatype xsd:date ; sh:minCount 1 ; sh:maxCount 1 ;
@@ -643,9 +652,9 @@
     sh:property [ sh:path :backtestRunId ; sh:datatype xsd:integer ; sh:minCount 1 ; sh:maxCount 1 ] ;
     sh:property [ sh:path :runLabel ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ;
                   sh:pattern "^[a-z][a-z0-9_]{1,31}$" ] ;
-    sh:property [ sh:path :windowId ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ; sh:pattern "^[PH][0-9]+$" ] ;
+    sh:property [ sh:path :windowId ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ; sh:pattern "^([PH][0-9]+|C[0-9]+)$" ] ;
     sh:property [ sh:path :segment ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ;
-                  sh:pattern "^[PH][0-9]+[a-z]?$" ] ;
+                  sh:pattern "^([PH][0-9]+|C[0-9]+)[a-z]?$" ] ;
     sh:property [ sh:path :armA ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ;
                   sh:in ("MARKOWITZ_BASE" "TOPN_MV_NOGUARD" "TOPN_MV_GUARD_NO_NLP" "TOPN_MV_GUARD" "MARKOWITZ_BASE_GUARD" "MARKOWITZ_MV") ] ;
     sh:property [ sh:path :armB ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ;
@@ -680,7 +689,7 @@
     sh:property [ sh:path :finishedAt ; sh:datatype xsd:dateTime ; sh:maxCount 1 ] ;
     sh:property [ sh:path :runLabel ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ;
                   sh:pattern "^[a-z][a-z0-9_]{1,31}$" ] ;
-    sh:property [ sh:path :windowId ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ; sh:pattern "^[PH][0-9]+$" ] ;
+    sh:property [ sh:path :windowId ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ; sh:pattern "^([PH][0-9]+|C[0-9]+)$" ] ;
     sh:property [ sh:path :backtestRunId ; sh:datatype xsd:integer ; sh:minInclusive 1 ; sh:minCount 1 ; sh:maxCount 1 ] .
 
 #################################################################
@@ -700,12 +709,16 @@
     sh:property [ sh:path :runLabel ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ;
                   sh:pattern "^[a-z][a-z0-9_]{1,31}$" ] ;
     sh:property [ sh:path :windowId ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ;
-                  sh:pattern "^[PH][0-9]+$" ] ;
+                  sh:pattern "^([PH][0-9]+|C[0-9]+)$" ] ;
     sh:property [ sh:path :backtestRunId ; sh:datatype xsd:integer ; sh:minCount 1 ; sh:maxCount 1 ] ;
     sh:property [ sh:path :sourceFile ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ] ;
     sh:property [ sh:path :sourceSha256 ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ;
                   sh:pattern "^[0-9a-f]{64}$" ] ;
     sh:property [ sh:path :knowledgeDate ; sh:datatype xsd:date ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :configuration ; sh:class :BacktestConfiguration ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :systemVariant ; sh:datatype xsd:string ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :poolSize ; sh:datatype xsd:integer ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :retentionEnabled ; sh:datatype xsd:boolean ; sh:maxCount 1 ] ;
     sh:property [ sh:path :runConfiguration ; sh:class :RunConfiguration ; sh:minCount 1 ; sh:maxCount 1 ] .
 
 :RunConfigurationShape
@@ -750,7 +763,7 @@
     sh:property [ sh:path :runLabel ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ;
                   sh:pattern "^[a-z][a-z0-9_]{1,31}$" ] ;
     sh:property [ sh:path :trendWindow ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ;
-                  sh:pattern "^[PH][0-9]+$" ] ;
+                  sh:pattern "^([PH][0-9]+|C[0-9]+)$" ] ;
     sh:property [ sh:path :trendDecisionDate ; sh:datatype xsd:date ; sh:minCount 1 ; sh:maxCount 1 ] ;
     sh:property [ sh:path :trendState ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ;
                   sh:in ("below" "at_or_above" "not_evaluable") ] ;
@@ -766,9 +779,9 @@
     sh:property [ sh:path :runLabel ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ;
                   sh:pattern "^[a-z][a-z0-9_]{1,31}$" ] ;
     sh:property [ sh:path :returnWindow ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ;
-                  sh:pattern "^[PH][0-9]+$" ] ;
+                  sh:pattern "^([PH][0-9]+|C[0-9]+)$" ] ;
     sh:property [ sh:path :returnSegment ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ;
-                  sh:pattern "^[PH][0-9]+[a-z]?$" ] ;
+                  sh:pattern "^([PH][0-9]+|C[0-9]+)[a-z]?$" ] ;
     sh:property [ sh:path :referenceDateFrom ; sh:datatype xsd:date ; sh:minCount 1 ; sh:maxCount 1 ;
                   sh:lessThanOrEquals :referenceDateTo ] ;
     sh:property [ sh:path :referenceDateTo ; sh:datatype xsd:date ; sh:minCount 1 ; sh:maxCount 1 ] ;
@@ -961,6 +974,209 @@
               ?this a skos:Concept ; skos:inScheme :FundamentalMetricScheme ;
                     :metricUnit "usd" ; skos:notation ?n .
               FILTER (?n NOT IN ("ebitda", "nopat", "market_capitalization", "enterprise_value"))
+            }
+        """ ;
+    ] .
+
+#################################################################
+# VETO HIERARCHY EVENT SHAPES (Work item 46, T-841–T-846)
+#
+# The five configurations and the detail-file event classes. The
+# configuration is optional on the old worked-example books in PR A;
+# the new loader requires it on every new book (PR B). The price
+# exclusions are on the L1_BP_* alerts (GuardAlertShape) and on the
+# event classes (VetoEventNoPriceShape); stop_distance_pct has no
+# property at all.
+#################################################################
+
+:BacktestConfigurationShape
+    a sh:NodeShape ;
+    sh:targetClass :BacktestConfiguration ;
+    sh:property [ sh:path skos:notation ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path rdfs:label ; sh:minCount 1 ] ;
+    sh:property [ sh:path rdfs:comment ; sh:minCount 1 ] .
+
+:DecisionEventShape
+    a sh:NodeShape ;
+    sh:targetClass :DecisionEvent ;
+    sh:property [ sh:path :decisionOfBook ; sh:class :StrategyBook ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :decisionDate ; sh:datatype xsd:date ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :filterState ; sh:datatype xsd:boolean ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :filterDecisionDate ; sh:datatype xsd:date ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :coreWeightInForce ; sh:datatype xsd:decimal ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :exposureScale ; sh:datatype xsd:decimal ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :candidatePoolSize ; sh:datatype xsd:integer ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :candidateSetSize ; sh:datatype xsd:integer ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :blockedCount ; sh:datatype xsd:integer ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :retainedCountOnDecision ; sh:datatype xsd:integer ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :selectionCycle ; sh:class :SelectionCycle ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :bookRebalance ; sh:class :BookRebalance ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :knowledgeDate ; sh:datatype xsd:date ; sh:minCount 1 ; sh:maxCount 1 ] .
+
+:FormationTargetShape
+    a sh:NodeShape ;
+    sh:targetClass :FormationTarget ;
+    sh:property [ sh:path :targetOfDecision ; sh:class :DecisionEvent ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :targetAsset ; sh:class :Asset ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :formationTargetWeight ; sh:datatype xsd:decimal ; sh:minCount 1 ; sh:maxCount 1 ] .
+
+:RetentionDecisionShape
+    a sh:NodeShape ;
+    sh:targetClass :RetentionDecision ;
+    sh:property [ sh:path :retentionOfBook ; sh:class :StrategyBook ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :retentionDate ; sh:datatype xsd:date ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :retentionOfDecision ; sh:class :DecisionEvent ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :poolSize ; sh:datatype xsd:integer ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :heldOutsidePoolCount ; sh:datatype xsd:integer ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :retainedCount ; sh:datatype xsd:integer ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :rejectedCount ; sh:datatype xsd:integer ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :counterDroppedCount ; sh:datatype xsd:integer ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :keptCount ; sh:datatype xsd:integer ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :keptWeight ; sh:datatype xsd:decimal ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :candidateSetSize ; sh:datatype xsd:integer ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :maxDecisions ; sh:datatype xsd:integer ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :retentionEnabled ; sh:datatype xsd:boolean ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :knowledgeDate ; sh:datatype xsd:date ; sh:minCount 1 ; sh:maxCount 1 ] .
+
+:RetentionHoldShape
+    a sh:NodeShape ;
+    sh:targetClass :RetentionHold ;
+    sh:property [ sh:path :holdOfDecision ; sh:class :RetentionDecision ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :retainedAsset ; sh:class :Asset ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :retentionCounter ; sh:datatype xsd:integer ; sh:minCount 1 ; sh:maxCount 1 ;
+                  sh:minInclusive 1 ; sh:maxInclusive 3 ] ;
+    sh:property [ sh:path :rankingSnapshot ; sh:class :AttractivenessSnapshot ; sh:minCount 1 ; sh:maxCount 1 ] .
+
+:RetentionRejectionShape
+    a sh:NodeShape ;
+    sh:targetClass :RetentionRejection ;
+    sh:property [ sh:path :rejectionOfDecision ; sh:class :RetentionDecision ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :rejectedAsset ; sh:class :Asset ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :rejectionCause ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :retentionCounter ; sh:datatype xsd:integer ; sh:minCount 1 ; sh:maxCount 1 ;
+                  sh:minInclusive 1 ; sh:maxInclusive 3 ] ;
+    sh:property [ sh:path :rankingSnapshot ; sh:class :AttractivenessSnapshot ; sh:minCount 1 ; sh:maxCount 1 ] .
+
+:StopEventShape
+    a sh:NodeShape ;
+    sh:targetClass :StopEvent ;
+    sh:property [ sh:path :stopOfBook ; sh:class :StrategyBook ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :stopDate ; sh:datatype xsd:date ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :stoppedAsset ; sh:class :Asset ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :stopWeightBefore ; sh:datatype xsd:decimal ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :filterState ; sh:datatype xsd:boolean ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :filterDecisionDate ; sh:datatype xsd:date ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :exposureScale ; sh:datatype xsd:decimal ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :rhoW0 ; sh:datatype xsd:decimal ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :rho ; sh:datatype xsd:decimal ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :chooser ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ;
+                  sh:in ("rule" "agent") ] ;
+    sh:property [ sh:path :cashLeft ; sh:datatype xsd:decimal ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :portfolioCheckPassed ; sh:datatype xsd:boolean ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :knowledgeDate ; sh:datatype xsd:date ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :stopCashCause ; sh:datatype xsd:string ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :eligibleCount ; sh:datatype xsd:integer ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :zoneEvaluated ; sh:datatype xsd:integer ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :zonePass ; sh:datatype xsd:integer ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :aStar ; sh:datatype xsd:decimal ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :sizeFraction ; sh:datatype xsd:decimal ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :chosenCash ; sh:datatype xsd:boolean ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :chosenOption ; sh:class :DestinationOption ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :rhoDeltaMin ; sh:datatype xsd:decimal ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :rhoDeltaMedian ; sh:datatype xsd:decimal ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :rhoDeltaMax ; sh:datatype xsd:decimal ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :weightAfterE3 ; sh:datatype xsd:decimal ; sh:maxCount 1 ] ;
+    sh:or ( [ sh:property [ sh:path :chosenCash ; sh:hasValue true ] ]
+            [ sh:property [ sh:path :chosenOption ; sh:minCount 1 ] ] ) .
+
+:DestinationOptionShape
+    a sh:NodeShape ;
+    sh:targetClass :DestinationOption ;
+    sh:closed true ;
+    sh:ignoredProperties ( rdf:type ) ;
+    sh:property [ sh:path :optionOfStop ; sh:class :StopEvent ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :optionAsset ; sh:class :Asset ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :optionIsSpy ; sh:datatype xsd:boolean ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :optionRho ; sh:datatype xsd:decimal ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :optionR ; sh:datatype xsd:decimal ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :optionBeta ; sh:datatype xsd:decimal ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :optionRank ; sh:datatype xsd:integer ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :optionScore ; sh:datatype xsd:decimal ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :optionSector ; sh:datatype xsd:integer ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :optionSizeFraction ; sh:datatype xsd:decimal ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :optionWeight ; sh:datatype xsd:decimal ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :menuPosition ; sh:datatype xsd:integer ; sh:minCount 1 ; sh:maxCount 1 ] .
+
+:StopRejectionSummaryShape
+    a sh:NodeShape ;
+    sh:targetClass :StopRejectionSummary ;
+    sh:closed true ;
+    sh:ignoredProperties ( rdf:type ) ;
+    sh:property [ sh:path :summaryOfStop ; sh:class :StopEvent ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :rejectedHardVeto ; sh:datatype xsd:integer ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :rejectedSoftPenalty ; sh:datatype xsd:integer ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :rejectedNewsVeto ; sh:datatype xsd:integer ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :rejectedHeld ; sh:datatype xsd:integer ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :rejectedMemory ; sh:datatype xsd:integer ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :rejectedNotRanked ; sh:datatype xsd:integer ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :rejectedNoRiskModel ; sh:datatype xsd:integer ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :rejectedNoBar ; sh:datatype xsd:integer ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :rejectedMissingReturn ; sh:datatype xsd:integer ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :rejectedTrendBreak ; sh:datatype xsd:integer ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :rejectedSectorCap ; sh:datatype xsd:integer ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :rejectedSpyLimit ; sh:datatype xsd:integer ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :rejectedZoneHigh ; sh:datatype xsd:integer ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :rejectedNoAllowedDestination ; sh:datatype xsd:integer ; sh:maxCount 1 ] .
+
+:StopMemoryShape
+    a sh:NodeShape ;
+    sh:targetClass :StopMemory ;
+    sh:property [ sh:path :memoryOfBook ; sh:class :StrategyBook ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :memoryAsset ; sh:class :Asset ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :memorySince ; sh:datatype xsd:date ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :memoryReleasedOn ; sh:datatype xsd:date ; sh:maxCount 1 ] .
+
+:ReplacementPurchaseShape
+    a sh:NodeShape ;
+    sh:targetClass :ReplacementPurchase ;
+    sh:closed true ;
+    sh:ignoredProperties ( rdf:type ) ;
+    sh:property [ sh:path :purchaseOfStop ; sh:class :StopEvent ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :replacementAsset ; sh:class :Asset ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :orderDate ; sh:datatype xsd:date ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :replacementExecutionDate ; sh:datatype xsd:date ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :machineEntrySession ; sh:datatype xsd:date ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :replacementWeight ; sh:datatype xsd:decimal ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :sizeFraction ; sh:datatype xsd:decimal ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :replacementRank ; sh:datatype xsd:integer ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :rankBucket ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :filterState ; sh:datatype xsd:boolean ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :filterDecisionDate ; sh:datatype xsd:date ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :replacementStoppedBy ; sh:class :StopEvent ; sh:maxCount 1 ] .
+
+:ReplacementCheckShape
+    a sh:NodeShape ;
+    sh:targetClass :ReplacementCheck ;
+    sh:closed true ;
+    sh:ignoredProperties ( rdf:type ) ;
+    sh:property [ sh:path :checkOfPurchase ; sh:class :ReplacementPurchase ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :checkDate ; sh:datatype xsd:date ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :candidate ; sh:datatype xsd:boolean ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :kept ; sh:datatype xsd:boolean ; sh:minCount 1 ; sh:maxCount 1 ] .
+
+:VetoEventNoPriceShape
+    a sh:NodeShape ;
+    sh:targetClass :DecisionEvent, :FormationTarget, :RetentionDecision, :RetentionHold,
+                   :RetentionRejection, :StopEvent, :DestinationOption, :StopRejectionSummary,
+                   :StopMemory, :ReplacementPurchase, :ReplacementCheck ;
+    sh:sparql [
+        sh:message "A Veto Hierarchy event must not carry a price or price-derived property" ;
+        sh:select """
+            PREFIX : <https://thesis.local/kg/portfolio#>
+            SELECT ?this WHERE {
+              ?this ?p ?o .
+              FILTER ( ?p IN ( :closePrice, :close, :level, :stop, :stopLevel,
+                               :stopDistancePct, :alertValue, :alertThreshold ) )
             }
         """ ;
     ] .
