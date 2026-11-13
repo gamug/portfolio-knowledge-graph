@@ -1437,3 +1437,20 @@ See `docs/fundamentals-design.md` and `PLAN.md` Work item 45.*
       with exactly 33 flags, the runbook and the production record. Specific IDs are T-813–T-815
       only.
 - [ ] **T-817–T-839** Reserved for review fixes; no specific IDs are assigned here.
+
+## Work item 46 — Veto Hierarchy projection (T-840–T-869)
+
+See `docs/veto-hierarchy-design.md` and `PLAN.md` Work item 46. The design is complete; the
+implementation tasks wait for approval and the final manifest (2026-11-17/18).
+
+- [x] **T-840** *(done 2026-11-13: `docs/veto-hierarchy-design.md`; design only, no code, schema or
+      GraphDB write.)* Configuration identity, filters, rules/shapes, detail model, price masking,
+      volume, concept map, loader plan, questions and staging.
+- [ ] **T-841–T-846** Schema, configuration class and rules; BLOCKED, C1, L1_BP price exclusions and
+      new event shapes.
+- [ ] **T-847–T-852** Manifest/hash parser, filters, configuration-keyed graph/IRI names, meta and
+      m018.
+- [ ] **T-853–T-859** Detail events, price negative tests and selection cross-check.
+- [ ] **T-860–T-864** Second label table, C1 label, TTYG and runbook updates.
+- [ ] **T-865–T-869** Loader CLI, per-graph SHACL batching, rehearsal, final dry run and the
+      production record.

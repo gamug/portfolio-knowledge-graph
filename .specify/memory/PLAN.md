@@ -3589,3 +3589,50 @@ conform. `tests/test_fundamentals_shapes.py` has 18 synthetic positive/negative 
 existing explicit types are checked before/after the `:availableAt`/`:computedAt`/`:eventTime`
 domain widening. Reviewer A approved the 58-row table; the 37 metric concepts are in `labels.ttl` and the labels
 graph is **1265 triples**. No GraphDB write.
+
+---
+
+## Work item 46 — Veto Hierarchy projection (T-840–T-869)
+
+**Status: design PR (T-840) 2026-11-13; implementation waits for the maintainer's approval.**
+
+**Why**: Reviewer A delivered the frozen data dictionary and the pilot `H1C-B5-P1` for the complete
+System with the Veto Hierarchy. The engine arm codes no longer identify a configuration
+(`TOPN_MV_NOGUARD` means the twin in a hierarchy run and the System without hierarchy in a
+no-hierarchy run), the new rules/states are rejected by the current catalog and shapes, the detail
+file carries the stop/destination/retention audit trail, and the current `final` graphs must be
+replaced by configuration-keyed graphs. C1 is an independent continuous run and is now admitted
+(the Work item 43 "C1 absent" decision is superseded).
+
+**Decision**: one `:configuration` per book from five closed individuals; graphs and IRIs from
+`(label, configuration, window)`; only manifest books, loaded actions, no `ARM_DISABLED`, four
+System-vs-`MARKOWITZ_BASE` tests and `MARKOWITZ_BASE` once per window; new layer-0 rules and
+`L1_BP_STOP_BLOCKED`; no price or price-derived field on any `L1_BP_*` alert; lean detail events;
+the existing selection projection instead of `rankings.json`; per-graph SHACL batching. The
+measured pilot budget is in `docs/veto-hierarchy-design.md` §6.
+
+**Tasks**:
+
+- [x] **T-840** *(done 2026-11-13: `docs/veto-hierarchy-design.md`; design only, no code, schema or
+      GraphDB write.)* Record the configuration identity, filters, rules/shapes, detail model,
+      price masking, volume, concept map, loader plan, questions and staging.
+- [ ] **T-841–T-846** Schema, configuration class and rules: five configuration individuals,
+      `:configuration`/`:systemVariant`/`:poolSize`/`:retentionEnabled`, the four new rules, the
+      BLOCKED states, C1 patterns, the L1_BP price exclusions and the new event shapes.
+- [ ] **T-847–T-852** Manifest parser, SHA-256 order, filter rules, configuration-keyed graph/IRI
+      names, meta and m018 projection, with the pilot DB tests.
+- [ ] **T-853–T-859** Detail model: decisions, retention, stop/menu/cash, replacement, stop memory,
+      price negative tests and the selection cross-check; no full candidate/target duplication.
+- [ ] **T-860–T-864** Second label table (31 concepts + new schema elements), C1 label, TTYG
+      instructions/evaluation sheet and the runbook updates.
+- [ ] **T-865–T-869** Loader CLI (dry run, `--check-store`, `--write`/`--to-production`,
+      `WriteInDoubt`), per-graph SHACL batching, rehearsal, final dry run and the production record.
+
+**Acceptance criteria**:
+
+- `docs/veto-hierarchy-design.md` contains the exact pilot counts and the measured volume budget;
+  no code, schema or GraphDB change in T-840.
+- The implementation admits C1, never infers configuration from `:armCode`, never projects an
+  `ARM_DISABLED` row or an `L1_BP_*` price, loads only the manifest books/actions/tests, and uses
+  the existing selection projection.
+- The new label table is approved by Reviewer A before `labels.ttl` changes.
