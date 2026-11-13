@@ -167,7 +167,7 @@ def test_construct_exposes_the_fundamentals_properties_and_labels() -> None:
     }
     assert len(concepts) == 132
     assert len(schemes) == 12
-    assert len(rules) == 25
+    assert len(rules) == 24
 
 
 def test_pasteable_block_carries_the_v1_3_rules() -> None:
