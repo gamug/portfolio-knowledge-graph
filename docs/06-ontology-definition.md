@@ -1062,8 +1062,8 @@ filing) and `:FundamentalAssessment` (the score, rating and generated text of on
 the filing support properties, the 37 direct decimal metric properties (the 38 source names minus
 `value_inputs`; includes `market_capitalization` and `enterprise_value`), the assessment properties
 and the metric definition `:metricGroup`/`:metricUnit`. `:pricesNotPublished` on `:Asset` carries
-the 33 masked flags. The loader (PR 2) stops on any `valuation` or `value_inputs` row of a masked
-asset; the other 550 assets load all five valuation metrics. Reviewer A approved the 58-row table; the 37 metric concepts are now in `labels.ttl` under
+the 33 masked flags. The loader (PR 2) stops on a `valuation` row of a masked asset and discards every
+`value_inputs` row; the other 550 assets load all five valuation metrics. Reviewer A approved the 58-row table; the 37 metric concepts are now in `labels.ttl` under
 `:FundamentalMetricScheme`.
 `:availableAt` loses its `:ScoreSnapshot` domain, and `:computedAt` / `:eventTime` widen to
 `:Observation`; the existing explicit types are checked by `tests/test_fundamentals_shapes.py`.

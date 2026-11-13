@@ -141,6 +141,9 @@ _BACKTEST_AGGREGATES_TARGET = re.compile(
 _BACKTEST_EXTERNAL_TARGET = re.compile(
     r"urn:graph:derived:backtest:external:([a-z][a-z0-9_]{1,31})"
 )
+#: One fundamentals graph per run label (Work item 45): the block C filings, metric sets and
+#: assessments plus the 33 masked-asset flags. Append-only, one graph per label.
+_FUNDAMENTALS_TARGET = re.compile(r"urn:graph:derived:fundamentals:([a-z][a-z0-9_]{1,31})")
 #: The incremental asset-catalog batch (T-371): a sequence-qualified suffix on the quarter graph,
 #: so the one-time catalog graph is never appended to and a later delta gets the next number.
 _UNIVERSE_DELTA_TARGET = re.compile(rf"urn:graph:universe:({_QUARTER}):delta:([1-9][0-9]*)")
@@ -159,6 +162,7 @@ APPEND_ONLY_PATTERNS = (
     _BACKTEST_META_TARGET,
     _BACKTEST_AGGREGATES_TARGET,
     _BACKTEST_EXTERNAL_TARGET,
+    _FUNDAMENTALS_TARGET,
     _TICKER_HISTORY_TARGET,
     _ORCHESTRATOR_TARGET,
     re.compile(rf"urn:graph:universe:({_QUARTER})"),
@@ -224,6 +228,7 @@ def check_target(graph: str) -> bool:
                 _BACKTEST_META_TARGET,
                 _BACKTEST_AGGREGATES_TARGET,
                 _BACKTEST_EXTERNAL_TARGET,
+                _FUNDAMENTALS_TARGET,
                 _ORCHESTRATOR_TARGET,
                 _UNIVERSE_DELTA_TARGET,
             ):
@@ -243,6 +248,7 @@ def check_target(graph: str) -> bool:
         "urn:graph:derived:backtest:meta:{run label}, "
         "urn:graph:derived:backtest:aggregates:{run label}, "
         "urn:graph:derived:backtest:external:{run label}, "
+        "urn:graph:derived:fundamentals:{run label}, "
         "urn:graph:derived:ticker-history:{run label}:YYYY-MM-DD, "
         "urn:graph:derived:orchestrator:{run label}:{positive integer}, "
         "urn:graph:universe:YYYY-Qn[:delta:{positive integer}], "
@@ -336,6 +342,14 @@ def untyped_writes(batch: rdflib.Graph, schema: GateSchema) -> list[str]:
             if isinstance(o, rdflib.Literal):
                 problems.append(
                     f"{s.n3(nm)} {p.n3(nm)} {o.n3(nm)} (a relation needs an individual, not a literal)"
+                )
+        elif p == _PORTFOLIO.pricesNotPublished:
+            if not isinstance(s, rdflib.URIRef) or not (
+                isinstance(o, rdflib.Literal) and o.datatype == XSD.boolean
+            ):
+                problems.append(
+                    f"{s.n3(nm)} {p.n3(nm)} {o.n3(nm)} "
+                    "(the masked-asset flag must be an IRI with an xsd:boolean value)"
                 )
         elif p in STORED_DATE_PROPERTIES:
             if not isinstance(s, rdflib.URIRef):

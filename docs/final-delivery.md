@@ -258,6 +258,47 @@ alerts are stored. The dry run
 must end with `SHACL: conforms (gate.validate)` and the pre-flight must report `would-be-written`
 (or `already-in-the-store` if the graph is already there). The engine graphs are untouched.
 
+## 7c. Load the fundamentals block C delivery (write)
+
+The v2 fundamentals delivery is `/workspaces/thesis/knoledge graph/2026-11-12_respuesta_4/bloque_c_fundamentales/`;
+`SHA256SUMS` hashes to `fd32daed391f515e5ff76e030acaab2dd018fea8dadf4d206429274bbe6ee677`
+and the Tiingo mask to `4712c7c224bd76b4661260d77d95ce3c62fe80710c0b7d30a1ce44ac00c39dce`.
+`filings.csv`, `metrics.csv`, `assessments.jsonl`, `source.json`, `README.md` and
+`provenance/export_bloque_c.py` are all required and are verified against the manifest before the
+store is contacted. The loader writes the append-only graph
+`urn:graph:derived:fundamentals:final`; it never writes an engine, backtest or schema graph.
+
+Dry run (contacts no store; it verifies the manifest and mask, projects and SHACL-validates the
+whole batch), read-only pre-flight (the real `gate.plan` with `SELECT` only), then the write:
+
+```bash
+uv run python cli/load_fundamentals.py --label final \
+  --dir "/workspaces/thesis/knoledge graph/2026-11-12_respuesta_4/bloque_c_fundamentales" \
+  --mask "/workspaces/thesis/knoledge graph/mascara_tiingo/tiingo_assets.csv" \
+  --universe-db /workspaces/thesis/data/universe_history_gics.db
+
+KG_REPOSITORY=portfolio uv run python cli/load_fundamentals.py --label final \
+  --dir "/workspaces/thesis/knoledge graph/2026-11-12_respuesta_4/bloque_c_fundamentales" \
+  --mask "/workspaces/thesis/knoledge graph/mascara_tiingo/tiingo_assets.csv" \
+  --universe-db /workspaces/thesis/data/universe_history_gics.db --check-store
+
+KG_REPOSITORY=portfolio uv run python cli/load_fundamentals.py --label final \
+  --dir "/workspaces/thesis/knoledge graph/2026-11-12_respuesta_4/bloque_c_fundamentales" \
+  --mask "/workspaces/thesis/knoledge graph/mascara_tiingo/tiingo_assets.csv" \
+  --universe-db /workspaces/thesis/data/universe_history_gics.db --write --to-production
+```
+
+The expected dry run (measured 2026-11-13, no store) is **834,586 asserted triples**, 14,639
+filings and metric sets, 10,025 assessments (9,896 scored and 129 rule rows) and exactly **33**
+`:pricesNotPublished` flags, including FRC and SBNY. It ends with `SHACL: conforms
+(gate.validate)`; the measured wall time was 604.0 s (580.9 s of it SHACL) and peak memory 4.5 GB.
+The whole-batch SHACL is acceptable at this size; a larger delivery should batch that pass before
+a write. `--check-store` must print `pre-flight: would-be-written:
+urn:graph:derived:fundamentals:final` (or `already-in-the-store` if a previous attempt wrote it).
+The write verifies the stored graph triple-for-triple; on a mismatch it prints the exact one-graph
+`DROP GRAPH <urn:graph:derived:fundamentals:final>`, which only the maintainer may run. Never use
+`CLEAR ALL`, `DROP ALL`, a repository delete or a second graph.
+
 ## 8. Acceptance (read-only)
 
 ### 8.1 The run label is only `final`
@@ -320,9 +361,10 @@ ORDER BY ?graph
 
 Expected: 13 rows, one for each `urn:graph:derived:backtest:final:{window}:1`, one for each
 `urn:graph:derived:backtest:selection:final:{window}:1`, and
-`urn:graph:derived:backtest:meta:final`. The ticker-history graph, the aggregates graph and the
-external `urn:graph:derived:backtest:external:final` graph are separate streams and are checked in
-steps 5, 7 and 7b.
+`urn:graph:derived:backtest:meta:final`. The ticker-history graph, the aggregates graph, the
+external `urn:graph:derived:backtest:external:final` graph and the fundamentals
+`urn:graph:derived:fundamentals:final` graph are separate streams and are checked in steps 5, 7,
+7b and 7c.
 
 ### 8.4 The old pilot is gone
 

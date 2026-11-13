@@ -385,6 +385,44 @@ validated but not projected. The engine's m018/selection/meta/aggregates graphs 
 `urn:graph:derived:backtest:{label}:{window}:{run}` queries are untouched; the external graph is a
 separate stream. The optional validation CSVs produce warnings only.
 
+### 1h. Load the fundamentals block C delivery (Work item 45)
+
+Reviewer A publishes the v2 fundamentals folder
+`/workspaces/thesis/knoledge graph/2026-11-12_respuesta_4/bloque_c_fundamentales/`
+(`SHA256SUMS` `fd32daed…`) and the Tiingo mask
+`/workspaces/thesis/knoledge graph/mascara_tiingo/tiingo_assets.csv` (`4712c7c2…`). The loader
+verifies the manifest, the mask and both source hashes before parsing; it writes the append-only
+`urn:graph:derived:fundamentals:{label}` graph only:
+
+```bash
+# dry run: verifies the six files and the mask, projects and SHACL-validates; no store is contacted
+uv run python cli/load_fundamentals.py --label final \
+  --dir "/workspaces/thesis/knoledge graph/2026-11-12_respuesta_4/bloque_c_fundamentales" \
+  --mask "/workspaces/thesis/knoledge graph/mascara_tiingo/tiingo_assets.csv" \
+  --universe-db /workspaces/thesis/data/universe_history_gics.db
+
+# read-only pre-flight: the real gate plan, write nothing
+KG_REPOSITORY=portfolio uv run python cli/load_fundamentals.py --label final \
+  --dir "/workspaces/thesis/knoledge graph/2026-11-12_respuesta_4/bloque_c_fundamentales" \
+  --mask "/workspaces/thesis/knoledge graph/mascara_tiingo/tiingo_assets.csv" \
+  --universe-db /workspaces/thesis/data/universe_history_gics.db --check-store
+
+# write the one graph, then verify it triple-for-triple
+KG_REPOSITORY=portfolio uv run python cli/load_fundamentals.py --label final \
+  --dir "/workspaces/thesis/knoledge graph/2026-11-12_respuesta_4/bloque_c_fundamentales" \
+  --mask "/workspaces/thesis/knoledge graph/mascara_tiingo/tiingo_assets.csv" \
+  --universe-db /workspaces/thesis/data/universe_history_gics.db --write --to-production
+```
+
+The expected batch is **834,586 asserted triples**: 14,639 filings and metric sets, the 37
+non-null metric properties (406,570 values), 10,025 assessments (9,896 scored and 129 rule rows)
+and **33** `:pricesNotPublished` flags, including FRC and SBNY, which have no block C filing.
+`value_inputs` rows are discarded for every asset; a `valuation` row of a masked asset stops the
+load and lists its rows. Unresolved masked tickers stop the load with the ticker list. The graph
+is append-only; a later delivery is a new label, never an append. Roll back only the one graph
+with `DROP GRAPH <urn:graph:derived:fundamentals:final>` after a failed write, and only the
+maintainer runs it.
+
 ## 2. Manual fallback: check the pinned view contract
 
 Before reading the new database, confirm its views still match `src/projection/view_contract.py`:
