@@ -617,6 +617,8 @@ STORE_NON_VERIFIABLE: Mapping[str, str] = {
     "ranking_decisions": "the rankings file is not projected into a graph",
     "ranking_rows": "the rankings file is not projected into a graph",
     "scale_changes": "the scales file is not projected into a graph",
+    "blocked_records": "blocked detail records are not individual graph nodes",
+    "reentry_records": "reentry detail records are not individual graph nodes",
     "manager_calls": "manager calls are not loaded",
     "manager_fallbacks": "manager calls are not loaded",
     "manager_repairs": "manager calls are not loaded",

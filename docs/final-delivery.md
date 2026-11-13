@@ -126,12 +126,13 @@ and `L1_BP_STOP_BLOCKED` rows. A mismatch stops the load with the date and asset
 adjusted. The pilot reconciles on all ten decision dates (0 ranking releases).
 
 A blocked asset with no open memory episode opens a `decision_close` episode at that date (the engine
-writes no stop record); its count is not hard-coded. If the final manifest carries
-`control_counts.<configuration>.<window>.decision_close_episodes`, a mismatch stops the load with
-configuration, window, expected and computed; if absent, the loader prints "control count not
-provided" and continues. Ranking releases use every row of the ranking file, including vetoed rows.
-The loader fails clearly if a final System run lacks its `rankings_file` or the manifest hash
-differs.
+writes no stop record); its count is not hard-coded. A final manifest must carry the full
+`control_counts` object; the loader computes every key and compares it, including
+`control_counts.<configuration>.<window>.decision_close_episodes` and stops with configuration,
+window, expected and computed on a mismatch. A draft may omit `control_counts` (the loader prints
+"control counts not provided" and continues), but any key it does carry is compared. Ranking
+releases use every row of the ranking file, including vetoed rows. The loader fails clearly if a
+final System run lacks its `rankings_file`/`scales_file` or the manifest hash differs.
 
 **Declared limitation:** if an asset stops on the close of a decision date and is already out of
 that same decision's ranking, the engine releases it from memory with no record; it cannot be
@@ -203,9 +204,15 @@ curl -fsS -u "$KG_USER:$KG_PASSWORD" -H 'Accept: application/sparql-results+json
 
 For the pilot kit the expected graph list is the five schema graphs
 (`urn:graph:tbox`, `urn:graph:reference`, `urn:graph:reference:fibo`, `urn:graph:rules:catalog`,
-`urn:graph:labels`), `urn:graph:universe:2026-Q4`, `urn:graph:derived:fundamentals:final`, and any
-`urn:graph:derived:backtest:*` family. Drop **one exact graph per request**, repeating for every IRI
-the listing returns; never use `CLEAR ALL`, `DROP ALL`, `DROP DEFAULT` or a repository delete:
+`urn:graph:labels`), `urn:graph:universe:2026-Q4`, `urn:graph:derived:fundamentals:final`, and the
+six backtest graphs this kit writes: `urn:graph:derived:backtest:meta:final`,
+`urn:graph:derived:backtest:final:P1:system_with_hierarchy`,
+`urn:graph:derived:backtest:selection:final:P1:system_with_hierarchy`,
+`urn:graph:derived:backtest:final:P1:system_without_hierarchy`,
+`urn:graph:derived:backtest:selection:final:P1:system_without_hierarchy` and
+`urn:graph:derived:backtest:final:P1:markowitz_base`. Drop **one exact graph per request**,
+repeating for every IRI the listing returns (including any older backtest window); never use
+`CLEAR ALL`, `DROP ALL`, `DROP DEFAULT` or a repository delete:
 
 ```bash
 curl -fsS -u "$KG_USER:$KG_PASSWORD" -X POST \
@@ -219,6 +226,7 @@ curl -fsS -u "$KG_USER:$KG_PASSWORD" -X POST \
 ```bash
 export KG_REPOSITORY=portfolio_test
 export SQL_UNIVERSE_DB=/workspaces/thesis/data/universe_history_gics.db
+set -a; . ./.env; set +a
 
 uv run python cli/load_schema.py
 uv run python cli/load_universe.py --as-of 2026-11-09 --write
@@ -238,7 +246,15 @@ refuses a draft on production. It writes the meta, m018/detail and selection gra
 ### 0ter.3 Record the sizing table
 
 Fill this after each write (explicit triple count from `store.size()` or the statements count;
-inferred from the repository's inferred statement count; elapsed from the loader's `time:` lines):
+inferred from the repository's inferred statement count; elapsed measured around each command with
+`/usr/bin/time -p` or the shell's `time`):
+
+```bash
+curl -fsS -u "$KG_USER:$KG_PASSWORD" "$KG_HOST/repositories/portfolio_test/size"
+```
+
+That endpoint returns the explicit and inferred statement counts; run it immediately before and
+after each step and subtract.
 
 | Step | Explicit before | Explicit after | Inferred before | Inferred after | Elapsed |
 |---|---:|---:|---:|---:|---:|

@@ -839,6 +839,18 @@ computation; every group-2 key is computed from its JSON-lines (which only carri
 `rankings_file` and every final System run ships a `scales_file`, and a missing file or hash
 mismatch names the run and file.
 
+`verify_store --manifest` re-projects the manifest read-only and checks every key derivable from the
+loaded m018 graphs: `alerts_by_rule`, `actions_by_status`, `rebalances`, `daily_rows`,
+`weight_daily_rows`, `final_values`, `decision_events`, `formation_targets`, `stop_events`,
+`stops_by_destination`, `stops_cash_by_cause`, `destination_options`,
+`stop_rejection_summaries`, `replacement_purchases`/`checks`/`stopped`, `memory_episodes`,
+`decision_close_episodes`, `retention_decisions`/`holds`/`rejections`/`counter_drops` and
+`retention_rejections_by_cause`. It prints why the rest cannot be checked from the store:
+`ranking_decisions`/`ranking_rows` and `scale_changes` (files not projected), `blocked_records` and
+`reentry_records` (detail records are not graph nodes), the group-5 manager/narrator/news keys
+(not loaded), and `MARKOWITZ_MV`/`SPY` `daily_rows` (reference CSVs not loaded). A missing
+`PortfolioPeriodSummary` is a failure, not a non-verifiable key.
+
 ### 9.2 SHA-256 before parsing
 
 Verify `SHA256SUMS` (all listed entries, including any provenance) and then every file the manifest
