@@ -3594,7 +3594,7 @@ graph is **1265 triples**. No GraphDB write.
 
 ## Work item 46 — Veto Hierarchy projection (T-840–T-869)
 
-**Status: design PR (T-840) 2026-11-13; PR A (T-841–T-846) open as PR #156; PR B (T-847–T-852) ready for review as PR #157; PR C (T-853–T-859) open as PR #158.**
+**Status: design PR (T-840) 2026-11-13; PR A (T-841–T-846) open as PR #156; PR B (T-847–T-852) ready for review as PR #157; PR C (T-853–T-859) merged as PR #158; PR E (T-865–T-869) open as PR #159.**
 
 **Why**: Reviewer A delivered the frozen data dictionary and the pilot `H1C-B5-P1` for the complete
 System with the Veto Hierarchy. The engine arm codes no longer identify a configuration
@@ -3636,8 +3636,12 @@ measured pilot budget is in `docs/veto-hierarchy-design.md` §6.
       cross-check; no full candidate/target duplication.
 - [ ] **T-860–T-864** Second label table (31 concepts + new schema elements), C1 label, TTYG
       instructions/evaluation sheet and the runbook updates.
-- [ ] **T-865–T-869** Loader CLI (dry run, `--check-store`, `--write`/`--to-production`,
-      `WriteInDoubt`), per-graph SHACL batching, rehearsal, final dry run and the production record.
+- [x] **T-865–T-869** *(done 2026-11-13, PR #159: configuration-keyed selection, per-window
+      StopMemory rule, `cli/load_veto.py`, `verify_store --manifest`, runbook §0bis. Pilot dry run:
+      meta 33, system_with 75,488, selection 322,794, system_without 56,705, selection 322,794,
+      markowitz_base 77,932 triples; all SHACL conform; no store contact; full suite 1,708 passed /
+      61 deselected.)* Loader CLI, per-graph SHACL batching, rehearsal, final dry run and the
+      production record.
 
 **Acceptance criteria**:
 

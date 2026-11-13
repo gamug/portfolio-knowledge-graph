@@ -90,7 +90,6 @@ def test_the_pilot_detail_counts_and_shacl() -> None:  # noqa: C901, PLR0912
             "P1",
             "SYSTEM_WITH_HIERARCHY",
             [str(line["date"]) for line in detail.decisions],
-            configured_names=False,
         )
         m018 = project_source(
             source,
@@ -106,7 +105,11 @@ def test_the_pilot_detail_counts_and_shacl() -> None:  # noqa: C901, PLR0912
             selection=selection,
         )
         selection_projection = project_selection_source(
-            source, assets, load_selection_catalog("schema/rules.ttl"), "final"
+            source,
+            assets,
+            load_selection_catalog("schema/rules.ttl"),
+            "final",
+            configuration="SYSTEM_WITH_HIERARCHY",
         )
     finally:
         source.close()

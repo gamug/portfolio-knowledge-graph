@@ -1453,5 +1453,5 @@ implementation tasks wait for approval and the final manifest (2026-11-17/18).
 - [x] **T-853–T-859** *(done 2026-11-13, PR #158.)* Detail events, price negative tests and
       selection cross-check.
 - [ ] **T-860–T-864** Second label table, C1 label, TTYG and runbook updates.
-- [ ] **T-865–T-869** Loader CLI, per-graph SHACL batching, rehearsal, final dry run and the
-      production record.
+- [x] **T-865–T-869** *(done 2026-11-13, PR #159.)* Loader CLI, per-graph SHACL batching,
+      rehearsal, final dry run and the production record.

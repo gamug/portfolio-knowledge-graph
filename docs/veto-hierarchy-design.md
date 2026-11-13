@@ -117,7 +117,7 @@ urn:graph:derived:backtest:aggregates:{label}
 urn:graph:derived:backtest:external:{label}
 ```
 
-Proposed naming:
+Naming (implemented in PR E):
 
 ```text
 urn:graph:derived:backtest:{label}:{window}:{configuration_slug}
@@ -147,7 +147,7 @@ its book. This is question Q2. If the per-configuration form is chosen, the gate
 chosen, it stays unchanged. `MARKOWITZ_MV` stays in `external:{label}`; the new engine graphs do
 not touch it.
 
-Proposed IRI stems (the key is in every stem; a local integer id is only a suffix):
+IRI stems (implemented in PR E; the key is in every stem and a local integer id is only a suffix):
 
 | Entity | IRI |
 |---|---|
@@ -467,7 +467,10 @@ on 63; `:chosenOption` on 7; `:rhoDeltaMin`/`:rhoDeltaMedian`/`:rhoDeltaMax` on 
 **`:StopMemory`** — 51 unique stopped assets. Properties: type, `:memoryOfBook`, `:memoryAsset`,
 `:memorySince` (first stop date); `:memoryReleasedOn` for the 35 unique assets that reentered.
 204 +35 = **239**. The stop memory level is a **price and is not stored**; the blocked/reentry
-alerts and the stop date answer “since when” without it.
+alerts and the stop date answer “since when” without it. **Memory is per window:** each window is
+an independent engine run starting at scale 1.0, and the pilot has no `blocked`/`reentry` line
+whose asset lacks a `stop` line in the same detail file. A blocked/reentry line without that stop
+line is therefore a hard error, not a cross-window carry-over.
 
 ### 4.4 Replacement
 

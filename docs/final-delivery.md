@@ -11,6 +11,149 @@ Everything is read-only unless a step says **write**. The agent never runs a `DR
 reviews the listing, takes the backup and runs the one-graph statements. Never delete the
 repository: the TTYG agents and the ruleset live in GraphDB, not in the exported graph.
 
+## 0bis. Work item 46 reload — exact order for 18–19 November 2026
+
+**This section supersedes §3–§8 for the Veto Hierarchy delivery; the older six-window sequence
+remains for the legacy `rule` family.** The agent never runs a write, a `DROP`, a schema load or a
+backup restore: every command below is for the maintainer after reviewing the listing and the
+backup. The new loader is `cli/load_veto.py`; it refuses a non-empty target and never drops.
+
+### 0bis.1 Rehearse on `portfolio_test` first (read-only dry run)
+
+Use the pilot DB and a **draft** manifest (PENDIENTE control counts, real pilot hashes). A draft is
+accepted only for a dry run or a scratch repository:
+
+```bash
+export SQL_UNIVERSE_DB=/workspaces/thesis/data/universe_history_gics.db
+export KG_REPOSITORY=portfolio_test
+uv run python cli/load_veto.py --manifest /path/to/pilot/manifest_final.json
+```
+
+The dry run verifies every hash, filters the manifest books, projects meta + m018 + detail +
+selection, SHACL-validates each configuration/window and prints one line per graph. It contacts no
+store. For the read-only pre-flight against the scratch store:
+
+```bash
+export KG_REPOSITORY=portfolio_test
+uv run python cli/load_veto.py --manifest /path/to/pilot/manifest_final.json --check-store
+```
+
+`--check-store` needs no `--to-production` even when the target is production; it only plans.
+
+### 0bis.2 Backup the NEW production TriG first
+
+Run the read-only export of §1 exactly as written and keep `SHA256SUMS`; do not proceed until
+`sha256sum -c` passes. The export is the rollback (plan B) and must include every graph, including
+the schema and `urn:graph:derived:fundamentals:final`.
+
+### 0bis.3 List the graphs and DROP the old `final` family, one graph at a time
+
+Generate the exact list (read-only):
+
+```sparql
+SELECT ?graph (COUNT(*) AS ?triples)
+FROM <http://www.ontotext.com/explicit>
+WHERE { GRAPH ?graph { ?s ?p ?o } }
+GROUP BY ?graph
+ORDER BY ?graph
+```
+
+The old family is the run-id named one, not the new configuration-keyed one. Review these exact
+IRIs in the listing before running any of them:
+
+```text
+urn:graph:derived:backtest:final:P1:1
+urn:graph:derived:backtest:final:H1:1
+urn:graph:derived:backtest:final:P3:1
+urn:graph:derived:backtest:final:H2:1
+urn:graph:derived:backtest:final:P2:1
+urn:graph:derived:backtest:final:H3:1
+urn:graph:derived:backtest:selection:final:P1:1
+urn:graph:derived:backtest:selection:final:H1:1
+urn:graph:derived:backtest:selection:final:P3:1
+urn:graph:derived:backtest:selection:final:H2:1
+urn:graph:derived:backtest:selection:final:P2:1
+urn:graph:derived:backtest:selection:final:H3:1
+urn:graph:derived:backtest:meta:final
+urn:graph:derived:backtest:aggregates:final
+urn:graph:derived:backtest:external:final
+```
+
+Drop one exact IRI per request (repeat per graph; never `CLEAR ALL`, `DROP ALL`, `DROP DEFAULT` or
+a repository delete):
+
+```bash
+curl -fsS -u "$KG_USER:$KG_PASSWORD" -X POST \
+  -H 'Content-Type: application/sparql-update' \
+  --data-binary 'DROP GRAPH <urn:graph:derived:backtest:final:P1:1>' \
+  "$KG_HOST/repositories/portfolio/statements"
+```
+
+After the drops, rerun the listing and confirm that no old run-id `final` graph remains. The new
+`final:P1:system_with_hierarchy` family must not exist yet; if it does, stop and restore the backup.
+
+### 0bis.4 Load the schema only after the DROP
+
+```bash
+KG_REPOSITORY=portfolio uv run python cli/load_schema.py --to-production
+KG_REPOSITORY=portfolio uv run python cli/verify_store.py --to-production
+```
+
+The new `rules.ttl` removes `L1_STOP_LOSS`, `L1_REENTRY`, `L2_NEWS`, `L3_VOL` and `L4_DD`; loading
+it before the old `final` graphs are gone would leave their alerts pointing at removed rules.
+
+### 0bis.5 Load the manifest runs
+
+```bash
+# dry run first; inspect every graph and the per-graph triple counts
+uv run python cli/load_veto.py --manifest /path/to/final/manifest_final.json
+# read-only pre-flight against the target store
+KG_REPOSITORY=portfolio uv run python cli/load_veto.py \
+  --manifest /path/to/final/manifest_final.json --check-store
+# production write, after the maintainer's go-ahead
+KG_REPOSITORY=portfolio uv run python cli/load_veto.py \
+  --manifest /path/to/final/manifest_final.json --write --to-production
+```
+
+The write is append-only and refuses a target graph that already holds triples. It writes the meta
+graph, then each m018/detail graph and its selection sibling, one graph at a time, and prints the
+written list. A failure stops and lists what was already written; no graph is dropped.
+
+### 0bis.6 MARKOWITZ_MV, fundamentals and aggregates
+
+The external MARKOWITZ_MV statistics depend on the new engine run ids; point `--engine-dir` at the
+new engine folder (default is the old scratch folder and must not be relied on):
+
+```bash
+KG_REPOSITORY=portfolio uv run python cli/load_mv_base.py --label final \
+  --dir "/workspaces/thesis/knoledge graph/mv_base" \
+  --engine-dir "/workspaces/thesis/scratch/final/final_corregida" \
+  --write --to-production
+```
+
+Fundamentals is **untouched** by this reload: do not reload
+`urn:graph:derived:fundamentals:final`; verify it exists in the backup/listing. Aggregates are
+loaded after the runs:
+
+```bash
+KG_REPOSITORY=portfolio uv run python cli/load_aggregates.py --label final \
+  --dir "/workspaces/thesis/knoledge graph/2026-11-17_final" --write --to-production
+```
+
+### 0bis.7 Verify, test, decide and roll back
+
+```bash
+KG_REPOSITORY=portfolio uv run python cli/verify_store.py \
+  --to-production --manifest /path/to/final/manifest_final.json
+uv run pytest -q
+```
+
+`verify_store --manifest` re-projects the manifest read-only and checks every stored graph count,
+the control counts, the removed-rule stop and the price mask. The decision point is after the
+verification and the full suite: if either fails, stop and restore the backup; if both pass, the
+delivery is accepted. Plan B is the §0bis.2 TriG backup. Restore only after a deliberate decision,
+into an emptied repository or with Workbench **Import**; a large single POST can time out (see §1).
+
 ## 0. Preconditions (read-only)
 
 From the repository root, with the delivery folder present:
@@ -181,6 +324,9 @@ A later snapshot is a new date (or a new label), never a rewrite of this graph.
 
 ## 6. Load the six backtest windows (write)
 
+**Superseded for the Work item 46 delivery by §0bis.5 (`cli/load_veto.py`).** This legacy command
+and its run-id graph names remain for the old six-window family.
+
 Dry run (no store contacted), read-only pre-flight (the real `gate.plan` with `SELECT` only), then
 the write:
 
@@ -215,6 +361,9 @@ urn:graph:derived:backtest:selection:final:{window}:1
 plus the one metadata graph `urn:graph:derived:backtest:meta:final`.
 
 ## 7. Load the aggregates file (write)
+
+For the Work item 46 delivery, load aggregates after §0bis.5 runs; the rest of this section still
+applies.
 
 After the backtest graphs, load the delivery's per-segment aggregates file:
 
