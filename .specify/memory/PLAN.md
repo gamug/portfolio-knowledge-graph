@@ -3594,7 +3594,7 @@ graph is **1265 triples**. No GraphDB write.
 
 ## Work item 46 — Veto Hierarchy projection (T-840–T-869)
 
-**Status: design PR (T-840) 2026-11-13; PR A (T-841–T-846) open as PR #156; PR B (T-847–T-852) ready for review as PR #157, stacked on PR A.**
+**Status: design PR (T-840) 2026-11-13; PR A (T-841–T-846) open as PR #156; PR B (T-847–T-852) ready for review as PR #157; PR C (T-853–T-859) open as PR #158.**
 
 **Why**: Reviewer A delivered the frozen data dictionary and the pilot `H1C-B5-P1` for the complete
 System with the Veto Hierarchy. The engine arm codes no longer identify a configuration
@@ -3628,8 +3628,11 @@ measured pilot budget is in `docs/veto-hierarchy-design.md` §6.
       synthetic configuration tests and the read-only pilot test pass, including the removed-rule
       load stop. 251 alerts / 321 actions / 196 performance rows / 10 rebalances / 4 tests on the
       pilot System book.)* Manifest, filters, graph names, meta and m018.
-- [ ] **T-853–T-859** Detail model: decisions, retention, stop/menu/cash, replacement, stop memory,
-      price negative tests and the selection cross-check; no full candidate/target duplication.
+- [x] **T-853–T-859** *(done 2026-11-13, PR #158: `src/projection/veto_events.py`, strict parser
+      and projector; pilot 3,013 detail triples, 251 alerts / 321 actions / 196 performance / 10
+      rebalances / 4 tests; combined SHACL passes; no GraphDB write.)* Detail model: decisions,
+      retention, stop/menu/cash, replacement, stop memory, price negative tests and the selection
+      cross-check; no full candidate/target duplication.
 - [ ] **T-860–T-864** Second label table (31 concepts + new schema elements), C1 label, TTYG
       instructions/evaluation sheet and the runbook updates.
 - [ ] **T-865–T-869** Loader CLI (dry run, `--check-store`, `--write`/`--to-production`,
