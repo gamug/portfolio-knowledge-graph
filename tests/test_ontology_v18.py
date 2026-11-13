@@ -131,9 +131,9 @@ NEW_CLASSES: dict[rdflib.URIRef, tuple[rdflib.URIRef, str, str]] = {
         "alerta diaria de GUARD",
         (
             "Alerta de riesgo generada al cierre de una sesión por las capas de protección diaria "
-            "GUARD: corte individual por pérdida acumulada o por Basing Points (capa 1, L1_STOP_LOSS / "
-            "L1_REENTRY / L1_BP_STOP / L1_BP_REENTRY), volatilidad ex-ante del portafolio (capa 3, "
-            "L3_VOL) o caída acumulada desde el máximo (capa 4, L4_DD)."
+            "GUARD: eventos de riesgo de cola de la cartera (capa 0, L0_CARTERA_ACTIVATION / "
+            "L0_CARTERA_SCALE_CHANGE / L0_CARTERA_RECOVERY) o corte y bloqueo individual por Basing "
+            "Points (capa 1, L1_BP_STOP / L1_BP_REENTRY / L1_BP_STOP_BLOCKED)."
         ),
     ),
     KG.GuardAction: (
@@ -142,7 +142,8 @@ NEW_CLASSES: dict[rdflib.URIRef, tuple[rdflib.URIRef, str, str]] = {
         (
             "Evaluación y efecto de una alerta de GUARD sobre un libro de estrategia para la sesión "
             "siguiente (effective_date): APPLIED (aplicada), ARM_DISABLED (registrada como contrafactual "
-            "en el brazo sin GUARD), NOT_HELD (activo no mantenido en cartera) o SUPERSEDED."
+            "en el brazo sin GUARD), NOT_HELD (activo no mantenido en cartera), SUPERSEDED o BLOCKED "
+            "(el activo queda fuera del conjunto de candidatas por la memoria de parada)."
         ),
     ),
     KG.BookWeightDaily: (
@@ -192,16 +193,16 @@ NEW_CLASSES: dict[rdflib.URIRef, tuple[rdflib.URIRef, str, str]] = {
 }
 
 
-def test_the_bundle_has_60_classes_and_46_disjoint_leaves(
+def test_the_bundle_has_72_classes_and_58_disjoint_leaves(
     bundle: rdflib.Dataset,
 ) -> None:
     g = _flat(bundle)
-    assert len(set(g.subjects(RDF.type, OWL.Class))) == 60
+    assert len({c for c in g.subjects(RDF.type, OWL.Class) if isinstance(c, rdflib.URIRef)}) == 72
     members = set()
     for disjoint in g.subjects(RDF.type, OWL.AllDisjointClasses):
         for collection in g.objects(disjoint, OWL.members):
             members |= set(rdflib.collection.Collection(g, collection))
-    assert len(members) == 46
+    assert len(members) == 58
     assert KG.ExchangeTradedFund not in members  # a subclass of Asset, not a sibling
     assert set(NEW_CLASSES) <= members
 
@@ -428,9 +429,9 @@ def test_shared_properties_have_no_domain(tbox: rdflib.Graph) -> None:
         assert (KG[name], RDFS.domain, None) not in tbox, name
 
 
-def test_the_new_shapes_are_44_named_shapes(shapes: rdflib.Graph) -> None:
+def test_the_new_shapes_are_57_named_shapes(shapes: rdflib.Graph) -> None:
     named = {s for s in shapes.subjects(RDF.type, SH.NodeShape) if isinstance(s, rdflib.URIRef)}
-    assert len(named) == 44
+    assert len(named) == 57
     assert {
         KG.TickerHistoryShape,
         KG.OrchestratorRunShape,
@@ -507,8 +508,7 @@ def _add_alerts(g: rdflib.Graph) -> None:
     g.add((ALERT, KG.windowId, rdflib.Literal("P1")))
     g.add((ALERT, KG.alertDate, _date("2022-02-01")))
     g.add((ALERT, KG.guardLayer, _int(1)))
-    g.add((ALERT, KG.alertRule, KG.Rule_L1_STOP_LOSS))
-    g.add((ALERT, KG.alertThreshold, _dec("0.0")))
+    g.add((ALERT, KG.alertRule, KG.Rule_L1_BP_STOP))
     g.add((ALERT, KG.alertState, rdflib.Literal("ENTER")))
     g.add((ALERT, KG.guardAsset, KG.AAPL))
     g.add((ALERT, KG.guardTicker, rdflib.Literal("AAPL")))
@@ -519,8 +519,8 @@ def _add_alerts(g: rdflib.Graph) -> None:
     g.add((L3_ALERT, KG.backtestRunId, _int(1)))
     g.add((L3_ALERT, KG.windowId, rdflib.Literal("P1")))
     g.add((L3_ALERT, KG.alertDate, _date("2022-02-02")))
-    g.add((L3_ALERT, KG.guardLayer, _int(3)))
-    g.add((L3_ALERT, KG.alertRule, KG.Rule_L3_VOL))
+    g.add((L3_ALERT, KG.guardLayer, _int(0)))
+    g.add((L3_ALERT, KG.alertRule, KG.Rule_L0_CARTERA_SCALE_CHANGE))
     g.add((L3_ALERT, KG.alertValue, _dec("1.5")))
     g.add((L3_ALERT, KG.alertThreshold, _dec("0.2455")))
     g.add((L3_ALERT, KG.alertState, rdflib.Literal("SCALE")))
@@ -1099,13 +1099,12 @@ def test_the_guard_rules_are_not_in_the_selection_catalog() -> None:
         if (rule, KG.validTo, None) not in g and str(g.value(rule, KG.category)) == "GUARD"
     }
     assert set(guards) == {
-        "L1_STOP_LOSS",
-        "L1_REENTRY",
+        "L0_CARTERA_ACTIVATION",
+        "L0_CARTERA_SCALE_CHANGE",
+        "L0_CARTERA_RECOVERY",
         "L1_BP_STOP",
         "L1_BP_REENTRY",
-        "L2_NEWS",
-        "L3_VOL",
-        "L4_DD",
+        "L1_BP_STOP_BLOCKED",
     }
     for rule in guards.values():
         assert (rule, KG.ruleSeverity, None) not in g

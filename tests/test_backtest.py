@@ -289,8 +289,8 @@ def test_a_basing_points_alert_never_carries_its_stop_price(tmp_path: Path) -> N
     assert (bp_alert, rdflib.RDF.type, KG.GuardAlert) in graph
     assert (bp_alert, KG.alertRule, KG.Rule_L1_BP_STOP) in graph
     assert (bp_alert, KG.alertThreshold, None) not in graph
-    # The fixed-parameter rules keep theirs.
-    assert (KG.GuardAlert_rule_P1_1, KG.alertThreshold, None) in graph
+    # The L1_BP_* rules do not; the L0_* portfolio-risk rule keeps its threshold.
+    assert (KG.GuardAlert_rule_P1_1, KG.alertThreshold, None) not in graph
     assert (KG.GuardAlert_rule_P1_3, KG.alertThreshold, None) in graph
 
 
@@ -316,7 +316,7 @@ def test_spy_links_to_the_reference_etf_and_the_store_context_accepts_it(tmp_pat
             "date": "2022-02-14",
             "layer": 1,
             "asset_id": 6,
-            "rule_id": "L1_STOP_LOSS",
+            "rule_id": "L1_BP_STOP",
             "value": 0.5,
             "threshold": -0.1229,
             "state": "ENTER",
@@ -464,16 +464,15 @@ def test_every_row_becomes_one_individual(tmp_path: Path) -> None:
     assert projection.individuals["GuardAlert"] == 5
 
 
-def test_the_guard_catalog_maps_the_seven_rule_ids_to_their_layers() -> None:
+def test_the_guard_catalog_maps_the_six_rule_ids_to_their_layers() -> None:
     catalog = load_catalog()
     assert {rule_id: rule.layer for rule_id, rule in catalog.by_id.items()} == {
-        "L1_STOP_LOSS": 1,
-        "L1_REENTRY": 1,
+        "L0_CARTERA_ACTIVATION": 0,
+        "L0_CARTERA_SCALE_CHANGE": 0,
+        "L0_CARTERA_RECOVERY": 0,
         "L1_BP_STOP": 1,
         "L1_BP_REENTRY": 1,
-        "L2_NEWS": 2,
-        "L3_VOL": 3,
-        "L4_DD": 4,
+        "L1_BP_STOP_BLOCKED": 1,
     }
     assert all(rule.iri == KG[f"Rule_{rule.rule_id}"] for rule in catalog.by_id.values())
 
@@ -515,7 +514,7 @@ def test_an_unknown_rule_id_is_refused(tmp_path: Path) -> None:
 
 def test_a_layer_that_disagrees_with_its_rule_is_refused(tmp_path: Path) -> None:
     rows = scenario_rows()
-    rows["guard_alert"][0]["layer"] = 2  # L1_STOP_LOSS is layer 1
+    rows["guard_alert"][0]["layer"] = 2  # L1_BP_STOP is layer 1
     with pytest.raises(ProjectionError, match="disagrees"):
         _run(backtest_db(tmp_path, rows=rows))
 

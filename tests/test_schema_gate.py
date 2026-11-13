@@ -765,28 +765,26 @@ def _guard_rule(bundle: rdflib.Dataset) -> rdflib.Graph:
     return g
 
 
-def test_the_guard_catalog_has_the_seven_rule_ids_and_layers() -> None:
+def test_the_guard_catalog_has_the_six_rule_ids_and_layers() -> None:
     g = _rules_file()
     guards = _guard_rules()
     assert set(guards) == {
-        "L1_STOP_LOSS",
-        "L1_REENTRY",
+        "L0_CARTERA_ACTIVATION",
+        "L0_CARTERA_SCALE_CHANGE",
+        "L0_CARTERA_RECOVERY",
         "L1_BP_STOP",
         "L1_BP_REENTRY",
-        "L2_NEWS",
-        "L3_VOL",
-        "L4_DD",
+        "L1_BP_STOP_BLOCKED",
     }
     assert {
         rule_id: int(str(g.value(rule, KG.guardLayer))) for rule_id, rule in guards.items()
     } == {
-        "L1_STOP_LOSS": 1,
-        "L1_REENTRY": 1,
+        "L0_CARTERA_ACTIVATION": 0,
+        "L0_CARTERA_SCALE_CHANGE": 0,
+        "L0_CARTERA_RECOVERY": 0,
         "L1_BP_STOP": 1,
         "L1_BP_REENTRY": 1,
-        "L2_NEWS": 2,
-        "L3_VOL": 3,
-        "L4_DD": 4,
+        "L1_BP_STOP_BLOCKED": 1,
     }
     for rule in guards.values():
         assert (rule, KG.ruleSeverity, None) not in g
@@ -1160,14 +1158,14 @@ def _alert(
     return g
 
 
-@pytest.mark.parametrize("rule", ["L1_BP_STOP", "L1_BP_REENTRY"])
+@pytest.mark.parametrize("rule", ["L1_BP_STOP", "L1_BP_REENTRY", "L1_BP_STOP_BLOCKED"])
 def test_a_basing_points_alert_without_a_threshold_conforms(
     bundle: rdflib.Dataset, shapes: rdflib.Graph, rule: str
 ) -> None:
     assert _violations(_alert(bundle, rule=rule, threshold=None), shapes) == set()
 
 
-@pytest.mark.parametrize("rule", ["L1_BP_STOP", "L1_BP_REENTRY"])
+@pytest.mark.parametrize("rule", ["L1_BP_STOP", "L1_BP_REENTRY", "L1_BP_STOP_BLOCKED"])
 def test_a_basing_points_alert_with_a_threshold_is_caught(
     bundle: rdflib.Dataset, shapes: rdflib.Graph, rule: str
 ) -> None:
@@ -1177,8 +1175,8 @@ def test_a_basing_points_alert_with_a_threshold_is_caught(
     }
 
 
-@pytest.mark.parametrize("rule", ["L1_STOP_LOSS", "L1_REENTRY"])
-def test_a_fixed_parameter_alert_still_requires_a_threshold(
+@pytest.mark.parametrize("rule", ["L0_CARTERA_ACTIVATION", "L0_CARTERA_SCALE_CHANGE"])
+def test_an_l0_alert_still_requires_a_threshold(
     bundle: rdflib.Dataset, shapes: rdflib.Graph, rule: str
 ) -> None:
     assert _violations(_alert(bundle, rule=rule, threshold=None), shapes) == {(KG.Alert_T470, None)}

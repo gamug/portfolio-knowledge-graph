@@ -11,13 +11,12 @@ SCHEMA = Path(__file__).resolve().parent.parent / "schema"
 KG = rdflib.Namespace("https://thesis.local/kg/portfolio#")
 
 GUARD_RULES = {
-    "L1_STOP_LOSS",
-    "L1_REENTRY",
+    "L0_CARTERA_ACTIVATION",
+    "L0_CARTERA_SCALE_CHANGE",
+    "L0_CARTERA_RECOVERY",
     "L1_BP_STOP",
     "L1_BP_REENTRY",
-    "L2_NEWS",
-    "L3_VOL",
-    "L4_DD",
+    "L1_BP_STOP_BLOCKED",
 }
 VETO_RULES = {
     "LEVERAGE_EXTREME",
@@ -78,11 +77,10 @@ def test_the_rule_labels_are_the_glossary_names() -> None:
         "BREAK_TREND_200": "Below 200-day trend (flag only)",
         "L1_BP_STOP": "Exit by Basing Points rule",
         "L1_BP_REENTRY": "Re-entry after Basing Points exit",
-        "L1_STOP_LOSS": "21-session loss-limit exit (Markowitz with GUARD)",
-        "L1_REENTRY": "Re-entry after loss-limit exit",
-        "L2_NEWS": "News trim (disabled in the final configuration)",
-        "L3_VOL": "Volatility scaling (configured, no activations)",
-        "L4_DD": "Drawdown scaling",
+        "L1_BP_STOP_BLOCKED": "Blocked Basing Points stop",
+        "L0_CARTERA_ACTIVATION": "Portfolio tail-risk activation",
+        "L0_CARTERA_SCALE_CHANGE": "Portfolio tail-risk scale change",
+        "L0_CARTERA_RECOVERY": "Portfolio tail-risk recovery",
     }
     for code, label in expected.items():
         candidates = rules(g, {code})
@@ -94,23 +92,10 @@ def test_the_rule_labels_are_the_glossary_names() -> None:
         }, code
 
 
-def test_l4_dd_names_all_reference_weights_and_has_no_forbidden_citation() -> None:
+def test_the_five_removed_guard_rules_are_absent() -> None:
     g = graph()
-    rule = rules(g, {"L4_DD"})[0]
-    en = next(
-        str(value)
-        for value in g.objects(rule, RDFS.comment)
-        if getattr(value, "language", None) == "en"
-    )
-    es = next(
-        str(value)
-        for value in g.objects(rule, RDFS.comment)
-        if getattr(value, "language", None) == "es"
-    )
-    assert "all the reference weights, including the SPY core" in en
-    assert "todos los pesos de referencia, incluido el núcleo SPY" in es
-    assert "Grossman" not in en and "Zhou" not in en
-    assert "Grossman" not in es and "Zhou" not in es
+    for code in ("L1_STOP_LOSS", "L1_REENTRY", "L2_NEWS", "L3_VOL", "L4_DD"):
+        assert not rules(g, {code}), code
 
 
 def test_no_rule_comment_mentions_tiingo_or_grossman_zhou() -> None:

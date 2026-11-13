@@ -129,10 +129,10 @@ def test_a_guard_rule_on_a_veto_is_refused_once_its_category_is_fetched(tmp_path
     batch = _selection_batch(tmp_path)
     for subject in list(batch.subjects(KG.appliesRule, None)):
         batch.remove((subject, KG.appliesRule, None))
-        batch.add((subject, KG.appliesRule, KG.Rule_L1_STOP_LOSS))
+        batch.add((subject, KG.appliesRule, KG.Rule_L1_BP_STOP))
     for subject in list(batch.subjects(KG.primaryRule, None)):
         batch.remove((subject, KG.primaryRule, None))
-        batch.add((subject, KG.primaryRule, KG.Rule_L1_STOP_LOSS))
+        batch.add((subject, KG.primaryRule, KG.Rule_L1_BP_STOP))
     with pytest.raises(gate.ShaclRejected):
         gate.validate(batch, context=_context(batch))
 
