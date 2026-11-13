@@ -3594,7 +3594,7 @@ graph is **1265 triples**. No GraphDB write.
 
 ## Work item 46 — Veto Hierarchy projection (T-840–T-869)
 
-**Status: PR A/B/C/E merged (#156/#157/#158/#159); PR D open as PR #160 (T-860–T-862 and the T-857 follow-up; T-863–T-864 remain).**
+**Status: PR A/B/C/D/E merged (#156–#160); PR G open as PR #161 (T-867/T-868/T-869 control-count follow-up).**
 
 **Why**: Reviewer A delivered the frozen data dictionary and the pilot `H1C-B5-P1` for the complete
 System with the Veto Hierarchy. The engine arm codes no longer identify a configuration
@@ -3647,6 +3647,9 @@ measured pilot budget is in `docs/veto-hierarchy-design.md` §6.
       markowitz_base 77,932 triples; all SHACL conform; no store contact; full suite 1,708 passed /
       61 deselected.)* Loader CLI, per-graph SHACL batching, rehearsal, final dry run and the
       production record.
+- [x] **T-867/T-868/T-869 follow-up** *(done 2026-11-13, PR #161: full `control_counts`
+      computation and comparison, store-side checks and the pilot rehearsal kit; A's SH/MB P1
+      values match; full suite 1,739 passed / 62 deselected; no write.)*
 
 **Acceptance criteria**:
 

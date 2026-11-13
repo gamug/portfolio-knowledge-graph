@@ -1052,6 +1052,12 @@ def _memory(detail: DetailFile, context: EventContext, batch: DetailBatch) -> No
     batch.rows["memory_episodes_decision_close"] = sum(
         1 for item in episodes if item.kind == "decision_close"
     )
+    batch.rows["memory_episodes"] = len(episodes)
+    batch.rows["memory_released_price"] = sum(1 for item in episodes if item.cause == "price")
+    batch.rows["memory_released_not_ranked"] = sum(
+        1 for item in episodes if item.cause == "not_ranked"
+    )
+    batch.rows["memory_open_at_end"] = sum(1 for item in episodes if item.release is None)
     for episode in sorted(episodes, key=lambda item: (item.since, item.asset)):
         iri = _memory_iri(context, episode.asset, episode.since)
         batch.individual(iri, "StopMemory")

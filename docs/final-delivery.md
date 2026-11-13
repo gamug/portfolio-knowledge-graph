@@ -126,12 +126,13 @@ and `L1_BP_STOP_BLOCKED` rows. A mismatch stops the load with the date and asset
 adjusted. The pilot reconciles on all ten decision dates (0 ranking releases).
 
 A blocked asset with no open memory episode opens a `decision_close` episode at that date (the engine
-writes no stop record); its count is not hard-coded. If the final manifest carries
-`control_counts.<configuration>.<window>.decision_close_episodes`, a mismatch stops the load with
-configuration, window, expected and computed; if absent, the loader prints "control count not
-provided" and continues. Ranking releases use every row of the ranking file, including vetoed rows.
-The loader fails clearly if a final System run lacks its `rankings_file` or the manifest hash
-differs.
+writes no stop record); its count is not hard-coded. A final manifest must carry the full
+`control_counts` object; the loader computes every key and compares it, including
+`control_counts.<configuration>.<window>.decision_close_episodes` and stops with configuration,
+window, expected and computed on a mismatch. A draft may omit `control_counts` (the loader prints
+"control counts not provided" and continues), but any key it does carry is compared. Ranking
+releases use every row of the ranking file, including vetoed rows. The loader fails clearly if a
+final System run lacks its `rankings_file`/`scales_file` or the manifest hash differs.
 
 **Declared limitation:** if an asset stops on the close of a decision date and is already out of
 that same decision's ranking, the engine releases it from memory with no record; it cannot be
@@ -167,10 +168,107 @@ uv run pytest -q
 ```
 
 `verify_store --manifest` re-projects the manifest read-only and checks every stored graph count,
-the control counts, the removed-rule stop and the price mask. The decision point is after the
+the control counts (including the three memory-release totals derived from `StopMemory`), the
+removed-rule stop and the price mask. The decision point is after the
 verification and the full suite: if either fails, stop and restore the backup; if both pass, the
 delivery is accepted. Plan B is the §0bis.2 TriG backup. Restore only after a deliberate decision,
 into an emptied repository or with Workbench **Import**; a large single POST can time out (see §1).
+
+## 0ter. Rehearsal kit — scratch `portfolio_test` with the P1 pilot
+
+**The manifest is outside the repository** at
+`/workspaces/thesis/scratch/rehearsal/manifest_pilot_draft.json`. It is a `BORRADOR` with the real
+pilot hashes (DB, JSON-lines, rankings, scales and mask) and Reviewer A's real `control_counts` for
+`SYSTEM_WITH_HIERARCHY`/P1 and `MARKOWITZ_BASE`/P1 from
+`18b_A_control_counts_piloto_P1.json`. The other configurations are present as draft entries without
+control counts; the loader prints "control counts not provided" for them.
+
+To regenerate it: copy `H1C-B5-P1.db`, `H1C-B5-P1.cartera_v1_3.kg.jsonl`,
+`H1C-B5-P1.rankings.json`, `H1C-B5-P1.scales.json` and the Tiingo mask into
+`/workspaces/thesis/scratch/rehearsal/`, hash each file into the manifest, set `status` to a
+`BORRADOR...` string, and copy the `control_counts` object verbatim from A's JSON. The manifest is
+draft-only; never use it for production.
+
+### 0ter.1 Empty `portfolio_test` safely
+
+Set the target and list every graph (read-only):
+
+```bash
+export KG_REPOSITORY=portfolio_test
+export SQL_UNIVERSE_DB=/workspaces/thesis/data/universe_history_gics.db
+set -a; . ./.env; set +a
+
+curl -fsS -u "$KG_USER:$KG_PASSWORD" -H 'Accept: application/sparql-results+json' \
+  --data-urlencode 'query=SELECT ?g (COUNT(*) AS ?n) WHERE { GRAPH ?g { ?s ?p ?o } } GROUP BY ?g' \
+  "$KG_HOST/repositories/portfolio_test"
+```
+
+For the pilot kit the expected graph list is the five schema graphs
+(`urn:graph:tbox`, `urn:graph:reference`, `urn:graph:reference:fibo`, `urn:graph:rules:catalog`,
+`urn:graph:labels`), `urn:graph:universe:2026-Q4`, `urn:graph:derived:fundamentals:final`, and the
+six backtest graphs this kit writes: `urn:graph:derived:backtest:meta:final`,
+`urn:graph:derived:backtest:final:P1:system_with_hierarchy`,
+`urn:graph:derived:backtest:selection:final:P1:system_with_hierarchy`,
+`urn:graph:derived:backtest:final:P1:system_without_hierarchy`,
+`urn:graph:derived:backtest:selection:final:P1:system_without_hierarchy` and
+`urn:graph:derived:backtest:final:P1:markowitz_base`. Drop **one exact graph per request**,
+repeating for every IRI the listing returns (including any older backtest window); never use
+`CLEAR ALL`, `DROP ALL`, `DROP DEFAULT` or a repository delete:
+
+```bash
+curl -fsS -u "$KG_USER:$KG_PASSWORD" -X POST \
+  -H 'Content-Type: application/sparql-update' \
+  --data-binary 'DROP GRAPH <urn:graph:tbox>' \
+  "$KG_HOST/repositories/portfolio_test/statements"
+```
+
+### 0ter.2 Load the scratch rehearsal
+
+```bash
+export KG_REPOSITORY=portfolio_test
+export SQL_UNIVERSE_DB=/workspaces/thesis/data/universe_history_gics.db
+set -a; . ./.env; set +a
+
+uv run python cli/load_schema.py
+uv run python cli/load_universe.py --as-of 2026-11-09 --write
+uv run python cli/load_fundamentals.py --label final \
+  --dir "/workspaces/thesis/knoledge graph/2026-11-12_respuesta_4/bloque_c_fundamentales" \
+  --mask "/workspaces/thesis/knoledge graph/mascara_tiingo/tiingo_assets.csv" \
+  --universe-db "$SQL_UNIVERSE_DB" --write
+uv run python cli/load_veto.py \
+  --manifest /workspaces/thesis/scratch/rehearsal/manifest_pilot_draft.json --write
+uv run python cli/verify_store.py \
+  --manifest /workspaces/thesis/scratch/rehearsal/manifest_pilot_draft.json
+```
+
+`load_veto --write` accepts the draft only because the repository is `portfolio_test`; the loader
+refuses a draft on production. It writes the meta, m018/detail and selection graphs and never drops.
+`verify_store --manifest` derives `memory_released_price` and `memory_released_not_ranked` from the
+stored `StopMemory` `memoryReleaseCause`, and `memory_open_at_end` from `StopMemory` individuals with
+no `memoryReleasedOn`.
+
+### 0ter.3 Record the sizing table
+
+Fill this after each write (explicit triple count from `store.size()` or the statements count;
+inferred from the repository's inferred statement count; elapsed measured around each command with
+`/usr/bin/time -p` or the shell's `time`):
+
+```bash
+curl -fsS -u "$KG_USER:$KG_PASSWORD" "$KG_HOST/repositories/portfolio_test/size"
+```
+
+That endpoint returns the explicit and inferred statement counts; run it immediately before and
+after each step and subtract.
+
+| Step | Explicit before | Explicit after | Inferred before | Inferred after | Elapsed |
+|---|---:|---:|---:|---:|---:|
+| load_schema | | | | | |
+| load_universe | | | | | |
+| load_fundamentals | | | | | |
+| load_veto meta | | | | | |
+| load_veto m018/detail | | | | | |
+| load_veto selection | | | | | |
+| verify_store | | | | | |
 
 ## 0. Preconditions (read-only)
 

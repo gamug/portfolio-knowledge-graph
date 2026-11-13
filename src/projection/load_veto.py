@@ -34,6 +34,14 @@ from projection.backtest import (
     validation_context,
 )
 from projection.boundary import BoundaryError
+from projection.control_counts import (
+    ControlCountError,
+    compare_control_counts,
+    compute_control_counts,
+    compute_series_counts,
+    validate_control_counts,
+    verify_store_control_counts,
+)
 from projection.delivery import ConfigError, read_config
 from projection.disk_space import DiskMonitor, DiskSpaceError
 from projection.run_metadata import MetadataError, RunInfo, build_metadata, read_run_info
@@ -160,6 +168,12 @@ def build_delivery(  # noqa: C901, PLR0912, PLR0915 -- one branch per graph kind
                 if str(path) in str(exc) or path.name in str(exc):
                     raise LoadVetoError(f"{run.configuration}/{run.window}: {exc}") from exc
         raise
+    validate_control_counts(
+        manifest.control_counts,
+        tuple(dict.fromkeys(run.configuration for run in manifest.runs)),
+        manifest.windows,
+        final=not manifest.draft,
+    )
     print(f"\nmanifest: {manifest.path} ({manifest.status or 'final'})")
     print(f"manifest: {len(hashes)} file(s) verified")
     if assets_db is None:
@@ -197,6 +211,11 @@ def build_delivery(  # noqa: C901, PLR0912, PLR0915 -- one branch per graph kind
                     raise LoadVetoError(
                         f"{run.db_file}: {run.configuration}/{run.window} has no rankings_file; "
                         "every final System run ships its rankings JSON"
+                    )
+                if "scales_file" not in run.files:
+                    raise LoadVetoError(
+                        f"{run.db_file}: {run.configuration}/{run.window} has no scales_file; "
+                        "every final System run ships its scales JSON"
                     )
             detail = _read_detail(run.files)
             tickers = read_asset_tickers(source)
@@ -265,12 +284,36 @@ def build_delivery(  # noqa: C901, PLR0912, PLR0915 -- one branch per graph kind
                         run.window,
                     )
                 )
+            detail_rows: Mapping[str, int]
             if m018_projection.projection.detail is not None:
-                _check_decision_close_count(
-                    manifest, run.configuration, run.window, m018_projection.projection.detail.rows
+                detail_rows = m018_projection.projection.detail.rows
+            else:
+                detail_rows = {}
+                if not manifest.draft:
+                    raise LoadVetoError(f"{run.db_file}: the detail projection is missing")
+            if not manifest.draft and not _has_control_counts(
+                manifest, run.configuration, run.window
+            ):
+                raise LoadVetoError(f"{run.configuration}/{run.window}: control_counts is missing")
+            if _has_control_counts(manifest, run.configuration, run.window) or not manifest.draft:
+                computed = compute_control_counts(
+                    run.configuration,
+                    run.window,
+                    rows=m018_projection.rows,
+                    detail=detail,
+                    memory_rows=detail_rows,
+                    rankings=rankings,
+                    files=run.files,
                 )
-            elif not manifest.draft:
-                raise LoadVetoError(f"{run.db_file}: the detail projection is missing")
+                compare_control_counts(
+                    manifest.control_counts,
+                    run.configuration,
+                    run.window,
+                    computed,
+                    final=not manifest.draft,
+                )
+            else:
+                print(f"control counts not provided for {run.configuration}/{run.window}")
             batch = VetoBatch(
                 (label, run.configuration, run.window),
                 graphs,
@@ -284,6 +327,24 @@ def build_delivery(  # noqa: C901, PLR0912, PLR0915 -- one branch per graph kind
     if validate_shacl:
         _validate_batches(batches, assets, guard_catalog)
         _validate_meta(meta, assets, guard_catalog)
+    for run in manifest.runs:
+        if run.source_kind != "series_csv":
+            continue
+        if not manifest.draft and not _has_control_counts(manifest, run.configuration, run.window):
+            raise LoadVetoError(f"{run.configuration}/{run.window}: control_counts is missing")
+        if _has_control_counts(manifest, run.configuration, run.window) or not manifest.draft:
+            computed = compute_series_counts(
+                run.window, run.files, window_filter=run.configuration == "SPY"
+            )
+            compare_control_counts(
+                manifest.control_counts,
+                run.configuration,
+                run.window,
+                computed,
+                final=not manifest.draft,
+            )
+        else:
+            print(f"control counts not provided for {run.configuration}/{run.window}")
     print("\nprojected graphs:")
     for graph in (meta, *(item for batch in batches for item in batch.graphs)):
         print(f"  {graph.kind:9} {graph.graph}: {graph.triples} triples")
@@ -388,7 +449,9 @@ def write_delivery(
     return tuple(written), in_doubt
 
 
-def verify_delivery(store: GraphDB, result: LoadResult, manifest: VetoManifest) -> None:
+def verify_delivery(  # noqa: C901 -- one check per graph family
+    store: GraphDB, result: LoadResult, manifest: VetoManifest
+) -> None:
     """Read-only count and price/removed-rule checks against the manifest control counts."""
     failures: list[str] = []
     for item in _all_graphs(result):
@@ -401,6 +464,22 @@ def verify_delivery(store: GraphDB, result: LoadResult, manifest: VetoManifest) 
             actual = _existing(store, graph_name)
             if actual != count:
                 failures.append(f"{graph_name}: control count {count}, stored {actual}")
+    for batch in result.batches:
+        failures.extend(
+            verify_store_control_counts(
+                store,
+                batch.graphs[0].graph,
+                batch.key[1],
+                batch.key[2],
+                manifest.control_counts,
+            )
+        )
+    for run in getattr(manifest, "runs", ()):
+        if run.source_kind == "series_csv":
+            print(
+                f"control count not store-verifiable: {run.configuration}/{run.window}.daily_rows: "
+                "the reference series CSV is not loaded"
+            )
     old_rules = _old_rule_alerts(store)
     if old_rules:
         failures.append("removed rules still referenced: " + ", ".join(old_rules))
@@ -445,50 +524,12 @@ def _price_properties(store: GraphDB) -> list[str]:
     return [f"{row.get('graph')}:{row.get('alert')}:{row.get('p')}" for row in rows]
 
 
-def _decision_close_expected(manifest: VetoManifest, configuration: str, window: str) -> int | None:
-    """The optional per-configuration/window ``decision_close_episodes`` control count."""
+def _has_control_counts(manifest: VetoManifest, configuration: str, window: str) -> bool:
     value = manifest.control_counts
     if not isinstance(value, dict):
-        return None
-    configurations = value.get("configurations", value)
-    if not isinstance(configurations, dict):
-        return None
-    windows = configurations.get(configuration)
-    if not isinstance(windows, dict):
-        return None
-    counts = windows.get(window)
-    if not isinstance(counts, dict):
-        return None
-    for key in ("decision_close_episodes", "decision_close_episode_count"):
-        if key in counts:
-            try:
-                return int(counts[key])
-            except (TypeError, ValueError):
-                raise LoadVetoError(
-                    f"manifest control count {configuration}/{window}.{key} is not an integer"
-                ) from None
-    return None
-
-
-def _check_decision_close_count(
-    manifest: VetoManifest,
-    configuration: str,
-    window: str,
-    rows: Mapping[str, int],
-) -> None:
-    expected = _decision_close_expected(manifest, configuration, window)
-    computed = int(rows.get("memory_episodes_decision_close", 0))
-    if expected is None:
-        print(
-            f"control count decision_close_episodes not provided for {configuration}/{window}; "
-            f"computed {computed}"
-        )
-        return
-    if computed != expected:
-        raise LoadVetoError(
-            f"decision_close_episodes mismatch for {configuration}/{window}: "
-            f"manifest {expected}, computed {computed}"
-        )
+        return False
+    windows = value.get(configuration)
+    return isinstance(windows, dict) and window in windows
 
 
 def _control_counts(  # noqa: C901, PLR0912 -- two accepted manifest shapes
@@ -497,7 +538,7 @@ def _control_counts(  # noqa: C901, PLR0912 -- two accepted manifest shapes
     """Read the optional control counts as ``{graph: triples}``.
 
     Two shapes are accepted: ``{"graphs": {iri: count}}`` and the per-key shape
-    ``{"configurations": {configuration: {window: {"m018": n, "selection": n}}}}``. Anything else
+    ``{configuration: {window: {"m018": n, "selection": n}}}``. Anything else
     is reported as not machine-readable rather than guessed.
     """
     value = manifest.control_counts
@@ -507,7 +548,7 @@ def _control_counts(  # noqa: C901, PLR0912 -- two accepted manifest shapes
     graphs = value.get("graphs")
     if isinstance(graphs, dict):
         return {str(graph): int(count) for graph, count in graphs.items()}
-    configurations = value.get("configurations", value)
+    configurations = value
     out: dict[str, int] = {}
     if not isinstance(configurations, dict):
         print(
@@ -629,6 +670,7 @@ def main(argv: Sequence[str] | None = None) -> int:  # noqa: PLR0911 -- one retu
         BoundaryError,
         ProjectionError,
         DiskSpaceError,
+        ControlCountError,
         OSError,
     ) as exc:
         print(f"STOPPED\n{exc}", file=sys.stderr)
