@@ -1457,3 +1457,5 @@ implementation tasks wait for approval and the final manifest (2026-11-17/18).
 - [ ] **T-863–T-864** TTYG instructions/evaluation sheet and the remaining runbook updates.
 - [x] **T-865–T-869** *(done 2026-11-13, PR #159.)* Loader CLI, per-graph SHACL batching,
       rehearsal, final dry run and the production record.
+- [x] **T-867/T-868/T-869 follow-up** *(done 2026-11-13, PR #161.)* `control_counts`
+      computation/comparison and the scratch rehearsal kit.
