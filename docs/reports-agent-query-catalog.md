@@ -254,12 +254,14 @@ backtest terms; neither has a FIBO link, and neither needs one.
 
 A rule is **active** when it has no `:validTo`; a closed rule is history and
 must not be counted. The ten active selection rules are the `DATA_QUALITY`,
-`FINANCIAL` and `MARKET` rows; the seven GUARD rules are the `GUARD` rows.
-`L1_STOP_LOSS`, `L1_REENTRY`, `L1_BP_STOP` and `L1_BP_REENTRY` are layer 1,
-`L2_NEWS` layer 2, `L3_VOL` layer 3 and `L4_DD` layer 4. `LIQUIDITY_DISTRESS` has two definitions with
-the same `:ruleId`; only the active one (`..._v11`) is returned.
+`FINANCIAL` and `MARKET` rows; the six GUARD rules are the `GUARD` rows.
+`L0_CARTERA_ACTIVATION`, `L0_CARTERA_SCALE_CHANGE` and `L0_CARTERA_RECOVERY` are layer 0;
+`L1_BP_STOP`, `L1_BP_REENTRY` and `L1_BP_STOP_BLOCKED` are layer 1. The five old rules
+(`L1_STOP_LOSS`, `L1_REENTRY`, `L2_NEWS`, `L3_VOL`, `L4_DD`) were removed in Work item 46.
+`LIQUIDITY_DISTRESS` has two definitions with the same `:ruleId`; only the active one (`..._v11`)
+is returned.
 
-<!-- q:active-rules expect:17 -->
+<!-- q:active-rules expect:16 -->
 
 ```sparql
 PREFIX : <https://thesis.local/kg/portfolio#>
@@ -278,8 +280,9 @@ ORDER BY ?category ?ruleId
 The result is 5 `FINANCIAL` rules (`LEVERAGE_EXTREME`, `NEGATIVE_FCF`,
 `LIQUIDITY_DISTRESS`, `EARNINGS_MISSING`, `UTILITY_CASH_COVERAGE`), 1
 `DATA_QUALITY` rule, 4 `MARKET` rules (`PRICE_CRASH`, `VOLATILITY_SHOCK`,
-`CRASH_Z_SCORE`, `BREAK_TREND_200`) and the 7 `GUARD` rules (`L1_STOP_LOSS`,
-`L1_REENTRY`, `L1_BP_STOP`, `L1_BP_REENTRY`, `L2_NEWS`, `L3_VOL`, `L4_DD`).
+`CRASH_Z_SCORE`, `BREAK_TREND_200`) and the 6 `GUARD` rules
+(`L0_CARTERA_ACTIVATION`, `L0_CARTERA_SCALE_CHANGE`, `L0_CARTERA_RECOVERY`, `L1_BP_STOP`,
+`L1_BP_REENTRY`, `L1_BP_STOP_BLOCKED`).
 
 ### 4.1 Who was in the S&P 500 on a date
 
@@ -595,8 +598,8 @@ window or month; the join to the rule catalog is what turns an alert into a
 rule id. The label filter goes from the alert through its action to the
 action's book, so an alert that no book ever evaluated (no action) has no
 label and is omitted when the filter is applied — in the synthetic scenario
-those are `L1_REENTRY` and `L2_NEWS`. Remove the filter to see them, but then
-labels mix.
+those are `L0_CARTERA_ACTIVATION` and `L0_CARTERA_SCALE_CHANGE`. Remove the filter to see them,
+but then labels mix.
 
 <!-- q:guard-alerts-window-month-rule expect:3 -->
 
@@ -716,7 +719,7 @@ link; the action is the bridge, and that action's book is also where the
 stop loss on `AAA`, applied on `MARKOWITZ_BASE` and registered as
 `ARM_DISABLED` on `TOPN_MV_NOGUARD`, in the label selected by the filter.
 
-<!-- q:cut-explanation expect:rule=L1_STOP_LOSS -->
+<!-- q:cut-explanation expect:rule=L1_BP_STOP -->
 
 ```sparql
 PREFIX :    <https://thesis.local/kg/portfolio#>
@@ -1082,8 +1085,9 @@ asset is projected.** In particular:
   `:alertValue` triple on a layer-1 alert;
 - for an alert whose rule id starts with `L1_BP_`, the threshold is the
   asset's stop price level: **no `:alertThreshold` triple may exist** for
-  `L1_BP_STOP` or `L1_BP_REENTRY`. `L1_STOP_LOSS` and `L1_REENTRY` keep their
-  fixed parameter threshold.
+  `L1_BP_STOP`, `L1_BP_REENTRY` or `L1_BP_STOP_BLOCKED`, and neither may
+  `:alertValue`. The three `L0_*` portfolio-risk rules keep their fixed
+  tail-risk threshold.
 
 The graph carries no executives, no live portfolio and no daily returns per
 asset. It is not a market-data service.
@@ -1104,8 +1108,8 @@ absence with a live or invented run.
 `effective_date`. A guard action decided on the last session before a window
 and effective on its first day therefore appears in `v_guard_action` but not
 in that window's summary: the decision falls outside the segment, the effect
-inside it. The pilot's P2 is the boundary case (an `L1_STOP_LOSS` decided on
-2025-02-18 and effective on 2025-02-19). Do not "fix" the summary by counting
+inside it. The pilot's P2 is the boundary case (an old `L1_STOP_LOSS`, removed
+from the catalog by Work item 46, decided on 2025-02-18 and effective on 2025-02-19). Do not "fix" the summary by counting
 effective dates; it is upstream's documented rule.
 
 The first decision date of a window has no `v_book_weight_daily` rows on that

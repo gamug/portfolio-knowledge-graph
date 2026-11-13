@@ -9,12 +9,12 @@ actually building it (each flagged inline in the file that surfaced it, and summ
 
 | File | Format | Loads into | Contents |
 |---|---|---|---|
-| `tbox.ttl` | Turtle | `urn:graph:tbox` | 60 classes (46 mutually disjoint leaf/domain classes + a 13-class `rdfs:subClassOf` taxonomic backbone + `:ExchangeTradedFund` under `:Asset`), properties, OWL cardinality restrictions. |
-| `shapes.ttl` | Turtle | `urn:graph:tbox` | 44 named SHACL node shapes plus two blank-node conditional shapes (data-quality shapes kept as a separate file/concern from `tbox.ttl` — OWL semantics vs. SHACL validation, see below). |
+| `tbox.ttl` | Turtle | `urn:graph:tbox` | 72 classes (58 mutually disjoint leaf/domain classes + a 13-class `rdfs:subClassOf` taxonomic backbone + `:ExchangeTradedFund` under `:Asset`), properties, OWL cardinality restrictions. |
+| `shapes.ttl` | Turtle | `urn:graph:tbox` | 57 named SHACL node shapes plus two blank-node conditional shapes (data-quality shapes kept as a separate file/concern from `tbox.ttl` — OWL semantics vs. SHACL validation, see below). |
 | `reference.ttl` | Turtle | `urn:graph:reference` | GICS sector/industry taxonomy + asset master data (five worked-example S&P 500 tickers plus the core ETF `SPY`). |
 | `fibo.ttl` | Turtle | `urn:graph:reference:fibo` | The 25-term FIBO 2026Q2 glossary slice (54 entries, 277 statements) plus the authors' Spanish `@es` layer; built by `cli/build_fibo_slice.py`, never hand-edited. |
 | `labels.ttl` | Turtle | `urn:graph:labels` | The bilingual SKOS presentation vocabulary (127 concepts, 1265 triples) for codes and literals; loaded after `rules.ttl` and before `instances.trig`. |
-| `rules.ttl` | Turtle | `urn:graph:rules:catalog` | The active catalog: 10 selection rules (upstream's 9 plus `UTILITY_CASH_COVERAGE` from T-071, T-206) as `RuleDefinition`s, 7 GUARD protection rules (`L1_STOP_LOSS`, `L1_REENTRY`, `L1_BP_STOP`, `L1_BP_REENTRY`, `L2_NEWS`, `L3_VOL`, `L4_DD`) in their own section, the 7 original tree rules plus the pre-2026-10-10 `LIQUIDITY_DISTRESS` kept closed as design history, and the `AttractivenessWeightScheme`. |
+| `rules.ttl` | Turtle | `urn:graph:rules:catalog` | The active catalog: 10 selection rules (upstream's 9 plus `UTILITY_CASH_COVERAGE` from T-071, T-206) as `RuleDefinition`s, 6 GUARD protection rules (`L0_CARTERA_ACTIVATION`, `L0_CARTERA_SCALE_CHANGE`, `L0_CARTERA_RECOVERY`, `L1_BP_STOP`, `L1_BP_REENTRY`, `L1_BP_STOP_BLOCKED`) in their own section, the 7 original tree rules plus the pre-2026-10-10 `LIQUIDITY_DISTRESS` kept closed as design history, and the `AttractivenessWeightScheme`. **Do not load this catalog in production before the final reload:** the current `final` alerts still reference the five removed rules. |
 | `instances.trig` | **TriG** | *(self-describing — see below)* | Dated ABox: universe membership, agent snapshots, evidence, vetoes, filings, portfolio; sector-aggregate and attractiveness-ranking output (added 2026-08-13). |
 
 `instances.trig` is TriG, not Turtle — it contains explicit `GRAPH <urn:graph:...> { ... }` blocks,
@@ -383,9 +383,9 @@ what the store *enforces*.
      technical persistence timestamp, not the adoption date) joins the 9
      selection rules; the `LEVERAGE_EXTREME`/`NEGATIVE_FCF`/`LIQUIDITY_DISTRESS` comments record the
      APP-00 profile exemptions (financial firms; regulated utilities; equity REITs), with no
-     threshold/severity/clause change. The 7 GUARD rules are `RuleDefinition`s in their own section,
-     one `GraphPredicate` leaf each, `:category "GUARD"`, `:guardLayer` 1..4, frozen parameters only in
-     `rdfs:comment`; `L2_NEWS` is disabled in the 2022–2025 backtest. They carry no
+     threshold/severity/clause change. The 6 GUARD rules are `RuleDefinition`s in their own section,
+     one `GraphPredicate` leaf each, `:category "GUARD"`, `:guardLayer` 0..1, frozen parameters only in
+     `rdfs:comment`; the five old rules were removed by Work item 46. They carry no
      `:ruleSeverity`/`:penaltyPoints`/`:priorityRank`. `RuleDefinitionShape` gets one extra `sh:or`
      branch for `:category "GUARD"`, keeps the severity requirement for every other active rule and
      makes `:priorityRank` mandatory for non-GUARD rules (range widened to `[1,10]`); `VetoShape`
@@ -439,8 +439,9 @@ what the store *enforces*.
    `MARKOWITZ_BASE_GUARD` joins the closed arm list (`guardLayers "[1, 3, 4]"`,
    `excludeHardVetoed false`). `L1_BP_STOP`/`L1_BP_REENTRY` are layer-1 GUARD rules valid from
    2026-11-04, and the alert shape forbids `:alertThreshold` on them (the threshold is an
-   individual asset's stop price level; upstream's licence forbids redistributing it) while every
-   other alert keeps its required threshold. `:ExchangeTradedFund` is an `:Asset` subclass for the
+   individual asset's stop price level; upstream's licence forbids redistributing it). Work item 46
+   widened that exclusion to every `L1_BP_*` rule and to `:alertValue`; the `L0_*` portfolio-risk
+   alerts keep their required threshold. `:ExchangeTradedFund` is an `:Asset` subclass for the
    core ETF; `SPY` is declared in `reference.ttl` with no CIK, membership or GICS classification,
    and `AssetShape` admits it while ordinary assets keep the CIK/closed-membership rule. There is
    no FIBO mapping for exchange-traded funds: the pinned 2026Q2 slice has no such term, so none is
@@ -522,8 +523,8 @@ what the store *enforces*.
     `urn:graph:labels`; `LabelConceptShape` requires one `skos:notation`, one `skos:inScheme`, one
     `rdfs:label`/`rdfs:comment` per language and only `@en`/`@es` `skos:altLabel`s on every concept
     marked with `:labelScheme :PresentationScheme`. The file is now in the FR-001 bundle and the
-    load plan. Counts: **60 classes (46 disjoint leaves), 44 named shapes, 7227 quads;
-    conforms: True**; load plan **21 graphs / 7504 asserted triples** (production **5 / 6983**).
+    load plan. Counts: **72 classes (58 disjoint leaves), 57 named shapes, 8844 quads;
+    conforms: True**; load plan **21 graphs / 9121 asserted triples** (production **5 / 8600**).
     The store must be reloaded afterwards.
 
 16. **Fundamentals block C schema (Work item 45, T-811/T-812, 2026-11-13).** `tbox.ttl` gains
@@ -538,8 +539,8 @@ what the store *enforces*.
     gains `FundamentalFilingShape`, `FundamentalMetricSetShape`, `FundamentalAssessmentShape` and
     `FundamentalMetricDefinitionShape`; the four have synthetic positive/negative tests in
     `tests/test_fundamentals_shapes.py`. Reviewer A approved the 58-row table; the 37 metric concepts are now in `labels.ttl` under
-    `:FundamentalMetricScheme`. Counts: **60 classes (46 disjoint leaves), 44 named shapes, 7227 quads; conforms:
-    True**; load plan **21 graphs / 7504 asserted triples** (production **5 / 6983**). The store
+    `:FundamentalMetricScheme`. Counts: **72 classes (58 disjoint leaves), 57 named shapes, 8844 quads; conforms:
+    True**; load plan **21 graphs / 9121 asserted triples** (production **5 / 8600**). The store
     must be reloaded afterwards.
 
 ## Validation

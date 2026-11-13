@@ -1,12 +1,12 @@
 # Ontology Definition — Portfolio Knowledge Graph (v2)
 
 **Implementation:** [`schema/`](../schema/) — the formal OWL/SHACL/TriG implementation of
-everything described below, split into `tbox.ttl` (classes/properties, **60 classes total** as of
-this revision — 46 mutually-disjoint leaf/domain classes, a 13-class `rdfs:subClassOf` taxonomic
-backbone and `:ExchangeTradedFund` under `:Asset`, see §1.2), `shapes.ttl` (SHACL, 44 named
+everything described below, split into `tbox.ttl` (classes/properties, **72 classes total** as of
+this revision — 58 mutually-disjoint leaf/domain classes, a 13-class `rdfs:subClassOf` taxonomic
+backbone and `:ExchangeTradedFund` under `:Asset`, see §1.2), `shapes.ttl` (SHACL, 57 named
 shapes), `reference.ttl` (GICS taxonomy +
 asset master data + the new `MetricType` controlled vocabulary, §1.9), `rules.ttl` (the ten active
-selection rules, the seven GUARD protection rules, and the seven original ones as trees), and
+selection rules, the six GUARD protection rules, and the seven original ones as trees), and
 `instances.trig` (a worked, multi-graph, multi-asset dataset). Parsed clean
 with `rdflib` and SHACL-validated with `pyshacl` (**conforms: True**); the veto rule trees were
 independently re-executed in Python against the instance data and reproduced the expected firings
@@ -305,7 +305,7 @@ Portfolio Knowledge Graph
 | `OrchestratorStep` | Observation | T-206 (`v_orchestrator_step`, m015) | One step of an `OrchestratorRun`, keyed by `(orchestrator_run_id, ordinal)`, with status, times, exit code and its own run-log id. |
 | `StrategyBook` | Domain Entity → Collection | T-206 (`v_book`, m018); T-780 (external `MARKOWITZ_MV`) | One experimental arm of a backtest run (`MARKOWITZ_BASE`, `TOPN_MV_NOGUARD`, `TOPN_MV_GUARD_NO_NLP`, `TOPN_MV_GUARD`, `MARKOWITZ_BASE_GUARD`, plus the summary-only external `MARKOWITZ_MV`); a named pool of holdings. |
 | `BookRebalance` | Temporal Relation | T-206 (`v_book_rebalance`, m018) | A scheduled 21-session rebalance: book × decision/execution dates × upstream quant-portfolio/cycle-run/risk-model ids (literals). |
-| `GuardAlert` | Observation | T-206 (`v_guard_alert`, m018) | A GUARD layer's daily alert, linked to its GUARD rule; value optional on layer 1, asset optional on layers 3–4. |
+| `GuardAlert` | Observation | T-206 (`v_guard_alert`, m018) | A GUARD layer's daily alert, linked to its GUARD rule; value/threshold only on the L0_* portfolio alerts, asset optional on layer-0 portfolio alerts. |
 | `GuardAction` | Risk And Decision | T-206 (`v_guard_action`, m018) | The effect of a `GuardAlert` on one book for the next session (`APPLIED`, `ARM_DISABLED`, `NOT_HELD`, `SUPERSEDED`); weights optional on layer 1. |
 | `BookWeightDaily` | Observation | T-206 (`v_book_weight_daily`, m018) | One holding's weight in a book on a date; a `CASH` row has no asset link, and the target weights exist only on decision/execution dates. |
 | `BookDailyPerformance` | Observation | T-206 (`v_book_daily_performance`, m018) | A book's portfolio-level daily series (gross/net return, turnover, cost, NAV, drawdown, cash weight, equity count, benchmark return). |
@@ -517,20 +517,21 @@ raw value.
 only; a SOFT stint whose rule has none, a HARD rule's included, costs the run's `soft_veto_penalty`, the HARD-rule case assumed: T-191 ask (8)), the three new rules are `GraphPredicate` leaves evaluated upstream, and `LIQUIDITY_DISTRESS`'s sector exemption is
 in its comment. Detail: `schema/README.md`.
 
-**Addendum (T-206, 2026-11-01) — ten selection rules and five GUARD rules (seven since Work item 33).** Contract v18's catalog
+**Addendum (T-206, 2026-11-01; updated by Work item 46, 2026-11-13) — ten selection rules and six GUARD rules.** Contract v18's catalog
 adds `UTILITY_CASH_COVERAGE` (HARD, `rule_input.utility_cash_coverage_3y < 0.05`, rank 10; applies
 only to regulated utilities by the APP-00 profile) to the nine selection rules. The `LEVERAGE_EXTREME`,
 `NEGATIVE_FCF` and `LIQUIDITY_DISTRESS` comments now record the APP-00 profile exemptions (financial
-firms; regulated utilities; equity REITs); no threshold, severity or clause changed. The five GUARD
-daily-protection rules of that revision (`L1_STOP_LOSS`, `L1_REENTRY`, `L2_NEWS`, `L3_VOL`, `L4_DD`;
-`L1_BP_STOP`/`L1_BP_REENTRY` join them in Work item 33) are
-`RuleDefinition` individuals in a separate section, one `GraphPredicate` leaf each and `:guardLayer`
-1..4; the frozen parameters and academic sources live only in `rdfs:comment`. **A GUARD rule is not a
-veto rule:** it carries no `:ruleSeverity`, `:penaltyPoints` or `:priorityRank`, and `VetoShape`
-refuses it as `:appliesRule`/`:primaryRule`. `RuleDefinitionShape` gets one `sh:or` branch for
-`:category "GUARD"`, keeps the severity requirement for every other active rule and makes
-`:priorityRank` mandatory for non-GUARD rules. `L2_NEWS` is disabled in the 2022–2025 backtest.
-Detail: `schema/README.md` refinement 7 and §1.10.
+firms; regulated utilities; equity REITs); no threshold, severity or clause changed. Work item 46
+removed the five old GUARD daily-protection rules (`L1_STOP_LOSS`, `L1_REENTRY`, `L2_NEWS`,
+`L3_VOL`, `L4_DD`); the catalog now carries the Veto Hierarchy's `L0_CARTERA_ACTIVATION`,
+`L0_CARTERA_SCALE_CHANGE`, `L0_CARTERA_RECOVERY` and `L1_BP_STOP_BLOCKED` together with
+`L1_BP_STOP`/`L1_BP_REENTRY`. They are `RuleDefinition` individuals in a separate section, one
+`GraphPredicate` leaf each and `:guardLayer` 0..1; the frozen parameters and academic sources live
+only in `rdfs:comment`. **A GUARD rule is not a veto rule:** it carries no `:ruleSeverity`,
+`:penaltyPoints` or `:priorityRank`, and `VetoShape` refuses it as `:appliesRule`/`:primaryRule`.
+`RuleDefinitionShape` gets one `sh:or` branch for `:category "GUARD"`, keeps the severity requirement
+for every other active rule and makes `:priorityRank` mandatory for non-GUARD rules. Detail:
+`schema/README.md` refinement 7 and §1.10.
 
 **Addendum — implementation surfaced a gap in this section.** Encoding all 6 rules from v1's
 catalog (`schema/rules.ttl`), not just `VETO_COMP_01`, revealed that `ThresholdComparison` alone
@@ -802,8 +803,7 @@ book).
 
 **Nullable columns.** `sh:minCount 1` is used only where the m015/m016/m018 DDL or handoff §3.3
 guarantees a value. The following are optional and must never be required: `cycle_run_id` on
-`MARKOWITZ_BASE` rebalances; `asset_id`/`ticker` on layer 3–4 alerts and actions; `value` on layer 1
-alerts; `weight_before`/`weight_after` on asset actions and `NOT_HELD`; `asset_id`/`holding_name`
+`MARKOWITZ_BASE` rebalances; `asset_id`/`ticker` on layer-0 portfolio alerts and actions; `value` on L0_* alerts (the threshold is required there); `weight_before`/`weight_after` on asset actions and `NOT_HELD`; `asset_id`/`holding_name`
 and both target weights on `BookWeightDaily` (CASH has no asset; ordinary sessions mask the targets);
 `v_book.guard_layers`; `valid_to` (NULL = current symbol), `evidence_url` and `evidence_date` on
 `TickerHistory`. The Orchestrator shapes require only their natural keys — `orchestratorRunId` on a
@@ -916,22 +916,20 @@ resolve their rule by `raisedOn` (T-209). Upstream's `v_rule_catalog.created_at`
 (2026-10-31T19:37:32) is a technical persistence timestamp, not the adoption date. The
 `LEVERAGE_EXTREME`, `NEGATIVE_FCF` and
 `LIQUIDITY_DISTRESS` comments record the APP-00 profile exemptions (financial firms; regulated
-utilities; equity REITs) without changing any threshold, severity or clause. The seven GUARD rules
-(`L1_STOP_LOSS`, `L1_REENTRY`, `L1_BP_STOP`, `L1_BP_REENTRY`, `L2_NEWS`, `L3_VOL`, `L4_DD`) are `RuleDefinition` individuals in a
-separate, labelled section of `rules.ttl`: one `GraphPredicate` leaf each, `:category "GUARD"`,
-`:guardLayer` 1..4, the frozen parameters and academic sources only in `rdfs:comment`. Their
-`validFrom` 2019-01-02 is the calibration-window start (2019-01-02..2021-12-31, 757 NYSE sessions,
-`params.frozen.toml`), confirmed by the upstream maintainer, and covers every alert and action of
-P1, P2 and P3. `L2_NEWS` is
-disabled in the 2022–2025 backtest (the FinBERT training pool spans 2022–2026). **A GUARD rule is
+utilities; equity REITs) without changing any threshold, severity or clause. Work item 46 replaced
+the old seven GUARD rules with six: `L0_CARTERA_ACTIVATION`, `L0_CARTERA_SCALE_CHANGE`,
+`L0_CARTERA_RECOVERY`, `L1_BP_STOP`, `L1_BP_REENTRY` and `L1_BP_STOP_BLOCKED`. They are
+`RuleDefinition` individuals in a separate, labelled section of `rules.ttl`: one `GraphPredicate`
+leaf each, `:category "GUARD"`, `:guardLayer` 0..1, the frozen parameters and academic sources only
+in `rdfs:comment`. Their `validFrom` 2019-01-02 is the calibration-window start
+(2019-01-02..2021-12-31, 757 NYSE sessions, `params.frozen.toml`), confirmed by the upstream
+maintainer, and covers every alert and action of P1, P2 and P3. **A GUARD rule is
 not a veto rule:** it carries no `:ruleSeverity`, `:penaltyPoints` or `:priorityRank`, and
 `VetoShape` refuses it as the object of `:appliesRule`/`:primaryRule`. `RuleDefinitionShape` adds one
 `sh:or` branch for `:category "GUARD"`, keeps the severity requirement for every other active rule,
 makes `:priorityRank` mandatory for non-GUARD rules, and widens the rank range to `[1,10]` for
-`UTILITY_CASH_COVERAGE`. The bundle is **4915 quads; conforms: True** (the FR-001 gate; T-220 and
-T-227 add the two `UniverseMembershipShape` `sh:class` triples, T-233/T-234 contribute the net −34,
-Work item 33 adds the final-backtest vocabulary, Work item 37 the aggregates terms and Work item 38
-`bootstrap_mdd`).
+`UTILITY_CASH_COVERAGE`. The bundle is **8844 quads; conforms: True** (the FR-001 gate, current at
+Work item 46).
 
 **Projection of the three remaining v18 views (T-208, T-352/T-353).** `TickerHistory`,
 `OrchestratorRun` and `OrchestratorStep` are now written by `src/projection/reference.py`:
@@ -1052,8 +1050,8 @@ parameters and process/evaluation terms. `LabelConceptShape` (in `shapes.ttl`) r
 `skos:notation`, one `skos:inScheme`, one `rdfs:label` and one `rdfs:comment` per language, and only
 `@en`/`@es` `skos:altLabel`s; windows also carry `:windowStart`, `:windowEnd`, `:historicalCondition`
 and `:finalConfigurationCondition`. The file is in FR-001 and the load plan. Counts after this
-addition: **60 classes (46 disjoint leaves), 44 named shapes, 7227 quads; conforms: True**; load plan
-**21 graphs / 7504 asserted triples** (production **5 / 6983**).
+addition: **72 classes (58 disjoint leaves), 57 named shapes, 8844 quads; conforms: True**; load plan
+**21 graphs / 9121 asserted triples** (production **5 / 8600**).
 
 ## 1.16 Fundamentals block C schema (Work item 45, T-811/T-812, 2026-11-13)
 
@@ -1069,5 +1067,5 @@ the 33 masked flags. The loader (PR 2) stops on a `valuation` row of a masked as
 `:Observation`; the existing explicit types are checked by `tests/test_fundamentals_shapes.py`.
 `shapes.ttl` adds `FundamentalFilingShape`, `FundamentalMetricSetShape`,
 `FundamentalAssessmentShape` and `FundamentalMetricDefinitionShape`.
-Counts: **60 classes (46 disjoint leaves), 44 named shapes, 7227 quads; conforms: True**; load plan
-**21 graphs / 7504 asserted triples** (production **5 / 6983**).
+Counts: **72 classes (58 disjoint leaves), 57 named shapes, 8844 quads; conforms: True**; load plan
+**21 graphs / 9121 asserted triples** (production **5 / 8600**).

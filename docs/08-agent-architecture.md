@@ -233,16 +233,18 @@ The real dry-run counts are in `SPEC.md`/`TASKS.md` Work item 26.
 Two rules the m018 projector keeps, both from the handoff §3.3 and the completed P1/P2/P3 databases:
 
 - **It does not require a value the view masks.** `cycle_run_id` is NULL on `MARKOWITZ_BASE`;
-  layer-1 alerts have no `value`; layers 3–4 have no asset/ticker; asset-level actions have no
+  every L1_BP_* alert has no `value`; layer-0 portfolio alerts have no asset/ticker; asset-level actions have no
   `weight_before`/`weight_after`; CASH weight rows have no asset/holding name; ordinary-session
   weight rows have no target weights; `v_book.guard_layers` is NULL on `MARKOWITZ_BASE` and
   `TOPN_MV_NOGUARD`, while both guard arms carry `[1, 3, 4]`. The shapes leave all of these optional and the projector never invents a value.
-- **The GUARD rules are read, not evaluated.** The seven `RuleDefinition`s in `rules.ttl` are
-  `:category "GUARD"` and carry `:guardLayer`; an alert links to one through `:alertRule`.
-  `L1_BP_STOP`/`L1_BP_REENTRY` alerts carry no `:alertThreshold` (it is an asset price level and
-  is forbidden); every other alert keeps its fixed-parameter threshold. They are
-  not veto rules and are never written as a `Veto`'s `:appliesRule`/`:primaryRule`. `L2_NEWS` is
-  disabled in the 2022–2025 backtest.
+- **The GUARD rules are read, not evaluated.** The six `RuleDefinition`s in `rules.ttl` are
+  `:category "GUARD"` and carry `:guardLayer` (0 for the portfolio tail-risk rules, 1 for the
+  Basing Points rules); an alert links to one through `:alertRule`. Every `L1_BP_*` alert
+  (`L1_BP_STOP`, `L1_BP_REENTRY`, `L1_BP_STOP_BLOCKED`) carries neither `:alertThreshold` nor
+  `:alertValue` (they would be asset prices); the `L0_*` alerts keep their fixed tail-risk
+  threshold. They are not veto rules and are never written as a `Veto`'s
+  `:appliesRule`/`:primaryRule`. The five old rules (`L1_STOP_LOSS`, `L1_REENTRY`, `L2_NEWS`,
+  `L3_VOL`, `L4_DD`) were removed in Work item 46.
 
 The dry runs over `rule_P1/P2/P3.db` and their row/triple counts are recorded in `SPEC.md` §2.6 and
 `TASKS.md` T-207/T-230–T-236; no store was written.
@@ -254,10 +256,9 @@ windows are `P1`, `H1`, `P3`, `H2`, `P2` (with `P2a`/`P2b`) and `H3`, always ord
 four engine delivery arms are `MARKOWITZ_BASE`, `TOPN_MV_NOGUARD`, `TOPN_MV_GUARD_NO_NLP` and
 `MARKOWITZ_BASE_GUARD` (`TOPN_MV_GUARD` remains accepted by the shapes); `MARKOWITZ_MV` is the
 separate external summary-only arm of Work item 44. The projector reads
-`guardLayers` as data: it does not assume the pilot's `[1, 3, 4]`, so an arm can carry `[1]` or
-`[1, 4]`, and an L3_VOL threshold may vary by date. `L1_BP_STOP`/`L1_BP_REENTRY`
-are layer-1 GUARD rules, not vetoes, and their
-alerts must not carry `:alertThreshold`. `SPY` is an `:ExchangeTradedFund` in
+`guardLayers` as data: it does not assume a fixed layer set, so an arm can carry `[0, 1]` or
+`[1]`. `L1_BP_STOP`/`L1_BP_REENTRY`/`L1_BP_STOP_BLOCKED` are layer-1 GUARD rules, not vetoes, and
+their alerts must not carry `:alertThreshold` or `:alertValue`. `SPY` is an `:ExchangeTradedFund` in
 `urn:graph:reference`, not an S&P 500 member; sector readers show its `ETF núcleo` label instead of
 counting it as unclassified.
 
