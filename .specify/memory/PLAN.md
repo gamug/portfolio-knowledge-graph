@@ -3594,7 +3594,7 @@ graph is **1265 triples**. No GraphDB write.
 
 ## Work item 46 — Veto Hierarchy projection (T-840–T-869)
 
-**Status: design PR (T-840) 2026-11-13; PR A (T-841–T-846) open as PR #156; PR B (T-847–T-852) ready for review as PR #157; PR C (T-853–T-859) merged as PR #158; PR E (T-865–T-869) open as PR #159.**
+**Status: PR A/B/C/E merged (#156/#157/#158/#159); PR D open as PR #160 (T-860–T-862 and the T-857 follow-up; T-863–T-864 remain).**
 
 **Why**: Reviewer A delivered the frozen data dictionary and the pilot `H1C-B5-P1` for the complete
 System with the Veto Hierarchy. The engine arm codes no longer identify a configuration
@@ -3634,8 +3634,12 @@ measured pilot budget is in `docs/veto-hierarchy-design.md` §6.
       GraphDB write.)* Detail model: decisions,
       retention, stop/menu/cash, replacement, stop memory, price negative tests and the selection
       cross-check; no full candidate/target duplication.
-- [ ] **T-860–T-864** Second label table (31 concepts + new schema elements), C1 label, TTYG
-      instructions/evaluation sheet and the runbook updates.
+- [x] **T-860–T-862** *(done 2026-11-13, PR #160: Reviewer A's 25 changes applied verbatim,
+      `:memoryReleaseCause`, `:memoryStartKind`, `:rejectedZoneNoSignal`, `:Window_C1` and the 31
+      glossary concepts in `labels.ttl`, per-episode StopMemory and the complete control rule.
+      FR-001 9,125; load 21/9,402; production 5/8,881; labels 156/1,499.)* Second label table,
+      C1 label and the label cleanup.
+- [ ] **T-863–T-864** TTYG instructions/evaluation sheet and the remaining runbook updates.
 - [x] **T-865–T-869** *(done 2026-11-13, PR #159: configuration-keyed selection, per-window
       StopMemory rule, `cli/load_veto.py`, `verify_store --manifest`, runbook §0bis. Pilot dry run:
       meta 33, system_with 75,488, selection 322,794, system_without 56,705, selection 322,794,
