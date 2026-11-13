@@ -542,12 +542,10 @@ a new label or a dated suffix, never an append to this graph. The graph does not
 | Metric definition | `:FundamentalMetric_{metric_name}` in `labels.ttl` | `metric_name` |
 | Graph | `urn:graph:derived:fundamentals:{label}` | label |
 
-The label is included in every data IRI, following the Work item 44 pattern. If a `:SECFiling` with
-the same `accessionNumber` already exists, the loader **reuses** that IRI (adds `:filingId`,
-`:availableAt`, `:periodEnd`, `:fiscalYear`, `:fiscalPeriod` if missing) instead of minting a second
-filing; the `:Filing_{label}_{filing_id}` form is the fallback when no existing filing matches. The
-metric set and assessment are new individuals keyed by `filing_id`/`snapshot_id` and point at the
-filing IRI actually used.
+The label is included in every data IRI, following the Work item 44 pattern. The loader **always
+mints** `:Filing_{label}_{filing_id}` in this graph; it does not query the store for an existing
+`:SECFiling` by `accessionNumber` and does not restate an unlabelled filing. The metric set and
+assessment are new individuals keyed by `filing_id`/`snapshot_id` and point at that filing IRI.
 
 ### 5.3 Keys and deduplication
 
@@ -619,7 +617,8 @@ Strict rules, all refused with a message naming the file/row/key:
 - `form` in `10-K | 10-Q`; dates parse; `available_at` matches the filing; `computed_at` is a
   dateTime; `value` is a decimal or empty; `unit` in `ratio | x | usd` and matches the metric's
   declared unit; `metric_group` in the 10 groups; `metric_name` in the 38 names; `engine_version` is
-  `metrics-v10`;
+  `metrics-v10`. The source occasionally writes scientific notation
+  (`-1.8058872198019004e-05`); the loader accepts it and writes the expanded `xsd:decimal` form;
 - `generated_by_language_model` is a JSON boolean; `model`, `prompt_hash`, `rating` strings;
   `strengths`/`risks` are arrays of strings; `narrative` non-empty; the 129 false rows have the
   rule model and null score/rating; the 9,896 true rows have a score and rating;
