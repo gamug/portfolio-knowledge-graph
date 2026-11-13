@@ -467,7 +467,7 @@ def verify_delivery(  # noqa: C901 -- one check per graph family
                 manifest.control_counts,
             )
         )
-    for run in manifest.runs:
+    for run in getattr(manifest, "runs", ()):
         if run.source_kind == "series_csv":
             print(
                 f"control count not store-verifiable: {run.configuration}/{run.window}.daily_rows: "
