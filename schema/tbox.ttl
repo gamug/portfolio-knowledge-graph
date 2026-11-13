@@ -1666,7 +1666,7 @@ so every result is in-sample.""" .
 :StopMemory a owl:Class ;
     rdfs:subClassOf :Observation ;
     rdfs:label "Stop memory"@en ; rdfs:label "Memoria de la parada"@es ;
-    rdfs:comment "The stop memory of one asset: the first stop date and, when it recovered, the release date. The stop level itself is a price and is never stored."@en ; rdfs:comment "La memoria de la parada de un activo: la primera fecha de parada y, si recuperó, la fecha de salida. El nivel de la parada es un precio y nunca se almacena."@es .
+    rdfs:comment "The stop memory of one asset: the first stop date and, when it left, the date and cause of the release (its close came back to the stored level, or it was no longer in the decision's ranking). The level is a price and is never stored."@en ; rdfs:comment "La memoria de la parada de un activo: la fecha de la primera parada y, si salió, la fecha y la causa de la salida (su cierre volvió al nivel guardado, o ya no estaba en el ranking de la decisión). El nivel es un precio y nunca se almacena."@es .
 
 :ReplacementPurchase a owl:Class ;
     rdfs:subClassOf :Observation ;
@@ -1681,7 +1681,7 @@ so every result is in-sample.""" .
 :Configuration_SystemWithHierarchy a :BacktestConfiguration ;
     skos:notation "SYSTEM_WITH_HIERARCHY" ;
     rdfs:label "System with the Veto Hierarchy"@en ; rdfs:label "Sistema con la Jerarquía de Veto"@es ;
-    rdfs:comment "The System with rules, news and portfolio GUARD; the loaded book is TOPN_MV_GUARD_NO_NLP (TOPN_MV_GUARD if the chosen System carries news)."@en ; rdfs:comment "El Sistema con reglas, noticias y GUARD de cartera; el libro cargado es TOPN_MV_GUARD_NO_NLP (TOPN_MV_GUARD si el Sistema elegido lleva noticias)."@es .
+    rdfs:comment "The System with the Veto Hierarchy: rule veto in selection, trend filter and portfolio GUARD, plus the news rule if the chosen variant carries it. The loaded book is TOPN_MV_GUARD_NO_NLP, or TOPN_MV_GUARD if the variant carries news."@en ; rdfs:comment "El Sistema con la Jerarquía de Veto: veto de reglas en la selección, filtro de tendencia y GUARD de cartera, y la regla de noticias si la variante elegida la lleva. El libro cargado es TOPN_MV_GUARD_NO_NLP, o TOPN_MV_GUARD si la variante lleva noticias."@es .
 
 :Configuration_SystemWithoutHierarchy a :BacktestConfiguration ;
     skos:notation "SYSTEM_WITHOUT_HIERARCHY" ;
@@ -1695,7 +1695,7 @@ so every result is in-sample.""" .
 
 :Configuration_MarkowitzMV a :BacktestConfiguration ;
     skos:notation "MARKOWITZ_MV" ;
-    rdfs:label "Mean-variance base Markowitz"@en ; rdfs:label "Markowitz base de media-varianza"@es ;
+    rdfs:label "Base Markowitz (mean-variance)"@en ; rdfs:label "Markowitz base de media-varianza"@es ;
     rdfs:comment "The external mean-variance tangency book from Work item 44; it stays in the external summary graph."@en ; rdfs:comment "El libro externo de tangencia de media-varianza del Work item 44; permanece en el grafo externo de resúmenes."@es .
 
 :Configuration_SPY a :BacktestConfiguration ;
@@ -1797,7 +1797,7 @@ so every result is in-sample.""" .
 
 :retentionCounter a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain [ a owl:Class ; owl:unionOf ( :RetentionHold :RetentionRejection ) ] ; rdfs:range xsd:integer ;
     rdfs:label "Retention counter"@en ; rdfs:label "Contador de retención"@es ;
-    rdfs:comment "Consecutive decisions in which the name was a candidate only by retention (1 to 3 on a hold; 0 when a rejection happens before the first retention decision)."@en ; rdfs:comment "Decisiones consecutivas en que el nombre fue candidata solo por retención (1 a 3 en una mantenida; 0 cuando el rechazo ocurre antes de la primera decisión de retención)."@es .
+    rdfs:comment "Number of decisions in which the held name was a candidate only by retention since it entered the book or was last in the pool; it returns to 0 when the name enters the pool or is no longer held, and a rejection for another cause does not reset it. On a retained holding it ranges from 1 to 3 (the current decision already counted); on a rejection from 0 to 3 (0 when rejected before its first retention; 3 when the cause is the counter)."@en ; rdfs:comment "Número de decisiones en que la acción mantenida fue candidata solo por retención desde que entró al libro o desde la última vez que estuvo en el grupo; vuelve a 0 cuando entra al grupo o deja de mantenerse, y un rechazo por otra causa no lo reinicia. En una mantenida retenida vale de 1 a 3 (ya contada la decisión actual); en un rechazo vale de 0 a 3 (0 si se rechazó antes de su primera retención; 3 cuando la causa es el contador)."@es .
 
 :rankingSnapshot a owl:ObjectProperty, owl:FunctionalProperty ; rdfs:domain [ a owl:Class ; owl:unionOf ( :RetentionHold :RetentionRejection ) ] ; rdfs:range :AttractivenessSnapshot ;
     rdfs:label "Ranking snapshot"@en ; rdfs:label "Instantánea de ranking"@es ;
@@ -1813,7 +1813,7 @@ so every result is in-sample.""" .
 
 :rejectionCause a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :RetentionRejection ; rdfs:range xsd:string ;
     rdfs:label "Rejection cause"@en ; rdfs:label "Causa del rechazo"@es ;
-    rdfs:comment "The machine-readable reason the held name was not retained."@en ; rdfs:comment "La razón legible por máquina por la que la mantenida no se retuvo."@es .
+    rdfs:comment "The machine-readable reason the held name was not retained, one per name and in this order: not_ranked, hard_veto, soft_penalty, news_veto, no_risk_model, no_scenario, memory, counter."@en ; rdfs:comment "La razón legible por máquina por la que la mantenida no se retuvo, una por nombre y en este orden: not_ranked, hard_veto, soft_penalty, news_veto, no_risk_model, no_scenario, memory, counter."@es .
 
 :stopOfBook a owl:ObjectProperty, owl:FunctionalProperty ; rdfs:domain :StopEvent ; rdfs:range :StrategyBook ;
     rdfs:label "Stop of book"@en ; rdfs:label "Parada del libro"@es ;
@@ -1901,11 +1901,11 @@ so every result is in-sample.""" .
 
 :aStar a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :StopEvent ; rdfs:range xsd:decimal ;
     rdfs:label "Amount offered"@en ; rdfs:label "Monto ofrecido"@es ;
-    rdfs:comment "The amount offered to each candidate (min of the freed weight and the name cap); a fraction of the book."@en ; rdfs:comment "El monto ofrecido a cada candidata (mínimo entre el peso liberado y el tope por nombre); una fracción del libro."@es .
+    rdfs:comment "The amount offered to each candidate: the minimum of the freed weight and the name cap expressed in book weight (the optimiser's cap inside the satellite times the satellite's nominal share); a fraction of the book."@en ; rdfs:comment "El monto ofrecido a cada candidata: el mínimo entre el peso liberado y el tope por nombre expresado en peso del libro (el tope del optimizador dentro del satélite por la participación nominal del satélite); una fracción del libro."@es .
 
 :sizeFraction a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain [ a owl:Class ; owl:unionOf ( :StopEvent :ReplacementPurchase ) ] ; rdfs:range xsd:decimal ;
     rdfs:label "Size fraction"@en ; rdfs:label "Fracción del tamaño"@es ;
-    rdfs:comment "The fraction of the amount invested (1 or 0.5)."@en ; rdfs:comment "La fracción del monto invertido (1 o 0,5)."@es .
+    rdfs:comment "The fraction of the amount offered that is invested: 1 with the rule; with the agent, the value it chooses between 0 and 1."@en ; rdfs:comment "La fracción del monto ofrecido que se invierte: 1 con la regla; con el agente, el valor que elija entre 0 y 1."@es .
 
 :chosenCash a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :StopEvent ; rdfs:range xsd:boolean ;
     rdfs:label "Chosen cash"@en ; rdfs:label "Efectivo elegido"@es ;
@@ -1953,7 +1953,7 @@ so every result is in-sample.""" .
 
 :optionBeta a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :DestinationOption ; rdfs:range xsd:decimal ;
     rdfs:label "Option beta"@en ; rdfs:label "Beta de la opción"@es ;
-    rdfs:comment "The candidate's 252-session beta against SPY."@en ; rdfs:comment "La beta de la candidata a 252 sesiones contra SPY."@es .
+    rdfs:comment "The candidate's 252-session OLS beta against the SPY core, computed at t; 1.0 when it cannot be computed."@en ; rdfs:comment "La beta MCO de 252 sesiones de la candidata contra el núcleo SPY, calculada en t; 1,0 cuando no se puede calcular."@es .
 
 :optionRank a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :DestinationOption ; rdfs:range xsd:integer ;
     rdfs:label "Option rank"@en ; rdfs:label "Puesto de la opción"@es ;
@@ -1969,7 +1969,7 @@ so every result is in-sample.""" .
 
 :optionSizeFraction a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :DestinationOption ; rdfs:range xsd:decimal ;
     rdfs:label "Option size fraction"@en ; rdfs:label "Fracción de tamaño de la opción"@es ;
-    rdfs:comment "The fraction of the amount offered for this option (1 or 0.5)."@en ; rdfs:comment "La fracción del monto ofrecido para esta opción (1 o 0,5)."@es .
+    rdfs:comment "The fraction of the amount offered for this option: 1 in the rule's menu; with the agent, between 0 and 1."@en ; rdfs:comment "La fracción del monto ofrecido para esta opción: 1 en el menú de la regla; con el agente, entre 0 y 1."@es .
 
 :optionWeight a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :DestinationOption ; rdfs:range xsd:decimal ;
     rdfs:label "Option weight"@en ; rdfs:label "Peso de la opción"@es ;
@@ -1997,7 +1997,15 @@ so every result is in-sample.""" .
 
 :memoryReleasedOn a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :StopMemory ; rdfs:range xsd:date ;
     rdfs:label "Memory released on"@en ; rdfs:label "Memoria liberada el"@es ;
-    rdfs:comment "The first decision date at which the asset recovered and left the memory."@en ; rdfs:comment "La primera fecha de decisión en que el activo recuperó y salió de la memoria."@es .
+    rdfs:comment "The first decision date at which the asset left the memory, by price or by leaving the ranking (see `:memoryReleaseCause`)."@en ; rdfs:comment "La primera fecha de decisión en que el activo salió de la memoria, por precio o por salir del ranking (ver `:memoryReleaseCause`)."@es .
+
+:memoryReleaseCause a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :StopMemory ; rdfs:range xsd:string ;
+    rdfs:label "Memory release cause"@en ; rdfs:label "Causa de salida de la memoria"@es ;
+    rdfs:comment "price when the close came back to the stored level (reentry record); not_ranked when the asset was no longer in the decision's ranking."@en ; rdfs:comment "price cuando el cierre volvió al nivel guardado (registro reentry); not_ranked cuando el activo ya no estaba en el ranking de la decisión."@es .
+
+:memoryStartKind a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :StopMemory ; rdfs:range xsd:string ;
+    rdfs:label "Memory episode start"@en ; rdfs:label "Inicio del episodio de memoria"@es ;
+    rdfs:comment "stop when the episode starts with a stop event; decision_close when the stop fired on the close of a decision date: the engine writes no stop event and the name first appears as blocked on that date."@en ; rdfs:comment "stop cuando el episodio empieza con un evento de parada; decision_close cuando la parada se disparó en el cierre de una fecha de decisión: el motor no escribe evento de parada y la acción aparece por primera vez como bloqueada en esa fecha."@es .
 
 :purchaseOfStop a owl:ObjectProperty, owl:FunctionalProperty ; rdfs:domain :ReplacementPurchase ; rdfs:range :StopEvent ;
     rdfs:label "Purchase of stop"@en ; rdfs:label "Compra de la parada"@es ;
@@ -2077,7 +2085,7 @@ so every result is in-sample.""" .
 
 :rejectedNotRanked a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :StopRejectionSummary ; rdfs:range xsd:integer ;
     rdfs:label "Rejected: not ranked"@en ; rdfs:label "Rechazadas: sin ranking"@es ;
-    rdfs:comment "Count of candidates not in the ranking."@en ; rdfs:comment "Conteo de candidatas que no están en el ranking."@es .
+    rdfs:comment "Count of ranked names that are not in the decision's eligible set for a cause other than the others; it is 0 in the six windows."@en ; rdfs:comment "Conteo de nombres del ranking que no están en el conjunto elegible de la decisión por una causa distinta de las demás; vale 0 en las seis ventanas."@es .
 
 :rejectedNoRiskModel a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :StopRejectionSummary ; rdfs:range xsd:integer ;
     rdfs:label "Rejected: no risk model"@en ; rdfs:label "Rechazadas: sin modelo de riesgo"@es ;
@@ -2089,11 +2097,11 @@ so every result is in-sample.""" .
 
 :rejectedMissingReturn a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :StopRejectionSummary ; rdfs:range xsd:integer ;
     rdfs:label "Rejected: missing return"@en ; rdfs:label "Rechazadas: retorno faltante"@es ;
-    rdfs:comment "Count of candidates with a missing return."@en ; rdfs:comment "Conteo de candidatas con un retorno faltante."@es .
+    rdfs:comment "Count of candidates with any missing return in the 315 sessions ending at t."@en ; rdfs:comment "Conteo de candidatas con algún retorno faltante en las 315 sesiones que terminan en t."@es .
 
 :rejectedTrendBreak a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :StopRejectionSummary ; rdfs:range xsd:integer ;
     rdfs:label "Rejected: trend break"@en ; rdfs:label "Rechazadas: quiebre de tendencia"@es ;
-    rdfs:comment "Count of candidates below the 200-session trend condition."@en ; rdfs:comment "Conteo de candidatas por debajo de la condición de tendencia de 200 sesiones."@es .
+    rdfs:comment "Count of candidates whose close at t is below 0.95 times their 200-session simple average (the BREAK_TREND_200 condition)."@en ; rdfs:comment "Conteo de candidatas cuyo cierre en t está por debajo de 0,95 veces su media simple de 200 sesiones (la condición de BREAK_TREND_200)."@es .
 
 :rejectedSectorCap a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :StopRejectionSummary ; rdfs:range xsd:integer ;
     rdfs:label "Rejected: sector cap"@en ; rdfs:label "Rechazadas: tope de sector"@es ;
@@ -2110,3 +2118,7 @@ so every result is in-sample.""" .
 :rejectedNoAllowedDestination a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :StopRejectionSummary ; rdfs:range xsd:integer ;
     rdfs:label "Rejected: no allowed destination"@en ; rdfs:label "Rechazadas: ningún destino permitido"@es ;
     rdfs:comment "Count of stops with no allowed destination."@en ; rdfs:comment "Conteo de paradas sin destino permitido."@es .
+
+:rejectedZoneNoSignal a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :StopRejectionSummary ; rdfs:range xsd:integer ;
+    rdfs:label "Rejected: zone no signal"@en ; rdfs:label "Rechazadas: zona sin señal"@es ;
+    rdfs:comment "Count of candidates whose zone test had no signal (risk ratio not computable); it is 0 in the six windows."@en ; rdfs:comment "Conteo de candidatas cuya prueba de zona no tuvo señal (razón de riesgo no calculable); vale 0 en las seis ventanas."@es .

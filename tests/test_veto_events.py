@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
@@ -10,12 +11,15 @@ import pytest
 
 from projection.veto_events import (
     KG,
+    DetailBatch,
     DetailError,
     DetailFile,
     EventContext,
     SelectionIndex,
+    _memory,
     build_detail_batch,
     parse_detail_file,
+    read_rankings,
 )
 
 DECISION: dict[str, Any] = {
@@ -208,3 +212,155 @@ def test_a_stop_without_its_loaded_alert_is_a_hard_error(tmp_path: Path) -> None
     )
     with pytest.raises(DetailError, match="matches no loaded L1_BP_STOP alert"):
         build_detail_batch(detail, context)
+
+
+def _memory_detail(
+    tmp_path: Path,
+    *,
+    stops: Sequence[dict[str, Any]],
+    blocked: Sequence[dict[str, Any]],
+    reentry: Sequence[dict[str, Any]],
+) -> DetailFile:
+    return DetailFile(
+        tmp_path / "detail.jsonl",
+        decisions=(),
+        stops=tuple(stops),
+        replacement_bought=(),
+        replacement_checks=(),
+        replacement_stopped=(),
+        blocked=tuple(blocked),
+        reentry=tuple(reentry),
+        retention_decisions=(),
+    )
+
+
+def _memory_context(rankings: Mapping[str, frozenset[int]]) -> EventContext:
+    return EventContext(
+        label="final",
+        window="P1",
+        configuration="SYSTEM_WITH_HIERARCHY",
+        graph="urn:graph:derived:backtest:final:P1:system_with_hierarchy",
+        book_iri=KG.Book_final_P1_system_with_hierarchy,
+        book_code="TOPN_MV_GUARD_NO_NLP",
+        assets={"AAA": None, "BBB": None},
+        asset_tickers={1: "AAA", 2: "BBB"},
+        alerts={},
+        selection=SelectionIndex({}, {}, lambda date, asset: KG.Snap, lambda date: KG.Cycle),
+        rebalance_by_date={},
+        rankings_by_date=rankings,
+    )
+
+
+def test_a_blocked_asset_without_a_stop_opens_a_decision_close_episode(tmp_path: Path) -> None:
+    detail = _memory_detail(
+        tmp_path,
+        stops=[{"asset_id": 1, "date": "2022-02-01"}],
+        blocked=[{"asset_id": 1, "date": "2022-02-01"}, {"asset_id": 2, "date": "2022-02-01"}],
+        reentry=[],
+    )
+    context = _memory_context({"2022-02-01": frozenset({1})})
+    batch = DetailBatch("urn:graph:derived:backtest:final:P1:system_with_hierarchy")
+    _memory(detail, context, batch)
+    assert batch.rows["memory_episodes_stop"] == 1
+    assert batch.rows["memory_episodes_decision_close"] == 1
+    starts = {
+        str(value) for _, predicate, value in batch.triples if predicate == KG.memoryStartKind
+    }
+    assert starts == {"stop", "decision_close"}
+
+
+def test_overlapping_episodes_for_one_asset_are_a_hard_error(tmp_path: Path) -> None:
+    detail = _memory_detail(
+        tmp_path,
+        stops=[
+            {"asset_id": 1, "date": "2022-02-01"},
+            {"asset_id": 1, "date": "2022-03-01"},
+        ],
+        blocked=[],
+        reentry=[],
+    )
+    with pytest.raises(DetailError, match="overlapping memory episodes"):
+        _memory(
+            detail,
+            _memory_context({"2022-02-01": frozenset({1}), "2022-03-01": frozenset({1})}),
+            DetailBatch("urn:graph:derived:backtest:final:P1:system_with_hierarchy"),
+        )
+
+
+def test_memory_control_does_not_filter_vetoed_ranking_rows(tmp_path: Path) -> None:
+    path = tmp_path / "rankings.json"
+    path.write_text(
+        '{"2022-02-01": {"rows": [{"asset_id": 1, "vetoed": true}, {"asset_id": 2, "vetoed": false}]}}'
+    )
+    assert read_rankings(path)["2022-02-01"] == frozenset({1, 2})
+
+
+def test_memory_control_mismatch_names_the_date_and_assets(tmp_path: Path) -> None:
+    detail = _memory_detail(
+        tmp_path,
+        stops=[{"asset_id": 1, "date": "2022-02-01"}],
+        blocked=[{"asset_id": 1, "date": "2022-02-01"}],
+        reentry=[],
+    )
+    with pytest.raises(DetailError, match=r"control fails at 2022-03-01.*missing \[1\]"):
+        _memory(
+            detail,
+            _memory_context({"2022-02-01": frozenset({1}), "2022-03-01": frozenset({1})}),
+            DetailBatch("urn:graph:derived:backtest:final:P1:system_with_hierarchy"),
+        )
+
+
+def test_an_orphan_reentry_without_any_episode_is_a_hard_error(tmp_path: Path) -> None:
+    detail = _memory_detail(
+        tmp_path,
+        stops=[],
+        blocked=[],
+        reentry=[{"asset_id": 1, "date": "2022-02-01"}],
+    )
+    with pytest.raises(DetailError, match="reentry 2022-02-01/1 has no open memory episode"):
+        _memory(
+            detail,
+            _memory_context({"2022-02-01": frozenset({1})}),
+            DetailBatch("urn:graph:derived:backtest:final:P1:system_with_hierarchy"),
+        )
+
+
+def test_a_reentry_after_a_ranking_release_is_an_orphan(tmp_path: Path) -> None:
+    detail = _memory_detail(
+        tmp_path,
+        stops=[{"asset_id": 1, "date": "2022-02-01"}],
+        blocked=[{"asset_id": 1, "date": "2022-02-01"}],
+        reentry=[{"asset_id": 1, "date": "2022-03-01"}],
+    )
+    with pytest.raises(DetailError, match="reentry 2022-03-01/1 has no open memory episode"):
+        _memory(
+            detail,
+            _memory_context(
+                {
+                    "2022-02-01": frozenset({1}),
+                    "2022-02-02": frozenset(),
+                    "2022-03-01": frozenset({1}),
+                }
+            ),
+            DetailBatch("urn:graph:derived:backtest:final:P1:system_with_hierarchy"),
+        )
+
+
+def test_a_reentry_with_an_open_episode_releases_by_price(tmp_path: Path) -> None:
+    detail = _memory_detail(
+        tmp_path,
+        stops=[{"asset_id": 1, "date": "2022-02-01"}],
+        blocked=[{"asset_id": 1, "date": "2022-02-01"}],
+        reentry=[{"asset_id": 1, "date": "2022-02-02"}],
+    )
+    batch = DetailBatch("urn:graph:derived:backtest:final:P1:system_with_hierarchy")
+    _memory(
+        detail,
+        _memory_context({"2022-02-01": frozenset({1}), "2022-02-02": frozenset({1})}),
+        batch,
+    )
+    causes = {
+        str(value) for _, predicate, value in batch.triples if predicate == KG.memoryReleaseCause
+    }
+    assert causes == {"price"}
+    assert batch.rows["memory_episodes_decision_close"] == 0

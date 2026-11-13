@@ -12,9 +12,10 @@ from __future__ import annotations
 import datetime
 import json
 import re
-from collections import Counter
+from collections import Counter, defaultdict
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
+from itertools import pairwise
 from pathlib import Path
 from typing import Any, Protocol
 
@@ -174,6 +175,7 @@ _ELIGIBLE_KEYS = frozenset(
         "sector_cap",
         "spy_limit",
         "zone_high",
+        "zone_no_signal",
         "zone_evaluated",
         "NO_ALLOWED_DESTINATION",
     }
@@ -193,6 +195,7 @@ _REJECTION_PROPERTIES = {
     "sector_cap": "rejectedSectorCap",
     "spy_limit": "rejectedSpyLimit",
     "zone_high": "rejectedZoneHigh",
+    "zone_no_signal": "rejectedZoneNoSignal",
     "NO_ALLOWED_DESTINATION": "rejectedNoAllowedDestination",
 }
 
@@ -626,6 +629,7 @@ class EventContext:
     alerts: Mapping[tuple[str, int, str], rdflib.URIRef]
     selection: SelectionIndex
     rebalance_by_date: Mapping[str, rdflib.URIRef]
+    rankings_by_date: Mapping[str, frozenset[int]] = field(default_factory=dict)
 
 
 @dataclass
@@ -1026,38 +1030,156 @@ def _replacements(detail: DetailFile, context: EventContext, batch: DetailBatch)
         batch.add(purchase, KG.replacementStoppedBy, _stop_iri(context, date, asset))
 
 
+@dataclass
+class _Episode:
+    asset: int
+    since: str
+    kind: str
+    release: str | None = None
+    cause: str | None = None
+
+
 def _memory(detail: DetailFile, context: EventContext, batch: DetailBatch) -> None:
-    first: dict[int, str] = {}
-    for line in detail.stops:
-        asset = int(line["asset_id"])
-        date = str(line["date"])
-        if asset not in first or date < first[asset]:
-            first[asset] = date
-    for line in (*detail.blocked, *detail.reentry):
-        asset = int(line["asset_id"])
-        if asset not in first:
-            raise DetailError(
-                f"{detail.path}: {line['kind']} {line['date']}/{asset} has no stop line in the "
-                "same detail file; a window is an independent engine run with its own stop memory"
-            )
-    released: dict[int, str] = {}
+    """One :StopMemory per episode, including decision-close episodes, plus the complete control rule."""
+    episodes = [_Episode(int(line["asset_id"]), str(line["date"]), "stop") for line in detail.stops]
+    blocked = {(str(line["date"]), int(line["asset_id"])) for line in detail.blocked}
+    _add_decision_close_episodes(detail, context, episodes, blocked)
+    _derive_releases(detail, context, episodes, blocked)
+    _enforce_no_overlap(detail, episodes)
+    _memory_control(detail, context, episodes, blocked)
+    _check_orphan_reentries(detail, episodes)
+    batch.rows["memory_episodes_stop"] = sum(1 for item in episodes if item.kind == "stop")
+    batch.rows["memory_episodes_decision_close"] = sum(
+        1 for item in episodes if item.kind == "decision_close"
+    )
+    for episode in sorted(episodes, key=lambda item: (item.since, item.asset)):
+        iri = _memory_iri(context, episode.asset, episode.since)
+        batch.individual(iri, "StopMemory")
+        batch.add(iri, KG.memoryOfBook, context.book_iri)
+        _link_asset(batch, iri, KG.memoryAsset, episode.asset, context, "StopMemory")
+        batch.add(iri, KG.memorySince, _date_lit(episode.since))
+        batch.add(iri, KG.memoryStartKind, rdflib.Literal(episode.kind))
+        if episode.release is not None:
+            batch.add(iri, KG.memoryReleasedOn, _date_lit(episode.release))
+            batch.add(iri, KG.memoryReleaseCause, rdflib.Literal(str(episode.cause)))
+
+
+def _memory_iri(context: EventContext, asset: int, since: str) -> rdflib.URIRef:
+    return KG[f"StopMemory_{context.label}_{context.window}_{_slug(context)}_{asset}_{since}"]
+
+
+def _active(episode: _Episode, date: str) -> bool:
+    return episode.since <= date and (episode.release is None or episode.release >= date)
+
+
+def _add_decision_close_episodes(
+    detail: DetailFile,
+    context: EventContext,
+    episodes: list[_Episode],
+    blocked: set[tuple[str, int]],
+) -> None:
+    """A blocked asset with no open episode starts a decision_close episode at that date."""
+    changed = True
+    while changed:
+        changed = False
+        _derive_releases(detail, context, episodes, blocked)
+        for date in sorted(context.rankings_by_date):
+            for asset in sorted(asset for day, asset in blocked if day == date):
+                if any(item.asset == asset and _active(item, date) for item in episodes):
+                    continue
+                episodes.append(_Episode(asset, date, "decision_close"))
+                changed = True
+
+
+def _derive_releases(
+    detail: DetailFile,
+    context: EventContext,
+    episodes: list[_Episode],
+    blocked: set[tuple[str, int]],
+) -> None:
+    for episode in episodes:
+        later = [
+            item.since
+            for item in episodes
+            if item.asset == episode.asset and item.since > episode.since
+        ]
+        next_start = min(later) if later else None
+        price = sorted(
+            str(item["date"])
+            for item in detail.reentry
+            if int(item["asset_id"]) == episode.asset
+            and str(item["date"]) >= episode.since
+            and (next_start is None or str(item["date"]) < next_start)
+        )
+        ranking = sorted(
+            date
+            for date in context.rankings_by_date
+            if date > episode.since
+            and (next_start is None or date < next_start)
+            and (date, episode.asset) not in blocked
+            and episode.asset not in context.rankings_by_date[date]
+        )
+        candidates: list[tuple[str, str]] = []
+        if price:
+            candidates.append((price[0], "price"))
+        if ranking:
+            candidates.append((ranking[0], "not_ranked"))
+        episode.release, episode.cause = min(candidates) if candidates else (None, None)
+
+
+def _enforce_no_overlap(detail: DetailFile, episodes: Sequence[_Episode]) -> None:
+    by_asset: dict[int, list[_Episode]] = defaultdict(list)
+    for episode in episodes:
+        by_asset[episode.asset].append(episode)
+    for asset, items in by_asset.items():
+        ordered = sorted(items, key=lambda item: item.since)
+        for previous, current in pairwise(ordered):
+            if previous.release is None or previous.release >= current.since:
+                raise DetailError(
+                    f"{detail.path}: overlapping memory episodes for asset {asset}: "
+                    f"{previous.since} releases {previous.release}, next starts {current.since}"
+                )
+
+
+def _check_orphan_reentries(detail: DetailFile, episodes: Sequence[_Episode]) -> None:
+    """A reentry must belong to an episode that is still open on its date."""
     for line in detail.reentry:
         asset = int(line["asset_id"])
         date = str(line["date"])
-        if (
-            asset in first
-            and date >= first[asset]
-            and (asset not in released or date < released[asset])
+        if not any(
+            episode.asset == asset
+            and episode.since <= date
+            and (episode.release is None or date <= episode.release)
+            for episode in episodes
         ):
-            released[asset] = date
-    for asset, since in sorted(first.items()):
-        iri = KG[f"StopMemory_{context.label}_{context.window}_{_slug(context)}_{asset}"]
-        batch.individual(iri, "StopMemory")
-        batch.add(iri, KG.memoryOfBook, context.book_iri)
-        _link_asset(batch, iri, KG.memoryAsset, asset, context, "StopMemory")
-        batch.add(iri, KG.memorySince, _date_lit(since))
-        if asset in released:
-            batch.add(iri, KG.memoryReleasedOn, _date_lit(released[asset]))
+            raise DetailError(f"{detail.path}: reentry {date}/{asset} has no open memory episode")
+
+
+def _memory_control(
+    detail: DetailFile,
+    context: EventContext,
+    episodes: Sequence[_Episode],
+    blocked: set[tuple[str, int]],
+) -> None:
+    """At every decision, memory splits exactly into price + ranking releases + blocked."""
+    for date in sorted(context.rankings_by_date):
+        active = {item.asset for item in episodes if _active(item, date)}
+        price = {item.asset for item in episodes if item.release == date and item.cause == "price"}
+        ranking = {
+            item.asset for item in episodes if item.release == date and item.cause == "not_ranked"
+        }
+        blocked_today = {asset for day, asset in blocked if day == date}
+        parts = price | ranking | blocked_today
+        if parts != active or price & ranking or price & blocked_today or ranking & blocked_today:
+            missing = sorted(active - parts)
+            extra = sorted(parts - active)
+            overlap = sorted(
+                (price & ranking) | (price & blocked_today) | (ranking & blocked_today)
+            )
+            raise DetailError(
+                f"{detail.path}: stop-memory control fails at {date}: missing {missing}, "
+                f"extra {extra}, overlap {overlap}"
+            )
 
 
 def _stop_for_replacement(
@@ -1211,3 +1333,34 @@ def selection_index(
         return KG[f"Cycle_{label}_{window}_{slug}_{cycle_by_date[date]}"]
 
     return SelectionIndex(cycle_by_date, selected_by_date, snapshot, cycle_iri)
+
+
+def read_rankings(path: str | Path) -> dict[str, frozenset[int]]:
+    """Read a run's ``rankings.json`` as decision date -> ranked engine asset ids.
+
+    The file is used only for the stop-memory release derivation and the control rule; it is never
+    projected. A malformed date or row stops the load.
+    """
+    rankings_path = Path(path)
+    try:
+        payload = json.loads(rankings_path.read_text(encoding="utf-8"))
+    except OSError as exc:
+        raise DetailError(f"{rankings_path}: {exc}") from exc
+    except json.JSONDecodeError as exc:
+        raise DetailError(f"{rankings_path}: invalid JSON: {exc}") from exc
+    if not isinstance(payload, dict):
+        raise DetailError(f"{rankings_path}: rankings must be an object keyed by decision date")
+    out: dict[str, frozenset[int]] = {}
+    for date, item in payload.items():
+        if not isinstance(date, str) or not _DATE.fullmatch(date):
+            raise DetailError(f"{rankings_path}: {date!r} is not a decision date")
+        rows = item.get("rows") if isinstance(item, dict) else item
+        if not isinstance(rows, list):
+            raise DetailError(f"{rankings_path}: {date}: rankings must carry a rows list")
+        ids: set[int] = set()
+        for index, row in enumerate(rows):
+            if not isinstance(row, dict) or not isinstance(row.get("asset_id"), int):
+                raise DetailError(f"{rankings_path}: {date}.rows[{index}] has no integer asset_id")
+            ids.add(int(row["asset_id"]))
+        out[date] = frozenset(ids)
+    return out

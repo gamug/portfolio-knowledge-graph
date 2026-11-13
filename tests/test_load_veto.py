@@ -10,7 +10,12 @@ import pytest
 from fixtures.backtest_rows import backtest_db, final_scenario_rows, universe_db
 
 from projection import load_veto
-from projection.load_veto import build_delivery, main
+from projection.load_veto import (
+    _check_decision_close_count,
+    _decision_close_expected,
+    build_delivery,
+    main,
+)
 from projection.veto_manifest import read_manifest
 
 
@@ -207,3 +212,26 @@ def test_write_to_production_without_the_flag_is_refused(
     )
     assert main(["--manifest", str(path), "--write"]) == 2
     assert "needs --to-production" in capsys.readouterr().err
+
+
+def test_decision_close_control_count_is_optional_and_hard_checked(
+    tmp_path: Path,
+) -> None:
+    path, _ = _manifest(tmp_path)
+    manifest = read_manifest(path)
+    manifest = type(manifest)(
+        **{
+            **manifest.__dict__,
+            "control_counts": {
+                "configurations": {"SYSTEM_WITH_HIERARCHY": {"P1": {"decision_close_episodes": 2}}}
+            },
+        }
+    )
+    assert _decision_close_expected(manifest, "SYSTEM_WITH_HIERARCHY", "P1") == 2
+    _check_decision_close_count(
+        manifest, "SYSTEM_WITH_HIERARCHY", "P1", {"memory_episodes_decision_close": 2}
+    )
+    with pytest.raises(ValueError, match="decision_close_episodes mismatch"):
+        _check_decision_close_count(
+            manifest, "SYSTEM_WITH_HIERARCHY", "P1", {"memory_episodes_decision_close": 1}
+        )

@@ -165,7 +165,7 @@ def test_construct_exposes_the_fundamentals_properties_and_labels() -> None:
         for subject, predicate, obj in constructed
         if predicate == rdflib.RDF.type and obj == KG.RuleDefinition
     }
-    assert len(concepts) == 132
+    assert len(concepts) == 161
     assert len(schemes) == 12
     assert len(rules) == 24
 

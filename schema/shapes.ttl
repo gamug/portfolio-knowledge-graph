@@ -1126,7 +1126,8 @@
     sh:property [ sh:path :rejectedSectorCap ; sh:datatype xsd:integer ; sh:maxCount 1 ] ;
     sh:property [ sh:path :rejectedSpyLimit ; sh:datatype xsd:integer ; sh:maxCount 1 ] ;
     sh:property [ sh:path :rejectedZoneHigh ; sh:datatype xsd:integer ; sh:maxCount 1 ] ;
-    sh:property [ sh:path :rejectedNoAllowedDestination ; sh:datatype xsd:integer ; sh:maxCount 1 ] .
+    sh:property [ sh:path :rejectedNoAllowedDestination ; sh:datatype xsd:integer ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :rejectedZoneNoSignal ; sh:datatype xsd:integer ; sh:maxCount 1 ] .
 
 :StopMemoryShape
     a sh:NodeShape ;
@@ -1134,7 +1135,11 @@
     sh:property [ sh:path :memoryOfBook ; sh:class :StrategyBook ; sh:minCount 1 ; sh:maxCount 1 ] ;
     sh:property [ sh:path :memoryAsset ; sh:class :Asset ; sh:minCount 1 ; sh:maxCount 1 ] ;
     sh:property [ sh:path :memorySince ; sh:datatype xsd:date ; sh:minCount 1 ; sh:maxCount 1 ] ;
-    sh:property [ sh:path :memoryReleasedOn ; sh:datatype xsd:date ; sh:maxCount 1 ] .
+    sh:property [ sh:path :memoryReleasedOn ; sh:datatype xsd:date ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :memoryReleaseCause ; sh:datatype xsd:string ; sh:maxCount 1 ;
+                  sh:in ("price" "not_ranked") ] ;
+    sh:property [ sh:path :memoryStartKind ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ;
+                  sh:in ("stop" "decision_close") ] .
 
 :ReplacementPurchaseShape
     a sh:NodeShape ;

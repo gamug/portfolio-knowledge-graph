@@ -928,7 +928,7 @@ not a veto rule:** it carries no `:ruleSeverity`, `:penaltyPoints` or `:priority
 `VetoShape` refuses it as the object of `:appliesRule`/`:primaryRule`. `RuleDefinitionShape` adds one
 `sh:or` branch for `:category "GUARD"`, keeps the severity requirement for every other active rule,
 makes `:priorityRank` mandatory for non-GUARD rules, and widens the rank range to `[1,10]` for
-`UTILITY_CASH_COVERAGE`. The bundle is **8844 quads; conforms: True** (the FR-001 gate, current at
+`UTILITY_CASH_COVERAGE`. The bundle is **9125 quads; conforms: True** (the FR-001 gate, current at
 Work item 46).
 
 **Projection of the three remaining v18 views (T-208, T-352/T-353).** `TickerHistory`,
@@ -1050,8 +1050,8 @@ parameters and process/evaluation terms. `LabelConceptShape` (in `shapes.ttl`) r
 `skos:notation`, one `skos:inScheme`, one `rdfs:label` and one `rdfs:comment` per language, and only
 `@en`/`@es` `skos:altLabel`s; windows also carry `:windowStart`, `:windowEnd`, `:historicalCondition`
 and `:finalConfigurationCondition`. The file is in FR-001 and the load plan. Counts after this
-addition: **72 classes (58 disjoint leaves), 57 named shapes, 8844 quads; conforms: True**; load plan
-**21 graphs / 9121 asserted triples** (production **5 / 8600**).
+addition: **72 classes (58 disjoint leaves), 57 named shapes, 9125 quads; conforms: True**; load plan
+**21 graphs / 9402 asserted triples** (production **5 / 8881**).
 
 ## 1.16 Fundamentals block C schema (Work item 45, T-811/T-812, 2026-11-13)
 
@@ -1067,8 +1067,8 @@ the 33 masked flags. The loader (PR 2) stops on a `valuation` row of a masked as
 `:Observation`; the existing explicit types are checked by `tests/test_fundamentals_shapes.py`.
 `shapes.ttl` adds `FundamentalFilingShape`, `FundamentalMetricSetShape`,
 `FundamentalAssessmentShape` and `FundamentalMetricDefinitionShape`.
-Counts: **72 classes (58 disjoint leaves), 57 named shapes, 8844 quads; conforms: True**; load plan
-**21 graphs / 9121 asserted triples** (production **5 / 8600**).
+Counts: **72 classes (58 disjoint leaves), 57 named shapes, 9125 quads; conforms: True**; load plan
+**21 graphs / 9402 asserted triples** (production **5 / 8881**).
 
 ## 1.17 Veto Hierarchy detail events (Work item 46, T-853–T-859, 2026-11-13)
 
@@ -1088,14 +1088,17 @@ configuration/window graph as m018:
 | `StopEvent` | 70 | 1,423 | no price, no `:stopDistancePct` |
 | `DestinationOption` | 33 | 429 | closed shape |
 | `StopRejectionSummary` | 20 | 211 | nonzero causes only; `zone_evaluated` stays on the stop |
-| `StopMemory` | 51 | 239 | first stop date; `:memoryReleasedOn` on reentry; no level |
+| `StopMemory` | 70 | 434 | one per episode; `:memoryStartKind`, `:memoryReleasedOn`/`:memoryReleaseCause`; no level |
 | `ReplacementPurchase` | 7 | 85 | 84 + one `:replacementStoppedBy` |
 | `ReplacementCheck` | 5 | 25 | |
 
-Total **3,013** detail triples on the pilot. The design's **2,993** excludes the two
+Total **3,208** detail triples on the pilot. The design's **3,188** excludes the two
 shape-required `:retentionOfBook`/`:retentionDate` triples per `RetentionDecision` (+20); the
-shapes are authoritative. Cross-checks are hard errors: every `blocked`/`reentry`/`stop` line must
+shapes are authoritative. StopMemory is **one node per episode** (70 stop episodes in P1, 0 decision_close), not one per asset
+(51): 350 base triples plus 84 release triples (the extra 70 are `:memoryStartKind`). Cross-checks are hard errors: every `blocked`/`reentry`/`stop` line must
 match exactly one loaded alert by `(date, asset)`, every replacement must link to its stop, and the
 decision pool/candidate/blocked counts must agree with the decision-only selection rows (never
-`rankings.json`). `RetentionRejectionShape` now admits counter 0; no class, shape or FR-001 count
-changes: **72 classes, 58 disjoint leaves, 57 named shapes, 8844 quads, 21/9121, 5/8600**.
+`rankings.json`). `RetentionRejectionShape` now admits counter 0. PR D adds
+`:memoryReleaseCause`, `:memoryStartKind` and `:rejectedZoneNoSignal`, the C1/31-concept label vocabulary and the
+removed-rule label cleanup; counts after it: **72 classes, 58 disjoint leaves, 57 named shapes,
+9125 quads, 21/9402 asserted triples, production 5/8881**.

@@ -1452,6 +1452,8 @@ implementation tasks wait for approval and the final manifest (2026-11-17/18).
       configuration-keyed graph/IRI names, meta and m018.
 - [x] **T-853–T-859** *(done 2026-11-13, PR #158.)* Detail events, price negative tests and
       selection cross-check.
-- [ ] **T-860–T-864** Second label table, C1 label, TTYG and runbook updates.
+- [x] **T-860–T-862** *(done 2026-11-13, PR #160.)* Second label table, C1 label, per-episode
+      StopMemory and the complete control rule.
+- [ ] **T-863–T-864** TTYG instructions/evaluation sheet and the remaining runbook updates.
 - [x] **T-865–T-869** *(done 2026-11-13, PR #159.)* Loader CLI, per-graph SHACL batching,
       rehearsal, final dry run and the production record.

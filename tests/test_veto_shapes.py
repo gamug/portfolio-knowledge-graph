@@ -151,12 +151,15 @@ def _base() -> rdflib.Graph:  # noqa: PLR0915
     g.add((SUMMARY, RDF.type, KG.StopRejectionSummary))
     g.add((SUMMARY, KG.summaryOfStop, STOP))
     g.add((SUMMARY, KG.rejectedHardVeto, _integer(91)))
+    g.add((SUMMARY, KG.rejectedZoneNoSignal, _integer(0)))
 
     g.add((MEMORY, RDF.type, KG.StopMemory))
     g.add((MEMORY, KG.memoryOfBook, BOOK))
     g.add((MEMORY, KG.memoryAsset, ASSET))
     g.add((MEMORY, KG.memorySince, _date("2022-01-05")))
     g.add((MEMORY, KG.memoryReleasedOn, _date("2022-02-01")))
+    g.add((MEMORY, KG.memoryReleaseCause, rdflib.Literal("price")))
+    g.add((MEMORY, KG.memoryStartKind, rdflib.Literal("stop")))
 
     g.add((PURCHASE, RDF.type, KG.ReplacementPurchase))
     g.add((PURCHASE, KG.purchaseOfStop, STOP))
@@ -247,3 +250,20 @@ def test_the_new_shapes_are_declared() -> None:
         "VetoEventNoPriceShape",
     ):
         assert (KG[name], RDF.type, SH.NodeShape) in g
+
+
+def test_an_invalid_memory_release_cause_fails() -> None:
+    data = _base()
+    data.remove((MEMORY, KG.memoryReleaseCause, None))
+    data.add((MEMORY, KG.memoryReleaseCause, rdflib.Literal("manual")))
+    conforms, results = _validate(data)
+    assert not conforms
+    assert MEMORY in _foci(results)
+
+
+def test_a_memory_episode_without_its_start_kind_fails() -> None:
+    data = _base()
+    data.remove((MEMORY, KG.memoryStartKind, None))
+    conforms, results = _validate(data)
+    assert not conforms
+    assert MEMORY in _foci(results)

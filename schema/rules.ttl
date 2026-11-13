@@ -284,8 +284,8 @@
     :hasClause :Pred_L0_CARTERA_ACTIVATION ;
     rdfs:label "Portfolio tail-risk activation"@en ;
     rdfs:label "Activación del riesgo de cola de la cartera"@es ;
-    rdfs:comment "Layer 0 of the Veto Hierarchy: the portfolio's 63-session CVaR95 crosses the 80th percentile of its previous 252 values; the exposure scale leaves 1."@en ;
-    rdfs:comment "Capa 0 de la Jerarquía de Veto: el CVaR95 a 63 sesiones de la cartera cruza el percentil 80 de sus 252 valores anteriores; la escala de exposición deja 1."@es .
+    rdfs:comment "Layer 0 of the Veto Hierarchy: the portfolio's 95% CVaR over the last 63 sessions exceeds the 80th percentile of its previous 252 values (θ), and the exposure scale falls from 1 to θ/CVaR, only if the change is at least 0.05."@en ;
+    rdfs:comment "Capa 0 de la Jerarquía de Veto: el CVaR al 95% de las últimas 63 sesiones de la cartera supera el percentil 80 de sus 252 valores anteriores (θ), y la escala de exposición baja de 1 a θ/CVaR, solo si el cambio es de al menos 0,05."@es .
 :Pred_L0_CARTERA_ACTIVATION a :GraphPredicate ; :predicateName "GuardPortfolioTailRiskActivation" ;
     rdfs:comment "A label chosen here, not an upstream identifier. Evaluated upstream: portfolio CVaR95 above its 80th-percentile threshold." .
 
