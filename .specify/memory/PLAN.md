@@ -3630,7 +3630,8 @@ measured pilot budget is in `docs/veto-hierarchy-design.md` §6.
       pilot System book.)* Manifest, filters, graph names, meta and m018.
 - [x] **T-853–T-859** *(done 2026-11-13, PR #158: `src/projection/veto_events.py`, strict parser
       and projector; pilot 3,013 detail triples, 251 alerts / 321 actions / 196 performance / 10
-      rebalances / 4 tests; combined SHACL passes; no GraphDB write.)* Detail model: decisions,
+      rebalances / 4 tests; combined SHACL passes; full suite 1,696 passed / 61 deselected; no
+      GraphDB write.)* Detail model: decisions,
       retention, stop/menu/cash, replacement, stop memory, price negative tests and the selection
       cross-check; no full candidate/target duplication.
 - [ ] **T-860–T-864** Second label table (31 concepts + new schema elements), C1 label, TTYG
