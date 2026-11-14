@@ -1454,7 +1454,7 @@ implementation tasks wait for approval and the final manifest (2026-11-17/18).
       selection cross-check.
 - [x] **T-860–T-862** *(done 2026-11-13, PR #160.)* Second label table, C1 label, per-episode
       StopMemory and the complete control rule.
-- [ ] **T-863–T-864** TTYG instructions/evaluation sheet and the remaining runbook updates.
+- [x] **T-863–T-864** *(done 2026-11-14, PR #162.)* Investor recipes C1–C20, R1–R9, the recipe test and the rehearsal environment-order fix.
 - [x] **T-865–T-869** *(done 2026-11-13, PR #159.)* Loader CLI, per-graph SHACL batching,
       rehearsal, final dry run and the production record.
 - [x] **T-867/T-868/T-869 follow-up** *(done 2026-11-13, PR #161.)* `control_counts`

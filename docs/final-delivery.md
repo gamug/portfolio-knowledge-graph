@@ -23,7 +23,11 @@ backup. The new loader is `cli/load_veto.py`; it refuses a non-empty target and 
 Use the pilot DB and a **draft** manifest (PENDIENTE control counts, real pilot hashes). A draft is
 accepted only for a dry run or a scratch repository:
 
+Source `.env` first, then export the scratch target: sourcing it after an export would override
+`KG_REPOSITORY` with the production value.
+
 ```bash
+set -a; . ./.env; set +a
 export SQL_UNIVERSE_DB=/workspaces/thesis/data/universe_history_gics.db
 export KG_REPOSITORY=portfolio_test
 uv run python cli/load_veto.py --manifest /path/to/pilot/manifest_final.json
@@ -193,10 +197,13 @@ draft-only; never use it for production.
 
 Set the target and list every graph (read-only):
 
+Source `.env` first, then export the scratch target; the reverse order lets `.env` overwrite
+`KG_REPOSITORY`.
+
 ```bash
+set -a; . ./.env; set +a
 export KG_REPOSITORY=portfolio_test
 export SQL_UNIVERSE_DB=/workspaces/thesis/data/universe_history_gics.db
-set -a; . ./.env; set +a
 
 curl -fsS -u "$KG_USER:$KG_PASSWORD" -H 'Accept: application/sparql-results+json' \
   --data-urlencode 'query=SELECT ?g (COUNT(*) AS ?n) WHERE { GRAPH ?g { ?s ?p ?o } } GROUP BY ?g' \
@@ -225,9 +232,9 @@ curl -fsS -u "$KG_USER:$KG_PASSWORD" -X POST \
 ### 0ter.2 Load the scratch rehearsal
 
 ```bash
+set -a; . ./.env; set +a
 export KG_REPOSITORY=portfolio_test
 export SQL_UNIVERSE_DB=/workspaces/thesis/data/universe_history_gics.db
-set -a; . ./.env; set +a
 
 uv run python cli/load_schema.py
 uv run python cli/load_universe.py --as-of 2026-11-09 --write
