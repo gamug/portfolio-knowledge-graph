@@ -3594,7 +3594,7 @@ graph is **1265 triples**. No GraphDB write.
 
 ## Work item 46 — Veto Hierarchy projection (T-840–T-869)
 
-**Status: PR A–G merged (#156–#161); PR H open as PR #162 (T-863/T-864 investor recipes).**
+**Status: PR A–H merged (#156–#162); pre-flight fix open as PR #163 (T-870–T-871).**
 
 **Why**: Reviewer A delivered the frozen data dictionary and the pilot `H1C-B5-P1` for the complete
 System with the Veto Hierarchy. The engine arm codes no longer identify a configuration
@@ -3650,6 +3650,10 @@ measured pilot budget is in `docs/veto-hierarchy-design.md` §6.
 - [x] **T-867/T-868/T-869 follow-up** *(done 2026-11-13, PR #161: full `control_counts`
       computation and comparison, store-side checks and the pilot rehearsal kit; A's SH/MB P1
       values match; full suite 1,739 passed / 62 deselected; no write.)*
+- [x] **T-870–T-871** *(done 2026-11-14, PR #163: `gate.plan`/`validate_against_store` take a
+      validation-only context; the loader passes each m018 batch its sibling selection closure
+      before any write. Full suite pending.)* Pre-flight sibling context. T-870–T-871 are the
+      next free IDs after the fully assigned T-840–T-869 decade.
 
 **Acceptance criteria**:
 
