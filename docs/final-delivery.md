@@ -668,6 +668,28 @@ Finally, `KG_REPOSITORY=portfolio uv run python cli/verify_store.py --to-product
 0, and `cli/load_run.py --label final --dir ... --check-store` must report all 13 graphs as
 `already-in-the-store`.
 
+### 8.5 Create the agent (manual)
+
+After the load and acceptance, create the Workbench agent from
+[`ttyg/create-agent.md`](ttyg/create-agent.md) with **Repository ID `portfolio`**. The agent is
+Workbench state: it is not in the export, the backup or the repository. Paste the v2.1 CONSTRUCT and
+the single v1.4 instruction fence exactly as the recipe says, and confirm that **Review agent
+instructions** shows the stated character count.
+
+When the evaluation reaches questions 21 and 22 (book weighting and the name cap), the human answer
+must quote the real `RunConfiguration_final` comment from `config_final.md`. The rehearsal
+repository's placeholder "Pilot rehearsal body" is not the production comment and must not appear in
+a delivered answer. T-759 stays open until the human run.
+
+## Known pitfalls (notes, not commands)
+
+- `.env` already defines `SQL_UNIVERSE_DB` with a path that may not exist on this machine. Sourcing
+  `.env` sets that value, so export the real path explicitly **after** `set -a; . ./.env; set +a`;
+  otherwise the loader reads the wrong database.
+- The dev-container name changes when the container is recreated: find it with `docker ps`, and make
+  sure the `portfolio` GraphDB container is running (`docker start portfolio`) before the store
+  commands.
+
 ## 9. Rehearsal first
 
 Run the same sequence in `portfolio_test` before touching production. Prefix every trial command

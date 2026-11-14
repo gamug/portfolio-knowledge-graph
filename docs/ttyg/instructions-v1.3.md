@@ -1,5 +1,9 @@
 # Talk to Your Graph additional instructions v1.3 (`final` label, B5 + fundamentals)
 
+**Superseded by [`instructions-v1.4.md`](instructions-v1.4.md).** This file is kept as the historical
+copy; do not paste it into the agent. The 2026-11-14 rehearsal findings and the final-store
+configuration names are fixed in v1.4.
+
 Paste the entire block below into the agent's **Additional instructions** field. This version keeps
 every v1.2 rule and applies `docs/labels-design.md` §9 plus the fundamentals and weighting rules. It
 adds the block C model (`:FundamentalMetricSet`, `:FundamentalAssessment`, the 37 direct metric
