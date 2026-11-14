@@ -951,8 +951,17 @@ def validate(
         raise ShaclRejected(str(report), cast(rdflib.Graph, results))
 
 
-def validate_against_store(db: GraphDB, batch: rdflib.Graph, directory: Path | None = None) -> None:
+def validate_against_store(
+    db: GraphDB,
+    batch: rdflib.Graph,
+    directory: Path | None = None,
+    context: rdflib.Graph | None = None,
+) -> None:
     """Run the gate's validation with the context the live store holds about ``batch``'s refs.
+
+    ``context`` adds validation-only triples that are not in the store yet (for example the sibling
+    selection graph of a batch written in the same delivery). It is merged after the store fetch and
+    is never written.
 
     Read-only: it issues only the ``SELECT`` queries of :func:`fetch_context` and never writes.
     It is the shape/context half of the gate, kept for callers that only need that; the
@@ -960,11 +969,46 @@ def validate_against_store(db: GraphDB, batch: rdflib.Graph, directory: Path | N
     """
     schema = load_gate_schema((directory or schema_dir()).resolve())
     refs = references(batch, schema)
+
+    def validation_context() -> rdflib.Graph:
+        data = fetch_context(db, refs, schema, batch) if refs else rdflib.Graph()
+        return _with_extra_context(data, context, refs)
+
     validate(
         batch,
         directory,
-        (lambda: fetch_context(db, refs, schema, batch)) if refs else None,
+        validation_context if (refs or context is not None) else None,
     )
+
+
+def _with_extra_context(
+    stored: rdflib.Graph, extra: rdflib.Graph | None, refs: set[rdflib.URIRef]
+) -> rdflib.Graph:
+    """Merge validation-only ``extra`` triples reachable from the batch's references.
+
+    Only statements whose subject is a reference of the batch, or is reached from one in at most two
+    hops, are kept. A caller may pass the whole sibling graph of a delivery planned before the write;
+    restricting it keeps pyshacl from treating unrelated sibling individuals as focus nodes whose own
+    store references were not fetched.
+    """
+    if extra is None:
+        return stored
+    data = rdflib.Graph()
+    data += stored
+    frontier = set(refs)
+    seen: set[rdflib.URIRef] = set()
+    # Two hops cover the sibling's own shape branches (a snapshot's effective-weight components,
+    # a cycle linked from that snapshot) without importing the sibling's unrelated individuals.
+    for _ in range(2):
+        following: set[rdflib.URIRef] = set()
+        for subject in frontier:
+            for triple in extra.triples((subject, None, None)):
+                data.add(triple)
+                if isinstance(triple[2], rdflib.URIRef):
+                    following.add(triple[2])
+        frontier = following - seen
+        seen.update(frontier)
+    return data
 
 
 def existing_subjects(db: GraphDB, batch: rdflib.Graph) -> list[str]:
@@ -982,22 +1026,39 @@ def existing_subjects(db: GraphDB, batch: rdflib.Graph) -> list[str]:
     return found
 
 
-def plan(db: GraphDB, data: bytes, graph: str, directory: Path | None = None) -> IngestPlan:
+def plan(
+    db: GraphDB,
+    data: bytes,
+    graph: str,
+    directory: Path | None = None,
+    context: rdflib.Graph | None = None,
+) -> IngestPlan:
     """Run every check :func:`ingest` runs, without writing; return the plan.
 
     The store is read for the individuals the batch points at, whether the graph exists
     (append-only ones), the closing triples' subjects and the stored sections it restates, and the
     typed individuals it declares, in that order, each only after the checks before it passed.
-    ``ALREADY_IN_STORE`` means the target append-only graph exists, so a writer skips it;
-    :func:`write` keeps the historical refusal for a real ``ingest`` call.
+    ``context`` adds validation-only triples that are not in the store yet (for example the sibling
+    selection graph of a delivery planned before any write); it is merged for the shape check and is
+    never written. ``ALREADY_IN_STORE`` means the target append-only graph exists, so a writer skips
+    it; :func:`write` keeps the historical refusal for a real ``ingest`` call.
     """
     append_only = check_target(graph)
     batch = parse_batch(data)
     schema = load_gate_schema((directory or schema_dir()).resolve())
     refs = references(batch, schema)
+
+    def validation_context() -> rdflib.Graph:
+        stored = fetch_context(db, refs, schema, batch) if refs else rdflib.Graph()
+        return _with_extra_context(stored, context, refs)
+
     # Every store query comes after validate's store-free checks, so a batch they refuse costs none:
     # the context is fetched lazily, and the two checks below it run on a batch that passed.
-    validate(batch, directory, (lambda: fetch_context(db, refs, schema, batch)) if refs else None)
+    validate(
+        batch,
+        directory,
+        validation_context if (refs or context is not None) else None,
+    )
     if append_only and db.select(f"SELECT * WHERE {{ GRAPH <{graph}> {{ ?s ?p ?o }} }} LIMIT 1"):
         return IngestPlan(graph, batch, IngestPlanStatus.ALREADY_IN_STORE, len(batch))
     closing = {s for s, _ in closing_values(batch)}

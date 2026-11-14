@@ -121,7 +121,9 @@ KG_REPOSITORY=portfolio uv run python cli/load_veto.py \
 
 The write is append-only and refuses a target graph that already holds triples. It writes the meta
 graph, then each m018/detail graph and its selection sibling, one graph at a time, and prints the
-written list. A failure stops and lists what was already written; no graph is dropped.
+written list. A failure stops and lists what was already written; no graph is dropped. The
+read-only pre-flight validates each m018 graph beside its sibling selection graph as context (and
+the reverse); that context is never written.
 
 The detail loader derives `not_ranked` stop-memory releases from the run's `rankings_file` (the
 manifest hash is already verified). At every decision date it enforces the control rule: the assets
@@ -250,6 +252,8 @@ uv run python cli/verify_store.py \
 
 `load_veto --write` accepts the draft only because the repository is `portfolio_test`; the loader
 refuses a draft on production. It writes the meta, m018/detail and selection graphs and never drops.
+The pre-flight validates each m018 graph beside its sibling selection graph as context; the sibling
+is not written by that check.
 `verify_store --manifest` derives `memory_released_price` and `memory_released_not_ranked` from the
 stored `StopMemory` `memoryReleaseCause`, and `memory_open_at_end` from `StopMemory` individuals with
 no `memoryReleasedOn`.

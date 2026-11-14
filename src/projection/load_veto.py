@@ -405,11 +405,32 @@ def _all_graphs(result: LoadResult) -> list[VetoGraph]:
     return [result.meta, *(graph for batch in result.batches for graph in batch.graphs)]
 
 
+def _sibling_contexts(result: LoadResult) -> dict[str, rdflib.Graph]:
+    """The validation-only sibling of each m018/selection graph in the same manifest key.
+
+    A final delivery is planned before anything is written, so the sibling graph is not in the
+    store yet. It supplies the classes of the individuals the batch points at (a Decision's
+    ``:selectionCycle``, a RetentionHold's ``:rankingSnapshot``) exactly as the store would after
+    the sibling write. It is never added to the batch that is written.
+    """
+    contexts: dict[str, rdflib.Graph] = {}
+    for batch in result.batches:
+        if batch.selection is None:
+            continue
+        m018 = next((graph for graph in batch.graphs if graph.kind == "m018"), None)
+        selection = next((graph for graph in batch.graphs if graph.kind == "selection"), None)
+        if m018 is not None and selection is not None:
+            contexts[m018.graph] = batch.selection
+            contexts[selection.graph] = batch.m018
+    return contexts
+
+
 def plan_delivery(
     store: GraphDB, result: LoadResult, *, minimum_free_pct: float = 8.0
 ) -> list[gate.IngestPlan]:
     """Plan every graph with ``gate.plan``; refuse any existing non-empty graph."""
     disk = DiskMonitor(store, minimum_free_pct)
+    contexts = _sibling_contexts(result)
     plans: list[gate.IngestPlan] = []
     for graph in _all_graphs(result):
         count = _existing(store, graph.graph)
@@ -420,7 +441,7 @@ def plan_delivery(
             )
         disk.check(f"pre-flight {graph.graph}")
         try:
-            plan = gate.plan(store, graph.data, graph.graph)
+            plan = gate.plan(store, graph.data, graph.graph, context=contexts.get(graph.graph))
         except gate.IngestRejected as exc:
             raise LoadVetoError(f"{graph.graph}: {exc}") from exc
         print(f"pre-flight: {graph.graph}: {plan.status.value}, {graph.triples} triples")

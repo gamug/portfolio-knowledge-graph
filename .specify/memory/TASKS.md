@@ -1459,3 +1459,6 @@ implementation tasks wait for approval and the final manifest (2026-11-17/18).
       rehearsal, final dry run and the production record.
 - [x] **T-867/T-868/T-869 follow-up** *(done 2026-11-13, PR #161.)* `control_counts`
       computation/comparison and the scratch rehearsal kit.
+- [x] **T-870–T-871** *(done 2026-11-14, PR #163.)* Pre-flight sibling selection context: m018
+      and selection graphs are planned together before any write. The T-840–T-869 decade is fully
+      assigned; T-870–T-871 are the next free IDs.
