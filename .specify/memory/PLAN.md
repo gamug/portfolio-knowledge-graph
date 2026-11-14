@@ -3652,7 +3652,7 @@ measured pilot budget is in `docs/veto-hierarchy-design.md` §6.
       values match; full suite 1,739 passed / 62 deselected; no write.)*
 - [x] **T-870–T-871** *(done 2026-11-14, PR #163: `gate.plan`/`validate_against_store` take a
       validation-only context; the loader passes each m018 batch its sibling selection closure
-      before any write. Full suite pending.)* Pre-flight sibling context. T-870–T-871 are the
+      before any write. Full suite 1,753 passed / 62 deselected.)* Pre-flight sibling context. T-870–T-871 are the
       next free IDs after the fully assigned T-840–T-869 decade.
 
 **Acceptance criteria**:
