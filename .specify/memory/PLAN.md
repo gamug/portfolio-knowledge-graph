@@ -3334,6 +3334,8 @@ engine code and must not reload run data.
 3. **Six windows, no C1.** Window concepts 1–6 carry number, dates, code and only
    backed scenario altLabels; H windows carry separate historical and
    final-configuration (in-sample) fields. C1 gets no concept or IRI.
+   *Superseded by Work item 46 (T-860–T-862): C1 is now the continuous window concept and the final
+   store loads it; v1.4 reports it as its own window.*
 4. **Confirmed strategy mapping.** `TOPN_MV_GUARD_NO_NLP` = System (FINAL),
    `TOPN_MV_NOGUARD` = FINAL NOGUARD, `MARKOWITZ_BASE` = Markowitz minimum
    variance (Ledoit-Wolf), `MARKOWITZ_BASE_GUARD` = the same with GUARD.
@@ -3342,6 +3344,9 @@ engine code and must not reload run data.
    (T-780–T-809) as summary-only rows; only `MARKOWITZ_MV` may carry the name
    "Markowitz base". `B0`, `MCF`, `MARKOWITZ_SAMPLE(_GUARD)`, `BMK_*` and C1 get
    no concept. `L4_DD` scales all reference weights, including the SPY core.
+   *Superseded by Work item 46: the final store loads five configurations —
+   SYSTEM_WITH_HIERARCHY, SYSTEM_WITHOUT_HIERARCHY, MARKOWITZ_BASE, MARKOWITZ_MV and SPY;
+   MARKOWITZ_BASE_GUARD is not loaded.*
 5. **English review first.** `docs/labels-en-review.md` (Phase 2) holds code, ES
    comment and EN draft; Reviewer A approves every row before the English enters
    `schema/`. The `objective` label is "Registered optimization class" and its
@@ -3388,13 +3393,23 @@ engine code and must not reload run data.
       from the turnover questions.
 - [ ] **T-759** Human run of the evaluation sheet against the loaded graph; record
       the four criteria and file the findings. No agent answer is committed.
-- [ ] **T-760–T-779** Reserve for review fixes or a second label pass.
+- [x] **T-760** *(done 2026-11-14: `docs/ttyg/instructions-v1.4.md`; datum-first answers, no
+      backtest boilerplate on fundamentals, every `D` replaced, flag-only rules as indicators,
+      counting rule matching the query, five configurations, C1 and the question patterns; v1.3 is
+      the historical copy.)* Write the v1.4 instructions.
+- [x] **T-761** *(done 2026-11-14: byte-exact `docs/ttyg/ontology_construct_curated_v2_1.rq`
+      (SHA-256 `9f0b96…bdc64`), README form map, create-agent count check and
+      `tests/test_ttyg_docs.py`; v3 is reference only.)* Record the Workbench-accepted CONSTRUCT.
+- [x] **T-762** *(done 2026-11-14: `docs/ttyg/evaluation-questions.md` questions 25–27,
+      `docs/final-delivery.md` §8.5 and known pitfalls; T-759 stays open.)* Record the review
+      questions and the delivery notes.
+- [ ] **T-763–T-779** Reserve for review fixes or a second label pass.
 
 **Acceptance criteria**:
 
 - Every glossary item in `docs/labels-design.md` §1 has a representation and a
-  label mechanism; literals are joined by `skos:notation`; C1/`rule`/`candidate_y2`
-  are absent; no run IRI gets a triple.
+  label mechanism; literals are joined by `skos:notation`; `rule`/`candidate_y2`
+  are absent; C1 is the continuous window (Work item 46); no run IRI gets a triple.
 - The vocabulary loads in production and test plans, pyshacl-conforms, and every
   asserted count is updated by the measured `D`.
 - Strategy labels use the nomenclature v3 full names; only `MARKOWITZ_MV` may
@@ -3404,8 +3419,9 @@ engine code and must not reload run data.
 - `objective` is labelled "Registered optimization class" and its comment stays
   consistent with Work item 41.
 - Reviewer A has approved every English comment before it is frozen.
-- v1.3 implements the changes listed in `docs/labels-design.md` §9; the evaluation
-  sheet has 16 empty answer rows, the two label traps and the four criteria.
+- v1.4 implements the changes listed in `docs/labels-design.md` §9 and the T-760–T-762
+  review fixes; the evaluation sheet has the original questions, the T-757/T-762
+  additions and the four criteria.
 - No run data is reloaded and no engine code or IRI changes.
 
 **Blocked on**: Reviewer A's English review (T-755) and the human GraphDB schema

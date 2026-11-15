@@ -1375,7 +1375,18 @@ starts at T-751. See `docs/labels-design.md` and `PLAN.md` Work item 43.*
       division. Do not expect averages from the turnover questions.
 - [ ] **T-759** Human run of the evaluation sheet against the loaded graph; record
       the four criteria and file the findings outside the committed sheet.
-- [ ] **T-760–T-779** Reserve for review fixes or a second label pass.
+- [x] **T-760** *(done 2026-11-14: `docs/ttyg/instructions-v1.4.md`; datum-first answers,
+      no backtest boilerplate on fundamentals, every `D` replaced, flag-only rules as indicators,
+      counting rule matching the query, five configurations, C1 and the question patterns.)* Write
+      the v1.4 instructions and mark v1.3 superseded.
+- [x] **T-761** *(done 2026-11-14: byte-exact
+      `docs/ttyg/ontology_construct_curated_v2_1.rq`, README form map, create-agent count check and
+      `tests/test_ttyg_docs.py`; v3 kept as reference only.)* Record the Workbench-accepted CONSTRUCT
+      and its evidence.
+- [x] **T-762** *(done 2026-11-14: `docs/ttyg/evaluation-questions.md` questions 25–27,
+      `docs/final-delivery.md` §8.5 and known pitfalls; T-759 stays open.)* Record the review
+      questions and the agent-creation/delivery notes.
+- [ ] **T-763–T-779** Reserve for review fixes or a second label pass.
 
 ## Work item 44 — External mean-variance base Markowitz loader (T-780–T-809)
 
