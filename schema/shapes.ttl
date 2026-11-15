@@ -794,6 +794,47 @@
                   sh:minInclusive 0.0 ] ;
     sh:property [ sh:path :aggregatesSet ; sh:class :AggregatesSet ; sh:minCount 1 ; sh:maxCount 1 ] .
 
+#################################################################
+# DAILY SERIES (Work item 46, block E)
+#
+# One append-only graph per (label, configuration slug):
+# urn:graph:derived:backtest:series:{label}:{markowitz_mv|spy}.
+# DailySeriesPoint carries the columns of spy_daily.csv or
+# mv_daily_<window>.csv; SeriesWeightPoint carries mv_weights.csv.
+# No price level or OHLCV is stored.
+#################################################################
+
+:DailySeriesPointShape
+    a sh:NodeShape ;
+    sh:targetClass :DailySeriesPoint ;
+    sh:property [ sh:path :seriesOfConfiguration ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :windowId ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ;
+                  sh:pattern "^([PH][0-9]+|C[0-9]+)$" ] ;
+    sh:property [ sh:path :seriesDate ; sh:datatype xsd:date ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:xone (
+        [ sh:property [ sh:path :seriesOfConfiguration ; sh:hasValue :Configuration_SPY ] ;
+          sh:property [ sh:path :dailyTotalReturn ; sh:datatype xsd:decimal ; sh:minCount 1 ; sh:maxCount 1 ] ;
+          sh:property [ sh:path :seriesValue ; sh:datatype xsd:decimal ; sh:minCount 1 ; sh:maxCount 1 ] ]
+        [ sh:property [ sh:path :seriesOfConfiguration ; sh:hasValue :Configuration_MarkowitzMV ] ;
+          sh:property [ sh:path :seriesGrossReturn ; sh:datatype xsd:decimal ; sh:minCount 1 ; sh:maxCount 1 ] ;
+          sh:property [ sh:path :seriesNetReturn ; sh:datatype xsd:decimal ; sh:minCount 1 ; sh:maxCount 1 ] ;
+          sh:property [ sh:path :seriesTurnover ; sh:datatype xsd:decimal ; sh:minCount 1 ; sh:maxCount 1 ] ;
+          sh:property [ sh:path :seriesCost ; sh:datatype xsd:decimal ; sh:minCount 1 ; sh:maxCount 1 ] ;
+          sh:property [ sh:path :seriesCashWeight ; sh:datatype xsd:decimal ; sh:minCount 1 ; sh:maxCount 1 ] ]
+    ) .
+
+:SeriesWeightPointShape
+    a sh:NodeShape ;
+    sh:targetClass :SeriesWeightPoint ;
+    sh:property [ sh:path :seriesOfConfiguration ; sh:minCount 1 ; sh:maxCount 1 ;
+                  sh:hasValue :Configuration_MarkowitzMV ] ;
+    sh:property [ sh:path :windowId ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ;
+                  sh:pattern "^([PH][0-9]+|C[0-9]+)$" ] ;
+    sh:property [ sh:path :seriesDate ; sh:datatype xsd:date ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :seriesAssetId ; sh:datatype xsd:integer ; sh:minCount 1 ; sh:maxCount 1 ;
+                  sh:minInclusive 1 ] ;
+    sh:property [ sh:path :seriesWeight ; sh:datatype xsd:decimal ; sh:minCount 1 ; sh:maxCount 1 ] .
+
 :LabelConceptShape
     a sh:NodeShape ;
     sh:targetSubjectsOf :labelScheme ;

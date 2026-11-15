@@ -1,9 +1,9 @@
 # Ontology Definition — Portfolio Knowledge Graph (v2)
 
 **Implementation:** [`schema/`](../schema/) — the formal OWL/SHACL/TriG implementation of
-everything described below, split into `tbox.ttl` (classes/properties, **72 classes total** as of
-this revision — 58 mutually-disjoint leaf/domain classes, a 13-class `rdfs:subClassOf` taxonomic
-backbone and `:ExchangeTradedFund` under `:Asset`, see §1.2), `shapes.ttl` (SHACL, 57 named
+everything described below, split into `tbox.ttl` (classes/properties, **74 classes total** as of
+this revision — 60 mutually-disjoint leaf/domain classes, a 13-class `rdfs:subClassOf` taxonomic
+backbone and `:ExchangeTradedFund` under `:Asset`, see §1.2), `shapes.ttl` (SHACL, 59 named
 shapes), `reference.ttl` (GICS taxonomy +
 asset master data + the new `MetricType` controlled vocabulary, §1.9), `rules.ttl` (the ten active
 selection rules, the six GUARD protection rules, and the seven original ones as trees), and
@@ -928,7 +928,7 @@ not a veto rule:** it carries no `:ruleSeverity`, `:penaltyPoints` or `:priority
 `VetoShape` refuses it as the object of `:appliesRule`/`:primaryRule`. `RuleDefinitionShape` adds one
 `sh:or` branch for `:category "GUARD"`, keeps the severity requirement for every other active rule,
 makes `:priorityRank` mandatory for non-GUARD rules, and widens the rank range to `[1,10]` for
-`UTILITY_CASH_COVERAGE`. The bundle is **9125 quads; conforms: True** (the FR-001 gate, current at
+`UTILITY_CASH_COVERAGE`. The bundle is **9310 quads; conforms: True** (the FR-001 gate, current at
 Work item 46).
 
 **Projection of the three remaining v18 views (T-208, T-352/T-353).** `TickerHistory`,
@@ -1050,8 +1050,8 @@ parameters and process/evaluation terms. `LabelConceptShape` (in `shapes.ttl`) r
 `skos:notation`, one `skos:inScheme`, one `rdfs:label` and one `rdfs:comment` per language, and only
 `@en`/`@es` `skos:altLabel`s; windows also carry `:windowStart`, `:windowEnd`, `:historicalCondition`
 and `:finalConfigurationCondition`. The file is in FR-001 and the load plan. Counts after this
-addition: **72 classes (58 disjoint leaves), 57 named shapes, 9125 quads; conforms: True**; load plan
-**21 graphs / 9402 asserted triples** (production **5 / 8881**).
+addition: **74 classes (60 disjoint leaves), 59 named shapes, 9310 quads; conforms: True**; load plan
+**21 graphs / 9587 asserted triples** (production **5 / 9066**).
 
 ## 1.16 Fundamentals block C schema (Work item 45, T-811/T-812, 2026-11-13)
 
@@ -1067,8 +1067,8 @@ the 33 masked flags. The loader (PR 2) stops on a `valuation` row of a masked as
 `:Observation`; the existing explicit types are checked by `tests/test_fundamentals_shapes.py`.
 `shapes.ttl` adds `FundamentalFilingShape`, `FundamentalMetricSetShape`,
 `FundamentalAssessmentShape` and `FundamentalMetricDefinitionShape`.
-Counts: **72 classes (58 disjoint leaves), 57 named shapes, 9125 quads; conforms: True**; load plan
-**21 graphs / 9402 asserted triples** (production **5 / 8881**).
+Counts: **74 classes (60 disjoint leaves), 59 named shapes, 9310 quads; conforms: True**; load plan
+**21 graphs / 9587 asserted triples** (production **5 / 9066**).
 
 ## 1.17 Veto Hierarchy detail events (Work item 46, T-853–T-859, 2026-11-13)
 
@@ -1100,5 +1100,19 @@ match exactly one loaded alert by `(date, asset)`, every replacement must link t
 decision pool/candidate/blocked counts must agree with the decision-only selection rows (never
 `rankings.json`). `RetentionRejectionShape` now admits counter 0. PR D adds
 `:memoryReleaseCause`, `:memoryStartKind` and `:rejectedZoneNoSignal`, the C1/31-concept label vocabulary and the
-removed-rule label cleanup; counts after it: **72 classes, 58 disjoint leaves, 57 named shapes,
-9125 quads, 21/9402 asserted triples, production 5/8881**.
+removed-rule label cleanup; counts after it: **74 classes, 60 disjoint leaves, 59 named shapes,
+9310 quads, 21/9587 asserted triples, production 5/9066**.
+
+## 1.18 Daily reference series (Work item 46, block E, 2026-11-15)
+
+`tbox.ttl` adds two Observation leaves. `DailySeriesPoint` holds one session of `spy_daily.csv`
+(`:dailyTotalReturn`, `:seriesValue`) or one row of `markowitz_mv/mv_daily_<window>.csv`
+(`:seriesGrossReturn`, `:seriesNetReturn`, `:seriesTurnover`, `:seriesCost`,
+`:seriesCashWeight`). `SeriesWeightPoint` holds one `mv_weights.csv` row
+(`:seriesAssetId`, `:seriesWeight`). Both carry `:seriesOfConfiguration`, `:windowId` and
+`:seriesDate`; the key is `(window, date)` for a daily point and `(window, decision date, asset id)`
+for a weight. The loader writes one append-only graph per configuration slug,
+`urn:graph:derived:backtest:series:{label}:{markowitz_mv|spy}`, and loads window C1 with the six
+calendar windows. No price level, OHLCV or daily asset return is stored. The two shapes
+`DailySeriesPointShape` and `SeriesWeightPointShape` enforce the configuration branch, the window
+pattern and a decimal value per column.

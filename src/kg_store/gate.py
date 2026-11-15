@@ -146,6 +146,12 @@ _BACKTEST_AGGREGATES_TARGET = re.compile(
 _BACKTEST_EXTERNAL_TARGET = re.compile(
     r"urn:graph:derived:backtest:external:([a-z][a-z0-9_]{1,31})"
 )
+#: One daily-series graph per run label and configuration (Work item 46, block E): SPY and the
+#: external MARKOWITZ_MV book. The literal ``series`` segment keeps it apart from the summary-only
+#: external graph and the engine's m018/selection names.
+_BACKTEST_SERIES_TARGET = re.compile(
+    r"urn:graph:derived:backtest:series:([a-z][a-z0-9_]{1,31}):([a-z][a-z0-9_]{1,31})"
+)
 #: One fundamentals graph per run label (Work item 45): the block C filings, metric sets and
 #: assessments plus the 33 masked-asset flags. Append-only, one graph per label.
 _FUNDAMENTALS_TARGET = re.compile(r"urn:graph:derived:fundamentals:([a-z][a-z0-9_]{1,31})")
@@ -167,6 +173,7 @@ APPEND_ONLY_PATTERNS = (
     _BACKTEST_META_TARGET,
     _BACKTEST_AGGREGATES_TARGET,
     _BACKTEST_EXTERNAL_TARGET,
+    _BACKTEST_SERIES_TARGET,
     _FUNDAMENTALS_TARGET,
     _TICKER_HISTORY_TARGET,
     _ORCHESTRATOR_TARGET,
@@ -233,6 +240,7 @@ def check_target(graph: str) -> bool:
                 _BACKTEST_META_TARGET,
                 _BACKTEST_AGGREGATES_TARGET,
                 _BACKTEST_EXTERNAL_TARGET,
+                _BACKTEST_SERIES_TARGET,
                 _FUNDAMENTALS_TARGET,
                 _ORCHESTRATOR_TARGET,
                 _UNIVERSE_DELTA_TARGET,
@@ -255,6 +263,7 @@ def check_target(graph: str) -> bool:
         "urn:graph:derived:backtest:meta:{run label}, "
         "urn:graph:derived:backtest:aggregates:{run label}[:{configuration slug}], "
         "urn:graph:derived:backtest:external:{run label}, "
+        "urn:graph:derived:backtest:series:{run label}:{configuration slug}, "
         "urn:graph:derived:fundamentals:{run label}, "
         "urn:graph:derived:ticker-history:{run label}:YYYY-MM-DD, "
         "urn:graph:derived:orchestrator:{run label}:{positive integer}, "
@@ -524,7 +533,7 @@ def _refusal(p: rdflib.URIRef, dates: list[str], held: dict[rdflib.URIRef, set[s
     if not types & classes or held.get(_PER_RUN_MARKER):
         return f"it is not a record that {p.rpartition('#')[2]} closes"
     if held.get(p):
-        was = sorted(held[p])[0]
+        was = min(held[p])
         retry = (
             ": the same date, so perhaps this batch was already written" if was == dates[0] else ""
         )
@@ -551,7 +560,7 @@ def _append_refusal(
     if not types & classes:
         return f"it is not a record that {p.rpartition('#')[2]} is added to"
     if held.get(ended):
-        return f"it is already closed ({sorted(held[ended])[0]}), so no cycle saw it after"
+        return f"it is already closed ({min(held[ended])}), so no cycle saw it after"
     return (
         _not_before_opening(dates[0], held.get(opened, set()), opened)
         or _repeats_or_precedes(dates[0], held.get(p, set()))
@@ -732,7 +741,7 @@ def refused_supersessions(batch: rdflib.Graph, state: ClosingState) -> list[str]
             why = "it is not a SECFilingSection"
         elif held.get(SUPERSEDED_BY):
             why = (
-                f"it is already superseded by {sorted(held[SUPERSEDED_BY])[0]}: "
+                f"it is already superseded by {min(held[SUPERSEDED_BY])}: "
                 "the next correction replaces the latest section"
             )
         else:
@@ -1100,6 +1109,41 @@ def write(db: GraphDB, plan: IngestPlan) -> int:
     except AnswerLost as exc:
         raise WriteInDoubt(str(exc)) from exc
     return plan.triples
+
+
+def write_batched(db: GraphDB, plan: IngestPlan, *, batch_size: int = 20_000) -> int:
+    """Apply one plan to its graph in ordered N-Triples chunks.
+
+    A large series graph is appended with several POSTs so no single request approaches the
+    client's 120 s timeout. The whole graph passed :func:`plan` once; the chunks are only a
+    transport split, never a second validation. An answer lost on any chunk leaves the graph in
+    doubt: the caller must not retry blindly. Returns the triples written.
+    """
+    if batch_size < 1:
+        raise ValueError("batch_size must be positive")
+    if plan.status is IngestPlanStatus.ALREADY_IN_STORE:
+        raise IngestRejected(
+            f"{plan.graph} already exists and is append-only; write a new dated graph"
+        )
+    ordered = sorted(plan.batch, key=lambda triple: tuple(str(term) for term in triple))
+    written = 0
+    for start in range(0, len(ordered), batch_size):
+        chunk = rdflib.Graph()
+        for triple in ordered[start : start + batch_size]:
+            chunk.add(triple)
+        try:
+            db.add(
+                chunk.serialize(format="nt").encode(),
+                "application/n-triples",
+                plan.graph,
+            )
+        except AnswerLost as exc:
+            raise WriteInDoubt(
+                f"{plan.graph}: the answer to a {len(chunk)}-triple chunk was lost after "
+                f"{written} triples were written"
+            ) from exc
+        written += len(chunk)
+    return written
 
 
 def ingest(db: GraphDB, data: bytes, graph: str, directory: Path | None = None) -> int:

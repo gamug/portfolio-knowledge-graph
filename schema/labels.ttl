@@ -1078,7 +1078,7 @@
 # frozen table is docs/labels-veto-review.md.
 #################################################################
 
-:Concept_Window_C1 a skos:Concept ;
+:Window_C1 a skos:Concept ;
     skos:inScheme :WindowScheme ;
     skos:notation "C1" ;
     :labelScheme :PresentationScheme ;

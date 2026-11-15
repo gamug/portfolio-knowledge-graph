@@ -20,7 +20,12 @@ import rdflib
 
 from etl import config
 from kg_store import gate
-from kg_store.graphdb import PRODUCTION_REPOSITORY, GraphDB, GraphDBError, announce_target
+from kg_store.graphdb import (
+    PRODUCTION_REPOSITORY,
+    GraphDB,
+    GraphDBError,
+    announce_target,
+)
 from projection.backtest import (
     AssetInfo,
     GuardCatalog,
@@ -44,7 +49,13 @@ from projection.control_counts import (
 )
 from projection.delivery import ConfigError, read_config
 from projection.disk_space import DiskMonitor, DiskSpaceError
-from projection.run_metadata import MetadataError, RunInfo, build_metadata, read_run_info
+from projection.run_metadata import (
+    MetadataError,
+    RunInfo,
+    build_metadata,
+    read_run_info,
+)
+from projection.series import graph_name as series_graph_name
 from projection.source import FinancialSource
 from projection.veto_events import (
     DetailError,
@@ -327,7 +338,7 @@ def build_delivery(  # noqa: C901, PLR0912, PLR0915 -- one branch per graph kind
     if validate_shacl:
         _validate_batches(batches, assets, guard_catalog)
         _validate_meta(meta, assets, guard_catalog)
-    for run in manifest.runs:
+    for run in getattr(manifest, "runs", ()):
         if run.source_kind != "series_csv":
             continue
         if not manifest.draft and not _has_control_counts(manifest, run.configuration, run.window):
@@ -495,12 +506,7 @@ def verify_delivery(  # noqa: C901 -- one check per graph family
                 manifest.control_counts,
             )
         )
-    for run in getattr(manifest, "runs", ()):
-        if run.source_kind == "series_csv":
-            print(
-                f"control count not store-verifiable: {run.configuration}/{run.window}.daily_rows: "
-                "the reference series CSV is not loaded"
-            )
+    failures.extend(_series_daily_row_failures(store, manifest))
     old_rules = _old_rule_alerts(store)
     if old_rules:
         failures.append("removed rules still referenced: " + ", ".join(old_rules))
@@ -516,6 +522,41 @@ def verify_delivery(  # noqa: C901 -- one check per graph family
 
 
 _PREFIX = "PREFIX : <https://thesis.local/kg/portfolio#>\n"
+
+
+def _series_daily_row_failures(store: GraphDB, manifest: VetoManifest) -> list[str]:
+    """Verify series ``daily_rows`` when the series graph exists; absent graphs are not failures."""
+    failures: list[str] = []
+    for run in getattr(manifest, "runs", ()):
+        if run.source_kind != "series_csv":
+            continue
+        graph = series_graph_name(manifest.label, run.slug)
+        if not store.select(f"SELECT * WHERE {{ GRAPH <{graph}> {{ ?s ?p ?o }} }} LIMIT 1"):
+            print(
+                f"control count not store-verifiable: {run.configuration}/{run.window}.daily_rows: "
+                f"the series graph {graph} is absent"
+            )
+            continue
+        rows = store.select(
+            _PREFIX + "SELECT (COUNT(DISTINCT ?point) AS ?n) "
+            f'WHERE {{ GRAPH <{graph}> {{ ?point a :DailySeriesPoint ; :windowId "{run.window}" }} }}'
+        )
+        try:
+            actual = int(rows[0]["n"])
+        except (IndexError, KeyError, TypeError, ValueError):
+            failures.append(f"{run.configuration}/{run.window}.daily_rows: unreadable store count")
+            continue
+        expected = compute_series_counts(
+            run.window, run.files, window_filter=run.configuration == "SPY"
+        )["daily_rows"]
+        if actual != expected:
+            failures.append(
+                f"{run.configuration}/{run.window}.daily_rows: control count {expected}, "
+                f"stored {actual}"
+            )
+        else:
+            print(f"PASS  daily_rows {run.configuration}/{run.window}: {actual}")
+    return failures
 
 
 def _old_rule_alerts(store: GraphDB) -> list[str]:
