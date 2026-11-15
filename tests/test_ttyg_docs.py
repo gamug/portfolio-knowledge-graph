@@ -307,6 +307,32 @@ def test_question_patterns_are_bounded_and_parseable() -> None:
         prepareQuery(prefixes + query)
 
 
+def test_ticker_question_patterns_read_the_reference_graph() -> None:
+    # T-760 review: :tickerSymbol and :companyName live in urn:graph:reference, not the universe graph.
+    block = _instruction_block()
+    patterns = [match.group("query") for match in QUESTION_PATTERN.finditer(block)]
+    ticker_patterns = [query for query in patterns if ":tickerSymbol" in query]
+    assert len(ticker_patterns) == 4
+    for query in ticker_patterns:
+        assert "GRAPH <urn:graph:reference>" in query
+        assert "urn:graph:universe:2026-Q4" not in query
+
+
+def test_fundamental_question_patterns_use_the_derived_graph() -> None:
+    # T-760 review: the store's fundamentals graph is urn:graph:derived:fundamentals:final.
+    block = _instruction_block()
+    patterns = [match.group("query") for match in QUESTION_PATTERN.finditer(block)]
+    fundamental_patterns = [
+        query
+        for query in patterns
+        if ":returnOnInvestedCapital" in query or ":assessmentOfAsset" in query
+    ]
+    assert len(fundamental_patterns) == 2
+    for query in fundamental_patterns:
+        assert "GRAPH <urn:graph:derived:fundamentals:final>" in query
+        assert "GRAPH <urn:graph:fundamentals:final>" not in query
+
+
 def test_pasteable_block_has_no_result_figures() -> None:
     # Work item 40, T-664: no backtest figure may be frozen into the instructions.
     block = _instruction_block()

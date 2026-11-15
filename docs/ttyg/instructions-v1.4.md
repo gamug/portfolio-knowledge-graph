@@ -90,8 +90,8 @@ READING RULES
 QUESTION PATTERNS (bounded skeletons; replace TICKER, D, FROM, TO, C, P1 and the graph names with the question's values; every pattern has LIMIT)
 PATTERN 1 - point-in-time metric at D:
 SELECT ?value ?available WHERE {
-  GRAPH <urn:graph:universe:2026-Q4> { ?asset :tickerSymbol "TICKER" }
-  GRAPH <urn:graph:fundamentals:final> {
+  GRAPH <urn:graph:reference> { ?asset :tickerSymbol "TICKER" }
+  GRAPH <urn:graph:derived:fundamentals:final> {
     ?filing :filingOfAsset ?asset ; :availableAt ?available .
     FILTER (?available <= "D"^^xsd:date)
     ?set :metricSetOfFiling ?filing ; :returnOnInvestedCapital ?value .
@@ -100,8 +100,8 @@ SELECT ?value ?available WHERE {
 
 PATTERN 2 - assessment as of D:
 SELECT ?score ?rating ?available WHERE {
-  GRAPH <urn:graph:universe:2026-Q4> { ?asset :tickerSymbol "TICKER" }
-  GRAPH <urn:graph:fundamentals:final> {
+  GRAPH <urn:graph:reference> { ?asset :tickerSymbol "TICKER" }
+  GRAPH <urn:graph:derived:fundamentals:final> {
     ?a :assessmentOfAsset ?asset ; :availableAt ?available ;
        :scoreRaw0to100 ?score ; :rating ?rating .
     FILTER (?available <= "D"^^xsd:date)
@@ -131,7 +131,7 @@ SELECT ?asset ?ruleId ?raised WHERE {
 
 PATTERN 5 - book weights on date D:
 SELECT ?ticker ?weight WHERE {
-  GRAPH <urn:graph:universe:2026-Q4> { ?asset :tickerSymbol ?ticker }
+  GRAPH <urn:graph:reference> { ?asset :tickerSymbol ?ticker }
   GRAPH ?g {
     ?row a :BookWeightDaily ; :weightOfBook ?book ; :weightDate "D"^^xsd:date ;
          :holdingAsset ?asset ; :finalTargetWeight ?weight .
@@ -162,7 +162,7 @@ SELECT ?name ?from ?to ?ret ?mdd WHERE {
 
 PATTERN 8 - company lookup:
 SELECT ?asset ?name WHERE {
-  GRAPH <urn:graph:universe:2026-Q4> {
+  GRAPH <urn:graph:reference> {
     ?asset a :Asset ; :tickerSymbol "TICKER" ; :companyName ?name .
   }
 } LIMIT 5
