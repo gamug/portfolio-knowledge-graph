@@ -22,7 +22,7 @@ FORMAT
 
 QUERY HYGIENE
 - NEVER run a pattern with an unbound subject and predicate filtered by CONTAINS/REGEX on STR(?s) or STR(?o), nor any "?s ?p ?o" scan without a class or a named graph. A full scan of this store plus the long narrative literals can exceed the app timeout while GraphDB keeps running the query.
-- Find a company by its ticker or name inside :Asset. The exact property is :tickerSymbol (not :ticker); :companyName is its name. Worked example for Apple: SELECT ?asset ?name WHERE { GRAPH <urn:graph:reference> { ?asset a :Asset ; :tickerSymbol "AAPL" ; :companyName ?name . } } LIMIT 10. For a catalog asset not in the reference graph, use the applicable urn:graph:universe:* graph. For a name search, use an exact or lowercase match on :companyName restricted to :Asset, or on rdfs:label restricted to urn:graph:labels for a presentation concept. If the company name is ambiguous, ask the user for the ticker instead of scanning.
+- Find a company by its ticker or name inside :Asset. The exact property is :tickerSymbol (not :ticker); :companyName is its name. Search the ticker in both graphs: urn:graph:reference holds the seed assets and urn:graph:universe:2026-Q4 holds the catalog. Worked example for Apple: SELECT ?asset ?name WHERE { VALUES ?tg { <urn:graph:reference> <urn:graph:universe:2026-Q4> } GRAPH ?tg { ?asset a :Asset ; :tickerSymbol "AAPL" ; :companyName ?name . } } LIMIT 10. For a name search, use an exact or lowercase match on :companyName restricted to :Asset, or on rdfs:label restricted to urn:graph:labels for a presentation concept. If the company name is ambiguous, ask the user for the ticker instead of scanning.
 - To discover a property, look it up in urn:graph:labels or the ontology summary, never by scanning data.
 - Always bound queries to one graph (FROM or GRAPH) and use LIMIT. For a cross-graph join, use one GRAPH block per graph or FROM both graphs; never an unbound ?s ?p ?o scan.
 
@@ -90,7 +90,8 @@ READING RULES
 QUESTION PATTERNS (bounded skeletons; replace TICKER, D, FROM, TO, C, P1 and the graph names with the question's values; every pattern has LIMIT)
 PATTERN 1 - point-in-time metric at D:
 SELECT ?value ?available WHERE {
-  GRAPH <urn:graph:reference> { ?asset :tickerSymbol "TICKER" }
+  VALUES ?tg { <urn:graph:reference> <urn:graph:universe:2026-Q4> }
+  GRAPH ?tg { ?asset :tickerSymbol "TICKER" }
   GRAPH <urn:graph:derived:fundamentals:final> {
     ?filing :filingOfAsset ?asset ; :availableAt ?available .
     FILTER (?available <= "D"^^xsd:date)
@@ -100,7 +101,8 @@ SELECT ?value ?available WHERE {
 
 PATTERN 2 - assessment as of D:
 SELECT ?score ?rating ?available WHERE {
-  GRAPH <urn:graph:reference> { ?asset :tickerSymbol "TICKER" }
+  VALUES ?tg { <urn:graph:reference> <urn:graph:universe:2026-Q4> }
+  GRAPH ?tg { ?asset :tickerSymbol "TICKER" }
   GRAPH <urn:graph:derived:fundamentals:final> {
     ?a :assessmentOfAsset ?asset ; :availableAt ?available ;
        :scoreRaw0to100 ?score ; :rating ?rating .
@@ -131,7 +133,8 @@ SELECT ?asset ?ruleId ?raised WHERE {
 
 PATTERN 5 - book weights on date D:
 SELECT ?ticker ?weight WHERE {
-  GRAPH <urn:graph:reference> { ?asset :tickerSymbol ?ticker }
+  VALUES ?tg { <urn:graph:reference> <urn:graph:universe:2026-Q4> }
+  GRAPH ?tg { ?asset :tickerSymbol ?ticker }
   GRAPH ?g {
     ?row a :BookWeightDaily ; :weightOfBook ?book ; :weightDate "D"^^xsd:date ;
          :holdingAsset ?asset ; :finalTargetWeight ?weight .
@@ -162,7 +165,8 @@ SELECT ?name ?from ?to ?ret ?mdd WHERE {
 
 PATTERN 8 - company lookup:
 SELECT ?asset ?name WHERE {
-  GRAPH <urn:graph:reference> {
+  VALUES ?tg { <urn:graph:reference> <urn:graph:universe:2026-Q4> }
+  GRAPH ?tg {
     ?asset a :Asset ; :tickerSymbol "TICKER" ; :companyName ?name .
   }
 } LIMIT 5

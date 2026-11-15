@@ -256,7 +256,8 @@ def test_pasteable_block_carries_the_v1_4_rules() -> None:
     assert "rank_e" in block
     assert "QUERY HYGIENE" in block
     assert "tickerSymbol" in block
-    assert "GRAPH <urn:graph:reference>" in block
+    assert "VALUES ?tg { <urn:graph:reference> <urn:graph:universe:2026-Q4> }" in block
+    assert "GRAPH ?tg" in block
     assert "unbounded" in block or "unbound" in block
     assert "MARKOWITZ_MV" in block
     assert "MARKOWITZ_BASE is never called that" in block
@@ -307,15 +308,20 @@ def test_question_patterns_are_bounded_and_parseable() -> None:
         prepareQuery(prefixes + query)
 
 
-def test_ticker_question_patterns_read_the_reference_graph() -> None:
-    # T-760 review: :tickerSymbol and :companyName live in urn:graph:reference, not the universe graph.
+def test_ticker_question_patterns_search_both_graphs() -> None:
+    # T-760 review: seed assets are in urn:graph:reference, catalog assets in the universe graph.
     block = _instruction_block()
     patterns = [match.group("query") for match in QUESTION_PATTERN.finditer(block)]
     ticker_patterns = [query for query in patterns if ":tickerSymbol" in query]
+    both_graphs = re.compile(
+        r"VALUES\s+\?tg\s*\{\s*<urn:graph:reference>\s+<urn:graph:universe:2026-Q4>\s*\}"
+    )
     assert len(ticker_patterns) == 4
     for query in ticker_patterns:
-        assert "GRAPH <urn:graph:reference>" in query
-        assert "urn:graph:universe:2026-Q4" not in query
+        assert both_graphs.search(query)
+        assert "GRAPH ?tg" in query
+        assert "GRAPH <urn:graph:reference>" not in query
+        assert "GRAPH <urn:graph:universe:2026-Q4>" not in query
 
 
 def test_fundamental_question_patterns_use_the_derived_graph() -> None:

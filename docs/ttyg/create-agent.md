@@ -63,7 +63,7 @@ paste the byte-exact v2.1 file, tick **Auto-add missing namespaces**, and confir
 repository has its schema graphs loaded. v3 is rejected by this form.
 
 After pasting the instructions, open **Review agent instructions**. It must show exactly
-**23,754 characters** (the length of the single fence in `instructions-v1.4.md`). If the number is
+**24,033 characters** (the length of the single fence in `instructions-v1.4.md`). If the number is
 different, **STOP**: the paste is stale or partial; reopen the repository file and paste the whole
 fence again.
 
