@@ -1449,7 +1449,7 @@ See `docs/fundamentals-design.md` and `PLAN.md` Work item 45.*
       only.
 - [ ] **T-817–T-839** Reserved for review fixes; no specific IDs are assigned here.
 
-## Work item 46 — Veto Hierarchy projection (T-840–T-869)
+## Work item 46 — Veto Hierarchy projection (T-840–T-899)
 
 See `docs/veto-hierarchy-design.md` and `PLAN.md` Work item 46. The design is complete; block E
 (``T-880–T-884``) adds the daily series, and the final manifest is due 2026-11-17/18.
@@ -1490,3 +1490,19 @@ See `docs/veto-hierarchy-design.md` and `PLAN.md` Work item 46. The design is co
       `docs/final-delivery.md` §7d, docs/06/07 and counts; real dry run only, no GraphDB write.)*
       Tests, dry-run evidence and delivery documentation.
 - [ ] **T-885–T-889** Reserved for block E review fixes.
+- [x] **T-890** *(done 2026-11-16: `docs/agent-traceability-design.md`; design only.)* Record the
+      real block-F files, keys, counts, graph names, pointer-only fields and the deviations from
+      `docs/veto-hierarchy-design.md` §7.
+- [x] **T-891** *(done 2026-11-16: 82 classes / 68 disjoint leaves / 68 named shapes, 12045 quads,
+      21/12322 load, production 5/11801.)* Add the eight classes, their properties, closed shapes
+      and the agents graph target.
+- [x] **T-892** *(done 2026-11-16: `src/projection/agents.py`.)* Strict manifest/SHA256SUMS
+      check, four-file parser, exact fractions, cross-file checks and the four graph builders.
+- [x] **T-893** *(done 2026-11-16: `cli/load_agents.py`.)* Dry run, `--check-store`, `--write`,
+      `--to-production`, `--window`, `--only`, batched writes and graph-in-doubt handling.
+- [x] **T-894** *(done 2026-11-16: hermetic tests, synthetic negative shapes, real dry run
+      122,339 triples, labels table and `docs/final-delivery.md` §7e.)* Tests, dry-run evidence
+      and delivery docs.
+- [ ] **T-895** Store-side control counts in `verify_store --manifest`; blocked on PR B.
+- [ ] **T-896** The `:newsItem` link to the block D `:NewsItem`; blocked on PR D.
+- [ ] **T-897–T-899** Reserved for block F review fixes.

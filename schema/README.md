@@ -9,8 +9,8 @@ actually building it (each flagged inline in the file that surfaced it, and summ
 
 | File | Format | Loads into | Contents |
 |---|---|---|---|
-| `tbox.ttl` | Turtle | `urn:graph:tbox` | 74 classes (60 mutually disjoint leaf/domain classes + a 13-class `rdfs:subClassOf` taxonomic backbone + `:ExchangeTradedFund` under `:Asset`), properties, OWL cardinality restrictions. |
-| `shapes.ttl` | Turtle | `urn:graph:tbox` | 59 named SHACL node shapes plus two blank-node conditional shapes (data-quality shapes kept as a separate file/concern from `tbox.ttl` — OWL semantics vs. SHACL validation, see below). |
+| `tbox.ttl` | Turtle | `urn:graph:tbox` | 82 classes (68 mutually disjoint leaf/domain classes + a 13-class `rdfs:subClassOf` taxonomic backbone + `:ExchangeTradedFund` under `:Asset`), properties, OWL cardinality restrictions. |
+| `shapes.ttl` | Turtle | `urn:graph:tbox` | 68 named SHACL node shapes plus two blank-node conditional shapes (data-quality shapes kept as a separate file/concern from `tbox.ttl` — OWL semantics vs. SHACL validation, see below). |
 | `reference.ttl` | Turtle | `urn:graph:reference` | GICS sector/industry taxonomy + asset master data (five worked-example S&P 500 tickers plus the core ETF `SPY`). |
 | `fibo.ttl` | Turtle | `urn:graph:reference:fibo` | The 25-term FIBO 2026Q2 glossary slice (54 entries, 277 statements) plus the authors' Spanish `@es` layer; built by `cli/build_fibo_slice.py`, never hand-edited. |
 | `labels.ttl` | Turtle | `urn:graph:labels` | The bilingual SKOS presentation vocabulary (156 concepts, 1499 triples) for codes and literals; loaded after `rules.ttl` and before `instances.trig`. |
@@ -556,6 +556,19 @@ what the store *enforces*.
     `(label, configuration slug)` into `urn:graph:derived:backtest:series:{label}:{slug}`.
     Counts: **74 classes (60 disjoint leaves), 59 named shapes, 9310 quads; conforms: True**;
     load plan **21 graphs / 9587 asserted triples** (production **5 / 9066**). The store must be
+    reloaded afterwards.
+
+18. **Agent traceability (Work item 46, block F, 2026-11-16).** `tbox.ttl` gains eight
+    Observation leaves — `:ManagerCall`, `:NarratorText`, `:NewsAction`, `:NewsEvidence`,
+    `:DateRecord`, `:NewsRunRecord`, `:BullModeRecord`, `:BullModeDecision` — in a second
+    `owl:AllDisjointClasses` block at the end of the file, plus their typed properties. Prompts,
+    raw answers, the whole manager state and the nested base-rate/level-C tables are not stored:
+    each keeps a SHA-256 and a source pointer. Exact news fractions are integer
+    numerator/denominator pairs. `shapes.ttl` gains one closed shape per class and
+    `:AgentRecordNoPriceShape`; the loader writes one append-only graph per
+    `(label, window, file)` into `urn:graph:derived:backtest:agents:{label}:{window}:{slug}`.
+    Counts: **82 classes (68 disjoint leaves), 68 named shapes, 12045 quads; conforms: True**;
+    load plan **21 graphs / 12322 asserted triples** (production **5 / 11801**). The store must be
     reloaded afterwards.
 
 ## Validation

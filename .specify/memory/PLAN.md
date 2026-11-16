@@ -3608,10 +3608,10 @@ graph is **1265 triples**. No GraphDB write.
 
 ---
 
-## Work item 46 — Veto Hierarchy projection (T-840–T-869)
+## Work item 46 — Veto Hierarchy projection (T-840–T-899)
 
-**Status: PR A–H merged (#156–#162); pre-flight fix #163 (T-870–T-871); block E series loader open
-in `feat/series-loader` (T-880–T-884).**
+**Status: PR A–H merged (#156–#162); pre-flight fix #163 (T-870–T-871); block E series loader merged
+in #165 (T-880–T-884); block F agent traceability open in `feat/agent-traceability` (T-890–T-899).**
 
 **Why**: Reviewer A delivered the frozen data dictionary and the pilot `H1C-B5-P1` for the complete
 System with the Veto Hierarchy. The engine arm codes no longer identify a configuration
@@ -3684,6 +3684,31 @@ measured pilot budget is in `docs/veto-hierarchy-design.md` §6.
 - [x] **T-884** *(done 2026-11-15: hermetic series/CLI tests, `docs/final-delivery.md` §7d,
       docs/06/07 and counts; real dry run only.)* Tests, dry-run evidence and delivery docs.
 - [ ] **T-885–T-889** Reserved for block E review fixes.
+- [x] **T-890** *(done 2026-11-16: `docs/agent-traceability-design.md`; design only, no code,
+      schema or GraphDB write.)* Record the real block-F files, keys, counts, graph names,
+      pointer-only fields and the deviations from `docs/veto-hierarchy-design.md` §7.
+- [x] **T-891** *(done 2026-11-16: `schema/tbox.ttl`, `schema/shapes.ttl`, gate target and FR-001
+      counts; 82 classes / 68 disjoint leaves / 68 named shapes, 12045 quads, 21/12322 load,
+      production 5/11801.)* Add the eight agent-traceability classes, their properties, closed
+      shapes and the `urn:graph:derived:backtest:agents:...` target.
+- [x] **T-892** *(done 2026-11-16: `src/projection/agents.py`; strict manifest/SHA256SUMS check,
+      four-file parser, exact fractions, cross-file checks and the four graph builders.)* Parser
+      and projector.
+- [x] **T-893** *(done 2026-11-16: `cli/load_agents.py`; dry run, `--check-store`, `--write`,
+      `--to-production`, `--window`, `--only`, batched writes and graph-in-doubt handling.)*
+      Loader CLI.
+- [x] **T-894** *(done 2026-11-16: hermetic tests, synthetic negative shapes, the real dry run
+      (122,339 triples; all SHACL conform), `docs/labels-agents-review.md`, `docs/final-delivery.md`
+      §7e and the current counts.)* Tests, labels table, dry-run evidence and delivery docs.
+- [ ] **T-895** Store-side control counts for `manager_calls`, `manager_fallbacks`,
+      `manager_repairs`, `narrator_texts`, `news_pool_actions`, `news_date_records`,
+      `news_level_c_decisions`, `news_level_d_decisions`, `news_exits`, `news_sector_rejections`
+      and `bull_triggered` in `verify_store --manifest`. Blocked on PR B's manifest parser and
+      `control_counts.py`; the exact edit is in the pull request.
+- [ ] **T-896** The `:newsItem` link from `:NewsEvidence` to the block D `:NewsItem`
+      `(item_kind, item_id, ticker)` IRI. Blocked on PR D's branch; block F stores
+      `:newsTestRow` until then.
+- [ ] **T-897–T-899** Reserved for block F review fixes.
 
 **Acceptance criteria**:
 
@@ -3700,3 +3725,11 @@ leaves)**, **59 named shapes**; load plan **21/9587**, production **5/9066**. Re
 `mv_weights.csv` 59,201; projected **14,412** SPY triples and **376,824** MARKOWITZ_MV triples;
 SHACL conforms. Read-only pre-flights on `portfolio_test` and `portfolio` report both series graphs
 `would-be-written`; no GraphDB write was made. Full suite **1,796 passed / 62 deselected**.
+
+**Verified 2026-11-16 (T-890–T-894, block F)**: FR-001 **12045 quads**, **82 classes (68 disjoint
+leaves)**, **68 named shapes**; load plan **21/12322**, production **5/11801**. The real dry run
+over `2026-11-17_final` derives every group-5 control count from the files (manager 308 / 3,246
+narrator / 252 actions / 119 dates / 25 level C / 29 level D / 9 exits / 6,508 sector rejections /
+28 bull triggers), projects **122,339** triples (16,050 manager, 78,504 narrator, 25,483 news,
+2,302 bull-mode) and conforms to SHACL for all 28 graphs. No GraphDB write was made; the
+store-side control counts (T-895) and the `:NewsItem` link (T-896) wait on PR B and PR D.

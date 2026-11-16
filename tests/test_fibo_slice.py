@@ -297,11 +297,11 @@ def _leaves(graph: rdflib.Graph) -> list[Node]:
     return leaves
 
 
-def test_each_of_the_60_leaf_classes_has_one_spanish_label_and_description() -> None:
+def test_each_of_the_68_leaf_classes_has_one_spanish_label_and_description() -> None:
     """The v18 leaves use skos:definition; the Work item 46 event leaves use rdfs:comment."""
     graph = rdflib.Graph().parse(SCHEMA / "tbox.ttl", format="turtle")
     leaves = _leaves(graph)
-    assert len(leaves) == 60
+    assert len(leaves) == 68
     for leaf in leaves:
         assert len(_spanish(graph, leaf, RDFS.label)) == 1, leaf
         description = _spanish(graph, leaf, SKOS.definition) or _spanish(graph, leaf, RDFS.comment)

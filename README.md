@@ -36,6 +36,8 @@ the numbered docs, in order:
 | — | [`docs/reports-agent-query-catalog.md`](docs/reports-agent-query-catalog.md) | The reports-agent query contract: scoped SPARQL for the FIBO glossary and the backtest battery, the brief's 11 evaluation questions (including what is not projected yet), and the executable test that keeps the catalog true. |
 | — | [`docs/ttyg/`](docs/ttyg/README.md) | Source of truth for the Talk to Your Graph agent: the curated CONSTRUCT, the English v1.2 additional instructions and how they map to the Workbench form. |
 | — | [`docs/ttyg/create-agent.md`](docs/ttyg/create-agent.md) | Recreate the Workbench agent by hand: SPARQL only, the curated CONSTRUCT, temperature `0.1`, the single instruction fence and the `graphdb.llm.*` placeholders. |
+| — | [`docs/agent-traceability-design.md`](docs/agent-traceability-design.md) | Block F of Work item 46: the manager calls, narrator texts, news actions/evidence and N11 bull-mode records, their graph names, pointer-only fields and the deviations from the §7 design. |
+| — | [`docs/labels-agents-review.md`](docs/labels-agents-review.md) | Reviewer A’s EN/ES label table for the eight block-F classes and their properties. |
 | — | [`docs/final-delivery.md`](docs/final-delivery.md) | The end-to-end production sequence for label `final`: preconditions, backup and SHA-256, graph clearing, schema/catalog/ticker-history/backtest/aggregates loads, the acceptance queries and the rehearsal-first rule. |
 | — | [`docs/second-user-setup.md`](docs/second-user-setup.md) | A colleague's local GraphDB 11.5.1 Free and `portfolio-app`: repository profile, verified export import, TTYG agent, read-only user, first smoke questions. |
 | — | [`docs/backtest-load-runbook.md`](docs/backtest-load-runbook.md) | The final-backtest load procedure: the one-command `cli/load_run.py` flow first, the six date-ordered windows, the `SHA256SUMS` manifest and `config_<label>.md` configuration, the metadata graph, the manual fallback, schema and catalog prerequisites, contract check, label choice, both dry runs, the full read-only `--check-store` pre-flight, writes and production guard, `cli/verify_backtest.py` for m018 and selection graphs, the `cli/load_aggregates.py` step after the run, recording the numbers, single-graph rollback, whole-label removal, the one-time catalog load and its incremental `--delta` extension, and the common failure messages. |
@@ -68,6 +70,8 @@ storage location assigned in `07` and its writer assigned in `08`.
     ├── reports-agent-query-catalog.md     the reports-agent query contract + executable test
     ├── ttyg/                              Talk to Your Graph agent sources: curated CONSTRUCT + v1.2 instructions
     │   └── create-agent.md               recreate the Workbench agent by hand
+    ├── agent-traceability-design.md       block F manager/narrator/news/bull-mode design
+    ├── labels-agents-review.md            block F EN/ES label table for Reviewer A
     ├── final-delivery.md                  end-to-end production sequence for label final
     ├── second-user-setup.md               local GraphDB + portfolio-app setup for a second user
     ├── FAQ.md                             running Q&A log on graph population mechanics
@@ -92,7 +96,7 @@ class taxonomy (§1.2 in `06-ontology-definition.md`) and MetricType vocabulary 
 directly into `tbox.ttl`/`reference.ttl`/`shapes.ttl` — not left as separate addendum files. Full
 `rdflib` parse + `pyshacl` conformance re-verified against the real files after the merge: **parses
 clean (1608 quads at the 2026-08-23 revision — `schema/taxonomy-quality-review-2026-08-23.md` has the +1 delta from a
-same-day `RuleClause` fix; 1771 after T-102/T-103, 1881 after T-104, 1951 after T-101, 1953 after T-105, 2064 after T-106, 2150 after T-107, 2298 after T-108, 2352 after T-109, 2366 after T-111, 2378 after T-100, 2383 after its review, 2400 after T-081, 2458 after T-140, 2648 after T-187/T-188, 4178 after T-206, 4182 after T-210, 4236 after T-211, 4237 after T-220, 4202 after T-233/T-234, 4203 after merging T-220 with T-233/T-234, 4204 after T-227, 4431 after Work item 26, 4634 after Work item 33, 4913 after Work item 37, 4915 after Work item 38, 4940 after Work item 44, 5900 after Work item 43, 5954 after Work item 43 rules, 6072 after Work item 43 terms, 9125 after Work item 46, 9310 after block E daily series), conforms: True** (`schema/README.md`'s Validation section has the exact
+same-day `RuleClause` fix; 1771 after T-102/T-103, 1881 after T-104, 1951 after T-101, 1953 after T-105, 2064 after T-106, 2150 after T-107, 2298 after T-108, 2352 after T-109, 2366 after T-111, 2378 after T-100, 2383 after its review, 2400 after T-081, 2458 after T-140, 2648 after T-187/T-188, 4178 after T-206, 4182 after T-210, 4236 after T-211, 4237 after T-220, 4202 after T-233/T-234, 4203 after merging T-220 with T-233/T-234, 4204 after T-227, 4431 after Work item 26, 4634 after Work item 33, 4913 after Work item 37, 4915 after Work item 38, 4940 after Work item 44, 5900 after Work item 43, 5954 after Work item 43 rules, 6072 after Work item 43 terms, 9125 after Work item 46, 9310 after block E daily series, 12045 after block F agent traceability), conforms: True** (`schema/README.md`'s Validation section has the exact
 command). `protege-view.ttl` is the one file *not* re-verified — it's a generated bundle
 (`schema/README.md`: "never hand-edit") that predates this revision's edits, the T-206 Contract
 v18 classes, T-210's FIBO links and T-211's Spanish layer, and needs regenerating from a real
@@ -103,8 +107,8 @@ Protégé session, not something this pass could safely hand-patch.
 
 | File | Format | Named graph | Contents |
 |---|---|---|---|
-| `tbox.ttl` | Turtle | `urn:graph:tbox` | 74 classes (60 mutually disjoint leaf/domain classes + a 13-class `rdfs:subClassOf` taxonomic backbone + `:ExchangeTradedFund` under `:Asset`), properties, cardinality restrictions |
-| `shapes.ttl` | Turtle | `urn:graph:tbox` | 59 named SHACL node shapes plus two blank-node conditional shapes |
+| `tbox.ttl` | Turtle | `urn:graph:tbox` | 82 classes (68 mutually disjoint leaf/domain classes + a 13-class `rdfs:subClassOf` taxonomic backbone + `:ExchangeTradedFund` under `:Asset`), properties, cardinality restrictions |
+| `shapes.ttl` | Turtle | `urn:graph:tbox` | 68 named SHACL node shapes plus two blank-node conditional shapes |
 | `reference.ttl` | Turtle | `urn:graph:reference` | GICS sector/industry taxonomy + 6 worked-example assets (5 S&P 500 constituents + the core ETF SPY) |
 | `fibo.ttl` | Turtle | `urn:graph:reference:fibo` | 25-term FIBO 2026Q2 glossary slice (54 entries, 277 statements) + the authors' Spanish `@es` layer |
 | `rules.ttl` | Turtle | `urn:graph:rules:catalog` | 10 active selection rules + 6 GUARD protection rules (single-leaf `RuleDefinition`s) + 8 superseded definitions kept as history + `AttractivenessWeightScheme` |

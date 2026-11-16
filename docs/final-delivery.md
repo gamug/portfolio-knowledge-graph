@@ -282,6 +282,7 @@ after each step and subtract.
 | load_veto m018/detail | | | | | |
 | load_veto selection | | | | | |
 | load_series | | | | | |
+| load_agents | | | | | |
 | verify_store | | | | | |
 
 ## 0. Preconditions (read-only)
@@ -616,6 +617,57 @@ in `urn:graph:derived:backtest:external:final`. After the write, `verify_store -
 the `daily_rows` of `MARKOWITZ_MV` and `SPY` against the series graphs; when a graph is absent it
 stays "not verifiable" and does not fail the check.
 
+## 7e. Load the block F agent traceability files (write)
+
+The block F files are the four per-window files of `SYSTEM_WITH_HIERARCHY`:
+
+```
+{window}/H1B-A2g-{window}.manager_calls.jsonl
+{window}/H1B-A2g-{window}.narrator.jsonl
+{window}/H1B-A2g-{window}.news.json
+{window}/H1B-A2g-{window}.bull_mode.json
+```
+
+The loader reads `manifest_final.json` and the delivery's `SHA256SUMS` itself. The delivery root
+is `KG_DELIVERY_DIR` (default `/workspaces/thesis/knoledge graph/2026-11-17_final`), so the
+commands below need no absolute path when that variable is set. Load block F **after** the schema,
+the universe/assets, the Veto Hierarchy detail (the manager and narrator stop links point at the
+detail graph's `:StopEvent` individuals) and, if PR D is present, the block D `:NewsItem` graph.
+Block F does not load `:NewsItem`; the evidence keeps `:newsTestRow` until that link is added.
+
+Dry run first (no store contact), then the read-only pre-flight and the write:
+
+```bash
+export KG_DELIVERY_DIR="/workspaces/thesis/knoledge graph/2026-11-17_final"
+
+uv run python cli/load_agents.py --label final
+
+set -a; . ./.env; set +a
+export KG_REPOSITORY=portfolio_test
+[ "$KG_REPOSITORY" = "portfolio_test" ] || exit 1
+export SQL_UNIVERSE_DB=/workspaces/thesis/data/universe_history_gics.db
+uv run python cli/load_agents.py --label final --check-store
+
+KG_REPOSITORY=portfolio uv run python cli/load_agents.py --label final \
+  --write --to-production
+```
+
+The dry run prints the seven windows, the four graph names and their triple counts (122,339 in
+total: 16,050 manager, 78,504 narrator, 25,483 news, 2,302 bull-mode) and `SHACL: conforms` for
+each graph. `--check-store` must print `would-be-written` for every graph (or
+`already-in-the-store` after a write) and the stored counts when a graph exists; an absent graph
+prints `not store-verifiable`. The write appends each graph in bounded N-Triples chunks; a lost
+answer prints `store error, the graph is in doubt` and must not be retried blindly. Any piece can
+be loaded later without touching the others:
+
+```bash
+# one window, one file type
+uv run python cli/load_agents.py --label final --window P1 --only news
+```
+
+`--only` accepts `manager_calls`, `narrator`, `news` and `bull_mode`; `--window` accepts `P1`,
+`H1`, `P3`, `H2`, `P2`, `H3` and `C1`.
+
 ## 8. Acceptance (read-only)
 
 ### 8.1 The run label is only `final`
@@ -680,8 +732,9 @@ Expected: 13 rows, one for each `urn:graph:derived:backtest:final:{window}:1`, o
 `urn:graph:derived:backtest:selection:final:{window}:1`, and
 `urn:graph:derived:backtest:meta:final`. The ticker-history graph, the aggregates graph, the
 external `urn:graph:derived:backtest:external:final` graph, the fundamentals
-`urn:graph:derived:fundamentals:final` graph and the two series graphs are separate streams and are
-checked in steps 5, 7, 7b, 7c and 7d.
+`urn:graph:derived:fundamentals:final` graph, the two series graphs and the four
+`urn:graph:derived:backtest:agents:final:{window}:{slug}` graphs are separate streams and are
+checked in steps 5, 7, 7b, 7c, 7d and 7e.
 
 ### 8.4 The old pilot is gone
 

@@ -193,16 +193,16 @@ NEW_CLASSES: dict[rdflib.URIRef, tuple[rdflib.URIRef, str, str]] = {
 }
 
 
-def test_the_bundle_has_74_classes_and_60_disjoint_leaves(
+def test_the_bundle_has_82_classes_and_68_disjoint_leaves(
     bundle: rdflib.Dataset,
 ) -> None:
     g = _flat(bundle)
-    assert len({c for c in g.subjects(RDF.type, OWL.Class) if isinstance(c, rdflib.URIRef)}) == 74
+    assert len({c for c in g.subjects(RDF.type, OWL.Class) if isinstance(c, rdflib.URIRef)}) == 82
     members = set()
     for disjoint in g.subjects(RDF.type, OWL.AllDisjointClasses):
         for collection in g.objects(disjoint, OWL.members):
             members |= set(rdflib.collection.Collection(g, collection))
-    assert len(members) == 60
+    assert len(members) == 68
     assert KG.ExchangeTradedFund not in members  # a subclass of Asset, not a sibling
     assert set(NEW_CLASSES) <= members
 
@@ -429,9 +429,9 @@ def test_shared_properties_have_no_domain(tbox: rdflib.Graph) -> None:
         assert (KG[name], RDFS.domain, None) not in tbox, name
 
 
-def test_the_new_shapes_are_59_named_shapes(shapes: rdflib.Graph) -> None:
+def test_the_new_shapes_are_68_named_shapes(shapes: rdflib.Graph) -> None:
     named = {s for s in shapes.subjects(RDF.type, SH.NodeShape) if isinstance(s, rdflib.URIRef)}
-    assert len(named) == 59
+    assert len(named) == 68
     assert {
         KG.TickerHistoryShape,
         KG.OrchestratorRunShape,
