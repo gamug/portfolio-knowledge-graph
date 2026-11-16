@@ -1,4 +1,4 @@
-"""A synthetic block-F delivery (Work item 46, T-890-T-899).
+"""A synthetic block-F delivery (Work item 46, T-900-T-909).
 
 One window, one manager call, two narrator texts, one news action/date and one bull decision.
 The fixture is hermetic: no `/workspaces/thesis` path, no engine database and no store.

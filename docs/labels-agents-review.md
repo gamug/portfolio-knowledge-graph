@@ -1,4 +1,4 @@
-# Block F label review — agent traceability (Work item 46, T-890–T-899)
+# Block F label review — agent traceability (Work item 46, T-900–T-909)
 
 Reviewer A: the table lists the code, the Spanish label and the English label of every new class and property. The `domain` column is the shape that uses the property; `shared` means it is used by more than one block-F class (and has no `rdfs:domain`, so it cannot entail one disjoint leaf from another).
 

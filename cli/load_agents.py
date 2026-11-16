@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Entry point: load the block F manager/narrator/news/bull-mode files (Work item 46, T-890-T-899).
+"""Entry point: load the block F manager/narrator/news/bull-mode files (Work item 46, T-900-T-909).
 
     uv run python cli/load_agents.py --label final
     uv run python cli/load_agents.py --label final --check-store

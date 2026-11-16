@@ -1,4 +1,4 @@
-# Agent traceability — block F design (Work item 46, T-890–T-899)
+# Agent traceability — block F design (Work item 46, T-900–T-909)
 
 Status: design + implementation for the final delivery `2026-11-17_final`,
 configuration `SYSTEM_WITH_HIERARCHY`. This note is the contract for
