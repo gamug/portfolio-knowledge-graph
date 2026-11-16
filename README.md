@@ -154,6 +154,30 @@ of configuration:
   `export THESIS_HOST_DIR=/Users/you/thesis` or, on Windows, `setx THESIS_HOST_DIR D:\thesis`. This
   variable name is shared across the sibling `portfolio-*` repos that mount the same directory.
 
+### Container image (without VS Code)
+
+The root `Dockerfile` (and `.dockerignore`) carries the same instructions as `.devcontainer/devcontainer.json`
+— the Python 3.12 base, `uv` (pinned), `UV_LINK_MODE=copy` and the `scripts/init.sh` steps (`uv sync --frozen
+--group dev`, the Claude Code CLI, `gh`) — so the environment runs anywhere Docker does. Keep the two in
+step: change one, change the other. The build needs network access (PyPI, the `portfolio-common` git tag on
+GitHub, `claude.ai`, the Debian mirrors).
+
+```bash
+docker build -t portfolio-knowledge-graph .
+# .env and the data directory are run-time inputs, never baked into the image:
+docker run --rm -it --env-file .env   -v "$THESIS_HOST_DIR:/workspaces/thesis" portfolio-knowledge-graph
+# to work on a checkout instead of the copy in the image, mount it over the workdir:
+docker run --rm -it --env-file .env -v "$PWD:/workspaces/portfolio-knowledge-graph"   portfolio-knowledge-graph
+```
+
+What differs from the Dev Container: no VS Code extensions/settings; the image has no `.git`, so
+`pre-commit install` is not run — in a mounted checkout run `pre-commit install --install-hooks` once (the
+tool is in the image's `.venv`); and mounting a checkout over the workdir hides the image's `.venv`, so run
+`uv sync --frozen --group dev` there first. Build it from an **LF checkout** (WSL, or `git config
+core.autocrlf input`): a Windows CRLF working tree makes the byte-exact tests fail (T-922). Several tests also need
+`.env` and the `THESIS_HOST_DIR` mount, so run the suite with both flags above. The image is a development
+environment, not a service.
+
 ## Build status
 
 | Roadmap step | Status |

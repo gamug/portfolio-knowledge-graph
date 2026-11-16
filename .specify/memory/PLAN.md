@@ -3785,3 +3785,34 @@ suite: **1819 passed / 62 deselected** (42 min 30 s).
 write. Read-only `--check-store` on `portfolio_test` reports all seven graphs `would-be-written`.
 Labels approved by Reviewer A with the four letter-26 changes. Full suite **1,868 passed / 62
 deselected** (44 min 02 s).
+
+## Work item 47 — Container image (T-920–T-929)
+
+**Status: `Dockerfile` and `.dockerignore` added; T-920 (test the image) open.**
+
+**Why**: the dev environment existed only as a devcontainer, which needs VS Code. A plain
+`Dockerfile` in the root lets the same environment run anywhere Docker does. It mirrors
+`.devcontainer/devcontainer.json`: the `devcontainers/python:1-3.12-bookworm` base, `uv`,
+`UV_LINK_MODE=copy` and the `scripts/init.sh` steps. The bind mount, `--env-file` and VS Code
+settings are run-time/editor concerns and stay in `devcontainer.json`.
+
+**Scope**: `Dockerfile`, `.dockerignore`, the README's "Container image" section, and a note in
+`devcontainer.json` and `scripts/init.sh` (the yarn apt-key fix, shared by both paths). Out of scope:
+publishing the image to a registry, reaching GraphDB from the container (the store CLIs read `.env` as on
+the host, `docs/graphdb-setup.md`), running the `cli/` loaders against production, and any change to what
+the repo is (the image is a dev environment, not a service). No constitution amendment: it constrains
+`schema/` and `src/` layout, not root-level tooling files, and `.devcontainer/` sits there already.
+
+**Tasks**: T-920 tests the image; T-921 decides whether CI builds it (a "no" closes it).
+
+**Done when** (SPEC NR-006): `docker build` succeeds from a clean checkout; inside the image `uv run
+pytest` passes with the host's counts, the schema parse-and-conform check passes, `pre-commit run
+--all-files` passes in a mounted checkout, the container runs as `vscode`, and no layer holds `.env`; each
+result recorded in the T-920 PR.
+
+**Risks**: (1) drift between `Dockerfile` and `devcontainer.json`: mitigated by the comments in both and
+the README, closed for good only by T-921. (2) Pinned `uv` (`UV_VERSION`) and Claude Code
+(`CLAUDE_CODE_VERSION`) go stale: bump them deliberately and rebuild. (3) The build needs the
+`portfolio-common` git tag on GitHub; a contributor without access cannot build. (4) Debian's `gh` is old
+(2.23.0), as in `init.sh`. (5) `.dockerignore` hides `artifacts/`, `*.docx` and `.git/`; T-920 checks no
+test needs them.

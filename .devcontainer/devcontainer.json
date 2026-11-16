@@ -1,4 +1,6 @@
 {
+  // The root Dockerfile mirrors this file (base image, uv, UV_LINK_MODE, init.sh steps).
+  // Change one, change the other; see README "Container image" and PLAN Work item 47.
   "name": "portfolio-kowledge-graph",
   "image": "mcr.microsoft.com/devcontainers/python:1-3.12-bookworm",
   "features": {

@@ -1546,3 +1546,33 @@ T-890–T-899, and block D news rows by T-910–T-914.
       no GraphDB write; full suite 1,868 passed / 62 deselected.)* Delivery documentation, count
       reconciliation and the real dry run.
 - [ ] **T-915–T-919** Reserved for block D review fixes.
+
+## Work item 47 — Container image (T-920–T-929)
+
+See `PLAN.md` Work item 47 and `SPEC.md` NR-006. `Dockerfile` and `.dockerignore` (repo root) carry the
+`.devcontainer/devcontainer.json` instructions (base image, `uv`, `UV_LINK_MODE`, `scripts/init.sh`'s
+steps); the run command is in the README, "Container image".
+
+- [ ] **T-920** Test the image. `docker build` it from a clean checkout, then run **inside the
+      container**: `uv run pytest` (the hermetic suite; the pass/deselect counts of master on the
+      host the same day, 1,868 passed / 62 deselected at T-914 and moving, so record both numbers;
+      the `integration` tests deselected as they are today), the `schema/` parse-and-conform check
+      from `schema/README.md`, and `uv run pre-commit run --all-files` in a mounted checkout (the
+      image has no `.git`, so `pre-commit install` is the one `init.sh` step it skips; the README
+      says how). Also check that nothing `.dockerignore` drops (`artifacts/`, `*.docx`, `.git/`) is
+      read by `tests/`, `src/` or `cli/`; no `.env` or secret in any layer (`docker history`,
+      `docker run … ls -a`); the image runs as `vscode`; and the `THESIS_HOST_DIR` mount and
+      `--env-file .env` work as the README's "Container image" says. **Done when** each result is recorded in the PR; a failure becomes its
+      own task. A `chore/` PR (a CI job that builds the image is T-921, only if the maintainer wants it).
+- [ ] **T-921** *(the maintainer decides once T-920 is closed; a "no" closes it, as T-199)* Build
+      the image in CI so `Dockerfile` and `devcontainer.json` cannot drift apart. NR-005 says no CI
+      workflow exists, so a "yes" amends NR-005 first.
+- [ ] **T-922** *(from T-920's first run, PR #171)* Line endings in the image. A first full run in the
+      image, built from a Windows working tree (CRLF), gave 19 failed / 1,853 passed / 62 deselected
+      (52 min). Byte-exact tests (`tests/test_ttyg_docs.py`, `test_schema_gate.py`'s run-configuration
+      round trip, the label text) fail on CRLF; others need `.env` (`KG_HOST`) and the
+      `THESIS_HOST_DIR` data mount (`test_mv_base.py` needs `scratch/final/...` files). Decide and do:
+      a `.gitattributes` with `eol=lf` for the files those tests read (or `* text=auto eol=lf`), or
+      document that the image is built from an LF checkout (WSL, `core.autocrlf=input`); then re-run
+      T-920 with `--env-file .env` and the data mount, and record which of the 19 remain.
+- [ ] **T-923–T-929** Reserved for review fixes.
