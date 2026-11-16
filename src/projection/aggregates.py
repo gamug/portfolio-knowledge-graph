@@ -1,8 +1,9 @@
 """Project and verify upstream's ``aggregates_<label>.json`` (Work item 37).
 
 The file is a small per-label publication beside the run databases and their ``SHA256SUMS``
-manifest: one row per trend-filter decision date and one row per reporting segment and reference.
-This module reads it through a whitelist, builds the deterministic batch for
+manifest: one row per trend-filter decision date (price input, level D news input, cash fraction)
+and one row per reporting segment and reference. This module reads it through a whitelist, builds
+the deterministic batch for
 ``urn:graph:derived:backtest:aggregates:{label}`` and verifies it against the source databases
 read-only. It never reads or writes a daily series, a price level or the 210-session average.
 
@@ -124,7 +125,7 @@ class ManifestError(AggregatesError):
 
 @dataclass(frozen=True)
 class TrendFilterRow:
-    """One ``trend_filter`` row: the filter state at one decision date."""
+    """One ``trend_filter`` row: price input, news input and cash at one decision date."""
 
     window: str
     decision_date: datetime.date

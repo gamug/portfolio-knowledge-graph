@@ -3724,6 +3724,9 @@ measured pilot budget is in `docs/veto-hierarchy-design.md` §6.
 - `load_veto --manifest` accepts `manifest_final.json` (`manifest_version` `final-1`), verifies
   every named file, computes every final-1 `control_counts` key from its file, and stops on any
   mismatch; `verify_store --manifest` prints the not-yet-loaded keys without failing.
+- The corrected `aggregates_final.json` (`b2cc35dc…`) is accepted: one `TOPN_MV_GUARD` arm, the
+  required boolean `newsRiskOff`, 17/17 source checks and 733 triples; the new property is in the
+  TBox, the shape and a Reviewer A label table.
 
 **Verified 2026-11-15 (T-880–T-884, block E)**: FR-001 **9310 quads**, **74 classes (60 disjoint
 leaves)**, **59 named shapes**; load plan **21/9587**, production **5/9066**. Real dry run over
@@ -3755,4 +3758,5 @@ suite: **1815 passed / 62 deselected** (40 min 16 s).
 `portfolio_test` aggregate graph and correctly reported the file/store difference (old arm and
 source hash), so the maintainer must drop that one graph before the reload. FR-001: **9322 quads,
 436 properties, 74 classes (60 disjoint leaves), 59 named shapes**; load plan **21/9599**,
-production **5/9078**. `docs/labels-news-risk-off-review.md` is the pending Reviewer A table.
+production **5/9078**. `docs/labels-news-risk-off-review.md` is the pending Reviewer A table. Full
+suite: **1819 passed / 62 deselected** (42 min 30 s).
