@@ -1323,7 +1323,7 @@ so every result is in-sample.""" .
 :cashFraction rdfs:label "Trend-filter cash fraction"@en ;
     rdfs:label "Fracción en efectivo del filtro de tendencia"@es ;
     rdfs:comment "Fraction of the TOPN_MV_GUARD target moved to cash by the trend filter at this decision, held until the next decision date; 0.5 when the price input is below or newsRiskOff is true, otherwise 0.0."@en ;
-    rdfs:comment "Fracción del objetivo TOPN_MV_GUARD movida a efectivo por el filtro de tendencia en esta decisión, mantenida hasta la siguiente fecha de decisión; 0,5 cuando la entrada de precio está below o newsRiskOff es true, y 0,0 en otro caso."@es .
+    rdfs:comment "Fracción del objetivo TOPN_MV_GUARD movida a efectivo por el filtro de tendencia en esta decisión, mantenida hasta la siguiente fecha de decisión; 0.5 cuando la entrada de precio está below o newsRiskOff es true, y 0.0 en otro caso."@es .
 
 :newsRiskOff rdfs:label "News risk-off input"@en ;
     rdfs:label "Entrada de noticias de aversión al riesgo"@es ;
