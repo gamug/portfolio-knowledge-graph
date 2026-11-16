@@ -3610,8 +3610,8 @@ graph is **1265 triples**. No GraphDB write.
 
 ## Work item 46 — Veto Hierarchy projection (T-840–T-869)
 
-**Status: PR A–H merged (#156–#162); pre-flight fix #163 (T-870–T-871); block E series loader open
-in `feat/series-loader` (T-880–T-884).**
+**Status: PR A–H merged (#156–#162); pre-flight fix #163 (T-870–T-871); block E series loader
+merged (#165, T-880–T-884); final-manifest follow-up in `feat/final-manifest` (T-890–T-895).**
 
 **Why**: Reviewer A delivered the frozen data dictionary and the pilot `H1C-B5-P1` for the complete
 System with the Veto Hierarchy. The engine arm codes no longer identify a configuration
@@ -3684,6 +3684,22 @@ measured pilot budget is in `docs/veto-hierarchy-design.md` §6.
 - [x] **T-884** *(done 2026-11-15: hermetic series/CLI tests, `docs/final-delivery.md` §7d,
       docs/06/07 and counts; real dry run only.)* Tests, dry-run evidence and delivery docs.
 - [ ] **T-885–T-889** Reserved for block E review fixes.
+- [x] **T-890** *(done 2026-11-16: final-1 manifest parser; top-level `news_rows_file` and
+      `bull_mode_file`, per-run `bull_mode_file`, logical `files_sha256`, hash verification and
+      strict unknown-key refusal.)* Accept the final manifest.
+- [x] **T-891** *(done 2026-11-16: the eleven group-5 control counts, file-derived definitions,
+      and the new stop/menu fields accepted but not projected.)* Final control counts.
+- [x] **T-892** *(done 2026-11-16: file comparison stays in `build_delivery`; the new keys print
+      `not store-verifiable: not loaded yet` without failing.)* Store-side verification split.
+- [x] **T-893** *(done 2026-11-16: final prose config, empty SS JSONL, optional retention,
+      cash-menu skip, `gate.write_batched`, SHACL timing and the >300,000-triple flag.)* Loader
+      compatibility.
+- [x] **T-894** *(done 2026-11-16: synthetic tests, §0quater definitions and runbook; real
+      dry-run evidence.)* Tests and documentation.
+- [ ] **T-895** Decide the MARKOWITZ_MV path for the final `mv_base/` (only
+      `aggregates_mv_base.json` is present; `load_mv_base` needs `config_mv_base.md`,
+      `SHA256SUMS` and `final_<window>.db`). Do not invent the path.
+- [ ] **T-896–T-899** Reserved for final-manifest review fixes.
 
 **Acceptance criteria**:
 
@@ -3693,6 +3709,9 @@ measured pilot budget is in `docs/veto-hierarchy-design.md` §6.
   `ARM_DISABLED` row or an `L1_BP_*` price, loads only the manifest books/actions/tests, and uses
   the existing selection projection.
 - The new label table is approved by Reviewer A before `labels.ttl` changes.
+- `load_veto --manifest` accepts `manifest_final.json` (`manifest_version` `final-1`), verifies
+  every named file, computes every final-1 `control_counts` key from its file, and stops on any
+  mismatch; `verify_store --manifest` prints the not-yet-loaded keys without failing.
 
 **Verified 2026-11-15 (T-880–T-884, block E)**: FR-001 **9310 quads**, **74 classes (60 disjoint
 leaves)**, **59 named shapes**; load plan **21/9587**, production **5/9066**. Real dry run over

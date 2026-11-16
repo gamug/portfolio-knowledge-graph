@@ -822,16 +822,21 @@ The second label table was approved by Reviewer A and applied in PR D: the 31 co
   are errors.
 - The manifest's `price_mask` SHA-256 must match the real mask file; otherwise stop before parsing.
 
-**`control_counts` (Reviewer A, 2026-11-13).** The shape is
+**`control_counts` (Reviewer A, 2026-11-13; final-1 additions 2026-11-16).** The shape is
 `control_counts -> configuration -> window -> key -> value`. The loader computes every key from the
 filtered run DB, the detail file and the manifest files, never from the manifest. `SH` carries
 groups 1–5, `SS` groups 1–4, `MB` group 1, and `MARKOWITZ_MV`/`SPY` group 6 (`daily_rows`). Group 5
-is `null` exactly when its file is `null` in the manifest. Integers and fixed-key integer objects
-compare exactly; `final_values` reals compare with `abs(diff) <= 1e-12`; a final missing/unknown key
-or any difference is a hard error; a draft may omit `control_counts` but a present key still
-compares. The identities are `memory_episodes = memory_released_price +
-memory_released_not_ranked + memory_open_at_end`, `scale_changes = sum of the three L0 rules in
-alerts_by_rule`, and `retention_counter_drops = retention_rejections_by_cause.counter`.
+is `null` exactly when its file is `null` in the manifest; the final delivery adds
+`news_level_c_decisions`, `news_level_d_decisions`, `news_exits`, `news_sector_rejections` and
+`bull_triggered`. Integers and fixed-key integer objects compare exactly; `final_values` reals
+compare with `abs(diff) <= 1e-12`; a final missing/unknown key or any difference is a hard error; a
+draft may omit `control_counts` but a present key still compares. The identities are
+`memory_episodes = memory_released_price + memory_released_not_ranked + memory_open_at_end`,
+`scale_changes = sum of the three L0 rules in alerts_by_rule` **for the pilot only** (the final
+delivery's `scales.json` is empty while L0 alerts exist, so the identity is not enforced when
+`scale_changes` is zero), and
+`retention_counter_drops = retention_rejections_by_cause.counter`. The final-1 definitions are in
+`docs/final-delivery.md` §0quater.1.
 `decision_close_episodes` is group 2 and is compared like every other key; it is never hard-coded.
 `SYSTEM_WITHOUT_HIERARCHY` ships `scales_file: []`, so its `scale_changes` is 0 by the same
 computation; every group-2 key is computed from its JSON-lines (which only carries

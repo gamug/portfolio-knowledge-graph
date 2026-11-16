@@ -21,6 +21,7 @@ from fixtures.dataset_store import DatasetStore
 from kg_store import gate
 from projection import load_veto
 from projection.backtest import validation_context
+from projection.delivery import read_config
 from projection.load_veto import build_delivery, main
 from projection.veto_manifest import read_manifest
 
@@ -175,6 +176,25 @@ def test_the_manifest_label_must_match(tmp_path: Path) -> None:
     path, _ = _manifest(tmp_path)
     with pytest.raises(ValueError, match="differs from --label"):
         build_delivery(read_manifest(path), "other", assets_db=tmp_path / "missing.db")
+
+
+def test_the_final_prose_config_is_accepted(tmp_path: Path) -> None:
+    path = tmp_path / "config_final.md"
+    path.write_text(
+        "label: final\n"
+        "status: final\n"
+        "fecha: 2026-11-15\n"
+        "código del Sistema: code_dev f204973 (corridas); narrador 1081e41\n"
+        "corridas: elector A2g pagado\n"
+        "---\n"
+        "Final body.\n",
+        encoding="utf-8",
+    )
+    config = read_config(path, "final", final_delivery=True)
+    assert config.code_commit == "code_dev f204973 (corridas); narrador 1081e41"
+    assert config.pr == "n/a"
+    assert config.results_doc == "n/a"
+    assert config.status == "final"
 
 
 class _Store:
@@ -432,3 +452,23 @@ def test_preflight_writes_exactly_the_planned_batch_not_its_context(
     written = dataset_store.dataset.graph(rdflib.URIRef(m018.graph))
     assert set(written) == set(plan.batch)
     assert len(written) == plan.triples
+
+
+def test_write_delivery_uses_the_batched_writer(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: list[str] = []
+
+    class Plan:
+        graph = "urn:graph:test"
+        triples = 2
+
+    def write_batched(store: object, plan: Plan) -> int:
+        calls.append(plan.graph)
+        return plan.triples
+
+    monkeypatch.setattr(load_veto.gate, "write_batched", write_batched)
+    plan = cast(gate.IngestPlan, Plan())
+    store = cast(load_veto.GraphDB, object())
+    written, in_doubt = load_veto.write_delivery(store, [plan])
+    assert written == ("urn:graph:test",)
+    assert in_doubt is None
+    assert calls == ["urn:graph:test"]
