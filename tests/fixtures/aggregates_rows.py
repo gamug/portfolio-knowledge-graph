@@ -16,12 +16,13 @@ from typing import Any
 from fixtures.backtest_rows import scenario_rows
 
 LABEL = "rule"
-ARMS = ["TOPN_MV_NOGUARD", "TOPN_MV_GUARD_NO_NLP"]
+ARMS = ["TOPN_MV_GUARD"]
 TREND_FILTER_DICTIONARY = {
     "window": "backtest window id (P1, H1, P3, H2, P2, H3)",
-    "decision_date": "ISO date of the decision session (the close the filter reads); the same dates as v_book_rebalance.decision_date of the Top-N arms",
-    "spy_vs_sma210": "'below' = SPY's close at decision_date is below the simple mean of its last 210 session closes (filter triggered); 'at_or_above' = not triggered; 'not_evaluable' = fewer than 210 sessions (filter off). No level or mean value is published",
-    "cash_fraction": "fraction of the Top-N target (SPY core + satellite) moved to cash by the filter at this decision, held until the next decision date: the run's filter_exit when 'below', else 0.0. GUARD layers act on top of it in TOPN_MV_GUARD_NO_NLP; the base arms (MARKOWITZ_BASE, MARKOWITZ_BASE_GUARD) never use the filter",
+    "decision_date": "ISO date of the decision session (the close the filter reads); the same dates as v_book_rebalance.decision_date of TOPN_MV_GUARD",
+    "spy_vs_sma210": "'below' = SPY's total-return index at decision_date is below the simple mean of its last 210 session closes (price input); 'at_or_above' = not below; 'not_evaluable' = fewer than 210 sessions (price input off). No level or mean value is published",
+    "news_risk_off": "true when the level D news rule put the filter in cash at this decision; the price input is independent",
+    "cash_fraction": "fraction of the Top-N target (SPY core + satellite) moved to cash by the filter at this decision, held until the next decision date: 0.5 when 'below' or news_risk_off is true, else 0.0. The filter applies only to TOPN_MV_GUARD; the without-hierarchy System and the base arms (MARKOWITZ_BASE, MARKOWITZ_BASE_GUARD) never use it",
 }
 REFERENCE_RETURNS_DICTIONARY = {
     "window": "backtest window id",
@@ -57,18 +58,21 @@ def aggregates_document(label: str = LABEL) -> dict[str, Any]:
                 "window": "P1",
                 "decision_date": "2022-01-05",
                 "spy_vs_sma210": "at_or_above",
+                "news_risk_off": False,
                 "cash_fraction": 0.0,
             },
             {
                 "window": "P1",
                 "decision_date": "2022-02-01",
                 "spy_vs_sma210": "below",
+                "news_risk_off": False,
                 "cash_fraction": 0.5,
             },
             {
                 "window": "P2",
                 "decision_date": "2025-02-18",
                 "spy_vs_sma210": "not_evaluable",
+                "news_risk_off": False,
                 "cash_fraction": 0.0,
             },
         ],
@@ -137,9 +141,17 @@ def write_aggregates(
     return path
 
 
+def _rename_guard_arm(rows: dict[str, list[dict[str, Any]]]) -> None:
+    """Use the final System book code in the synthetic aggregates databases."""
+    for book in rows["strategy_book"]:
+        if book["arm_code"] == "TOPN_MV_GUARD_NO_NLP":
+            book["arm_code"] = "TOPN_MV_GUARD"
+
+
 def p1_rows() -> dict[str, list[dict[str, Any]]]:
-    """The synthetic P1 database: both Top-N arms decide on 2022-01-05 and 2022-02-01."""
+    """The synthetic P1 database: TOPN_MV_GUARD decides on 2022-01-05 and 2022-02-01."""
     rows = scenario_rows("P1")
+    _rename_guard_arm(rows)
     rows["book_rebalance"] += [
         {
             "id": 4,
@@ -168,6 +180,7 @@ def p1_rows() -> dict[str, list[dict[str, Any]]]:
 def p2_rows() -> dict[str, list[dict[str, Any]]]:
     """The synthetic P2 database: its Top-N decision date and P2/P2a/P2b summary dates."""
     rows = scenario_rows("P2")
+    _rename_guard_arm(rows)
     books = {row["arm_code"]: row["id"] for row in rows["strategy_book"]}
     rows["book_rebalance"] = [
         {
@@ -192,7 +205,7 @@ def p2_rows() -> dict[str, list[dict[str, Any]]]:
         },
         {
             "id": 3,
-            "book_id": books["TOPN_MV_GUARD_NO_NLP"],
+            "book_id": books["TOPN_MV_GUARD"],
             "decision_date": "2025-02-18",
             "execution_date": "2025-02-19",
             "quant_portfolio_id": 12,

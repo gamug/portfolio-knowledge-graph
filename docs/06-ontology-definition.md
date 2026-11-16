@@ -3,7 +3,7 @@
 **Implementation:** [`schema/`](../schema/) — the formal OWL/SHACL/TriG implementation of
 everything described below, split into `tbox.ttl` (classes/properties, **74 classes total** as of
 this revision — 60 mutually-disjoint leaf/domain classes, a 13-class `rdfs:subClassOf` taxonomic
-backbone and `:ExchangeTradedFund` under `:Asset`, see §1.2), `shapes.ttl` (SHACL, 59 named
+backbone and `:ExchangeTradedFund` under `:Asset`, see §1.2; **436 properties**), `shapes.ttl` (SHACL, 59 named
 shapes), `reference.ttl` (GICS taxonomy +
 asset master data + the new `MetricType` controlled vocabulary, §1.9), `rules.ttl` (the ten active
 selection rules, the six GUARD protection rules, and the seven original ones as trees), and
@@ -928,8 +928,8 @@ not a veto rule:** it carries no `:ruleSeverity`, `:penaltyPoints` or `:priority
 `VetoShape` refuses it as the object of `:appliesRule`/`:primaryRule`. `RuleDefinitionShape` adds one
 `sh:or` branch for `:category "GUARD"`, keeps the severity requirement for every other active rule,
 makes `:priorityRank` mandatory for non-GUARD rules, and widens the rank range to `[1,10]` for
-`UTILITY_CASH_COVERAGE`. The bundle is **9310 quads; conforms: True** (the FR-001 gate, current at
-Work item 46).
+`UTILITY_CASH_COVERAGE`. The bundle is **9322 quads; conforms: True** (the FR-001 gate, current at
+block B2).
 
 **Projection of the three remaining v18 views (T-208, T-352/T-353).** `TickerHistory`,
 `OrchestratorRun` and `OrchestratorStep` are now written by `src/projection/reference.py`:
@@ -996,9 +996,10 @@ True.**
 ## 1.13 The aggregates file (Work item 37, 2026-11-05)
 
 Upstream now publishes `aggregates_<label>.json` beside the run databases and `SHA256SUMS`. It has
-two row families. `:TrendFilterState` records one decision date: the published `spy_vs_sma210` state
-(`below`, `at_or_above`, `not_evaluable`), the `:cashFraction` the filter moved to cash and the two
-Top-N arms it applies to. `:ReferenceReturn` records one reporting segment and reference (`SPY` or
+two row families. `:TrendFilterState` records one decision date: the published price input
+(`spy_vs_sma210`: `below`, `at_or_above`, `not_evaluable`; SPY's total-return index against its
+210-session mean), the level D news input `:newsRiskOff`, the `:cashFraction` the filter moved to
+cash and the one Top-N arm `TOPN_MV_GUARD` it applies to. `:ReferenceReturn` records one reporting segment and reference (`SPY` or
 `SP500_EW_INTERNAL`): `:referenceTotalReturn`, `:referenceMaxDrawdown`, the segment's inclusive dates
 and its session count. `:AggregatesSet` is the per-label root both row classes point at with
 `:aggregatesSet`; it carries the source file name, its lowercase manifest SHA-256, the `config_id`
@@ -1007,19 +1008,21 @@ validated and deliberately not projected.
 
 The names read beside the existing backtest terms and avoid a domain clash: `:trendWindow`,
 `:trendDecisionDate`, `:returnWindow`, `:returnSegment`, `:referenceDateFrom`, `:referenceDateTo`,
-`:nSessions`, `:referenceName`, `:referenceTotalReturn` and `:referenceMaxDrawdown` are new
-properties, so the existing `:windowId`, `:decisionDate`, `:dateFrom`, `:dateTo` and `:maxDrawdown`
-keep their own `rdfs:domain` (using them here would entail a disjoint class). Every new property's
-English `rdfs:comment` is the file's dictionary text verbatim. The parser is a whitelist: extra keys,
+`:nSessions`, `:referenceName`, `:referenceTotalReturn`, `:referenceMaxDrawdown`, `:cashFraction`,
+`:newsRiskOff` and `:appliesToArm` are new properties, so the existing `:windowId`, `:decisionDate`,
+`:dateFrom`, `:dateTo` and `:maxDrawdown` keep their own `rdfs:domain` (using them here would entail
+a disjoint class). Every dictionary-backed property's
+English `rdfs:comment` is the file's dictionary text verbatim; the new `:newsRiskOff` comment is
+the letter-26 definition. The parser is a whitelist: extra keys,
 unknown states/references/segments, duplicate row identities and a bad manifest stop with a message.
 The graph is the append-only `urn:graph:derived:backtest:aggregates:{label}`; the three row shapes
 close the label, window, segment, state and reference vocabularies with `sh:pattern`/`sh:in`.
 
 The read-only verifier compares the file with the source databases: each window's trend dates must
-equal the distinct `v_book_rebalance.decision_date` of both Top-N arms; each segment in
+equal the distinct `v_book_rebalance.decision_date` of `TOPN_MV_GUARD`; each segment in
 `v_portfolio_period_summary` must have exactly the two reference rows with the summary's dates;
-`below` must carry a positive cash fraction and every other state exactly `0.0`; and `P2` must
-compound `P2a`/`P2b` within `1e-6`. It never writes and never stores a daily series, a price level or
+`below` or `newsRiskOff` must carry a positive cash fraction and every other row exactly `0.0`; and
+`P2` must compound `P2a`/`P2b` within `1e-6`. It never writes and never stores a daily series, a price level or
 the 210-session mean. Counts after this addition: **58 classes (44 disjoint leaves), 39 named
 shapes, 4915 quads; conforms: True.** Work item 38 adds only the `bootstrap_mdd` `sh:in` member
 (+2 triples).
@@ -1050,8 +1053,8 @@ parameters and process/evaluation terms. `LabelConceptShape` (in `shapes.ttl`) r
 `skos:notation`, one `skos:inScheme`, one `rdfs:label` and one `rdfs:comment` per language, and only
 `@en`/`@es` `skos:altLabel`s; windows also carry `:windowStart`, `:windowEnd`, `:historicalCondition`
 and `:finalConfigurationCondition`. The file is in FR-001 and the load plan. Counts after this
-addition: **74 classes (60 disjoint leaves), 59 named shapes, 9310 quads; conforms: True**; load plan
-**21 graphs / 9587 asserted triples** (production **5 / 9066**).
+addition: **74 classes (60 disjoint leaves), 436 properties, 59 named shapes, 9322 quads; conforms: True**; load plan
+**21 graphs / 9599 asserted triples** (production **5 / 9078**).
 
 ## 1.16 Fundamentals block C schema (Work item 45, T-811/T-812, 2026-11-13)
 
@@ -1067,8 +1070,8 @@ the 33 masked flags. The loader (PR 2) stops on a `valuation` row of a masked as
 `:Observation`; the existing explicit types are checked by `tests/test_fundamentals_shapes.py`.
 `shapes.ttl` adds `FundamentalFilingShape`, `FundamentalMetricSetShape`,
 `FundamentalAssessmentShape` and `FundamentalMetricDefinitionShape`.
-Counts: **74 classes (60 disjoint leaves), 59 named shapes, 9310 quads; conforms: True**; load plan
-**21 graphs / 9587 asserted triples** (production **5 / 9066**).
+Counts: **74 classes (60 disjoint leaves), 436 properties, 59 named shapes, 9322 quads; conforms: True**; load plan
+**21 graphs / 9599 asserted triples** (production **5 / 9078**).
 
 ## 1.17 Veto Hierarchy detail events (Work item 46, T-853–T-859, 2026-11-13)
 
@@ -1100,8 +1103,8 @@ match exactly one loaded alert by `(date, asset)`, every replacement must link t
 decision pool/candidate/blocked counts must agree with the decision-only selection rows (never
 `rankings.json`). `RetentionRejectionShape` now admits counter 0. PR D adds
 `:memoryReleaseCause`, `:memoryStartKind` and `:rejectedZoneNoSignal`, the C1/31-concept label vocabulary and the
-removed-rule label cleanup; counts after it: **74 classes, 60 disjoint leaves, 59 named shapes,
-9310 quads, 21/9587 asserted triples, production 5/9066**.
+removed-rule label cleanup; counts after it: **74 classes, 60 disjoint leaves, 436 properties,
+59 named shapes, 9322 quads, 21/9599 asserted triples, production 5/9078**.
 
 ## 1.18 Daily reference series (Work item 46, block E, 2026-11-15)
 

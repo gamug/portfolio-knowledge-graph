@@ -362,8 +362,8 @@ so every result is in-sample.""" .
     a owl:Class ;
     rdfs:label "Trend Filter State" ;
     rdfs:label "estado del filtro de tendencia"@es ;
-    skos:definition "Estado del filtro de tendencia de la cartera Top-N en una fecha de decisión: si el cierre de SPY estaba por debajo de la media simple de sus últimos 210 cierres, la fracción de la cartera Top-N movida a efectivo y los brazos a los que se aplica. No publica ningún nivel de precio ni la media."@es ;
-    rdfs:comment "One row of aggregates_<label>.json trend_filter: the trend state of SPY against the simple mean of its last 210 session closes at one decision date, the cash fraction the filter moved to cash, and the two Top-N arms it applies to. :trendState is below | at_or_above | not_evaluable; no price level or mean is published. Work item 37." .
+    skos:definition "Estado del filtro de tendencia de la cartera TOPN_MV_GUARD en una fecha de decisión: la entrada de precio (el índice de retorno total de SPY frente a la media simple de sus últimos 210 cierres), la entrada de noticias del nivel D (news_risk_off), la fracción de la cartera movida a efectivo y el brazo al que se aplica. No publica ningún nivel de precio ni la media."@es ;
+    rdfs:comment "One row of aggregates_<label>.json trend_filter: the price input of SPY against the simple mean of its last 210 session closes, the level D news input (newsRiskOff), the cash fraction the filter moved to cash, and the one Top-N arm it applies to. :trendState is below | at_or_above | not_evaluable; no price level or mean is published. Work item 37; the news input was added in 2026-11-16." .
 
 :ReferenceReturn
     a owl:Class ;
@@ -1017,8 +1017,10 @@ so every result is in-sample.""" .
     rdfs:comment """ISO date of the decision session (the close the filter reads); the same dates as v_book_rebalance.decision_date of the Top-N arms""" .
 :trendState a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :TrendFilterState ; rdfs:range xsd:string  .
 :cashFraction a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :TrendFilterState ; rdfs:range xsd:decimal  .
+:newsRiskOff a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :TrendFilterState ; rdfs:range xsd:boolean ;
+    rdfs:comment "True when the level D news rule put the trend filter in cash at this decision; the price input in :trendState is independent. Read from news_risk_off in aggregates_<label>.json." .
 :appliesToArm a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :TrendFilterState ; rdfs:range xsd:string ;
-    rdfs:comment "TOPN_MV_NOGUARD | TOPN_MV_GUARD_NO_NLP: the arms the trend filter applies to, read from trend_filter_applies_to_arms (the MARKOWITZ_* arms never use it). SHACL requires exactly these two values on every row." .
+    rdfs:comment "TOPN_MV_GUARD: the one arm the trend filter applies to, read from trend_filter_applies_to_arms. The MARKOWITZ_* arms and SYSTEM_WITHOUT_HIERARCHY never use it. SHACL requires this value on every row." .
 :returnWindow a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :ReferenceReturn ; rdfs:range xsd:string ;
     rdfs:comment """backtest window id""" .
 :returnSegment a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :ReferenceReturn ; rdfs:range xsd:string ;
@@ -1320,13 +1322,18 @@ so every result is in-sample.""" .
 
 :cashFraction rdfs:label "Trend-filter cash fraction"@en ;
     rdfs:label "Fracción en efectivo del filtro de tendencia"@es ;
-    rdfs:comment "Fraction of the Top-N target moved to cash by the trend filter at this decision, held until the next decision date."@en ;
-    rdfs:comment "Fracción del objetivo Top-N movida a efectivo por el filtro de tendencia en esta decisión, mantenida hasta la siguiente fecha de decisión."@es .
+    rdfs:comment "Fraction of the TOPN_MV_GUARD target moved to cash by the trend filter at this decision, held until the next decision date; 0.5 when the price input is below or newsRiskOff is true, otherwise 0.0."@en ;
+    rdfs:comment "Fracción del objetivo TOPN_MV_GUARD movida a efectivo por el filtro de tendencia en esta decisión, mantenida hasta la siguiente fecha de decisión; 0.5 cuando la entrada de precio está below o newsRiskOff es true, y 0.0 en otro caso."@es .
+
+:newsRiskOff rdfs:label "News risk-off input"@en ;
+    rdfs:label "Entrada de noticias de aversión al riesgo"@es ;
+    rdfs:comment "True when the level D news rule put the trend filter in cash at this decision; it is an input independent of the price state."@en ;
+    rdfs:comment "True cuando la regla de noticias de nivel D puso el filtro de tendencia en efectivo en esta decisión; es una entrada independiente del estado de precio."@es .
 
 :trendState rdfs:label "Trend-filter state"@en ;
     rdfs:label "Estado del filtro de tendencia"@es ;
-    rdfs:comment "below, at_or_above or not_evaluable; no price level or mean is published."@en ;
-    rdfs:comment "below, at_or_above o not_evaluable; no se publica nivel de precio ni media."@es .
+    rdfs:comment "below, at_or_above or not_evaluable for the price input: SPY's total-return index (dividends reinvested) against the simple mean of its last 210 session closes; no price level or mean is published."@en ;
+    rdfs:comment "below, at_or_above o not_evaluable para la entrada de precio: el índice de retorno total de SPY (dividendos reinvertidos) frente a la media simple de sus últimos 210 cierres; no se publica nivel de precio ni media."@es .
 
 :nRebalances rdfs:label "Number of rebalances"@en ;
     rdfs:label "Número de rebalanceos"@es ;

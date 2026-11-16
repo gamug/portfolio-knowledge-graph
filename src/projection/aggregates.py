@@ -1,8 +1,9 @@
 """Project and verify upstream's ``aggregates_<label>.json`` (Work item 37).
 
 The file is a small per-label publication beside the run databases and their ``SHA256SUMS``
-manifest: one row per trend-filter decision date and one row per reporting segment and reference.
-This module reads it through a whitelist, builds the deterministic batch for
+manifest: one row per trend-filter decision date (price input, level D news input, cash fraction)
+and one row per reporting segment and reference. This module reads it through a whitelist, builds
+the deterministic batch for
 ``urn:graph:derived:backtest:aggregates:{label}`` and verifies it against the source databases
 read-only. It never reads or writes a daily series, a price level or the 210-session average.
 
@@ -42,8 +43,9 @@ NS = "https://thesis.local/kg/portfolio#"
 KG = rdflib.Namespace(NS)
 
 GRAPH_PREFIX = "urn:graph:derived:backtest:aggregates:"
-#: The two arms the trend filter applies to, in the file's order. The MARKOWITZ_* arms never use it.
-TOP_N_ARMS = ("TOPN_MV_NOGUARD", "TOPN_MV_GUARD_NO_NLP")
+#: The one arm the trend filter applies to. The MARKOWITZ_* arms and the without-hierarchy
+#: System never use it.
+TOP_N_ARMS = ("TOPN_MV_GUARD",)
 TREND_STATES = ("below", "at_or_above", "not_evaluable")
 REFERENCES = ("SPY", "SP500_EW_INTERNAL")
 #: The exact top-level keys, source keys and row keys of the contract.
@@ -67,7 +69,9 @@ SOURCE_KEYS = frozenset(
     }
 )
 DICTIONARY_KEYS = {
-    "trend_filter": frozenset({"window", "decision_date", "spy_vs_sma210", "cash_fraction"}),
+    "trend_filter": frozenset(
+        {"window", "decision_date", "spy_vs_sma210", "news_risk_off", "cash_fraction"}
+    ),
     "reference_returns": frozenset(
         {
             "window",
@@ -83,7 +87,13 @@ DICTIONARY_KEYS = {
 }
 TREND_KEYS = DICTIONARY_KEYS["trend_filter"]
 REFERENCE_KEYS = DICTIONARY_KEYS["reference_returns"]
-TREND_COLUMNS = ("window", "decision_date", "spy_vs_sma210", "cash_fraction")
+TREND_COLUMNS = (
+    "window",
+    "decision_date",
+    "spy_vs_sma210",
+    "news_risk_off",
+    "cash_fraction",
+)
 REFERENCE_COLUMNS = (
     "window",
     "segment",
@@ -115,11 +125,12 @@ class ManifestError(AggregatesError):
 
 @dataclass(frozen=True)
 class TrendFilterRow:
-    """One ``trend_filter`` row: the filter state at one decision date."""
+    """One ``trend_filter`` row: price input, news input and cash at one decision date."""
 
     window: str
     decision_date: datetime.date
     state: str
+    news_risk_off: bool
     cash_fraction: Decimal
 
 
@@ -143,7 +154,7 @@ class AggregatesFile:
 
     label: str
     config_id: str
-    arms: tuple[str, str]
+    arms: tuple[str, ...]
     sources: Mapping[str, str]
     dictionary: Mapping[str, Mapping[str, str]]
     trend_filter: tuple[TrendFilterRow, ...]
@@ -293,23 +304,29 @@ def _integer(value: object, where: str) -> int:
     return value
 
 
+def _boolean(value: object, where: str) -> bool:
+    if not isinstance(value, bool):
+        raise AggregatesError(f"{where}: expected a JSON boolean, got {type(value).__name__}")
+    return value
+
+
 def _list(value: object, where: str) -> Sequence[Any]:
     if not isinstance(value, list):
         raise AggregatesError(f"{where}: expected a JSON array, got {type(value).__name__}")
     return value
 
 
-def _arms(value: object, where: str) -> tuple[str, str]:
+def _arms(value: object, where: str) -> tuple[str, ...]:
     rows = _list(value, where)
     if len(rows) != len(TOP_N_ARMS):
-        raise AggregatesError(f"{where}: expected exactly two Top-N arms, got {len(rows)}")
+        raise AggregatesError(f"{where}: expected exactly one Top-N arm, got {len(rows)}")
     arms = tuple(_string(row, f"{where}[{index}]") for index, row in enumerate(rows))
     if arms != TOP_N_ARMS:
         raise AggregatesError(
-            f"{where}: expected {TOP_N_ARMS!r} in that order, got {arms!r}; the MARKOWITZ_* arms "
-            "never use the trend filter"
+            f"{where}: expected {TOP_N_ARMS!r}, got {arms!r}; the MARKOWITZ_* arms and the "
+            "without-hierarchy System never use the trend filter"
         )
-    return (arms[0], arms[1])
+    return arms
 
 
 def _dictionary(value: object) -> Mapping[str, Mapping[str, str]]:
@@ -349,6 +366,7 @@ def _trend_filter(value: object) -> tuple[TrendFilterRow, ...]:
             raise AggregatesError(
                 f"{where}.spy_vs_sma210: {state!r} is not one of {TREND_STATES!r}"
             )
+        news_risk_off = _boolean(row["news_risk_off"], f"{where}.news_risk_off")
         cash = _decimal(row["cash_fraction"], f"{where}.cash_fraction")
         if not (_ZERO <= cash <= Decimal("1.0")):
             raise AggregatesError(f"{where}.cash_fraction: {cash} is not in [0, 1]")
@@ -358,7 +376,7 @@ def _trend_filter(value: object) -> tuple[TrendFilterRow, ...]:
                 f"{where}: duplicate trend_filter row for window {window} and {day}"
             )
         seen.add(identity)
-        out.append(TrendFilterRow(window, day, state, cash))
+        out.append(TrendFilterRow(window, day, state, news_risk_off, cash))
     return tuple(out)
 
 
@@ -587,6 +605,11 @@ def project(data: AggregatesFile) -> GraphBuilder:
         builder.add(iri, KG.trendWindow, rdflib.Literal(trend_row.window))
         builder.add(iri, KG.trendDecisionDate, _date_literal(trend_row.decision_date))
         builder.add(iri, KG.trendState, rdflib.Literal(trend_row.state))
+        builder.add(
+            iri,
+            KG.newsRiskOff,
+            rdflib.Literal(trend_row.news_risk_off, datatype=XSD.boolean),
+        )
         builder.add(iri, KG.cashFraction, _decimal_literal(trend_row.cash_fraction))
         for arm in data.arms:
             builder.add(iri, KG.appliesToArm, rdflib.Literal(arm))
@@ -631,10 +654,10 @@ def _triples_text(values: set[tuple[str, str, str]]) -> str:
 
 
 def _decision_dates(source: FinancialSource) -> dict[str, set[str]]:
-    """Per Top-N arm, the distinct ``v_book_rebalance.decision_date`` values."""
+    """The distinct ``v_book_rebalance.decision_date`` values of ``TOPN_MV_GUARD``."""
     rows = source.execute(
         "SELECT DISTINCT arm_code, decision_date FROM v_book_rebalance "
-        "WHERE arm_code IN (?, ?) ORDER BY arm_code, decision_date",
+        "WHERE arm_code = ? ORDER BY decision_date",
         TOP_N_ARMS,
     ).fetchall()
     out: dict[str, set[str]] = defaultdict(set)
@@ -715,25 +738,18 @@ def _trend_checks(data: AggregatesFile, directory: Path) -> list[Check]:
             checks.append(Check(f"trend filter {window}", False, f"{path}: {exc}"))
             continue
         problems: list[str] = []
-        for arm in TOP_N_ARMS:
-            if arm not in dates:
-                problems.append(f"{arm} has no v_book_rebalance row")
-                continue
+        arm = TOP_N_ARMS[0]
+        if arm not in dates:
+            problems.append(f"{arm} has no v_book_rebalance row")
+        else:
             missing = expected - dates[arm]
             extra = dates[arm] - expected
             if missing:
                 problems.append(f"{arm} is missing {_tsv(missing)}")
             if extra:
                 problems.append(f"{arm} has extra {_tsv(extra)}")
-        arm_sets = [dates[arm] for arm in TOP_N_ARMS if arm in dates]
-        if len(arm_sets) == len(TOP_N_ARMS) and arm_sets[0] != arm_sets[1]:
-            problems.append(
-                "the two Top-N arms disagree: "
-                f"{TOP_N_ARMS[0]} {_tsv(arm_sets[0])} vs "
-                f"{TOP_N_ARMS[1]} {_tsv(arm_sets[1])}"
-            )
         detail = (
-            f"{len(expected)} decision date(s) match both Top-N arms"
+            f"{len(expected)} decision date(s) match {arm}"
             if not problems
             else f"{window}: " + "; ".join(problems)
         )
@@ -831,19 +847,21 @@ def _reference_checks(data: AggregatesFile, directory: Path) -> list[Check]:  # 
 def _cash_checks(data: AggregatesFile) -> Check:
     problems: list[str] = []
     for row in data.trend_filter:
-        if row.state == "below":
-            if not row.cash_fraction > _ZERO:
-                problems.append(f"{row.window} {row.decision_date}: below with cash 0")
-        elif row.cash_fraction != _ZERO:
+        positive = row.state == "below" or row.news_risk_off
+        if positive and not row.cash_fraction > _ZERO:
+            cause = "below" if row.state == "below" else "news_risk_off"
+            problems.append(f"{row.window} {row.decision_date}: {cause} with cash 0")
+        elif not positive and row.cash_fraction != _ZERO:
             problems.append(
-                f"{row.window} {row.decision_date}: {row.state} with cash {row.cash_fraction}"
+                f"{row.window} {row.decision_date}: {row.state} without news risk-off "
+                f"with cash {row.cash_fraction}"
             )
     if problems:
         return Check("cash fractions", False, "; ".join(problems))
     return Check(
         "cash fractions",
         True,
-        f"{len(data.trend_filter)} row(s): below positive, other states exactly 0.0",
+        f"{len(data.trend_filter)} row(s): below or news_risk_off positive, otherwise 0.0",
     )
 
 

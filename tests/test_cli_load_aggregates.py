@@ -102,7 +102,10 @@ def test_a_dry_run_prints_the_manifest_verifier_build_and_timings(
     assert result.returncode == 0, result.stderr
     assert "manifest: aggregates_rule.json is listed" in result.stdout
     assert "urn:graph:derived:backtest:aggregates:rule" in result.stdout
-    assert "rows: trend_filter: 3; reference_returns: 8" in result.stdout
+    assert (
+        "rows: trend_filter: 3 (news_risk_off true 0, cash > 0 1); reference_returns: 8"
+        in result.stdout
+    )
     assert "PASS  manifest" in result.stdout
     assert "PASS  trend filter P1" in result.stdout
     assert "PASS  reference returns P2a" in result.stdout
