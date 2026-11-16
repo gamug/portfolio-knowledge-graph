@@ -1453,7 +1453,7 @@ See `docs/fundamentals-design.md` and `PLAN.md` Work item 45.*
 
 See `docs/veto-hierarchy-design.md` and `PLAN.md` Work item 46. The design is complete; block E
 (``T-880–T-884``) adds the daily series, and the final manifest (`final-1`) is handled by
-T-890–T-895.
+T-890–T-896.
 
 - [x] **T-840** *(done 2026-11-13: `docs/veto-hierarchy-design.md`; design only, no code, schema or
       GraphDB write.)* Configuration identity, filters, rules/shapes, detail model, price masking,

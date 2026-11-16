@@ -854,9 +854,12 @@ loaded m018 graphs: `alerts_by_rule`, `actions_by_status`, `rebalances`, `daily_
 `retention_decisions`/`holds`/`rejections`/`counter_drops` and
 `retention_rejections_by_cause`. It prints why the rest cannot be checked from the store:
 `ranking_decisions`/`ranking_rows` and `scale_changes` (files not projected), `blocked_records` and
-`reentry_records` (detail records are not graph nodes), the group-5 manager/narrator/news keys
-(not loaded), and `MARKOWITZ_MV`/`SPY` `daily_rows` (reference CSVs not loaded). A missing
-`PortfolioPeriodSummary` is a failure, not a non-verifiable key.
+`reentry_records` (detail records are not graph nodes), and the group-5
+manager/narrator/news/bull keys (not loaded yet, including `news_level_c_decisions`,
+`news_level_d_decisions`, `news_exits`, `news_sector_rejections` and `bull_triggered`).
+`MARKOWITZ_MV`/`SPY` `daily_rows` are verified from the series graph when it exists; an absent
+series graph prints `not store-verifiable` and does not fail. A missing `PortfolioPeriodSummary` is
+a failure, not a non-verifiable key.
 
 ### 9.2 SHA-256 before parsing
 

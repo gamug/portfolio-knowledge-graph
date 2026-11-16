@@ -235,9 +235,9 @@ uv run python cli/load_veto.py \
 uv run python cli/load_mv_base.py --label final \
   --dir "/workspaces/thesis/knoledge graph/mv_base"
 
-# 6. Aggregates from the delivery root (aggregates_final.json)
+# 6. Aggregates from the delivery root (dry run until T-896 resolves the source data; then add --write)
 uv run python cli/load_aggregates.py --label final \
-  --dir "/workspaces/thesis/knoledge graph/2026-11-17_final" --write
+  --dir "/workspaces/thesis/knoledge graph/2026-11-17_final"
 
 # 7. Series (SPY and MARKOWITZ_MV); point at the series subfolder, not the delivery root
 uv run python cli/load_series.py --label final \

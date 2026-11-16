@@ -3611,7 +3611,7 @@ graph is **1265 triples**. No GraphDB write.
 ## Work item 46 — Veto Hierarchy projection (T-840–T-869)
 
 **Status: PR A–H merged (#156–#162); pre-flight fix #163 (T-870–T-871); block E series loader
-merged (#165, T-880–T-884); final-manifest follow-up in `feat/final-manifest` (T-890–T-895).**
+merged (#165, T-880–T-884); final-manifest follow-up in `feat/final-manifest` (T-890–T-896).**
 
 **Why**: Reviewer A delivered the frozen data dictionary and the pilot `H1C-B5-P1` for the complete
 System with the Veto Hierarchy. The engine arm codes no longer identify a configuration
@@ -3723,3 +3723,18 @@ leaves)**, **59 named shapes**; load plan **21/9587**, production **5/9066**. Re
 `mv_weights.csv` 59,201; projected **14,412** SPY triples and **376,824** MARKOWITZ_MV triples;
 SHACL conforms. Read-only pre-flights on `portfolio_test` and `portfolio` report both series graphs
 `would-be-written`; no GraphDB write was made. Full suite **1,796 passed / 62 deselected**.
+
+**Verified 2026-11-16 (T-890–T-894, final manifest)**: the actual
+`load_veto --manifest "/workspaces/thesis/knoledge graph/2026-11-17_final/manifest_final.json"`
+dry run verified **137 files** and projected the whole final delivery: meta 196 triples plus the
+35 configuration/window keys, **9,045,434 triples** in 36 graphs; every combined m018+selection
+batch SHACL-conformed. The longest checks were `SYSTEM_WITH_HIERARCHY/C1` 182.7 s,
+`SYSTEM_WITHOUT_HIERARCHY/C1` 93.2 s and `MARKOWITZ_BASE/C1` 47.4 s. The graph sizes and the
+`>300,000` flags are in the run output and in `docs/final-delivery.md` §0quater.3. No GraphDB
+write was made. `load_series` dry run: MARKOWITZ_MV **376,824** and SPY **14,412** triples, SHACL
+58.1 s; `--check-store` reports both `would-be-written`. `load_aggregates` now accepts the final
+root manifest and nested databases but stops on the T-896 delivery-data mismatch (7 of 17 source
+checks); `load_mv_base` stops on the T-895 missing mv_base files. `portfolio_test` already holds
+six old P1 graphs (meta 33, the two System P1 pairs and `MARKOWITZ_BASE` P1), so a full
+`--check-store` pre-flight would stop at the meta graph until the maintainer empties them. Full
+suite: **1815 passed / 62 deselected** (40 min 16 s).
