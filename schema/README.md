@@ -9,8 +9,8 @@ actually building it (each flagged inline in the file that surfaced it, and summ
 
 | File | Format | Loads into | Contents |
 |---|---|---|---|
-| `tbox.ttl` | Turtle | `urn:graph:tbox` | 74 classes (60 mutually disjoint leaf/domain classes + a 13-class `rdfs:subClassOf` taxonomic backbone + `:ExchangeTradedFund` under `:Asset`), properties, OWL cardinality restrictions. |
-| `shapes.ttl` | Turtle | `urn:graph:tbox` | 59 named SHACL node shapes plus two blank-node conditional shapes (data-quality shapes kept as a separate file/concern from `tbox.ttl` — OWL semantics vs. SHACL validation, see below). |
+| `tbox.ttl` | Turtle | `urn:graph:tbox` | 75 classes (61 mutually disjoint leaf/domain classes + a 13-class `rdfs:subClassOf` taxonomic backbone + `:ExchangeTradedFund` under `:Asset`), properties, OWL cardinality restrictions. |
+| `shapes.ttl` | Turtle | `urn:graph:tbox` | 60 named SHACL node shapes plus two blank-node conditional shapes (data-quality shapes kept as a separate file/concern from `tbox.ttl` — OWL semantics vs. SHACL validation, see below). |
 | `reference.ttl` | Turtle | `urn:graph:reference` | GICS sector/industry taxonomy + asset master data (five worked-example S&P 500 tickers plus the core ETF `SPY`). |
 | `fibo.ttl` | Turtle | `urn:graph:reference:fibo` | The 25-term FIBO 2026Q2 glossary slice (54 entries, 277 statements) plus the authors' Spanish `@es` layer; built by `cli/build_fibo_slice.py`, never hand-edited. |
 | `labels.ttl` | Turtle | `urn:graph:labels` | The bilingual SKOS presentation vocabulary (156 concepts, 1499 triples) for codes and literals; loaded after `rules.ttl` and before `instances.trig`. |
@@ -557,6 +557,19 @@ what the store *enforces*.
     Counts: **74 classes (60 disjoint leaves), 59 named shapes, 9310 quads; conforms: True**;
     load plan **21 graphs / 9587 asserted triples** (production **5 / 9066**). The store must be
     reloaded afterwards.
+
+18. **News rows (Work item 46, block D, 2026-11-16).** `tbox.ttl` gains the `:NewsItem`
+    EvidenceSource leaf and its typed properties for every loaded column of
+    `news/news_rows.jsonl`: the three model revisions as provenance, `:newsAssetId` (integer),
+    `:newsDate` (`xsd:date`), the three sentiment probabilities and `:categoryScore`
+    (`xsd:decimal`), `:articleId` (integer), `:bodyHash`, the title and the delivered fragment
+    (`:newsText`, at most 2,000 characters) as plain literals, and the optional
+    `:newsItemOfAsset` link. `shapes.ttl` gains `:NewsItemShape`; the loader writes one
+    append-only graph per calendar year,
+    `urn:graph:derived:news:{label}:{year}`, splitting a year over the ~400,000-triple bound into
+    `:H1`/`:H2`. Counts: **75 classes (61 disjoint leaves), 60 named shapes, 9682 quads;
+    conforms: True**; load plan **21 graphs / 9959 asserted triples** (production **5 / 9438**).
+    The store must be reloaded afterwards.
 
 ## Validation
 

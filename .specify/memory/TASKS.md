@@ -1490,3 +1490,23 @@ See `docs/veto-hierarchy-design.md` and `PLAN.md` Work item 46. The design is co
       `docs/final-delivery.md` §7d, docs/06/07 and counts; real dry run only, no GraphDB write.)*
       Tests, dry-run evidence and delivery documentation.
 - [ ] **T-885–T-889** Reserved for block E review fixes.
+- [x] **T-890** *(done 2026-11-16, block D: `schema/tbox.ttl`, `schema/shapes.ttl`,
+      `tests/test_news_shapes.py`, `docs/labels-news-review.md`; 75 classes / 61 disjoint leaves /
+      60 named shapes, 9682 quads, 21/9959 load, production 5/9438; labels pending Reviewer A.)*
+      Add the `:NewsItem` class, one typed property per loaded column, the Asset link, the
+      `:NewsItemShape`, the synthetic positive/negative cases and the bilingual review table.
+- [x] **T-891** *(done 2026-11-16: `src/projection/news.py`; strict manifest/SHA256SUMS, header,
+      row-count, duplicate-key and two-revision stops; typed projection, asset resolution with the
+      engine-id fallback, year graphs and the gate target; `tests/test_news.py`.)* News parser and
+      projector, including the IRI key rule and the unresolved-asset report.
+- [x] **T-892** *(done 2026-11-16: `cli/load_news.py`, `gate.write_batched`, dry run, `--check-store`,
+      `--write`, production guard and graph-in-doubt handling; `tests/test_cli_load_news.py`.)*
+      News loader CLI and bounded writes.
+- [x] **T-893** *(done 2026-11-16: `verify_store --manifest` sums stored NewsItem rows per year
+      against the manifest and checks distinct tickers; absent graphs are not store-verifiable;
+      tests for both.)* Store-side news verification.
+- [x] **T-894** *(done 2026-11-16: `docs/final-delivery.md` §7e and 0bis.6, docs/07, veto design §7,
+      README/SPEC/schema/06/07 counts; real dry run 1,732,685 triples and read-only pre-flight on
+      `portfolio_test`, no GraphDB write; full suite 1,855 passed / 62 deselected.)* Delivery
+      documentation, count reconciliation and the real dry run.
+- [ ] **T-895–T-899** Reserved for block D review fixes.

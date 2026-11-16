@@ -34,6 +34,34 @@ CONFIGURATIONS: tuple[str, ...] = (
 #: The seven windows of the final delivery, including the independent C1 run.
 WINDOWS: tuple[str, ...] = ("P1", "H1", "P3", "H2", "P2", "H3", "C1")
 
+#: The news file's columns, in the order the delivery writes them (block D).
+NEWS_COLUMNS: tuple[str, ...] = (
+    "model_revision",
+    "item_kind",
+    "item_id",
+    "ticker",
+    "asset_id",
+    "date",
+    "date_source",
+    "title",
+    "text",
+    "text_source",
+    "sentiment",
+    "sentiment_score",
+    "p_positive",
+    "p_negative",
+    "p_neutral",
+    "sentiment_revision",
+    "category",
+    "category_score",
+    "group_label",
+    "category_revision",
+    "article_id",
+    "body_hash",
+    "source_domain",
+    "url",
+)
+
 #: configuration -> lower-case graph/IRI slug.
 CONFIGURATION_SLUGS: Mapping[str, str] = {
     "SYSTEM_WITH_HIERARCHY": "system_with_hierarchy",
@@ -72,6 +100,8 @@ _TOP_LEVEL = frozenset(
         "prereg",
         "configurations",
         "control_counts",
+        "news_rows_file",
+        "bull_mode_file",
     }
 )
 _CONFIGURATION_KEYS = frozenset(
@@ -110,6 +140,7 @@ _RUN_KEYS = frozenset(
         "narrator_sha256",
         "news_actions_file",
         "news_actions_sha256",
+        "bull_mode_file",
         "code_version",
         "files_sha256",
         "daily_file",
@@ -220,7 +251,8 @@ class ManifestRun:
     source_kind: str
     files: Mapping[str, Path] = field(default_factory=dict)
     file_hashes: Mapping[Path, str] = field(default_factory=dict)
-    extra_hashes: Mapping[Path, str] = field(default_factory=dict)
+    #: The optional ``files_sha256`` map, keyed by its short suffix (``jsonl``, ``rankings``, ...).
+    extra_hashes: Mapping[str, str] = field(default_factory=dict)
     code_version: str | None = None
 
     @property
@@ -242,6 +274,19 @@ class PriceMask:
 
 
 @dataclass(frozen=True)
+class NewsContract:
+    """The ``news_rows_file`` block of the final manifest (Work item 46, block D)."""
+
+    root: Path
+    file: Path
+    sha256: str
+    rows: int
+    model_revision: str
+    columns: tuple[str, ...]
+    readme: Path | None
+
+
+@dataclass(frozen=True)
 class VetoManifest:
     """A parsed manifest, before or after its files have been hashed."""
 
@@ -256,6 +301,7 @@ class VetoManifest:
     configurations: tuple[Mapping[str, Any], ...]
     runs: tuple[ManifestRun, ...]
     control_counts: object
+    news: NewsContract | None = None
 
     @property
     def draft(self) -> bool:
@@ -334,6 +380,68 @@ def read_manifest(path: str | Path) -> VetoManifest:  # noqa: C901 -- one branch
         configurations=tuple(configurations),
         runs=tuple(runs),
         control_counts=raw.get("control_counts"),
+        news=_news_contract(raw.get("news_rows_file"), root) if "news_rows_file" in raw else None,
+    )
+
+
+def read_news_contract(path: str | Path) -> NewsContract:
+    """Read only the ``news_rows_file`` block; the rest of the manifest is not parsed.
+
+    ``cli/load_news.py`` uses this before it reads the 69k-row file, so a malformed or drifted
+    contract stops the load without opening the data.
+    """
+    manifest_path = Path(path)
+    try:
+        raw = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except OSError as exc:
+        raise VetoManifestError(f"{manifest_path}: {exc}") from exc
+    except json.JSONDecodeError as exc:
+        raise VetoManifestError(f"{manifest_path}: invalid JSON: {exc}") from exc
+    if not isinstance(raw, dict):
+        raise VetoManifestError(f"{manifest_path}: the manifest must be a JSON object")
+    if "news_rows_file" not in raw:
+        raise VetoManifestError(f"{manifest_path}: the manifest has no news_rows_file block")
+    return _news_contract(raw["news_rows_file"], manifest_path.resolve().parent)
+
+
+def _news_contract(value: object, root: Path) -> NewsContract:
+    if not isinstance(value, dict):
+        raise VetoManifestError("news_rows_file must be an object")
+    unknown = sorted(set(value) - {"file", "sha256", "rows", "model_revision", "columns", "readme"})
+    if unknown:
+        raise VetoManifestError(f"news_rows_file: unknown key(s): {', '.join(unknown)}")
+    file_name = _required_str(value, "file")
+    digest = _required_str(value, "sha256")
+    _hash(digest, "news_rows_file.sha256", False)
+    rows = _positive_int(value.get("rows"), "news_rows_file.rows", False)
+    model_revision = _required_str(value, "model_revision")
+    columns_value = value.get("columns")
+    if not isinstance(columns_value, list) or not columns_value:
+        raise VetoManifestError("news_rows_file.columns must be a non-empty list")
+    columns = tuple(str(column) for column in columns_value)
+    if len(set(columns)) != len(columns):
+        raise VetoManifestError("news_rows_file.columns lists a column twice")
+    if columns != NEWS_COLUMNS:
+        missing = [name for name in NEWS_COLUMNS if name not in columns]
+        extra = [name for name in columns if name not in NEWS_COLUMNS]
+        raise VetoManifestError(
+            "news_rows_file.columns does not match the block D contract; "
+            f"missing {missing}, unknown {extra}"
+        )
+    readme_value = value.get("readme")
+    readme = None
+    if readme_value is not None:
+        if not isinstance(readme_value, str) or not readme_value:
+            raise VetoManifestError("news_rows_file.readme must be a non-empty string")
+        readme = _safe_path(Path(readme_value), root, "news_rows_file.readme")
+    return NewsContract(
+        root=root,
+        file=_safe_path(Path(file_name), root, "news_rows_file.file"),
+        sha256=digest,
+        rows=rows,
+        model_revision=model_revision,
+        columns=columns,
+        readme=readme,
     )
 
 
@@ -451,8 +559,8 @@ def _run(  # noqa: PLR0913, PLR0917 -- the fields are the manifest row
     if source_kind == "series_csv":
         if "db_file" in raw:
             raise VetoManifestError(f"{where}: a series run has no db_file")
-        files, hashes = _run_files(raw, root, where, draft)
-        extra = _files_sha256(raw, root, where, draft)
+        extra = _files_sha256(raw, where, draft)
+        files, hashes = _run_files(raw, root, where, draft, extra)
         return ManifestRun(
             configuration,
             window,
@@ -472,8 +580,8 @@ def _run(  # noqa: PLR0913, PLR0917 -- the fields are the manifest row
     run_id = _positive_int(raw.get("run_id"), f"{where}.run_id", draft)
     book_code = _required_str(raw, "book_code")
     book_id = _positive_int(raw.get("book_id"), f"{where}.book_id", draft)
-    files, hashes = _run_files(raw, root, where, draft)
-    extra = _files_sha256(raw, root, where, draft)
+    extra = _files_sha256(raw, where, draft)
+    files, hashes = _run_files(raw, root, where, draft, extra)
     return ManifestRun(
         configuration=configuration,
         window=window,
@@ -491,7 +599,11 @@ def _run(  # noqa: PLR0913, PLR0917 -- the fields are the manifest row
 
 
 def _run_files(
-    raw: Mapping[str, Any], root: Path, where: str, draft: bool
+    raw: Mapping[str, Any],
+    root: Path,
+    where: str,
+    draft: bool,
+    extras: Mapping[str, str],
 ) -> tuple[dict[str, Path], dict[Path, str]]:
     files: dict[str, Path] = {}
     hashes: dict[Path, str] = {}
@@ -503,29 +615,37 @@ def _run_files(
             raise VetoManifestError(f"{where}.{file_key} must be a non-empty string")
         path = _run_file(raw, file_key, root, where)
         files[file_key] = path
-        if hash_key in raw and raw[hash_key] is not None:
-            declared = str(raw[hash_key])
-            _hash(declared, f"{where}.{hash_key}", draft)
-            hashes[path] = declared
+        declared = raw.get(hash_key)
+        if declared is None:
+            # The final delivery may move every per-file hash into one ``files_sha256`` map,
+            # keyed by the short suffix (``jsonl_file`` -> ``jsonl``).
+            declared = extras.get(file_key.removesuffix("_file"))
+        if declared is not None:
+            _hash(str(declared), f"{where}.{hash_key}", draft)
+            hashes[path] = str(declared)
+        elif file_key == "aggregates_file":
+            # The final delivery names the MV aggregates file without a hash: the aggregates
+            # loader verifies its own file, and the series graph does not read this one.
+            continue
         elif not draft:
             raise VetoManifestError(f"{where}.{file_key}: a final manifest needs {hash_key}")
     return files, hashes
 
 
-def _files_sha256(raw: Mapping[str, Any], root: Path, where: str, draft: bool) -> dict[Path, str]:
+def _files_sha256(raw: Mapping[str, Any], where: str, draft: bool) -> dict[str, str]:
     value = raw.get("files_sha256")
     if value is None:
         return {}
     if not isinstance(value, dict):
         raise VetoManifestError(f"{where}.files_sha256 must be an object")
-    hashes: dict[Path, str] = {}
+    hashes: dict[str, str] = {}
     for name, declared in value.items():
         if not isinstance(name, str) or not name:
             raise VetoManifestError(f"{where}.files_sha256 has an empty file name")
         if not isinstance(declared, str):
             raise VetoManifestError(f"{where}.files_sha256.{name} must be a string")
         _hash(declared, f"{where}.files_sha256.{name}", draft)
-        hashes[_safe_path(Path(name), root, f"{where}.files_sha256.{name}")] = declared
+        hashes[name] = declared
     return hashes
 
 
@@ -599,8 +719,6 @@ def verify_files(
             declared = run.file_hashes.get(path, "")
             if declared:
                 _verify_one(path, declared, verified, hasher)
-        for path, declared in run.extra_hashes.items():
-            _verify_one(path, declared, verified, hasher)
     return verified
 
 

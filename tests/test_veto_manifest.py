@@ -11,6 +11,7 @@ import pytest
 
 from projection.veto_manifest import (
     CONFIGURATIONS,
+    NEWS_COLUMNS,
     WINDOWS,
     VetoManifestError,
     aggregates_graph_name,
@@ -158,6 +159,61 @@ def test_a_final_manifest_parses_and_verifies(tmp_path: Path) -> None:
         verified[files["SYSTEM_WITH_HIERARCHY"].resolve()]
         == hashlib.sha256(b"db-SYSTEM_WITH_HIERARCHY").hexdigest()
     )
+
+
+def test_a_files_sha256_map_can_replace_the_per_file_hashes(tmp_path: Path) -> None:
+    path, _ = _manifest(tmp_path)
+    data = json.loads(path.read_text())
+    for configuration in data["configurations"]:
+        for run in configuration.get("runs", []):
+            if "jsonl_sha256" in run:
+                run["files_sha256"] = {"jsonl": run.pop("jsonl_sha256")}
+    path.write_text(json.dumps(data))
+    manifest = read_manifest(path)
+    run = manifest.engine_runs[0]
+    assert str(run.files["jsonl_file"].resolve()) in {
+        str(file.resolve()) for file in run.file_hashes
+    }
+
+
+def test_the_news_rows_contract_is_parsed(tmp_path: Path) -> None:
+    path, _ = _manifest(tmp_path)
+    data = json.loads(path.read_text())
+    news = tmp_path / "news" / "news_rows.jsonl"
+    digest = _write(news, b"{}\n")
+    data["news_rows_file"] = {
+        "file": "news/news_rows.jsonl",
+        "sha256": digest,
+        "rows": 1,
+        "model_revision": "snapshot-c3a753affa5d",
+        "columns": list(NEWS_COLUMNS),
+        "readme": "news/README.md",
+    }
+    path.write_text(json.dumps(data))
+    manifest = read_manifest(path)
+    assert manifest.news is not None
+    assert manifest.news.rows == 1
+    assert manifest.news.model_revision == "snapshot-c3a753affa5d"
+    assert manifest.news.file == news.resolve()
+
+
+def test_a_news_contract_with_a_drifting_column_is_refused(tmp_path: Path) -> None:
+    path, _ = _manifest(tmp_path)
+    data = json.loads(path.read_text())
+    news = tmp_path / "news" / "news_rows.jsonl"
+    digest = _write(news, b"{}\n")
+    columns = [*NEWS_COLUMNS, "unexpected"]
+    data["news_rows_file"] = {
+        "file": "news/news_rows.jsonl",
+        "sha256": digest,
+        "rows": 1,
+        "model_revision": "snapshot-c3a753affa5d",
+        "columns": columns,
+        "readme": "news/README.md",
+    }
+    path.write_text(json.dumps(data))
+    with pytest.raises(VetoManifestError, match="block D contract"):
+        read_manifest(path)
 
 
 def test_a_draft_manifest_accepts_pending_values(tmp_path: Path) -> None:

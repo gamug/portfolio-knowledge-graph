@@ -1,0 +1,55 @@
+# Proposed bilingual labels for the news rows (Work item 46, block D)
+
+**Status: draft for Reviewer A. Nothing in this table is frozen; `labels.ttl` is not edited in
+this PR.** The TBox terms below already carry the draft `rdfs:label`/`rdfs:comment` in
+`schema/tbox.ttl` so the schema and its shapes are reviewable together; the English texts become
+final only after Reviewer A approves them.
+
+This table follows `docs/labels-veto-review.md`: one row per term, with the Spanish and English
+label and comment. It covers the new `:NewsItem` class and every new property (one per loaded
+column, plus the optional Asset link and URL). The row's sentiment/category values are model
+outputs, not verified facts; the text is the delivered fragment, never the full article.
+
+## 1. New TBox class
+
+| id | code / IRI | kind | ES label | EN label | ES comment | EN comment | Reviewer A decision | Notes |
+|---|---|---|---|---|---|---|---|---|
+| NEWS-CLS-01 | `NewsItem` | class | Fragmento de noticia | News item | Un fragmento de noticia asociado a una empresa: la fecha, el título, el texto exacto que entregó la instantánea de NLP (original o resumen), la fuente, las probabilidades de sentimiento y categoría y las revisiones del modelo. El texto es el fragmento al que el modelo asignó la etiqueta, nunca el artículo completo. | One news fragment for one company: the date, title, the exact text the NLP snapshot delivered (original or summary), the source domain, the sentiment/category probabilities and the model revisions. The text is the fragment the model labelled, never the full article (at most 2,000 characters); sentiment and category are model outputs, not verified facts. | pending | subclass of `:EvidenceSource`; IRI from `(item_kind, item_id, ticker)` only |
+
+## 2. New TBox properties
+
+| id | code / IRI | kind | ES label | EN label | ES comment | EN comment | Reviewer A decision | Notes |
+|---|---|---|---|---|---|---|---|---|
+| NEWS-PRP-01 | `newsItemOfAsset` | property (object) | Fragmento de noticia del activo | News item of asset | El activo cargado al que resuelve la fila por su ticker, o por su asset_id del motor cuando el ticker ya no nombra el símbolo actual. Falta cuando la fila no resuelve; la fila se carga igual. | The loaded Asset the row resolves to through its ticker, or through its engine asset_id when the ticker no longer names the current symbol. Absent when the row does not resolve; the row is still loaded. | pending | optional |
+| NEWS-PRP-02 | `modelRevision` | property (datatype) | Revisión del modelo | Model revision | La revisión de la instantánea de NLP de la fila (news_snapshot.model_revision); procedencia, no un hecho sobre la empresa. | The NLP snapshot revision of the row (news_snapshot.model_revision); provenance, not a fact about the company. | pending | `xsd:string`, required |
+| NEWS-PRP-03 | `itemKind` | property (datatype) | Tipo de elemento | Item kind | body (un artículo) o sub_news (un fragmento). Forma parte del IRI. | body (an article) or sub_news (a fragment). It is part of the IRI. | pending | `sh:in ("body" "sub_news")` |
+| NEWS-PRP-04 | `itemId` | property (datatype) | Id del elemento | Item id | El id del fragmento dentro de la instantánea (sub_news.id). Forma parte del IRI. | The fragment id within the snapshot (sub_news.id). It is part of the IRI. | pending | `xsd:string`, required |
+| NEWS-PRP-05 | `newsTicker` | property (datatype) | Ticker de la noticia | News ticker | El ticker de la empresa tal como lo nombra la entrega. No es necesariamente el nombre local del IRI de Asset: un cambio de símbolo puede dejar histórico el ticker de la fila. | The company ticker as the delivery names it. It is not necessarily the Asset IRI local name: a rename can make the row's ticker historical. | pending | `xsd:string`, required |
+| NEWS-PRP-06 | `newsAssetId` | property (datatype) | Id de activo del motor | Engine asset id | El asset_id del motor para el ticker en la fecha de la fila; un entero, no un IRI de Asset. Falta cuando la entrega no pudo resolverlo. | The upstream engine asset_id of the ticker on the row's date; an integer, not an Asset IRI. Absent when the delivery could not resolve one. | pending | `xsd:integer`, optional |
+| NEWS-PRP-07 | `newsDate` | property (datatype) | Fecha de la noticia | News date | La fecha de la noticia: los primeros 10 caracteres de pub_date, o de fetched_at cuando pub_date está vacío (ver `:dateSource`). | The news date: the first 10 characters of pub_date, or of fetched_at when pub_date is empty (see `:dateSource`). | pending | `xsd:date`, required |
+| NEWS-PRP-08 | `dateSource` | property (datatype) | Origen de la fecha | Date source | published, crawled o crawled_future_pub: qué fecha usó la fila. | published, crawled or crawled_future_pub: which date the row used. | pending | `sh:in` |
+| NEWS-PRP-09 | `newsTitle` | property (datatype) | Título de la noticia | News title | El título exactamente como lo entregó la fuente. | The title exactly as delivered. | pending | `xsd:string`, required |
+| NEWS-PRP-10 | `newsText` | property (datatype) | Texto del fragmento de noticia | News text fragment | El fragmento exactamente como lo entregó la fuente (original o resumen), nunca el artículo completo: como máximo 2.000 caracteres. El dominio de la fuente se cita en la misma fila; el uso es académico. | The fragment exactly as delivered (original or summary), never the full article: at most 2,000 characters. The source domain is cited on the same row; use is academic. | pending | `sh:maxLength 2000` |
+| NEWS-PRP-11 | `textSource` | property (datatype) | Origen del texto | Text source | original o summary: si el texto entregado es el fragmento del artículo o su resumen. | original or summary: whether the delivered text is the article fragment or its summary. | pending | `sh:in` |
+| NEWS-PRP-12 | `newsSentiment` | property (datatype) | Etiqueta de sentimiento | Sentiment label | positive, negative o neutral para esta empresa. Una salida del modelo, no un hecho verificado. | positive, negative or neutral for this company. A model output, not a verified fact. | pending | `sh:in`; model output |
+| NEWS-PRP-13 | `sentimentScore` | property (datatype) | Puntaje de sentimiento | Sentiment score | La probabilidad de la etiqueta de sentimiento (0 a 1, sin signo). Una salida del modelo, no un hecho verificado. | The probability of the sentiment label (0 to 1, no sign). A model output, not a verified fact. | pending | `xsd:decimal` in `[0,1]` |
+| NEWS-PRP-14 | `pPositive` | property (datatype) | Probabilidad positiva | Positive probability | La probabilidad de sentimiento positivo del modelo (0 a 1). | The model's probability of positive sentiment (0 to 1). | pending | `xsd:decimal` in `[0,1]` |
+| NEWS-PRP-15 | `pNegative` | property (datatype) | Probabilidad negativa | Negative probability | La probabilidad de sentimiento negativo del modelo (0 a 1). | The model's probability of negative sentiment (0 to 1). | pending | `xsd:decimal` in `[0,1]` |
+| NEWS-PRP-16 | `pNeutral` | property (datatype) | Probabilidad neutra | Neutral probability | La probabilidad de sentimiento neutro del modelo (0 a 1); las tres probabilidades suman 1. | The model's probability of neutral sentiment (0 to 1); the three probabilities sum to 1. | pending | `xsd:decimal` in `[0,1]` |
+| NEWS-PRP-17 | `sentimentRevision` | property (datatype) | Revisión de sentimiento | Sentiment revision | La revisión del modelo de sentimiento que nombra el campo inputs de la fila; procedencia, no un hecho sobre la empresa. | The sentiment model revision named by the row's inputs; provenance, not a fact about the company. | pending | `xsd:string`, required |
+| NEWS-PRP-18 | `newsCategory` | property (datatype) | Categoría de la noticia | News category | La categoría asignada al fragmento de esta empresa. Una salida del modelo, no un hecho verificado. | The category assigned to this company's fragment. A model output, not a verified fact. | pending | `xsd:string`, required |
+| NEWS-PRP-19 | `categoryScore` | property (datatype) | Puntaje de categoría | Category score | La probabilidad de la etiqueta de categoría (0 a 1). Una salida del modelo, no un hecho verificado. | The probability of the category label (0 to 1). A model output, not a verified fact. | pending | `xsd:decimal` in `[0,1]` |
+| NEWS-PRP-20 | `groupLabel` | property (datatype) | Grupo de la categoría | Category group | El grupo de categorías al que pertenece la categoría de la fila. | The category group the row's category belongs to. | pending | `xsd:string`, required |
+| NEWS-PRP-21 | `categoryRevision` | property (datatype) | Revisión de categoría | Category revision | La revisión del modelo de categoría que nombra el campo inputs de la fila; procedencia, no un hecho sobre la empresa. | The category model revision named by the row's inputs; provenance, not a fact about the company. | pending | `xsd:string`, required |
+| NEWS-PRP-22 | `articleId` | property (datatype) | Id del artículo | Article id | El artículo del que sale el fragmento (sub_news.article_id); varios fragmentos pueden compartir un artículo. | The article the fragment comes from (sub_news.article_id); several fragments can share one article. | pending | `xsd:integer`, required |
+| NEWS-PRP-23 | `bodyHash` | property (datatype) | Huella del cuerpo | Body hash | La huella del cuerpo del fragmento (sub_news.body_hash). | The fingerprint of the fragment body (sub_news.body_hash). | pending | `xsd:string`, required |
+| NEWS-PRP-24 | `sourceDomain` | property (datatype) | Dominio de la fuente | Source domain | El dominio de la fuente del artículo (por ejemplo cnbc.com); la cita para uso académico viaja en cada fila. | The article's source domain (for example cnbc.com); the academic-use citation travels on every row. | pending | `xsd:string`, required |
+| NEWS-PRP-25 | `url` | property (datatype) | URL de la fuente | Source URL | URL opcional del artículo. La entrega de NLP hoy la deja vacía; no se escribe ningún triple para un valor nulo, y se llena después sin cambiar columnas. | Optional article URL. The NLP delivery leaves it empty today; no triple is written for a null value, and it is filled later without changing columns. | pending | `xsd:anyURI`, optional; no triple today |
+
+## 3. Not proposed here
+
+- No new `skos:Concept` label scheme: the class and property labels above are the TBox
+  `rdfs:label`s, not presentation-vocabulary concepts. If Reviewer A wants a `NewsScheme` for
+  reader-facing codes (`sub_news`, `original`, `summary`, the sentiment labels), that is a separate
+  label-table pass and must not change `labels.ttl` before approval.
+- The TTYG instructions are not edited in this PR.

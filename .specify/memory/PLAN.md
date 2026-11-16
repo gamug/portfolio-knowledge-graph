@@ -3610,8 +3610,8 @@ graph is **1265 triples**. No GraphDB write.
 
 ## Work item 46 — Veto Hierarchy projection (T-840–T-869)
 
-**Status: PR A–H merged (#156–#162); pre-flight fix #163 (T-870–T-871); block E series loader open
-in `feat/series-loader` (T-880–T-884).**
+**Status: PR A–H merged (#156–#162); pre-flight fix #163 (T-870–T-871); block E series loader
+merged (#165, T-880–T-884); block D news rows open in `feat/news-rows` (T-890–T-894).**
 
 **Why**: Reviewer A delivered the frozen data dictionary and the pilot `H1C-B5-P1` for the complete
 System with the Veto Hierarchy. The engine arm codes no longer identify a configuration
@@ -3684,6 +3684,21 @@ measured pilot budget is in `docs/veto-hierarchy-design.md` §6.
 - [x] **T-884** *(done 2026-11-15: hermetic series/CLI tests, `docs/final-delivery.md` §7d,
       docs/06/07 and counts; real dry run only.)* Tests, dry-run evidence and delivery docs.
 - [ ] **T-885–T-889** Reserved for block E review fixes.
+- [x] **T-890** *(done 2026-11-16: `schema/tbox.ttl`, `schema/shapes.ttl`,
+      `tests/test_news_shapes.py`, `docs/labels-news-review.md`; 75 classes / 61 disjoint leaves /
+      60 named shapes, 9682 quads, 21/9959 load, production 5/9438; labels pending Reviewer A.)*
+      `:NewsItem`, its typed properties, the Asset link, the shape and the bilingual review table.
+- [x] **T-891** *(done 2026-11-16: `src/projection/news.py`, the gate target and
+      `tests/test_news.py`; manifest + SHA256SUMS, header/row-count/key checks, the two-revision
+      stop, typed projection and the asset-id fallback.)* News parser and projector.
+- [x] **T-892** *(done 2026-11-16: `cli/load_news.py`, batched writes and
+      `tests/test_cli_load_news.py`; dry-run default, `--check-store`, `--write`, production guard,
+      graph-in-doubt handling.)* News loader CLI.
+- [x] **T-893** *(done 2026-11-16: `verify_store --manifest` sums stored NewsItem rows per year
+      and checks distinct tickers; absent graphs stay not store-verifiable.)* Store-side news check.
+- [x] **T-894** *(done 2026-11-16: `docs/final-delivery.md` §7e and 0bis.6, docs/07, veto design
+      §7, README/SPEC/schema/06/07 counts and the real dry run.)* Documentation and dry run.
+- [ ] **T-895–T-899** Reserved for block D review fixes.
 
 **Acceptance criteria**:
 
@@ -3700,3 +3715,11 @@ leaves)**, **59 named shapes**; load plan **21/9587**, production **5/9066**. Re
 `mv_weights.csv` 59,201; projected **14,412** SPY triples and **376,824** MARKOWITZ_MV triples;
 SHACL conforms. Read-only pre-flights on `portfolio_test` and `portfolio` report both series graphs
 `would-be-written`; no GraphDB write was made. Full suite **1,796 passed / 62 deselected**.
+
+**Verified 2026-11-16 (T-890–T-894, block D)**: FR-001 **9682 quads**, **75 classes (61 disjoint
+leaves)**, **60 named shapes**; load plan **21/9959**, production **5/9438**. Real dry run over
+`news/news_rows.jsonl`: 69,329 rows, 270 unresolved assets (PSKY 261, EQR 9); graphs 2021
+21,300 / 2022 343,934 / 2023 343,903 / 2024:H1 234,237 / 2024:H2 184,522 / 2025 334,476 / 2026
+270,313 triples (1,732,685 total), SHACL conforms; no GraphDB write. Read-only `--check-store` on
+`portfolio_test` reports all seven graphs `would-be-written`. Full suite **1,855 passed / 62
+deselected**. Labels are pending Reviewer A.
