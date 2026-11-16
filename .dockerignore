@@ -1,0 +1,24 @@
+# Secrets and local config -- pass at run time (--env-file), never bake in.
+.env
+
+# Environments and caches (rebuilt by `uv sync` inside the image)
+.venv/
+__pycache__/
+*.py[cod]
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.code_quality/.ruff_cache/
+
+# VCS and tool state
+.git/
+.claude/
+.superpowers/
+.worktrees/
+
+# Generated / local output
+/data.ttl
+artifacts/
+
+# The source .docx is not needed to run anything
+*.docx

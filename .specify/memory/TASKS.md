@@ -1546,3 +1546,22 @@ T-890–T-899, and block D news rows by T-910–T-914.
       no GraphDB write; full suite 1,868 passed / 62 deselected.)* Delivery documentation, count
       reconciliation and the real dry run.
 - [ ] **T-915–T-919** Reserved for block D review fixes.
+
+## Work item 47 — Container image (T-920–T-929)
+
+See `PLAN.md` Work item 47. `Dockerfile` and `.dockerignore` (repo root) carry the
+`.devcontainer/devcontainer.json` instructions (base image, `uv`, `UV_LINK_MODE`, `scripts/init.sh`'s
+steps); built once by hand when added (Python 3.12, `uv`, `gh`, `claude`, `rdflib`/`pyshacl` import).
+
+- [ ] **T-920** Test the image. `docker build` it from a clean checkout, then run **inside the
+      container**: `uv run pytest` (the hermetic suite; same pass/deselect counts as on the host, the
+      `integration` tests deselected as they are today), the `schema/` parse-and-conform check from
+      `schema/README.md`, and `uv run pre-commit run --all-files` after `git init`/mounting the
+      checkout (the image has no `.git`, so `pre-commit install` is the one `init.sh` step it skips).
+      Also check: no `.env` or secret in any layer (`docker history`, `docker run … ls -a`), the image
+      runs as `vscode`, and the `THESIS_HOST_DIR` mount and `--env-file .env` work as the README of
+      the run command says. **Done when** each result is recorded in the PR; a failure becomes its
+      own task. A `chore/` PR (a CI job that builds the image is T-921, only if the maintainer wants it).
+- [ ] **T-921** *(optional, maintainer's call)* Build the image in CI so `Dockerfile` and
+      `devcontainer.json` cannot drift apart.
+- [ ] **T-922–T-929** Reserved for review fixes.

@@ -3785,3 +3785,16 @@ suite: **1819 passed / 62 deselected** (42 min 30 s).
 write. Read-only `--check-store` on `portfolio_test` reports all seven graphs `would-be-written`.
 Labels approved by Reviewer A with the four letter-26 changes. Full suite **1,868 passed / 62
 deselected** (44 min 02 s).
+
+## Work item 47 — Container image (T-920–T-929)
+
+**Status: `Dockerfile` and `.dockerignore` added; T-920 (test the image) open.**
+
+**Why**: the dev environment existed only as a devcontainer, which needs VS Code. A plain
+`Dockerfile` in the root lets the same environment run anywhere Docker does. It mirrors
+`.devcontainer/devcontainer.json`: the `devcontainers/python:1-3.12-bookworm` base, `uv`,
+`UV_LINK_MODE=copy` and the `scripts/init.sh` steps. The bind mount, `--env-file` and VS Code
+settings are run-time/editor concerns and stay in `devcontainer.json`.
+
+**Tasks**: T-920 tests the image (suite, schema check, pre-commit, no secrets in layers); T-921 is the
+optional CI build.
