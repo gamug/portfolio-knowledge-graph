@@ -463,12 +463,13 @@ def parse_aggregates(path: str | Path, *, label: str | None = None) -> Aggregate
 
 
 def read_manifest(path: str | Path) -> dict[str, str]:
-    """A strict ``sha256sum`` manifest: hash, two spaces, file name; no duplicates.
+    """A strict ``sha256sum`` manifest: hash, two spaces, relative file name; no duplicates.
 
     Work item 35's ``delivery.read_manifest`` is not reused here: it accepts uppercase hashes and
     the sha256sum binary marker, while this file's contract requires lowercase hashes and exactly
-    two spaces. Keep the strict reader local until the two contracts agree (they can be unified
-    later).
+    two spaces. The final delivery's single root ``SHA256SUMS`` lists nested paths such as
+    ``SYSTEM_WITH_HIERARCHY/P1/H1B-A2g-P1.db``, so a relative path is accepted; ``..`` and an
+    absolute path are not.
     """
     path = Path(path)
     text = path.read_text(encoding="utf-8")
@@ -480,8 +481,11 @@ def read_manifest(path: str | Path) -> dict[str, str]:
                 f"{path}:{number}: expected '<64 lowercase hex>  <file name>', got {line!r}"
             )
         digest, name = match.groups()
-        if Path(name).name != name or name in {".", ".."}:
-            raise ManifestError(f"{path}:{number}: {name!r} is not a bare file name")
+        candidate = Path(name)
+        if candidate.is_absolute() or any(part == ".." for part in candidate.parts):
+            raise ManifestError(f"{path}:{number}: {name!r} must be a relative safe path")
+        if name in {".", ".."} or not candidate.parts:
+            raise ManifestError(f"{path}:{number}: {name!r} is not a file name")
         if name in entries:
             raise ManifestError(f"{path}:{number}: {name!r} is listed twice")
         entries[name] = digest
@@ -666,6 +670,24 @@ def _manifest_check(data: AggregatesFile, directory: Path) -> Check:
     return Check("manifest", True, f"{data.source_file} is listed; SHA-256 {digest} matches")
 
 
+def _window_db(directory: Path, label: str, window: str) -> Path:
+    """The window's engine database, flat or in the final delivery's System subfolder.
+
+    Older aggregate folders use ``<label>_<window>.db`` next to ``aggregates_<label>.json``. The
+    final delivery keeps the same database under
+    ``SYSTEM_WITH_HIERARCHY/<window>/<run>.db``; exactly one database must be there.
+    """
+    flat = directory / f"{label}_{window}.db"
+    if flat.is_file():
+        return flat
+    nested = directory / "SYSTEM_WITH_HIERARCHY" / window
+    if nested.is_dir():
+        candidates = sorted(nested.glob("*.db"))
+        if len(candidates) == 1:
+            return candidates[0]
+    return flat
+
+
 def _trend_checks(data: AggregatesFile, directory: Path) -> list[Check]:
     checks: list[Check] = []
     by_window: dict[str, set[str]] = defaultdict(set)
@@ -673,7 +695,7 @@ def _trend_checks(data: AggregatesFile, directory: Path) -> list[Check]:
         by_window[row.window].add(row.decision_date.isoformat())
     for window in sorted(by_window):
         expected = by_window[window]
-        path = directory / f"{data.label}_{window}.db"
+        path = _window_db(directory, data.label, window)
         if not path.is_file():
             checks.append(
                 Check(
@@ -730,7 +752,7 @@ def _reference_checks(data: AggregatesFile, directory: Path) -> list[Check]:  # 
         row.window for row in data.trend_filter
     }
     for window in sorted(windows):
-        path = directory / f"{data.label}_{window}.db"
+        path = _window_db(directory, data.label, window)
         if not path.is_file():
             checks.append(
                 Check(

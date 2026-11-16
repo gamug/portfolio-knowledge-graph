@@ -224,17 +224,28 @@ def _scalar(value: str) -> str:
 
 
 def _front_matter(  # noqa: C901 -- one branch per front-matter failure
-    path: Path, text: str
+    path: Path, text: str, *, open_optional: bool = False
 ) -> tuple[dict[str, str], str]:
-    """Split ``---`` front matter from the body; the body keeps every byte after the separator."""
+    """Split ``---`` front matter from the body; the body keeps every byte after the separator.
+
+    The final 2026-11-17 delivery omits the opening ``---`` and starts directly with
+    ``label: final``; ``open_optional`` accepts that prose form while keeping the closing marker
+    mandatory.
+    """
     lines = text.splitlines(keepends=True)
-    if not lines or lines[0].strip() != "---":
+    if not lines:
+        raise ConfigError(f"{path}: the file is empty")
+    started = lines[0].strip() == "---"
+    if not started and not open_optional:
         raise ConfigError(f"{path}: the file does not start with a '---' front matter")
-    closing = next((index for index in range(1, len(lines)) if lines[index].strip() == "---"), None)
+    first = 1 if started else 0
+    closing = next(
+        (index for index in range(first, len(lines)) if lines[index].strip() == "---"), None
+    )
     if closing is None:
         raise ConfigError(f"{path}: the front matter has no closing '---'")
     values: dict[str, str] = {}
-    for number, line in enumerate(lines[1:closing], 2):
+    for number, line in enumerate(lines[first:closing], first + 1):
         stripped = line.strip()
         if not stripped or stripped.startswith("#"):
             continue
@@ -257,14 +268,28 @@ def _front_matter(  # noqa: C901 -- one branch per front-matter failure
     return values, body
 
 
-def read_config(path: Path, label: str) -> RunConfig:
-    """Read ``config_<label>.md``: required/optional keys, string scalars and the verbatim body."""
+def read_config(path: Path, label: str, *, final_delivery: bool = False) -> RunConfig:
+    """Read ``config_<label>.md``: required/optional keys, string scalars and the verbatim body.
+
+    The 2026-11-17 final delivery uses the prose front matter ``label/status/fecha/código del
+    Sistema/corridas`` instead of the older ``code_commit/pr/results_doc`` trio. ``final_delivery``
+    maps the available code value and records ``n/a`` for the two keys that delivery does not
+    carry; the older delivery path keeps the strict required keys.
+    """
     try:
         with path.open("r", encoding="utf-8", newline="") as handle:
             text = handle.read()
     except OSError as exc:
         raise ConfigError(f"{path}: {exc}") from exc
-    values, body = _front_matter(path, text)
+    values, body = _front_matter(path, text, open_optional=final_delivery)
+    if final_delivery:
+        if not values.get("code_commit"):
+            for alias in ("código del Sistema", "codigo del Sistema"):
+                if values.get(alias):
+                    values["code_commit"] = values[alias]
+                    break
+        values.setdefault("pr", "n/a")
+        values.setdefault("results_doc", "n/a")
     missing = [key for key in _REQUIRED_KEYS if not values.get(key)]
     if missing:
         raise ConfigError(f"{path}: missing required key(s): {', '.join(missing)}")

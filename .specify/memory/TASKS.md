@@ -1452,7 +1452,8 @@ See `docs/fundamentals-design.md` and `PLAN.md` Work item 45.*
 ## Work item 46 — Veto Hierarchy projection (T-840–T-869)
 
 See `docs/veto-hierarchy-design.md` and `PLAN.md` Work item 46. The design is complete; block E
-(``T-880–T-884``) adds the daily series, and the final manifest is due 2026-11-17/18.
+(``T-880–T-884``) adds the daily series, and the final manifest (`final-1`) is handled by
+T-890–T-896.
 
 - [x] **T-840** *(done 2026-11-13: `docs/veto-hierarchy-design.md`; design only, no code, schema or
       GraphDB write.)* Configuration identity, filters, rules/shapes, detail model, price masking,
@@ -1490,3 +1491,31 @@ See `docs/veto-hierarchy-design.md` and `PLAN.md` Work item 46. The design is co
       `docs/final-delivery.md` §7d, docs/06/07 and counts; real dry run only, no GraphDB write.)*
       Tests, dry-run evidence and delivery documentation.
 - [ ] **T-885–T-889** Reserved for block E review fixes.
+- [x] **T-890** *(done 2026-11-16: `src/projection/veto_manifest.py`; final-1 top-level
+      `news_rows_file`/`bull_mode_file`, per-run `bull_mode_file`, logical `files_sha256`
+      aliases, hash verification of the news rows and the five new per-run files, and strict
+      refusal of any other unknown key.)* Accept the final delivery manifest.
+- [x] **T-891** *(done 2026-11-16: `src/projection/control_counts.py`; the eleven group-5 keys,
+      file-derived definitions, `news_sector`/`PORTFOLIO_CHECK` acceptance, and the final
+      news/bull presence rules.)* Compute the final control counts.
+- [x] **T-892** *(done 2026-11-16: `verify_store --manifest`; the file-computed comparison stays
+      in `build_delivery`, and the not-yet-loaded keys print `not store-verifiable` without
+      failing.)* Verify the new counts against the files and the store.
+- [x] **T-893** *(done 2026-11-16: `src/projection/load_veto.py`; final prose config, empty
+      without-hierarchy JSONL, optional retention, cash-menu skip, new detail fields,
+      `gate.write_batched`, per-graph SHACL timing and the >300,000-triple flag.)* Make the
+      loader accept the final delivery's shape.
+- [x] **T-894** *(done 2026-11-16: `tests/test_veto_manifest.py`, `tests/test_control_counts.py`,
+      `tests/test_veto_events.py`, `tests/test_load_veto.py`, `docs/final-delivery.md` §0quater;
+      synthetic new-key/wrong-count/unknown-key/absent-data tests and the full dry run.)* Tests,
+      definitions and the final-delivery runbook.
+- [ ] **T-895** Decide the MARKOWITZ_MV delivery path: the final `mv_base/` has only
+      `aggregates_mv_base.json`, while `load_mv_base` needs `config_mv_base.md`, `SHA256SUMS`
+      and `final_<window>.db` under `--engine-dir`. Do not fake the path; the maintainer chooses
+      between a corrected mv_base folder and a documented symlink staging step.
+- [ ] **T-896** Resolve the final `aggregates_final.json` source check: its
+      `trend_filter_applies_to_arms` still names `TOPN_MV_GUARD_NO_NLP` while the final System book
+      is `TOPN_MV_GUARD`, and H1/H3 carry `cash_fraction > 0` with `at_or_above`. The final root
+      manifest and nested window databases are accepted; the remaining two failures are delivery
+      data, not loader keys. Do not edit the delivery.
+- [ ] **T-897–T-899** Reserved for final-manifest review fixes.

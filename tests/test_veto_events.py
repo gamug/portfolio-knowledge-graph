@@ -85,6 +85,12 @@ def test_an_unknown_field_is_refused_with_its_line(tmp_path: Path) -> None:
         parse_detail_file(path)
 
 
+def test_a_basic_decision_without_retention_parses(tmp_path: Path) -> None:
+    line = dict(DECISION, retention=None)
+    path = _write(tmp_path, [line])
+    assert parse_detail_file(path).decisions[0]["retention"] is None
+
+
 def test_a_duplicate_unique_key_is_refused(tmp_path: Path) -> None:
     path = _write(tmp_path, [DECISION, DECISION])
     with pytest.raises(DetailError, match=r":2: decision: duplicate"):
@@ -120,6 +126,59 @@ def test_stop_distance_pct_is_accepted(tmp_path: Path) -> None:
         [{"kind": "blocked", "date": "2022-02-01", "asset_id": 1, "stop_distance_pct": -12.5}],
     )
     assert parse_detail_file(path).blocked
+
+
+def test_the_final_stop_extras_and_cash_menu_option_are_accepted(tmp_path: Path) -> None:
+    stop = {
+        "kind": "stop",
+        "date": "2022-02-01",
+        "asset_id": 1,
+        "weight_before": 0.1,
+        "filter": True,
+        "filter_decision": "2022-01-03",
+        "scale": 1.0,
+        "rho_w0": 1.1,
+        "rho": 1.05,
+        "chooser": "rule",
+        "cash_left": 0.01,
+        "portfolio_check": {"passed": True, "reasons": [], "fallback_reasons": []},
+        "chosen": {
+            "asset_id": None,
+            "cash": True,
+            "rho": 1.0,
+            "score": 0.0,
+            "size_fraction": 0.0,
+            "weight": 0.0,
+        },
+        "menu": [
+            {
+                "asset_id": None,
+                "cash": True,
+                "is_spy": False,
+                "rho": 1.0,
+                "score": 0.0,
+                "size_fraction": 0.0,
+                "weight": 0.0,
+            }
+        ],
+        "eligible_counts": {"news_sector": 3, "PORTFOLIO_CHECK": 1},
+        "trigger": "news_shock",
+        "news_neg3": 3,
+        "news_pos3": 1,
+        "news_threshold": 3,
+        "sector_limit_changes": [
+            {
+                "date": "2022-01-03",
+                "label": "S05",
+                "new_limit": 0.13,
+                "old_limit": 0.15,
+                "sector_id": 1,
+            }
+        ],
+    }
+    detail = parse_detail_file(_write(tmp_path, [stop]))
+    assert detail.stops[0]["trigger"] == "news_shock"
+    assert detail.stops[0]["eligible_counts"]["news_sector"] == 3
 
 
 def test_without_hierarchy_retention_lines_are_loaded_without_decision_events(
