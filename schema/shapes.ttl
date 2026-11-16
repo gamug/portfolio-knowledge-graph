@@ -769,8 +769,9 @@
                   sh:in ("below" "at_or_above" "not_evaluable") ] ;
     sh:property [ sh:path :cashFraction ; sh:datatype xsd:decimal ; sh:minCount 1 ; sh:maxCount 1 ;
                   sh:minInclusive 0.0 ; sh:maxInclusive 1.0 ] ;
-    sh:property [ sh:path :appliesToArm ; sh:datatype xsd:string ; sh:minCount 2 ; sh:maxCount 2 ;
-                  sh:in ("TOPN_MV_NOGUARD" "TOPN_MV_GUARD_NO_NLP") ] ;
+    sh:property [ sh:path :newsRiskOff ; sh:datatype xsd:boolean ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :appliesToArm ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ;
+                  sh:in ("TOPN_MV_GUARD") ] ;
     sh:property [ sh:path :aggregatesSet ; sh:class :AggregatesSet ; sh:minCount 1 ; sh:maxCount 1 ] .
 
 :ReferenceReturnShape
