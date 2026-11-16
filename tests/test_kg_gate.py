@@ -243,8 +243,8 @@ def test_a_malformed_backtest_series_graph_is_refused(name: str) -> None:
     "name",
     [
         "urn:graph:derived:news:final:2021",
-        "urn:graph:derived:news:final:2024:H1",
-        "urn:graph:derived:news:final:2024:H2",
+        "urn:graph:derived:news:final:2024:01-06",
+        "urn:graph:derived:news:final:2024:07-12",
         "urn:graph:derived:news:rule_20261105:2026",
     ],
 )
@@ -260,9 +260,9 @@ def test_a_news_graph_is_append_only_and_accepted(name: str) -> None:
         "urn:graph:derived:news:final",  # year required
         "urn:graph:derived:news:Final:2024",  # lowercase label
         "urn:graph:derived:news:final:24",  # four-digit year
-        "urn:graph:derived:news:final:2024:H3",  # only H1/H2
+        "urn:graph:derived:news:final:2024:H1",  # test-window names are not graph suffixes
         "urn:graph:derived:news:final:2024:1",
-        "urn:graph:derived:news:final:2024:H1:1",
+        "urn:graph:derived:news:final:2024:01-06:1",
         "urn:graph:derived:news:final/2024",
     ],
 )

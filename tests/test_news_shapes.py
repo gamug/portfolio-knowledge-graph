@@ -12,7 +12,7 @@ from rdflib.term import Node
 SCHEMA = Path(__file__).resolve().parent.parent / "schema"
 KG = rdflib.Namespace("https://thesis.local/kg/portfolio#")
 
-ITEM = KG.NewsItem_T890_251045_DAL
+ITEM = KG.NewsItem_T910_251045_DAL
 
 
 def shapes() -> rdflib.Graph:

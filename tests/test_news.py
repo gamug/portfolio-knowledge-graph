@@ -17,6 +17,7 @@ from rdflib.namespace import RDF
 from projection import news
 from projection.backtest import AssetInfo, GraphBuilder
 from projection.news import (
+    NEWS_COLUMNS,
     ManifestError,
     NewsError,
     NewsRow,
@@ -30,7 +31,6 @@ from projection.news import (
     verify_manifest_store,
     verify_stored,
 )
-from projection.veto_manifest import NEWS_COLUMNS
 
 KG = rdflib.Namespace("https://thesis.local/kg/portfolio#")
 REVISION = "snapshot-c3a753affa5d"
@@ -83,7 +83,41 @@ def _write(
         "\n".join(json.dumps(row, ensure_ascii=False) for row in rows) + "\n", encoding="utf-8"
     )
     digest = hashlib.sha256(path.read_bytes()).hexdigest()
+    series = root / "series.csv"
+    series.write_text("date,value\n2021-12-01,1\n", encoding="utf-8")
+    series_hash = hashlib.sha256(series.read_bytes()).hexdigest()
+    mask = root / "mask.csv"
+    mask.write_text("AAPL\n", encoding="utf-8")
+    mask_hash = hashlib.sha256(mask.read_bytes()).hexdigest()
+    configurations = [
+        {
+            "configuration": configuration,
+            "source_kind": "series_csv",
+            "runs": [
+                {
+                    "window": "P1",
+                    "daily_file": "series.csv",
+                    "daily_sha256": series_hash,
+                }
+            ],
+        }
+        for configuration in (
+            "SYSTEM_WITH_HIERARCHY",
+            "SYSTEM_WITHOUT_HIERARCHY",
+            "MARKOWITZ_BASE",
+            "MARKOWITZ_MV",
+            "SPY",
+        )
+    ]
     manifest = {
+        "manifest_version": "1",
+        "label": "final",
+        "created_at": "2026-11-17",
+        "key": ["label", "configuration", "window"],
+        "windows": ["P1", "H1", "P3", "H2", "P2", "H3", "C1"],
+        "price_mask": {"file": "mask.csv", "sha256": mask_hash, "rule": "none"},
+        "prereg": {"SPEC.md": "a" * 64},
+        "configurations": configurations,
         "news_rows_file": {
             "file": "news/news_rows.jsonl",
             "sha256": digest,
@@ -91,7 +125,7 @@ def _write(
             "model_revision": REVISION,
             "columns": list(columns),
             "readme": "news/README.md",
-        }
+        },
     }
     (root / "manifest_final.json").write_text(json.dumps(manifest), encoding="utf-8")
     (root / "SHA256SUMS").write_text(
@@ -245,6 +279,19 @@ def test_the_asset_link_prefers_the_ticker_then_the_engine_id() -> None:
     assert tickers == {"EQR": 1}
 
 
+def test_letter_26_psky_rows_link_to_skyd_through_asset_477() -> None:
+    assets = {"SKYD": AssetInfo("SKYD", None)}
+    rows = (
+        _news_row(1, ticker="PSKY", asset_id=477),
+        _news_row(2, ticker="SKYD", asset_id=477),
+        _news_row(3, ticker="EQR", asset_id=None),
+    )
+    linked = link_assets(rows, assets)
+    assert [row.asset for row in linked] == ["SKYD", "SKYD", None]
+    total, null_ids, tickers = unresolved_summary(linked)
+    assert (total, null_ids, tickers) == (1, 1, {"EQR": 1})
+
+
 def test_the_projection_writes_typed_values_and_the_asset_link(tmp_path: Path) -> None:
     data = _data(tmp_path)
     data = replace(data, rows=link_assets(data.rows, {"DAL": AssetInfo("DAL", None)}))
@@ -271,8 +318,8 @@ def test_a_year_over_the_bound_is_split_into_its_halves(
     )
     groups = rows_by_graph("final", rows)
     assert list(groups) == [
-        "urn:graph:derived:news:final:2024:H1",
-        "urn:graph:derived:news:final:2024:H2",
+        "urn:graph:derived:news:final:2024:01-06",
+        "urn:graph:derived:news:final:2024:07-12",
     ]
     assert [len(group) for group in groups.values()] == [2, 1]
 
@@ -303,14 +350,15 @@ def test_verify_manifest_store_reports_absent_graphs_without_failing(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     data = _data(tmp_path)
-    verify_manifest_store(DatasetStore(rdflib.Dataset()), data.contract, "final")
+    manifest = news.read_news_manifest(data.root)
+    verify_manifest_store(DatasetStore(rdflib.Dataset()), manifest, "final")
     assert "not store-verifiable" in capsys.readouterr().out
 
 
 def test_verify_manifest_store_checks_rows_and_tickers(tmp_path: Path) -> None:
     data = _data(tmp_path)
     store = _store(project(data))
-    verify_manifest_store(store, data.contract, "final")
+    verify_manifest_store(store, news.read_news_manifest(data.root), "final")
 
 
 def test_verify_manifest_store_fails_a_row_mismatch(tmp_path: Path) -> None:
@@ -322,11 +370,11 @@ def test_verify_manifest_store_fails_a_row_mismatch(tmp_path: Path) -> None:
         (news_item_iri(data.rows[0]), RDF.type, KG.NewsItem)
     )
     with pytest.raises(NewsError, match="stored 0"):
-        verify_manifest_store(store, data.contract, "final")
+        verify_manifest_store(store, news.read_news_manifest(data.root), "final")
 
 
 def test_graph_names_are_year_and_half_bounded() -> None:
     assert graph_name("final", 2021) == "urn:graph:derived:news:final:2021"
-    assert graph_name("final", 2024, "H1") == "urn:graph:derived:news:final:2024:H1"
-    with pytest.raises(NewsError, match="not H1 or H2"):
-        graph_name("final", 2024, "H3")
+    assert graph_name("final", 2024, "01-06") == "urn:graph:derived:news:final:2024:01-06"
+    with pytest.raises(NewsError, match="not 01-06 or 07-12"):
+        graph_name("final", 2024, "H2")

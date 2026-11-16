@@ -1128,9 +1128,14 @@ capped at 2,000 characters so it can never become the full article. Sentiment an
 outputs, not verified facts. The IRI is built from `(item_kind, item_id, ticker)` only, so the same
 fragment under a later `model_revision` cannot mint a second individual; the loader stops if it sees
 one key under two revisions. The optional `:newsItemOfAsset` link resolves the row's ticker against
-the loaded catalog, falling back to the engine `asset_id` when the ticker is historical. The loader
+the loaded catalog, falling back to the engine `asset_id` when the ticker is historical. Letter 26
+corrected the 261 PSKY rows to engine `asset_id` 477 (the run read them as SKYD), so all 503 PSKY
+rows link to `:SKYD`; the 9 EQR rows stay unlinked because the engine has no asset or ticker
+interval for EQR. A future revision that re-labels an already loaded fragment (same `item_id`, same
+ticker) writes a second value on the same node, one per graph, so queries must read the revision by
+graph. The loader
 writes one append-only graph per calendar year,
-`urn:graph:derived:news:{label}:{year}` (a year over the ~400,000-triple bound becomes `:H1`/`:H2`),
+`urn:graph:derived:news:{label}:{year}` (a year over the ~400,000-triple bound becomes `:01-06`/`:07-12`),
 in bounded N-Triples batches; a lost answer is a graph in doubt and is never retried blindly.
 Counts: **75 classes (61 disjoint leaves), 60 named shapes, 9682 quads**; load plan
 **21/9959 asserted triples** (production **5/9438**).

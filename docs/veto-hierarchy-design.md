@@ -710,18 +710,24 @@ window, date)`; it does not collide with this design.
 **News items (block D, loaded 2026-11-16).** `:NewsItem` is the news fragment evidence, loaded from
 `news/news_rows.jsonl` (69,329 rows, model revision `snapshot-c3a753affa5d`) into one append-only
 graph per calendar year, `urn:graph:derived:news:{label}:{year}` (a year over the ~400,000-triple
-bound is split into `:H1`/`:H2`). Its IRI is built from **`(item_kind, item_id, ticker)` only**:
+bound is split into `:01-06`/`:07-12`). Its IRI is built from **`(item_kind, item_id, ticker)` only**:
 `:NewsItem_{item_kind}_{item_id}_{ticker}` (for example `:NewsItem_sub_news_251045_DAL`). It is
 never built from `model_revision`, a run id or a graph date, so a later revision of the same
 fragment (the 92 index leavers arrive as other `model_revision` rows with the same columns and key)
 reuses the same individual and a news-action record can link to it permanently. The loader stops
 with an error if one `(item_kind, item_id, ticker)` appears under two revisions in the same load;
-it also stops on a duplicate key. The row carries `:itemKind`, `:itemId`, `:newsTicker`,
+it also stops on a duplicate key. A future revision that re-labels an already loaded fragment
+(same `item_id`, same ticker) therefore writes a second value on the same node, one per graph;
+queries must read the revision they want by graph, not assume one value per predicate. The row carries `:itemKind`, `:itemId`, `:newsTicker`,
 `:newsAssetId`, `:newsDate`, `:dateSource`, `:newsTitle`, `:newsText`, `:textSource`,
 `:newsSentiment`, `:sentimentScore`, `:pPositive`, `:pNegative`, `:pNeutral`,
 `:sentimentRevision`, `:newsCategory`, `:categoryScore`, `:groupLabel`, `:categoryRevision`,
 `:articleId`, `:bodyHash`, `:sourceDomain`, `:modelRevision` and, when the delivery fills it,
-`:url`; `:newsItemOfAsset` links the ticker's Asset when it resolves.
+`:url`; `:newsItemOfAsset` links the ticker's Asset when it resolves. Letter 26 corrected the
+`asset_id` of the 261 PSKY rows to 477 (the engine read them as SKYD), so all 503 PSKY rows link
+to `:SKYD` through that engine id, not through the ticker PSKY. The 9 EQR rows stay unlinked: the
+engine has no asset or `ticker_history` interval for EQR and the run's adapter discarded them as
+`ticker_unmapped`.
 
 Reviewer A's decision of 2026-11-15 supersedes the earlier "do not store the body" rule **for the
 delivered fragment**: the text is loaded exactly as delivered because it is the evidence the model

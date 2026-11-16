@@ -67,7 +67,41 @@ def _write(tmp_path: Path) -> Path:
     data = folder / "news_rows.jsonl"
     data.write_text(json.dumps(row) + "\n", encoding="utf-8")
     digest = hashlib.sha256(data.read_bytes()).hexdigest()
+    series = root / "series.csv"
+    series.write_text("date,value\n2021-12-01,1\n", encoding="utf-8")
+    series_hash = hashlib.sha256(series.read_bytes()).hexdigest()
+    mask = root / "mask.csv"
+    mask.write_text("AAPL\n", encoding="utf-8")
+    mask_hash = hashlib.sha256(mask.read_bytes()).hexdigest()
+    configurations = [
+        {
+            "configuration": configuration,
+            "source_kind": "series_csv",
+            "runs": [
+                {
+                    "window": "P1",
+                    "daily_file": "series.csv",
+                    "daily_sha256": series_hash,
+                }
+            ],
+        }
+        for configuration in (
+            "SYSTEM_WITH_HIERARCHY",
+            "SYSTEM_WITHOUT_HIERARCHY",
+            "MARKOWITZ_BASE",
+            "MARKOWITZ_MV",
+            "SPY",
+        )
+    ]
     manifest = {
+        "manifest_version": "1",
+        "label": "final",
+        "created_at": "2026-11-17",
+        "key": ["label", "configuration", "window"],
+        "windows": ["P1", "H1", "P3", "H2", "P2", "H3", "C1"],
+        "price_mask": {"file": "mask.csv", "sha256": mask_hash, "rule": "none"},
+        "prereg": {"SPEC.md": "a" * 64},
+        "configurations": configurations,
         "news_rows_file": {
             "file": "news/news_rows.jsonl",
             "sha256": digest,
@@ -75,7 +109,7 @@ def _write(tmp_path: Path) -> Path:
             "model_revision": "snapshot-c3a753affa5d",
             "columns": list(row),
             "readme": "news/README.md",
-        }
+        },
     }
     (root / "manifest_final.json").write_text(json.dumps(manifest), encoding="utf-8")
     (root / "SHA256SUMS").write_text(f"{digest}  news/news_rows.jsonl\n", encoding="utf-8")

@@ -8,9 +8,11 @@ only, never from a run id, so a later ``model_revision`` cannot mint a second in
 same news fragment.
 
 Graphs are split by calendar year (``urn:graph:derived:news:{label}:{year}``). A year that would
-exceed the ~400,000-triple bound is split into its two halves (``...:{year}:H1``/``H2``). Writes go
-through :func:`kg_store.gate.write_batched`; a lost answer is a graph in doubt and is never retried
-blindly.
+exceed the ~400,000-triple bound is split into its two month spans
+(``...:{year}:01-06``/``07-12``). Writes go through
+:func:`kg_store.gate.write_batched`; a lost answer is a graph in doubt and is never retried
+blindly. A future revision that re-labels an already loaded fragment writes one value per graph,
+so a query must read the revision by graph.
 
 Sentiment and category are NLP-model outputs: the row's three revision fields are stored as
 provenance and the labels/comments never present them as verified facts. The text is the exact
@@ -45,8 +47,9 @@ from kg_store.graphdb import (
 )
 from projection.asset_link import resolve_asset
 from projection.backtest import RUN_LABEL_PATTERN, AssetInfo, GraphBuilder, universe_assets
-from projection.series import read_manifest, sha256_file
-from projection.veto_manifest import NewsContract, read_news_contract
+from projection.series import read_manifest as read_sha256sums
+from projection.series import sha256_file
+from projection.veto_manifest import NewsRowsContract, VetoManifest, read_manifest
 
 NS = "https://thesis.local/kg/portfolio#"
 KG = rdflib.Namespace(NS)
@@ -61,8 +64,38 @@ MAX_GRAPH_TRIPLES = 400_000
 MAX_TRIPLES_PER_ROW = 26
 #: The delivery promises a fragment, never the full article.
 MAX_TEXT_LENGTH = 2_000
-#: June is the last month of the first half used when a year must be split.
+#: June is the last month of the first month span used when a year must be split.
 MID_YEAR_MONTH = 6
+#: The month-span suffixes of a split year; the test-window names H1/H2/H3 are not reused.
+FIRST_HALF = "01-06"
+SECOND_HALF = "07-12"
+#: The strict block D column order the delivery's header must repeat.
+NEWS_COLUMNS: tuple[str, ...] = (
+    "model_revision",
+    "item_kind",
+    "item_id",
+    "ticker",
+    "asset_id",
+    "date",
+    "date_source",
+    "title",
+    "text",
+    "text_source",
+    "sentiment",
+    "sentiment_score",
+    "p_positive",
+    "p_negative",
+    "p_neutral",
+    "sentiment_revision",
+    "category",
+    "category_score",
+    "group_label",
+    "category_revision",
+    "article_id",
+    "body_hash",
+    "source_domain",
+    "url",
+)
 _DATE = re.compile(r"\d{4}-\d{2}-\d{2}")
 _LABEL = re.compile(RUN_LABEL_PATTERN)
 _LOCAL_NAME = re.compile(r"[A-Za-z0-9_.-]+")
@@ -114,7 +147,8 @@ class NewsFile:
     """The verified and parsed file, plus the manifest that accepted it."""
 
     label: str
-    contract: NewsContract
+    root: Path
+    contract: NewsRowsContract
     rows: tuple[NewsRow, ...]
     sha256: str
     sums_sha256: str
@@ -149,20 +183,40 @@ def _manifest_path(directory: str | Path) -> Path:
     raise ManifestError(f"{directory}: no {MANIFEST_NAME} here or in its parent directory")
 
 
-def verify_hashes(contract: NewsContract) -> tuple[str, str]:
+def read_news_manifest(directory: str | Path) -> VetoManifest:
+    """Read the final manifest and return it with its ``news_rows_file`` contract.
+
+    The manifest parser is B's (``veto_manifest.read_manifest``); this helper only enforces the
+    block D column order and fails clearly when the block is absent.
+    """
+    path = _manifest_path(directory)
+    manifest = read_manifest(path)
+    contract = manifest.news_rows
+    if contract is None:
+        raise ManifestError(f"{path}: the manifest has no news_rows_file block")
+    if contract.columns != NEWS_COLUMNS:
+        raise ManifestError(
+            f"{path}: news_rows_file.columns does not match the block D contract; "
+            f"got {contract.columns!r}"
+        )
+    return manifest
+
+
+def verify_hashes(manifest: VetoManifest, contract: NewsRowsContract) -> tuple[str, str]:
     """The file's SHA-256 must match the manifest *and* the delivery's own ``SHA256SUMS``."""
-    if not contract.file.is_file():
-        raise ManifestError(f"{contract.file}: the manifest lists a file that does not exist")
-    actual = sha256_file(contract.file)
+    path = contract.path
+    if not path.is_file():
+        raise ManifestError(f"{path}: the manifest lists a file that does not exist")
+    actual = sha256_file(path)
     if actual != contract.sha256:
         raise ManifestError(
-            f"{contract.file}: SHA-256 mismatch: manifest says {contract.sha256}, file has {actual}"
+            f"{path}: SHA-256 mismatch: manifest says {contract.sha256}, file has {actual}"
         )
-    sums_path = contract.root / SUMS_NAME
+    sums_path = manifest.root / SUMS_NAME
     if not sums_path.is_file():
         raise ManifestError(f"{sums_path}: the delivery has no {SUMS_NAME}")
-    entries = read_manifest(sums_path)
-    key = contract.file.relative_to(contract.root).as_posix()
+    entries = read_sha256sums(sums_path)
+    key = path.relative_to(manifest.root).as_posix()
     if key not in entries:
         raise ManifestError(f"{sums_path}: {key!r} is not listed")
     if entries[key] != contract.sha256:
@@ -226,8 +280,8 @@ def _local(value: str, where: str) -> str:
     return value
 
 
-def _row(raw: object, line: int, contract: NewsContract) -> NewsRow:
-    where = f"{contract.file}:{line}"
+def _row(raw: object, line: int, contract: NewsRowsContract) -> NewsRow:
+    where = f"{contract.path}:{line}"
     if not isinstance(raw, dict):
         raise NewsError(f"{where}: expected one JSON object")
     if tuple(raw.keys()) != contract.columns:
@@ -306,42 +360,42 @@ def _row(raw: object, line: int, contract: NewsContract) -> NewsRow:
     )
 
 
-def parse_rows(contract: NewsContract) -> tuple[NewsRow, ...]:
+def parse_rows(contract: NewsRowsContract) -> tuple[NewsRow, ...]:
     """Parse every row; the key is unique, and no IRI may appear under two revisions."""
     rows: list[NewsRow] = []
     keys: set[tuple[str, str, str, str]] = set()
     revision_by_iri: dict[tuple[str, str, str], str] = {}
     try:
-        with contract.file.open("r", encoding="utf-8") as handle:
+        with contract.path.open("r", encoding="utf-8") as handle:
             for line, text in enumerate(handle, 1):
                 if not text.strip():
-                    raise NewsError(f"{contract.file}:{line}: empty line")
+                    raise NewsError(f"{contract.path}:{line}: empty line")
                 try:
                     raw = json.loads(text, parse_float=Decimal)
                 except json.JSONDecodeError as exc:
-                    raise NewsError(f"{contract.file}:{line}: invalid JSON: {exc}") from exc
+                    raise NewsError(f"{contract.path}:{line}: invalid JSON: {exc}") from exc
                 row = _row(raw, line, contract)
                 key = (row.model_revision, row.item_kind, row.item_id, row.ticker)
                 if key in keys:
-                    raise NewsError(f"{contract.file}:{line}: duplicate key {key!r}")
+                    raise NewsError(f"{contract.path}:{line}: duplicate key {key!r}")
                 keys.add(key)
                 iri_key = (row.item_kind, row.item_id, row.ticker)
                 prior = revision_by_iri.setdefault(iri_key, row.model_revision)
                 if prior != row.model_revision:
                     raise NewsError(
-                        f"{contract.file}:{line}: {iri_key!r} appears under two revisions "
+                        f"{contract.path}:{line}: {iri_key!r} appears under two revisions "
                         f"({prior!r} and {row.model_revision!r}); the NewsItem IRI would collide"
                     )
                 if row.model_revision != contract.model_revision:
                     raise NewsError(
-                        f"{contract.file}:{line}: model_revision {row.model_revision!r} differs "
+                        f"{contract.path}:{line}: model_revision {row.model_revision!r} differs "
                         f"from the manifest's {contract.model_revision!r}"
                     )
                 rows.append(row)
     except OSError as exc:
-        raise NewsError(f"{contract.file}: {exc}") from exc
+        raise NewsError(f"{contract.path}: {exc}") from exc
     if len(rows) != contract.rows:
-        raise NewsError(f"{contract.file}: {len(rows)} row(s), the manifest says {contract.rows}")
+        raise NewsError(f"{contract.path}: {len(rows)} row(s), the manifest says {contract.rows}")
     return tuple(rows)
 
 
@@ -349,10 +403,12 @@ def load_file(label: str, directory: str | Path) -> NewsFile:
     """Verify the manifest and SHA256SUMS, then parse the file; no store is contacted."""
     if not _LABEL.fullmatch(label):
         raise NewsError(f"run label {label!r} does not match {RUN_LABEL_PATTERN} (as in final)")
-    contract = read_news_contract(_manifest_path(directory))
-    actual, sums = verify_hashes(contract)
+    manifest = read_news_manifest(directory)
+    contract = manifest.news_rows
+    assert contract is not None  # read_news_manifest refuses an absent block
+    actual, sums = verify_hashes(manifest, contract)
     rows = parse_rows(contract)
-    return NewsFile(label, contract, rows, actual, sums)
+    return NewsFile(label, manifest.root, contract, rows, actual, sums)
 
 
 # --- asset resolution ---------------------------------------------------------------------------
@@ -362,9 +418,10 @@ def link_assets(rows: Sequence[NewsRow], assets: Mapping[str, AssetInfo]) -> tup
     """Link every row whose ticker resolves, with the engine asset id as the rename fallback.
 
     The exact ticker is the normal rule. A ticker that no longer names the catalog's current
-    symbol (PSKY before its rename) falls back to the Asset that another row of the same engine
-    ``asset_id`` resolves to, and only when that set has exactly one member. A null ``asset_id``
-    has no fallback: the row is loaded without a link and counted.
+    symbol falls back to the Asset that another row of the same engine ``asset_id`` resolves to,
+    and only when that set has exactly one member. Letter 26 gives the 261 PSKY rows engine
+    ``asset_id`` 477, so they link to ``:SKYD`` through this fallback. A null ``asset_id`` has no
+    fallback: the row is loaded without a link and counted (the 9 EQR rows).
     """
     tickers_by_id: defaultdict[int, set[str]] = defaultdict(set)
     for row in rows:
@@ -435,8 +492,8 @@ def graph_name(label: str, year: int | str, half: str | None = None) -> str:
     text = str(year)
     if not _YEAR.fullmatch(text):
         raise NewsError(f"news graph year {text!r} is not a four-digit year")
-    if half is not None and half not in ("H1", "H2"):
-        raise NewsError(f"news graph half {half!r} is not H1 or H2")
+    if half is not None and half not in (FIRST_HALF, SECOND_HALF):
+        raise NewsError(f"news graph half {half!r} is not {FIRST_HALF} or {SECOND_HALF}")
     return f"{GRAPH_PREFIX}{label}:{text}" + (f":{half}" if half else "")
 
 
@@ -458,8 +515,8 @@ def rows_by_graph(label: str, rows: Sequence[NewsRow]) -> dict[str, tuple[NewsRo
                 f"{year}: {len(year_rows)} rows exceed the {MAX_GRAPH_TRIPLES}-triple bound but "
                 "the year has only one half"
             )
-        out[graph_name(label, year, "H1")] = first
-        out[graph_name(label, year, "H2")] = second
+        out[graph_name(label, year, FIRST_HALF)] = first
+        out[graph_name(label, year, SECOND_HALF)] = second
     return out
 
 
@@ -577,9 +634,14 @@ def verify_stored(
     return checks
 
 
-def verify_manifest_store(store: ReadableStore, contract: NewsContract, label: str) -> None:
+def verify_manifest_store(store: ReadableStore, manifest: VetoManifest, label: str) -> None:
     """Store-side check used by ``verify_store --manifest``; absent graphs are not failures."""
-    verify_hashes(contract)
+    contract = manifest.news_rows
+    if contract is None:
+        raise ManifestError("the manifest has no news_rows_file block")
+    if contract.columns != NEWS_COLUMNS:
+        raise ManifestError("news_rows_file.columns does not match the block D contract")
+    verify_hashes(manifest, contract)
     rows = parse_rows(contract)
     groups = rows_by_graph(label, rows)
     missing = [graph for graph in groups if not _graph_exists(store, graph)]
@@ -692,8 +754,8 @@ def open_store(args: argparse.Namespace) -> GraphDB | None:
 
 def _show_build(data: NewsFile, builders: Mapping[str, GraphBuilder]) -> None:
     print(f"label: {data.label}")
-    print(f"manifest: {data.contract.root / MANIFEST_NAME}")
-    print(f"file: {data.contract.file}")
+    print(f"manifest: {data.root / MANIFEST_NAME}")
+    print(f"file: {data.contract.path}")
     print(f"rows: {len(data.rows)}")
     unresolved, null_ids, tickers = unresolved_summary(data.rows)
     print(f"unresolved assets: {unresolved} row(s); asset_id null: {null_ids}")
@@ -747,7 +809,7 @@ def main(argv: Sequence[str] | None = None) -> int:  # noqa: C901, PLR0915 -- on
             announce_target(GraphDB.from_env())
         data = load_file(args.label, args.dir)
         print(f"manifest: using {_manifest_path(args.dir)}")
-        print(f"manifest: {data.contract.file.name} is listed; SHA-256 {data.sha256} matches")
+        print(f"manifest: {data.contract.path.name} is listed; SHA-256 {data.sha256} matches")
         print(f"manifest: {data.contract.rows} row(s) declared")
         universe_db = args.universe_db or etl_config.universe_db_path()
         assets = universe_assets(universe_db)

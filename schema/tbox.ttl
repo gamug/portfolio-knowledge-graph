@@ -392,7 +392,7 @@ so every result is in-sample.""" .
     a owl:Class ;
     rdfs:label "News item"@en ;
     rdfs:label "Fragmento de noticia"@es ;
-    skos:definition "Un fragmento de noticia asociado a una empresa: la fecha, el título, el texto exacto que entregó la instantánea de NLP (original o resumen), la fuente, las probabilidades de sentimiento y categoría y las revisiones del modelo. El texto es el fragmento al que el modelo asignó la etiqueta, nunca el artículo completo. Work item 46, bloque D."@es ;
+    skos:definition "Un fragmento de noticia asociado a una empresa: la fecha, el título, el texto exacto que entregó la instantánea de NLP (original o resumen), el dominio de la fuente, las probabilidades de sentimiento y categoría y las revisiones del modelo. El texto es el fragmento al que el modelo asignó la etiqueta, nunca el artículo completo (como máximo 2,000 caracteres); el sentimiento y la categoría son salidas del modelo, no hechos verificados. Work item 46, bloque D."@es ;
     rdfs:comment "One news fragment for one company: the date, title, the exact text the NLP snapshot delivered (original or summary), the source domain, the sentiment/category probabilities and the model revisions. The text is the fragment the model labelled, never the full article (at most 2,000 characters); sentiment and category are model outputs, not verified facts. Work item 46, block D."@en .
 
 :SelectionCycle
@@ -2241,8 +2241,8 @@ so every result is in-sample.""" .
 :newsAssetId a owl:DatatypeProperty, owl:FunctionalProperty ;
     rdfs:domain :NewsItem ; rdfs:range xsd:integer ;
     rdfs:label "Engine asset id"@en ; rdfs:label "Id de activo del motor"@es ;
-    rdfs:comment "The upstream engine asset_id of the ticker on the row's date; an integer, not an Asset IRI. Absent when the delivery could not resolve one."@en ;
-    rdfs:comment "El asset_id del motor para el ticker en la fecha de la fila; un entero, no un IRI de Asset. Falta cuando la entrega no pudo resolverlo."@es .
+    rdfs:comment "The engine asset_id the run read for this ticker (the NLP ticker is read as the symbol in force on 2026-11-09); an integer, not an Asset IRI. Absent when the ticker does not resolve."@en ;
+    rdfs:comment "El asset_id del motor que leyó la corrida para ese ticker (el ticker de NLP se lee como el símbolo vigente al 2026-11-09); un entero, no un IRI de Asset. Falta cuando el ticker no resuelve."@es .
 
 :newsDate a owl:DatatypeProperty, owl:FunctionalProperty ;
     rdfs:domain :NewsItem ; rdfs:range xsd:date ;
@@ -2266,7 +2266,7 @@ so every result is in-sample.""" .
     rdfs:domain :NewsItem ; rdfs:range xsd:string ;
     rdfs:label "News text fragment"@en ; rdfs:label "Texto del fragmento de noticia"@es ;
     rdfs:comment "The fragment exactly as delivered (original or summary), never the full article: at most 2,000 characters. The source domain is cited on the same row; use is academic."@en ;
-    rdfs:comment "El fragmento exactamente como lo entregó la fuente (original o resumen), nunca el artículo completo: como máximo 2.000 caracteres. El dominio de la fuente se cita en la misma fila; el uso es académico."@es .
+    rdfs:comment "El fragmento exactamente como lo entregó la fuente (original o resumen), nunca el artículo completo: como máximo 2,000 caracteres. El dominio de la fuente se cita en la misma fila; el uso es académico."@es .
 
 :textSource a owl:DatatypeProperty, owl:FunctionalProperty ;
     rdfs:domain :NewsItem ; rdfs:range xsd:string ;
@@ -2313,8 +2313,8 @@ so every result is in-sample.""" .
 :newsCategory a owl:DatatypeProperty, owl:FunctionalProperty ;
     rdfs:domain :NewsItem ; rdfs:range xsd:string ;
     rdfs:label "News category"@en ; rdfs:label "Categoría de la noticia"@es ;
-    rdfs:comment "The category assigned to this company's fragment. A model output, not a verified fact."@en ;
-    rdfs:comment "La categoría asignada al fragmento de esta empresa. Una salida del modelo, no un hecho verificado."@es .
+    rdfs:comment "The category assigned to this company's fragment. A model output, not a verified fact. The system does not use it in its decisions."@en ;
+    rdfs:comment "La categoría asignada al fragmento de esta empresa. Una salida del modelo, no un hecho verificado. El sistema no la usa en sus decisiones."@es .
 
 :categoryScore a owl:DatatypeProperty, owl:FunctionalProperty ;
     rdfs:domain :NewsItem ; rdfs:range xsd:decimal ;

@@ -567,7 +567,9 @@ what the store *enforces*.
     `:newsItemOfAsset` link. `shapes.ttl` gains `:NewsItemShape`; the loader writes one
     append-only graph per calendar year,
     `urn:graph:derived:news:{label}:{year}`, splitting a year over the ~400,000-triple bound into
-    `:H1`/`:H2`. Counts: **75 classes (61 disjoint leaves), 60 named shapes, 9682 quads;
+    `:01-06`/`:07-12`. The 261 PSKY rows corrected by letter 26 carry engine `asset_id` 477 and link
+    to `:SKYD`; the 9 EQR rows stay unlinked. A future revision that re-labels an already loaded
+    fragment writes one value per graph, so read the revision by graph. Counts: **75 classes (61 disjoint leaves), 60 named shapes, 9682 quads;
     conforms: True**; load plan **21 graphs / 9959 asserted triples** (production **5 / 9438**).
     The store must be reloaded afterwards.
 

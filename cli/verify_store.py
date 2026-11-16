@@ -77,9 +77,9 @@ def main(argv: list[str] | None = None) -> int:
         except (AssertionError, GraphDBError, OSError, ValueError) as exc:
             failed += 1
             print(f"FAIL  Veto Hierarchy and series manifest checks: {exc}")
-        if manifest.news is not None:
+        if manifest.news_rows is not None:
             try:
-                verify_news_store(db, manifest.news, args.label)
+                verify_news_store(db, manifest, args.label)
             except (AssertionError, GraphDBError, OSError, ValueError) as exc:
                 failed += 1
                 print(f"FAIL  news manifest checks: {exc}")

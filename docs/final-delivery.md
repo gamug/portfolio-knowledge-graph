@@ -773,9 +773,12 @@ root that holds `manifest_final.json` and `SHA256SUMS`; the file itself is `news
 `news/` folder). The loader checks the file against both the manifest's `news_rows_file` block and
 the delivery `SHA256SUMS` before reading a row, then checks the row header against the manifest
 columns, the row count and the key. It writes one append-only graph per calendar year,
-`urn:graph:derived:news:final:{year}`; 2024 is split into `:2024:H1` and `:2024:H2` to stay under
-the ~400,000-triple bound. A row whose ticker and engine `asset_id` do not resolve is still loaded,
-without a `:newsItemOfAsset` link; the loader prints the unresolved count and tickers.
+`urn:graph:derived:news:final:{year}`; 2024 is split into `:2024:01-06` and `:2024:07-12` to stay under
+the ~400,000-triple bound. Letter 26 corrected the 261 PSKY rows to engine `asset_id` 477, so all
+503 PSKY rows link to `:SKYD`; the 9 EQR rows stay unlinked because the engine has no asset or
+ticker interval for EQR. The loader prints the unresolved count and tickers. A future revision that
+re-labels an already loaded fragment (same `item_id`, same ticker) writes one value per graph, so a
+query must read the revision by graph.
 
 Dry run first (contacts no store), then the read-only pre-flight and the write:
 
