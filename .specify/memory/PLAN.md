@@ -3699,7 +3699,11 @@ measured pilot budget is in `docs/veto-hierarchy-design.md` §6.
 - [ ] **T-895** Decide the MARKOWITZ_MV path for the final `mv_base/` (only
       `aggregates_mv_base.json` is present; `load_mv_base` needs `config_mv_base.md`,
       `SHA256SUMS` and `final_<window>.db`). Do not invent the path.
-- [ ] **T-896–T-899** Reserved for final-manifest review fixes.
+- [ ] **T-896** Resolve the final `aggregates_final.json` content: the trend-filter arm list still
+      says `TOPN_MV_GUARD_NO_NLP` while the final System book is `TOPN_MV_GUARD`, and H1/H3 have
+      `cash_fraction > 0` with `at_or_above`. The path/layout compatibility is done; the remaining
+      failures are delivery data, not loader keys.
+- [ ] **T-897–T-899** Reserved for final-manifest review fixes.
 
 **Acceptance criteria**:
 

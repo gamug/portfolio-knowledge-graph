@@ -239,10 +239,17 @@ uv run python cli/load_mv_base.py --label final \
 uv run python cli/load_aggregates.py --label final \
   --dir "/workspaces/thesis/knoledge graph/2026-11-17_final" --write
 
-# 7. Series (SPY and MARKOWITZ_MV)
+# 7. Series (SPY and MARKOWITZ_MV); point at the series subfolder, not the delivery root
 uv run python cli/load_series.py --label final \
-  --dir "/workspaces/thesis/knoledge graph/2026-11-17_final" --write
+  --dir "/workspaces/thesis/knoledge graph/2026-11-17_final/series_diarias_referencia" --write
 ```
+
+**Aggregates source check (T-896).** `cli/load_aggregates.py --dir 2026-11-17_final` now accepts
+the root `SHA256SUMS` with nested paths and finds the one database per
+`SYSTEM_WITH_HIERARCHY/<window>/` folder, but its source verification still stops on two delivery
+data points: `trend_filter_applies_to_arms` names `TOPN_MV_GUARD_NO_NLP` (the final book is
+`TOPN_MV_GUARD`), and H1/H3 carry a positive `cash_fraction` with `at_or_above`. Do not edit the
+delivery and do not force the aggregate graph; T-896 decides the corrected file or the mapping.
 
 **Markowitz MV and `--engine-dir`.** The delivery's `mv_base/` contains only
 `aggregates_mv_base.json`; it does not contain `config_mv_base.md`, `SHA256SUMS` or the

@@ -1513,4 +1513,9 @@ T-890–T-895.
       `aggregates_mv_base.json`, while `load_mv_base` needs `config_mv_base.md`, `SHA256SUMS`
       and `final_<window>.db` under `--engine-dir`. Do not fake the path; the maintainer chooses
       between a corrected mv_base folder and a documented symlink staging step.
-- [ ] **T-896–T-899** Reserved for final-manifest review fixes.
+- [ ] **T-896** Resolve the final `aggregates_final.json` source check: its
+      `trend_filter_applies_to_arms` still names `TOPN_MV_GUARD_NO_NLP` while the final System book
+      is `TOPN_MV_GUARD`, and H1/H3 carry `cash_fraction > 0` with `at_or_above`. The final root
+      manifest and nested window databases are accepted; the remaining two failures are delivery
+      data, not loader keys. Do not edit the delivery.
+- [ ] **T-897–T-899** Reserved for final-manifest review fixes.

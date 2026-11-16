@@ -270,6 +270,14 @@ def _batch_graph(
     return next(graph for graph in batch.graphs if graph.kind == kind)
 
 
+def test_a_dry_run_releases_the_large_batch_graphs(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    result = _delivery(tmp_path, monkeypatch)
+    assert all(batch.m018 is None for batch in result.batches)
+    assert all(batch.selection is None for batch in result.batches)
+
+
 def test_preflight_plans_all_graphs_without_writing(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:

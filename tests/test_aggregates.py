@@ -30,6 +30,7 @@ from projection.aggregates import (
     ReferenceReturnRow,
     TrendFilterRow,
     Verification,
+    _window_db,
     aggregates_set_iri,
     batch,
     parse_aggregates,
@@ -224,6 +225,27 @@ def test_the_manifest_format_is_strict(tmp_path: Path) -> None:
     (tmp_path / "SHA256SUMS").write_text("ABC  file.json\n", encoding="utf-8")
     with pytest.raises(ManifestError, match="expected"):
         read_manifest(tmp_path / "SHA256SUMS")
+
+
+def test_the_root_manifest_accepts_a_relative_path(tmp_path: Path) -> None:
+    (tmp_path / "SHA256SUMS").write_text(
+        "0" * 64 + "  SYSTEM_WITH_HIERARCHY/P1/H1B-A2g-P1.db\n", encoding="utf-8"
+    )
+    assert read_manifest(tmp_path / "SHA256SUMS") == {
+        "SYSTEM_WITH_HIERARCHY/P1/H1B-A2g-P1.db": "0" * 64
+    }
+    (tmp_path / "SHA256SUMS").write_text("0" * 64 + "  ../escape.db\n", encoding="utf-8")
+    with pytest.raises(ManifestError, match="relative safe path"):
+        read_manifest(tmp_path / "SHA256SUMS")
+
+
+def test_the_final_layout_window_database_is_found(tmp_path: Path) -> None:
+    nested = tmp_path / "SYSTEM_WITH_HIERARCHY" / "P1"
+    nested.mkdir(parents=True)
+    database = nested / "H1B-A2g-P1.db"
+    database.write_bytes(b"")
+    assert _window_db(tmp_path, "final", "P1") == database
+    assert _window_db(tmp_path, "final", "H1") == tmp_path / "final_H1.db"
 
 
 def test_deterministic_iris_and_dictionary_comments() -> None:
