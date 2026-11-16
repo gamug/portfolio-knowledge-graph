@@ -169,10 +169,17 @@ are closed (see `CHANGELOG.md`).*
       acceptance criteria.
 
 ## Work item 6 — Bring up the OWL RL reasoner and the SPARQL surface
-
+*Blocked on Work item 4 for T-051–T-053 (Work item 3 is closed); T-050 is done.*
 *Blocked on Work items 3 and 4.*
 
-- [ ] **T-050** Confirm the chosen store's native reasoning support against
+- [x] **T-050** *(done 2026-10-14, no new store run: GraphDB's native `rdfsplus-optimized` ruleset
+      is the profile `docs/07` asks for, so no external reasoner is wired. Evidence: the ruleset and
+      `disableSameAs` (`docs/graphdb-setup.md`, "Reasoning profile"); `verify_store`'s reasoning check,
+      last run live 2026-10-12, found `?x a :Observation` = 41 inferred and 0 asserted, `ScoreSnapshot`
+      included, two `rdfs:subClassOf` steps down, so the chain is followed; `tbox.ttl` declares no
+      `owl:propertyChainAxiom`. What the store does not enforce is OWL restrictions and
+      `AllDisjointClasses`: the gate's SHACL covers them (T-023). That no property-chain inference runs
+      is proved on real data by T-053)* Confirm the chosen store's native reasoning support against
       the OWL 2 RL/RDFS+ profile, or select/wire an external reasoner. →
       `PLAN.md` Work item 6, step 1.
 - [ ] **T-051** Stand up the three documented SPARQL query patterns (active
