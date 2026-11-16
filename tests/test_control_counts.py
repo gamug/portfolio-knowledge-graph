@@ -28,6 +28,7 @@ from projection.control_counts import (
     expected_control_counts,
     store_control_counts,
     validate_control_counts,
+    verify_agent_control_counts,
     verify_store_control_counts,
 )
 from projection.source import FinancialSource
@@ -326,6 +327,8 @@ def test_a_spy_csv_without_a_window_column_fails(tmp_path: Path) -> None:
 
 class _EmptyStore:
     def select(self, query: str) -> list[dict[str, str]]:
+        if "LIMIT 1" in query:
+            return []
         if "GROUP BY" in query or "?cumulative" in query:
             return []
         return [{"n": "0"}]
@@ -499,7 +502,7 @@ def test_group_5_is_null_when_the_final_files_are_absent() -> None:
     assert all(value is None for value in values.values())
 
 
-def test_new_counts_that_are_not_loaded_are_printed_without_failing(
+def test_absent_agent_graphs_are_printed_without_failing(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     expected = {
@@ -511,17 +514,13 @@ def test_new_counts_that_are_not_loaded_are_printed_without_failing(
             }
         }
     }
-    failures = verify_store_control_counts(
-        _EmptyStore(), "urn:graph:test", "SYSTEM_WITH_HIERARCHY", "P1", expected
-    )
+    failures = verify_agent_control_counts(_EmptyStore(), "final", "P1", expected)
     assert failures == []
     output = capsys.readouterr().out
-    assert "not store-verifiable: not loaded yet: SYSTEM_WITH_HIERARCHY/P1.news_exits" in output
-    assert (
-        "not store-verifiable: not loaded yet: SYSTEM_WITH_HIERARCHY/P1.news_sector_rejections"
-        in output
-    )
-    assert "not store-verifiable: not loaded yet: SYSTEM_WITH_HIERARCHY/P1.bull_triggered" in output
+    assert "not store-verifiable" in output
+    assert "SYSTEM_WITH_HIERARCHY/P1.news_exits" in output
+    assert "SYSTEM_WITH_HIERARCHY/P1.news_sector_rejections" in output
+    assert "SYSTEM_WITH_HIERARCHY/P1.bull_triggered" in output
 
 
 def test_a_new_count_mismatch_is_a_failure() -> None:

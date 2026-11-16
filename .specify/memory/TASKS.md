@@ -1449,7 +1449,7 @@ See `docs/fundamentals-design.md` and `PLAN.md` Work item 45.*
       only.
 - [ ] **T-817–T-839** Reserved for review fixes; no specific IDs are assigned here.
 
-## Work item 46 — Veto Hierarchy projection (T-840–T-869)
+## Work item 46 — Veto Hierarchy projection (T-840–T-919)
 
 See `docs/veto-hierarchy-design.md` and `PLAN.md` Work item 46. The design is complete; block E
 (``T-880–T-884``) adds the daily series, and the final manifest (`final-1`) is handled by
@@ -1546,3 +1546,22 @@ T-890–T-899, and block D news rows by T-910–T-914.
       no GraphDB write; full suite 1,868 passed / 62 deselected.)* Delivery documentation, count
       reconciliation and the real dry run.
 - [ ] **T-915–T-919** Reserved for block D review fixes.
+- [x] **T-900** *(done 2026-11-16: `docs/agent-traceability-design.md`; design only.)* Record the
+      real block-F files, keys, counts, graph names, pointer-only fields and the deviations from
+      `docs/veto-hierarchy-design.md` §7.
+- [x] **T-901** *(done 2026-11-16: 83 classes / 69 disjoint leaves / 635 properties / 69 named
+      shapes, 12439 quads, 21/12716 load, production 5/12195.)* Add the eight classes, their properties, closed shapes
+      and the agents graph target.
+- [x] **T-902** *(done 2026-11-16: `src/projection/agents.py`.)* Strict manifest/SHA256SUMS
+      check, four-file parser, exact fractions, cross-file checks and the four graph builders.
+- [x] **T-903** *(done 2026-11-16: `cli/load_agents.py`.)* Dry run, `--check-store`, `--write`,
+      `--to-production`, `--window`, `--only`, batched writes and graph-in-doubt handling.
+- [x] **T-904** *(done 2026-11-16: hermetic tests, synthetic negative shapes, five-window real
+      dry run 43,468 triples, labels table and `docs/final-delivery.md` §7f. P1/C1 stop on two
+      REGN rows absent from block D.)* Tests, dry-run evidence and delivery docs.
+- [x] **T-905** *(done 2026-11-16: `store_agent_counts`/`verify_agent_control_counts`, called
+      from `verify_delivery`; eleven keys removed from the non-verifiable sets; absent graphs
+      print `not store-verifiable`.)* Store-side control counts.
+- [x] **T-906** *(done 2026-11-16: `:newsItem` on `:NewsEvidence`, D's `parse_rows` lookup,
+      cross-graph context and missing/ambiguous tests.)* `:newsItem` link.
+- [ ] **T-907–T-909** Reserved for block F review fixes.

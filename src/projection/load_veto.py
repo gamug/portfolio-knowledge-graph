@@ -46,6 +46,7 @@ from projection.control_counts import (
     compute_control_counts,
     compute_series_counts,
     validate_control_counts,
+    verify_agent_control_counts,
     verify_store_control_counts,
 )
 from projection.delivery import ConfigError, read_config
@@ -529,6 +530,11 @@ def verify_delivery(  # noqa: C901 -- one check per graph family
                 batch.key[1],
                 batch.key[2],
                 manifest.control_counts,
+            )
+        )
+        failures.extend(
+            verify_agent_control_counts(
+                store, manifest.label, batch.key[2], manifest.control_counts
             )
         )
     failures.extend(_series_daily_row_failures(store, manifest))

@@ -1,9 +1,9 @@
 # Ontology Definition — Portfolio Knowledge Graph (v2)
 
 **Implementation:** [`schema/`](../schema/) — the formal OWL/SHACL/TriG implementation of
-everything described below, split into `tbox.ttl` (classes/properties, **75 classes total** as of
-this revision — 61 mutually-disjoint leaf/domain classes, a 13-class `rdfs:subClassOf` taxonomic
-backbone and `:ExchangeTradedFund` under `:Asset`, see §1.2; **463 properties**), `shapes.ttl` (SHACL, 60 named
+everything described below, split into `tbox.ttl` (classes/properties, **83 classes total** as of
+this revision — 69 mutually-disjoint leaf/domain classes, a 13-class `rdfs:subClassOf` taxonomic
+backbone and `:ExchangeTradedFund` under `:Asset`, see §1.2; **635 properties**), `shapes.ttl` (SHACL, 69 named
 shapes), `reference.ttl` (GICS taxonomy +
 asset master data + the new `MetricType` controlled vocabulary, §1.9), `rules.ttl` (the ten active
 selection rules, the six GUARD protection rules, and the seven original ones as trees), and
@@ -928,8 +928,8 @@ not a veto rule:** it carries no `:ruleSeverity`, `:penaltyPoints` or `:priority
 `VetoShape` refuses it as the object of `:appliesRule`/`:primaryRule`. `RuleDefinitionShape` adds one
 `sh:or` branch for `:category "GUARD"`, keeps the severity requirement for every other active rule,
 makes `:priorityRank` mandatory for non-GUARD rules, and widens the rank range to `[1,10]` for
-`UTILITY_CASH_COVERAGE`. The bundle is **9694 quads; conforms: True** (the FR-001 gate, current at
-block B2).
+`UTILITY_CASH_COVERAGE`. The bundle is **12439 quads; conforms: True** (the FR-001 gate, current at
+block F).
 
 **Projection of the three remaining v18 views (T-208, T-352/T-353).** `TickerHistory`,
 `OrchestratorRun` and `OrchestratorStep` are now written by `src/projection/reference.py`:
@@ -1141,3 +1141,22 @@ graph. The loader writes one append-only graph per calendar year,
 `:01-06`/`:07-12`), in bounded N-Triples batches; a lost answer is a graph in doubt and is never
 retried blindly. Counts: **75 classes (61 disjoint leaves), 60 named shapes, 9694 quads**; load
 plan **21/9971 asserted triples** (production **5/9450**).
+
+## 1.20 Agent traceability (Work item 46, block F, 2026-11-16)
+
+`tbox.ttl` adds eight Observation leaves in a second `owl:AllDisjointClasses` block at the end of
+the file: `:ManagerCall`, `:NarratorText`, `:NewsAction`, `:NewsEvidence`, `:DateRecord`,
+`:NewsRunRecord`, `:BullModeRecord` and `:BullModeDecision`. `:ManagerCall` stores the A2g choice,
+the fallback/repair state, the model/skill hashes and a pointer to the line; prompts, raw answers
+and the whole state are hash-and-pointer only. `:NarratorText` stores the text, the model/template
+source and the provenance sentence. `:NewsAction`/`:NewsEvidence` store the pool action, its
+evidence and exact p-value/size fractions as integer numerator/denominator pairs;
+`:DateRecord` stores coverage, admission, pooled/expected fractions and the level-B/C/D flags;
+`:NewsRunRecord` stores the file-level exit and sector-rejection counts. `:BullModeRecord` and
+`:BullModeDecision` store N11 per decision date. `shapes.ttl` adds one closed shape per class and
+`:AgentRecordNoPriceShape`; the loader writes one append-only graph per `(label, window, file)`
+into `urn:graph:derived:backtest:agents:{label}:{window}:{slug}`. Counts: **83 classes, 69 disjoint
+leaves, 69 named shapes, 12439 quads, 21/12716 asserted triples, production 5/12195**; the five
+windows that load project **43,468 triples** (7,726 manager, 22,244 narrator, 12,483 news, 1,015
+bull-mode) and all SHACL-conform. P1/C1 stop on two REGN test rows absent from `news_rows.jsonl`;
+no GraphDB write.

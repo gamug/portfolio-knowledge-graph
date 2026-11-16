@@ -152,6 +152,13 @@ _BACKTEST_EXTERNAL_TARGET = re.compile(
 _BACKTEST_SERIES_TARGET = re.compile(
     r"urn:graph:derived:backtest:series:([a-z][a-z0-9_]{1,31}):([a-z][a-z0-9_]{1,31})"
 )
+#: One block-F agent-traceability graph per run label, window and source file (Work item 46):
+#: manager calls, narrator texts, news actions/date records and N11 bull-mode records are separate
+#: streams so any one can be loaded later without touching the others.
+_AGENTS_TARGET = re.compile(
+    r"urn:graph:derived:backtest:agents:([a-z][a-z0-9_]{1,31}):([PH][0-9]+|C[0-9]+):"
+    r"(manager_calls|narrator|news|bull_mode)"
+)
 #: One fundamentals graph per run label (Work item 45): the block C filings, metric sets and
 #: assessments plus the 33 masked-asset flags. Append-only, one graph per label.
 _FUNDAMENTALS_TARGET = re.compile(r"urn:graph:derived:fundamentals:([a-z][a-z0-9_]{1,31})")
@@ -181,6 +188,7 @@ APPEND_ONLY_PATTERNS = (
     _BACKTEST_AGGREGATES_TARGET,
     _BACKTEST_EXTERNAL_TARGET,
     _BACKTEST_SERIES_TARGET,
+    _AGENTS_TARGET,
     _FUNDAMENTALS_TARGET,
     _NEWS_TARGET,
     _TICKER_HISTORY_TARGET,
@@ -249,6 +257,7 @@ def check_target(graph: str) -> bool:
                 _BACKTEST_AGGREGATES_TARGET,
                 _BACKTEST_EXTERNAL_TARGET,
                 _BACKTEST_SERIES_TARGET,
+                _AGENTS_TARGET,
                 _FUNDAMENTALS_TARGET,
                 _NEWS_TARGET,
                 _ORCHESTRATOR_TARGET,
@@ -273,6 +282,8 @@ def check_target(graph: str) -> bool:
         "urn:graph:derived:backtest:aggregates:{run label}[:{configuration slug}], "
         "urn:graph:derived:backtest:external:{run label}, "
         "urn:graph:derived:backtest:series:{run label}:{configuration slug}, "
+        "urn:graph:derived:backtest:agents:{run label}:{P<n>|H<n>|C<n>}:"
+        "{manager_calls|narrator|news|bull_mode}, "
         "urn:graph:derived:fundamentals:{run label}, "
         "urn:graph:derived:news:{run label}:YYYY[:01-06|:07-12], "
         "urn:graph:derived:ticker-history:{run label}:YYYY-MM-DD, "

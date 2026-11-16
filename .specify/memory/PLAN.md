@@ -3608,12 +3608,12 @@ graph is **1265 triples**. No GraphDB write.
 
 ---
 
-## Work item 46 — Veto Hierarchy projection (T-840–T-869)
+## Work item 46 — Veto Hierarchy projection (T-840–T-919)
 
 **Status: PR A–H merged (#156–#162); pre-flight fix #163 (T-870–T-871); block E series loader
 merged (#165, T-880–T-884); final-manifest follow-up merged (#167, T-890–T-896); block B2
-aggregates and label text merged (#169/#170, T-896–T-899); block D news rows in
-`feat/news-rows` (T-910–T-914).**
+aggregates and label text merged (#169/#170, T-896–T-899); block D news rows merged (#166,
+T-910–T-914); block F agent traceability PR #168 open in `feat/agent-traceability` (T-900–T-909).**
 
 **Why**: Reviewer A delivered the frozen data dictionary and the pilot `H1C-B5-P1` for the complete
 System with the Veto Hierarchy. The engine arm codes no longer identify a configuration
@@ -3728,6 +3728,32 @@ measured pilot budget is in `docs/veto-hierarchy-design.md` §6.
 - [x] **T-914** *(done 2026-11-16: `docs/final-delivery.md` §7e and 0bis.6, docs/07, veto design
       §7, README/SPEC/schema/06/07 counts and the real dry run.)* Documentation and dry run.
 - [ ] **T-915–T-919** Reserved for block D review fixes.
+- [x] **T-900** *(done 2026-11-16: `docs/agent-traceability-design.md`; design only, no code,
+      schema or GraphDB write.)* Record the real block-F files, keys, counts, graph names,
+      pointer-only fields and the deviations from `docs/veto-hierarchy-design.md` §7.
+- [x] **T-901** *(done 2026-11-16: `schema/tbox.ttl`, `schema/shapes.ttl`, gate target and FR-001
+      counts; 83 classes / 69 disjoint leaves / 635 properties / 69 named shapes, 12439 quads,
+      21/12716 load, production 5/12195.)* Add the eight agent-traceability classes, their properties, closed
+      shapes and the `urn:graph:derived:backtest:agents:...` target.
+- [x] **T-902** *(done 2026-11-16: `src/projection/agents.py`; strict manifest/SHA256SUMS check,
+      four-file parser, exact fractions, cross-file checks and the four graph builders.)* Parser
+      and projector.
+- [x] **T-903** *(done 2026-11-16: `cli/load_agents.py`; dry run, `--check-store`, `--write`,
+      `--to-production`, `--window`, `--only`, batched writes and graph-in-doubt handling.)*
+      Loader CLI.
+- [x] **T-904** *(done 2026-11-16: hermetic tests, synthetic negative shapes, the five-window
+      real dry run (43,468 triples; all SHACL conform), labels table, `docs/final-delivery.md`
+      §7f and the current counts. P1/C1 stop on two REGN test rows absent from
+      `news_rows.jsonl`.)* Tests, labels table, dry-run evidence and delivery docs.
+- [x] **T-905** *(done 2026-11-16: `store_agent_counts` and `verify_agent_control_counts` in
+      `control_counts.py`, called from `verify_delivery`; the eleven keys removed from
+      `STORE_NOT_LOADED`/`STORE_NON_VERIFIABLE`; tests for match, mismatch and absent graphs.)*
+      Store-side control counts.
+- [x] **T-906** *(done 2026-11-16: `:newsItem` on `:NewsEvidence`, D's `parse_rows` lookup from
+      `news_rows.jsonl`, the cross-graph validation context and missing/ambiguous-row tests. The
+      real P1/C1 delivery stops on REGN test rows 280187/328156, absent from block D.)*
+      `:newsItem` link.
+- [ ] **T-907–T-909** Reserved for block F review fixes.
 
 **Acceptance criteria**:
 
@@ -3785,3 +3811,10 @@ suite: **1819 passed / 62 deselected** (42 min 30 s).
 write. Read-only `--check-store` on `portfolio_test` reports all seven graphs `would-be-written`.
 Labels approved by Reviewer A with the four letter-26 changes. Full suite **1,868 passed / 62
 deselected** (44 min 02 s).
+**Verified 2026-11-16 (T-900–T-906, block F)**: FR-001 **12439 quads**, **83 classes (69 disjoint
+leaves)**, **635 properties**, **69 named shapes**; load plan **21/12716**, production **5/12195**.
+The real dry run over `2026-11-17_final` derives every group-5 control count from the files
+(manager 308 / 3,246 narrator / 252 actions / 119 dates / 25 level C / 29 level D / 9 exits / 6,508
+sector rejections / 28 bull triggers); five windows project **43,468** triples and conform to
+SHACL. P1/C1 stop before news because two REGN test rows (280187, 328156) have no
+`news_rows.jsonl` row; the loader refuses to guess. No GraphDB write was made.

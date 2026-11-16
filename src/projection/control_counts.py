@@ -736,21 +736,7 @@ class ReadableStore(Protocol):
 
 
 #: Keys whose file is parsed and compared but whose data has no graph representation yet.
-STORE_NOT_LOADED: frozenset[str] = frozenset(
-    {
-        "manager_calls",
-        "manager_fallbacks",
-        "manager_repairs",
-        "narrator_texts",
-        "news_pool_actions",
-        "news_date_records",
-        "news_level_c_decisions",
-        "news_level_d_decisions",
-        "news_exits",
-        "news_sector_rejections",
-        "bull_triggered",
-    }
-)
+STORE_NOT_LOADED: frozenset[str] = frozenset()
 
 STORE_NON_VERIFIABLE: Mapping[str, str] = {
     "ranking_decisions": "the rankings file is not projected into a graph",
@@ -758,18 +744,127 @@ STORE_NON_VERIFIABLE: Mapping[str, str] = {
     "scale_changes": "the scales file is not projected into a graph",
     "blocked_records": "blocked detail records are not individual graph nodes",
     "reentry_records": "reentry detail records are not individual graph nodes",
-    "manager_calls": "manager calls are not loaded",
-    "manager_fallbacks": "manager calls are not loaded",
-    "manager_repairs": "manager calls are not loaded",
-    "narrator_texts": "narrator texts are not loaded",
-    "news_pool_actions": "news actions are not loaded",
-    "news_date_records": "news date records are not loaded",
-    "news_level_c_decisions": "news level C decisions are not loaded",
-    "news_level_d_decisions": "news level D decisions are not loaded",
-    "news_exits": "the news-shock stop trigger is not projected into StopEvent",
-    "news_sector_rejections": "the news-sector rejection count has no schema property yet",
-    "bull_triggered": "bull-mode records are not loaded",
 }
+
+
+AGENT_GRAPH_PREFIX = "urn:graph:derived:backtest:agents:"
+AGENT_KEYS_BY_GRAPH: Mapping[str, tuple[str, ...]] = {
+    "manager_calls": ("manager_calls", "manager_fallbacks", "manager_repairs"),
+    "narrator": ("narrator_texts",),
+    "news": (
+        "news_pool_actions",
+        "news_date_records",
+        "news_level_c_decisions",
+        "news_level_d_decisions",
+        "news_exits",
+        "news_sector_rejections",
+    ),
+    "bull_mode": ("bull_triggered",),
+}
+AGENT_KEYS: frozenset[str] = frozenset(key for keys in AGENT_KEYS_BY_GRAPH.values() for key in keys)
+
+
+def agent_graph_name(label: str, window: str, slug: str) -> str:
+    """One block F graph; the slug is the source-file segment."""
+    return f"{AGENT_GRAPH_PREFIX}{label}:{window}:{slug}"
+
+
+def _agent_graph_exists(store: ReadableStore, graph: str) -> bool:
+    return bool(store.select(f"SELECT * WHERE {{ GRAPH <{graph}> {{ ?s ?p ?o }} }} LIMIT 1"))
+
+
+def _agent_count(store: ReadableStore, graph: str, where: str) -> int:
+    rows = store.select(
+        "PREFIX : <https://thesis.local/kg/portfolio#>\n"
+        f"SELECT (COUNT(DISTINCT ?s) AS ?n) WHERE {{ GRAPH <{graph}> {{ {where} }} }}"
+    )
+    return int(rows[0]["n"]) if rows and "n" in rows[0] else 0
+
+
+def _agent_sum(store: ReadableStore, graph: str, where: str) -> int:
+    rows = store.select(
+        "PREFIX : <https://thesis.local/kg/portfolio#>\n"
+        f"SELECT (SUM(?n) AS ?n) WHERE {{ GRAPH <{graph}> {{ {where} }} }}"
+    )
+    return int(rows[0]["n"]) if rows and "n" in rows[0] else 0
+
+
+def store_agent_counts(store: ReadableStore, label: str, window: str) -> dict[str, Any]:
+    """Derive the block F control keys from the four agent graphs.
+
+    A missing graph contributes no key; :func:`verify_agent_control_counts` prints those keys as
+    not store-verifiable and does not fail.
+    """
+    values: dict[str, Any] = {}
+    manager_graph = agent_graph_name(label, window, "manager_calls")
+    if _agent_graph_exists(store, manager_graph):
+        values["manager_calls"] = _agent_count(store, manager_graph, "?s a :ManagerCall")
+        values["manager_fallbacks"] = _agent_count(
+            store, manager_graph, "?s a :ManagerCall ; :fallbackUsedRule true"
+        )
+        values["manager_repairs"] = _agent_count(
+            store, manager_graph, "?s a :ManagerCall ; :repairUsed true"
+        )
+    narrator_graph = agent_graph_name(label, window, "narrator")
+    if _agent_graph_exists(store, narrator_graph):
+        values["narrator_texts"] = _agent_count(store, narrator_graph, "?s a :NarratorText")
+    news_graph = agent_graph_name(label, window, "news")
+    if _agent_graph_exists(store, news_graph):
+        values["news_pool_actions"] = {
+            kind: _agent_count(store, news_graph, f'?s a :NewsAction ; :newsActionKind "{kind}"')
+            for kind in ("veto", "promotion")
+        }
+        values["news_date_records"] = _agent_count(store, news_graph, "?s a :DateRecord")
+        values["news_level_c_decisions"] = _agent_count(
+            store, news_graph, "?s a :DateRecord ; :levelCDecision true"
+        )
+        values["news_level_d_decisions"] = _agent_count(
+            store, news_graph, "?s a :DateRecord ; :levelDFired true"
+        )
+        values["news_exits"] = _agent_sum(store, news_graph, "?s a :NewsRunRecord ; :newsExits ?n")
+        values["news_sector_rejections"] = _agent_sum(
+            store, news_graph, "?s a :NewsRunRecord ; :newsSectorRejections ?n"
+        )
+    bull_graph = agent_graph_name(label, window, "bull_mode")
+    if _agent_graph_exists(store, bull_graph):
+        values["bull_triggered"] = _agent_count(
+            store, bull_graph, "?s a :BullModeDecision ; :bullTriggered true"
+        )
+    return values
+
+
+def verify_agent_control_counts(
+    store: ReadableStore,
+    label: str,
+    window: str,
+    control_counts: object,
+) -> list[str]:
+    """Compare the block F keys; an absent graph prints not store-verifiable and does not fail."""
+    expected = expected_control_counts(control_counts, "SYSTEM_WITH_HIERARCHY", window)
+    if expected is None:
+        return []
+    wanted = {key: value for key, value in expected.items() if key in AGENT_KEYS}
+    if not wanted:
+        return []
+    actual = store_agent_counts(store, label, window)
+    failures: list[str] = []
+    for slug, keys in AGENT_KEYS_BY_GRAPH.items():
+        graph = agent_graph_name(label, window, slug)
+        if not _agent_graph_exists(store, graph):
+            for key in keys:
+                if key in wanted:
+                    print(
+                        f"control count not store-verifiable: "
+                        f"SYSTEM_WITH_HIERARCHY/{window}.{key}: the {slug} graph {graph} is absent"
+                    )
+    for key, value in wanted.items():
+        if key not in actual:
+            continue
+        try:
+            _compare_value("SYSTEM_WITH_HIERARCHY", window, key, value, actual[key])
+        except ControlCountError as exc:
+            failures.append(str(exc))
+    return failures
 
 
 def store_control_counts(store: ReadableStore, graph: str, configuration: str) -> dict[str, Any]:
@@ -863,6 +958,8 @@ def verify_store_control_counts(
     actual = store_control_counts(store, graph, configuration)
     failures: list[str] = []
     for key, value in expected.items():
+        if key in AGENT_KEYS:
+            continue
         if key not in actual:
             if key == "final_values":
                 failures.append(

@@ -742,7 +742,8 @@ fields record their provenance and they are never presented as verified facts.
 company with `:newsState`, `:newsN`, `:newsA`, `:newsB`, tier counts, `:meanProbabilityMargin`; the
 exact test as two integer properties `:pValueNumerator`/`:pValueDenominator` (and the same for the
 critical/size fractions), parsed from `"num/den"` as rationals, not floats. `:testRows` is one link
-per `(item_id, ticker)` to the already-loaded `:NewsItem` above. `:DateRecord` per decision carries
+per `(item_id, ticker)` to the already-loaded `:NewsItem` above; block F writes it as `:newsItem`
+and keeps the `:newsTestRow` literal for audit. `:DateRecord` per decision carries
 coverage, admission counts, base rates, expected-by-chance fractions, states and the action list.
 No action individuals exist in the pilot; the first real news run is a later task.
 
