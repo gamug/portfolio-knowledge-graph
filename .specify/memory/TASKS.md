@@ -1453,7 +1453,7 @@ See `docs/fundamentals-design.md` and `PLAN.md` Work item 45.*
 
 See `docs/veto-hierarchy-design.md` and `PLAN.md` Work item 46. The design is complete; block E
 (``T-880–T-884``) adds the daily series, and the final manifest (`final-1`) is handled by
-T-890–T-896.
+T-890–T-899, and block D news rows by T-910–T-914.
 
 - [x] **T-840** *(done 2026-11-13: `docs/veto-hierarchy-design.md`; design only, no code, schema or
       GraphDB write.)* Configuration identity, filters, rules/shapes, detail model, price masking,
@@ -1513,15 +1513,22 @@ T-890–T-896.
       `aggregates_mv_base.json`, while `load_mv_base` needs `config_mv_base.md`, `SHA256SUMS`
       and `final_<window>.db` under `--engine-dir`. Do not fake the path; the maintainer chooses
       between a corrected mv_base folder and a documented symlink staging step.
-- [ ] **T-896** Resolve the final `aggregates_final.json` source check: its
-      `trend_filter_applies_to_arms` still names `TOPN_MV_GUARD_NO_NLP` while the final System book
-      is `TOPN_MV_GUARD`, and H1/H3 carry `cash_fraction > 0` with `at_or_above`. The final root
-      manifest and nested window databases are accepted; the remaining two failures are delivery
-      data, not loader keys. Do not edit the delivery.
-- [ ] **T-897–T-899** Reserved for final-manifest review fixes.
+- [x] **T-896** *(done 2026-11-16: corrected `aggregates_final.json` SHA-256
+      `b2cc35dc…`, 61 rows, `trend_filter_applies_to_arms: ["TOPN_MV_GUARD"]`, 15
+      `news_risk_off: true`; source check passes.)* Resolve the final aggregates source check.
+- [x] **T-897** *(done 2026-11-16: `:newsRiskOff` boolean property, required shape, bilingual
+      labels/comments and the changed `:trendState`/`:cashFraction`/`:appliesToArm` texts;
+      `docs/labels-news-risk-off-review.md` for Reviewer A.)* Project the news risk-off column.
+- [x] **T-898** *(done 2026-11-16: `tests/test_aggregates.py`, `tests/test_cli_load_aggregates.py`,
+      `tests/test_term_labels.py`, `tests/test_kg_load_schema.py`; real `load_aggregates` dry run
+      over the corrected delivery: 17/17 source checks, 61 rows, 15 news-risk-off rows, 21 cash
+      rows, 733 triples, SHACL conforms; the old `portfolio_test` graph was correctly reported as
+      different by `--check-store`, no write.)* Tests and dry-run evidence.
+- [ ] **T-899** Reserved for review fixes. *(T-895, the MARKOWITZ_MV path, remains open and
+      `load_mv_base` is untouched.)*
 - [x] **T-910** *(done 2026-11-16, block D: `schema/tbox.ttl`, `schema/shapes.ttl`,
       `tests/test_news_shapes.py`, `docs/labels-news-review.md`; 75 classes / 61 disjoint leaves /
-      60 named shapes, 9682 quads, 21/9959 load, production 5/9438; labels pending Reviewer A.)*
+      60 named shapes, 9694 quads, 21/9971 load, production 5/9450; labels approved by Reviewer A.)*
       Add the `:NewsItem` class, one typed property per loaded column, the Asset link, the
       `:NewsItemShape`, the synthetic positive/negative cases and the bilingual review table.
 - [x] **T-911** *(done 2026-11-16: `src/projection/news.py`; strict manifest/SHA256SUMS, header,

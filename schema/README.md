@@ -9,7 +9,7 @@ actually building it (each flagged inline in the file that surfaced it, and summ
 
 | File | Format | Loads into | Contents |
 |---|---|---|---|
-| `tbox.ttl` | Turtle | `urn:graph:tbox` | 75 classes (61 mutually disjoint leaf/domain classes + a 13-class `rdfs:subClassOf` taxonomic backbone + `:ExchangeTradedFund` under `:Asset`), properties, OWL cardinality restrictions. |
+| `tbox.ttl` | Turtle | `urn:graph:tbox` | 75 classes (60 mutually disjoint leaf/domain classes + a 13-class `rdfs:subClassOf` taxonomic backbone + `:ExchangeTradedFund` under `:Asset`), 463 properties, OWL cardinality restrictions. |
 | `shapes.ttl` | Turtle | `urn:graph:tbox` | 60 named SHACL node shapes plus two blank-node conditional shapes (data-quality shapes kept as a separate file/concern from `tbox.ttl` — OWL semantics vs. SHACL validation, see below). |
 | `reference.ttl` | Turtle | `urn:graph:reference` | GICS sector/industry taxonomy + asset master data (five worked-example S&P 500 tickers plus the core ETF `SPY`). |
 | `fibo.ttl` | Turtle | `urn:graph:reference:fibo` | The 25-term FIBO 2026Q2 glossary slice (54 entries, 277 statements) plus the authors' Spanish `@es` layer; built by `cli/build_fibo_slice.py`, never hand-edited. |
@@ -473,14 +473,16 @@ what the store *enforces*.
    `:Observation`: `:AggregatesSet` (one per label), `:TrendFilterState` (one per window and decision
    date) and `:ReferenceReturn` (one per window, segment and reference). The set carries the source
    file name, its lowercase manifest SHA-256, the `config_id` and the three textual source
-   descriptions; the rows carry `:trendState`/`:cashFraction` and the two Top-N arms, or
+   descriptions; the rows carry `:trendState` (the price input), `:newsRiskOff` (the level D news
+   input), `:cashFraction` and the one Top-N arm `TOPN_MV_GUARD`, or
    `:referenceName`/`:referenceTotalReturn`/`:referenceMaxDrawdown`/`:nSessions`. The new properties
    `:trendWindow`, `:trendDecisionDate`, `:returnWindow`, `:returnSegment`, `:referenceDateFrom`,
    `:referenceDateTo`, `:nSessions`, `:referenceName`, `:referenceTotalReturn`,
-   `:referenceMaxDrawdown`, `:cashFraction`, `:appliesToArm`, `:aggregatesSet` and the six
+   `:referenceMaxDrawdown`, `:cashFraction`, `:newsRiskOff`, `:appliesToArm`, `:aggregatesSet` and the six
    `:AggregatesSet` fields avoid reusing a property whose `rdfs:domain` would entail a disjoint
-   class. Every new property's English `rdfs:comment` is the file's dictionary text verbatim; the
-   three shapes close the label/window/segment/state/reference lists with `sh:pattern`/`sh:in`.
+   class. Every dictionary-backed property's English `rdfs:comment` is the file's dictionary text
+   verbatim; `:newsRiskOff` uses the letter-26 definition. The three shapes close the
+   label/window/segment/state/reference lists with `sh:pattern`/`sh:in`.
    The append-only graph is `urn:graph:derived:backtest:aggregates:{label}`; `sources.
    spy_total_return_series_sha256` is validated and never projected, and no daily series, price
    level or 210-session mean is stored. Counts: **58 classes (44 disjoint leaves), 39 named shapes,
@@ -554,11 +556,23 @@ what the store *enforces*.
     price level or OHLCV is stored. `shapes.ttl` gains `:DailySeriesPointShape` and
     `:SeriesWeightPointShape`; the series loader writes one append-only graph per
     `(label, configuration slug)` into `urn:graph:derived:backtest:series:{label}:{slug}`.
-    Counts: **74 classes (60 disjoint leaves), 59 named shapes, 9310 quads; conforms: True**;
-    load plan **21 graphs / 9587 asserted triples** (production **5 / 9066**). The store must be
+    Counts: **75 classes (61 disjoint leaves), 463 properties, 60 named shapes, 9694 quads;
+    conforms: True**; load plan **21 graphs / 9971 asserted triples** (production **5 / 9450**).
+    The store must be
     reloaded afterwards.
 
-18. **News rows (Work item 46, block D, 2026-11-16).** `tbox.ttl` gains the `:NewsItem`
+18. **News risk-off aggregate input (block B2, 2026-11-16).** `:TrendFilterState` gains the
+    required boolean `:newsRiskOff` (domain `:TrendFilterState`, range `xsd:boolean`), projected
+    from the corrected `aggregates_final.json` column `news_risk_off`. The same row now has one
+    `:appliesToArm` value, `"TOPN_MV_GUARD"` (the filter applies only to the System-with-hierarchy
+    book); `:trendState` is the price input (SPY total-return index against its 210-session mean)
+    and `:cashFraction` is 0.5 when the price input is `below` or `:newsRiskOff` is true, otherwise
+    0.0. No class or named shape is added; `:TrendFilterStateShape` changes two property
+    cardinalities and adds the boolean. Counts: **74 classes (60 disjoint leaves), 59 named shapes,
+    9322 quads; conforms: True** (436 properties in `tbox.ttl`); load plan **21 graphs / 9599
+    asserted triples** (production **5 / 9078**). The store must be reloaded afterwards.
+
+19. **News rows (Work item 46, block D, 2026-11-16).** `tbox.ttl` gains the `:NewsItem`
     EvidenceSource leaf and its typed properties for every loaded column of
     `news/news_rows.jsonl`: the three model revisions as provenance, `:newsAssetId` (integer),
     `:newsDate` (`xsd:date`), the three sentiment probabilities and `:categoryScore`
@@ -569,9 +583,10 @@ what the store *enforces*.
     `urn:graph:derived:news:{label}:{year}`, splitting a year over the ~400,000-triple bound into
     `:01-06`/`:07-12`. The 261 PSKY rows corrected by letter 26 carry engine `asset_id` 477 and link
     to `:SKYD`; the 9 EQR rows stay unlinked. A future revision that re-labels an already loaded
-    fragment writes one value per graph, so read the revision by graph. Counts: **75 classes (61 disjoint leaves), 60 named shapes, 9682 quads;
-    conforms: True**; load plan **21 graphs / 9959 asserted triples** (production **5 / 9438**).
-    The store must be reloaded afterwards.
+    fragment writes one value per graph, so read the revision by graph. Counts: **75 classes
+    (61 disjoint leaves), 463 properties, 60 named shapes, 9694 quads; conforms: True**; load plan
+    **21 graphs / 9971 asserted triples** (production **5 / 9450**). The store must be reloaded
+    afterwards.
 
 ## Validation
 
@@ -757,7 +772,7 @@ taxonomy) are recorded in the conversation that produced this pass, not re-deriv
 uv run python -c "
 import rdflib
 g = rdflib.Dataset()
-for f, fmt in [('tbox.ttl','turtle'), ('shapes.ttl','turtle'), ('reference.ttl','turtle'), ('rules.ttl','turtle')]:
+for f, fmt in [('tbox.ttl','turtle'), ('shapes.ttl','turtle'), ('reference.ttl','turtle'), ('rules.ttl','turtle'), ('labels.ttl','turtle')]:
     g.parse(f, format=fmt)
 g.parse('instances.trig', format='trig')
 print('quads:', len(list(g.quads())))

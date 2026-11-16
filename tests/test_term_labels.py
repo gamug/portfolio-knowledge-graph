@@ -25,6 +25,7 @@ PROPERTIES = (
     "softVetoPenalty",
     "excludeHardVetoed",
     "cashFraction",
+    "newsRiskOff",
     "trendState",
     "nRebalances",
     "totalTurnover",

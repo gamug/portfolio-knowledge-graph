@@ -243,21 +243,25 @@ uv run python cli/load_veto.py \
 uv run python cli/load_mv_base.py --label final \
   --dir "/workspaces/thesis/knoledge graph/mv_base"
 
-# 6. Aggregates from the delivery root (dry run until T-896 resolves the source data; then add --write)
+# 6. Aggregates from the delivery root (61 rows, news_risk_off included)
 uv run python cli/load_aggregates.py --label final \
-  --dir "/workspaces/thesis/knoledge graph/2026-11-17_final"
+  --dir "/workspaces/thesis/knoledge graph/2026-11-17_final" --write
 
 # 7. Series (SPY and MARKOWITZ_MV); point at the series subfolder, not the delivery root
 uv run python cli/load_series.py --label final \
   --dir "/workspaces/thesis/knoledge graph/2026-11-17_final/series_diarias_referencia" --write
 ```
 
-**Aggregates source check (T-896).** `cli/load_aggregates.py --dir 2026-11-17_final` now accepts
-the root `SHA256SUMS` with nested paths and finds the one database per
-`SYSTEM_WITH_HIERARCHY/<window>/` folder, but its source verification still stops on two delivery
-data points: `trend_filter_applies_to_arms` names `TOPN_MV_GUARD_NO_NLP` (the final book is
-`TOPN_MV_GUARD`), and H1/H3 carry a positive `cash_fraction` with `at_or_above`. Do not edit the
-delivery and do not force the aggregate graph; T-896 decides the corrected file or the mapping.
+**Aggregates source check (T-896, fixed 2026-11-16).** The corrected delivery has
+`aggregates_final.json` SHA-256 `b2cc35dc1b7e6b4a9169d9437d4d992aaeb9478fdbb37f976d5c0ffc39aabaaa`,
+`trend_filter_applies_to_arms: ["TOPN_MV_GUARD"]`, 61 rows with the boolean `news_risk_off` and
+`cash_fraction` 0.5 when the price input is `below` or the news input is on. The loader accepts the
+root `SHA256SUMS` with nested paths and finds the one database per
+`SYSTEM_WITH_HIERARCHY/<window>/` folder. T-896 is done; the aggregate graph is loadable. If an
+older `urn:graph:derived:backtest:aggregates:final` is already in the target, `--check-store`
+reports the old arm/source hash and `--write` refuses the non-empty graph: drop that one exact IRI
+after the backup, then run the write. The `load_aggregates` command in the sequence above is the
+write only after its dry run and `--check-store` pass.
 
 **Markowitz MV and `--engine-dir`.** The delivery's `mv_base/` contains only
 `aggregates_mv_base.json`; it does not contain `config_mv_base.md`, `SHA256SUMS` or the

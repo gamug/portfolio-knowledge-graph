@@ -3611,8 +3611,9 @@ graph is **1265 triples**. No GraphDB write.
 ## Work item 46 — Veto Hierarchy projection (T-840–T-869)
 
 **Status: PR A–H merged (#156–#162); pre-flight fix #163 (T-870–T-871); block E series loader
-merged (#165, T-880–T-884); final-manifest follow-up merged (#167, T-890–T-896); block D news
-rows in `feat/news-rows` (T-910–T-914).**
+merged (#165, T-880–T-884); final-manifest follow-up merged (#167, T-890–T-896); block B2
+aggregates and label text merged (#169/#170, T-896–T-899); block D news rows in
+`feat/news-rows` (T-910–T-914).**
 
 **Why**: Reviewer A delivered the frozen data dictionary and the pilot `H1C-B5-P1` for the complete
 System with the Veto Hierarchy. The engine arm codes no longer identify a configuration
@@ -3700,14 +3701,21 @@ measured pilot budget is in `docs/veto-hierarchy-design.md` §6.
 - [ ] **T-895** Decide the MARKOWITZ_MV path for the final `mv_base/` (only
       `aggregates_mv_base.json` is present; `load_mv_base` needs `config_mv_base.md`,
       `SHA256SUMS` and `final_<window>.db`). Do not invent the path.
-- [ ] **T-896** Resolve the final `aggregates_final.json` content: the trend-filter arm list still
-      says `TOPN_MV_GUARD_NO_NLP` while the final System book is `TOPN_MV_GUARD`, and H1/H3 have
-      `cash_fraction > 0` with `at_or_above`. The path/layout compatibility is done; the remaining
-      failures are delivery data, not loader keys.
-- [ ] **T-897–T-899** Reserved for final-manifest review fixes.
+- [x] **T-896** *(done 2026-11-16: corrected `aggregates_final.json`
+      `b2cc35dc1b7e6b4a9169d9437d4d992aaeb9478fdbb37f976d5c0ffc39aabaaa`, 61 rows,
+      `["TOPN_MV_GUARD"]`, 15 `news_risk_off` rows; all source checks pass.)* Resolve the final
+      aggregates source check.
+- [x] **T-897** *(done 2026-11-16: `:newsRiskOff` boolean property, required shape, bilingual
+      labels/comments, updated `:trendState`/`:cashFraction`/`:appliesToArm`, and
+      `docs/labels-news-risk-off-review.md`.)* Project the news risk-off column.
+- [x] **T-898** *(done 2026-11-16: synthetic parser/shape/verifier tests, CLI tests, load-plan
+      counts and the real `load_aggregates` dry run over the corrected delivery.)* Tests and
+      dry-run evidence.
+- [ ] **T-899** Reserved for review fixes. T-895, the MARKOWITZ_MV path, remains open; `load_mv_base`
+      is untouched.
 - [x] **T-910** *(done 2026-11-16: `schema/tbox.ttl`, `schema/shapes.ttl`,
       `tests/test_news_shapes.py`, `docs/labels-news-review.md`; 75 classes / 61 disjoint leaves /
-      60 named shapes, 9682 quads, 21/9959 load, production 5/9438; labels pending Reviewer A.)*
+      60 named shapes, 9694 quads, 21/9971 load, production 5/9450; labels approved by Reviewer A.)*
       `:NewsItem`, its typed properties, the Asset link, the shape and the bilingual review table.
 - [x] **T-911** *(done 2026-11-16: `src/projection/news.py`, the gate target and
       `tests/test_news.py`; manifest + SHA256SUMS, header/row-count/key checks, the two-revision
@@ -3732,6 +3740,9 @@ measured pilot budget is in `docs/veto-hierarchy-design.md` §6.
 - `load_veto --manifest` accepts `manifest_final.json` (`manifest_version` `final-1`), verifies
   every named file, computes every final-1 `control_counts` key from its file, and stops on any
   mismatch; `verify_store --manifest` prints the not-yet-loaded keys without failing.
+- The corrected `aggregates_final.json` (`b2cc35dc…`) is accepted: one `TOPN_MV_GUARD` arm, the
+  required boolean `newsRiskOff`, 17/17 source checks and 733 triples; the new property is in the
+  TBox, the shape and a Reviewer A label table.
 
 **Verified 2026-11-15 (T-880–T-884, block E)**: FR-001 **9310 quads**, **74 classes (60 disjoint
 leaves)**, **59 named shapes**; load plan **21/9587**, production **5/9066**. Real dry run over
@@ -3755,11 +3766,22 @@ six old P1 graphs (meta 33, the two System P1 pairs and `MARKOWITZ_BASE` P1), so
 `--check-store` pre-flight would stop at the meta graph until the maintainer empties them. Full
 suite: **1815 passed / 62 deselected** (40 min 16 s).
 
-**Verified 2026-11-16 (T-910–T-914, block D, letter 26)**: FR-001 **9682 quads**, **75 classes
-(61 disjoint leaves)**, **60 named shapes**; load plan **21/9959**, production **5/9438**. Real dry
-run over the updated `news/news_rows.jsonl` (sha `ac15f141…`): 69,329 rows, 9 unresolved assets
-(EQR only); the 261 PSKY rows now carry engine `asset_id` 477 and link to `:SKYD`. Graphs 2021
-21,300 / 2022 344,050 / 2023 344,025 / 2024:01-06 234,423 / 2024:07-12 184,596 / 2025 334,500 /
-2026 270,313 triples (1,733,207 total), SHACL conforms; no GraphDB write. Read-only `--check-store`
-on `portfolio_test` reports all seven graphs `would-be-written`. Labels approved by Reviewer A with
-the four letter-26 changes. Full suite **1,868 passed / 62 deselected** (44 min 02 s).
+**Verified 2026-11-16 (T-896–T-898, block B2)**: corrected `aggregates_final.json` SHA-256
+**b2cc35dc1b7e6b4a9169d9437d4d992aaeb9478fdbb37f976d5c0ffc39aabaaa**; 61 trend rows, 15 with
+`news_risk_off: true`, 21 with cash > 0; `trend_filter_applies_to_arms: ["TOPN_MV_GUARD"]`.
+`load_aggregates --label final --dir 2026-11-17_final` passed **17/17 source checks**, built
+**733 triples**, SHACL conformed, and wrote nothing. The read-only `--check-store` found the old
+`portfolio_test` aggregate graph and correctly reported the file/store difference (old arm and
+source hash), so the maintainer must drop that one graph before the reload. FR-001: **9322 quads,
+436 properties, 74 classes (60 disjoint leaves), 59 named shapes**; load plan **21/9599**,
+production **5/9078**. `docs/labels-news-risk-off-review.md` is the pending Reviewer A table. Full
+suite: **1819 passed / 62 deselected** (42 min 30 s).
+**Verified 2026-11-16 (T-910–T-914, block D, letter 26)**: FR-001 **9694 quads**, **463 properties**,
+**75 classes (61 disjoint leaves)**, **60 named shapes**; load plan **21/9971**, production
+**5/9450**. Real dry run over the updated `news/news_rows.jsonl` (sha `ac15f141…`): 69,329 rows,
+9 unresolved assets (EQR only); the 261 PSKY rows now carry engine `asset_id` 477 and link to
+`:SKYD`. Graphs 2021 21,300 / 2022 344,050 / 2023 344,025 / 2024:01-06 234,423 / 2024:07-12
+184,596 / 2025 334,500 / 2026 270,313 triples (1,733,207 total), SHACL conforms; no GraphDB
+write. Read-only `--check-store` on `portfolio_test` reports all seven graphs `would-be-written`.
+Labels approved by Reviewer A with the four letter-26 changes. Full suite **1,868 passed / 62
+deselected** (44 min 02 s).

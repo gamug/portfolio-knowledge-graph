@@ -13,11 +13,12 @@ import pytest
 import rdflib
 from fixtures.aggregates_rows import (
     aggregates_document,
+    p1_rows,
     p2_rows,
     reference_pair,
     write_aggregates,
 )
-from fixtures.backtest_rows import backtest_db, scenario_rows
+from fixtures.backtest_rows import backtest_db
 from fixtures.dataset_store import DatasetStore
 from rdflib.namespace import RDF, SH
 
@@ -55,30 +56,7 @@ def _folder(
     """A full synthetic folder: the file/manifest and the P1/P2 source databases."""
     doc = copy.deepcopy(document) if document is not None else aggregates_document()
     path = write_aggregates(tmp_path, doc)
-    p1 = scenario_rows("P1")
-    p1["book_rebalance"] += [
-        {
-            "id": 4,
-            "book_id": 2,
-            "decision_date": "2022-02-01",
-            "execution_date": "2022-02-02",
-            "quant_portfolio_id": 13,
-            "cycle_run_id": 7,
-            "risk_model_id": 5,
-            "status": "executed",
-        },
-        {
-            "id": 5,
-            "book_id": 3,
-            "decision_date": "2022-02-01",
-            "execution_date": "2022-02-02",
-            "quant_portfolio_id": 14,
-            "cycle_run_id": 7,
-            "risk_model_id": 5,
-            "status": "executed",
-        },
-    ]
-    backtest_db(tmp_path, name="rule_P1.db", window="P1", rows=p1)
+    backtest_db(tmp_path, name="rule_P1.db", window="P1", rows=p1_rows())
     backtest_db(tmp_path, name="rule_P2.db", window="P2", rows=p2_rows())
     return tmp_path, with_manifest(parse_aggregates(path, label="rule"), tmp_path, path.name)
 
@@ -99,11 +77,9 @@ def test_the_synthetic_file_has_the_real_shape() -> None:
         "trend_filter",
         "reference_returns",
     }
-    assert document["trend_filter_applies_to_arms"] == [
-        "TOPN_MV_NOGUARD",
-        "TOPN_MV_GUARD_NO_NLP",
-    ]
+    assert document["trend_filter_applies_to_arms"] == ["TOPN_MV_GUARD"]
     assert {row["spy_vs_sma210"] for row in document["trend_filter"]} >= {"not_evaluable"}
+    assert {row["news_risk_off"] for row in document["trend_filter"]} == {False}
     assert {row["segment"] for row in document["reference_returns"]} >= {"P2a", "P2b"}
     assert {row["reference"] for row in document["reference_returns"]} == {
         "SPY",
@@ -142,6 +118,10 @@ def test_the_synthetic_file_has_the_real_shape() -> None:
             "JSON number",
         ),
         (
+            lambda doc: doc["trend_filter"][1].update({"news_risk_off": "true"}),
+            "JSON boolean",
+        ),
+        (
             lambda doc: doc["reference_returns"][0].update({"n_sessions": 0}),
             "positive count",
         ),
@@ -162,7 +142,14 @@ def test_the_synthetic_file_has_the_real_shape() -> None:
             lambda doc: doc["dictionary"]["trend_filter"].update({"window": ""}),
             "non-empty",
         ),
-        (lambda doc: doc["trend_filter_applies_to_arms"].reverse(), "expected"),
+        (
+            lambda doc: doc["trend_filter_applies_to_arms"].append("TOPN_MV_NOGUARD"),
+            "exactly one",
+        ),
+        (
+            lambda doc: doc.update({"trend_filter_applies_to_arms": ["TOPN_MV_NOGUARD"]}),
+            "expected",
+        ),
     ],
 )
 def test_the_parser_rejects_an_unknown_or_malformed_value(
@@ -250,7 +237,7 @@ def test_the_final_layout_window_database_is_found(tmp_path: Path) -> None:
 
 def test_deterministic_iris_and_dictionary_comments() -> None:
     assert aggregates_set_iri("rule") == KG.AggregatesSet_rule
-    trend = TrendFilterRow("P1", datetime.date(2022, 2, 1), "below", Decimal("0.5"))
+    trend = TrendFilterRow("P1", datetime.date(2022, 2, 1), "below", False, Decimal("0.5"))
     assert trend_filter_iri("rule", trend) == KG.TrendFilter_rule_P1_20220201
     reference = ReferenceReturnRow(
         "P2",
@@ -299,8 +286,7 @@ def test_the_shapes_close_the_lists() -> None:
         "below",
         "at_or_above",
         "not_evaluable",
-        "TOPN_MV_NOGUARD",
-        "TOPN_MV_GUARD_NO_NLP",
+        "TOPN_MV_GUARD",
     }
     assert listed(KG.ReferenceReturnShape) == {"SPY", "SP500_EW_INTERNAL"}
 
@@ -313,6 +299,13 @@ def test_the_shapes_reject_an_unknown_state_or_reference(tmp_path: Path) -> None
     batch_graph.remove((subject, KG.trendState, None))
     batch_graph.add((subject, KG.trendState, rdflib.Literal("on")))
     with pytest.raises(gate.ShaclRejected, match="trendState"):
+        gate.validate(batch_graph)
+
+    batch_graph = rdflib.Graph()
+    batch_graph.parse(data=project(data).turtle(), format="turtle")
+    subject = KG.TrendFilter_rule_P1_20220201
+    batch_graph.remove((subject, KG.newsRiskOff, None))
+    with pytest.raises(gate.ShaclRejected, match="newsRiskOff"):
         gate.validate(batch_graph)
 
     batch_graph = rdflib.Graph()
@@ -367,6 +360,7 @@ def test_the_verifier_reports_a_window_whose_dates_differ(tmp_path: Path) -> Non
             "window": "P1",
             "decision_date": "2022-03-01",
             "spy_vs_sma210": "at_or_above",
+            "news_risk_off": False,
             "cash_fraction": 0.0,
         }
     )
@@ -391,6 +385,33 @@ def test_the_verifier_rejects_a_bad_cash_fraction(tmp_path: Path) -> None:
     failed = [check for check in verification.checks if not check.passed]
     assert any(
         check.name == "cash fractions" and "below with cash 0" in check.detail for check in failed
+    )
+
+
+def test_news_risk_off_alone_forces_cash_and_is_projected(tmp_path: Path) -> None:
+    document = aggregates_document()
+    document["trend_filter"][0]["news_risk_off"] = True
+    document["trend_filter"][0]["cash_fraction"] = 0.5
+    verification = _verifier(tmp_path, document)
+    assert verification.ok
+    _directory, data = _folder(tmp_path, document)
+    graph = project(data)
+    news = [
+        value
+        for subject, predicate, value in graph.triples
+        if subject == KG.TrendFilter_rule_P1_20220105 and predicate == KG.newsRiskOff
+    ]
+    assert news == [rdflib.Literal(True, datatype=rdflib.XSD.boolean)]
+
+
+def test_the_verifier_rejects_news_risk_off_without_cash(tmp_path: Path) -> None:
+    document = aggregates_document()
+    document["trend_filter"][0]["news_risk_off"] = True
+    verification = _verifier(tmp_path, document)
+    failed = [check for check in verification.checks if not check.passed]
+    assert any(
+        check.name == "cash fractions" and "news_risk_off with cash 0" in check.detail
+        for check in failed
     )
 
 
