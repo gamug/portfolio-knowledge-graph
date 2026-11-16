@@ -98,6 +98,11 @@ _STOP_KEYS = frozenset(
         "rho_delta",
         "weight_after_e3",
         "stop_distance_pct",
+        "trigger",
+        "news_neg3",
+        "news_pos3",
+        "news_threshold",
+        "sector_limit_changes",
     }
 )
 _REPLACEMENT_BOUGHT_KEYS = frozenset(
@@ -116,6 +121,7 @@ _REPLACEMENT_BOUGHT_KEYS = frozenset(
         "filter",
         "filter_decision",
         "stop_distance_pct",
+        "weight_after_e3",
     }
 )
 _REPLACEMENT_CHECK_KEYS = frozenset({"kind", "date", "asset_id", "candidate", "kept"})
@@ -152,13 +158,27 @@ _KIND_KEYS = {
     "retention_decision": _RETENTION_DECISION_KEYS,
 }
 _OPTION_KEYS = frozenset(
-    {"R", "asset_id", "beta", "is_spy", "rank", "rho", "score", "sector", "size_fraction", "weight"}
+    {
+        "R",
+        "asset_id",
+        "beta",
+        "is_spy",
+        "rank",
+        "rho",
+        "score",
+        "sector",
+        "size_fraction",
+        "weight",
+        "report_soon",
+        "vol_252",
+        "cash",
+    }
 )
 _CHOSEN_KEYS = frozenset({"asset_id", "cash"}) | _OPTION_KEYS
 _KEPT_KEYS = frozenset({"asset_id", "weight"})
 _HOLD_KEYS = frozenset({"asset_id", "counter", "counter_before"})
 _REJECTION_KEYS = frozenset({"asset_id", "cause", "counter"})
-_PORTFOLIO_CHECK_KEYS = frozenset({"passed", "reasons"})
+_PORTFOLIO_CHECK_KEYS = frozenset({"passed", "reasons", "fallback", "fallback_reasons"})
 _RHO_DELTA_KEYS = frozenset({"min", "median", "max"})
 _ELIGIBLE_KEYS = frozenset(
     {
@@ -177,6 +197,8 @@ _ELIGIBLE_KEYS = frozenset(
         "zone_high",
         "zone_no_signal",
         "zone_evaluated",
+        "news_sector",
+        "PORTFOLIO_CHECK",
         "NO_ALLOWED_DESTINATION",
     }
 )
@@ -198,6 +220,10 @@ _REJECTION_PROPERTIES = {
     "zone_no_signal": "rejectedZoneNoSignal",
     "NO_ALLOWED_DESTINATION": "rejectedNoAllowedDestination",
 }
+
+#: Non-zero counts the final delivery adds that have no schema property yet. They are accepted
+#: (so the run can be loaded) and deliberately not projected; the next PR decides their modelling.
+_UNPROJECTED_REJECTION_KEYS = frozenset({"news_sector", "PORTFOLIO_CHECK"})
 
 
 class DetailError(ValueError):
@@ -273,8 +299,7 @@ def parse_detail_file(path: str | Path) -> DetailFile:
                 raise _bad(where, f"{kind}: duplicate unique key {key!r}")
             seen[str(kind)].add(key)
             grouped[str(kind)].append(line)
-    if not any(grouped.values()):
-        raise DetailError(f"{detail_path}: the detail file is empty")
+    # The without-hierarchy final run ships an intentionally empty JSONL (no detail events).
     return DetailFile(
         path=detail_path,
         decisions=tuple(grouped["decision"]),
@@ -328,13 +353,15 @@ def _validate_line(  # noqa: C901, PLR0912, PLR0915 -- one branch per kind
         _int_list(line, "candidate_ids", where)
         _number_map(line, "optimizer_target", where)
         _number_map(line, "target", where)
-        retention = _object(line, "retention", where)
-        unknown = sorted(set(retention) - _RETENTION_KEYS)
-        if unknown:
-            raise _bad(where, f"decision.retention: unknown field(s): {', '.join(unknown)}")
-        _retention(retention, where)
-        _bool(retention, "enabled", where, "retention.")
-        _positive_int(retention, "max_decisions", where, "retention.")
+        # A basic System run has no retention block at all (the final H1B runs write null).
+        if line.get("retention") is not None:
+            retention = _object(line, "retention", where)
+            unknown = sorted(set(retention) - _RETENTION_KEYS)
+            if unknown:
+                raise _bad(where, f"decision.retention: unknown field(s): {', '.join(unknown)}")
+            _retention(retention, where)
+            _bool(retention, "enabled", where, "retention.")
+            _positive_int(retention, "max_decisions", where, "retention.")
     elif kind == "stop":
         _positive_int(line, "asset_id", where)
         _number(line, "weight_before", where)
@@ -353,6 +380,18 @@ def _validate_line(  # noqa: C901, PLR0912, PLR0915 -- one branch per kind
         reasons = check.get("reasons")
         if not isinstance(reasons, list) or any(not isinstance(item, str) for item in reasons):
             raise _bad(where, "stop.portfolio_check.reasons must be a list of strings")
+        if check.get("fallback") is not None:
+            _option(
+                _object_value(check["fallback"], where, "stop.portfolio_check.fallback"),
+                where,
+                "stop.portfolio_check.fallback",
+            )
+        fallback_reasons = check.get("fallback_reasons")
+        if fallback_reasons is not None and (
+            not isinstance(fallback_reasons, list)
+            or any(not isinstance(item, str) for item in fallback_reasons)
+        ):
+            raise _bad(where, "stop.portfolio_check.fallback_reasons must be a list of strings")
         if line.get("cause") is not None:
             _string(line, "cause", where)
         _optional_int(line, "eligible", where)
@@ -363,6 +402,21 @@ def _validate_line(  # noqa: C901, PLR0912, PLR0915 -- one branch per kind
         _optional_number(line, "weight_after_e3", where)
         if line.get("stop_distance_pct") is not None:
             _number(line, "stop_distance_pct", where)
+        if line.get("trigger") is not None:
+            _string(line, "trigger", where)
+        for key in ("news_neg3", "news_pos3", "news_threshold"):
+            if line.get(key) is not None:
+                _non_negative_int(line[key], key, where)
+        if line.get("sector_limit_changes") is not None:
+            changes = line["sector_limit_changes"]
+            if not isinstance(changes, list):
+                raise _bad(where, "stop.sector_limit_changes must be a list")
+            for index, change in enumerate(changes):
+                _sector_limit_change(
+                    _object_value(change, where, f"stop.sector_limit_changes[{index}]"),
+                    where,
+                    f"stop.sector_limit_changes[{index}]",
+                )
         if line.get("eligible_counts") is not None:
             counts = _object(line, "eligible_counts", where)
             unknown = sorted(set(counts) - _ELIGIBLE_KEYS)
@@ -403,6 +457,8 @@ def _validate_line(  # noqa: C901, PLR0912, PLR0915 -- one branch per kind
         _date(line, "filter_decision", where)
         if line.get("stop_distance_pct") is not None:
             _number(line, "stop_distance_pct", where)
+        if line.get("weight_after_e3") is not None:
+            _number(line, "weight_after_e3", where)
     elif kind == "replacement_check":
         _positive_int(line, "asset_id", where)
         _bool(line, "candidate", where)
@@ -481,18 +537,39 @@ def _chosen(chosen: Mapping[str, Any], where: str) -> None:
     if unknown:
         raise _bad(where, f"stop.chosen: unknown field(s): {', '.join(unknown)}")
     if chosen.get("cash") is True:
-        if set(chosen) - {"asset_id", "cash"}:
-            raise _bad(where, "stop.chosen: a cash choice carries no option fields")
         if chosen.get("asset_id") is not None:
             raise _bad(where, "stop.chosen: a cash choice has no asset_id")
+        for key in ("rho", "score", "size_fraction", "weight"):
+            if chosen.get(key) is not None:
+                _number(chosen, key, where, "stop.chosen.")
         return
     _option(chosen, where, "stop.chosen")
+
+
+def _sector_limit_change(change: Mapping[str, Any], where: str, prefix: str) -> None:
+    """Validate the final delivery's sector-limit audit row without projecting it."""
+    unknown = sorted(set(change) - {"date", "label", "new_limit", "old_limit", "sector_id"})
+    if unknown:
+        raise _bad(where, f"{prefix}: unknown field(s): {', '.join(unknown)}")
+    _date(change, "date", where, f"{prefix}.")
+    _string(change, "label", where, f"{prefix}.")
+    _number(change, "new_limit", where, f"{prefix}.")
+    _number(change, "old_limit", where, f"{prefix}.")
+    _int(change, "sector_id", where, f"{prefix}.")
 
 
 def _option(option: Mapping[str, Any], where: str, prefix: str) -> None:
     unknown = sorted(set(option) - _OPTION_KEYS)
     if unknown:
         raise _bad(where, f"{prefix}: unknown field(s): {', '.join(unknown)}")
+    if option.get("cash") is True:
+        if option.get("asset_id") is not None:
+            raise _bad(where, f"{prefix}: a cash option has no asset_id")
+        _number(option, "rho", where, prefix)
+        _number(option, "score", where, prefix)
+        _number(option, "size_fraction", where, prefix)
+        _number(option, "weight", where, prefix)
+        return
     _positive_int(option, "asset_id", where, prefix)
     _bool(option, "is_spy", where, prefix)
     _number(option, "rho", where, prefix)
@@ -503,6 +580,10 @@ def _option(option: Mapping[str, Any], where: str, prefix: str) -> None:
     _int(option, "sector", where, prefix)
     _number(option, "size_fraction", where, prefix)
     _number(option, "weight", where, prefix)
+    if option.get("report_soon") is not None:
+        _bool(option, "report_soon", where, prefix)
+    if option.get("vol_252") is not None:
+        _number(option, "vol_252", where, prefix)
 
 
 def _object(line: Mapping[str, Any], key: str, where: str, prefix: str = "") -> Mapping[str, Any]:
@@ -694,25 +775,23 @@ def _decisions(detail: DetailFile, context: EventContext, batch: DetailBatch) ->
         date = str(line["date"])
         _cycle(context, date)
         selected = _selected(context, date)
-        retained = line["retention"]["retained"]
+        retention = line.get("retention") or {}
+        retained = retention.get("retained", ())
         retained_ids = {int(item["asset_id"]) for item in retained}
         candidate_ids = [int(item) for item in line["candidate_ids"]]
         refilled = [
             asset for asset in candidate_ids if asset not in selected and asset not in retained_ids
         ]
         blocked = [int(item) for item in line["blocked"]]
-        pool_size = int(line["retention"]["pool_size"])
+        pool_size = int(retention.get("pool_size", len(selected)))
         if pool_size != len(selected):
             raise DetailError(
                 f"{detail.path}: decision {date}: retention.pool_size {pool_size} differs from "
                 f"the selection pool {len(selected)}"
             )
-        expected_candidate = len(selected) + len(retained)
-        if len(candidate_ids) != expected_candidate:
-            raise DetailError(
-                f"{detail.path}: decision {date}: candidate_set {len(candidate_ids)} differs from "
-                f"pool {len(selected)} + retained {len(retained)} = {expected_candidate}"
-            )
+        # The final news rule can add promoted names to candidate_ids beyond the selected pool and
+        # the retained names; the file's candidate set is stored as its own count, not reconciled
+        # against the selection pool.
         if len(blocked) != len(_alert_keys(context, date, "L1_BP_STOP_BLOCKED")):
             raise DetailError(
                 f"{detail.path}: decision {date}: blocked count {len(blocked)} differs from the "
@@ -761,7 +840,9 @@ def _retention_from_decisions(
 ) -> None:
     for line in detail.decisions:
         date = str(line["date"])
-        retention = line["retention"]
+        retention = line.get("retention")
+        if retention is None:
+            continue
         iri = _retention_iri(context, date)
         _retention_common(
             iri,
@@ -916,10 +997,10 @@ def _stops(  # noqa: C901, PLR0912 -- one branch per optional stop field
             ):
                 batch.add(iri, KG[prop], _dec_lit(line["rho_delta"][key]))
         chosen = line["chosen"]
+        menu = [option for option in (line.get("menu") or []) if option.get("cash") is not True]
         if chosen.get("cash") is True:
             batch.add(iri, KG.chosenCash, _bool_lit(True))
         else:
-            menu = line.get("menu") or []
             position = next(
                 (
                     index
@@ -934,7 +1015,6 @@ def _stops(  # noqa: C901, PLR0912 -- one branch per optional stop field
                 )
             option_iri = _option_iri(context, date, asset, position)
             batch.add(iri, KG.chosenOption, option_iri)
-        menu = line.get("menu") or []
         for position, option in enumerate(menu, 1):
             _option_node(context, batch, date, asset, position, option)
         if line.get("eligible_counts") is not None:
@@ -952,7 +1032,7 @@ def _summary(
     batch.individual(iri, "StopRejectionSummary")
     batch.add(iri, KG.summaryOfStop, _stop_iri(context, date, asset))
     for key, value in counts.items():
-        if key == "zone_evaluated" or value == 0:
+        if key == "zone_evaluated" or value == 0 or key in _UNPROJECTED_REJECTION_KEYS:
             continue
         prop = _REJECTION_PROPERTIES.get(key)
         if prop is None:

@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 import dataclasses
 import sys
+import time
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -75,6 +76,7 @@ from projection.veto_manifest import (
 )
 
 SHAPES = "shapes.ttl"
+LARGE_GRAPH_TRIPLES = 300_000
 
 
 class LoadVetoError(ValueError):
@@ -110,7 +112,7 @@ class VetoBatch:
 
     key: tuple[str, str, str]
     graphs: list[VetoGraph]
-    m018: rdflib.Graph
+    m018: rdflib.Graph | None = None
     selection: rdflib.Graph | None = None
     detail: DetailFile | None = None
 
@@ -197,7 +199,7 @@ def build_delivery(  # noqa: C901, PLR0912, PLR0915 -- one branch per graph kind
         raise LoadVetoError(
             f"{config_path}: the metadata graph needs the frozen config_{label}.md next to the manifest"
         )
-    run_config = read_config(config_path, label)
+    run_config = read_config(config_path, label, final_delivery=not manifest.draft)
     runs = [_run_info(run.db_file, label, run.configuration) for run in manifest.engine_runs]
     meta_projection = build_metadata(label, runs, hashes, run_config)
     meta = VetoGraph(
@@ -208,6 +210,11 @@ def build_delivery(  # noqa: C901, PLR0912, PLR0915 -- one branch per graph kind
         None,
         None,
     )
+    shapes: rdflib.Graph | None = None
+    context: rdflib.Graph | None = None
+    if validate_shacl:
+        shapes, context = _shacl_context(assets, guard_catalog)
+        _validate_meta(meta, shapes, context)
     batches: list[VetoBatch] = []
     for run in manifest.engine_runs:
         source = FinancialSource.open(run.db_file)
@@ -300,7 +307,7 @@ def build_delivery(  # noqa: C901, PLR0912, PLR0915 -- one branch per graph kind
                 detail_rows = m018_projection.projection.detail.rows
             else:
                 detail_rows = {}
-                if not manifest.draft:
+                if not manifest.draft and run.configuration.startswith("SYSTEM_"):
                     raise LoadVetoError(f"{run.db_file}: the detail projection is missing")
             if not manifest.draft and not _has_control_counts(
                 manifest, run.configuration, run.window
@@ -332,12 +339,15 @@ def build_delivery(  # noqa: C901, PLR0912, PLR0915 -- one branch per graph kind
                 selection_graph,
                 detail,
             )
+            if validate_shacl and shapes is not None and context is not None:
+                _validate_one(batch, shapes, context)
+                # The serialized bytes are enough for planning/writing; keep the large rdflib
+                # graphs only for this batch's SHACL and release them before the next run.
+                batch.m018 = None
+                batch.selection = None
             batches.append(batch)
         finally:
             source.close()
-    if validate_shacl:
-        _validate_batches(batches, assets, guard_catalog)
-        _validate_meta(meta, assets, guard_catalog)
     for run in getattr(manifest, "runs", ()):
         if run.source_kind != "series_csv":
             continue
@@ -358,43 +368,56 @@ def build_delivery(  # noqa: C901, PLR0912, PLR0915 -- one branch per graph kind
             print(f"control counts not provided for {run.configuration}/{run.window}")
     print("\nprojected graphs:")
     for graph in (meta, *(item for batch in batches for item in batch.graphs)):
-        print(f"  {graph.kind:9} {graph.graph}: {graph.triples} triples")
+        flag = (
+            "  >300,000 triples: batched write required"
+            if graph.triples > LARGE_GRAPH_TRIPLES
+            else ""
+        )
+        print(f"  {graph.kind:9} {graph.graph}: {graph.triples} triples{flag}")
     return LoadResult(tuple(batches), meta)
 
 
-def _validate_batches(
-    batches: Sequence[VetoBatch], assets: Mapping[str, AssetInfo], catalog: GuardCatalog
-) -> None:
+def _shacl_context(
+    assets: Mapping[str, AssetInfo], catalog: GuardCatalog
+) -> tuple[rdflib.Graph, rdflib.Graph]:
+    """The shapes and the validation-only context, parsed once per delivery."""
     shapes = rdflib.Graph().parse(config.schema_dir() / SHAPES, format="turtle")
     context = rdflib.Graph()
     for triple in validation_context(assets, catalog):
         context.add(triple)
     _add_configurations(context)
-    for batch in batches:
-        graph = _merge([batch.m018, *([batch.selection] if batch.selection is not None else [])])
-        for triple in context:
-            graph.add(triple)
-        conforms, results, _ = pyshacl.validate(graph, shacl_graph=shapes)
-        if not conforms:
-            raise LoadVetoError(
-                f"SHACL failed for {batch.key[1]}/{batch.key[2]}:\n"
-                + results.serialize(format="turtle")[:8000]
-            )
-        print(f"SHACL: {batch.key[1]}/{batch.key[2]} conforms")
+    return shapes, context
 
 
-def _validate_meta(meta: VetoGraph, assets: Mapping[str, AssetInfo], catalog: GuardCatalog) -> None:
-    shapes = rdflib.Graph().parse(config.schema_dir() / SHAPES, format="turtle")
-    graph = rdflib.Graph().parse(data=meta.data, format="turtle")
-    for triple in validation_context(assets, catalog):
+def _validate_one(batch: VetoBatch, shapes: rdflib.Graph, context: rdflib.Graph) -> None:
+    if batch.m018 is None:
+        raise LoadVetoError(f"{batch.key[1]}/{batch.key[2]}: the m018 graph was released early")
+    graph = _merge([batch.m018, *([batch.selection] if batch.selection is not None else [])])
+    for triple in context:
         graph.add(triple)
-    _add_configurations(graph)
+    started = time.perf_counter()
     conforms, results, _ = pyshacl.validate(graph, shacl_graph=shapes)
+    elapsed = time.perf_counter() - started
+    if not conforms:
+        raise LoadVetoError(
+            f"SHACL failed for {batch.key[1]}/{batch.key[2]}:\n"
+            + results.serialize(format="turtle")[:8000]
+        )
+    print(f"SHACL: {batch.key[1]}/{batch.key[2]} conforms ({elapsed:.1f}s)")
+
+
+def _validate_meta(meta: VetoGraph, shapes: rdflib.Graph, context: rdflib.Graph) -> None:
+    graph = rdflib.Graph().parse(data=meta.data, format="turtle")
+    for triple in context:
+        graph.add(triple)
+    started = time.perf_counter()
+    conforms, results, _ = pyshacl.validate(graph, shacl_graph=shapes)
+    elapsed = time.perf_counter() - started
     if not conforms:
         raise LoadVetoError(
             "SHACL failed for the metadata graph:\n" + results.serialize(format="turtle")[:8000]
         )
-    print("SHACL: meta conforms")
+    print(f"SHACL: meta conforms ({elapsed:.1f}s)")
 
 
 def _add_configurations(graph: rdflib.Graph) -> None:
@@ -416,24 +439,25 @@ def _all_graphs(result: LoadResult) -> list[VetoGraph]:
     return [result.meta, *(graph for batch in result.batches for graph in batch.graphs)]
 
 
-def _sibling_contexts(result: LoadResult) -> dict[str, rdflib.Graph]:
-    """The validation-only sibling of each m018/selection graph in the same manifest key.
+def _sibling_context(result: LoadResult, graph_name: str) -> rdflib.Graph | None:
+    """The validation-only sibling of one m018/selection graph, parsed on demand.
 
     A final delivery is planned before anything is written, so the sibling graph is not in the
     store yet. It supplies the classes of the individuals the batch points at (a Decision's
     ``:selectionCycle``, a RetentionHold's ``:rankingSnapshot``) exactly as the store would after
-    the sibling write. It is never added to the batch that is written.
+    the sibling write. It is never added to the batch that is written. Parsing it here, one graph
+    at a time, keeps the whole-delivery pre-flight inside the container's memory.
     """
-    contexts: dict[str, rdflib.Graph] = {}
     for batch in result.batches:
-        if batch.selection is None:
-            continue
         m018 = next((graph for graph in batch.graphs if graph.kind == "m018"), None)
         selection = next((graph for graph in batch.graphs if graph.kind == "selection"), None)
-        if m018 is not None and selection is not None:
-            contexts[m018.graph] = batch.selection
-            contexts[selection.graph] = batch.m018
-    return contexts
+        if m018 is None or selection is None:
+            continue
+        if graph_name == m018.graph:
+            return rdflib.Graph().parse(data=selection.data, format="turtle")
+        if graph_name == selection.graph:
+            return rdflib.Graph().parse(data=m018.data, format="turtle")
+    return None
 
 
 def plan_delivery(
@@ -441,7 +465,6 @@ def plan_delivery(
 ) -> list[gate.IngestPlan]:
     """Plan every graph with ``gate.plan``; refuse any existing non-empty graph."""
     disk = DiskMonitor(store, minimum_free_pct)
-    contexts = _sibling_contexts(result)
     plans: list[gate.IngestPlan] = []
     for graph in _all_graphs(result):
         count = _existing(store, graph.graph)
@@ -452,7 +475,9 @@ def plan_delivery(
             )
         disk.check(f"pre-flight {graph.graph}")
         try:
-            plan = gate.plan(store, graph.data, graph.graph, context=contexts.get(graph.graph))
+            plan = gate.plan(
+                store, graph.data, graph.graph, context=_sibling_context(result, graph.graph)
+            )
         except gate.IngestRejected as exc:
             raise LoadVetoError(f"{graph.graph}: {exc}") from exc
         print(f"pre-flight: {graph.graph}: {plan.status.value}, {graph.triples} triples")
@@ -468,7 +493,7 @@ def write_delivery(
     in_doubt: str | None = None
     for plan in plans:
         try:
-            gate.write(store, plan)
+            gate.write_batched(store, plan)
         except gate.WriteInDoubt:
             in_doubt = plan.graph
             break

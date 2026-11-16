@@ -11,7 +11,6 @@ import pytest
 
 from projection.veto_manifest import (
     CONFIGURATIONS,
-    NEWS_COLUMNS,
     WINDOWS,
     VetoManifestError,
     aggregates_graph_name,
@@ -161,66 +160,88 @@ def test_a_final_manifest_parses_and_verifies(tmp_path: Path) -> None:
     )
 
 
-def test_a_files_sha256_map_can_replace_the_per_file_hashes(tmp_path: Path) -> None:
-    path, _ = _manifest(tmp_path)
-    data = json.loads(path.read_text())
-    for configuration in data["configurations"]:
-        for run in configuration.get("runs", []):
-            if "jsonl_sha256" in run:
-                run["files_sha256"] = {"jsonl": run.pop("jsonl_sha256")}
-    path.write_text(json.dumps(data))
-    manifest = read_manifest(path)
-    run = manifest.engine_runs[0]
-    assert str(run.files["jsonl_file"].resolve()) in {
-        str(file.resolve()) for file in run.file_hashes
-    }
-
-
-def test_the_news_rows_contract_is_parsed(tmp_path: Path) -> None:
-    path, _ = _manifest(tmp_path)
-    data = json.loads(path.read_text())
-    news = tmp_path / "news" / "news_rows.jsonl"
-    digest = _write(news, b"{}\n")
-    data["news_rows_file"] = {
-        "file": "news/news_rows.jsonl",
-        "sha256": digest,
-        "rows": 1,
-        "model_revision": "snapshot-c3a753affa5d",
-        "columns": list(NEWS_COLUMNS),
-        "readme": "news/README.md",
-    }
-    path.write_text(json.dumps(data))
-    manifest = read_manifest(path)
-    assert manifest.news is not None
-    assert manifest.news.rows == 1
-    assert manifest.news.model_revision == "snapshot-c3a753affa5d"
-    assert manifest.news.file == news.resolve()
-
-
-def test_a_news_contract_with_a_drifting_column_is_refused(tmp_path: Path) -> None:
-    path, _ = _manifest(tmp_path)
-    data = json.loads(path.read_text())
-    news = tmp_path / "news" / "news_rows.jsonl"
-    digest = _write(news, b"{}\n")
-    columns = [*NEWS_COLUMNS, "unexpected"]
-    data["news_rows_file"] = {
-        "file": "news/news_rows.jsonl",
-        "sha256": digest,
-        "rows": 1,
-        "model_revision": "snapshot-c3a753affa5d",
-        "columns": columns,
-        "readme": "news/README.md",
-    }
-    path.write_text(json.dumps(data))
-    with pytest.raises(VetoManifestError, match="block D contract"):
-        read_manifest(path)
-
-
 def test_a_draft_manifest_accepts_pending_values(tmp_path: Path) -> None:
     path, _ = _manifest(tmp_path, final=False)
     manifest = read_manifest(path)
     assert manifest.draft
     assert manifest.engine_runs[0].db_sha256 == "PENDIENTE"
+
+
+def test_the_final_news_bull_and_manager_files_are_hashed(tmp_path: Path) -> None:
+    path, _ = _manifest(tmp_path)
+    data = json.loads(path.read_text())
+    run = data["configurations"][0]["runs"][0]
+    files = {
+        "manager_calls": b'{"call_index": 0}\n',
+        "narrator": b'{"kind": "stop"}\n',
+        "news_actions": b'{"actions": [], "dates": [], "levels_v2": {"decisions": []}}\n',
+        "bull_mode": b'{"decisions": []}\n',
+    }
+    hashes: dict[str, str] = {}
+    for name, payload in files.items():
+        file_path = tmp_path / "news" / f"{name}.jsonl"
+        hashes[name] = _write(file_path, payload)
+        run[f"{name}_file"] = str(file_path.relative_to(tmp_path))
+    news_rows = tmp_path / "news" / "news_rows.jsonl"
+    news_hash = _write(news_rows, b'{"item_id": 1}\n')
+    run["files_sha256"] = hashes
+    data["news_rows_file"] = {
+        "file": str(news_rows.relative_to(tmp_path)),
+        "sha256": news_hash,
+        "rows": 1,
+        "model_revision": "snapshot-test",
+        "columns": ["item_id"],
+        "readme": None,
+    }
+    data["bull_mode_file"] = "por corrida"
+    path.write_text(json.dumps(data))
+
+    manifest = read_manifest(path)
+    assert manifest.news_rows is not None
+    assert manifest.news_rows.rows == 1
+    assert manifest.bull_mode_note == "por corrida"
+    verified = verify_files(manifest)
+    assert news_rows.resolve() in verified
+    for name in files:
+        assert (tmp_path / "news" / f"{name}.jsonl").resolve() in verified
+
+
+def test_a_wrong_new_file_hash_is_refused(tmp_path: Path) -> None:
+    path, _ = _manifest(tmp_path)
+    data = json.loads(path.read_text())
+    run = data["configurations"][0]["runs"][0]
+    bull = tmp_path / "news" / "bull_mode.json"
+    digest = _write(bull, b'{"decisions": []}\n')
+    run["bull_mode_file"] = str(bull.relative_to(tmp_path))
+    run["files_sha256"] = {"bull_mode": digest}
+    path.write_text(json.dumps(data))
+    bull.write_bytes(b"changed")
+    with pytest.raises(VetoManifestError, match="SHA-256 mismatch"):
+        verify_files(read_manifest(path))
+
+
+def test_an_unknown_news_rows_key_is_refused(tmp_path: Path) -> None:
+    path, _ = _manifest(tmp_path)
+    data = json.loads(path.read_text())
+    data["news_rows_file"] = {
+        "file": "news.jsonl",
+        "sha256": "a" * 64,
+        "rows": 1,
+        "model_revision": "snapshot-test",
+        "surprise": True,
+    }
+    path.write_text(json.dumps(data))
+    with pytest.raises(VetoManifestError, match="news_rows_file: unknown"):
+        read_manifest(path)
+
+
+def test_an_unknown_files_sha256_alias_is_refused(tmp_path: Path) -> None:
+    path, _ = _manifest(tmp_path)
+    data = json.loads(path.read_text())
+    data["configurations"][0]["runs"][0]["files_sha256"] = {"surprise": "a" * 64}
+    path.write_text(json.dumps(data))
+    with pytest.raises(VetoManifestError, match="unknown logical file name"):
+        read_manifest(path)
 
 
 def test_an_unknown_top_level_key_is_refused(tmp_path: Path) -> None:

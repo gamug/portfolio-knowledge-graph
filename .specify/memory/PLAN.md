@@ -3611,7 +3611,8 @@ graph is **1265 triples**. No GraphDB write.
 ## Work item 46 — Veto Hierarchy projection (T-840–T-869)
 
 **Status: PR A–H merged (#156–#162); pre-flight fix #163 (T-870–T-871); block E series loader
-merged (#165, T-880–T-884); block D news rows open in `feat/news-rows` (T-890–T-894).**
+merged (#165, T-880–T-884); final-manifest follow-up merged (#167, T-890–T-896); block D news
+rows in `feat/news-rows` (T-910–T-914).**
 
 **Why**: Reviewer A delivered the frozen data dictionary and the pilot `H1C-B5-P1` for the complete
 System with the Veto Hierarchy. The engine arm codes no longer identify a configuration
@@ -3684,21 +3685,41 @@ measured pilot budget is in `docs/veto-hierarchy-design.md` §6.
 - [x] **T-884** *(done 2026-11-15: hermetic series/CLI tests, `docs/final-delivery.md` §7d,
       docs/06/07 and counts; real dry run only.)* Tests, dry-run evidence and delivery docs.
 - [ ] **T-885–T-889** Reserved for block E review fixes.
-- [x] **T-890** *(done 2026-11-16: `schema/tbox.ttl`, `schema/shapes.ttl`,
+- [x] **T-890** *(done 2026-11-16: final-1 manifest parser; top-level `news_rows_file` and
+      `bull_mode_file`, per-run `bull_mode_file`, logical `files_sha256`, hash verification and
+      strict unknown-key refusal.)* Accept the final manifest.
+- [x] **T-891** *(done 2026-11-16: the eleven group-5 control counts, file-derived definitions,
+      and the new stop/menu fields accepted but not projected.)* Final control counts.
+- [x] **T-892** *(done 2026-11-16: file comparison stays in `build_delivery`; the new keys print
+      `not store-verifiable: not loaded yet` without failing.)* Store-side verification split.
+- [x] **T-893** *(done 2026-11-16: final prose config, empty SS JSONL, optional retention,
+      cash-menu skip, `gate.write_batched`, SHACL timing and the >300,000-triple flag.)* Loader
+      compatibility.
+- [x] **T-894** *(done 2026-11-16: synthetic tests, §0quater definitions and runbook; real
+      dry-run evidence.)* Tests and documentation.
+- [ ] **T-895** Decide the MARKOWITZ_MV path for the final `mv_base/` (only
+      `aggregates_mv_base.json` is present; `load_mv_base` needs `config_mv_base.md`,
+      `SHA256SUMS` and `final_<window>.db`). Do not invent the path.
+- [ ] **T-896** Resolve the final `aggregates_final.json` content: the trend-filter arm list still
+      says `TOPN_MV_GUARD_NO_NLP` while the final System book is `TOPN_MV_GUARD`, and H1/H3 have
+      `cash_fraction > 0` with `at_or_above`. The path/layout compatibility is done; the remaining
+      failures are delivery data, not loader keys.
+- [ ] **T-897–T-899** Reserved for final-manifest review fixes.
+- [x] **T-910** *(done 2026-11-16: `schema/tbox.ttl`, `schema/shapes.ttl`,
       `tests/test_news_shapes.py`, `docs/labels-news-review.md`; 75 classes / 61 disjoint leaves /
       60 named shapes, 9682 quads, 21/9959 load, production 5/9438; labels pending Reviewer A.)*
       `:NewsItem`, its typed properties, the Asset link, the shape and the bilingual review table.
-- [x] **T-891** *(done 2026-11-16: `src/projection/news.py`, the gate target and
+- [x] **T-911** *(done 2026-11-16: `src/projection/news.py`, the gate target and
       `tests/test_news.py`; manifest + SHA256SUMS, header/row-count/key checks, the two-revision
       stop, typed projection and the asset-id fallback.)* News parser and projector.
-- [x] **T-892** *(done 2026-11-16: `cli/load_news.py`, batched writes and
+- [x] **T-912** *(done 2026-11-16: `cli/load_news.py`, batched writes and
       `tests/test_cli_load_news.py`; dry-run default, `--check-store`, `--write`, production guard,
       graph-in-doubt handling.)* News loader CLI.
-- [x] **T-893** *(done 2026-11-16: `verify_store --manifest` sums stored NewsItem rows per year
+- [x] **T-913** *(done 2026-11-16: `verify_store --manifest` sums stored NewsItem rows per year
       and checks distinct tickers; absent graphs stay not store-verifiable.)* Store-side news check.
-- [x] **T-894** *(done 2026-11-16: `docs/final-delivery.md` §7e and 0bis.6, docs/07, veto design
+- [x] **T-914** *(done 2026-11-16: `docs/final-delivery.md` §7e and 0bis.6, docs/07, veto design
       §7, README/SPEC/schema/06/07 counts and the real dry run.)* Documentation and dry run.
-- [ ] **T-895–T-899** Reserved for block D review fixes.
+- [ ] **T-915–T-919** Reserved for block D review fixes.
 
 **Acceptance criteria**:
 
@@ -3708,6 +3729,9 @@ measured pilot budget is in `docs/veto-hierarchy-design.md` §6.
   `ARM_DISABLED` row or an `L1_BP_*` price, loads only the manifest books/actions/tests, and uses
   the existing selection projection.
 - The new label table is approved by Reviewer A before `labels.ttl` changes.
+- `load_veto --manifest` accepts `manifest_final.json` (`manifest_version` `final-1`), verifies
+  every named file, computes every final-1 `control_counts` key from its file, and stops on any
+  mismatch; `verify_store --manifest` prints the not-yet-loaded keys without failing.
 
 **Verified 2026-11-15 (T-880–T-884, block E)**: FR-001 **9310 quads**, **74 classes (60 disjoint
 leaves)**, **59 named shapes**; load plan **21/9587**, production **5/9066**. Real dry run over
@@ -3716,10 +3740,26 @@ leaves)**, **59 named shapes**; load plan **21/9587**, production **5/9066**. Re
 SHACL conforms. Read-only pre-flights on `portfolio_test` and `portfolio` report both series graphs
 `would-be-written`; no GraphDB write was made. Full suite **1,796 passed / 62 deselected**.
 
-**Verified 2026-11-16 (T-890–T-894, block D)**: FR-001 **9682 quads**, **75 classes (61 disjoint
-leaves)**, **60 named shapes**; load plan **21/9959**, production **5/9438**. Real dry run over
-`news/news_rows.jsonl`: 69,329 rows, 270 unresolved assets (PSKY 261, EQR 9); graphs 2021
-21,300 / 2022 343,934 / 2023 343,903 / 2024:H1 234,237 / 2024:H2 184,522 / 2025 334,476 / 2026
-270,313 triples (1,732,685 total), SHACL conforms; no GraphDB write. Read-only `--check-store` on
-`portfolio_test` reports all seven graphs `would-be-written`. Full suite **1,855 passed / 62
-deselected**. Labels are pending Reviewer A.
+**Verified 2026-11-16 (T-890–T-894, final manifest)**: the actual
+`load_veto --manifest "/workspaces/thesis/knoledge graph/2026-11-17_final/manifest_final.json"`
+dry run verified **137 files** and projected the whole final delivery: meta 196 triples plus the
+35 configuration/window keys, **9,045,434 triples** in 36 graphs; every combined m018+selection
+batch SHACL-conformed. The longest checks were `SYSTEM_WITH_HIERARCHY/C1` 182.7 s,
+`SYSTEM_WITHOUT_HIERARCHY/C1` 93.2 s and `MARKOWITZ_BASE/C1` 47.4 s. The graph sizes and the
+`>300,000` flags are in the run output and in `docs/final-delivery.md` §0quater.3. No GraphDB
+write was made. `load_series` dry run: MARKOWITZ_MV **376,824** and SPY **14,412** triples, SHACL
+58.1 s; `--check-store` reports both `would-be-written`. `load_aggregates` now accepts the final
+root manifest and nested databases but stops on the T-896 delivery-data mismatch (7 of 17 source
+checks); `load_mv_base` stops on the T-895 missing mv_base files. `portfolio_test` already holds
+six old P1 graphs (meta 33, the two System P1 pairs and `MARKOWITZ_BASE` P1), so a full
+`--check-store` pre-flight would stop at the meta graph until the maintainer empties them. Full
+suite: **1815 passed / 62 deselected** (40 min 16 s).
+
+**Verified 2026-11-16 (T-910–T-914, block D, letter 26)**: FR-001 **9682 quads**, **75 classes
+(61 disjoint leaves)**, **60 named shapes**; load plan **21/9959**, production **5/9438**. Real dry
+run over the updated `news/news_rows.jsonl` (sha `ac15f141…`): 69,329 rows, 9 unresolved assets
+(EQR only); the 261 PSKY rows now carry engine `asset_id` 477 and link to `:SKYD`. Graphs 2021
+21,300 / 2022 344,050 / 2023 344,025 / 2024:01-06 234,423 / 2024:07-12 184,596 / 2025 334,500 /
+2026 270,313 triples (1,733,207 total), SHACL conforms; no GraphDB write. Read-only `--check-store`
+on `portfolio_test` reports all seven graphs `would-be-written`. Labels approved by Reviewer A with
+the four letter-26 changes. Full suite **PENDING-RUN** passed / 62 deselected.
