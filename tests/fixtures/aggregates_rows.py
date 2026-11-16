@@ -20,7 +20,7 @@ ARMS = ["TOPN_MV_GUARD"]
 TREND_FILTER_DICTIONARY = {
     "window": "backtest window id (P1, H1, P3, H2, P2, H3)",
     "decision_date": "ISO date of the decision session (the close the filter reads); the same dates as v_book_rebalance.decision_date of TOPN_MV_GUARD",
-    "spy_vs_sma210": "'below' = SPY's total-return index at decision_date is below the simple mean of its last 210 session closes (price input); 'at_or_above' = not below; 'not_evaluable' = fewer than 210 sessions (price input off). No level or mean value is published",
+    "spy_vs_sma210": "'below' = SPY's total-return index at decision_date is below the simple mean of its last 210 session values (price input); 'at_or_above' = not below; 'not_evaluable' = fewer than 210 sessions (price input off). No level or mean value is published",
     "news_risk_off": "true when the level D news rule put the filter in cash at this decision; the price input is independent",
     "cash_fraction": "fraction of the Top-N target (SPY core + satellite) moved to cash by the filter at this decision, held until the next decision date: 0.5 when 'below' or news_risk_off is true, else 0.0. The filter applies only to TOPN_MV_GUARD; the without-hierarchy System and the base arms (MARKOWITZ_BASE, MARKOWITZ_BASE_GUARD) never use it",
 }

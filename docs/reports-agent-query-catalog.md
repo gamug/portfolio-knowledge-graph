@@ -1129,7 +1129,7 @@ date. `book-knowledge-dates` reads the date each book actually carries.
 
 These are per-segment aggregates published by upstream in `aggregates_<label>.json`, projected into
 `urn:graph:derived:backtest:aggregates:{label}`. The graph holds one row per decision date (whether
-SPY was below the simple mean of its last 210 session closes, and the cash fraction the filter moved)
+SPY was below the simple mean of its last 210 session values, and the cash fraction the filter moved)
 and one row per reporting segment and reference (`SPY` or `SP500_EW_INTERNAL`). It **does not hold a
 daily series, a price level or the 210-session average**: the only SPY numbers are the per-segment
 total return and max drawdown, and the filter state is the published word `below` /
