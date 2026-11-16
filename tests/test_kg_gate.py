@@ -242,6 +242,38 @@ def test_a_malformed_backtest_series_graph_is_refused(name: str) -> None:
 @pytest.mark.parametrize(
     "name",
     [
+        "urn:graph:derived:news:final:2021",
+        "urn:graph:derived:news:final:2024:01-06",
+        "urn:graph:derived:news:final:2024:07-12",
+        "urn:graph:derived:news:rule_20261105:2026",
+    ],
+)
+def test_a_news_graph_is_append_only_and_accepted(name: str) -> None:
+    # Work item 46, block D: one news graph per label and calendar year (or its two halves).
+    assert gate.check_target(name) is True
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        "urn:graph:derived:news",  # label and year required
+        "urn:graph:derived:news:final",  # year required
+        "urn:graph:derived:news:Final:2024",  # lowercase label
+        "urn:graph:derived:news:final:24",  # four-digit year
+        "urn:graph:derived:news:final:2024:H1",  # test-window names are not graph suffixes
+        "urn:graph:derived:news:final:2024:1",
+        "urn:graph:derived:news:final:2024:01-06:1",
+        "urn:graph:derived:news:final/2024",
+    ],
+)
+def test_a_malformed_news_graph_is_refused(name: str) -> None:
+    with pytest.raises(gate.IngestRejected, match="not an ingest target"):
+        gate.check_target(name)
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
         "urn:graph:derived:fundamentals:final",
         "urn:graph:derived:fundamentals:rule_20261105",
     ],

@@ -1,9 +1,9 @@
 # Ontology Definition — Portfolio Knowledge Graph (v2)
 
 **Implementation:** [`schema/`](../schema/) — the formal OWL/SHACL/TriG implementation of
-everything described below, split into `tbox.ttl` (classes/properties, **74 classes total** as of
-this revision — 60 mutually-disjoint leaf/domain classes, a 13-class `rdfs:subClassOf` taxonomic
-backbone and `:ExchangeTradedFund` under `:Asset`, see §1.2; **436 properties**), `shapes.ttl` (SHACL, 59 named
+everything described below, split into `tbox.ttl` (classes/properties, **75 classes total** as of
+this revision — 61 mutually-disjoint leaf/domain classes, a 13-class `rdfs:subClassOf` taxonomic
+backbone and `:ExchangeTradedFund` under `:Asset`, see §1.2; **463 properties**), `shapes.ttl` (SHACL, 60 named
 shapes), `reference.ttl` (GICS taxonomy +
 asset master data + the new `MetricType` controlled vocabulary, §1.9), `rules.ttl` (the ten active
 selection rules, the six GUARD protection rules, and the seven original ones as trees), and
@@ -928,7 +928,7 @@ not a veto rule:** it carries no `:ruleSeverity`, `:penaltyPoints` or `:priority
 `VetoShape` refuses it as the object of `:appliesRule`/`:primaryRule`. `RuleDefinitionShape` adds one
 `sh:or` branch for `:category "GUARD"`, keeps the severity requirement for every other active rule,
 makes `:priorityRank` mandatory for non-GUARD rules, and widens the rank range to `[1,10]` for
-`UTILITY_CASH_COVERAGE`. The bundle is **9322 quads; conforms: True** (the FR-001 gate, current at
+`UTILITY_CASH_COVERAGE`. The bundle is **9694 quads; conforms: True** (the FR-001 gate, current at
 block B2).
 
 **Projection of the three remaining v18 views (T-208, T-352/T-353).** `TickerHistory`,
@@ -1053,8 +1053,8 @@ parameters and process/evaluation terms. `LabelConceptShape` (in `shapes.ttl`) r
 `skos:notation`, one `skos:inScheme`, one `rdfs:label` and one `rdfs:comment` per language, and only
 `@en`/`@es` `skos:altLabel`s; windows also carry `:windowStart`, `:windowEnd`, `:historicalCondition`
 and `:finalConfigurationCondition`. The file is in FR-001 and the load plan. Counts after this
-addition: **74 classes (60 disjoint leaves), 436 properties, 59 named shapes, 9322 quads; conforms: True**; load plan
-**21 graphs / 9599 asserted triples** (production **5 / 9078**).
+addition: **75 classes (61 disjoint leaves), 463 properties, 60 named shapes, 9694 quads; conforms: True**; load plan
+**21 graphs / 9971 asserted triples** (production **5 / 9450**).
 
 ## 1.16 Fundamentals block C schema (Work item 45, T-811/T-812, 2026-11-13)
 
@@ -1070,8 +1070,8 @@ the 33 masked flags. The loader (PR 2) stops on a `valuation` row of a masked as
 `:Observation`; the existing explicit types are checked by `tests/test_fundamentals_shapes.py`.
 `shapes.ttl` adds `FundamentalFilingShape`, `FundamentalMetricSetShape`,
 `FundamentalAssessmentShape` and `FundamentalMetricDefinitionShape`.
-Counts: **74 classes (60 disjoint leaves), 436 properties, 59 named shapes, 9322 quads; conforms: True**; load plan
-**21 graphs / 9599 asserted triples** (production **5 / 9078**).
+Counts: **75 classes (61 disjoint leaves), 463 properties, 60 named shapes, 9694 quads; conforms: True**; load plan
+**21 graphs / 9971 asserted triples** (production **5 / 9450**).
 
 ## 1.17 Veto Hierarchy detail events (Work item 46, T-853–T-859, 2026-11-13)
 
@@ -1103,8 +1103,8 @@ match exactly one loaded alert by `(date, asset)`, every replacement must link t
 decision pool/candidate/blocked counts must agree with the decision-only selection rows (never
 `rankings.json`). `RetentionRejectionShape` now admits counter 0. PR D adds
 `:memoryReleaseCause`, `:memoryStartKind` and `:rejectedZoneNoSignal`, the C1/31-concept label vocabulary and the
-removed-rule label cleanup; counts after it: **74 classes, 60 disjoint leaves, 436 properties,
-59 named shapes, 9322 quads, 21/9599 asserted triples, production 5/9078**.
+removed-rule label cleanup; counts after it: **75 classes, 61 disjoint leaves, 463 properties,
+60 named shapes, 9694 quads, 21/9971 asserted triples, production 5/9450**.
 
 ## 1.18 Daily reference series (Work item 46, block E, 2026-11-15)
 
@@ -1119,3 +1119,25 @@ for a weight. The loader writes one append-only graph per configuration slug,
 calendar windows. No price level, OHLCV or daily asset return is stored. The two shapes
 `DailySeriesPointShape` and `SeriesWeightPointShape` enforce the configuration branch, the window
 pattern and a decimal value per column.
+
+## 1.19 News rows (Work item 46, block D, 2026-11-16)
+
+`tbox.ttl` adds the `:NewsItem` `:EvidenceSource` leaf and one typed property per loaded column of
+`news/news_rows.jsonl` (the `url` column is empty today and stays optional): `:modelRevision`,
+`:sentimentRevision` and `:categoryRevision` are provenance; `:newsAssetId` and `:articleId` are
+integers; `:newsDate` is `xsd:date`; the three probabilities and `:categoryScore` are
+`xsd:decimal` in `[0,1]`; title and the delivered fragment are plain literals, and the fragment is
+capped at 2,000 characters so it can never become the full article. Sentiment and category are model
+outputs, not verified facts. The IRI is built from `(item_kind, item_id, ticker)` only, so the same
+fragment under a later `model_revision` cannot mint a second individual; the loader stops if it sees
+one key under two revisions. The optional `:newsItemOfAsset` link resolves the row's ticker against
+the loaded catalog, falling back to the engine `asset_id` when the ticker is historical. Letter 26
+corrected the 261 PSKY rows to engine `asset_id` 477 (the run read them as SKYD), so all 503 PSKY
+rows link to `:SKYD`; the 9 EQR rows stay unlinked because the engine has no asset or ticker
+interval for EQR. A future revision that re-labels an already loaded fragment (same `item_id`, same
+ticker) writes a second value on the same node, one per graph, so queries must read the revision by
+graph. The loader writes one append-only graph per calendar year,
+`urn:graph:derived:news:{label}:{year}` (a year over the ~400,000-triple bound becomes
+`:01-06`/`:07-12`), in bounded N-Triples batches; a lost answer is a graph in doubt and is never
+retried blindly. Counts: **75 classes (61 disjoint leaves), 60 named shapes, 9694 quads**; load
+plan **21/9971 asserted triples** (production **5/9450**).

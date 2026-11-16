@@ -3611,8 +3611,9 @@ graph is **1265 triples**. No GraphDB write.
 ## Work item 46 — Veto Hierarchy projection (T-840–T-869)
 
 **Status: PR A–H merged (#156–#162); pre-flight fix #163 (T-870–T-871); block E series loader
-merged (#165, T-880–T-884); final-manifest follow-up merged (#167, T-890–T-896); block B2 aggregates correction in
-`feat/aggregates-news-risk-off` (T-896–T-899).**
+merged (#165, T-880–T-884); final-manifest follow-up merged (#167, T-890–T-896); block B2
+aggregates and label text merged (#169/#170, T-896–T-899); block D news rows in
+`feat/news-rows` (T-910–T-914).**
 
 **Why**: Reviewer A delivered the frozen data dictionary and the pilot `H1C-B5-P1` for the complete
 System with the Veto Hierarchy. The engine arm codes no longer identify a configuration
@@ -3712,6 +3713,21 @@ measured pilot budget is in `docs/veto-hierarchy-design.md` §6.
       dry-run evidence.
 - [ ] **T-899** Reserved for review fixes. T-895, the MARKOWITZ_MV path, remains open; `load_mv_base`
       is untouched.
+- [x] **T-910** *(done 2026-11-16: `schema/tbox.ttl`, `schema/shapes.ttl`,
+      `tests/test_news_shapes.py`, `docs/labels-news-review.md`; 75 classes / 61 disjoint leaves /
+      60 named shapes, 9694 quads, 21/9971 load, production 5/9450; labels approved by Reviewer A.)*
+      `:NewsItem`, its typed properties, the Asset link, the shape and the bilingual review table.
+- [x] **T-911** *(done 2026-11-16: `src/projection/news.py`, the gate target and
+      `tests/test_news.py`; manifest + SHA256SUMS, header/row-count/key checks, the two-revision
+      stop, typed projection and the asset-id fallback.)* News parser and projector.
+- [x] **T-912** *(done 2026-11-16: `cli/load_news.py`, batched writes and
+      `tests/test_cli_load_news.py`; dry-run default, `--check-store`, `--write`, production guard,
+      graph-in-doubt handling.)* News loader CLI.
+- [x] **T-913** *(done 2026-11-16: `verify_store --manifest` sums stored NewsItem rows per year
+      and checks distinct tickers; absent graphs stay not store-verifiable.)* Store-side news check.
+- [x] **T-914** *(done 2026-11-16: `docs/final-delivery.md` §7e and 0bis.6, docs/07, veto design
+      §7, README/SPEC/schema/06/07 counts and the real dry run.)* Documentation and dry run.
+- [ ] **T-915–T-919** Reserved for block D review fixes.
 
 **Acceptance criteria**:
 
@@ -3760,3 +3776,12 @@ source hash), so the maintainer must drop that one graph before the reload. FR-0
 436 properties, 74 classes (60 disjoint leaves), 59 named shapes**; load plan **21/9599**,
 production **5/9078**. `docs/labels-news-risk-off-review.md` is the pending Reviewer A table. Full
 suite: **1819 passed / 62 deselected** (42 min 30 s).
+**Verified 2026-11-16 (T-910–T-914, block D, letter 26)**: FR-001 **9694 quads**, **463 properties**,
+**75 classes (61 disjoint leaves)**, **60 named shapes**; load plan **21/9971**, production
+**5/9450**. Real dry run over the updated `news/news_rows.jsonl` (sha `ac15f141…`): 69,329 rows,
+9 unresolved assets (EQR only); the 261 PSKY rows now carry engine `asset_id` 477 and link to
+`:SKYD`. Graphs 2021 21,300 / 2022 344,050 / 2023 344,025 / 2024:01-06 234,423 / 2024:07-12
+184,596 / 2025 334,500 / 2026 270,313 triples (1,733,207 total), SHACL conforms; no GraphDB
+write. Read-only `--check-store` on `portfolio_test` reports all seven graphs `would-be-written`.
+Labels approved by Reviewer A with the four letter-26 changes. Full suite **1,868 passed / 62
+deselected** (44 min 02 s).

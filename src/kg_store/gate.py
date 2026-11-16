@@ -155,6 +155,13 @@ _BACKTEST_SERIES_TARGET = re.compile(
 #: One fundamentals graph per run label (Work item 45): the block C filings, metric sets and
 #: assessments plus the 33 masked-asset flags. Append-only, one graph per label.
 _FUNDAMENTALS_TARGET = re.compile(r"urn:graph:derived:fundamentals:([a-z][a-z0-9_]{1,31})")
+#: One news graph per run label and calendar year (Work item 46, block D). A year whose projected
+#: count would exceed the loader's bound is split into its two month spans, so the optional
+#: ``01-06``/``07-12`` segment keeps every graph bounded without reusing the test-window H1/H2/H3
+#: names.
+_NEWS_TARGET = re.compile(
+    r"urn:graph:derived:news:([a-z][a-z0-9_]{1,31}):([12][0-9]{3})(?::(01-06|07-12))?"
+)
 #: The incremental asset-catalog batch (T-371): a sequence-qualified suffix on the quarter graph,
 #: so the one-time catalog graph is never appended to and a later delta gets the next number.
 _UNIVERSE_DELTA_TARGET = re.compile(rf"urn:graph:universe:({_QUARTER}):delta:([1-9][0-9]*)")
@@ -175,6 +182,7 @@ APPEND_ONLY_PATTERNS = (
     _BACKTEST_EXTERNAL_TARGET,
     _BACKTEST_SERIES_TARGET,
     _FUNDAMENTALS_TARGET,
+    _NEWS_TARGET,
     _TICKER_HISTORY_TARGET,
     _ORCHESTRATOR_TARGET,
     re.compile(rf"urn:graph:universe:({_QUARTER})"),
@@ -242,6 +250,7 @@ def check_target(graph: str) -> bool:
                 _BACKTEST_EXTERNAL_TARGET,
                 _BACKTEST_SERIES_TARGET,
                 _FUNDAMENTALS_TARGET,
+                _NEWS_TARGET,
                 _ORCHESTRATOR_TARGET,
                 _UNIVERSE_DELTA_TARGET,
             ):
@@ -265,6 +274,7 @@ def check_target(graph: str) -> bool:
         "urn:graph:derived:backtest:external:{run label}, "
         "urn:graph:derived:backtest:series:{run label}:{configuration slug}, "
         "urn:graph:derived:fundamentals:{run label}, "
+        "urn:graph:derived:news:{run label}:YYYY[:01-06|:07-12], "
         "urn:graph:derived:ticker-history:{run label}:YYYY-MM-DD, "
         "urn:graph:derived:orchestrator:{run label}:{positive integer}, "
         "urn:graph:universe:YYYY-Qn[:delta:{positive integer}], "

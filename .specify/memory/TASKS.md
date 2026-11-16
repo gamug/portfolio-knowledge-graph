@@ -1453,7 +1453,7 @@ See `docs/fundamentals-design.md` and `PLAN.md` Work item 45.*
 
 See `docs/veto-hierarchy-design.md` and `PLAN.md` Work item 46. The design is complete; block E
 (``T-880–T-884``) adds the daily series, and the final manifest (`final-1`) is handled by
-T-890–T-899.
+T-890–T-899, and block D news rows by T-910–T-914.
 
 - [x] **T-840** *(done 2026-11-13: `docs/veto-hierarchy-design.md`; design only, no code, schema or
       GraphDB write.)* Configuration identity, filters, rules/shapes, detail model, price masking,
@@ -1526,3 +1526,23 @@ T-890–T-899.
       different by `--check-store`, no write.)* Tests and dry-run evidence.
 - [ ] **T-899** Reserved for review fixes. *(T-895, the MARKOWITZ_MV path, remains open and
       `load_mv_base` is untouched.)*
+- [x] **T-910** *(done 2026-11-16, block D: `schema/tbox.ttl`, `schema/shapes.ttl`,
+      `tests/test_news_shapes.py`, `docs/labels-news-review.md`; 75 classes / 61 disjoint leaves /
+      60 named shapes, 9694 quads, 21/9971 load, production 5/9450; labels approved by Reviewer A.)*
+      Add the `:NewsItem` class, one typed property per loaded column, the Asset link, the
+      `:NewsItemShape`, the synthetic positive/negative cases and the bilingual review table.
+- [x] **T-911** *(done 2026-11-16: `src/projection/news.py`; strict manifest/SHA256SUMS, header,
+      row-count, duplicate-key and two-revision stops; typed projection, asset resolution with the
+      engine-id fallback, year graphs and the gate target; `tests/test_news.py`.)* News parser and
+      projector, including the IRI key rule and the unresolved-asset report.
+- [x] **T-912** *(done 2026-11-16: `cli/load_news.py`, `gate.write_batched`, dry run, `--check-store`,
+      `--write`, production guard and graph-in-doubt handling; `tests/test_cli_load_news.py`.)*
+      News loader CLI and bounded writes.
+- [x] **T-913** *(done 2026-11-16: `verify_store --manifest` sums stored NewsItem rows per year
+      against the manifest and checks distinct tickers; absent graphs are not store-verifiable;
+      tests for both.)* Store-side news verification.
+- [x] **T-914** *(done 2026-11-16: `docs/final-delivery.md` §7e and 0bis.6, docs/07, veto design §7,
+      README/SPEC/schema/06/07 counts; real dry run and read-only pre-flight on `portfolio_test`,
+      no GraphDB write; full suite 1,868 passed / 62 deselected.)* Delivery documentation, count
+      reconciliation and the real dry run.
+- [ ] **T-915–T-919** Reserved for block D review fixes.

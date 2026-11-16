@@ -169,6 +169,14 @@ KG_REPOSITORY=portfolio uv run python cli/load_aggregates.py --label final \
   --dir "/workspaces/thesis/knoledge graph/2026-11-17_final" --write --to-production
 ```
 
+The block D news rows are independent of the backtest graphs and load after the runs (see §7e for
+the full dry-run/pre-flight/write sequence):
+
+```bash
+KG_REPOSITORY=portfolio uv run python cli/load_news.py --label final \
+  --dir "/workspaces/thesis/knoledge graph/2026-11-17_final" --write --to-production
+```
+
 ### 0bis.7 Verify, test, decide and roll back
 
 ```bash
@@ -426,6 +434,7 @@ after each step and subtract.
 | load_veto m018/detail | | | | | |
 | load_veto selection | | | | | |
 | load_series | | | | | |
+| load_news | | | | | |
 | verify_store | | | | | |
 
 ## 0. Preconditions (read-only)
@@ -759,6 +768,45 @@ from the external summary graph; `MARKOWITZ_MV` weights are in the `markowitz_mv
 in `urn:graph:derived:backtest:external:final`. After the write, `verify_store --manifest` verifies
 the `daily_rows` of `MARKOWITZ_MV` and `SPY` against the series graphs; when a graph is absent it
 stays "not verifiable" and does not fail the check.
+
+## 7e. Load the news rows (write)
+
+The block D news delivery is `/workspaces/thesis/knoledge graph/2026-11-17_final` — the delivery
+root that holds `manifest_final.json` and `SHA256SUMS`; the file itself is `news/news_rows.jsonl`
+(69,329 rows, model revision `snapshot-c3a753affa5d`). Point `--dir` at that root (or at its
+`news/` folder). The loader checks the file against both the manifest's `news_rows_file` block and
+the delivery `SHA256SUMS` before reading a row, then checks the row header against the manifest
+columns, the row count and the key. It writes one append-only graph per calendar year,
+`urn:graph:derived:news:final:{year}`; 2024 is split into `:2024:01-06` and `:2024:07-12` to stay under
+the ~400,000-triple bound. Letter 26 corrected the 261 PSKY rows to engine `asset_id` 477, so all
+503 PSKY rows link to `:SKYD`; the 9 EQR rows stay unlinked because the engine has no asset or
+ticker interval for EQR. The loader prints the unresolved count and tickers. A future revision that
+re-labels an already loaded fragment (same `item_id`, same ticker) writes one value per graph, so a
+query must read the revision by graph.
+
+Dry run first (contacts no store), then the read-only pre-flight and the write:
+
+```bash
+NEWS_DIR="/workspaces/thesis/knoledge graph/2026-11-17_final"
+
+uv run python cli/load_news.py --label final --dir "$NEWS_DIR"
+
+set -a; . ./.env; set +a
+export KG_REPOSITORY=portfolio_test
+export SQL_UNIVERSE_DB=/workspaces/thesis/data/universe_history_gics.db
+uv run python cli/load_news.py --label final --dir "$NEWS_DIR" --check-store
+
+KG_REPOSITORY=portfolio uv run python cli/load_news.py --label final \
+  --dir "$NEWS_DIR" --write --to-production
+```
+
+The dry run prints the row count, the unresolved-asset count, one `graph:`/`triples:` pair per year
+graph and `SHACL: conforms` for each. `--check-store` must print `would-be-written` (or
+`already-in-the-store` after a write) per graph. The write appends each graph in bounded N-Triples
+chunks; a lost answer prints `store error, the graph is in doubt` and must not be retried blindly.
+After the write, `verify_store --manifest` sums the stored `NewsItem` rows across the year graphs
+against the manifest and checks the distinct tickers; when the graphs are absent it reports
+"not store-verifiable" and does not fail the check.
 
 ## 8. Acceptance (read-only)
 

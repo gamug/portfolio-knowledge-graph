@@ -1227,3 +1227,50 @@
             }
         """ ;
     ] .
+
+#################################################################
+# NewsItem (Work item 46, block D)
+#################################################################
+
+:NewsItemShape
+    a sh:NodeShape ;
+    sh:targetClass :NewsItem ;
+    sh:closed true ;
+    sh:ignoredProperties ( rdf:type ) ;
+    sh:property [ sh:path :itemKind ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ;
+                  sh:in ( "body" "sub_news" ) ] ;
+    sh:property [ sh:path :itemId ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :newsTicker ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :newsDate ; sh:datatype xsd:date ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :dateSource ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ;
+                  sh:in ( "published" "crawled" "crawled_future_pub" ) ] ;
+    sh:property [ sh:path :newsTitle ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :newsText ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ;
+                  sh:maxLength 2000 ] ;
+    sh:property [ sh:path :textSource ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ;
+                  sh:in ( "original" "summary" ) ] ;
+    sh:property [ sh:path :newsSentiment ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ;
+                  sh:in ( "positive" "negative" "neutral" ) ] ;
+    sh:property [ sh:path :sentimentScore ; sh:datatype xsd:decimal ; sh:minCount 1 ; sh:maxCount 1 ;
+                  sh:minInclusive 0 ; sh:maxInclusive 1 ] ;
+    sh:property [ sh:path :pPositive ; sh:datatype xsd:decimal ; sh:minCount 1 ; sh:maxCount 1 ;
+                  sh:minInclusive 0 ; sh:maxInclusive 1 ] ;
+    sh:property [ sh:path :pNegative ; sh:datatype xsd:decimal ; sh:minCount 1 ; sh:maxCount 1 ;
+                  sh:minInclusive 0 ; sh:maxInclusive 1 ] ;
+    sh:property [ sh:path :pNeutral ; sh:datatype xsd:decimal ; sh:minCount 1 ; sh:maxCount 1 ;
+                  sh:minInclusive 0 ; sh:maxInclusive 1 ] ;
+    sh:property [ sh:path :newsCategory ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :categoryScore ; sh:datatype xsd:decimal ; sh:minCount 1 ; sh:maxCount 1 ;
+                  sh:minInclusive 0 ; sh:maxInclusive 1 ] ;
+    sh:property [ sh:path :groupLabel ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :articleId ; sh:datatype xsd:integer ; sh:minCount 1 ; sh:maxCount 1 ;
+                  sh:minInclusive 1 ] ;
+    sh:property [ sh:path :bodyHash ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :sourceDomain ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :modelRevision ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :sentimentRevision ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :categoryRevision ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :newsAssetId ; sh:datatype xsd:integer ; sh:maxCount 1 ;
+                  sh:minInclusive 1 ] ;
+    sh:property [ sh:path :newsItemOfAsset ; sh:class :Asset ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :url ; sh:datatype xsd:anyURI ; sh:maxCount 1 ] .
