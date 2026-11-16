@@ -199,6 +199,8 @@ still below the 400,000-triple bound.
 - dry run by default (manifest + hashes + parse + SHACL, no store contact);
 - `--check-store` reads the live store, plans every selected graph through
   `gate.plan`, writes nothing, and compares stored counts when a graph exists;
+  it (and `--write`) needs the same label's veto/detail and block-D news graphs already loaded
+  (order: schema, universe, veto, news, agents), because the store is the only plan context;
 - `--write` plans then appends with `gate.write_batched` and verifies after;
 - `--to-production` is required for `--write` to `portfolio`;
 - `--window` (repeatable) and `--only` (repeatable:
