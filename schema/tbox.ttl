@@ -372,6 +372,22 @@ so every result is in-sample.""" .
     skos:definition "Retorno total y caída máxima de una referencia (SPY o SP500_EW_INTERNAL) en un segmento de reporte, calculados por el sistema de origen sobre las sesiones del segmento. Es un agregado por segmento, no una serie diaria."@es ;
     rdfs:comment "One row of aggregates_<label>.json reference_returns: the total return and max drawdown of one reference (SPY or SP500_EW_INTERNAL) over one reporting segment. A per-segment aggregate only; no daily series, price level or 210-session average is stored. Work item 37." .
 
+:DailySeriesPoint
+    a owl:Class ;
+    rdfs:subClassOf :Observation ;
+    rdfs:label "Daily series point"@en ;
+    rdfs:label "Punto de serie diaria"@es ;
+    skos:definition "Una sesión de una serie diaria de referencia (SPY o el libro externo MARKOWITZ_MV): la configuración, la ventana, la fecha de la sesión y las columnas de valor que trae el CSV de la entrega. No hay nivel de precio ni OHLCV: solo retornos, rotación, costo, peso en efectivo y el valor acumulado de SPY. Work item 46, bloque E."@es ;
+    rdfs:comment "One session of a daily reference series (SPY or the external MARKOWITZ_MV book): the configuration, the window, the session date and the value columns the delivery's CSV carries. No price level or OHLCV: only returns, turnover, cost, cash weight and SPY's accumulated value. Work item 46, block E."@en .
+
+:SeriesWeightPoint
+    a owl:Class ;
+    rdfs:subClassOf :Observation ;
+    rdfs:label "Series weight point"@en ;
+    rdfs:label "Punto de peso de la serie"@es ;
+    skos:definition "Un peso objetivo del libro de tangencia externo MARKOWITZ_MV en una fecha de decisión: la configuración, la ventana, la fecha de decisión, el asset_id de origen y el peso. No es un IRI de Asset ni una fila de BookWeightDaily; no se almacena ningún precio. Work item 46, bloque E."@es ;
+    rdfs:comment "One target weight of the external MARKOWITZ_MV tangency portfolio at a decision date: the configuration, the window, the decision date, the upstream asset_id and the weight. It is not an Asset IRI and not a BookWeightDaily row; no price is stored. Work item 46, block E."@en .
+
 :SelectionCycle
     a owl:Class ;
     rdfs:label "Selection Cycle" ;
@@ -553,7 +569,7 @@ so every result is in-sample.""" .
                   :FundamentalMetricSet :FundamentalAssessment :BacktestConfiguration
                  :DecisionEvent :FormationTarget :RetentionDecision :RetentionHold :RetentionRejection
                  :StopEvent :DestinationOption :StopRejectionSummary :StopMemory
-                 :ReplacementPurchase :ReplacementCheck ) .
+                 :ReplacementPurchase :ReplacementCheck :DailySeriesPoint :SeriesWeightPoint ) .
 
 #################################################################
 # 2. OBJECT PROPERTIES
@@ -936,7 +952,7 @@ so every result is in-sample.""" .
 :armCode a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:range xsd:string ;
     rdfs:comment "MARKOWITZ_BASE | TOPN_MV_NOGUARD | TOPN_MV_GUARD_NO_NLP | TOPN_MV_GUARD | MARKOWITZ_BASE_GUARD | MARKOWITZ_MV. No rdfs:domain: shared across StrategyBook, BookRebalance, GuardAction, BookWeightDaily, BookDailyPerformance and PortfolioPeriodSummary. MARKOWITZ_MV is the external mean-variance base book (Work item 44), summary-only. SHACL sh:in." .
 :windowId a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:range xsd:string ;
-    rdfs:comment "P<number>, H<number> or C<number> (P1, P2, P3, H1, H2, H3, C1, …; T-234 opened the vocabulary, Work item 33 added H<number> and Work item 46 added the continuous C1 window). No rdfs:domain: shared across StrategyBook, GuardAlert, BookDailyPerformance, PortfolioPeriodSummary, BacktestTest and BacktestRun. SHACL sh:pattern ^([PH][0-9]+|C[0-9]+)$: a typo in the letter or digits is no longer caught, only the P/H/C<number> shape." .
+    rdfs:comment "P<number>, H<number> or C<number> (P1, P2, P3, H1, H2, H3, C1, …; T-234 opened the vocabulary, Work item 33 added H<number> and Work item 46 added the continuous C1 window). No rdfs:domain: shared across StrategyBook, GuardAlert, BookDailyPerformance, PortfolioPeriodSummary, BacktestTest, BacktestRun, DailySeriesPoint and SeriesWeightPoint. SHACL sh:pattern ^([PH][0-9]+|C[0-9]+)$: a typo in the letter or digits is no longer caught, only the P/H/C<number> shape." .
 :knowledgeDate a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:range xsd:date ;
     rdfs:comment "The date the m018 row became known (v_* knowledge_date, the view's own date or the run's created_at date). No rdfs:domain: every m018 individual carries it, so a knowledgeDate <= D query works uniformly (handoff checklist 3). It is not valid time and not a replacement for :knowledgeDate-less m015/m016 rows." .
 :status a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:range xsd:string ;
@@ -1015,6 +1031,63 @@ so every result is in-sample.""" .
 :referenceName a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :ReferenceReturn ; rdfs:range xsd:string  .
 :referenceTotalReturn a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :ReferenceReturn ; rdfs:range xsd:decimal  .
 :referenceMaxDrawdown a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :ReferenceReturn ; rdfs:range xsd:decimal  .
+
+# --- DailySeriesPoint / SeriesWeightPoint (Work item 46, block E) ---
+:seriesOfConfiguration a owl:ObjectProperty, owl:FunctionalProperty ; rdfs:range :BacktestConfiguration ;
+    rdfs:label "Series configuration"@en ;
+    rdfs:label "Configuración de la serie"@es ;
+    rdfs:comment "The configuration whose series this point belongs to (Configuration_SPY or Configuration_MarkowitzMV); shared by DailySeriesPoint and SeriesWeightPoint."@en ;
+    rdfs:comment "La configuración a cuya serie pertenece este punto (Configuration_SPY o Configuration_MarkowitzMV); compartida por DailySeriesPoint y SeriesWeightPoint."@es .
+:seriesDate a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:range xsd:date ;
+    rdfs:label "Series date"@en ;
+    rdfs:label "Fecha de la serie"@es ;
+    rdfs:comment "Session date of a DailySeriesPoint, or decision date of a SeriesWeightPoint."@en ;
+    rdfs:comment "Fecha de la sesión de un DailySeriesPoint, o fecha de decisión de un SeriesWeightPoint."@es .
+:seriesValue a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:range xsd:decimal ;
+    rdfs:label "Series accumulated value"@en ;
+    rdfs:label "Valor acumulado de la serie"@es ;
+    rdfs:comment "SPY accumulated value: 1 x (1 + the first session's daily total return) at the window's first session, compounded by the delivered series. Not a price."@en ;
+    rdfs:comment "Valor acumulado de SPY: 1 x (1 + el retorno total diario de la primera sesión) en la primera sesión de la ventana, compuesto por la serie entregada. No es un precio."@es .
+:dailyTotalReturn a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:range xsd:decimal ;
+    rdfs:label "Daily total return"@en ;
+    rdfs:label "Retorno total diario"@es ;
+    rdfs:comment "SPY daily total return with dividends reinvested, as delivered; not a price."@en ;
+    rdfs:comment "Retorno total diario de SPY con dividendos reinvertidos, tal como se entrega; no es un precio."@es .
+:seriesGrossReturn a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:range xsd:decimal ;
+    rdfs:label "Series gross return"@en ;
+    rdfs:label "Retorno bruto de la serie"@es ;
+    rdfs:comment "MARKOWITZ_MV daily gross return before transaction costs."@en ;
+    rdfs:comment "Retorno bruto diario de MARKOWITZ_MV antes de costos de transacción."@es .
+:seriesNetReturn a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:range xsd:decimal ;
+    rdfs:label "Series net return"@en ;
+    rdfs:label "Retorno neto de la serie"@es ;
+    rdfs:comment "MARKOWITZ_MV daily net return after transaction costs."@en ;
+    rdfs:comment "Retorno neto diario de MARKOWITZ_MV después de costos de transacción."@es .
+:seriesTurnover a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:range xsd:decimal ;
+    rdfs:label "Series turnover"@en ;
+    rdfs:label "Rotación de la serie"@es ;
+    rdfs:comment "MARKOWITZ_MV daily turnover: full sum of absolute equity-weight changes, not halved."@en ;
+    rdfs:comment "Rotación diaria de MARKOWITZ_MV: suma completa de los cambios absolutos de peso en acciones, sin dividir entre dos."@es .
+:seriesCost a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:range xsd:decimal ;
+    rdfs:label "Series transaction cost"@en ;
+    rdfs:label "Costo de transacción de la serie"@es ;
+    rdfs:comment "MARKOWITZ_MV per-session transaction cost as a return fraction."@en ;
+    rdfs:comment "Costo de transacción por sesión de MARKOWITZ_MV como fracción de retorno."@es .
+:seriesCashWeight a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:range xsd:decimal ;
+    rdfs:label "Series cash weight"@en ;
+    rdfs:label "Peso en efectivo de la serie"@es ;
+    rdfs:comment "MARKOWITZ_MV cash weight at the session."@en ;
+    rdfs:comment "Peso en efectivo de MARKOWITZ_MV en la sesión."@es .
+:seriesAssetId a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:range xsd:integer ;
+    rdfs:label "Series asset id"@en ;
+    rdfs:label "Identificador de activo de la serie"@es ;
+    rdfs:comment "Upstream asset_id of a SeriesWeightPoint; an integer, not an Asset IRI."@en ;
+    rdfs:comment "asset_id de origen de un SeriesWeightPoint; un entero, no un IRI de Asset."@es .
+:seriesWeight a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:range xsd:decimal ;
+    rdfs:label "Series target weight"@en ;
+    rdfs:label "Peso objetivo de la serie"@es ;
+    rdfs:comment "Target weight of the asset in the tangency-weighted MARKOWITZ_MV book at the decision date."@en ;
+    rdfs:comment "Peso objetivo del activo en el libro MARKOWITZ_MV ponderado por tangencia en la fecha de decisión."@es .
 
 # --- OrchestratorRun / OrchestratorStep ---
 :orchestratorRunId a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :OrchestratorRun ; rdfs:range xsd:integer ;
@@ -1696,12 +1769,12 @@ so every result is in-sample.""" .
 :Configuration_MarkowitzMV a :BacktestConfiguration ;
     skos:notation "MARKOWITZ_MV" ;
     rdfs:label "Base Markowitz (mean-variance)"@en ; rdfs:label "Markowitz base de media-varianza"@es ;
-    rdfs:comment "The external mean-variance tangency book from Work item 44; it stays in the external summary graph."@en ; rdfs:comment "El libro externo de tangencia de media-varianza del Work item 44; permanece en el grafo externo de resúmenes."@es .
+    rdfs:comment "The external mean-variance tangency book from Work item 44; its summaries stay in the external graph and its daily series and weights load in the block E series graph."@en ; rdfs:comment "El libro externo de tangencia de media-varianza del Work item 44; sus resúmenes permanecen en el grafo externo y su serie diaria y pesos se cargan en el grafo de series del bloque E."@es .
 
 :Configuration_SPY a :BacktestConfiguration ;
     skos:notation "SPY" ;
     rdfs:label "SPY total-return reference"@en ; rdfs:label "Referencia de retorno total SPY"@es ;
-    rdfs:comment "The SPY total-return reference series; its daily series belongs to block E."@en ; rdfs:comment "La serie de referencia de retorno total de SPY; su serie diaria pertenece al bloque E."@es .
+    rdfs:comment "The SPY total-return reference series; its daily series loads in the block E series graph."@en ; rdfs:comment "La serie de referencia de retorno total de SPY; su serie diaria se carga en el grafo de series del bloque E."@es .
 
 :configuration a owl:ObjectProperty, owl:FunctionalProperty ; rdfs:range :BacktestConfiguration ;
     rdfs:label "Backtest configuration"@en ; rdfs:label "Configuración de backtest"@es ;

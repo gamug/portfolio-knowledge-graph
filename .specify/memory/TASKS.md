@@ -1451,8 +1451,8 @@ See `docs/fundamentals-design.md` and `PLAN.md` Work item 45.*
 
 ## Work item 46 — Veto Hierarchy projection (T-840–T-869)
 
-See `docs/veto-hierarchy-design.md` and `PLAN.md` Work item 46. The design is complete; the
-implementation tasks wait for approval and the final manifest (2026-11-17/18).
+See `docs/veto-hierarchy-design.md` and `PLAN.md` Work item 46. The design is complete; block E
+(``T-880–T-884``) adds the daily series, and the final manifest is due 2026-11-17/18.
 
 - [x] **T-840** *(done 2026-11-13: `docs/veto-hierarchy-design.md`; design only, no code, schema or
       GraphDB write.)* Configuration identity, filters, rules/shapes, detail model, price masking,
@@ -1473,3 +1473,20 @@ implementation tasks wait for approval and the final manifest (2026-11-17/18).
 - [x] **T-870–T-871** *(done 2026-11-14, PR #163.)* Pre-flight sibling selection context: m018
       and selection graphs are planned together before any write. The T-840–T-869 decade is fully
       assigned; T-870–T-871 are the next free IDs.
+- [x] **T-880** *(done 2026-11-15: `schema/tbox.ttl`, `schema/shapes.ttl`, gate target and FR-001
+      counts; 74 classes / 60 disjoint leaves / 59 named shapes, 9310 quads, 21/9587 load,
+      production 5/9066.)* Add `DailySeriesPoint`, `SeriesWeightPoint` and their typed properties
+      and shapes; accept the series graph name.
+- [x] **T-881** *(done 2026-11-15: `src/projection/series.py`; strict SHA256SUMS, CSV headers,
+      duplicate keys, missing C1, typed decimals/dates and both graph builders.)* Series parser and
+      projector.
+- [x] **T-882** *(done 2026-11-15: `cli/load_series.py`, `gate.write_batched`, dry run,
+      `--check-store`, `--write`, production guard and graph-in-doubt handling; synthetic tests.)*
+      Series loader CLI and batched writes.
+- [x] **T-883** *(done 2026-11-15: `verify_store --manifest` checks `daily_rows` for SPY and
+      MARKOWITZ_MV when the series graph exists; absent graphs stay not verifiable; tests for both.)*
+      Store-side daily-row verification.
+- [x] **T-884** *(done 2026-11-15: `tests/test_series.py`, `tests/test_cli_load_series.py`,
+      `docs/final-delivery.md` §7d, docs/06/07 and counts; real dry run only, no GraphDB write.)*
+      Tests, dry-run evidence and delivery documentation.
+- [ ] **T-885–T-889** Reserved for block E review fixes.

@@ -18,7 +18,12 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
 from kg_store.acceptance import CHECKS
-from kg_store.graphdb import PRODUCTION_REPOSITORY, GraphDB, GraphDBError, announce_target
+from kg_store.graphdb import (
+    PRODUCTION_REPOSITORY,
+    GraphDB,
+    GraphDBError,
+    announce_target,
+)
 from kg_store.load_schema import SchemaError
 from projection.load_veto import verify_manifest_store
 from projection.veto_manifest import read_manifest
@@ -34,7 +39,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--manifest",
         type=Path,
-        help="also verify the Veto Hierarchy graphs against this manifest_final.json (read-only)",
+        help="also verify the Veto Hierarchy and series graphs against this manifest_final.json (read-only)",
     )
     parser.add_argument(
         "--label",
@@ -66,10 +71,10 @@ def main(argv: list[str] | None = None) -> int:
     if args.manifest is not None:
         try:
             verify_manifest_store(db, read_manifest(args.manifest), args.label)
-            print("PASS  Veto Hierarchy manifest checks")
+            print("PASS  Veto Hierarchy and series manifest checks")
         except (AssertionError, GraphDBError, OSError, ValueError) as exc:
             failed += 1
-            print(f"FAIL  Veto Hierarchy manifest checks: {exc}")
+            print(f"FAIL  Veto Hierarchy and series manifest checks: {exc}")
     return 1 if failed else 0
 
 

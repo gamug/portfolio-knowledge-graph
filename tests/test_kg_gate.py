@@ -213,6 +213,35 @@ def test_a_malformed_backtest_external_graph_is_refused(name: str) -> None:
 @pytest.mark.parametrize(
     "name",
     [
+        "urn:graph:derived:backtest:series:final:markowitz_mv",
+        "urn:graph:derived:backtest:series:final:spy",
+        "urn:graph:derived:backtest:series:rule_20261105:markowitz_mv",
+    ],
+)
+def test_a_backtest_series_graph_is_append_only_and_accepted(name: str) -> None:
+    # Work item 46, block E: one daily-series graph per (label, configuration slug).
+    assert gate.check_target(name) is True
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        "urn:graph:derived:backtest:series",  # label and slug required
+        "urn:graph:derived:backtest:series:final",  # slug required
+        "urn:graph:derived:backtest:series:Final:spy",  # lowercase label
+        "urn:graph:derived:backtest:series:final:SPY",  # lowercase slug
+        "urn:graph:derived:backtest:series:final:spy:P1:1",
+        "urn:graph:derived:backtest:series:final/extra",
+    ],
+)
+def test_a_malformed_backtest_series_graph_is_refused(name: str) -> None:
+    with pytest.raises(gate.IngestRejected, match="not an ingest target"):
+        gate.check_target(name)
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
         "urn:graph:derived:fundamentals:final",
         "urn:graph:derived:fundamentals:rule_20261105",
     ],

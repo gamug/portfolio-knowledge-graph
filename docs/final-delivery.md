@@ -246,6 +246,8 @@ uv run python cli/load_fundamentals.py --label final \
   --universe-db "$SQL_UNIVERSE_DB" --write
 uv run python cli/load_veto.py \
   --manifest /workspaces/thesis/scratch/rehearsal/manifest_pilot_draft.json --write
+uv run python cli/load_series.py --label final \
+  --dir "/workspaces/thesis/knoledge graph/2026-11-12_respuesta_4/series_diarias_referencia" --write
 uv run python cli/verify_store.py \
   --manifest /workspaces/thesis/scratch/rehearsal/manifest_pilot_draft.json
 ```
@@ -279,6 +281,7 @@ after each step and subtract.
 | load_veto meta | | | | | |
 | load_veto m018/detail | | | | | |
 | load_veto selection | | | | | |
+| load_series | | | | | |
 | verify_store | | | | | |
 
 ## 0. Preconditions (read-only)
@@ -575,6 +578,44 @@ The write verifies the stored graph triple-for-triple; on a mismatch it prints t
 `DROP GRAPH <urn:graph:derived:fundamentals:final>`, which only the maintainer may run. Never use
 `CLEAR ALL`, `DROP ALL`, a repository delete or a second graph.
 
+## 7d. Load the daily reference series (write)
+
+The block E series delivery is `/workspaces/thesis/knoledge graph/2026-11-17_final/series_diarias_referencia`
+— the series folder inside the single final delivery folder `2026-11-17_final/`. That folder has
+no `SHA256SUMS` of its own; the loader walks to the delivery root's `SHA256SUMS` and matches the
+entries prefixed with `series_diarias_referencia/`. A standalone series folder with its own
+manifest (for example `2026-11-12_respuesta_4/series_diarias_referencia`) still works unchanged.
+Point `--dir` at the series folder (the one with `spy_daily.csv` and `markowitz_mv/`). The loader
+verifies every series CSV against the selected manifest before reading it, rejects header drift,
+duplicate `(window, date)` keys and a missing C1, then writes two append-only graphs:
+`urn:graph:derived:backtest:series:final:markowitz_mv` and
+`urn:graph:derived:backtest:series:final:spy`.
+
+Dry run first (contacts no store), then the read-only pre-flight and the write:
+
+```bash
+SERIES_DIR="/workspaces/thesis/knoledge graph/2026-11-17_final/series_diarias_referencia"
+
+uv run python cli/load_series.py --label final --dir "$SERIES_DIR"
+
+set -a; . ./.env; set +a
+export KG_REPOSITORY=portfolio_test
+export SQL_UNIVERSE_DB=/workspaces/thesis/data/universe_history_gics.db
+uv run python cli/load_series.py --label final --dir "$SERIES_DIR" --check-store
+
+KG_REPOSITORY=portfolio uv run python cli/load_series.py --label final \
+  --dir "$SERIES_DIR" --write --to-production
+```
+
+The dry run prints one `rows: <file>: <n>` line per CSV and `SHACL: conforms` for both graphs.
+`--check-store` must print `would-be-written` for both graphs (or `already-in-the-store` after a
+write). The write appends each graph in bounded N-Triples chunks; a lost answer prints
+`store error, the graph is in doubt` and must not be retried blindly. The two graphs are separate
+from the external summary graph; `MARKOWITZ_MV` weights are in the `markowitz_mv` series graph, not
+in `urn:graph:derived:backtest:external:final`. After the write, `verify_store --manifest` verifies
+the `daily_rows` of `MARKOWITZ_MV` and `SPY` against the series graphs; when a graph is absent it
+stays "not verifiable" and does not fail the check.
+
 ## 8. Acceptance (read-only)
 
 ### 8.1 The run label is only `final`
@@ -638,9 +679,9 @@ ORDER BY ?graph
 Expected: 13 rows, one for each `urn:graph:derived:backtest:final:{window}:1`, one for each
 `urn:graph:derived:backtest:selection:final:{window}:1`, and
 `urn:graph:derived:backtest:meta:final`. The ticker-history graph, the aggregates graph, the
-external `urn:graph:derived:backtest:external:final` graph and the fundamentals
-`urn:graph:derived:fundamentals:final` graph are separate streams and are checked in steps 5, 7,
-7b and 7c.
+external `urn:graph:derived:backtest:external:final` graph, the fundamentals
+`urn:graph:derived:fundamentals:final` graph and the two series graphs are separate streams and are
+checked in steps 5, 7, 7b, 7c and 7d.
 
 ### 8.4 The old pilot is gone
 

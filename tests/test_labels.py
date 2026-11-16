@@ -167,6 +167,8 @@ def test_the_seven_windows_have_dates_and_the_six_have_conditions() -> None:
         if str(g.value(concept, SKOS.notation)) != "C1":
             assert len(list(g.objects(concept, KG.historicalCondition))) == 2
             assert len(list(g.objects(concept, KG.finalConfigurationCondition))) == 2
+    c1 = next(c for c in window_concepts if str(g.value(c, SKOS.notation)) == "C1")
+    assert c1 == KG.Window_C1
     window_5 = next(c for c in window_concepts if str(g.value(c, SKOS.notation)) == "P2")
     assert "Feb\u2013Sep 2025 (P2)" in str(_lang(g, window_5, RDFS.label, "en"))
     assert not any("volatil" in str(alt).lower() for alt in g.objects(window_5, SKOS.altLabel))
