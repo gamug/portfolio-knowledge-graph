@@ -46,7 +46,7 @@ def test_tbox_and_shapes_share_one_graph() -> None:
     assert load_schema.expected_sizes(SCHEMA)["urn:graph:tbox"] == len(union)
 
 
-def test_the_load_plan_has_21_graphs_and_12716_asserted_triples() -> None:
+def test_the_load_plan_has_21_graphs_and_12728_asserted_triples() -> None:
     sizes = load_schema.expected_sizes(SCHEMA)
     assert len(sizes) == 21
     # 4513 at the T-212 reload; +2 for T-220's and T-227's sh:class triples, -34 for T-233/T-234
@@ -60,15 +60,15 @@ def test_the_load_plan_has_21_graphs_and_12716_asserted_triples() -> None:
     # +12 for the news risk-off aggregate property, label and shape (block B2),
     # +372 for the block D NewsItem class, properties and shape (T-910-T-914),
     # +2745 for the block F agent-traceability classes, properties and shapes (T-900-T-904).
-    assert sum(sizes.values()) == 12716
+    assert sum(sizes.values()) == 12728
     assert sizes["urn:graph:reference:fibo"] == 277
 
 
-def test_the_schema_only_plan_has_five_graphs_and_12195_triples() -> None:
+def test_the_schema_only_plan_has_five_graphs_and_12207_triples() -> None:
     """Work item 39: production loads only the files, never the worked-example ABox."""
     sizes = load_schema.expected_sizes(SCHEMA, include_examples=False)
     assert len(sizes) == 5
-    assert sum(sizes.values()) == 12195
+    assert sum(sizes.values()) == 12207
     assert set(sizes) == {
         "urn:graph:tbox",
         "urn:graph:reference",

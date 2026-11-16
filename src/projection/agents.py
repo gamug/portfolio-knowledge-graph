@@ -68,6 +68,7 @@ SHA256 = re.compile(r"[0-9a-f]{64}")
 _LOCAL = re.compile(r"[A-Za-z0-9_.-]+")
 _DATE = re.compile(r"\d{4}-\d{2}-\d{2}")
 _FRACTION = re.compile(r"([0-9]+)/([1-9][0-9]*)")
+_BODY_ID = re.compile(r"[0-9a-f]{64}")
 TEST_ROW_WIDTH = 2
 
 
@@ -568,9 +569,19 @@ def _news_evidence(  # noqa: C901 -- one source contract read in one place
         values = _list(row, f"{where}.test_rows[{index}]")
         if len(values) != TEST_ROW_WIDTH:
             raise AgentsError(f"{where}.test_rows[{index}]: expected [item_id, ticker]")
-        _positive_int(values[0], f"{where}.test_rows[{index}][0]")
+        _news_test_item_id(values[0], f"{where}.test_rows[{index}][0]")
         _text(values[1], f"{where}.test_rows[{index}][1]")
     return raw
+
+
+def _news_test_item_id(value: Any, where: str) -> None:
+    """A sub_news integer id or a body's 64-lowercase-hex fingerprint; no empty strings."""
+    if isinstance(value, int) and not isinstance(value, bool):
+        _positive_int(value, where)
+        return
+    if isinstance(value, str) and _BODY_ID.fullmatch(value):
+        return
+    raise AgentsError(f"{where}: expected a positive integer or 64 lowercase hex characters")
 
 
 def _news_action(raw: Mapping[str, Any], where: str) -> Mapping[str, Any]:
@@ -1063,7 +1074,7 @@ def _test_rows(evidence: Mapping[str, Any], where: str) -> list[str]:
     rows = []
     for item in _list(evidence["test_rows"], f"{where}.test_rows"):
         values = _list(item, f"{where}.test_rows[]")
-        rows.append(f"{int(values[0])}:{values[1]}")
+        rows.append(f"{values[0]}:{values[1]}")
     return rows
 
 
@@ -1570,14 +1581,16 @@ def _news_item_context(rows: Sequence[news_rows.NewsRow]) -> rdflib.Graph:
             (KG.newsCategory, rdflib.Literal(row.category)),
             (KG.categoryScore, _decimal_literal(row.category_score)),
             (KG.groupLabel, rdflib.Literal(row.group_label)),
-            (KG.articleId, _integer_literal(row.article_id)),
             (KG.bodyHash, rdflib.Literal(row.body_hash)),
-            (KG.sourceDomain, rdflib.Literal(row.source_domain)),
             (KG.modelRevision, rdflib.Literal(row.model_revision)),
             (KG.sentimentRevision, rdflib.Literal(row.sentiment_revision)),
             (KG.categoryRevision, rdflib.Literal(row.category_revision)),
         ):
             context.add((iri, predicate, value))
+        if row.article_id is not None:
+            context.add((iri, KG.articleId, _integer_literal(row.article_id)))
+        if row.source_domain is not None:
+            context.add((iri, KG.sourceDomain, rdflib.Literal(row.source_domain)))
         if row.asset_id is not None:
             context.add((iri, KG.newsAssetId, _integer_literal(row.asset_id)))
         if row.asset is not None:

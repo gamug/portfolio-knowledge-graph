@@ -298,7 +298,7 @@ NEWS_COLUMNS = [
 def news_row() -> dict[str, Any]:
     return {
         "model_revision": "rev1",
-        "item_kind": "body",
+        "item_kind": "sub_news",
         "item_id": "10",
         "ticker": "AAA",
         "asset_id": 1,

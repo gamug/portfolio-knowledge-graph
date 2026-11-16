@@ -183,7 +183,9 @@ def test_a_dry_run_prints_rows_graph_triples_and_shacl(tmp_path: Path) -> None:
     result = _run(tmp_path, "--label", "final", "--dir", str(root))
     assert result.returncode == 0, result.stderr
     assert "rows: 1" in result.stdout
+    assert "item_kind: body=0 sub_news=1" in result.stdout
     assert "graph: urn:graph:derived:news:final:2021" in result.stdout
+    assert "rows: urn:graph:derived:news:final:2021: body=0 sub_news=1" in result.stdout
     assert "triples: urn:graph:derived:news:final:2021:" in result.stdout
     assert "unresolved assets: 0 row(s); asset_id null: 0" in result.stdout
     assert "SHACL: conforms" in result.stdout

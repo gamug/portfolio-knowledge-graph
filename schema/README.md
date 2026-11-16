@@ -581,8 +581,8 @@ what the store *enforces*.
     `:newsItemOfAsset` link. `shapes.ttl` gains `:NewsItemShape`; the loader writes one
     append-only graph per calendar year,
     `urn:graph:derived:news:{label}:{year}`, splitting a year over the ~400,000-triple bound into
-    `:01-06`/`:07-12`. The 261 PSKY rows corrected by letter 26 carry engine `asset_id` 477 and link
-    to `:SKYD`; the 9 EQR rows stay unlinked. A future revision that re-labels an already loaded
+    `:01-06`/`:07-12`. The PSKY rows corrected by letter 26 carry engine `asset_id` 477 and link
+    to `:SKYD`; the EQR rows stay unlinked. A future revision that re-labels an already loaded
     fragment writes one value per graph, so read the revision by graph. Counts: **75 classes
     (61 disjoint leaves), 463 properties, 60 named shapes, 9694 quads; conforms: True**; load plan
     **21 graphs / 9971 asserted triples** (production **5 / 9450**). The store must be reloaded
@@ -600,6 +600,16 @@ what the store *enforces*.
     Counts: **83 classes (69 disjoint leaves), 69 named shapes, 12439 quads; conforms: True**;
     load plan **21 graphs / 12716 asserted triples** (production **5 / 12195**). The store must be
     reloaded afterwards.
+
+21. **News body rows (Work item 46, block D2, 2026-11-17).** `:NewsItem` now covers full-article
+    `body` rows as well as `sub_news` fragments. A body's `item_id` is the 64-lowercase-hex
+    fingerprint of its body and equals `:bodyHash`; `:articleId` and `:sourceDomain` are
+    mandatory on a fragment and absent on a body, so the loader omits them and never writes an
+    empty literal. `:NewsItemShape` keeps the closed shape: `:articleId`/`:sourceDomain` lose
+    `sh:minCount 1` and a node-level `sh:or` requires them only when `:itemKind` is not `body`.
+    The class label is ES «Noticia» / EN «News item». Counts: **83 classes (69 disjoint leaves),
+    635 properties, 69 named shapes, 12451 quads; conforms: True**; load plan **21 graphs / 12728
+    asserted triples** (production **5 / 12207**). The store must be reloaded afterwards.
 
 ## Validation
 
