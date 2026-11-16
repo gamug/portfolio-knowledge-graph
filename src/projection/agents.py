@@ -1969,12 +1969,12 @@ def _plan(
 ) -> dict[str, gate.IngestPlan]:
     plans: dict[str, gate.IngestPlan] = {}
     for data in delivery.windows:
-        context = _asset_context(data, delivery.label)
         for slug in only:
             graph = graph_name(delivery.label, data.window, slug)
-            plans[graph] = gate.plan(
-                store, builders[data.window][slug].turtle(), graph, context=context
-            )
+            # The store is the context: assets, stops and block-D NewsItems must already be
+            # loaded. _asset_context is a dry-run-only helper and must never be merged here:
+            # its placeholder :cikNumber would collide with the real one and break AssetShape.
+            plans[graph] = gate.plan(store, builders[data.window][slug].turtle(), graph)
     return plans
 
 

@@ -347,3 +347,78 @@ def test_one_test_row_with_two_item_kinds_fails_clearly(tmp_path: Path) -> None:
     refresh_hashes(root)
     with pytest.raises(AgentsError, match="maps to both"):
         load_delivery("final", root, [WINDOW])
+
+
+def _plan_store(data: agents.WindowData) -> DatasetStore:
+    """A store double with the real asset, stop and NewsItem context, but no agent graphs."""
+    dataset = rdflib.Dataset()
+    graph = dataset.default_graph
+    for triple in agents._asset_context(data, "final"):
+        graph.add(triple)
+    # Replace the dry-run placeholder with one real CIK per asset, as the universe graph has.
+    for number, ticker in enumerate(sorted(data.news.tickers.values()), 1):
+        asset = KG[ticker]
+        graph.remove((asset, KG.cikNumber, None))
+        graph.add((asset, KG.cikNumber, rdflib.Literal(f"{number:010d}")))
+    return DatasetStore(dataset)
+
+
+def _store_context(data: agents.WindowData) -> rdflib.Graph:
+    """What a loaded store returns for the batch refs: assets with one real CIK, stops, NewsItems."""
+    context = agents._asset_context(data, "final")
+    for number, ticker in enumerate(sorted(data.news.tickers.values()), 1):
+        asset = KG[ticker]
+        context.remove((asset, KG.cikNumber, None))
+        context.add((asset, KG.cikNumber, rdflib.Literal(f"{number:010d}")))
+    return context
+
+
+def test_the_preflight_and_write_plan_do_not_merge_the_placeholder_cik(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    delivery = load_delivery("final", write_delivery(tmp_path), [WINDOW])
+    data = delivery.by_window(WINDOW)
+    builders = project(data, "final")
+    context = _store_context(data)
+    monkeypatch.setattr(agents.gate, "fetch_context", lambda *_: context)
+    store = DatasetStore(rdflib.Dataset())
+    plans = agents._plan(cast(GraphDB, store), delivery, {WINDOW: builders}, agents.SLUGS)
+    assert all(plan.status is agents.gate.IngestPlanStatus.WOULD_WRITE for plan in plans.values())
+
+
+@pytest.mark.parametrize(
+    ("kind", "triple"),
+    [
+        ("asset", (KG.BBB, RDF.type, KG.Asset)),
+        (
+            "stop",
+            (
+                KG[f"Stop_final_{WINDOW}_system_with_hierarchy_{DATE}_1"],
+                RDF.type,
+                KG.StopEvent,
+            ),
+        ),
+        ("news_item", (KG.NewsItem_body_10_AAA, RDF.type, KG.NewsItem)),
+    ],
+)
+def test_a_genuinely_missing_store_reference_fails_the_plan(
+    tmp_path: Path,
+    kind: str,
+    triple: tuple[rdflib.Node, rdflib.Node, rdflib.Node],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    delivery = load_delivery("final", write_delivery(tmp_path), [WINDOW])
+    data = delivery.by_window(WINDOW)
+    builders = project(data, "final")
+    # Keep the synthetic type/ticker (and stop/NewsItem) context, but drop the placeholder CIK
+    # so this case tests masking of a missing reference, not the duplicate-CIK bug above.
+    context = _store_context(data)
+    context.remove(triple)
+    synthetic = agents._asset_context(data, "final")
+    for statement in list(synthetic.triples((None, KG.cikNumber, None))):
+        synthetic.remove(statement)
+    monkeypatch.setattr(agents, "_asset_context", lambda *_: synthetic)
+    monkeypatch.setattr(agents.gate, "fetch_context", lambda *_: context)
+    store = DatasetStore(rdflib.Dataset())
+    with pytest.raises(agents.gate.IngestRejected):
+        agents._plan(cast(GraphDB, store), delivery, {WINDOW: builders}, agents.SLUGS)

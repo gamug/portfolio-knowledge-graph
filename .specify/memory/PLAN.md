@@ -3753,7 +3753,12 @@ measured pilot budget is in `docs/veto-hierarchy-design.md` §6.
       `news_rows.jsonl`, the cross-graph validation context and missing/ambiguous-row tests. The
       real P1/C1 delivery stops on REGN test rows 280187/328156, absent from block D.)*
       `:newsItem` link.
-- [ ] **T-907–T-909** Reserved for block F review fixes.
+- [x] **T-907** *(done 2026-11-16: `src/projection/agents.py::_plan` no longer passes the
+      dry-run `_asset_context` to `gate.plan`; `--check-store` and `--write` use the store as the
+      only context. Tests cover the old duplicate-CIK failure and missing asset/stop/NewsItem;
+      real H1 `--check-store` stops on the absent veto graph, expected before the reload.)*
+      Fix the store-backed pre-flight context.
+- [ ] **T-908–T-909** Reserved for block F review fixes.
 
 **Acceptance criteria**:
 

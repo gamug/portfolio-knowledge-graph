@@ -1564,4 +1564,9 @@ T-890–T-899, and block D news rows by T-910–T-914.
       print `not store-verifiable`.)* Store-side control counts.
 - [x] **T-906** *(done 2026-11-16: `:newsItem` on `:NewsEvidence`, D's `parse_rows` lookup,
       cross-graph context and missing/ambiguous tests.)* `:newsItem` link.
-- [ ] **T-907–T-909** Reserved for block F review fixes.
+- [x] **T-907** *(done 2026-11-16: `_plan` no longer passes `_asset_context` to
+      `gate.plan`; the store supplies assets, stops and NewsItems. Regression tests cover the
+      duplicate-CIK pre-flight and a genuinely missing asset, stop and NewsItem; `--write` uses
+      the same `_plan` path. Real H1 `--check-store` on `portfolio_test` stops on the missing veto
+      graph, as expected before the reload.)* Fix the store-backed pre-flight context.
+- [ ] **T-908–T-909** Reserved for block F review fixes.
