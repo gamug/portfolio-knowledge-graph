@@ -85,6 +85,22 @@ def write_series(  # noqa: PLR0913 -- the fixture mirrors the CSV options
     return folder
 
 
+def _move_manifest_to_parent(folder: Path, *, extra: bool = False) -> Path:
+    """Put the manifest at the delivery root with series/... keys, like the final layout."""
+    lines = (folder / "SHA256SUMS").read_text(encoding="utf-8").splitlines()
+    (folder / "SHA256SUMS").unlink()
+    root = folder.parent
+    moved = []
+    for line in lines:
+        digest, name = line.split("  ", 1)
+        moved.append(f"{digest}  {folder.name}/{name}")
+    if extra:
+        moved.append(f"{'0' * 64}  unrelated/ignored.bin")
+    manifest = root / "SHA256SUMS"
+    manifest.write_text("\n".join(moved) + "\n", encoding="utf-8")
+    return manifest
+
+
 def _data(tmp_path: Path) -> series.SeriesFile:
     return load_file("final", write_series(tmp_path))
 
@@ -97,6 +113,42 @@ def _store(builders: dict[str, rdflib.Graph], label: str = "final") -> DatasetSt
             builder.serialize(format="turtle").encode(), "text/turtle", graph_name(label, slug)
         )
     return store
+
+
+def test_a_root_manifest_covers_the_series_subfolder(tmp_path: Path) -> None:
+    folder = write_series(tmp_path)
+    manifest = _move_manifest_to_parent(folder, extra=True)
+    data = load_file("final", folder)
+    assert data.manifest == manifest
+    assert len(data.hashes) == 9
+
+
+def test_a_root_manifest_mismatch_is_refused(tmp_path: Path) -> None:
+    folder = write_series(tmp_path)
+    _move_manifest_to_parent(folder)
+    path = folder / SPY_FILE
+    path.write_text(path.read_text(encoding="utf-8") + "\n", encoding="utf-8")
+    with pytest.raises(ManifestError, match="SHA-256 mismatch"):
+        load_file("final", folder)
+
+
+def test_an_unlisted_series_file_in_a_root_manifest_is_refused(tmp_path: Path) -> None:
+    folder = write_series(tmp_path)
+    manifest = _move_manifest_to_parent(folder)
+    removed = f"{folder.name}/{MV_DAILY_FILES['C1']}"
+    lines = [
+        line for line in manifest.read_text(encoding="utf-8").splitlines() if removed not in line
+    ]
+    manifest.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    with pytest.raises(ManifestError, match=r"not listed: .*mv_daily_C1[.]csv"):
+        load_file("final", folder)
+
+
+def test_no_manifest_in_the_folder_or_a_parent_is_refused(tmp_path: Path) -> None:
+    folder = tmp_path / "delivery" / "series_diarias_referencia"
+    folder.mkdir(parents=True)
+    with pytest.raises(ManifestError, match="no SHA256SUMS"):
+        load_file("final", folder)
 
 
 def test_real_headers_parse_and_project_c1_and_weights(tmp_path: Path) -> None:

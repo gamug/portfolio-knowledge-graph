@@ -580,20 +580,21 @@ The write verifies the stored graph triple-for-triple; on a mismatch it prints t
 
 ## 7d. Load the daily reference series (write)
 
-The block E series delivery is the series folder inside the single final delivery folder
-`/workspaces/thesis/knoledge graph/envios/2026-11-17_final/`; the manifest cites its files relative
-to the delivery root. Point `--dir` at the folder that contains `SHA256SUMS`, `spy_daily.csv` and
-`markowitz_mv/` (in the current rehearsal copy that is
-`/workspaces/thesis/knoledge graph/2026-11-12_respuesta_4/series_diarias_referencia`). The loader
-verifies every SHA-256 in `SHA256SUMS` before reading a CSV, rejects header drift, duplicate
-`(window, date)` keys and a missing C1, then writes two append-only graphs:
+The block E series delivery is `/workspaces/thesis/knoledge graph/2026-11-17_final/series_diarias_referencia`
+— the series folder inside the single final delivery folder `2026-11-17_final/`. That folder has
+no `SHA256SUMS` of its own; the loader walks to the delivery root's `SHA256SUMS` and matches the
+entries prefixed with `series_diarias_referencia/`. A standalone series folder with its own
+manifest (for example `2026-11-12_respuesta_4/series_diarias_referencia`) still works unchanged.
+Point `--dir` at the series folder (the one with `spy_daily.csv` and `markowitz_mv/`). The loader
+verifies every series CSV against the selected manifest before reading it, rejects header drift,
+duplicate `(window, date)` keys and a missing C1, then writes two append-only graphs:
 `urn:graph:derived:backtest:series:final:markowitz_mv` and
 `urn:graph:derived:backtest:series:final:spy`.
 
 Dry run first (contacts no store), then the read-only pre-flight and the write:
 
 ```bash
-SERIES_DIR="/workspaces/thesis/knoledge graph/envios/2026-11-17_final/series_diarias_referencia"
+SERIES_DIR="/workspaces/thesis/knoledge graph/2026-11-17_final/series_diarias_referencia"
 
 uv run python cli/load_series.py --label final --dir "$SERIES_DIR"
 

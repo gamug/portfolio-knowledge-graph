@@ -1,10 +1,12 @@
 """Load the block E daily reference series (SPY and the external MARKOWITZ_MV book).
 
-The delivery folder carries ``SHA256SUMS``, ``spy_daily.csv``, the seven
-``markowitz_mv/mv_daily_<window>.csv`` files and ``markowitz_mv/mv_weights.csv``. The loader
-verifies every listed SHA-256 before reading a CSV, rejects header drift, duplicate keys, missing
-windows and malformed decimals/dates, then projects one append-only graph per
-``(label, configuration slug)``:
+The series folder carries ``spy_daily.csv``, the seven
+``markowitz_mv/mv_daily_<window>.csv`` files and ``markowitz_mv/mv_weights.csv``. Its own
+``SHA256SUMS`` is used when present; otherwise the nearest parent's manifest is used and each
+entry is matched by its path relative to that parent (the final delivery root lists
+``series_diarias_referencia/...``). The loader verifies every series CSV before reading it, rejects
+header drift, duplicate keys, missing windows and malformed decimals/dates, then projects one
+append-only graph per ``(label, configuration slug)``:
 
 ``urn:graph:derived:backtest:series:{label}:markowitz_mv``
 ``urn:graph:derived:backtest:series:{label}:spy``
@@ -117,13 +119,14 @@ class WeightRow:
 
 @dataclass(frozen=True)
 class SeriesFile:
-    """The accepted delivery plus its manifest hashes."""
+    """The accepted delivery plus the manifest that verified it."""
 
     label: str
     mv_daily: Mapping[str, tuple[MvDailyRow, ...]]
     spy_daily: tuple[SpyDailyRow, ...]
     weights: tuple[WeightRow, ...]
     hashes: Mapping[str, str]
+    manifest: Path
 
 
 @dataclass(frozen=True)
@@ -174,28 +177,58 @@ def sha256_file(path: str | Path) -> str:
     return digest.hexdigest()
 
 
-def verify_manifest(directory: str | Path, required: Sequence[str]) -> dict[str, str]:
-    """Verify every listed file and require every ``required`` name to be listed."""
+def _manifest_for(directory: Path) -> tuple[Path, str]:
+    """The nearest SHA256SUMS and the prefix of ``directory`` below it."""
+    local = directory / MANIFEST_NAME
+    if local.is_file():
+        return local, ""
+    for parent in directory.parents:
+        candidate = parent / MANIFEST_NAME
+        if candidate.is_file():
+            prefix = directory.relative_to(parent).as_posix().rstrip("/") + "/"
+            return candidate, prefix
+    raise ManifestError(
+        f"{directory}: no SHA256SUMS in the series directory or any parent directory"
+    )
+
+
+def verify_manifest(directory: str | Path, required: Sequence[str]) -> tuple[Path, dict[str, str]]:
+    """Verify the required CSVs against the nearest manifest, inside or above ``directory``.
+
+    A standalone series folder uses its own ``SHA256SUMS``. In the final delivery the folder has
+    no manifest; the parent's manifest lists each series file as
+    ``series_diarias_referencia/...``. Only entries below that prefix are verified, so unrelated
+    delivery files are not read.
+    """
     directory = Path(directory)
-    manifest = directory / MANIFEST_NAME
-    if not manifest.is_file():
-        raise ManifestError(f"{manifest}: no SHA256SUMS in the series directory")
+    manifest, prefix = _manifest_for(directory)
     entries = read_manifest(manifest)
+    selected = {
+        name: digest for name, digest in entries.items() if not prefix or name.startswith(prefix)
+    }
     out: dict[str, str] = {}
-    for name in sorted(entries):
-        path = directory / name
+    for name, declared in sorted(selected.items()):
+        relative = name[len(prefix) :] if prefix else name
+        path = directory / relative
         if not path.is_file():
             raise ManifestError(f"{path}: listed in {manifest.name} but the file does not exist")
         actual = sha256_file(path)
-        if actual != entries[name]:
+        if actual != declared:
             raise ManifestError(
-                f"{path}: SHA-256 mismatch: manifest says {entries[name]}, the file has {actual}"
+                f"{path}: SHA-256 mismatch: manifest says {declared}, the file has {actual}"
             )
-        out[name] = actual
-    missing = [name for name in required if name not in entries]
+        out[relative] = actual
+    missing = [
+        name for name in required if name not in entries and f"{prefix}{name}" not in entries
+    ]
     if missing:
         raise ManifestError(f"{manifest}: required file(s) not listed: {', '.join(missing)}")
-    return out
+    for name in required:
+        key = f"{prefix}{name}" if prefix else name
+        if key not in entries:
+            raise ManifestError(f"{manifest}: required file {key!r} is not listed")
+        out[name] = entries[key]
+    return manifest, out
 
 
 # --- parsing ------------------------------------------------------------------------------------
@@ -335,13 +368,13 @@ def load_file(label: str, directory: Path) -> SeriesFile:
     if not _LABEL.fullmatch(label):
         raise SeriesError(f"run label {label!r} does not match {RUN_LABEL_PATTERN}")
     directory = directory.resolve()
-    hashes = verify_manifest(directory, REQUIRED_FILES)
+    manifest, hashes = verify_manifest(directory, REQUIRED_FILES)
     spy = parse_spy(directory / SPY_FILE)
     mv_daily = {
         window: parse_mv_daily(directory / MV_DAILY_FILES[window], window) for window in WINDOWS
     }
     weights = parse_weights(directory / WEIGHTS_FILE)
-    return SeriesFile(label, mv_daily, spy, weights, hashes)
+    return SeriesFile(label, mv_daily, spy, weights, hashes, manifest)
 
 
 def file_counts(data: SeriesFile) -> Mapping[str, int]:
@@ -650,6 +683,7 @@ def main(argv: Sequence[str] | None = None) -> int:  # noqa: C901 -- one return 
         if args.check_store or args.write:
             announce_target(GraphDB.from_env())
         data = load_file(args.label, directory)
+        print(f"manifest: using {data.manifest}")
         for name in sorted(data.hashes):
             print(f"manifest: {name} is listed; SHA-256 {data.hashes[name]} matches")
         builders = project(data)
