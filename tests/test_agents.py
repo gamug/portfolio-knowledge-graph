@@ -22,6 +22,8 @@ from projection.agents import (
     project,
     verify_stored,
 )
+from projection.control_counts import store_agent_counts, verify_agent_control_counts
+from projection.veto_manifest import read_manifest
 
 KG = rdflib.Namespace("https://thesis.local/kg/portfolio#")
 
@@ -172,6 +174,7 @@ def test_the_four_graphs_carry_the_typed_core(tmp_path: Path) -> None:
         rdflib.Literal(2, datatype=XSD.integer),
     ) in news_graph
     assert (action, KG.newsActionFilled, rdflib.Literal(True, datatype=XSD.boolean)) in news_graph
+    assert (evidence, KG.newsItem, KG.NewsItem_body_10_AAA) in news_graph
     assert "10:AAA" in news.turtle().decode()
 
     bull_graph = rdflib.Graph().parse(data=bull.turtle(), format="turtle")
@@ -247,3 +250,100 @@ def test_a_wrong_stored_count_fails(tmp_path: Path) -> None:
     checks = verify_stored(store, "final", data, only=["manager_calls"])
     assert not checks[0].passed
     assert "manager_fallbacks" in checks[0].detail
+
+
+def test_agent_control_counts_are_store_verifiable(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    delivery = load_delivery("final", write_delivery(tmp_path), [WINDOW])
+    data = delivery.by_window(WINDOW)
+    builds = project(data, "final")
+    dataset = rdflib.Dataset()
+    for slug, builder in builds.items():
+        graph = dataset.graph(rdflib.URIRef(graph_name("final", WINDOW, slug)))
+        for triple in rdflib.Graph().parse(data=builder.turtle(), format="turtle"):
+            graph.add(triple)
+    store = DatasetStore(dataset)
+    counts = store_agent_counts(store, "final", WINDOW)
+    assert counts["manager_calls"] == 1
+    assert counts["narrator_texts"] == 2
+    assert counts["news_pool_actions"] == {"veto": 1, "promotion": 0}
+    assert counts["news_exits"] == 1
+    assert counts["news_sector_rejections"] == 4
+    assert counts["bull_triggered"] == 1
+    expected = {
+        "SYSTEM_WITH_HIERARCHY": {
+            WINDOW: {
+                "manager_calls": 1,
+                "manager_fallbacks": 0,
+                "manager_repairs": 0,
+                "narrator_texts": 2,
+                "news_pool_actions": {"veto": 1, "promotion": 0},
+                "news_date_records": 1,
+                "news_level_c_decisions": 0,
+                "news_level_d_decisions": 1,
+                "news_exits": 1,
+                "news_sector_rejections": 4,
+                "bull_triggered": 1,
+            }
+        }
+    }
+    assert verify_agent_control_counts(store, "final", WINDOW, expected) == []
+    dataset.remove_graph(rdflib.URIRef(graph_name("final", WINDOW, "narrator")))
+    assert verify_agent_control_counts(store, "final", WINDOW, expected) == []
+    assert "not store-verifiable" in capsys.readouterr().out
+    graph = dataset.graph(rdflib.URIRef(graph_name("final", WINDOW, "manager_calls")))
+    subject = KG[f"ManagerCall_final_{WINDOW}_0"]
+    graph.add((subject, KG.fallbackUsedRule, rdflib.Literal(True, datatype=XSD.boolean)))
+    failures = verify_agent_control_counts(store, "final", WINDOW, expected)
+    assert failures and "manager_fallbacks" in failures[0]
+
+
+@pytest.mark.integration
+def test_master_manifest_and_loader_resolve_the_same_files() -> None:
+    """The final delivery is read by B's parser and by this loader; both name the same paths."""
+    root = Path("/workspaces/thesis/knoledge graph/2026-11-17_final")
+    manifest_path = root / "manifest_final.json"
+    if not manifest_path.is_file():
+        pytest.skip("the final delivery is absent")
+    parsed = read_manifest(manifest_path)
+    by_key = {(run.configuration, run.window): run for run in parsed.runs}
+    raw = json.loads(manifest_path.read_text(encoding="utf-8"))
+    for window in agents.WINDOWS:
+        entry = agents._manifest_run(raw, window)
+        run = by_key[("SYSTEM_WITH_HIERARCHY", window)]
+        for key in ("manager_calls_file", "narrator_file", "news_actions_file", "bull_mode_file"):
+            assert run.files[key] == root / str(entry[key])
+
+
+def test_a_test_row_without_a_news_row_fails_clearly(tmp_path: Path) -> None:
+    root = write_delivery(tmp_path)
+    path = root / "news" / "news_rows.jsonl"
+    row = json.loads(path.read_text(encoding="utf-8"))
+    row["item_id"] = "999"
+    path.write_text(json.dumps(row, separators=(",", ":")) + "\n", encoding="utf-8")
+    refresh_hashes(root)
+    with pytest.raises(AgentsError, match=r"test rows without a news_rows\.jsonl row"):
+        load_delivery("final", root, [WINDOW])
+
+
+def test_one_test_row_with_two_item_kinds_fails_clearly(tmp_path: Path) -> None:
+    root = write_delivery(tmp_path)
+    path = root / "news" / "news_rows.jsonl"
+    first = json.loads(path.read_text(encoding="utf-8"))
+    second = dict(first)
+    second["item_kind"] = "sub_news"
+    path.write_text(
+        json.dumps(first, separators=(",", ":"))
+        + "\n"
+        + json.dumps(second, separators=(",", ":"))
+        + "\n",
+        encoding="utf-8",
+    )
+    manifest_path = root / "manifest_final.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["news_rows_file"]["rows"] = 2
+    manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+    refresh_hashes(root)
+    with pytest.raises(AgentsError, match="maps to both"):
+        load_delivery("final", root, [WINDOW])

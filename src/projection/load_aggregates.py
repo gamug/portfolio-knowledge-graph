@@ -135,8 +135,11 @@ def _show_build(data: AggregatesFile, builder: GraphBuilder) -> None:
     print(f"label: {data.label}")
     print(f"config: {data.config_id}")
     print(f"graph: {graph}")
+    news_true = sum(1 for row in data.trend_filter if row.news_risk_off)
+    cash_rows = sum(1 for row in data.trend_filter if row.cash_fraction > 0)
     print(
-        f"rows: trend_filter: {len(data.trend_filter)}; "
+        f"rows: trend_filter: {len(data.trend_filter)} "
+        f"(news_risk_off true {news_true}, cash > 0 {cash_rows}); "
         f"reference_returns: {len(data.reference_returns)}"
     )
     print(f"triples: {len(builder)}")

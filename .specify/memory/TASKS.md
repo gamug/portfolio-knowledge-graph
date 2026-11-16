@@ -1449,10 +1449,11 @@ See `docs/fundamentals-design.md` and `PLAN.md` Work item 45.*
       only.
 - [ ] **T-817–T-839** Reserved for review fixes; no specific IDs are assigned here.
 
-## Work item 46 — Veto Hierarchy projection (T-840–T-909)
+## Work item 46 — Veto Hierarchy projection (T-840–T-919)
 
 See `docs/veto-hierarchy-design.md` and `PLAN.md` Work item 46. The design is complete; block E
-(``T-880–T-884``) adds the daily series, and the final manifest is due 2026-11-17/18.
+(``T-880–T-884``) adds the daily series, and the final manifest (`final-1`) is handled by
+T-890–T-899, and block D news rows by T-910–T-914.
 
 - [x] **T-840** *(done 2026-11-13: `docs/veto-hierarchy-design.md`; design only, no code, schema or
       GraphDB write.)* Configuration identity, filters, rules/shapes, detail model, price masking,
@@ -1490,19 +1491,77 @@ See `docs/veto-hierarchy-design.md` and `PLAN.md` Work item 46. The design is co
       `docs/final-delivery.md` §7d, docs/06/07 and counts; real dry run only, no GraphDB write.)*
       Tests, dry-run evidence and delivery documentation.
 - [ ] **T-885–T-889** Reserved for block E review fixes.
+- [x] **T-890** *(done 2026-11-16: `src/projection/veto_manifest.py`; final-1 top-level
+      `news_rows_file`/`bull_mode_file`, per-run `bull_mode_file`, logical `files_sha256`
+      aliases, hash verification of the news rows and the five new per-run files, and strict
+      refusal of any other unknown key.)* Accept the final delivery manifest.
+- [x] **T-891** *(done 2026-11-16: `src/projection/control_counts.py`; the eleven group-5 keys,
+      file-derived definitions, `news_sector`/`PORTFOLIO_CHECK` acceptance, and the final
+      news/bull presence rules.)* Compute the final control counts.
+- [x] **T-892** *(done 2026-11-16: `verify_store --manifest`; the file-computed comparison stays
+      in `build_delivery`, and the not-yet-loaded keys print `not store-verifiable` without
+      failing.)* Verify the new counts against the files and the store.
+- [x] **T-893** *(done 2026-11-16: `src/projection/load_veto.py`; final prose config, empty
+      without-hierarchy JSONL, optional retention, cash-menu skip, new detail fields,
+      `gate.write_batched`, per-graph SHACL timing and the >300,000-triple flag.)* Make the
+      loader accept the final delivery's shape.
+- [x] **T-894** *(done 2026-11-16: `tests/test_veto_manifest.py`, `tests/test_control_counts.py`,
+      `tests/test_veto_events.py`, `tests/test_load_veto.py`, `docs/final-delivery.md` §0quater;
+      synthetic new-key/wrong-count/unknown-key/absent-data tests and the full dry run.)* Tests,
+      definitions and the final-delivery runbook.
+- [ ] **T-895** Decide the MARKOWITZ_MV delivery path: the final `mv_base/` has only
+      `aggregates_mv_base.json`, while `load_mv_base` needs `config_mv_base.md`, `SHA256SUMS`
+      and `final_<window>.db` under `--engine-dir`. Do not fake the path; the maintainer chooses
+      between a corrected mv_base folder and a documented symlink staging step.
+- [x] **T-896** *(done 2026-11-16: corrected `aggregates_final.json` SHA-256
+      `b2cc35dc…`, 61 rows, `trend_filter_applies_to_arms: ["TOPN_MV_GUARD"]`, 15
+      `news_risk_off: true`; source check passes.)* Resolve the final aggregates source check.
+- [x] **T-897** *(done 2026-11-16: `:newsRiskOff` boolean property, required shape, bilingual
+      labels/comments and the changed `:trendState`/`:cashFraction`/`:appliesToArm` texts;
+      `docs/labels-news-risk-off-review.md` for Reviewer A.)* Project the news risk-off column.
+- [x] **T-898** *(done 2026-11-16: `tests/test_aggregates.py`, `tests/test_cli_load_aggregates.py`,
+      `tests/test_term_labels.py`, `tests/test_kg_load_schema.py`; real `load_aggregates` dry run
+      over the corrected delivery: 17/17 source checks, 61 rows, 15 news-risk-off rows, 21 cash
+      rows, 733 triples, SHACL conforms; the old `portfolio_test` graph was correctly reported as
+      different by `--check-store`, no write.)* Tests and dry-run evidence.
+- [ ] **T-899** Reserved for review fixes. *(T-895, the MARKOWITZ_MV path, remains open and
+      `load_mv_base` is untouched.)*
+- [x] **T-910** *(done 2026-11-16, block D: `schema/tbox.ttl`, `schema/shapes.ttl`,
+      `tests/test_news_shapes.py`, `docs/labels-news-review.md`; 75 classes / 61 disjoint leaves /
+      60 named shapes, 9694 quads, 21/9971 load, production 5/9450; labels approved by Reviewer A.)*
+      Add the `:NewsItem` class, one typed property per loaded column, the Asset link, the
+      `:NewsItemShape`, the synthetic positive/negative cases and the bilingual review table.
+- [x] **T-911** *(done 2026-11-16: `src/projection/news.py`; strict manifest/SHA256SUMS, header,
+      row-count, duplicate-key and two-revision stops; typed projection, asset resolution with the
+      engine-id fallback, year graphs and the gate target; `tests/test_news.py`.)* News parser and
+      projector, including the IRI key rule and the unresolved-asset report.
+- [x] **T-912** *(done 2026-11-16: `cli/load_news.py`, `gate.write_batched`, dry run, `--check-store`,
+      `--write`, production guard and graph-in-doubt handling; `tests/test_cli_load_news.py`.)*
+      News loader CLI and bounded writes.
+- [x] **T-913** *(done 2026-11-16: `verify_store --manifest` sums stored NewsItem rows per year
+      against the manifest and checks distinct tickers; absent graphs are not store-verifiable;
+      tests for both.)* Store-side news verification.
+- [x] **T-914** *(done 2026-11-16: `docs/final-delivery.md` §7e and 0bis.6, docs/07, veto design §7,
+      README/SPEC/schema/06/07 counts; real dry run and read-only pre-flight on `portfolio_test`,
+      no GraphDB write; full suite 1,868 passed / 62 deselected.)* Delivery documentation, count
+      reconciliation and the real dry run.
+- [ ] **T-915–T-919** Reserved for block D review fixes.
 - [x] **T-900** *(done 2026-11-16: `docs/agent-traceability-design.md`; design only.)* Record the
       real block-F files, keys, counts, graph names, pointer-only fields and the deviations from
       `docs/veto-hierarchy-design.md` §7.
-- [x] **T-901** *(done 2026-11-16: 82 classes / 68 disjoint leaves / 68 named shapes, 12045 quads,
-      21/12322 load, production 5/11801.)* Add the eight classes, their properties, closed shapes
+- [x] **T-901** *(done 2026-11-16: 83 classes / 69 disjoint leaves / 635 properties / 69 named
+      shapes, 12439 quads, 21/12716 load, production 5/12195.)* Add the eight classes, their properties, closed shapes
       and the agents graph target.
 - [x] **T-902** *(done 2026-11-16: `src/projection/agents.py`.)* Strict manifest/SHA256SUMS
       check, four-file parser, exact fractions, cross-file checks and the four graph builders.
 - [x] **T-903** *(done 2026-11-16: `cli/load_agents.py`.)* Dry run, `--check-store`, `--write`,
       `--to-production`, `--window`, `--only`, batched writes and graph-in-doubt handling.
-- [x] **T-904** *(done 2026-11-16: hermetic tests, synthetic negative shapes, real dry run
-      122,339 triples, labels table and `docs/final-delivery.md` §7e.)* Tests, dry-run evidence
-      and delivery docs.
-- [ ] **T-905** Store-side control counts in `verify_store --manifest`; blocked on PR B.
-- [ ] **T-906** The `:newsItem` link to the block D `:NewsItem`; blocked on PR D.
+- [x] **T-904** *(done 2026-11-16: hermetic tests, synthetic negative shapes, five-window real
+      dry run 43,468 triples, labels table and `docs/final-delivery.md` §7f. P1/C1 stop on two
+      REGN rows absent from block D.)* Tests, dry-run evidence and delivery docs.
+- [x] **T-905** *(done 2026-11-16: `store_agent_counts`/`verify_agent_control_counts`, called
+      from `verify_delivery`; eleven keys removed from the non-verifiable sets; absent graphs
+      print `not store-verifiable`.)* Store-side control counts.
+- [x] **T-906** *(done 2026-11-16: `:newsItem` on `:NewsEvidence`, D's `parse_rows` lookup,
+      cross-graph context and missing/ambiguous tests.)* `:newsItem` link.
 - [ ] **T-907–T-909** Reserved for block F review fixes.

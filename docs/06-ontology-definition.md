@@ -1,9 +1,9 @@
 # Ontology Definition — Portfolio Knowledge Graph (v2)
 
 **Implementation:** [`schema/`](../schema/) — the formal OWL/SHACL/TriG implementation of
-everything described below, split into `tbox.ttl` (classes/properties, **82 classes total** as of
-this revision — 68 mutually-disjoint leaf/domain classes, a 13-class `rdfs:subClassOf` taxonomic
-backbone and `:ExchangeTradedFund` under `:Asset`, see §1.2), `shapes.ttl` (SHACL, 68 named
+everything described below, split into `tbox.ttl` (classes/properties, **83 classes total** as of
+this revision — 69 mutually-disjoint leaf/domain classes, a 13-class `rdfs:subClassOf` taxonomic
+backbone and `:ExchangeTradedFund` under `:Asset`, see §1.2; **635 properties**), `shapes.ttl` (SHACL, 69 named
 shapes), `reference.ttl` (GICS taxonomy +
 asset master data + the new `MetricType` controlled vocabulary, §1.9), `rules.ttl` (the ten active
 selection rules, the six GUARD protection rules, and the seven original ones as trees), and
@@ -928,8 +928,8 @@ not a veto rule:** it carries no `:ruleSeverity`, `:penaltyPoints` or `:priority
 `VetoShape` refuses it as the object of `:appliesRule`/`:primaryRule`. `RuleDefinitionShape` adds one
 `sh:or` branch for `:category "GUARD"`, keeps the severity requirement for every other active rule,
 makes `:priorityRank` mandatory for non-GUARD rules, and widens the rank range to `[1,10]` for
-`UTILITY_CASH_COVERAGE`. The bundle is **12045 quads; conforms: True** (the FR-001 gate, current at
-Work item 46).
+`UTILITY_CASH_COVERAGE`. The bundle is **12439 quads; conforms: True** (the FR-001 gate, current at
+block F).
 
 **Projection of the three remaining v18 views (T-208, T-352/T-353).** `TickerHistory`,
 `OrchestratorRun` and `OrchestratorStep` are now written by `src/projection/reference.py`:
@@ -996,9 +996,10 @@ True.**
 ## 1.13 The aggregates file (Work item 37, 2026-11-05)
 
 Upstream now publishes `aggregates_<label>.json` beside the run databases and `SHA256SUMS`. It has
-two row families. `:TrendFilterState` records one decision date: the published `spy_vs_sma210` state
-(`below`, `at_or_above`, `not_evaluable`), the `:cashFraction` the filter moved to cash and the two
-Top-N arms it applies to. `:ReferenceReturn` records one reporting segment and reference (`SPY` or
+two row families. `:TrendFilterState` records one decision date: the published price input
+(`spy_vs_sma210`: `below`, `at_or_above`, `not_evaluable`; SPY's total-return index against its
+210-session mean), the level D news input `:newsRiskOff`, the `:cashFraction` the filter moved to
+cash and the one Top-N arm `TOPN_MV_GUARD` it applies to. `:ReferenceReturn` records one reporting segment and reference (`SPY` or
 `SP500_EW_INTERNAL`): `:referenceTotalReturn`, `:referenceMaxDrawdown`, the segment's inclusive dates
 and its session count. `:AggregatesSet` is the per-label root both row classes point at with
 `:aggregatesSet`; it carries the source file name, its lowercase manifest SHA-256, the `config_id`
@@ -1007,19 +1008,21 @@ validated and deliberately not projected.
 
 The names read beside the existing backtest terms and avoid a domain clash: `:trendWindow`,
 `:trendDecisionDate`, `:returnWindow`, `:returnSegment`, `:referenceDateFrom`, `:referenceDateTo`,
-`:nSessions`, `:referenceName`, `:referenceTotalReturn` and `:referenceMaxDrawdown` are new
-properties, so the existing `:windowId`, `:decisionDate`, `:dateFrom`, `:dateTo` and `:maxDrawdown`
-keep their own `rdfs:domain` (using them here would entail a disjoint class). Every new property's
-English `rdfs:comment` is the file's dictionary text verbatim. The parser is a whitelist: extra keys,
+`:nSessions`, `:referenceName`, `:referenceTotalReturn`, `:referenceMaxDrawdown`, `:cashFraction`,
+`:newsRiskOff` and `:appliesToArm` are new properties, so the existing `:windowId`, `:decisionDate`,
+`:dateFrom`, `:dateTo` and `:maxDrawdown` keep their own `rdfs:domain` (using them here would entail
+a disjoint class). Every dictionary-backed property's
+English `rdfs:comment` is the file's dictionary text verbatim; the new `:newsRiskOff` comment is
+the letter-26 definition. The parser is a whitelist: extra keys,
 unknown states/references/segments, duplicate row identities and a bad manifest stop with a message.
 The graph is the append-only `urn:graph:derived:backtest:aggregates:{label}`; the three row shapes
 close the label, window, segment, state and reference vocabularies with `sh:pattern`/`sh:in`.
 
 The read-only verifier compares the file with the source databases: each window's trend dates must
-equal the distinct `v_book_rebalance.decision_date` of both Top-N arms; each segment in
+equal the distinct `v_book_rebalance.decision_date` of `TOPN_MV_GUARD`; each segment in
 `v_portfolio_period_summary` must have exactly the two reference rows with the summary's dates;
-`below` must carry a positive cash fraction and every other state exactly `0.0`; and `P2` must
-compound `P2a`/`P2b` within `1e-6`. It never writes and never stores a daily series, a price level or
+`below` or `newsRiskOff` must carry a positive cash fraction and every other row exactly `0.0`; and
+`P2` must compound `P2a`/`P2b` within `1e-6`. It never writes and never stores a daily series, a price level or
 the 210-session mean. Counts after this addition: **58 classes (44 disjoint leaves), 39 named
 shapes, 4915 quads; conforms: True.** Work item 38 adds only the `bootstrap_mdd` `sh:in` member
 (+2 triples).
@@ -1050,8 +1053,8 @@ parameters and process/evaluation terms. `LabelConceptShape` (in `shapes.ttl`) r
 `skos:notation`, one `skos:inScheme`, one `rdfs:label` and one `rdfs:comment` per language, and only
 `@en`/`@es` `skos:altLabel`s; windows also carry `:windowStart`, `:windowEnd`, `:historicalCondition`
 and `:finalConfigurationCondition`. The file is in FR-001 and the load plan. Counts after this
-addition: **74 classes (60 disjoint leaves), 59 named shapes, 9310 quads; conforms: True**; load plan
-**21 graphs / 9587 asserted triples** (production **5 / 9066**).
+addition: **75 classes (61 disjoint leaves), 463 properties, 60 named shapes, 9694 quads; conforms: True**; load plan
+**21 graphs / 9971 asserted triples** (production **5 / 9450**).
 
 ## 1.16 Fundamentals block C schema (Work item 45, T-811/T-812, 2026-11-13)
 
@@ -1067,8 +1070,8 @@ the 33 masked flags. The loader (PR 2) stops on a `valuation` row of a masked as
 `:Observation`; the existing explicit types are checked by `tests/test_fundamentals_shapes.py`.
 `shapes.ttl` adds `FundamentalFilingShape`, `FundamentalMetricSetShape`,
 `FundamentalAssessmentShape` and `FundamentalMetricDefinitionShape`.
-Counts: **74 classes (60 disjoint leaves), 59 named shapes, 9310 quads; conforms: True**; load plan
-**21 graphs / 9587 asserted triples** (production **5 / 9066**).
+Counts: **75 classes (61 disjoint leaves), 463 properties, 60 named shapes, 9694 quads; conforms: True**; load plan
+**21 graphs / 9971 asserted triples** (production **5 / 9450**).
 
 ## 1.17 Veto Hierarchy detail events (Work item 46, T-853–T-859, 2026-11-13)
 
@@ -1100,8 +1103,8 @@ match exactly one loaded alert by `(date, asset)`, every replacement must link t
 decision pool/candidate/blocked counts must agree with the decision-only selection rows (never
 `rankings.json`). `RetentionRejectionShape` now admits counter 0. PR D adds
 `:memoryReleaseCause`, `:memoryStartKind` and `:rejectedZoneNoSignal`, the C1/31-concept label vocabulary and the
-removed-rule label cleanup; counts after it: **74 classes, 60 disjoint leaves, 59 named shapes,
-9310 quads, 21/9587 asserted triples, production 5/9066**.
+removed-rule label cleanup; counts after it: **75 classes, 61 disjoint leaves, 463 properties,
+60 named shapes, 9694 quads, 21/9971 asserted triples, production 5/9450**.
 
 ## 1.18 Daily reference series (Work item 46, block E, 2026-11-15)
 
@@ -1117,7 +1120,29 @@ calendar windows. No price level, OHLCV or daily asset return is stored. The two
 `DailySeriesPointShape` and `SeriesWeightPointShape` enforce the configuration branch, the window
 pattern and a decimal value per column.
 
-## 1.19 Agent traceability (Work item 46, block F, 2026-11-16)
+## 1.19 News rows (Work item 46, block D, 2026-11-16)
+
+`tbox.ttl` adds the `:NewsItem` `:EvidenceSource` leaf and one typed property per loaded column of
+`news/news_rows.jsonl` (the `url` column is empty today and stays optional): `:modelRevision`,
+`:sentimentRevision` and `:categoryRevision` are provenance; `:newsAssetId` and `:articleId` are
+integers; `:newsDate` is `xsd:date`; the three probabilities and `:categoryScore` are
+`xsd:decimal` in `[0,1]`; title and the delivered fragment are plain literals, and the fragment is
+capped at 2,000 characters so it can never become the full article. Sentiment and category are model
+outputs, not verified facts. The IRI is built from `(item_kind, item_id, ticker)` only, so the same
+fragment under a later `model_revision` cannot mint a second individual; the loader stops if it sees
+one key under two revisions. The optional `:newsItemOfAsset` link resolves the row's ticker against
+the loaded catalog, falling back to the engine `asset_id` when the ticker is historical. Letter 26
+corrected the 261 PSKY rows to engine `asset_id` 477 (the run read them as SKYD), so all 503 PSKY
+rows link to `:SKYD`; the 9 EQR rows stay unlinked because the engine has no asset or ticker
+interval for EQR. A future revision that re-labels an already loaded fragment (same `item_id`, same
+ticker) writes a second value on the same node, one per graph, so queries must read the revision by
+graph. The loader writes one append-only graph per calendar year,
+`urn:graph:derived:news:{label}:{year}` (a year over the ~400,000-triple bound becomes
+`:01-06`/`:07-12`), in bounded N-Triples batches; a lost answer is a graph in doubt and is never
+retried blindly. Counts: **75 classes (61 disjoint leaves), 60 named shapes, 9694 quads**; load
+plan **21/9971 asserted triples** (production **5/9450**).
+
+## 1.20 Agent traceability (Work item 46, block F, 2026-11-16)
 
 `tbox.ttl` adds eight Observation leaves in a second `owl:AllDisjointClasses` block at the end of
 the file: `:ManagerCall`, `:NarratorText`, `:NewsAction`, `:NewsEvidence`, `:DateRecord`,
@@ -1130,7 +1155,8 @@ evidence and exact p-value/size fractions as integer numerator/denominator pairs
 `:NewsRunRecord` stores the file-level exit and sector-rejection counts. `:BullModeRecord` and
 `:BullModeDecision` store N11 per decision date. `shapes.ttl` adds one closed shape per class and
 `:AgentRecordNoPriceShape`; the loader writes one append-only graph per `(label, window, file)`
-into `urn:graph:derived:backtest:agents:{label}:{window}:{slug}`. Counts: **82 classes, 68 disjoint
-leaves, 68 named shapes, 12045 quads, 21/12322 asserted triples, production 5/11801**; real dry run
-**122,339 triples** (16,050 manager, 78,504 narrator, 25,483 news, 2,302 bull-mode), all SHACL
-conform; no GraphDB write.
+into `urn:graph:derived:backtest:agents:{label}:{window}:{slug}`. Counts: **83 classes, 69 disjoint
+leaves, 69 named shapes, 12439 quads, 21/12716 asserted triples, production 5/12195**; the five
+windows that load project **43,468 triples** (7,726 manager, 22,244 narrator, 12,483 news, 1,015
+bull-mode) and all SHACL-conform. P1/C1 stop on two REGN test rows absent from `news_rows.jsonl`;
+no GraphDB write.

@@ -26,6 +26,7 @@ from kg_store.graphdb import (
 )
 from kg_store.load_schema import SchemaError
 from projection.load_veto import verify_manifest_store
+from projection.news import verify_manifest_store as verify_news_store
 from projection.veto_manifest import read_manifest
 
 
@@ -69,12 +70,21 @@ def main(argv: list[str] | None = None) -> int:
             failed += 1
             print(f"FAIL  {name}: {exc}")
     if args.manifest is not None:
+        manifest = read_manifest(args.manifest)
         try:
-            verify_manifest_store(db, read_manifest(args.manifest), args.label)
+            verify_manifest_store(db, manifest, args.label)
             print("PASS  Veto Hierarchy and series manifest checks")
         except (AssertionError, GraphDBError, OSError, ValueError) as exc:
             failed += 1
             print(f"FAIL  Veto Hierarchy and series manifest checks: {exc}")
+        if manifest.news_rows is not None:
+            try:
+                verify_news_store(db, manifest, args.label)
+            except (AssertionError, GraphDBError, OSError, ValueError) as exc:
+                failed += 1
+                print(f"FAIL  news manifest checks: {exc}")
+        else:
+            print("news: not store-verifiable: the manifest has no news_rows_file block")
     return 1 if failed else 0
 
 

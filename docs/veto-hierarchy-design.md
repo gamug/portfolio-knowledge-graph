@@ -707,16 +707,45 @@ window, date)`; it does not collide with this design.
 
 ## 7. Forward-looking (short)
 
+**News items (block D, loaded 2026-11-16).** `:NewsItem` is the news fragment evidence, loaded from
+`news/news_rows.jsonl` (69,329 rows, model revision `snapshot-c3a753affa5d`) into one append-only
+graph per calendar year, `urn:graph:derived:news:{label}:{year}` (a year over the ~400,000-triple
+bound is split into `:01-06`/`:07-12`). Its IRI is built from **`(item_kind, item_id, ticker)` only**:
+`:NewsItem_{item_kind}_{item_id}_{ticker}` (for example `:NewsItem_sub_news_251045_DAL`). It is
+never built from `model_revision`, a run id or a graph date, so a later revision of the same
+fragment (the 92 index leavers arrive as other `model_revision` rows with the same columns and key)
+reuses the same individual and a news-action record can link to it permanently. The loader stops
+with an error if one `(item_kind, item_id, ticker)` appears under two revisions in the same load;
+it also stops on a duplicate key. A future revision that re-labels an already loaded fragment
+(same `item_id`, same ticker) therefore writes a second value on the same node, one per graph;
+queries must read the revision they want by graph, not assume one value per predicate. The row carries `:itemKind`, `:itemId`, `:newsTicker`,
+`:newsAssetId`, `:newsDate`, `:dateSource`, `:newsTitle`, `:newsText`, `:textSource`,
+`:newsSentiment`, `:sentimentScore`, `:pPositive`, `:pNegative`, `:pNeutral`,
+`:sentimentRevision`, `:newsCategory`, `:categoryScore`, `:groupLabel`, `:categoryRevision`,
+`:articleId`, `:bodyHash`, `:sourceDomain`, `:modelRevision` and, when the delivery fills it,
+`:url`; `:newsItemOfAsset` links the ticker's Asset when it resolves. Letter 26 corrected the
+`asset_id` of the 261 PSKY rows to 477 (the engine read them as SKYD), so all 503 PSKY rows link
+to `:SKYD` through that engine id, not through the ticker PSKY. The 9 EQR rows stay unlinked: the
+engine has no asset or `ticker_history` interval for EQR and the run's adapter discarded them as
+`ticker_unmapped`.
+
+Reviewer A's decision of 2026-11-15 supersedes the earlier "do not store the body" rule **for the
+delivered fragment**: the text is loaded exactly as delivered because it is the evidence the model
+labelled. It is still not the full article: the delivery sends a fragment (mean ~500 characters,
+never more than 2,000), the source domain is cited on the same row and the use is academic. The
+sentiment and category values and their probabilities are NLP-model outputs; the three revision
+fields record their provenance and they are never presented as verified facts.
+
 **News actions.** Design now, no real run yet. Add `:NewsAction` per `PoolActionRecord`, key
 `(decision_date, asset_id, action)`; `:newsActionOfBook`, `:newsActionDate`, `:newsActionAsset`,
 `:newsActionKind` (`veto`/`promotion`), `:replacesAsset`, `:replacedByAsset`; `:NewsEvidence` per
 company with `:newsState`, `:newsN`, `:newsA`, `:newsB`, tier counts, `:meanProbabilityMargin`; the
 exact test as two integer properties `:pValueNumerator`/`:pValueDenominator` (and the same for the
 critical/size fractions), parsed from `"num/den"` as rationals, not floats. `:testRows` is one link
-per `(item_id, ticker)` to a `:NewsItem` carrying `:itemId`, `:bodyHash`, `:url`, `:summary`, and
-the ticker's asset; do not store the body. `:DateRecord` per decision carries coverage, admission
-counts, base rates, expected-by-chance fractions, states and the action list. No individuals exist
-in the pilot; the first real news run is a later task.
+per `(item_id, ticker)` to the already-loaded `:NewsItem` above; block F writes it as `:newsItem`
+and keeps the `:newsTestRow` literal for audit. `:DateRecord` per decision carries
+coverage, admission counts, base rates, expected-by-chance fractions, states and the action list.
+No action individuals exist in the pilot; the first real news run is a later task.
 
 **Manager calls and narrator.** `:ManagerCall` per `manager_calls.jsonl` line, key `call_index`
 local to the run, linked to the stop by `(date, stopped_asset_id)`. Carry `:agentArm`,
@@ -822,16 +851,21 @@ The second label table was approved by Reviewer A and applied in PR D: the 31 co
   are errors.
 - The manifest's `price_mask` SHA-256 must match the real mask file; otherwise stop before parsing.
 
-**`control_counts` (Reviewer A, 2026-11-13).** The shape is
+**`control_counts` (Reviewer A, 2026-11-13; final-1 additions 2026-11-16).** The shape is
 `control_counts -> configuration -> window -> key -> value`. The loader computes every key from the
 filtered run DB, the detail file and the manifest files, never from the manifest. `SH` carries
 groups 1–5, `SS` groups 1–4, `MB` group 1, and `MARKOWITZ_MV`/`SPY` group 6 (`daily_rows`). Group 5
-is `null` exactly when its file is `null` in the manifest. Integers and fixed-key integer objects
-compare exactly; `final_values` reals compare with `abs(diff) <= 1e-12`; a final missing/unknown key
-or any difference is a hard error; a draft may omit `control_counts` but a present key still
-compares. The identities are `memory_episodes = memory_released_price +
-memory_released_not_ranked + memory_open_at_end`, `scale_changes = sum of the three L0 rules in
-alerts_by_rule`, and `retention_counter_drops = retention_rejections_by_cause.counter`.
+is `null` exactly when its file is `null` in the manifest; the final delivery adds
+`news_level_c_decisions`, `news_level_d_decisions`, `news_exits`, `news_sector_rejections` and
+`bull_triggered`. Integers and fixed-key integer objects compare exactly; `final_values` reals
+compare with `abs(diff) <= 1e-12`; a final missing/unknown key or any difference is a hard error; a
+draft may omit `control_counts` but a present key still compares. The identities are
+`memory_episodes = memory_released_price + memory_released_not_ranked + memory_open_at_end`,
+`scale_changes = sum of the three L0 rules in alerts_by_rule` **for the pilot only** (the final
+delivery's `scales.json` is empty while L0 alerts exist, so the identity is not enforced when
+`scale_changes` is zero), and
+`retention_counter_drops = retention_rejections_by_cause.counter`. The final-1 definitions are in
+`docs/final-delivery.md` §0quater.1.
 `decision_close_episodes` is group 2 and is compared like every other key; it is never hard-coded.
 `SYSTEM_WITHOUT_HIERARCHY` ships `scales_file: []`, so its `scale_changes` is 0 by the same
 computation; every group-2 key is computed from its JSON-lines (which only carries
@@ -849,9 +883,12 @@ loaded m018 graphs: `alerts_by_rule`, `actions_by_status`, `rebalances`, `daily_
 `retention_decisions`/`holds`/`rejections`/`counter_drops` and
 `retention_rejections_by_cause`. It prints why the rest cannot be checked from the store:
 `ranking_decisions`/`ranking_rows` and `scale_changes` (files not projected), `blocked_records` and
-`reentry_records` (detail records are not graph nodes), the group-5 manager/narrator/news keys
-(not loaded), and `MARKOWITZ_MV`/`SPY` `daily_rows` (reference CSVs not loaded). A missing
-`PortfolioPeriodSummary` is a failure, not a non-verifiable key.
+`reentry_records` (detail records are not graph nodes), and the group-5
+manager/narrator/news/bull keys (not loaded yet, including `news_level_c_decisions`,
+`news_level_d_decisions`, `news_exits`, `news_sector_rejections` and `bull_triggered`).
+`MARKOWITZ_MV`/`SPY` `daily_rows` are verified from the series graph when it exists; an absent
+series graph prints `not store-verifiable` and does not fail. A missing `PortfolioPeriodSummary` is
+a failure, not a non-verifiable key.
 
 ### 9.2 SHA-256 before parsing
 

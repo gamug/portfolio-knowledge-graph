@@ -71,6 +71,11 @@ GROUP_5 = (
     "narrator_texts",
     "news_pool_actions",
     "news_date_records",
+    "news_level_c_decisions",
+    "news_level_d_decisions",
+    "news_exits",
+    "news_sector_rejections",
+    "bull_triggered",
 )
 GROUP_6 = ("daily_rows",)
 
@@ -140,7 +145,7 @@ def compute_control_counts(  # noqa: PLR0913 -- the source bundle is explicit
             values.update(_group_3(configuration, detail))
             values.update(_group_4(rankings, files))
         if configuration == GH:
-            values.update(_group_5(files))
+            values.update(_group_5(files, detail))
         return values
     raise ControlCountError(f"{configuration}: no engine control counts")
 
@@ -312,7 +317,10 @@ def _check_identities(
 ) -> None:
     if source == "manifest" and not isinstance(values, Mapping):
         return
-    if "alerts_by_rule" in values and "scale_changes" in values:
+    # The pilot identity ``scale_changes == sum L0 alerts`` does not hold in the final delivery:
+    # its scales file is empty while the engine still reports L0 alerts. Keep the check for the
+    # historical pilot (non-zero scale_changes) and never manufacture a scale count.
+    if values.get("scale_changes") and "alerts_by_rule" in values:
         by_rule = values["alerts_by_rule"]
         if isinstance(by_rule, dict):
             expected = sum(
@@ -451,7 +459,7 @@ def _group_3(configuration: str, detail: object | None) -> dict[str, Any]:
         retentions = [
             line["retention"]
             for line in getattr(detail, "decisions", ())
-            if line.get("retention", {}).get("enabled") is True
+            if isinstance(line.get("retention"), dict) and line["retention"].get("enabled") is True
         ]
     else:
         retentions = list(getattr(detail, "retention_decisions", ()))
@@ -494,18 +502,52 @@ def _group_4(
     }
 
 
-def _group_5(files: Mapping[str, Path]) -> dict[str, Any]:
+def _group_5(files: Mapping[str, Path], detail: object | None = None) -> dict[str, Any]:
     manager = files.get("manager_calls_file")
     narrator = files.get("narrator_file")
     news = files.get("news_actions_file")
+    news_actions, news_dates, level_c, level_d = _news_bundle(news)
     return {
         "manager_calls": _manager(manager)[0],
         "manager_fallbacks": _manager(manager)[1],
         "manager_repairs": _manager(manager)[2],
         "narrator_texts": None if narrator is None else len(_records(narrator)),
-        "news_pool_actions": _news(news)[0],
-        "news_date_records": _news(news)[1],
+        "news_pool_actions": news_actions,
+        "news_date_records": news_dates,
+        "news_level_c_decisions": level_c,
+        "news_level_d_decisions": level_d,
+        "news_exits": _news_exits(detail) if news is not None else None,
+        "news_sector_rejections": _news_sector_rejections(detail) if news is not None else None,
+        "bull_triggered": _bull_triggered(files.get("bull_mode_file")),
     }
+
+
+def _news_exits(detail: object | None) -> int:
+    """Stops whose JSON-lines ``trigger`` is ``news_shock`` (the L1_BP_STOP news exit)."""
+    return sum(1 for stop in getattr(detail, "stops", ()) if stop.get("trigger") == "news_shock")
+
+
+def _news_sector_rejections(detail: object | None) -> int:
+    """Sum of every stop's ``eligible_counts.news_sector`` (level C sector rejections)."""
+    total = 0
+    for stop in getattr(detail, "stops", ()):
+        counts = stop.get("eligible_counts") or {}
+        total += int(counts.get("news_sector", 0))
+    return total
+
+
+def _bull_triggered(path: Path | None) -> int | None:
+    if path is None:
+        return None
+    payload = _json_payload(path)
+    if not isinstance(payload, dict) or not isinstance(payload.get("decisions"), list):
+        raise ControlCountError(f"{path}: bull_mode.json must carry a decisions list")
+    total = 0
+    for number, decision in enumerate(payload["decisions"], 1):
+        if not isinstance(decision, dict) or not isinstance(decision.get("triggered"), bool):
+            raise ControlCountError(f"{path}: decisions[{number}].triggered must be a boolean")
+        total += int(decision["triggered"])
+    return total
 
 
 def _manager(path: Path | None) -> tuple[int | None, int | None, int | None]:
@@ -522,18 +564,98 @@ def _manager(path: Path | None) -> tuple[int | None, int | None, int | None]:
 
 
 def _news(path: Path | None) -> tuple[dict[str, int] | None, int | None]:
+    """The historical two-value view used by the first tests."""
+    actions, dates, _level_c, _level_d = _news_bundle(path)
+    return actions, dates
+
+
+def _news_bundle(  # noqa: C901 -- one branch per final/legacy news shape
+    path: Path | None,
+) -> tuple[dict[str, int] | None, int | None, int | None, int | None]:
+    """Count the final ``*.news.json`` object, or the older JSON-lines/array shape.
+
+    The final file is one object with ``actions`` (PoolActionRecord), ``dates`` (DateRecord),
+    ``levels_v2.decisions`` (level C/D decisions) and ``levels_v2.b_news_exits`` (the same count
+    the JSON-lines stop ``trigger`` carries). The older JSON-lines form has one record per line.
+    """
     if path is None:
-        return None, None
-    records = _records(path)
+        return None, None, None, None
+    document: object
+    try:
+        document = _json_payload(path)
+    except ControlCountError:
+        document = _records(path)
+    if isinstance(document, dict):
+        action_rows = _dict_list(document.get("actions"), path, "actions")
+        dates = _as_list(document.get("dates"), path, "dates")
+        levels = document.get("levels_v2")
+        if levels is None:
+            return _action_counts(action_rows), len(dates), None, None
+        if not isinstance(levels, dict):
+            raise ControlCountError(f"{path}: levels_v2 must be an object")
+        decisions = _dict_list(levels.get("decisions"), path, "levels_v2.decisions")
+        level_c = sum(1 for decision in decisions if _level_c_flagged(decision))
+        level_d = sum(1 for decision in decisions if decision.get("d_fired") is True)
+        for number, decision in enumerate(decisions, 1):
+            if "d_fired" in decision and not isinstance(decision["d_fired"], bool):
+                raise ControlCountError(
+                    f"{path}: levels_v2.decisions[{number}].d_fired must be a boolean"
+                )
+        return _action_counts(action_rows), len(dates), level_c, level_d
+    rows = _as_dict_list(document, path)
     actions: Counter[str] = Counter()
     date_records = 0
-    for row in records:
+    for row in rows:
         action = row.get("action")
         if action in ("veto", "promotion"):
             actions[str(action)] += 1
         if _is_date_record(row):
             date_records += 1
-    return {"veto": actions.get("veto", 0), "promotion": actions.get("promotion", 0)}, date_records
+    return (
+        {"veto": actions.get("veto", 0), "promotion": actions.get("promotion", 0)},
+        date_records,
+        None,
+        None,
+    )
+
+
+def _action_counts(action_rows: Sequence[Mapping[str, Any]]) -> dict[str, int]:
+    counts: Counter[str] = Counter()
+    for row in action_rows:
+        action = row.get("action")
+        if action not in ("veto", "promotion"):
+            raise ControlCountError(f"news action {action!r} is not veto or promotion")
+        counts[str(action)] += 1
+    return {"veto": counts.get("veto", 0), "promotion": counts.get("promotion", 0)}
+
+
+def _level_c_flagged(decision: Mapping[str, Any]) -> bool:
+    flags = decision.get("c_flags")
+    if isinstance(flags, dict) and flags:
+        return True
+    flagged = decision.get("c_flagged")
+    return isinstance(flagged, list) and bool(flagged)
+
+
+def _as_list(value: object, path: Path, where: str) -> list[Any]:
+    if not isinstance(value, list):
+        raise ControlCountError(f"{path}: {where} must be a list")
+    return value
+
+
+def _dict_list(value: object, path: Path, where: str) -> list[dict[str, Any]]:
+    items = _as_list(value, path, where)
+    if any(not isinstance(item, dict) for item in items):
+        raise ControlCountError(f"{path}: {where} must be a list of objects")
+    return items
+
+
+def _as_dict_list(value: object, path: Path) -> list[dict[str, Any]]:
+    if isinstance(value, list):
+        if any(not isinstance(item, dict) for item in value):
+            raise ControlCountError(f"{path}: expected a JSON array of objects")
+        return value
+    raise ControlCountError(f"{path}: expected a JSON array of objects or one news object")
 
 
 def _is_date_record(row: Mapping[str, Any]) -> bool:
@@ -613,19 +735,136 @@ class ReadableStore(Protocol):
     def select(self, sparql: str) -> list[dict[str, str]]: ...
 
 
+#: Keys whose file is parsed and compared but whose data has no graph representation yet.
+STORE_NOT_LOADED: frozenset[str] = frozenset()
+
 STORE_NON_VERIFIABLE: Mapping[str, str] = {
     "ranking_decisions": "the rankings file is not projected into a graph",
     "ranking_rows": "the rankings file is not projected into a graph",
     "scale_changes": "the scales file is not projected into a graph",
     "blocked_records": "blocked detail records are not individual graph nodes",
     "reentry_records": "reentry detail records are not individual graph nodes",
-    "manager_calls": "manager calls are not loaded",
-    "manager_fallbacks": "manager calls are not loaded",
-    "manager_repairs": "manager calls are not loaded",
-    "narrator_texts": "narrator texts are not loaded",
-    "news_pool_actions": "news actions are not loaded",
-    "news_date_records": "news date records are not loaded",
 }
+
+
+AGENT_GRAPH_PREFIX = "urn:graph:derived:backtest:agents:"
+AGENT_KEYS_BY_GRAPH: Mapping[str, tuple[str, ...]] = {
+    "manager_calls": ("manager_calls", "manager_fallbacks", "manager_repairs"),
+    "narrator": ("narrator_texts",),
+    "news": (
+        "news_pool_actions",
+        "news_date_records",
+        "news_level_c_decisions",
+        "news_level_d_decisions",
+        "news_exits",
+        "news_sector_rejections",
+    ),
+    "bull_mode": ("bull_triggered",),
+}
+AGENT_KEYS: frozenset[str] = frozenset(key for keys in AGENT_KEYS_BY_GRAPH.values() for key in keys)
+
+
+def agent_graph_name(label: str, window: str, slug: str) -> str:
+    """One block F graph; the slug is the source-file segment."""
+    return f"{AGENT_GRAPH_PREFIX}{label}:{window}:{slug}"
+
+
+def _agent_graph_exists(store: ReadableStore, graph: str) -> bool:
+    return bool(store.select(f"SELECT * WHERE {{ GRAPH <{graph}> {{ ?s ?p ?o }} }} LIMIT 1"))
+
+
+def _agent_count(store: ReadableStore, graph: str, where: str) -> int:
+    rows = store.select(
+        "PREFIX : <https://thesis.local/kg/portfolio#>\n"
+        f"SELECT (COUNT(DISTINCT ?s) AS ?n) WHERE {{ GRAPH <{graph}> {{ {where} }} }}"
+    )
+    return int(rows[0]["n"]) if rows and "n" in rows[0] else 0
+
+
+def _agent_sum(store: ReadableStore, graph: str, where: str) -> int:
+    rows = store.select(
+        "PREFIX : <https://thesis.local/kg/portfolio#>\n"
+        f"SELECT (SUM(?n) AS ?n) WHERE {{ GRAPH <{graph}> {{ {where} }} }}"
+    )
+    return int(rows[0]["n"]) if rows and "n" in rows[0] else 0
+
+
+def store_agent_counts(store: ReadableStore, label: str, window: str) -> dict[str, Any]:
+    """Derive the block F control keys from the four agent graphs.
+
+    A missing graph contributes no key; :func:`verify_agent_control_counts` prints those keys as
+    not store-verifiable and does not fail.
+    """
+    values: dict[str, Any] = {}
+    manager_graph = agent_graph_name(label, window, "manager_calls")
+    if _agent_graph_exists(store, manager_graph):
+        values["manager_calls"] = _agent_count(store, manager_graph, "?s a :ManagerCall")
+        values["manager_fallbacks"] = _agent_count(
+            store, manager_graph, "?s a :ManagerCall ; :fallbackUsedRule true"
+        )
+        values["manager_repairs"] = _agent_count(
+            store, manager_graph, "?s a :ManagerCall ; :repairUsed true"
+        )
+    narrator_graph = agent_graph_name(label, window, "narrator")
+    if _agent_graph_exists(store, narrator_graph):
+        values["narrator_texts"] = _agent_count(store, narrator_graph, "?s a :NarratorText")
+    news_graph = agent_graph_name(label, window, "news")
+    if _agent_graph_exists(store, news_graph):
+        values["news_pool_actions"] = {
+            kind: _agent_count(store, news_graph, f'?s a :NewsAction ; :newsActionKind "{kind}"')
+            for kind in ("veto", "promotion")
+        }
+        values["news_date_records"] = _agent_count(store, news_graph, "?s a :DateRecord")
+        values["news_level_c_decisions"] = _agent_count(
+            store, news_graph, "?s a :DateRecord ; :levelCDecision true"
+        )
+        values["news_level_d_decisions"] = _agent_count(
+            store, news_graph, "?s a :DateRecord ; :levelDFired true"
+        )
+        values["news_exits"] = _agent_sum(store, news_graph, "?s a :NewsRunRecord ; :newsExits ?n")
+        values["news_sector_rejections"] = _agent_sum(
+            store, news_graph, "?s a :NewsRunRecord ; :newsSectorRejections ?n"
+        )
+    bull_graph = agent_graph_name(label, window, "bull_mode")
+    if _agent_graph_exists(store, bull_graph):
+        values["bull_triggered"] = _agent_count(
+            store, bull_graph, "?s a :BullModeDecision ; :bullTriggered true"
+        )
+    return values
+
+
+def verify_agent_control_counts(
+    store: ReadableStore,
+    label: str,
+    window: str,
+    control_counts: object,
+) -> list[str]:
+    """Compare the block F keys; an absent graph prints not store-verifiable and does not fail."""
+    expected = expected_control_counts(control_counts, "SYSTEM_WITH_HIERARCHY", window)
+    if expected is None:
+        return []
+    wanted = {key: value for key, value in expected.items() if key in AGENT_KEYS}
+    if not wanted:
+        return []
+    actual = store_agent_counts(store, label, window)
+    failures: list[str] = []
+    for slug, keys in AGENT_KEYS_BY_GRAPH.items():
+        graph = agent_graph_name(label, window, slug)
+        if not _agent_graph_exists(store, graph):
+            for key in keys:
+                if key in wanted:
+                    print(
+                        f"control count not store-verifiable: "
+                        f"SYSTEM_WITH_HIERARCHY/{window}.{key}: the {slug} graph {graph} is absent"
+                    )
+    for key, value in wanted.items():
+        if key not in actual:
+            continue
+        try:
+            _compare_value("SYSTEM_WITH_HIERARCHY", window, key, value, actual[key])
+        except ControlCountError as exc:
+            failures.append(str(exc))
+    return failures
 
 
 def store_control_counts(store: ReadableStore, graph: str, configuration: str) -> dict[str, Any]:
@@ -719,6 +958,8 @@ def verify_store_control_counts(
     actual = store_control_counts(store, graph, configuration)
     failures: list[str] = []
     for key, value in expected.items():
+        if key in AGENT_KEYS:
+            continue
         if key not in actual:
             if key == "final_values":
                 failures.append(
@@ -727,7 +968,15 @@ def verify_store_control_counts(
                 )
                 continue
             reason = STORE_NON_VERIFIABLE.get(key, "not derivable from the loaded graph")
-            print(f"control count not store-verifiable: {configuration}/{window}.{key}: {reason}")
+            if key in STORE_NOT_LOADED:
+                print(
+                    f"control count not store-verifiable: not loaded yet: "
+                    f"{configuration}/{window}.{key}: {reason}"
+                )
+            else:
+                print(
+                    f"control count not store-verifiable: {configuration}/{window}.{key}: {reason}"
+                )
             continue
         try:
             _compare_value(configuration, window, key, value, actual[key])

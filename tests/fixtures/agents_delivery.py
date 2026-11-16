@@ -267,11 +267,74 @@ def bull_payload() -> dict[str, Any]:
     }
 
 
+NEWS_COLUMNS = [
+    "model_revision",
+    "item_kind",
+    "item_id",
+    "ticker",
+    "asset_id",
+    "date",
+    "date_source",
+    "title",
+    "text",
+    "text_source",
+    "sentiment",
+    "sentiment_score",
+    "p_positive",
+    "p_negative",
+    "p_neutral",
+    "sentiment_revision",
+    "category",
+    "category_score",
+    "group_label",
+    "category_revision",
+    "article_id",
+    "body_hash",
+    "source_domain",
+    "url",
+]
+
+
+def news_row() -> dict[str, Any]:
+    return {
+        "model_revision": "rev1",
+        "item_kind": "body",
+        "item_id": "10",
+        "ticker": "AAA",
+        "asset_id": 1,
+        "date": DATE,
+        "date_source": "published",
+        "title": "A title",
+        "text": "A fragment.",
+        "text_source": "original",
+        "sentiment": "neutral",
+        "sentiment_score": 0.5,
+        "p_positive": 0.4,
+        "p_negative": 0.3,
+        "p_neutral": 0.3,
+        "sentiment_revision": "s1",
+        "category": "general",
+        "category_score": 0.5,
+        "group_label": "g",
+        "category_revision": "c1",
+        "article_id": 1,
+        "body_hash": "b" * 64,
+        "source_domain": "example.com",
+        "url": None,
+    }
+
+
 def write_delivery(tmp_path: Path, *, overrides: dict[str, Any] | None = None) -> Path:
     """Write one complete P1 delivery and return its root."""
     root = tmp_path / "delivery"
     folder = root / "SYSTEM_WITH_HIERARCHY" / WINDOW
     folder.mkdir(parents=True)
+    news_dir = root / "news"
+    news_dir.mkdir()
+    news_rows_path = news_dir / "news_rows.jsonl"
+    news_rows_path.write_text(
+        json.dumps(news_row(), separators=(",", ":")) + "\n", encoding="utf-8"
+    )
     manager = [manager_call()]
     narrator = [narrator_text(), narrator_text(source="template", kind="blocked")]
     news = news_payload()
@@ -352,11 +415,19 @@ def write_delivery(tmp_path: Path, *, overrides: dict[str, Any] | None = None) -
                 ],
             }
         ],
+        "news_rows_file": {
+            "file": "news/news_rows.jsonl",
+            "sha256": _sha(news_rows_path.read_bytes()),
+            "rows": 1,
+            "model_revision": "rev1",
+            "columns": NEWS_COLUMNS,
+        },
         "control_counts": controls,
     }
     (root / "manifest_final.json").write_text(
         json.dumps(manifest, indent=2) + "\n", encoding="utf-8"
     )
+    relative["news_rows"] = "news/news_rows.jsonl"
     sums = [f"{digest}  {name}" for name, digest in sorted(relative_digest(root, relative).items())]
     (root / "SHA256SUMS").write_text("\n".join(sums) + "\n", encoding="utf-8")
     return root
@@ -380,6 +451,10 @@ def refresh_hashes(root: Path) -> None:
         path = run[f"{key}_file"]
         relative[key] = path
         run["files_sha256"][key] = _sha((root / path).read_bytes())
+    news_file = manifest.get("news_rows_file")
+    if isinstance(news_file, dict) and (root / news_file["file"]).is_file():
+        relative["news_rows"] = news_file["file"]
+        news_file["sha256"] = _sha((root / news_file["file"]).read_bytes())
     manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
     lines = [
         f"{digest}  {name}" for name, digest in sorted(relative_digest(root, relative).items())

@@ -20,6 +20,7 @@ from projection.control_counts import (
     _compare_value,
     _group_2,
     _group_4,
+    _group_5,
     _news,
     compare_control_counts,
     compute_control_counts,
@@ -27,6 +28,7 @@ from projection.control_counts import (
     expected_control_counts,
     store_control_counts,
     validate_control_counts,
+    verify_agent_control_counts,
     verify_store_control_counts,
 )
 from projection.source import FinancialSource
@@ -325,6 +327,8 @@ def test_a_spy_csv_without_a_window_column_fails(tmp_path: Path) -> None:
 
 class _EmptyStore:
     def select(self, query: str) -> list[dict[str, str]]:
+        if "LIMIT 1" in query:
+            return []
         if "GROUP BY" in query or "?cumulative" in query:
             return []
         return [{"n": "0"}]
@@ -420,3 +424,105 @@ def test_a_wrapped_final_manifest_is_rejected() -> None:
     with pytest.raises(ControlCountError, match=r"unknown configuration\(s\): configurations"):
         validate_control_counts(wrapped, ("SYSTEM_WITH_HIERARCHY",), ("P1",), final=True)
     assert expected_control_counts(wrapped, "SYSTEM_WITH_HIERARCHY", "P1") is None
+
+
+def test_group_5_reads_the_final_files(tmp_path: Path) -> None:
+    manager = tmp_path / "manager.jsonl"
+    manager.write_text(
+        '{"fallback": {"cause": null}, "repair_used": false}\n'
+        '{"fallback": {"cause": "validator"}, "repair_used": true}\n',
+        encoding="utf-8",
+    )
+    narrator = tmp_path / "narrator.jsonl"
+    narrator.write_text(
+        "".join('{"generated_by_language_model": true}\n' for _ in range(3)),
+        encoding="utf-8",
+    )
+    news = tmp_path / "news.json"
+    news.write_text(
+        json.dumps(
+            {
+                "actions": [
+                    {"action": "veto"},
+                    {"action": "veto"},
+                    {"action": "promotion"},
+                ],
+                "dates": [{"decision_date": "2022-01-03"}, {"decision_date": "2022-02-01"}],
+                "levels_v2": {
+                    "decisions": [
+                        {"date": "2022-01-03", "c_flags": {"3": {}}, "d_fired": True},
+                        {"date": "2022-02-01", "c_flags": {}, "d_fired": False},
+                    ]
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    bull = tmp_path / "bull_mode.json"
+    bull.write_text(
+        json.dumps({"decisions": [{"triggered": True}, {"triggered": False}, {"triggered": True}]}),
+        encoding="utf-8",
+    )
+    detail = type(
+        "Detail",
+        (),
+        {
+            "stops": (
+                {"trigger": "news_shock", "eligible_counts": {"news_sector": 4}},
+                {"trigger": None, "eligible_counts": {"news_sector": 2}},
+            )
+        },
+    )()
+    values = _group_5(
+        {
+            "manager_calls_file": manager,
+            "narrator_file": narrator,
+            "news_actions_file": news,
+            "bull_mode_file": bull,
+        },
+        detail,
+    )
+    assert values == {
+        "manager_calls": 2,
+        "manager_fallbacks": 1,
+        "manager_repairs": 1,
+        "narrator_texts": 3,
+        "news_pool_actions": {"veto": 2, "promotion": 1},
+        "news_date_records": 2,
+        "news_level_c_decisions": 1,
+        "news_level_d_decisions": 1,
+        "news_exits": 1,
+        "news_sector_rejections": 6,
+        "bull_triggered": 2,
+    }
+
+
+def test_group_5_is_null_when_the_final_files_are_absent() -> None:
+    values = _group_5({}, None)
+    assert all(value is None for value in values.values())
+
+
+def test_absent_agent_graphs_are_printed_without_failing(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    expected = {
+        "SYSTEM_WITH_HIERARCHY": {
+            "P1": {
+                "news_exits": 2,
+                "news_sector_rejections": 853,
+                "bull_triggered": 0,
+            }
+        }
+    }
+    failures = verify_agent_control_counts(_EmptyStore(), "final", "P1", expected)
+    assert failures == []
+    output = capsys.readouterr().out
+    assert "not store-verifiable" in output
+    assert "SYSTEM_WITH_HIERARCHY/P1.news_exits" in output
+    assert "SYSTEM_WITH_HIERARCHY/P1.news_sector_rejections" in output
+    assert "SYSTEM_WITH_HIERARCHY/P1.bull_triggered" in output
+
+
+def test_a_new_count_mismatch_is_a_failure() -> None:
+    with pytest.raises(ControlCountError, match="news_exits"):
+        _compare_value("SYSTEM_WITH_HIERARCHY", "P1", "news_exits", 2, 1)

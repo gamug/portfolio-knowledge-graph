@@ -362,8 +362,8 @@ so every result is in-sample.""" .
     a owl:Class ;
     rdfs:label "Trend Filter State" ;
     rdfs:label "estado del filtro de tendencia"@es ;
-    skos:definition "Estado del filtro de tendencia de la cartera Top-N en una fecha de decisión: si el cierre de SPY estaba por debajo de la media simple de sus últimos 210 cierres, la fracción de la cartera Top-N movida a efectivo y los brazos a los que se aplica. No publica ningún nivel de precio ni la media."@es ;
-    rdfs:comment "One row of aggregates_<label>.json trend_filter: the trend state of SPY against the simple mean of its last 210 session closes at one decision date, the cash fraction the filter moved to cash, and the two Top-N arms it applies to. :trendState is below | at_or_above | not_evaluable; no price level or mean is published. Work item 37." .
+    skos:definition "Estado del filtro de tendencia de la cartera TOPN_MV_GUARD en una fecha de decisión: la entrada de precio (el índice de retorno total de SPY frente a la media simple de sus últimos 210 valores de sesión), la entrada de noticias del nivel D (news_risk_off), la fracción de la cartera movida a efectivo y el brazo al que se aplica. No publica ningún nivel de precio ni la media."@es ;
+    rdfs:comment "One row of aggregates_<label>.json trend_filter: the price input: SPY's total-return index against the simple mean of its last 210 session values, the level D news input (newsRiskOff), the cash fraction the filter moved to cash, and the one Top-N arm it applies to. :trendState is below | at_or_above | not_evaluable; no price level or mean is published. Work item 37; the news input was added on 2026-11-16." .
 
 :ReferenceReturn
     a owl:Class ;
@@ -387,6 +387,13 @@ so every result is in-sample.""" .
     rdfs:label "Punto de peso de la serie"@es ;
     skos:definition "Un peso objetivo del libro de tangencia externo MARKOWITZ_MV en una fecha de decisión: la configuración, la ventana, la fecha de decisión, el asset_id de origen y el peso. No es un IRI de Asset ni una fila de BookWeightDaily; no se almacena ningún precio. Work item 46, bloque E."@es ;
     rdfs:comment "One target weight of the external MARKOWITZ_MV tangency portfolio at a decision date: the configuration, the window, the decision date, the upstream asset_id and the weight. It is not an Asset IRI and not a BookWeightDaily row; no price is stored. Work item 46, block E."@en .
+
+:NewsItem
+    a owl:Class ;
+    rdfs:label "News item"@en ;
+    rdfs:label "Fragmento de noticia"@es ;
+    skos:definition "Un fragmento de noticia asociado a una empresa: la fecha, el título, el texto exacto que entregó la instantánea de NLP (original o resumen), el dominio de la fuente, las probabilidades de sentimiento y categoría y las revisiones del modelo. El texto es el fragmento al que el modelo asignó la etiqueta, nunca el artículo completo (como máximo 2,000 caracteres); el sentimiento y la categoría son salidas del modelo, no hechos verificados. Work item 46, bloque D."@es ;
+    rdfs:comment "One news fragment for one company: the date, title, the exact text the NLP snapshot delivered (original or summary), the source domain, the sentiment/category probabilities and the model revisions. The text is the fragment the model labelled, never the full article (at most 2,000 characters); sentiment and category are model outputs, not verified facts. Work item 46, block D."@en .
 
 :SelectionCycle
     a owl:Class ;
@@ -426,6 +433,7 @@ so every result is in-sample.""" .
     rdfs:label "Evidence Source" ;
     rdfs:comment "Anything a RiskEvent can be backedBy." .
 :NewsArticle rdfs:subClassOf :EvidenceSource .
+:NewsItem rdfs:subClassOf :EvidenceSource .
 :SECFilingSection rdfs:subClassOf :EvidenceSource .
 :DataQualityIssue rdfs:subClassOf :EvidenceSource .
 
@@ -547,7 +555,7 @@ so every result is in-sample.""" .
 
 #################################################################
 # 1.3 DISJOINTNESS — every individual belongs to exactly one of
-# these 58 classes. ExchangeTradedFund is deliberately absent: it is
+# these 61 classes. ExchangeTradedFund is deliberately absent: it is
 # a subclass of Asset, not a sibling. EvidenceSource/RuleOperand/ObservationSnapshot
 # (§1.1) and every §1.2 taxonomy class are deliberately excluded --
 # they're superclasses of members of this list, and a superclass is
@@ -558,7 +566,7 @@ so every result is in-sample.""" .
    owl:members ( :Asset :Sector :Industry :Universe :UniverseMembership :ScoreSnapshot
                  :RiskEvent :NewsArticle :SECFiling :SECFilingSection :DataQualityIssue :Executive :Veto :AssetCoOccurrence :BenchmarkObservation
                  :RuleDefinition :RuleClause :ThresholdComparison :CategoricalComparison
-                 :GraphPredicate :Portfolio :PortfolioPosition :PriceObservation
+                 :GraphPredicate :Portfolio :PortfolioPosition :PriceObservation :NewsItem
                  :SectorAggregateSnapshot :AttractivenessSnapshot :AttractivenessWeightScheme
                  :WeightComponent
                  :TickerHistory :OrchestratorRun :OrchestratorStep :StrategyBook :BookRebalance
@@ -1017,8 +1025,10 @@ so every result is in-sample.""" .
     rdfs:comment """ISO date of the decision session (the close the filter reads); the same dates as v_book_rebalance.decision_date of the Top-N arms""" .
 :trendState a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :TrendFilterState ; rdfs:range xsd:string  .
 :cashFraction a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :TrendFilterState ; rdfs:range xsd:decimal  .
+:newsRiskOff a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :TrendFilterState ; rdfs:range xsd:boolean ;
+    rdfs:comment "True when news level D (the market's 21-session news tone below its 20th percentile) put the trend filter in cash at this decision, whatever the price input says; false otherwise. Read from news_risk_off in aggregates_<label>.json." .
 :appliesToArm a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :TrendFilterState ; rdfs:range xsd:string ;
-    rdfs:comment "TOPN_MV_NOGUARD | TOPN_MV_GUARD_NO_NLP: the arms the trend filter applies to, read from trend_filter_applies_to_arms (the MARKOWITZ_* arms never use it). SHACL requires exactly these two values on every row." .
+    rdfs:comment "TOPN_MV_GUARD: the one arm the trend filter applies to, read from trend_filter_applies_to_arms. The MARKOWITZ_* arms never use it, and the System without the Veto Hierarchy (SYSTEM_WITHOUT_HIERARCHY) runs without the filter. SHACL requires this value on every row." .
 :returnWindow a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :ReferenceReturn ; rdfs:range xsd:string ;
     rdfs:comment """backtest window id""" .
 :returnSegment a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :ReferenceReturn ; rdfs:range xsd:string ;
@@ -1320,13 +1330,18 @@ so every result is in-sample.""" .
 
 :cashFraction rdfs:label "Trend-filter cash fraction"@en ;
     rdfs:label "Fracción en efectivo del filtro de tendencia"@es ;
-    rdfs:comment "Fraction of the Top-N target moved to cash by the trend filter at this decision, held until the next decision date."@en ;
-    rdfs:comment "Fracción del objetivo Top-N movida a efectivo por el filtro de tendencia en esta decisión, mantenida hasta la siguiente fecha de decisión."@es .
+    rdfs:comment "Fraction of the TOPN_MV_GUARD target moved to cash by the trend filter at this decision, held until the next decision date; 0.5 when the price input is below or newsRiskOff is true, otherwise 0.0. Cash from other causes is not counted here and stays in the book's CASH weight: the level C sector cap and the GUARD layers."@en ;
+    rdfs:comment "Fracción del objetivo TOPN_MV_GUARD movida a efectivo por el filtro de tendencia en esta decisión, mantenida hasta la siguiente fecha de decisión; 0.5 cuando la entrada de precio está below o newsRiskOff es true, y 0.0 en otro caso. La caja por otras causas no se cuenta aquí y queda en el peso CASH del libro: el tope sectorial del nivel C y las capas de GUARD."@es .
+
+:newsRiskOff rdfs:label "News risk-off input"@en ;
+    rdfs:label "Entrada de noticias de aversión al riesgo"@es ;
+    rdfs:comment "True when news level D (the market's 21-session news tone below its 20th percentile) put the trend filter in cash at this decision, whatever the price input says; false otherwise."@en ;
+    rdfs:comment "Vale true cuando el nivel D de noticias (el tono de noticias del mercado en 21 sesiones, bajo su percentil 20) puso el filtro de tendencia en efectivo en esta decisión, sin importar la entrada de precio; false en otro caso."@es .
 
 :trendState rdfs:label "Trend-filter state"@en ;
     rdfs:label "Estado del filtro de tendencia"@es ;
-    rdfs:comment "below, at_or_above or not_evaluable; no price level or mean is published."@en ;
-    rdfs:comment "below, at_or_above o not_evaluable; no se publica nivel de precio ni media."@es .
+    rdfs:comment "below, at_or_above or not_evaluable for the price input: SPY's total-return index (dividends reinvested) against the simple mean of its last 210 session values; no price level or mean is published."@en ;
+    rdfs:comment "below, at_or_above o not_evaluable para la entrada de precio: el índice de retorno total de SPY (dividendos reinvertidos) frente a la media simple de sus últimos 210 valores de sesión; no se publica nivel de precio ni media."@es .
 
 :nRebalances rdfs:label "Number of rebalances"@en ;
     rdfs:label "Número de rebalanceos"@es ;
@@ -2197,7 +2212,160 @@ so every result is in-sample.""" .
     rdfs:comment "Count of candidates whose zone test had no signal (risk ratio not computable); it is 0 in the six windows."@en ; rdfs:comment "Conteo de candidatas cuya prueba de zona no tuvo señal (razón de riesgo no calculable); vale 0 en las seis ventanas."@es .
 
 #################################################################
-# Block F — agent traceability (Work item 46, T-890–T-899)
+# NewsItem (Work item 46, block D)
+#################################################################
+
+:newsItemOfAsset a owl:ObjectProperty ;
+    rdfs:domain :NewsItem ; rdfs:range :Asset ;
+    rdfs:label "News item of asset"@en ; rdfs:label "Fragmento de noticia del activo"@es ;
+    rdfs:comment "The loaded Asset the row resolves to through its ticker, or through its engine asset_id when the ticker no longer names the current symbol. Absent when the row does not resolve; the row is still loaded."@en ;
+    rdfs:comment "El activo cargado al que resuelve la fila por su ticker, o por su asset_id del motor cuando el ticker ya no nombra el símbolo actual. Falta cuando la fila no resuelve; la fila se carga igual."@es .
+
+:modelRevision a owl:DatatypeProperty, owl:FunctionalProperty ;
+    rdfs:domain :NewsItem ; rdfs:range xsd:string ;
+    rdfs:label "Model revision"@en ; rdfs:label "Revisión del modelo"@es ;
+    rdfs:comment "The NLP snapshot revision of the row (news_snapshot.model_revision); provenance, not a fact about the company."@en ;
+    rdfs:comment "La revisión de la instantánea de NLP de la fila (news_snapshot.model_revision); procedencia, no un hecho sobre la empresa."@es .
+
+:itemKind a owl:DatatypeProperty, owl:FunctionalProperty ;
+    rdfs:domain :NewsItem ; rdfs:range xsd:string ;
+    rdfs:label "Item kind"@en ; rdfs:label "Tipo de elemento"@es ;
+    rdfs:comment "body (an article) or sub_news (a fragment). It is part of the IRI."@en ;
+    rdfs:comment "body (un artículo) o sub_news (un fragmento). Forma parte del IRI."@es .
+
+:itemId a owl:DatatypeProperty, owl:FunctionalProperty ;
+    rdfs:domain :NewsItem ; rdfs:range xsd:string ;
+    rdfs:label "Item id"@en ; rdfs:label "Id del elemento"@es ;
+    rdfs:comment "The fragment id within the snapshot (sub_news.id). It is part of the IRI."@en ;
+    rdfs:comment "El id del fragmento dentro de la instantánea (sub_news.id). Forma parte del IRI."@es .
+
+:newsTicker a owl:DatatypeProperty, owl:FunctionalProperty ;
+    rdfs:domain :NewsItem ; rdfs:range xsd:string ;
+    rdfs:label "News ticker"@en ; rdfs:label "Ticker de la noticia"@es ;
+    rdfs:comment "The company ticker as the delivery names it. It is not necessarily the Asset IRI local name: a rename can make the row's ticker historical."@en ;
+    rdfs:comment "El ticker de la empresa tal como lo nombra la entrega. No es necesariamente el nombre local del IRI de Asset: un cambio de símbolo puede dejar histórico el ticker de la fila."@es .
+
+:newsAssetId a owl:DatatypeProperty, owl:FunctionalProperty ;
+    rdfs:domain :NewsItem ; rdfs:range xsd:integer ;
+    rdfs:label "Engine asset id"@en ; rdfs:label "Id de activo del motor"@es ;
+    rdfs:comment "The engine asset_id the run read for this ticker (the NLP ticker is read as the symbol in force on 2026-11-09); an integer, not an Asset IRI. Absent when the ticker does not resolve."@en ;
+    rdfs:comment "El asset_id del motor que leyó la corrida para ese ticker (el ticker de NLP se lee como el símbolo vigente al 2026-11-09); un entero, no un IRI de Asset. Falta cuando el ticker no resuelve."@es .
+
+:newsDate a owl:DatatypeProperty, owl:FunctionalProperty ;
+    rdfs:domain :NewsItem ; rdfs:range xsd:date ;
+    rdfs:label "News date"@en ; rdfs:label "Fecha de la noticia"@es ;
+    rdfs:comment "The news date: the first 10 characters of pub_date, or of fetched_at when pub_date is empty (see :dateSource)."@en ;
+    rdfs:comment "La fecha de la noticia: los primeros 10 caracteres de pub_date, o de fetched_at cuando pub_date está vacío (ver :dateSource)."@es .
+
+:dateSource a owl:DatatypeProperty, owl:FunctionalProperty ;
+    rdfs:domain :NewsItem ; rdfs:range xsd:string ;
+    rdfs:label "Date source"@en ; rdfs:label "Origen de la fecha"@es ;
+    rdfs:comment "published, crawled or crawled_future_pub: which date the row used."@en ;
+    rdfs:comment "published, crawled o crawled_future_pub: qué fecha usó la fila."@es .
+
+:newsTitle a owl:DatatypeProperty, owl:FunctionalProperty ;
+    rdfs:domain :NewsItem ; rdfs:range xsd:string ;
+    rdfs:label "News title"@en ; rdfs:label "Título de la noticia"@es ;
+    rdfs:comment "The title exactly as delivered."@en ;
+    rdfs:comment "El título exactamente como lo entregó la fuente."@es .
+
+:newsText a owl:DatatypeProperty, owl:FunctionalProperty ;
+    rdfs:domain :NewsItem ; rdfs:range xsd:string ;
+    rdfs:label "News text fragment"@en ; rdfs:label "Texto del fragmento de noticia"@es ;
+    rdfs:comment "The fragment exactly as delivered (original or summary), never the full article: at most 2,000 characters. The source domain is cited on the same row; use is academic."@en ;
+    rdfs:comment "El fragmento exactamente como lo entregó la fuente (original o resumen), nunca el artículo completo: como máximo 2,000 caracteres. El dominio de la fuente se cita en la misma fila; el uso es académico."@es .
+
+:textSource a owl:DatatypeProperty, owl:FunctionalProperty ;
+    rdfs:domain :NewsItem ; rdfs:range xsd:string ;
+    rdfs:label "Text source"@en ; rdfs:label "Origen del texto"@es ;
+    rdfs:comment "original or summary: whether the delivered text is the article fragment or its summary."@en ;
+    rdfs:comment "original o summary: si el texto entregado es el fragmento del artículo o su resumen."@es .
+
+:newsSentiment a owl:DatatypeProperty, owl:FunctionalProperty ;
+    rdfs:domain :NewsItem ; rdfs:range xsd:string ;
+    rdfs:label "Sentiment label"@en ; rdfs:label "Etiqueta de sentimiento"@es ;
+    rdfs:comment "positive, negative or neutral for this company. A model output, not a verified fact."@en ;
+    rdfs:comment "positive, negative o neutral para esta empresa. Una salida del modelo, no un hecho verificado."@es .
+
+:sentimentScore a owl:DatatypeProperty, owl:FunctionalProperty ;
+    rdfs:domain :NewsItem ; rdfs:range xsd:decimal ;
+    rdfs:label "Sentiment score"@en ; rdfs:label "Puntaje de sentimiento"@es ;
+    rdfs:comment "The probability of the sentiment label (0 to 1, no sign). A model output, not a verified fact."@en ;
+    rdfs:comment "La probabilidad de la etiqueta de sentimiento (0 a 1, sin signo). Una salida del modelo, no un hecho verificado."@es .
+
+:pPositive a owl:DatatypeProperty, owl:FunctionalProperty ;
+    rdfs:domain :NewsItem ; rdfs:range xsd:decimal ;
+    rdfs:label "Positive probability"@en ; rdfs:label "Probabilidad positiva"@es ;
+    rdfs:comment "The model's probability of positive sentiment (0 to 1)."@en ;
+    rdfs:comment "La probabilidad de sentimiento positivo del modelo (0 a 1)."@es .
+
+:pNegative a owl:DatatypeProperty, owl:FunctionalProperty ;
+    rdfs:domain :NewsItem ; rdfs:range xsd:decimal ;
+    rdfs:label "Negative probability"@en ; rdfs:label "Probabilidad negativa"@es ;
+    rdfs:comment "The model's probability of negative sentiment (0 to 1)."@en ;
+    rdfs:comment "La probabilidad de sentimiento negativo del modelo (0 a 1)."@es .
+
+:pNeutral a owl:DatatypeProperty, owl:FunctionalProperty ;
+    rdfs:domain :NewsItem ; rdfs:range xsd:decimal ;
+    rdfs:label "Neutral probability"@en ; rdfs:label "Probabilidad neutra"@es ;
+    rdfs:comment "The model's probability of neutral sentiment (0 to 1); the three probabilities sum to 1."@en ;
+    rdfs:comment "La probabilidad de sentimiento neutro del modelo (0 a 1); las tres probabilidades suman 1."@es .
+
+:sentimentRevision a owl:DatatypeProperty, owl:FunctionalProperty ;
+    rdfs:domain :NewsItem ; rdfs:range xsd:string ;
+    rdfs:label "Sentiment revision"@en ; rdfs:label "Revisión de sentimiento"@es ;
+    rdfs:comment "The sentiment model revision named by the row's inputs; provenance, not a fact about the company."@en ;
+    rdfs:comment "La revisión del modelo de sentimiento que nombra el campo inputs de la fila; procedencia, no un hecho sobre la empresa."@es .
+
+:newsCategory a owl:DatatypeProperty, owl:FunctionalProperty ;
+    rdfs:domain :NewsItem ; rdfs:range xsd:string ;
+    rdfs:label "News category"@en ; rdfs:label "Categoría de la noticia"@es ;
+    rdfs:comment "The category assigned to this company's fragment. A model output, not a verified fact. The system does not use it in its decisions."@en ;
+    rdfs:comment "La categoría asignada al fragmento de esta empresa. Una salida del modelo, no un hecho verificado. El sistema no la usa en sus decisiones."@es .
+
+:categoryScore a owl:DatatypeProperty, owl:FunctionalProperty ;
+    rdfs:domain :NewsItem ; rdfs:range xsd:decimal ;
+    rdfs:label "Category score"@en ; rdfs:label "Puntaje de categoría"@es ;
+    rdfs:comment "The probability of the category label (0 to 1). A model output, not a verified fact."@en ;
+    rdfs:comment "La probabilidad de la etiqueta de categoría (0 a 1). Una salida del modelo, no un hecho verificado."@es .
+
+:groupLabel a owl:DatatypeProperty, owl:FunctionalProperty ;
+    rdfs:domain :NewsItem ; rdfs:range xsd:string ;
+    rdfs:label "Category group"@en ; rdfs:label "Grupo de la categoría"@es ;
+    rdfs:comment "The category group the row's category belongs to."@en ;
+    rdfs:comment "El grupo de categorías al que pertenece la categoría de la fila."@es .
+
+:categoryRevision a owl:DatatypeProperty, owl:FunctionalProperty ;
+    rdfs:domain :NewsItem ; rdfs:range xsd:string ;
+    rdfs:label "Category revision"@en ; rdfs:label "Revisión de categoría"@es ;
+    rdfs:comment "The category model revision named by the row's inputs; provenance, not a fact about the company."@en ;
+    rdfs:comment "La revisión del modelo de categoría que nombra el campo inputs de la fila; procedencia, no un hecho sobre la empresa."@es .
+
+:articleId a owl:DatatypeProperty, owl:FunctionalProperty ;
+    rdfs:domain :NewsItem ; rdfs:range xsd:integer ;
+    rdfs:label "Article id"@en ; rdfs:label "Id del artículo"@es ;
+    rdfs:comment "The article the fragment comes from (sub_news.article_id); several fragments can share one article."@en ;
+    rdfs:comment "El artículo del que sale el fragmento (sub_news.article_id); varios fragmentos pueden compartir un artículo."@es .
+
+:bodyHash a owl:DatatypeProperty, owl:FunctionalProperty ;
+    rdfs:domain :NewsItem ; rdfs:range xsd:string ;
+    rdfs:label "Body hash"@en ; rdfs:label "Huella del cuerpo"@es ;
+    rdfs:comment "The fingerprint of the fragment body (sub_news.body_hash)."@en ;
+    rdfs:comment "La huella del cuerpo del fragmento (sub_news.body_hash)."@es .
+
+:sourceDomain a owl:DatatypeProperty, owl:FunctionalProperty ;
+    rdfs:domain :NewsItem ; rdfs:range xsd:string ;
+    rdfs:label "Source domain"@en ; rdfs:label "Dominio de la fuente"@es ;
+    rdfs:comment "The article's source domain (for example cnbc.com); the academic-use citation travels on every row."@en ;
+    rdfs:comment "El dominio de la fuente del artículo (por ejemplo cnbc.com); la cita para uso académico viaja en cada fila."@es .
+
+:url a owl:DatatypeProperty, owl:FunctionalProperty ;
+    rdfs:domain :NewsItem ; rdfs:range xsd:anyURI ;
+    rdfs:label "Source URL"@en ; rdfs:label "URL de la fuente"@es ;
+    rdfs:comment "Optional article URL. The NLP delivery leaves it empty today; no triple is written for a null value, and it is filled later without changing columns."@en ;
+    rdfs:comment "URL opcional del artículo. La entrega de NLP hoy la deja vacía; no se escribe ningún triple para un valor nulo, y se llena después sin cambiar columnas."@es .
+
+# Block F — agent traceability (Work item 46, T-900–T-909)
 # Manager calls, narrator texts, news actions/evidence/date records and
 # N11 bull-mode records of the final SYSTEM_WITH_HIERARCHY delivery.
 # Kept in one block at the end of the file so a parallel block only has to
@@ -2269,8 +2437,8 @@ so every result is in-sample.""" .
 :modelResolved a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:range xsd:string ;
     rdfs:label "Model resolved"@en ; rdfs:label "Modelo resuelto"@es ;
     rdfs:comment "Model resolved by the provider."@en ; rdfs:comment "Modelo resuelto por el proveedor."@es .
-:modelRevision a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:range xsd:string ;
-    rdfs:label "Model revision"@en ; rdfs:label "Revisión del modelo"@es ;
+:providerModelRevision a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:range xsd:string ;
+    rdfs:label "Provider model revision"@en ; rdfs:label "Revisión del modelo del proveedor"@es ;
     rdfs:comment "Model revision reported by the provider."@en ; rdfs:comment "Revisión del modelo reportada por el proveedor."@es .
 :reasoningEffort a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:range xsd:string ;
     rdfs:label "Reasoning effort"@en ; rdfs:label "Esfuerzo de razonamiento"@es ;
@@ -2759,3 +2927,7 @@ so every result is in-sample.""" .
 :bullN11ExAnteBeta a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:domain :BullModeDecision ; rdfs:range xsd:decimal ;
     rdfs:label "N11 ex-ante beta"@en ; rdfs:label "Beta ex-ante N11"@es ;
     rdfs:comment "N11 ex_ante_beta."@en ; rdfs:comment "ex_ante_beta de N11."@es .
+
+:newsItem a owl:ObjectProperty ; rdfs:domain :NewsEvidence ; rdfs:range :NewsItem ;
+    rdfs:label "News item"@en ; rdfs:label "Noticia"@es ;
+    rdfs:comment "The block D :NewsItem this evidence test row refers to; built from (item_kind, item_id, ticker) and never a run or model revision."@en ; rdfs:comment "La noticia :NewsItem del bloque D a la que se refiere esta fila de prueba; se construye con (item_kind, item_id, ticker) y nunca con una corrida o revisión de modelo."@es .

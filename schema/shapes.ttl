@@ -769,8 +769,9 @@
                   sh:in ("below" "at_or_above" "not_evaluable") ] ;
     sh:property [ sh:path :cashFraction ; sh:datatype xsd:decimal ; sh:minCount 1 ; sh:maxCount 1 ;
                   sh:minInclusive 0.0 ; sh:maxInclusive 1.0 ] ;
-    sh:property [ sh:path :appliesToArm ; sh:datatype xsd:string ; sh:minCount 2 ; sh:maxCount 2 ;
-                  sh:in ("TOPN_MV_NOGUARD" "TOPN_MV_GUARD_NO_NLP") ] ;
+    sh:property [ sh:path :newsRiskOff ; sh:datatype xsd:boolean ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :appliesToArm ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ;
+                  sh:in ("TOPN_MV_GUARD") ] ;
     sh:property [ sh:path :aggregatesSet ; sh:class :AggregatesSet ; sh:minCount 1 ; sh:maxCount 1 ] .
 
 :ReferenceReturnShape
@@ -1228,7 +1229,53 @@
     ] .
 
 #################################################################
-# Block F — agent traceability shapes (Work item 46, T-890–T-899)
+# NewsItem (Work item 46, block D)
+#################################################################
+
+:NewsItemShape
+    a sh:NodeShape ;
+    sh:targetClass :NewsItem ;
+    sh:closed true ;
+    sh:ignoredProperties ( rdf:type ) ;
+    sh:property [ sh:path :itemKind ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ;
+                  sh:in ( "body" "sub_news" ) ] ;
+    sh:property [ sh:path :itemId ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :newsTicker ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :newsDate ; sh:datatype xsd:date ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :dateSource ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ;
+                  sh:in ( "published" "crawled" "crawled_future_pub" ) ] ;
+    sh:property [ sh:path :newsTitle ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :newsText ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ;
+                  sh:maxLength 2000 ] ;
+    sh:property [ sh:path :textSource ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ;
+                  sh:in ( "original" "summary" ) ] ;
+    sh:property [ sh:path :newsSentiment ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ;
+                  sh:in ( "positive" "negative" "neutral" ) ] ;
+    sh:property [ sh:path :sentimentScore ; sh:datatype xsd:decimal ; sh:minCount 1 ; sh:maxCount 1 ;
+                  sh:minInclusive 0 ; sh:maxInclusive 1 ] ;
+    sh:property [ sh:path :pPositive ; sh:datatype xsd:decimal ; sh:minCount 1 ; sh:maxCount 1 ;
+                  sh:minInclusive 0 ; sh:maxInclusive 1 ] ;
+    sh:property [ sh:path :pNegative ; sh:datatype xsd:decimal ; sh:minCount 1 ; sh:maxCount 1 ;
+                  sh:minInclusive 0 ; sh:maxInclusive 1 ] ;
+    sh:property [ sh:path :pNeutral ; sh:datatype xsd:decimal ; sh:minCount 1 ; sh:maxCount 1 ;
+                  sh:minInclusive 0 ; sh:maxInclusive 1 ] ;
+    sh:property [ sh:path :newsCategory ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :categoryScore ; sh:datatype xsd:decimal ; sh:minCount 1 ; sh:maxCount 1 ;
+                  sh:minInclusive 0 ; sh:maxInclusive 1 ] ;
+    sh:property [ sh:path :groupLabel ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :articleId ; sh:datatype xsd:integer ; sh:minCount 1 ; sh:maxCount 1 ;
+                  sh:minInclusive 1 ] ;
+    sh:property [ sh:path :bodyHash ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :sourceDomain ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :modelRevision ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :sentimentRevision ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :categoryRevision ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :newsAssetId ; sh:datatype xsd:integer ; sh:maxCount 1 ;
+                  sh:minInclusive 1 ] ;
+    sh:property [ sh:path :newsItemOfAsset ; sh:class :Asset ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :url ; sh:datatype xsd:anyURI ; sh:maxCount 1 ] .
+
+# Block F — agent traceability shapes (Work item 46, T-900–T-909)
 #################################################################
 
 :ManagerCallShape a sh:NodeShape ;
@@ -1242,7 +1289,7 @@
     sh:property [ sh:path :knowledgeDate ; sh:datatype xsd:date ; sh:minCount 1 ; sh:maxCount 1 ] ;
     sh:property [ sh:path :modelRequested ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ] ;
     sh:property [ sh:path :modelResolved ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ] ;
-    sh:property [ sh:path :modelRevision ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :providerModelRevision ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ] ;
     sh:property [ sh:path :promptSha256 ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ] ;
     sh:property [ sh:path :reasoningEffort ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ] ;
     sh:property [ sh:path :reasoningEffortUsed ; sh:datatype xsd:boolean ; sh:minCount 1 ; sh:maxCount 1 ] ;
@@ -1303,7 +1350,7 @@
     sh:property [ sh:path :knowledgeDate ; sh:datatype xsd:date ; sh:minCount 1 ; sh:maxCount 1 ] ;
     sh:property [ sh:path :modelRequested ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ] ;
     sh:property [ sh:path :modelResolved ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ] ;
-    sh:property [ sh:path :modelRevision ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :providerModelRevision ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ] ;
     sh:property [ sh:path :promptSha256 ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ] ;
     sh:property [ sh:path :provenanceNote ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ] ;
     sh:property [ sh:path :reasoningEffort ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ] ;
@@ -1393,7 +1440,8 @@
     sh:property [ sh:path :newsPromotionCandidate ; sh:datatype xsd:boolean ; sh:minCount 1 ; sh:maxCount 1 ] ;
     sh:property [ sh:path :newsVetoCandidate ; sh:datatype xsd:boolean ; sh:minCount 1 ; sh:maxCount 1 ] ;
     sh:property [ sh:path :newsTestSha256 ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ] ;
-    sh:property [ sh:path :newsTestPointer ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ] .
+    sh:property [ sh:path :newsTestPointer ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path :newsItem ; sh:class :NewsItem ] .
 
 :DateRecordShape a sh:NodeShape ;
     sh:targetClass :DateRecord ;

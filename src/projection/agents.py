@@ -45,9 +45,10 @@ from kg_store.graphdb import (
     GraphDBError,
     announce_target,
 )
+from projection import news as news_rows
 from projection.backtest import RUN_LABEL_PATTERN, GraphBuilder
 from projection.series import ManifestError, read_manifest, sha256_file
-from projection.veto_manifest import configuration_slug
+from projection.veto_manifest import NewsRowsContract, configuration_slug
 
 NS = "https://thesis.local/kg/portfolio#"
 KG = rdflib.Namespace(NS)
@@ -173,6 +174,7 @@ class WindowData:
     manager_calls: tuple[ManagerCall, ...]
     narrator_texts: tuple[NarratorText, ...]
     news: NewsData
+    news_items: Mapping[tuple[str, str], news_rows.NewsRow]
     bull: BullData
     counts: Counts
     hashes: Mapping[str, str]
@@ -825,7 +827,61 @@ def _counts(
     )
 
 
-def _window(root: Path, window: str, run: Mapping[str, Any], sums: Mapping[str, str]) -> WindowData:
+def _news_item_index(
+    root: Path, manifest: Mapping[str, Any], sums: Mapping[str, str]
+) -> dict[tuple[str, str], news_rows.NewsRow]:
+    """Parse block D's news rows and index them by (item_id, ticker).
+
+    The manifest's ``news_rows_file`` is the only source; its hash is checked against both the
+    manifest and ``SHA256SUMS`` before D's parser reads it. A key that maps to two item kinds is
+    refused, never guessed.
+    """
+    block = manifest.get("news_rows_file")
+    if block is None:
+        return {}
+    record = _mapping(block, "manifest.news_rows_file")
+    relative = _text(record.get("file"), "manifest.news_rows_file.file")
+    digest = _sha(record.get("sha256"), "manifest.news_rows_file.sha256")
+    assert digest is not None
+    _verify_file(root, relative, digest, sums)
+    columns = record.get("columns")
+    if not isinstance(columns, list) or not columns:
+        raise AgentsError("manifest.news_rows_file.columns must be a non-empty list")
+    contract = NewsRowsContract(
+        path=root / relative,
+        sha256=digest,
+        rows=_positive_int(record.get("rows"), "manifest.news_rows_file.rows"),
+        model_revision=_text(
+            record.get("model_revision"), "manifest.news_rows_file.model_revision"
+        ),
+        columns=tuple(str(column) for column in columns),
+        readme=None,
+    )
+    try:
+        rows = news_rows.parse_rows(contract)
+    except news_rows.NewsError as exc:
+        raise AgentsError(str(exc)) from exc
+    index: dict[tuple[str, str], news_rows.NewsRow] = {}
+    kinds: dict[tuple[str, str], str] = {}
+    for row in rows:
+        key = (row.item_id, row.ticker)
+        prior = kinds.setdefault(key, row.item_kind)
+        if prior != row.item_kind:
+            raise AgentsError(
+                f"{contract.path}: ({key[0]}, {key[1]}) maps to both {prior!r} and "
+                f"{row.item_kind!r}; the :NewsItem IRI is ambiguous"
+            )
+        index[key] = row
+    return index
+
+
+def _window(  # noqa: C901, PLR0912 -- one source contract read in one place
+    root: Path,
+    window: str,
+    run: Mapping[str, Any],
+    sums: Mapping[str, str],
+    news_items: Mapping[tuple[str, str], news_rows.NewsRow],
+) -> WindowData:
     paths: dict[str, Path] = {}
     hashes: dict[str, str] = {}
     declared = _mapping(run.get("files_sha256"), f"manifest.{window}.files_sha256")
@@ -838,6 +894,21 @@ def _window(root: Path, window: str, run: Mapping[str, Any], sums: Mapping[str, 
     manager = _manager_calls(paths["manager_calls"])
     narrator = _narrator_texts(paths["narrator"])
     news = _news(paths["news_actions"])
+    used_items: dict[tuple[str, str], news_rows.NewsRow] = {}
+    missing_items: list[tuple[str, str]] = []
+    for action in news.actions:
+        for row in _list(action["test_rows"], "actions.test_rows"):
+            values = _list(row, "actions.test_rows[]")
+            item_key = (str(values[0]), str(values[1]))
+            if item_key in news_items:
+                used_items[item_key] = news_items[item_key]
+            else:
+                missing_items.append(item_key)
+    if missing_items:
+        listing = ", ".join(f"{item_id}:{ticker}" for item_id, ticker in sorted(set(missing_items)))
+        raise AgentsError(
+            f"{paths['news_actions']}: test rows without a news_rows.jsonl row: {listing}"
+        )
     bull = _bull(paths["bull_mode"])
     stops, sector = _stops_and_sector_rejections(paths["jsonl"])
     for call in manager:
@@ -859,7 +930,7 @@ def _window(root: Path, window: str, run: Mapping[str, Any], sums: Mapping[str, 
     if news_dates != bull_dates:
         raise AgentsError(f"{window}: news dates and bull-mode dates differ")
     counts = _counts(news, manager, narrator, bull, sector)
-    return WindowData(window, manager, narrator, news, bull, counts, hashes, run, stops)
+    return WindowData(window, manager, narrator, news, used_items, bull, counts, hashes, run, stops)
 
 
 def load_delivery(
@@ -880,8 +951,10 @@ def load_delivery(
     unknown = sorted(set(selected) - set(WINDOWS))
     if unknown:
         raise AgentsError(f"unknown window(s): {', '.join(unknown)}")
+    news_items = _news_item_index(root, manifest, sums)
     data = tuple(
-        _window(root, window, _manifest_run(manifest, window), sums) for window in selected
+        _window(root, window, _manifest_run(manifest, window), sums, news_items)
+        for window in selected
     )
     controls = _mapping(manifest.get("control_counts"), "manifest.control_counts")
     control = _mapping(controls.get(CONFIGURATION), f"manifest.control_counts.{CONFIGURATION}")
@@ -994,6 +1067,15 @@ def _test_rows(evidence: Mapping[str, Any], where: str) -> list[str]:
     return rows
 
 
+def _news_item(data: WindowData, row: str) -> rdflib.URIRef:
+    item_id, ticker = row.split(":", 1)
+    try:
+        source = data.news_items[(item_id, ticker)]
+    except KeyError:
+        raise AgentsError(f"{data.window}: test row {row!r} has no news_rows.jsonl row") from None
+    return news_rows.news_item_iri(source)
+
+
 def _project_manager(  # noqa: C901, PLR0912, PLR0915 -- one graph per source file
     data: WindowData, label: str
 ) -> GraphBuilder:
@@ -1039,7 +1121,7 @@ def _project_manager(  # noqa: C901, PLR0912, PLR0915 -- one graph per source fi
                 builder.add(iri, predicate, rdflib.Literal(raw[key]))
         builder.add(iri, KG.modelRequested, rdflib.Literal(model["requested"]))
         builder.add(iri, KG.modelResolved, rdflib.Literal(model["resolved"]))
-        builder.add(iri, KG.modelRevision, rdflib.Literal(model["revision"]))
+        builder.add(iri, KG.providerModelRevision, rdflib.Literal(model["revision"]))
         builder.add(iri, KG.reasoningEffort, rdflib.Literal(model["reasoning_effort"]))
         builder.add(
             iri,
@@ -1128,7 +1210,7 @@ def _project_narrator(data: WindowData, label: str) -> GraphBuilder:
         model = raw["model"]
         builder.add(iri, KG.modelRequested, rdflib.Literal(model["requested"]))
         builder.add(iri, KG.modelResolved, rdflib.Literal(model["resolved"]))
-        builder.add(iri, KG.modelRevision, rdflib.Literal(model["revision"]))
+        builder.add(iri, KG.providerModelRevision, rdflib.Literal(model["revision"]))
         builder.add(iri, KG.reasoningEffort, rdflib.Literal(model["reasoning_effort"]))
         builder.add(
             iri,
@@ -1388,6 +1470,7 @@ def _project_news(  # noqa: C901, PLR0912, PLR0915 -- one graph per source file
         )
         for row in _test_rows(evidence, f"actions[{index}].evidence"):
             builder.add(evidence_iri, KG.newsTestRow, rdflib.Literal(row))
+            builder.add(evidence_iri, KG.newsItem, _news_item(data, row))
         builder.add(
             evidence_iri,
             KG.sourceDocument,
@@ -1464,6 +1547,46 @@ def project(data: WindowData, label: str) -> Mapping[str, GraphBuilder]:
 # --- validation context and store checks --------------------------------------------------------
 
 
+def _news_item_context(rows: Sequence[news_rows.NewsRow]) -> rdflib.Graph:
+    """Validation-only block D individuals for the ``:newsItem`` links (never written)."""
+    context = rdflib.Graph()
+    for row in rows:
+        iri = news_rows.news_item_iri(row)
+        context.add((iri, RDF.type, KG.NewsItem))
+        for predicate, value in (
+            (KG.itemKind, rdflib.Literal(row.item_kind)),
+            (KG.itemId, rdflib.Literal(row.item_id)),
+            (KG.newsTicker, rdflib.Literal(row.ticker)),
+            (KG.newsDate, _date_literal(row.date)),
+            (KG.dateSource, rdflib.Literal(row.date_source)),
+            (KG.newsTitle, rdflib.Literal(row.title)),
+            (KG.newsText, rdflib.Literal(row.text)),
+            (KG.textSource, rdflib.Literal(row.text_source)),
+            (KG.newsSentiment, rdflib.Literal(row.sentiment)),
+            (KG.sentimentScore, _decimal_literal(row.sentiment_score)),
+            (KG.pPositive, _decimal_literal(row.p_positive)),
+            (KG.pNegative, _decimal_literal(row.p_negative)),
+            (KG.pNeutral, _decimal_literal(row.p_neutral)),
+            (KG.newsCategory, rdflib.Literal(row.category)),
+            (KG.categoryScore, _decimal_literal(row.category_score)),
+            (KG.groupLabel, rdflib.Literal(row.group_label)),
+            (KG.articleId, _integer_literal(row.article_id)),
+            (KG.bodyHash, rdflib.Literal(row.body_hash)),
+            (KG.sourceDomain, rdflib.Literal(row.source_domain)),
+            (KG.modelRevision, rdflib.Literal(row.model_revision)),
+            (KG.sentimentRevision, rdflib.Literal(row.sentiment_revision)),
+            (KG.categoryRevision, rdflib.Literal(row.category_revision)),
+        ):
+            context.add((iri, predicate, value))
+        if row.asset_id is not None:
+            context.add((iri, KG.newsAssetId, _integer_literal(row.asset_id)))
+        if row.asset is not None:
+            context.add((iri, KG.newsItemOfAsset, KG[row.asset]))
+        if row.url is not None:
+            context.add((iri, KG.url, rdflib.URIRef(row.url)))
+    return context
+
+
 def _asset_context(data: WindowData, label: str) -> rdflib.Graph:
     """Validation-only context for a dry run: the assets, stops, book and configuration.
 
@@ -1517,6 +1640,8 @@ def _asset_context(data: WindowData, label: str) -> rdflib.Graph:
         # real CIK or a membership whose Universe is three hops from the batch's reference.
         context.add((asset, KG.cikNumber, rdflib.Literal("0000000000")))
         _ = asset_id
+    for triple in _news_item_context(tuple(data.news_items.values())):
+        context.add(triple)
     for day, asset_id in data.stops:
         stop = stop_iri(label, data.window, day, asset_id)
         context.add((stop, RDF.type, KG.StopEvent))

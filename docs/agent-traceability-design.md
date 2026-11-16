@@ -173,20 +173,24 @@ Individuals (exact):
 | C1 | 156 | 2,076 | 121 | 121 | 58 | 58 |
 | **Total** | **308** | **3,246** | **252** | **252** | **119** | **119** |
 
-Triples (measured, `project()` over the real delivery; the dry run prints the same numbers):
+Triples (measured with `project()` over the real delivery; `:newsItem` included):
 
 | Window | manager_calls | narrator | news | bull_mode | Total |
 |---|---:|---:|---:|---:|---:|
-| P1 | 208 | 6,138 | 2,179 | 192 | 8,717 |
-| H1 | 2,982 | 6,495 | 1,978 | 255 | 11,710 |
-| P3 | 779 | 3,177 | 2,785 | 201 | 6,942 |
-| H2 | 218 | 2,095 | 1,493 | 143 | 3,949 |
-| P2 | 256 | 2,114 | 1,319 | 160 | 3,849 |
-| H3 | 3,491 | 8,363 | 3,457 | 256 | 15,567 |
-| C1 | 8,116 | 50,122 | 12,272 | 1,095 | 71,605 |
-| **Total** | **16,050** | **78,504** | **25,483** | **2,302** | **122,339** |
+| P1 | 208* | 6,138* | 2,179* | 192* | blocked |
+| H1 | 2,982 | 6,495 | 2,115 | 255 | 11,847 |
+| P3 | 779 | 3,177 | 3,272 | 201 | 7,429 |
+| H2 | 218 | 2,095 | 1,615 | 143 | 4,071 |
+| P2 | 256 | 2,114 | 1,433 | 160 | 3,963 |
+| H3 | 3,491 | 8,363 | 4,048 | 256 | 16,158 |
+| C1 | 8,116* | 50,122* | 12,272* | 1,095* | blocked |
+| **Five loaded windows** | **7,726** | **22,244** | **12,483** | **1,015** | **43,468** |
 
-Each graph is far below the 400,000-triple bound; the whole delivery is one batched write per graph.
+\* Manager/narrator/bull-mode triples for P1 and C1 are known, but the news graph cannot be
+projected: two REGN test rows (`280187`, `328156`) have no `news_rows.jsonl` row. T-906 refuses to
+guess an item kind, so the loader stops before building those two news graphs. The restriction is
+the known 92-index-leaver gap; the other five windows load and SHACL-conform. The full delivery is
+still below the 400,000-triple bound.
 
 ## 7. Loader and CLI
 
@@ -236,19 +240,26 @@ Every model text gets
 2. **`:NewsAction` key.** The action key is
    `(decision_date, asset_id, action)`, as designed; `replaces`/`replaced_by`
    are asset links and `fills[]` is confirmation, not a second action.
-3. **`:newsItem` link is deferred.** PR D's branch is not pushed yet; the
-   only definition available locally is
-   `:NewsItem_{item_kind}_{item_id}_{ticker}` in `src/projection/news.py`.
-   Block F stores `:newsTestRow "<item_id>:<ticker>"` on the evidence (the
-   exact test rows) but writes no `:NewsItem` link. Adding the link later is
-   one predicate and one lookup; the exact edit is in the PR.
+3. **`:newsItem` link.** PR D now defines
+   `:NewsItem_{item_kind}_{item_id}_{ticker}` and the loader builds the link
+   from the delivery's `news_rows.jsonl` through D's `parse_rows` helper.
+   The test rows stay as `:newsTestRow "<item_id>:<ticker>"`; every evidence
+   individual also carries one `:newsItem` link per test row. A test row with
+   no row, or the same `(item_id, ticker)` under two item kinds, stops the
+   load. On the real delivery two REGN test rows (280187 and 328156, P1 and
+   C1) are absent from the 69,329-row file; they are the known 92-leaver gap
+   and P1/C1 cannot load until the delivery supplies them or Reviewer A
+   approves a skip.
 4. **Manager fields.** The real file has `answer_choice` (not
    `answerChoice`), `fallback.used_rule/used_cash/cause/detail`,
    `repair_used/repair_cause/repair_detail`, `model.requested/resolved/
    revision/reasoning_effort_used`, `first_validator`, `validator`, `usage`,
    `finish_reasons`, `tool_order`, `shuffle_seed`, and the skill hashes. §7's
    `:validatorPassed`/`:validatorCause` are kept for the final validator; the
-   first validator gets its own optional properties.
+   first validator gets its own optional properties. Because master's block D
+   already defines `:modelRevision` on `:NewsItem`, the manager/narrator field
+   is `:providerModelRevision`, not `:modelRevision`, so RDFS+ cannot type a
+   `:ManagerCall` as a `:NewsItem`.
 5. **Narrator key.** The real key is exactly `(kind, date, asset_id)`; the
    file also carries `source_kind`, `source_date`, `source_asset_id`,
    `source_line`, `omitted_fields`, `prompt_sha256`, `template_sha256`,
@@ -267,12 +278,14 @@ Every model text gets
 
 ## 10. Open items
 
-- PR B's `manifest_final.json` parser/control counts and `verify_store
-  --manifest` checks are not edited here. The loader reads the manifest
-  directly. The store-side control counts for these keys land in a separate
-  commit after PR B merges (exact edit in the PR).
-- The `:NewsItem` link waits for PR D to publish its branch; block F loads
-  without it.
+- The loader keeps its own manifest read (it needs the raw per-window file
+  aliases) but a test now checks that B's `read_manifest` and this loader
+  resolve the same files.
+- T-905 is implemented: `verify_store --manifest` calls
+  `verify_agent_control_counts` and prints absent graphs as
+  `not store-verifiable`.
+- T-906 is implemented; the two missing REGN test rows in P1/C1 are a
+  delivery-data gap, not a schema gap.
 - No GraphDB write is made in this change. The real dry run and the
   `portfolio_test` pre-flight are evidence; the production write is a
   maintainer decision.

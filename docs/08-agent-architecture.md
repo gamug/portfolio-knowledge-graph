@@ -271,9 +271,9 @@ document and optional `config_id`/`status`, with the frozen English body text ve
 ## Aggregates file (Work item 37)
 
 Upstream publishes `aggregates_<label>.json` beside the run databases and `SHA256SUMS`. It holds
-only per-segment aggregates: one `:TrendFilterState` per window and decision date (the published
-`below` / `at_or_above` / `not_evaluable` state, the cash fraction the filter moved, the two Top-N
-arms) and one `:ReferenceReturn` per window, segment and reference (`SPY` or
+only per-segment aggregates: one `:TrendFilterState` per window and decision date (the price input
+`below` / `at_or_above` / `not_evaluable`, the level D news input `:newsRiskOff`, the cash fraction
+the filter moved, the one `TOPN_MV_GUARD` arm) and one `:ReferenceReturn` per window, segment and reference (`SPY` or
 `SP500_EW_INTERNAL`, total return and max drawdown). `:AggregatesSet` is the per-label root with the
 source file name, its lowercase manifest SHA-256, the configuration id and the textual source
 descriptions. The file is loaded after `cli/load_run.py`, by its own command:
@@ -291,8 +291,9 @@ runs `gate.plan` with the store's context; `--write` appends the one append-only
 `urn:graph:derived:backtest:aggregates:{label}` and then checks the stored rows against the file.
 A dry run contacts no store. No daily series, price level or 210-session mean is projected; the only
 SPY numbers are the per-segment total return and max drawdown. The verifier reports every failure
-with its window, decision date or segment (trend dates equal both Top-N arms' `v_book_rebalance`,
-segment dates equal `v_portfolio_period_summary`, `below` implies cash > 0, P2 compounds P2a/P2b).
+with its window, decision date or segment (trend dates equal `TOPN_MV_GUARD`'s `v_book_rebalance`,
+segment dates equal `v_portfolio_period_summary`, `below` or `newsRiskOff` implies cash > 0, P2
+compounds P2a/P2b).
 
 ## Ticker history and orchestrator process records (T-208, T-350–T-360)
 

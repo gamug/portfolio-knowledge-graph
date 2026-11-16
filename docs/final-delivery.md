@@ -146,6 +146,10 @@ detected from the files and is not represented in the graph.
 
 ### 0bis.6 MARKOWITZ_MV, fundamentals and aggregates
 
+**For the final-1 delivery use §0quater instead of this subsection's `--engine-dir` path:** the
+final `mv_base/` has only `aggregates_mv_base.json`, and the exact engine-directory decision is
+T-895. The command below is the older `final_corregida` rehearsal form and is kept for history.
+
 The external MARKOWITZ_MV statistics depend on the new engine run ids; point `--engine-dir` at the
 new engine folder (default is the old scratch folder and must not be relied on):
 
@@ -165,6 +169,14 @@ KG_REPOSITORY=portfolio uv run python cli/load_aggregates.py --label final \
   --dir "/workspaces/thesis/knoledge graph/2026-11-17_final" --write --to-production
 ```
 
+The block D news rows are independent of the backtest graphs and load after the runs (see §7e for
+the full dry-run/pre-flight/write sequence):
+
+```bash
+KG_REPOSITORY=portfolio uv run python cli/load_news.py --label final \
+  --dir "/workspaces/thesis/knoledge graph/2026-11-17_final" --write --to-production
+```
+
 ### 0bis.7 Verify, test, decide and roll back
 
 ```bash
@@ -179,6 +191,146 @@ removed-rule stop and the price mask. The decision point is after the
 verification and the full suite: if either fails, stop and restore the backup; if both pass, the
 delivery is accepted. Plan B is the §0bis.2 TriG backup. Restore only after a deliberate decision,
 into an emptied repository or with Workbench **Import**; a large single POST can time out (see §1).
+
+## 0quater. Final delivery 2026-11-17 — manifest, load order and what is not loaded
+
+The final delivery is the read-only folder
+`/workspaces/thesis/knoledge graph/2026-11-17_final/`. Its manifest is
+`/workspaces/thesis/knoledge graph/2026-11-17_final/manifest_final.json`
+(`manifest_version` `final-1`, status `FINAL`, label `final`), with **35 keys** (five
+configurations × seven windows), the top-level `news_rows_file` block, the per-run
+`bull_mode_file`, `manager_calls_file`, `narrator_file` and `news_actions_file`, and the
+`SHA256SUMS` file next to it. The top-level `bull_mode_file` is a note (`"por corrida:
+configurations[].runs[].bull_mode_file"`); the actual per-run file is the run key. The delivery
+is never copied; all commands read it in place.
+
+Set the target once, in this order (sourcing `.env` after the exports would overwrite
+`KG_REPOSITORY`):
+
+```bash
+set -a; . ./.env; set +a
+export KG_REPOSITORY=portfolio_test
+export SQL_UNIVERSE_DB=/workspaces/thesis/data/universe_history_gics.db
+```
+
+The load order for a clean `portfolio_test` is:
+
+```bash
+# 1. Schema (the 5 graphs; verify_store --manifest later checks the backtest family)
+uv run python cli/load_schema.py
+uv run python cli/verify_store.py
+
+# 2. Universe and reference catalog
+uv run python cli/load_universe.py --as-of 2026-11-09 --write
+
+# 3. Fundamentals (block C). The production reload does not repeat this graph; a clean
+#    portfolio_test needs it, and the manifest price mask is the same Tiingo mask.
+uv run python cli/load_fundamentals.py --label final \
+  --dir "/workspaces/thesis/knoledge graph/2026-11-12_respuesta_4/bloque_c_fundamentales" \
+  --mask "/workspaces/thesis/knoledge graph/mascara_tiingo/tiingo_assets.csv" \
+  --universe-db "$SQL_UNIVERSE_DB" --write
+
+# 4. Veto Hierarchy backtests (meta, m018/detail, selection)
+uv run python cli/load_veto.py \
+  --manifest "/workspaces/thesis/knoledge graph/2026-11-17_final/manifest_final.json"
+uv run python cli/load_veto.py \
+  --manifest "/workspaces/thesis/knoledge graph/2026-11-17_final/manifest_final.json" \
+  --check-store
+# write only after the maintainer's go-ahead, and only on the target chosen above:
+# uv run python cli/load_veto.py --manifest ".../manifest_final.json" --write
+
+# 5. External Markowitz mean-variance summary (see the path note below)
+uv run python cli/load_mv_base.py --label final \
+  --dir "/workspaces/thesis/knoledge graph/mv_base"
+
+# 6. Aggregates from the delivery root (61 rows, news_risk_off included)
+uv run python cli/load_aggregates.py --label final \
+  --dir "/workspaces/thesis/knoledge graph/2026-11-17_final" --write
+
+# 7. Series (SPY and MARKOWITZ_MV); point at the series subfolder, not the delivery root
+uv run python cli/load_series.py --label final \
+  --dir "/workspaces/thesis/knoledge graph/2026-11-17_final/series_diarias_referencia" --write
+```
+
+**Aggregates source check (T-896, fixed 2026-11-16).** The corrected delivery has
+`aggregates_final.json` SHA-256 `b2cc35dc1b7e6b4a9169d9437d4d992aaeb9478fdbb37f976d5c0ffc39aabaaa`,
+`trend_filter_applies_to_arms: ["TOPN_MV_GUARD"]`, 61 rows with the boolean `news_risk_off` and
+`cash_fraction` 0.5 when the price input is `below` or the news input is on. The loader accepts the
+root `SHA256SUMS` with nested paths and finds the one database per
+`SYSTEM_WITH_HIERARCHY/<window>/` folder. T-896 is done; the aggregate graph is loadable. If an
+older `urn:graph:derived:backtest:aggregates:final` is already in the target, `--check-store`
+reports the old arm/source hash and `--write` refuses the non-empty graph: drop that one exact IRI
+after the backup, then run the write. The `load_aggregates` command in the sequence above is the
+write only after its dry run and `--check-store` pass.
+
+**Markowitz MV and `--engine-dir`.** The delivery's `mv_base/` contains only
+`aggregates_mv_base.json`; it does not contain `config_mv_base.md`, `SHA256SUMS` or the
+`final_<window>.db` files that `cli/load_mv_base.py` reads. Do not point `--engine-dir` at
+`2026-11-17_final/mv_base` and expect it to work: the loader's engine directory must contain
+`final_P1.db` … `final_C1.db`. The production runbook must either stage symlinks to the final
+engine databases (for example `final_P1.db -> SYSTEM_WITH_HIERARCHY/P1/H1B-A2g-P1.db`, whose
+book 1 is `MARKOWITZ_BASE`) or receive a corrected mv_base folder from the maintainer. This is a
+delivery-path decision, not a graph/schema decision; it is listed as an open item in TASKS.md
+T-895.
+
+### 0quater.1 New `control_counts` definitions (final-1)
+
+All of these are computed from the files, compared exactly with the manifest, and only for
+`SYSTEM_WITH_HIERARCHY` (the other configurations have no manager/narrator/news/bull files):
+
+| Key | Definition |
+|---|---|
+| `manager_calls` | lines of `manager_calls_file` |
+| `manager_fallbacks` | calls whose `fallback.cause` is not null |
+| `manager_repairs` | calls whose `repair_used` is true |
+| `narrator_texts` | lines of `narrator_file` |
+| `news_pool_actions` | object `{veto, promotion}` counted from the `actions` list of `*.news.json` |
+| `news_date_records` | length of the `dates` list of `*.news.json` |
+| `news_level_c_decisions` | decisions whose `levels_v2.decisions[].c_flags` (or `c_flagged`) is non-empty |
+| `news_level_d_decisions` | decisions whose `levels_v2.decisions[].d_fired` is true |
+| `news_exits` | stops in the JSON-lines whose `trigger` is `news_shock`; these are the `L1_BP_STOP` alerts that are news exits, not price stops |
+| `news_sector_rejections` | sum of every stop's `eligible_counts.news_sector` (the level C sector rejections) |
+| `bull_triggered` | decisions in `bull_mode.json` whose `triggered` is true |
+
+The same new stop fields are accepted by the detail parser and **not projected**:
+`trigger`, `news_neg3`, `news_pos3`, `news_threshold`, `sector_limit_changes`, the
+`portfolio_check.fallback`/`fallback_reasons`, and the `weight_after_e3` on a replacement. The
+cash entry in a stop menu is also accepted and skipped. `news_sector` and `PORTFOLIO_CHECK` are
+accepted in `eligible_counts` and skipped because there is no schema property yet. `verify_store
+--manifest` prints these keys as `not store-verifiable: not loaded yet` and does **not** fail:
+`manager_calls`, `manager_fallbacks`, `manager_repairs`, `narrator_texts`, `news_pool_actions`,
+`news_date_records`, `news_level_c_decisions`, `news_level_d_decisions`, `news_exits`,
+`news_sector_rejections` and `bull_triggered`.
+
+A manifest/file mismatch in any of these counts **is** a failure: `build_delivery` computes the
+value from the file before it contacts a store. A missing `news_rows_file` hash, a per-run
+manager/narrator/news/bull hash or an unknown new manifest key also stops the load.
+
+### 0quater.2 Not loaded yet (later PR)
+
+The following final-delivery data is deliberately outside this PR and is not in the graph:
+
+- `manager_calls_file` (`:ManagerCall`) and `narrator_file` (`:NarratorText`);
+- `news_actions_file` (`:NewsAction`, pool actions, date records, evidence) and the NLP
+  `news/news_rows.jsonl` rows (`:NewsItem`);
+- `bull_mode.json` records;
+- the cash entry of a stop menu (no `DestinationOption` property for cash) and the
+  `news_sector`/`PORTFOLIO_CHECK` rejection counts (no schema property yet).
+
+Those files are still hash-verified and parsed for the counts above. The later PR decides the
+classes/properties, the `SHACL` shapes and the `control_counts` store-side checks. Until then,
+`destination_options` counts every menu entry in the file (including cash), while the graph holds
+only the non-cash `DestinationOption` individuals; this is a known provisional gap, not a
+manifest mismatch.
+
+### 0quater.3 Large graphs and write batching
+
+`load_veto` writes every graph through `gate.write_batched` in 20,000-triple chunks. The client
+timeout is 120 s; a lost answer leaves that graph **in doubt** and the loader stops without
+retrying. In the final delivery the following graphs exceed 300,000 triples and must be treated
+as multi-request writes: all System selection graphs except H2 (P1/H1/P3/P2/H3/C1 for both
+System configurations), `SYSTEM_WITH_HIERARCHY` C1 m018, `SYSTEM_WITHOUT_HIERARCHY` C1 m018 and
+`MARKOWITZ_BASE` C1 m018. The dry-run prints the count and the `>300,000` flag per graph.
 
 ## 0ter. Rehearsal kit — scratch `portfolio_test` with the P1 pilot
 
@@ -282,6 +434,7 @@ after each step and subtract.
 | load_veto m018/detail | | | | | |
 | load_veto selection | | | | | |
 | load_series | | | | | |
+| load_news | | | | | |
 | load_agents | | | | | |
 | verify_store | | | | | |
 
@@ -617,7 +770,46 @@ in `urn:graph:derived:backtest:external:final`. After the write, `verify_store -
 the `daily_rows` of `MARKOWITZ_MV` and `SPY` against the series graphs; when a graph is absent it
 stays "not verifiable" and does not fail the check.
 
-## 7e. Load the block F agent traceability files (write)
+## 7e. Load the news rows (write)
+
+The block D news delivery is `/workspaces/thesis/knoledge graph/2026-11-17_final` — the delivery
+root that holds `manifest_final.json` and `SHA256SUMS`; the file itself is `news/news_rows.jsonl`
+(69,329 rows, model revision `snapshot-c3a753affa5d`). Point `--dir` at that root (or at its
+`news/` folder). The loader checks the file against both the manifest's `news_rows_file` block and
+the delivery `SHA256SUMS` before reading a row, then checks the row header against the manifest
+columns, the row count and the key. It writes one append-only graph per calendar year,
+`urn:graph:derived:news:final:{year}`; 2024 is split into `:2024:01-06` and `:2024:07-12` to stay under
+the ~400,000-triple bound. Letter 26 corrected the 261 PSKY rows to engine `asset_id` 477, so all
+503 PSKY rows link to `:SKYD`; the 9 EQR rows stay unlinked because the engine has no asset or
+ticker interval for EQR. The loader prints the unresolved count and tickers. A future revision that
+re-labels an already loaded fragment (same `item_id`, same ticker) writes one value per graph, so a
+query must read the revision by graph.
+
+Dry run first (contacts no store), then the read-only pre-flight and the write:
+
+```bash
+NEWS_DIR="/workspaces/thesis/knoledge graph/2026-11-17_final"
+
+uv run python cli/load_news.py --label final --dir "$NEWS_DIR"
+
+set -a; . ./.env; set +a
+export KG_REPOSITORY=portfolio_test
+export SQL_UNIVERSE_DB=/workspaces/thesis/data/universe_history_gics.db
+uv run python cli/load_news.py --label final --dir "$NEWS_DIR" --check-store
+
+KG_REPOSITORY=portfolio uv run python cli/load_news.py --label final \
+  --dir "$NEWS_DIR" --write --to-production
+```
+
+The dry run prints the row count, the unresolved-asset count, one `graph:`/`triples:` pair per year
+graph and `SHACL: conforms` for each. `--check-store` must print `would-be-written` (or
+`already-in-the-store` after a write) per graph. The write appends each graph in bounded N-Triples
+chunks; a lost answer prints `store error, the graph is in doubt` and must not be retried blindly.
+After the write, `verify_store --manifest` sums the stored `NewsItem` rows across the year graphs
+against the manifest and checks the distinct tickers; when the graphs are absent it reports
+"not store-verifiable" and does not fail the check.
+
+## 7f. Load the block F agent traceability files (write)
 
 The block F files are the four per-window files of `SYSTEM_WITH_HIERARCHY`:
 
@@ -632,8 +824,8 @@ The loader reads `manifest_final.json` and the delivery's `SHA256SUMS` itself. T
 is `KG_DELIVERY_DIR` (default `/workspaces/thesis/knoledge graph/2026-11-17_final`), so the
 commands below need no absolute path when that variable is set. Load block F **after** the schema,
 the universe/assets, the Veto Hierarchy detail (the manager and narrator stop links point at the
-detail graph's `:StopEvent` individuals) and, if PR D is present, the block D `:NewsItem` graph.
-Block F does not load `:NewsItem`; the evidence keeps `:newsTestRow` until that link is added.
+detail graph's `:StopEvent` individuals) and the block D `:NewsItem` graph (the evidence's
+`:newsItem` links resolve against it; block F does not load that graph).
 
 Dry run first (no store contact), then the read-only pre-flight and the write:
 
@@ -652,9 +844,12 @@ KG_REPOSITORY=portfolio uv run python cli/load_agents.py --label final \
   --write --to-production
 ```
 
-The dry run prints the seven windows, the four graph names and their triple counts (122,339 in
-total: 16,050 manager, 78,504 narrator, 25,483 news, 2,302 bull-mode) and `SHACL: conforms` for
-each graph. `--check-store` must print `would-be-written` for every graph (or
+The dry run prints the seven windows, the four graph names and their triple counts (43,468 in the
+five windows that load: 7,726 manager, 22,244 narrator, 12,483 news, 1,015 bull-mode) and
+`SHACL: conforms` for each graph. P1 and C1 currently stop before the news graph because two REGN
+test rows (`280187`, `328156`) have no `news_rows.jsonl` row; the loader refuses to guess the item
+kind. The other five windows load; once the delivery adds those two rows (or Reviewer A approves
+a documented skip), the two windows are retried with `--window P1` and `--window C1`. `--check-store` must print `would-be-written` for every graph (or
 `already-in-the-store` after a write) and the stored counts when a graph exists; an absent graph
 prints `not store-verifiable`. The write appends each graph in bounded N-Triples chunks; a lost
 answer prints `store error, the graph is in doubt` and must not be retried blindly. Any piece can
@@ -662,7 +857,7 @@ be loaded later without touching the others:
 
 ```bash
 # one window, one file type
-uv run python cli/load_agents.py --label final --window P1 --only news
+uv run python cli/load_agents.py --label final --window H1 --only news
 ```
 
 `--only` accepts `manager_calls`, `narrator`, `news` and `bull_mode`; `--window` accepts `P1`,

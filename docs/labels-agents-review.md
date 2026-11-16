@@ -1,6 +1,6 @@
 # Block F label review — agent traceability (Work item 46, T-900–T-909)
 
-Reviewer A: the table lists the code, the Spanish label and the English label of every new class and property. The `domain` column is the shape that uses the property; `shared` means it is used by more than one block-F class (and has no `rdfs:domain`, so it cannot entail one disjoint leaf from another).
+Status: **pending Reviewer A**. The table lists the code, the Spanish label and the English label of every new class and property. The `domain` column is the shape that uses the property; `shared` means it is used by more than one block-F class (and has no `rdfs:domain`, so it cannot entail one disjoint leaf from another).
 
 ## Classes
 
@@ -29,7 +29,7 @@ Reviewer A: the table lists the code, the Spanish label and the English label of
 | `:validatorDetail` | Detalle del validador | Validator detail | datatype | `:shared` |
 | `:modelRequested` | Modelo solicitado | Model requested | datatype | `:shared` |
 | `:modelResolved` | Modelo resuelto | Model resolved | datatype | `:shared` |
-| `:modelRevision` | Revisión del modelo | Model revision | datatype | `:shared` |
+| `:providerModelRevision` | Revisión del modelo del proveedor | Provider model revision | datatype | `:shared` |
 | `:reasoningEffort` | Esfuerzo de razonamiento | Reasoning effort | datatype | `:shared` |
 | `:reasoningEffortUsed` | Se usó esfuerzo de razonamiento | Reasoning effort used | datatype | `:shared` |
 | `:newsBaseRatesSha256` | SHA-256 de las tasas base | Base rates SHA-256 | datatype | `:shared` |
@@ -192,6 +192,7 @@ Reviewer A: the table lists the code, the Spanish label and the English label of
 | `:bullN11CoreWeight` | Peso del núcleo N11 | N11 core weight | datatype | `:BullModeDecision` |
 | `:bullN11Evaluable` | N11 evaluable | N11 evaluable | datatype | `:BullModeDecision` |
 | `:bullN11ExAnteBeta` | Beta ex-ante N11 | N11 ex-ante beta | datatype | `:BullModeDecision` |
+| `:newsItem` | Noticia | News item | object | `:NewsEvidence` |
 
 ## Reused existing properties
 
@@ -208,11 +209,11 @@ These are not redefined in the block; their existing labels are reused. `:genera
 
 ## Review notes
 
-- Every new class is an `:Observation` leaf in a second `owl:AllDisjointClasses` block at the end of `tbox.ttl`; the existing block and its 60 leaves are untouched.
+- Every new class is an `:Observation` leaf in a second `owl:AllDisjointClasses` block at the end of `tbox.ttl`; the existing blocks are untouched.
 
 - Every new shape is closed (`sh:closed true`, `rdf:type` ignored) and lists the shared source pointer properties; there is one extra `:AgentRecordNoPriceShape` that refuses `:closePrice`, `:stop`, `:alertValue` and the other price properties on the eight classes.
 
-- `:NewsEvidence` stores exact fractions as integer numerator/denominator pairs; no p-value or size is stored as a float.
+- `:NewsEvidence` stores exact fractions as integer numerator/denominator pairs and one `:newsItem` link per test row; no p-value or size is stored as a float.
 
-- The `:NewsItem` link waits on block D; `:newsTestRow` keeps the `(item_id, ticker)` test rows until that link can be added.
+- `:providerModelRevision` is this block’s property; master's `:modelRevision` stays on `:NewsItem`.
 
