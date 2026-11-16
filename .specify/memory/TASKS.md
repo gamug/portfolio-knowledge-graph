@@ -1536,5 +1536,6 @@ T-890–T-896.
       tests for both.)* Store-side news verification.
 - [x] **T-914** *(done 2026-11-16: `docs/final-delivery.md` §7e and 0bis.6, docs/07, veto design §7,
       README/SPEC/schema/06/07 counts; real dry run and read-only pre-flight on `portfolio_test`,
-      no GraphDB write.)* Delivery documentation, count reconciliation and the real dry run.
+      no GraphDB write; full suite 1,868 passed / 62 deselected.)* Delivery documentation, count
+      reconciliation and the real dry run.
 - [ ] **T-915–T-919** Reserved for block D review fixes.

@@ -3762,4 +3762,4 @@ run over the updated `news/news_rows.jsonl` (sha `ac15f141…`): 69,329 rows, 9 
 21,300 / 2022 344,050 / 2023 344,025 / 2024:01-06 234,423 / 2024:07-12 184,596 / 2025 334,500 /
 2026 270,313 triples (1,733,207 total), SHACL conforms; no GraphDB write. Read-only `--check-store`
 on `portfolio_test` reports all seven graphs `would-be-written`. Labels approved by Reviewer A with
-the four letter-26 changes. Full suite **PENDING-RUN** passed / 62 deselected.
+the four letter-26 changes. Full suite **1,868 passed / 62 deselected** (44 min 02 s).
