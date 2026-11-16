@@ -1567,4 +1567,12 @@ steps); the run command is in the README, "Container image".
 - [ ] **T-921** *(the maintainer decides once T-920 is closed; a "no" closes it, as T-199)* Build
       the image in CI so `Dockerfile` and `devcontainer.json` cannot drift apart. NR-005 says no CI
       workflow exists, so a "yes" amends NR-005 first.
-- [ ] **T-922–T-929** Reserved for review fixes.
+- [ ] **T-922** *(from T-920's first run, PR #171)* Line endings in the image. A first full run in the
+      image, built from a Windows working tree (CRLF), gave 19 failed / 1,853 passed / 62 deselected
+      (52 min). Byte-exact tests (`tests/test_ttyg_docs.py`, `test_schema_gate.py`'s run-configuration
+      round trip, the label text) fail on CRLF; others need `.env` (`KG_HOST`) and the
+      `THESIS_HOST_DIR` data mount (`test_mv_base.py` needs `scratch/final/...` files). Decide and do:
+      a `.gitattributes` with `eol=lf` for the files those tests read (or `* text=auto eol=lf`), or
+      document that the image is built from an LF checkout (WSL, `core.autocrlf=input`); then re-run
+      T-920 with `--env-file .env` and the data mount, and record which of the 19 remain.
+- [ ] **T-923–T-929** Reserved for review fixes.

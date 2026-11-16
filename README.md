@@ -173,7 +173,10 @@ docker run --rm -it --env-file .env -v "$PWD:/workspaces/portfolio-knowledge-gra
 What differs from the Dev Container: no VS Code extensions/settings; the image has no `.git`, so
 `pre-commit install` is not run — in a mounted checkout run `pre-commit install --install-hooks` once (the
 tool is in the image's `.venv`); and mounting a checkout over the workdir hides the image's `.venv`, so run
-`uv sync --frozen --group dev` there first. The image is a development environment, not a service.
+`uv sync --frozen --group dev` there first. Build it from an **LF checkout** (WSL, or `git config
+core.autocrlf input`): a Windows CRLF working tree makes the byte-exact tests fail (T-922). Several tests also need
+`.env` and the `THESIS_HOST_DIR` mount, so run the suite with both flags above. The image is a development
+environment, not a service.
 
 ## Build status
 
