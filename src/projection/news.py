@@ -281,7 +281,7 @@ def _local(value: str, where: str) -> str:
     return value
 
 
-def _row(raw: object, line: int, contract: NewsRowsContract) -> NewsRow:  # noqa: C901, PLR0915
+def _row(raw: object, line: int, contract: NewsRowsContract) -> NewsRow:  # noqa: C901, PLR0912, PLR0915
     where = f"{contract.path}:{line}"
     if not isinstance(raw, dict):
         raise NewsError(f"{where}: expected one JSON object")
@@ -305,7 +305,12 @@ def _row(raw: object, line: int, contract: NewsRowsContract) -> NewsRow:  # noqa
     date_source = _text(raw["date_source"], f"{where}.date_source")
     if date_source not in ("published", "crawled", "crawled_future_pub"):
         raise NewsError(f"{where}.date_source: {date_source!r} is not a known date source")
-    title = _text(raw["title"], f"{where}.title")
+    if item_kind == "body":
+        if not isinstance(raw["title"], str):
+            raise NewsError(f"{where}.title: expected a string, got {raw['title']!r}")
+        title = raw["title"]
+    else:
+        title = _text(raw["title"], f"{where}.title")
     text = _text(raw["text"], f"{where}.text")
     if len(text) > MAX_TEXT_LENGTH:
         raise NewsError(

@@ -252,6 +252,26 @@ def test_a_body_row_without_article_id_and_source_domain_loads(tmp_path: Path) -
     assert data.rows[0].source_domain is None
 
 
+def test_a_body_with_an_empty_title_loads_and_projects(tmp_path: Path) -> None:
+    data = _data(tmp_path, [_body_row(title="")])
+    assert data.rows[0].title == ""
+    builder = project(data)["urn:graph:derived:news:final:2021"]
+    item = news_item_iri(data.rows[0])
+    assert (item, KG.newsTitle, rdflib.Literal("")) in builder.triples
+
+
+def test_a_sub_news_with_an_empty_title_is_rejected(tmp_path: Path) -> None:
+    root = _write(tmp_path, [_row(title="")])
+    with pytest.raises(NewsError, match=r"title: expected a non-empty string"):
+        load_file("final", root)
+
+
+def test_a_body_with_a_null_title_is_rejected(tmp_path: Path) -> None:
+    root = _write(tmp_path, [_body_row(title=None)])
+    with pytest.raises(NewsError, match=r"title: expected a string"):
+        load_file("final", root)
+
+
 def test_a_body_item_id_must_be_64_lowercase_hex(tmp_path: Path) -> None:
     root = _write(tmp_path, [_body_row(item_id="B" * 64, body_hash="B" * 64)])
     with pytest.raises(NewsError, match="64 lowercase hex"):

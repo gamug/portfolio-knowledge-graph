@@ -784,7 +784,9 @@ columns, the row count and the key. It writes one append-only graph per calendar
 the ~400,000-triple bound. Rows can be fragments (`item_kind "sub_news"`) or full article bodies
 (`item_kind "body"`). A body's `item_id` is its 64-lowercase-hex body fingerprint and equals
 `body_hash`; its `article_id` and `source_domain` are absent because the NLP delivery does not say
-which article a body comes from, so the loader omits `:articleId`/`:sourceDomain` for bodies.
+which article a body comes from, so the loader omits `:articleId`/`:sourceDomain` for bodies. A
+body's title may be empty (the NLP delivery does not always carry one); a fragment's title is
+required.
 Letter 26 corrected the PSKY rows to engine `asset_id` 477, so they link to `:SKYD`; the EQR rows
 stay unlinked because the engine has no asset or ticker interval for EQR. Counts are read from the
 manifest's `news_rows_file` and the delivery's `news/README.md`, never fixed here. The loader
