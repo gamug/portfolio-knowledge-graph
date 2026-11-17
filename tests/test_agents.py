@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 from typing import cast
 
@@ -44,6 +45,29 @@ def test_manifest_hashes_and_counts_are_checked(tmp_path: Path) -> None:
     assert data.counts.news_exits == 1
     assert data.counts.news_sector_rejections == 4
     assert data.counts.bull_triggered == 1
+
+
+class _RecordingStore:
+    def __init__(self) -> None:
+        self.queries: list[str] = []
+
+    def select(self, query: str) -> list[dict[str, str]]:
+        self.queries.append(query)
+        return [{"n": "0"}]
+
+
+def test_agent_store_queries_do_not_reuse_an_aggregate_alias(tmp_path: Path) -> None:
+    data = _loaded(tmp_path).by_window(WINDOW)
+    store = _RecordingStore()
+    agents.verify_stored(cast(GraphDB, store), "final", data)
+    assert store.queries
+    for query in store.queries:
+        for inner, alias in re.findall(
+            r"\((?:SUM|COUNT|MIN|MAX|AVG)\(\s*(?:DISTINCT\s+)?\?([A-Za-z_]\w*)\s*\)"
+            r"\s+AS\s+\?([A-Za-z_]\w*)\s*\)",
+            query,
+        ):
+            assert alias != inner, query
 
 
 def test_a_changed_file_is_a_hash_mismatch(tmp_path: Path) -> None:

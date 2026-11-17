@@ -786,7 +786,7 @@ def _agent_count(store: ReadableStore, graph: str, where: str) -> int:
 def _agent_sum(store: ReadableStore, graph: str, where: str) -> int:
     rows = store.select(
         "PREFIX : <https://thesis.local/kg/portfolio#>\n"
-        f"SELECT (SUM(?n) AS ?n) WHERE {{ GRAPH <{graph}> {{ {where} }} }}"
+        f"SELECT (SUM(?value) AS ?n) WHERE {{ GRAPH <{graph}> {{ {where} }} }}"
     )
     return int(rows[0]["n"]) if rows and "n" in rows[0] else 0
 
@@ -823,9 +823,11 @@ def store_agent_counts(store: ReadableStore, label: str, window: str) -> dict[st
         values["news_level_d_decisions"] = _agent_count(
             store, news_graph, "?s a :DateRecord ; :levelDFired true"
         )
-        values["news_exits"] = _agent_sum(store, news_graph, "?s a :NewsRunRecord ; :newsExits ?n")
+        values["news_exits"] = _agent_sum(
+            store, news_graph, "?s a :NewsRunRecord ; :newsExits ?value"
+        )
         values["news_sector_rejections"] = _agent_sum(
-            store, news_graph, "?s a :NewsRunRecord ; :newsSectorRejections ?n"
+            store, news_graph, "?s a :NewsRunRecord ; :newsSectorRejections ?value"
         )
     bull_graph = agent_graph_name(label, window, "bull_mode")
     if _agent_graph_exists(store, bull_graph):

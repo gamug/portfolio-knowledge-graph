@@ -1780,12 +1780,12 @@ def verify_stored(
                 "news_exits": _scalar(
                     store,
                     _PREFIX
-                    + f"SELECT (SUM(?n) AS ?n) WHERE {{ GRAPH <{graph}> {{ ?s a :NewsRunRecord ; :newsExits ?n }} }}",
+                    + f"SELECT (SUM(?value) AS ?n) WHERE {{ GRAPH <{graph}> {{ ?s a :NewsRunRecord ; :newsExits ?value }} }}",
                 ),
                 "news_sector_rejections": _scalar(
                     store,
                     _PREFIX
-                    + f"SELECT (SUM(?n) AS ?n) WHERE {{ GRAPH <{graph}> {{ ?s a :NewsRunRecord ; :newsSectorRejections ?n }} }}",
+                    + f"SELECT (SUM(?value) AS ?n) WHERE {{ GRAPH <{graph}> {{ ?s a :NewsRunRecord ; :newsSectorRejections ?value }} }}",
                 ),
             }
             want = {key: expected[key] for key in values}

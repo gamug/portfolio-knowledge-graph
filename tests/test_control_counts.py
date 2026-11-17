@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 
 import pytest
@@ -26,6 +27,7 @@ from projection.control_counts import (
     compute_control_counts,
     compute_series_counts,
     expected_control_counts,
+    store_agent_counts,
     store_control_counts,
     validate_control_counts,
     verify_agent_control_counts,
@@ -653,6 +655,28 @@ def test_group_5_reads_the_final_files(tmp_path: Path) -> None:
 def test_group_5_is_null_when_the_final_files_are_absent() -> None:
     values = _group_5({}, None)
     assert all(value is None for value in values.values())
+
+
+class _RecordingStore:
+    def __init__(self) -> None:
+        self.queries: list[str] = []
+
+    def select(self, query: str) -> list[dict[str, str]]:
+        self.queries.append(query)
+        return [{"n": "0"}]
+
+
+def test_agent_count_queries_do_not_reuse_an_aggregate_alias() -> None:
+    store = _RecordingStore()
+    store_agent_counts(store, "final", "P1")
+    assert store.queries
+    for query in store.queries:
+        for inner, alias in re.findall(
+            r"\((?:SUM|COUNT|MIN|MAX|AVG)\(\s*(?:DISTINCT\s+)?\?([A-Za-z_]\w*)\s*\)"
+            r"\s+AS\s+\?([A-Za-z_]\w*)\s*\)",
+            query,
+        ):
+            assert alias != inner, query
 
 
 def test_absent_agent_graphs_are_printed_without_failing(
