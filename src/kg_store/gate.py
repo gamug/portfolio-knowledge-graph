@@ -880,36 +880,56 @@ def nested_paths(schema: GateSchema, relation: rdflib.URIRef) -> set[rdflib.URIR
     return _paths_below(schema.shapes, starts)
 
 
-def fetch_context(
-    db: GraphDB, refs: set[rdflib.URIRef], schema: GateSchema, batch: rdflib.Graph
+def _target_shapes(schema: GateSchema, classes: set[rdflib.term.Node]) -> list[rdflib.term.Node]:
+    """The node shapes whose target class is one of ``classes`` or a subclass."""
+    sh = rdflib.namespace.SH
+    wanted = {
+        sub for cls in classes for sub in schema.tbox.transitive_subjects(RDFS.subClassOf, cls)
+    }
+    return [
+        shape
+        for shape in schema.shapes.subjects(sh.targetClass, None)
+        if wanted & set(schema.shapes.objects(shape, sh.targetClass))
+    ]
+
+
+def _class_paths(schema: GateSchema, classes: set[rdflib.term.Node]) -> set[rdflib.URIRef]:
+    """Every property path the shapes of ``classes`` read, plus ``rdf:type``."""
+    return {rdflib.URIRef(RDF.type)} | _paths_below(schema.shapes, _target_shapes(schema, classes))
+
+
+def _relations_for_paths(
+    schema: GateSchema, paths: set[rdflib.URIRef]
+) -> dict[rdflib.URIRef, set[rdflib.term.Node]]:
+    """``path -> target classes`` for the ``sh:class`` properties named by ``paths``."""
+    sh = rdflib.namespace.SH
+    relations: dict[rdflib.URIRef, set[rdflib.term.Node]] = {}
+    for prop in schema.shapes.subjects(sh.path, None):
+        path = schema.shapes.value(prop, sh.path)
+        if not isinstance(path, rdflib.URIRef) or path not in paths:
+            continue
+        for target in schema.shapes.objects(prop, sh["class"]):
+            relations.setdefault(path, set()).add(target)
+    return relations
+
+
+def _fetch_group(
+    db: GraphDB,
+    subjects: set[rdflib.URIRef],
+    paths: set[rdflib.URIRef],
+    hops: Mapping[rdflib.URIRef, set[rdflib.URIRef]],
 ) -> rdflib.Graph:
-    """What the store holds (explicit statements, any graph) about ``refs``, as a graph.
-
-    Only the properties the shapes read for what ``batch`` expects of ``refs`` are fetched
-    (:func:`context_predicates`, and :func:`nested_paths` one step further when a shape reads
-    through a relation, as the Asset shape does through its memberships).
-
-    Each value keeps the term type and datatype the store holds it with (T-181), so where a shape
-    constrains a property's datatype or values (``sh:datatype``, ``sh:in``, ``sh:hasValue``) a
-    stored literal of another datatype fails it, instead of passing as the declared one. A string
-    is a plain literal, as in the batches. A subject or predicate that is not an IRI raises
-    :class:`GraphDBError`.
-    """
-    iris = sorted(str(r) for r in refs)
+    """Fetch the requested paths (and one ``sh:node`` hop) for ``subjects`` from the store."""
+    iris = sorted(str(subject) for subject in subjects)
     _refuse_illegal_iris(iris)
-    paths = context_predicates(batch, refs, schema)
     restrict = f"VALUES ?p {{ {_iri_list(paths)} }} "
-    hops: dict[rdflib.URIRef, set[rdflib.URIRef]] = {}
-    for relation in sorted(paths, key=str):
-        if nested := nested_paths(schema, relation):
-            hops[relation] = nested
+    hop_queries = "".join(
+        f" UNION {{ ?r <{relation}> ?s . ?s ?p ?o . VALUES ?p {{ {_iri_list(nested)} }} }}"
+        for relation, nested in sorted(hops.items(), key=lambda item: str(item[0]))
+    )
     context = rdflib.Graph()
     for i in range(0, len(iris), 200):
         values = " ".join(f"<{iri}>" for iri in iris[i : i + 200])
-        hop_queries = "".join(
-            f" UNION {{ ?r <{relation}> ?s . ?s ?p ?o . VALUES ?p {{ {_iri_list(nested)} }} }}"
-            for relation, nested in hops.items()
-        )
         rows = db.select_terms(
             "SELECT ?s ?p ?o FROM <http://www.ontotext.com/explicit> "  # noqa: S608 - IRIs checked above
             f"WHERE {{ VALUES ?r {{ {values} }} "
@@ -925,6 +945,62 @@ def fetch_context(
                     "is not an IRI"
                 )
             context.add((s, p, row["o"]))
+    return context
+
+
+def _hops(schema: GateSchema, paths: set[rdflib.URIRef]) -> dict[rdflib.URIRef, set[rdflib.URIRef]]:
+    hops: dict[rdflib.URIRef, set[rdflib.URIRef]] = {}
+    for relation in sorted(paths, key=str):
+        if nested := nested_paths(schema, relation):
+            hops[relation] = nested
+    return hops
+
+
+def fetch_context(
+    db: GraphDB, refs: set[rdflib.URIRef], schema: GateSchema, batch: rdflib.Graph
+) -> rdflib.Graph:
+    """What the store holds (explicit statements, any graph) about ``refs``, as a graph.
+
+    Only the properties the shapes read for what ``batch`` expects of ``refs`` are fetched
+    (:func:`context_predicates`, and :func:`nested_paths` one step further when a shape reads
+    through a relation, as the Asset shape does through its memberships).
+
+    Each value keeps the term type and datatype the store holds it with (T-181), so where a shape
+    constrains a property's datatype or values (``sh:datatype``, ``sh:in``, ``sh:hasValue``) a
+    stored literal of another datatype fails it, instead of passing as the declared one. A string
+    is a plain literal, as in the batches. A subject or predicate that is not an IRI raises
+    :class:`GraphDBError`.
+    """
+    paths = context_predicates(batch, refs, schema)
+    context = _fetch_group(db, refs, paths, _hops(schema, paths))
+
+    # A referenced node's shape may require a value of another class (a StopEvent's book,
+    # stopped asset and chosen option). The store must supply that value's rdf:type and the
+    # properties its own shape reads; otherwise sh:class sees the link but not the class.
+    pending: dict[rdflib.term.Node, set[rdflib.URIRef]] = {}
+    seen: dict[rdflib.term.Node, set[rdflib.URIRef]] = {}
+
+    def queue(
+        classes: Mapping[rdflib.URIRef, set[rdflib.term.Node]], subjects: set[rdflib.URIRef]
+    ) -> None:
+        for path, targets in classes.items():
+            for subject in subjects:
+                for value in context.objects(subject, path):
+                    if not isinstance(value, rdflib.URIRef):
+                        continue
+                    for target in targets:
+                        if value not in seen.setdefault(target, set()):
+                            pending.setdefault(target, set()).add(value)
+
+    queue(_relations_for_paths(schema, paths), refs)
+    while pending:
+        target, subjects = pending.popitem()
+        if not subjects:
+            continue
+        seen.setdefault(target, set()).update(subjects)
+        target_paths = _class_paths(schema, {target})
+        context += _fetch_group(db, subjects, target_paths, _hops(schema, target_paths))
+        queue(_relations_for_paths(schema, target_paths), subjects)
     return context
 
 
