@@ -831,7 +831,9 @@ is `KG_DELIVERY_DIR` (default `/workspaces/thesis/knoledge graph/2026-11-17_fina
 commands below need no absolute path when that variable is set. Load block F **after** the schema,
 the universe/assets, the Veto Hierarchy detail (the manager and narrator stop links point at the
 detail graph's `:StopEvent` individuals) and the block D `:NewsItem` graph (the evidence's
-`:newsItem` links resolve against it; block F does not load that graph).
+`:newsItem` links resolve against it; block F does not load that graph). `--check-store` and
+`--write` therefore require the same label's veto and news graphs already loaded
+(order: schema, universe, veto, news, agents).
 
 Dry run first (no store contact), then the read-only pre-flight and the write:
 
