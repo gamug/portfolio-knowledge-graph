@@ -530,6 +530,8 @@ def verify_delivery(  # noqa: C901 -- one check per graph family
                 batch.key[1],
                 batch.key[2],
                 manifest.control_counts,
+                detail=batch.detail,
+                label=manifest.label,
             )
         )
         failures.extend(

@@ -14,6 +14,8 @@ from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any, Protocol
 
+from projection.veto_manifest import configuration_slug
+
 TOLERANCE = 1e-12
 
 CONFIGURATIONS = (
@@ -867,7 +869,39 @@ def verify_agent_control_counts(
     return failures
 
 
-def store_control_counts(store: ReadableStore, graph: str, configuration: str) -> dict[str, Any]:
+def cash_menu_entries(detail: object | None) -> int:
+    """Count the cash entries in the parsed detail file's stop menus.
+
+    The loader deliberately does not project a cash entry as ``:DestinationOption`` (cash is
+    ``:chosenCash``); the manifest count still includes it. The store check subtracts exactly these
+    entries from the manifest count before comparing.
+    """
+    total = 0
+    for stop in getattr(detail, "stops", ()):
+        for option in stop.get("menu") or ():
+            if option.get("cash") is True:
+                total += 1
+    return total
+
+
+def whole_window_summary_iri(label: str, window: str, configuration: str) -> str:
+    """The projector's one whole-window ``:PortfolioPeriodSummary`` IRI.
+
+    P2 also has P2a/P2b summaries; the whole-window one carries the window itself as its segment
+    (``PeriodSummary_<label>_<window>_<slug>_<window>``). Never select an arbitrary summary.
+    """
+    slug = configuration_slug(configuration)
+    return f"https://thesis.local/kg/portfolio#PeriodSummary_{label}_{window}_{slug}_{window}"
+
+
+def store_control_counts(
+    store: ReadableStore,
+    graph: str,
+    configuration: str,
+    *,
+    label: str = "final",
+    window: str | None = None,
+) -> dict[str, Any]:
     """Derive the store-verifiable control keys from one loaded m018 graph."""
     prefix = "PREFIX : <https://thesis.local/kg/portfolio#>\n"
 
@@ -923,40 +957,62 @@ def store_control_counts(store: ReadableStore, graph: str, configuration: str) -
             cause: rejection_causes.get(cause, 0) for cause in REJECTION_CAUSES
         },
     }
-    rows = store.select(
-        prefix
-        + f"SELECT ?cumulative ?annualized ?vol ?drawdown ?turnover WHERE {{ GRAPH <{graph}> {{ "
-        + "?s a :PortfolioPeriodSummary ; :cumulativeReturn ?cumulative ; :annualizedReturn ?annualized ; "
-        + ":annualizedVol ?vol ; :maxDrawdown ?drawdown ; :totalTurnover ?turnover } }"
-    )
-    if rows:
-        row = rows[0]
-        values["final_values"] = {
-            "cumulative_return": float(row["cumulative"]),
-            "annualized_return": float(row["annualized"]),
-            "annualized_vol": float(row["vol"]),
-            "max_drawdown": float(row["drawdown"]),
-            "total_turnover": float(row["turnover"]),
-        }
+    if window is not None:
+        summary_iri = whole_window_summary_iri(label, window, configuration)
+        rows = store.select(
+            prefix
+            + f"SELECT ?cumulative ?annualized ?vol ?drawdown ?turnover WHERE {{ GRAPH <{graph}> {{ "
+            + f"<{summary_iri}> a :PortfolioPeriodSummary ; :cumulativeReturn ?cumulative ; "
+            + ":annualizedReturn ?annualized ; :annualizedVol ?vol ; :maxDrawdown ?drawdown ; "
+            + ":totalTurnover ?turnover } }"
+        )
+        if len(rows) > 1:
+            raise ControlCountError(
+                f"{configuration}/{window}: the whole-window summary {summary_iri} is ambiguous "
+                f"({len(rows)} rows)"
+            )
+        if rows:
+            row = rows[0]
+            values["final_values"] = {
+                "cumulative_return": float(row["cumulative"]),
+                "annualized_return": float(row["annualized"]),
+                "annualized_vol": float(row["vol"]),
+                "max_drawdown": float(row["drawdown"]),
+                "total_turnover": float(row["turnover"]),
+            }
     if configuration in ("MARKOWITZ_MV", "SPY"):
         values.pop("daily_rows", None)
     return values
 
 
-def verify_store_control_counts(
+def verify_store_control_counts(  # noqa: PLR0913 -- explicit store/key and parsed detail
     store: ReadableStore,
     graph: str,
     configuration: str,
     window: str,
     control_counts: object,
+    *,
+    detail: object | None = None,
+    label: str = "final",
 ) -> list[str]:
     """Compare the store-derivable keys; return failures and print the non-verifiable list."""
     expected = expected_control_counts(control_counts, configuration, window)
     if expected is None:
         print(f"control counts not provided for {configuration}/{window}")
         return []
-    actual = store_control_counts(store, graph, configuration)
+    actual = store_control_counts(store, graph, configuration, label=label, window=window)
     failures: list[str] = []
+    expected = dict(expected)
+    if "destination_options" in expected:
+        if detail is None:
+            failures.append(
+                f"{configuration}/{window}.destination_options: the parsed detail file is missing"
+            )
+            expected.pop("destination_options")
+        else:
+            expected["destination_options"] = int(expected["destination_options"]) - (
+                cash_menu_entries(detail)
+            )
     for key, value in expected.items():
         if key in AGENT_KEYS:
             continue

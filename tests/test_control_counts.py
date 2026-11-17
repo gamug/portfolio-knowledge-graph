@@ -343,6 +343,159 @@ def test_store_grouped_counts_keep_the_full_zero_filled_key_sets() -> None:
     assert all(value == 0 for value in values["alerts_by_rule"].values())
 
 
+class _DestinationStore:
+    def __init__(self, destination_options: int = 60) -> None:
+        self.destination_options = destination_options
+
+    def select(self, query: str) -> list[dict[str, str]]:
+        if ":DestinationOption" in query:
+            return [{"n": str(self.destination_options)}]
+        if "GROUP BY" in query or "?cumulative" in query:
+            return []
+        return [{"n": "0"}]
+
+
+def _detail_with_cash_menus(cash_entries: int) -> object:
+    stops = tuple({"menu": [{"cash": True}, {"asset_id": 1}]} for _ in range(cash_entries))
+    return type("Detail", (), {"stops": stops})()
+
+
+def test_destination_options_subtract_the_cash_menu_entries() -> None:
+    expected = {"SYSTEM_WITH_HIERARCHY": {"P1": {"destination_options": 67}}}
+    failures = verify_store_control_counts(
+        _DestinationStore(),
+        "urn:graph:derived:backtest:final:P1:system_with_hierarchy",
+        "SYSTEM_WITH_HIERARCHY",
+        "P1",
+        expected,
+        detail=_detail_with_cash_menus(7),
+        label="final",
+    )
+    assert failures == []
+
+
+def test_destination_options_without_the_detail_file_fail() -> None:
+    expected = {"SYSTEM_WITH_HIERARCHY": {"P1": {"destination_options": 67}}}
+    failures = verify_store_control_counts(
+        _DestinationStore(),
+        "urn:graph:derived:backtest:final:P1:system_with_hierarchy",
+        "SYSTEM_WITH_HIERARCHY",
+        "P1",
+        expected,
+        label="final",
+    )
+    assert any(
+        "destination_options" in failure and "detail file" in failure for failure in failures
+    )
+
+
+def _summary_rows() -> list[dict[str, str]]:
+    return [
+        {
+            "cumulative": "-0.1",
+            "annualized": "-0.2",
+            "vol": "0.3",
+            "drawdown": "0.4",
+            "turnover": "5.0",
+        },
+        {
+            "cumulative": "0.1",
+            "annualized": "0.2",
+            "vol": "0.3",
+            "drawdown": "0.4",
+            "turnover": "5.0",
+        },
+        {
+            "cumulative": "0.0569",
+            "annualized": "0.07",
+            "vol": "0.15",
+            "drawdown": "0.2",
+            "turnover": "4.0",
+        },
+    ]
+
+
+class _SummaryStore:
+    def __init__(self, *, whole_window: bool = True) -> None:
+        self.whole_window = whole_window
+
+    def select(self, query: str) -> list[dict[str, str]]:
+        if "PeriodSummary_final_P2_system_with_hierarchy_P2" in query:
+            return _summary_rows()[2:] if self.whole_window else []
+        if "?cumulative" in query:
+            return _summary_rows()
+        if "GROUP BY" in query:
+            return []
+        return [{"n": "0"}]
+
+
+def test_final_values_use_the_whole_window_summary_not_rows_zero() -> None:
+    expected = {
+        "SYSTEM_WITH_HIERARCHY": {
+            "P2": {
+                "final_values": {
+                    "cumulative_return": 0.0569,
+                    "annualized_return": 0.07,
+                    "annualized_vol": 0.15,
+                    "max_drawdown": 0.2,
+                    "total_turnover": 4.0,
+                }
+            }
+        }
+    }
+    failures = verify_store_control_counts(
+        _SummaryStore(),
+        "urn:graph:derived:backtest:final:P2:system_with_hierarchy",
+        "SYSTEM_WITH_HIERARCHY",
+        "P2",
+        expected,
+        label="final",
+    )
+    assert failures == []
+
+
+def test_a_missing_whole_window_summary_fails() -> None:
+    expected = {
+        "SYSTEM_WITH_HIERARCHY": {
+            "P2": {
+                "final_values": {
+                    "cumulative_return": 0.0569,
+                    "annualized_return": 0.07,
+                    "annualized_vol": 0.15,
+                    "max_drawdown": 0.2,
+                    "total_turnover": 4.0,
+                }
+            }
+        }
+    }
+    failures = verify_store_control_counts(
+        _SummaryStore(whole_window=False),
+        "urn:graph:derived:backtest:final:P2:system_with_hierarchy",
+        "SYSTEM_WITH_HIERARCHY",
+        "P2",
+        expected,
+        label="final",
+    )
+    assert any("no PortfolioPeriodSummary" in failure for failure in failures)
+
+
+def test_an_ambiguous_whole_window_summary_fails() -> None:
+    class _AmbiguousSummaryStore(_SummaryStore):
+        def select(self, query: str) -> list[dict[str, str]]:
+            if "PeriodSummary_final_P2_system_with_hierarchy_P2" in query:
+                return _summary_rows()[1:]
+            return super().select(query)
+
+    with pytest.raises(ControlCountError, match="ambiguous"):
+        store_control_counts(
+            _AmbiguousSummaryStore(),
+            "urn:graph:derived:backtest:final:P2:system_with_hierarchy",
+            "SYSTEM_WITH_HIERARCHY",
+            label="final",
+            window="P2",
+        )
+
+
 def test_an_unknown_configuration_or_window_fails_even_in_a_draft() -> None:
     with pytest.raises(ControlCountError, match="unknown configuration"):
         validate_control_counts(
