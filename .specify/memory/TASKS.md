@@ -1582,4 +1582,9 @@ T-890–T-899, block D news rows by T-910–T-914 and block D2 full-article rows
       duplicate-CIK pre-flight and a genuinely missing asset, stop and NewsItem; `--write` uses
       the same `_plan` path. Real H1 `--check-store` on `portfolio_test` stops on the missing veto
       graph, as expected before the reload.)* Fix the store-backed pre-flight context.
-- [ ] **T-908–T-909** Reserved for block F review fixes.
+- [x] **T-908** *(done 2026-11-17: `gate.fetch_context` follows the `sh:class` values of
+      referenced nodes and fetches their `rdf:type` plus the paths their own shapes read,
+      recursively; the agents pre-flight passes H1/P3/H2/P2/H3 against `portfolio_test` without
+      weakening a shape. Tests cover the real-store-shaped double and a missing Book/option/asset
+      type.)* Close the store context for the agents pre-flight.
+- [ ] **T-909** Reserved for block F review fixes.

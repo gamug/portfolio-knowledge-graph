@@ -388,6 +388,25 @@ def _store_context(data: agents.WindowData) -> rdflib.Graph:
         asset = KG[ticker]
         context.remove((asset, KG.cikNumber, None))
         context.add((asset, KG.cikNumber, rdflib.Literal(f"{number:010d}")))
+    stop = KG[f"Stop_final_{WINDOW}_system_with_hierarchy_{DATE}_1"]
+    option = KG[f"Option_final_{WINDOW}_system_with_hierarchy_{DATE}_1_0"]
+    for predicate, value in (
+        (RDF.type, KG.DestinationOption),
+        (KG.optionOfStop, stop),
+        (KG.optionAsset, KG.AAA),
+        (KG.optionIsSpy, rdflib.Literal(False)),
+        (KG.optionRho, rdflib.Literal("0.8", datatype=XSD.decimal)),
+        (KG.optionR, rdflib.Literal("0.02", datatype=XSD.decimal)),
+        (KG.optionBeta, rdflib.Literal("0.5", datatype=XSD.decimal)),
+        (KG.optionRank, rdflib.Literal(1, datatype=XSD.integer)),
+        (KG.optionScore, rdflib.Literal("50", datatype=XSD.decimal)),
+        (KG.optionSector, rdflib.Literal(1, datatype=XSD.integer)),
+        (KG.optionSizeFraction, rdflib.Literal("1", datatype=XSD.decimal)),
+        (KG.optionWeight, rdflib.Literal("0.1", datatype=XSD.decimal)),
+        (KG.menuPosition, rdflib.Literal(1, datatype=XSD.integer)),
+    ):
+        context.add((option, predicate, value))
+    context.add((stop, KG.chosenOption, option))
     return context
 
 
@@ -440,3 +459,52 @@ def test_a_genuinely_missing_store_reference_fails_the_plan(
     store = DatasetStore(rdflib.Dataset())
     with pytest.raises(agents.gate.IngestRejected):
         agents._plan(cast(GraphDB, store), delivery, {WINDOW: builders}, agents.SLUGS)
+
+
+def test_fetch_context_brings_the_types_and_fields_of_referenced_stop_values(
+    tmp_path: Path,
+) -> None:
+    """The real fetch_context must not leave a stop's book/asset/option untyped."""
+    delivery = load_delivery("final", write_delivery(tmp_path), [WINDOW])
+    data = delivery.by_window(WINDOW)
+    builders = project(data, "final")
+    dataset = rdflib.Dataset()
+    for triple in _store_context(data):
+        dataset.default_graph.add(triple)
+    store = DatasetStore(dataset)
+    batch = agents.gate.parse_batch(builders["manager_calls"].turtle())
+    schema = agents.gate.load_gate_schema(Path(__file__).resolve().parent.parent / "schema")
+    refs = agents.gate.references(batch, schema)
+    context = agents.gate.fetch_context(cast(GraphDB, store), refs, schema, batch)
+    agents.gate.validate(batch, context=context)
+
+
+@pytest.mark.parametrize(
+    "triple",
+    [
+        (KG.Book_final_P1_context, RDF.type, KG.StrategyBook),
+        (KG.AAA, RDF.type, KG.Asset),
+        (
+            KG["Option_final_P1_system_with_hierarchy_2022-01-03_1_0"],
+            RDF.type,
+            KG.DestinationOption,
+        ),
+    ],
+)
+def test_fetch_context_does_not_invent_a_missing_stop_value_type(
+    tmp_path: Path, triple: tuple[rdflib.Node, rdflib.Node, rdflib.Node]
+) -> None:
+    delivery = load_delivery("final", write_delivery(tmp_path), [WINDOW])
+    data = delivery.by_window(WINDOW)
+    builders = project(data, "final")
+    dataset = rdflib.Dataset()
+    for statement in _store_context(data):
+        dataset.default_graph.add(statement)
+    dataset.default_graph.remove(triple)
+    store = DatasetStore(dataset)
+    batch = agents.gate.parse_batch(builders["manager_calls"].turtle())
+    schema = agents.gate.load_gate_schema(Path(__file__).resolve().parent.parent / "schema")
+    refs = agents.gate.references(batch, schema)
+    context = agents.gate.fetch_context(cast(GraphDB, store), refs, schema, batch)
+    with pytest.raises(agents.gate.IngestRejected):
+        agents.gate.validate(batch, context=context)

@@ -3772,7 +3772,12 @@ measured pilot budget is in `docs/veto-hierarchy-design.md` §6.
       only context. Tests cover the old duplicate-CIK failure and missing asset/stop/NewsItem;
       real H1 `--check-store` stops on the absent veto graph, expected before the reload.)*
       Fix the store-backed pre-flight context.
-- [ ] **T-908–T-909** Reserved for block F review fixes.
+- [x] **T-908** *(done 2026-11-17: `src/kg_store/gate.py` follows `sh:class` values of
+      referenced nodes and fetches their `rdf:type` plus the paths their own shapes read,
+      recursively; agents `--check-store` passes H1/P3/H2/P2/H3 on `portfolio_test`; tests model
+      the real store and a missing Book/option/asset type.)* Close the store context for the
+      agents pre-flight.
+- [ ] **T-909** Reserved for block F review fixes.
 
 **Acceptance criteria**:
 
