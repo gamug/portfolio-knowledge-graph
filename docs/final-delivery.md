@@ -774,14 +774,20 @@ stays "not verifiable" and does not fail the check.
 
 The block D news delivery is `/workspaces/thesis/knoledge graph/2026-11-17_final` — the delivery
 root that holds `manifest_final.json` and `SHA256SUMS`; the file itself is `news/news_rows.jsonl`
-(69,329 rows, model revision `snapshot-c3a753affa5d`). Point `--dir` at that root (or at its
+(the row count and model revision are the ones the manifest's `news_rows_file` and the delivery's
+`news/README.md` state). Point `--dir` at that root (or at its
 `news/` folder). The loader checks the file against both the manifest's `news_rows_file` block and
 the delivery `SHA256SUMS` before reading a row, then checks the row header against the manifest
 columns, the row count and the key. It writes one append-only graph per calendar year,
 `urn:graph:derived:news:final:{year}`; 2024 is split into `:2024:01-06` and `:2024:07-12` to stay under
-the ~400,000-triple bound. Letter 26 corrected the 261 PSKY rows to engine `asset_id` 477, so all
-503 PSKY rows link to `:SKYD`; the 9 EQR rows stay unlinked because the engine has no asset or
-ticker interval for EQR. The loader prints the unresolved count and tickers. A future revision that
+the ~400,000-triple bound. Rows can be fragments (`item_kind "sub_news"`) or full article bodies
+(`item_kind "body"`). A body's `item_id` is its 64-lowercase-hex body fingerprint and equals
+`body_hash`; its `article_id` and `source_domain` are absent because the NLP delivery does not say
+which article a body comes from, so the loader omits `:articleId`/`:sourceDomain` for bodies.
+Letter 26 corrected the PSKY rows to engine `asset_id` 477, so they link to `:SKYD`; the EQR rows
+stay unlinked because the engine has no asset or ticker interval for EQR. Counts are read from the
+manifest's `news_rows_file` and the delivery's `news/README.md`, never fixed here. The loader
+prints the row and triple counts by `item_kind` and the unresolved tickers. A future revision that
 re-labels an already loaded fragment (same `item_id`, same ticker) writes one value per graph, so a
 query must read the revision by graph.
 

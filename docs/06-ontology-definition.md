@@ -928,7 +928,7 @@ not a veto rule:** it carries no `:ruleSeverity`, `:penaltyPoints` or `:priority
 `VetoShape` refuses it as the object of `:appliesRule`/`:primaryRule`. `RuleDefinitionShape` adds one
 `sh:or` branch for `:category "GUARD"`, keeps the severity requirement for every other active rule,
 makes `:priorityRank` mandatory for non-GUARD rules, and widens the rank range to `[1,10]` for
-`UTILITY_CASH_COVERAGE`. The bundle is **12439 quads; conforms: True** (the FR-001 gate, current at
+`UTILITY_CASH_COVERAGE`. The bundle is **12451 quads; conforms: True** (the FR-001 gate, current at
 block F).
 
 **Projection of the three remaining v18 views (T-208, T-352/T-353).** `TickerHistory`,
@@ -1120,27 +1120,31 @@ calendar windows. No price level, OHLCV or daily asset return is stored. The two
 `DailySeriesPointShape` and `SeriesWeightPointShape` enforce the configuration branch, the window
 pattern and a decimal value per column.
 
-## 1.19 News rows (Work item 46, block D, 2026-11-16)
+## 1.19 News rows (Work item 46, blocks D/D2, 2026-11-16/17)
 
 `tbox.ttl` adds the `:NewsItem` `:EvidenceSource` leaf and one typed property per loaded column of
 `news/news_rows.jsonl` (the `url` column is empty today and stays optional): `:modelRevision`,
 `:sentimentRevision` and `:categoryRevision` are provenance; `:newsAssetId` and `:articleId` are
 integers; `:newsDate` is `xsd:date`; the three probabilities and `:categoryScore` are
-`xsd:decimal` in `[0,1]`; title and the delivered fragment are plain literals, and the fragment is
-capped at 2,000 characters so it can never become the full article. Sentiment and category are model
-outputs, not verified facts. The IRI is built from `(item_kind, item_id, ticker)` only, so the same
-fragment under a later `model_revision` cannot mint a second individual; the loader stops if it sees
-one key under two revisions. The optional `:newsItemOfAsset` link resolves the row's ticker against
-the loaded catalog, falling back to the engine `asset_id` when the ticker is historical. Letter 26
-corrected the 261 PSKY rows to engine `asset_id` 477 (the run read them as SKYD), so all 503 PSKY
-rows link to `:SKYD`; the 9 EQR rows stay unlinked because the engine has no asset or ticker
-interval for EQR. A future revision that re-labels an already loaded fragment (same `item_id`, same
-ticker) writes a second value on the same node, one per graph, so queries must read the revision by
-graph. The loader writes one append-only graph per calendar year,
+`xsd:decimal` in `[0,1]`; title and the delivered text are plain literals, capped at 2,000
+characters. A row is either a fragment (`item_kind "sub_news"`) or a full article body
+(`item_kind "body"`). A body's `item_id` is the 64-lowercase-hex fingerprint of its body and equals
+`:bodyHash`; `:articleId` and `:sourceDomain` are mandatory on a fragment and absent on a body
+(the NLP delivery does not say which article a body comes from), so the loader omits them for a
+body and never writes an empty literal. Sentiment and category are model outputs, not verified
+facts. The IRI is built from `(item_kind, item_id, ticker)` only, so the same item under a later
+`model_revision` cannot mint a second individual; the loader stops if it sees one key under two
+revisions. The optional `:newsItemOfAsset` link resolves the row's ticker against the loaded
+catalog, falling back to the engine `asset_id` when the ticker is historical. The manifest's
+`news_rows_file` block and the delivery's `news/README.md` are the source of the file hash, model
+revision and row counts; the doc states no fixed count. A future revision that re-labels an
+already loaded item (same `item_id`, same ticker) writes a second value on the same node, one per
+graph, so queries must read the revision by graph. The loader writes one append-only graph per
+calendar year,
 `urn:graph:derived:news:{label}:{year}` (a year over the ~400,000-triple bound becomes
 `:01-06`/`:07-12`), in bounded N-Triples batches; a lost answer is a graph in doubt and is never
-retried blindly. Counts: **75 classes (61 disjoint leaves), 60 named shapes, 9694 quads**; load
-plan **21/9971 asserted triples** (production **5/9450**).
+retried blindly. Counts: **83 classes (69 disjoint leaves), 69 named shapes, 12451 quads**; load
+plan **21/12728 asserted triples** (production **5/12207**).
 
 ## 1.20 Agent traceability (Work item 46, block F, 2026-11-16)
 
@@ -1156,7 +1160,7 @@ evidence and exact p-value/size fractions as integer numerator/denominator pairs
 `:BullModeDecision` store N11 per decision date. `shapes.ttl` adds one closed shape per class and
 `:AgentRecordNoPriceShape`; the loader writes one append-only graph per `(label, window, file)`
 into `urn:graph:derived:backtest:agents:{label}:{window}:{slug}`. Counts: **83 classes, 69 disjoint
-leaves, 69 named shapes, 12439 quads, 21/12716 asserted triples, production 5/12195**; the five
+leaves, 69 named shapes, 12451 quads, 21/12728 asserted triples, production 5/12207**; the five
 windows that load project **43,468 triples** (7,726 manager, 22,244 narrator, 12,483 news, 1,015
 bull-mode) and all SHACL-conform. P1/C1 stop on two REGN test rows absent from `news_rows.jsonl`;
 no GraphDB write.

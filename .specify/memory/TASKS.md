@@ -1453,7 +1453,7 @@ See `docs/fundamentals-design.md` and `PLAN.md` Work item 45.*
 
 See `docs/veto-hierarchy-design.md` and `PLAN.md` Work item 46. The design is complete; block E
 (``T-880–T-884``) adds the daily series, and the final manifest (`final-1`) is handled by
-T-890–T-899, and block D news rows by T-910–T-914.
+T-890–T-899, block D news rows by T-910–T-914 and block D2 full-article rows by T-915–T-919.
 
 - [x] **T-840** *(done 2026-11-13: `docs/veto-hierarchy-design.md`; design only, no code, schema or
       GraphDB write.)* Configuration identity, filters, rules/shapes, detail model, price masking,
@@ -1545,7 +1545,20 @@ T-890–T-899, and block D news rows by T-910–T-914.
       README/SPEC/schema/06/07 counts; real dry run and read-only pre-flight on `portfolio_test`,
       no GraphDB write; full suite 1,868 passed / 62 deselected.)* Delivery documentation, count
       reconciliation and the real dry run.
-- [ ] **T-915–T-919** Reserved for block D review fixes.
+- [x] **T-915** *(done 2026-11-17: `src/projection/news.py`; body `item_id` = 64 lowercase hex =
+      `body_hash`, optional `article_id`/`source_domain` only for body, typed omission in the
+      builder, and parser/projection tests.)* Accept full-article `body` rows.
+- [x] **T-916** *(done 2026-11-17: `schema/shapes.ttl`; `:articleId`/`:sourceDomain` optional only
+      for body, the `sh:or` branch, and body/sub_news shape tests.)* Extend `:NewsItemShape`.
+- [x] **T-917** *(done 2026-11-17: `src/projection/agents.py`; body fingerprints accepted in
+      `test_rows`, body context omits the absent properties, and the body link test.)* Keep block F
+      compatible.
+- [x] **T-918** *(done 2026-11-17: per-`item_kind` loader output and totals, class/property label
+      updates in `schema/tbox.ttl` and `docs/labels-news-review.md`.)* Loader reporting and labels.
+- [x] **T-919** *(done 2026-11-17: design/runbook/README/SPEC/PLAN/TASKS docs, schema count
+      reconciliation, and the unchanged real dry run plus the synthetic body dry run; full suite
+      1,915 passed / 63 deselected.)* Docs and regression.
+- [ ] **T-920–T-924** Reserved for block D2 review fixes.
 - [x] **T-900** *(done 2026-11-16: `docs/agent-traceability-design.md`; design only.)* Record the
       real block-F files, keys, counts, graph names, pointer-only fields and the deviations from
       `docs/veto-hierarchy-design.md` §7.

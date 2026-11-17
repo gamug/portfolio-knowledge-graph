@@ -3613,7 +3613,8 @@ graph is **1265 triples**. No GraphDB write.
 **Status: PR A–H merged (#156–#162); pre-flight fix #163 (T-870–T-871); block E series loader
 merged (#165, T-880–T-884); final-manifest follow-up merged (#167, T-890–T-896); block B2
 aggregates and label text merged (#169/#170, T-896–T-899); block D news rows merged (#166,
-T-910–T-914); block F agent traceability PR #168 open in `feat/agent-traceability` (T-900–T-909).**
+T-910–T-914); block F agent traceability merged (#168, T-900–T-909); block D2 full-article news
+rows in `feat/news-body-items` (T-915–T-919).**
 
 **Why**: Reviewer A delivered the frozen data dictionary and the pilot `H1C-B5-P1` for the complete
 System with the Veto Hierarchy. The engine arm codes no longer identify a configuration
@@ -3727,7 +3728,20 @@ measured pilot budget is in `docs/veto-hierarchy-design.md` §6.
       and checks distinct tickers; absent graphs stay not store-verifiable.)* Store-side news check.
 - [x] **T-914** *(done 2026-11-16: `docs/final-delivery.md` §7e and 0bis.6, docs/07, veto design
       §7, README/SPEC/schema/06/07 counts and the real dry run.)* Documentation and dry run.
-- [ ] **T-915–T-919** Reserved for block D review fixes.
+- [x] **T-915** *(done 2026-11-17: `src/projection/news.py`; body `item_id` = 64 lowercase hex =
+      `body_hash`, optional `article_id`/`source_domain` only for body, typed omission in the
+      builder, and parser/projection tests.)* Accept full-article `body` rows.
+- [x] **T-916** *(done 2026-11-17: `schema/shapes.ttl`; `:articleId`/`:sourceDomain` optional only
+      for body, the `sh:or` branch, and body/sub_news shape tests.)* Extend `:NewsItemShape`.
+- [x] **T-917** *(done 2026-11-17: `src/projection/agents.py`; body fingerprints accepted in
+      `test_rows`, body context omits the absent properties, and the body link test.)* Keep block F
+      compatible.
+- [x] **T-918** *(done 2026-11-17: per-`item_kind` loader output and totals, class/property label
+      updates in `schema/tbox.ttl` and `docs/labels-news-review.md`.)* Loader reporting and labels.
+- [x] **T-919** *(done 2026-11-17: design/runbook/README/SPEC/PLAN/TASKS docs, schema count
+      reconciliation, and the unchanged real dry run plus the synthetic body dry run.)* Docs and
+      regression.
+- [ ] **T-920–T-924** Reserved for block D2 review fixes.
 - [x] **T-900** *(done 2026-11-16: `docs/agent-traceability-design.md`; design only, no code,
       schema or GraphDB write.)* Record the real block-F files, keys, counts, graph names,
       pointer-only fields and the deviations from `docs/veto-hierarchy-design.md` §7.
@@ -3823,3 +3837,10 @@ The real dry run over `2026-11-17_final` derives every group-5 control count fro
 sector rejections / 28 bull triggers); five windows project **43,468** triples and conform to
 SHACL. P1/C1 stop before news because two REGN test rows (280187, 328156) have no
 `news_rows.jsonl` row; the loader refuses to guess. No GraphDB write was made.
+**Verified 2026-11-17 (T-915–T-919, block D2)**: FR-001 **12451 quads**, **83 classes (69 disjoint
+leaves)**, **635 properties**, **69 named shapes**; load plan **21/12728**, production **5/12207**.
+The real dry run over the current delivery is unchanged: 69,329 rows, seven graphs, 1,733,207
+triples, SHACL conforms, unresolved EQR only. A synthetic folder with three `body` rows and one
+`sub_news` row passes the same parser, projection and SHACL checks (`body=3 sub_news=1`). No
+GraphDB write; the read-only pre-flight reports all seven graphs `would-be-written`. Full suite
+**1,915 passed / 63 deselected** (52 min 37 s).

@@ -67,6 +67,19 @@ def _row(**overrides: object) -> dict[str, object]:
     return row
 
 
+def _body_row(**overrides: object) -> dict[str, object]:
+    fingerprint = "b" * 64
+    row = _row(
+        item_kind="body",
+        item_id=fingerprint,
+        body_hash=fingerprint,
+        article_id=None,
+        source_domain=None,
+    )
+    row.update(overrides)
+    return row
+
+
 def _write(
     tmp_path: Path,
     rows: list[dict[str, object]],
@@ -77,7 +90,7 @@ def _write(
 ) -> Path:
     root = tmp_path / "delivery"
     folder = root / "news"
-    folder.mkdir(parents=True)
+    folder.mkdir(parents=True, exist_ok=True)
     path = folder / "news_rows.jsonl"
     path.write_text(
         "\n".join(json.dumps(row, ensure_ascii=False) for row in rows) + "\n", encoding="utf-8"
@@ -232,6 +245,50 @@ def test_an_unknown_revision_stops(tmp_path: Path) -> None:
         load_file("final", root)
 
 
+def test_a_body_row_without_article_id_and_source_domain_loads(tmp_path: Path) -> None:
+    data = _data(tmp_path, [_body_row()])
+    assert data.rows[0].item_kind == "body"
+    assert data.rows[0].article_id is None
+    assert data.rows[0].source_domain is None
+
+
+def test_a_body_item_id_must_be_64_lowercase_hex(tmp_path: Path) -> None:
+    root = _write(tmp_path, [_body_row(item_id="B" * 64, body_hash="B" * 64)])
+    with pytest.raises(NewsError, match="64 lowercase hex"):
+        load_file("final", root)
+
+
+def test_a_body_item_id_must_equal_body_hash(tmp_path: Path) -> None:
+    root = _write(tmp_path, [_body_row(body_hash="c" * 64)])
+    with pytest.raises(NewsError, match="must equal body_hash"):
+        load_file("final", root)
+
+
+def test_a_body_with_an_empty_article_value_is_rejected(tmp_path: Path) -> None:
+    root = _write(tmp_path, [_body_row(article_id="")])
+    with pytest.raises(NewsError, match="expected an integer"):
+        load_file("final", root)
+    root = _write(tmp_path, [_body_row(source_domain="")])
+    with pytest.raises(NewsError, match="expected a non-empty string"):
+        load_file("final", root)
+
+
+def test_a_sub_news_with_a_null_article_or_source_is_rejected(tmp_path: Path) -> None:
+    root = _write(tmp_path, [_row(article_id=None)])
+    with pytest.raises(NewsError, match="expected an integer"):
+        load_file("final", root)
+    root = _write(tmp_path, [_row(source_domain=None)])
+    with pytest.raises(NewsError, match="expected a non-empty string"):
+        load_file("final", root)
+
+
+def test_a_body_and_an_integer_sub_news_id_do_not_collide(tmp_path: Path) -> None:
+    rows = [_row(item_id="10"), _body_row()]
+    data = _data(tmp_path, rows)
+    assert {row.item_kind for row in data.rows} == {"body", "sub_news"}
+    assert news_item_iri(data.rows[0]) != news_item_iri(data.rows[1])
+
+
 @pytest.mark.parametrize(
     ("overrides", "message"),
     [
@@ -290,6 +347,30 @@ def test_letter_26_psky_rows_link_to_skyd_through_asset_477() -> None:
     assert [row.asset for row in linked] == ["SKYD", "SKYD", None]
     total, null_ids, tickers = unresolved_summary(linked)
     assert (total, null_ids, tickers) == (1, 1, {"EQR": 1})
+
+
+def test_the_projection_omits_article_and_source_for_a_body(tmp_path: Path) -> None:
+    data = _data(tmp_path, [_body_row()])
+    builder = project(data)["urn:graph:derived:news:final:2021"]
+    item = news_item_iri(data.rows[0])
+    triples = builder.triples
+    assert (item, KG.articleId, None) not in triples
+    assert (item, KG.sourceDomain, None) not in triples
+    assert any(predicate == KG.bodyHash for _, predicate, _ in triples)
+    assert any(predicate == KG.itemKind for _, predicate, _ in triples)
+
+
+def test_the_projection_omits_present_article_and_source_for_a_body(tmp_path: Path) -> None:
+    data = _data(
+        tmp_path,
+        [_body_row(article_id=174832, source_domain="cnbc.com")],
+    )
+    builder = project(data)["urn:graph:derived:news:final:2021"]
+    item = news_item_iri(data.rows[0])
+    assert not any(
+        subject == item and predicate in (KG.articleId, KG.sourceDomain)
+        for subject, predicate, _ in builder.triples
+    )
 
 
 def test_the_projection_writes_typed_values_and_the_asset_link(tmp_path: Path) -> None:

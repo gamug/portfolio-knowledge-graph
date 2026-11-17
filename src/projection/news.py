@@ -97,6 +97,7 @@ NEWS_COLUMNS: tuple[str, ...] = (
     "url",
 )
 _DATE = re.compile(r"\d{4}-\d{2}-\d{2}")
+_BODY_ID = re.compile(r"[0-9a-f]{64}")
 _LABEL = re.compile(RUN_LABEL_PATTERN)
 _LOCAL_NAME = re.compile(r"[A-Za-z0-9_.-]+")
 _YEAR = re.compile(r"([12][0-9]{3})")
@@ -135,9 +136,9 @@ class NewsRow:
     category_score: Decimal
     group_label: str
     category_revision: str
-    article_id: int
+    article_id: int | None
     body_hash: str
-    source_domain: str
+    source_domain: str | None
     url: str | None
     asset: str | None = None
 
@@ -280,7 +281,7 @@ def _local(value: str, where: str) -> str:
     return value
 
 
-def _row(raw: object, line: int, contract: NewsRowsContract) -> NewsRow:
+def _row(raw: object, line: int, contract: NewsRowsContract) -> NewsRow:  # noqa: C901, PLR0915
     where = f"{contract.path}:{line}"
     if not isinstance(raw, dict):
         raise NewsError(f"{where}: expected one JSON object")
@@ -326,9 +327,27 @@ def _row(raw: object, line: int, contract: NewsRowsContract) -> NewsRow:
     category_score = _probability(raw["category_score"], f"{where}.category_score")
     group_label = _text(raw["group_label"], f"{where}.group_label")
     category_revision = _text(raw["category_revision"], f"{where}.category_revision")
-    article_id = _integer(raw["article_id"], f"{where}.article_id", positive=True)
     body_hash = _text(raw["body_hash"], f"{where}.body_hash")
-    source_domain = _text(raw["source_domain"], f"{where}.source_domain")
+    article_value = raw["article_id"]
+    source_value = raw["source_domain"]
+    if item_kind == "body":
+        if not _BODY_ID.fullmatch(item_id):
+            raise NewsError(f"{where}.item_id: a body item_id must be 64 lowercase hex characters")
+        if item_id != body_hash:
+            raise NewsError(
+                f"{where}: a body item_id must equal body_hash ({item_id!r} != {body_hash!r})"
+            )
+        article_id = (
+            None
+            if article_value is None
+            else _integer(article_value, f"{where}.article_id", positive=True)
+        )
+        source_domain = (
+            None if source_value is None else _text(source_value, f"{where}.source_domain")
+        )
+    else:
+        article_id = _integer(article_value, f"{where}.article_id", positive=True)
+        source_domain = _text(source_value, f"{where}.source_domain")
     url_value = raw["url"]
     url = None if url_value is None else _text(url_value, f"{where}.url")
     return NewsRow(
@@ -556,9 +575,12 @@ def _add_row(builder: GraphBuilder, row: NewsRow) -> None:
     builder.add(item, KG.categoryScore, _decimal_literal(row.category_score))
     builder.add(item, KG.groupLabel, rdflib.Literal(row.group_label))
     builder.add(item, KG.categoryRevision, rdflib.Literal(row.category_revision))
-    builder.add(item, KG.articleId, _int_literal(row.article_id))
+    if row.item_kind == "sub_news":
+        assert row.article_id is not None
+        assert row.source_domain is not None
+        builder.add(item, KG.articleId, _int_literal(row.article_id))
+        builder.add(item, KG.sourceDomain, rdflib.Literal(row.source_domain))
     builder.add(item, KG.bodyHash, rdflib.Literal(row.body_hash))
-    builder.add(item, KG.sourceDomain, rdflib.Literal(row.source_domain))
     if row.url is not None:
         builder.add(item, KG.url, rdflib.Literal(row.url, datatype=XSD.anyURI))
     if row.asset is not None:
@@ -757,13 +779,18 @@ def _show_build(data: NewsFile, builders: Mapping[str, GraphBuilder]) -> None:
     print(f"manifest: {data.root / MANIFEST_NAME}")
     print(f"file: {data.contract.path}")
     print(f"rows: {len(data.rows)}")
+    kinds = Counter(row.item_kind for row in data.rows)
+    print(f"item_kind: body={kinds['body']} sub_news={kinds['sub_news']}")
     unresolved, null_ids, tickers = unresolved_summary(data.rows)
     print(f"unresolved assets: {unresolved} row(s); asset_id null: {null_ids}")
     if tickers:
         preview = ", ".join(f"{ticker}={count}" for ticker, count in tickers.most_common(10))
         print(f"unresolved tickers: {preview}")
+    groups = rows_by_graph(data.label, data.rows)
     for graph in sorted(builders):
+        group_kinds = Counter(row.item_kind for row in groups[graph])
         print(f"graph: {graph}")
+        print(f"rows: {graph}: body={group_kinds['body']} sub_news={group_kinds['sub_news']}")
         print(f"triples: {graph}: {len(builders[graph])}")
 
 

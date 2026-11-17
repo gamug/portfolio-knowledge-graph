@@ -174,7 +174,7 @@ def test_the_four_graphs_carry_the_typed_core(tmp_path: Path) -> None:
         rdflib.Literal(2, datatype=XSD.integer),
     ) in news_graph
     assert (action, KG.newsActionFilled, rdflib.Literal(True, datatype=XSD.boolean)) in news_graph
-    assert (evidence, KG.newsItem, KG.NewsItem_body_10_AAA) in news_graph
+    assert (evidence, KG.newsItem, KG.NewsItem_sub_news_10_AAA) in news_graph
     assert "10:AAA" in news.turtle().decode()
 
     bull_graph = rdflib.Graph().parse(data=bull.turtle(), format="turtle")
@@ -327,26 +327,44 @@ def test_a_test_row_without_a_news_row_fails_clearly(tmp_path: Path) -> None:
         load_delivery("final", root, [WINDOW])
 
 
-def test_one_test_row_with_two_item_kinds_fails_clearly(tmp_path: Path) -> None:
+def test_a_body_fingerprint_test_row_links_to_its_news_item(tmp_path: Path) -> None:
     root = write_delivery(tmp_path)
-    path = root / "news" / "news_rows.jsonl"
-    first = json.loads(path.read_text(encoding="utf-8"))
-    second = dict(first)
-    second["item_kind"] = "sub_news"
-    path.write_text(
-        json.dumps(first, separators=(",", ":"))
+    fingerprint = "c" * 64
+    news_path = root / "news" / "news_rows.jsonl"
+    fragment = json.loads(news_path.read_text(encoding="utf-8"))
+    body = dict(fragment)
+    body.update(
+        item_kind="body",
+        item_id=fingerprint,
+        body_hash=fingerprint,
+        article_id=None,
+        source_domain=None,
+    )
+    news_path.write_text(
+        json.dumps(fragment, separators=(",", ":"))
         + "\n"
-        + json.dumps(second, separators=(",", ":"))
+        + json.dumps(body, separators=(",", ":"))
         + "\n",
         encoding="utf-8",
     )
+    actions_path = root / "SYSTEM_WITH_HIERARCHY" / WINDOW / "H1B-A2g-P1.news.json"
+    actions = json.loads(actions_path.read_text(encoding="utf-8"))
+    for action in actions["actions"]:
+        action["test_rows"].append([fingerprint, "AAA"])
+        action["evidence"]["test_rows"].append([fingerprint, "AAA"])
+    actions_path.write_text(json.dumps(actions, indent=2) + "\n", encoding="utf-8")
     manifest_path = root / "manifest_final.json"
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     manifest["news_rows_file"]["rows"] = 2
     manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
     refresh_hashes(root)
-    with pytest.raises(AgentsError, match="maps to both"):
-        load_delivery("final", root, [WINDOW])
+    window = load_delivery("final", root, [WINDOW]).by_window(WINDOW)
+    assert (fingerprint, "AAA") in window.news_items
+    assert (fragment["item_id"], "AAA") in window.news_items
+    news_graph = rdflib.Graph().parse(
+        data=project(window, "final")["news"].turtle(), format="turtle"
+    )
+    assert KG[f"NewsItem_body_{fingerprint}_AAA"] in set(news_graph.objects(None, KG.newsItem))
 
 
 def _plan_store(data: agents.WindowData) -> DatasetStore:
@@ -398,7 +416,7 @@ def test_the_preflight_and_write_plan_do_not_merge_the_placeholder_cik(
                 KG.StopEvent,
             ),
         ),
-        ("news_item", (KG.NewsItem_body_10_AAA, RDF.type, KG.NewsItem)),
+        ("news_item", (KG.NewsItem_sub_news_10_AAA, RDF.type, KG.NewsItem)),
     ],
 )
 def test_a_genuinely_missing_store_reference_fails_the_plan(

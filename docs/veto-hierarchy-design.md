@@ -707,34 +707,42 @@ window, date)`; it does not collide with this design.
 
 ## 7. Forward-looking (short)
 
-**News items (block D, loaded 2026-11-16).** `:NewsItem` is the news fragment evidence, loaded from
-`news/news_rows.jsonl` (69,329 rows, model revision `snapshot-c3a753affa5d`) into one append-only
-graph per calendar year, `urn:graph:derived:news:{label}:{year}` (a year over the ~400,000-triple
-bound is split into `:01-06`/`:07-12`). Its IRI is built from **`(item_kind, item_id, ticker)` only**:
-`:NewsItem_{item_kind}_{item_id}_{ticker}` (for example `:NewsItem_sub_news_251045_DAL`). It is
-never built from `model_revision`, a run id or a graph date, so a later revision of the same
-fragment (the 92 index leavers arrive as other `model_revision` rows with the same columns and key)
-reuses the same individual and a news-action record can link to it permanently. The loader stops
-with an error if one `(item_kind, item_id, ticker)` appears under two revisions in the same load;
-it also stops on a duplicate key. A future revision that re-labels an already loaded fragment
-(same `item_id`, same ticker) therefore writes a second value on the same node, one per graph;
-queries must read the revision they want by graph, not assume one value per predicate. The row carries `:itemKind`, `:itemId`, `:newsTicker`,
-`:newsAssetId`, `:newsDate`, `:dateSource`, `:newsTitle`, `:newsText`, `:textSource`,
-`:newsSentiment`, `:sentimentScore`, `:pPositive`, `:pNegative`, `:pNeutral`,
-`:sentimentRevision`, `:newsCategory`, `:categoryScore`, `:groupLabel`, `:categoryRevision`,
-`:articleId`, `:bodyHash`, `:sourceDomain`, `:modelRevision` and, when the delivery fills it,
-`:url`; `:newsItemOfAsset` links the ticker's Asset when it resolves. Letter 26 corrected the
-`asset_id` of the 261 PSKY rows to 477 (the engine read them as SKYD), so all 503 PSKY rows link
-to `:SKYD` through that engine id, not through the ticker PSKY. The 9 EQR rows stay unlinked: the
-engine has no asset or `ticker_history` interval for EQR and the run's adapter discarded them as
-`ticker_unmapped`.
+**News items (block D, loaded 2026-11-16; block D2 adds full articles).** `:NewsItem` is the
+news evidence for one company, either a fragment (`item_kind "sub_news"`) or a full article body
+(`item_kind "body"`), loaded from `news/news_rows.jsonl` into one append-only graph per calendar
+year, `urn:graph:derived:news:{label}:{year}` (a year over the ~400,000-triple bound is split into
+`:01-06`/`:07-12`). The manifest's `news_rows_file` block and the delivery's `news/README.md` are
+the source of the file hash, the model revision and the row counts; no count is fixed here.
 
-Reviewer A's decision of 2026-11-15 supersedes the earlier "do not store the body" rule **for the
-delivered fragment**: the text is loaded exactly as delivered because it is the evidence the model
-labelled. It is still not the full article: the delivery sends a fragment (mean ~500 characters,
-never more than 2,000), the source domain is cited on the same row and the use is academic. The
-sentiment and category values and their probabilities are NLP-model outputs; the three revision
-fields record their provenance and they are never presented as verified facts.
+Its IRI is built from **`(item_kind, item_id, ticker)` only**:
+`:NewsItem_{item_kind}_{item_id}_{ticker}` (for example `:NewsItem_sub_news_251045_DAL` or
+`:NewsItem_body_<64-hex-fingerprint>_DAL`). It is never built from `model_revision`, a run id or a
+graph date, so a later revision of the same item (the index leavers arrive as other
+`model_revision` rows with the same columns and key) reuses the same individual and a news-action
+record can link to it permanently. A body's `item_id` is the 64-lowercase-hex fingerprint of its
+body and must equal `:bodyHash`; an integer `sub_news` id and a 64-hex body id cannot collide.
+The loader stops with an error if one `(item_kind, item_id, ticker)` appears under two revisions
+in the same load; it also stops on a duplicate key. A future revision that re-labels an already
+loaded item (same `item_id`, same ticker) therefore writes a second value on the same node, one
+per graph; queries must read the revision they want by graph, not assume one value per predicate.
+
+The row carries `:itemKind`, `:itemId`, `:newsTicker`, `:newsAssetId`, `:newsDate`, `:dateSource`,
+`:newsTitle`, `:newsText`, `:textSource`, `:newsSentiment`, `:sentimentScore`, `:pPositive`,
+`:pNegative`, `:pNeutral`, `:sentimentRevision`, `:newsCategory`, `:categoryScore`, `:groupLabel`,
+`:categoryRevision`, `:bodyHash`, `:modelRevision` and, when the delivery fills it, `:url`;
+`:newsItemOfAsset` links the ticker's Asset when it resolves. A `sub_news` row also carries
+`:articleId` and `:sourceDomain`, both mandatory. A `body` row carries neither: the NLP delivery
+does not say which article a body comes from, so the properties are omitted (never written as an
+empty literal). The current delivery's corrected PSKY rows resolve to `:SKYD` through their engine
+`asset_id`; its EQR rows stay unlinked because the engine has no asset or `ticker_history`
+interval for that symbol and the run's adapter discarded them as `ticker_unmapped`.
+
+Reviewer A's decision of 2026-11-15 supersedes the earlier "do not store the body" rule: the text
+is loaded exactly as delivered because it is the evidence the model labelled. The delivered text
+is capped at 2,000 characters; for a fragment it is the fragment, and for a body it is the body
+the snapshot delivered. The source domain is cited on every row that carries one, and the use is
+academic. The sentiment and category values and their probabilities are NLP-model outputs; the
+three revision fields record their provenance and they are never presented as verified facts.
 
 **News actions.** Design now, no real run yet. Add `:NewsAction` per `PoolActionRecord`, key
 `(decision_date, asset_id, action)`; `:newsActionOfBook`, `:newsActionDate`, `:newsActionAsset`,

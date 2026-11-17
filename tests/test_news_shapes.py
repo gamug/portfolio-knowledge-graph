@@ -60,6 +60,17 @@ def _item() -> rdflib.Graph:
     return g
 
 
+def _body_item() -> rdflib.Graph:
+    g = _item()
+    fingerprint = "b" * 64
+    g.set((ITEM, KG.itemKind, rdflib.Literal("body")))
+    g.set((ITEM, KG.itemId, rdflib.Literal(fingerprint)))
+    g.set((ITEM, KG.bodyHash, rdflib.Literal(fingerprint)))
+    g.remove((ITEM, KG.articleId, None))
+    g.remove((ITEM, KG.sourceDomain, None))
+    return g
+
+
 def _validate(data: rdflib.Graph) -> tuple[bool, rdflib.Graph]:
     conforms, results, _ = pyshacl.validate(data, shacl_graph=shapes())
     assert isinstance(results, rdflib.Graph)
@@ -75,6 +86,26 @@ def _focus_paths(results: rdflib.Graph) -> set[tuple[Node | None, Node | None]]:
 
 def test_the_positive_fixture_conforms() -> None:
     conforms, results = _validate(_item())
+    assert conforms, results.serialize(format="turtle")
+
+
+def test_a_body_without_article_id_and_source_domain_conforms() -> None:
+    conforms, results = _validate(_body_item())
+    assert conforms, results.serialize(format="turtle")
+
+
+def test_a_sub_news_without_article_id_and_source_domain_fails() -> None:
+    g = _item()
+    g.remove((ITEM, KG.articleId, None))
+    g.remove((ITEM, KG.sourceDomain, None))
+    assert _focus_paths(_validate(g)[1]) == {(ITEM, None)}
+
+
+def test_a_body_with_article_id_and_source_domain_conforms() -> None:
+    g = _body_item()
+    g.add((ITEM, KG.articleId, _integer(174832)))
+    g.add((ITEM, KG.sourceDomain, rdflib.Literal("cnbc.com")))
+    conforms, results = _validate(g)
     assert conforms, results.serialize(format="turtle")
 
 

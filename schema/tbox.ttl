@@ -391,9 +391,9 @@ so every result is in-sample.""" .
 :NewsItem
     a owl:Class ;
     rdfs:label "News item"@en ;
-    rdfs:label "Fragmento de noticia"@es ;
-    skos:definition "Un fragmento de noticia asociado a una empresa: la fecha, el título, el texto exacto que entregó la instantánea de NLP (original o resumen), el dominio de la fuente, las probabilidades de sentimiento y categoría y las revisiones del modelo. El texto es el fragmento al que el modelo asignó la etiqueta, nunca el artículo completo (como máximo 2,000 caracteres); el sentimiento y la categoría son salidas del modelo, no hechos verificados. Work item 46, bloque D."@es ;
-    rdfs:comment "One news fragment for one company: the date, title, the exact text the NLP snapshot delivered (original or summary), the source domain, the sentiment/category probabilities and the model revisions. The text is the fragment the model labelled, never the full article (at most 2,000 characters); sentiment and category are model outputs, not verified facts. Work item 46, block D."@en .
+    rdfs:label "Noticia"@es ;
+    skos:definition "Una noticia (un fragmento o un artículo completo) asociada a una empresa: la fecha, el título, el texto exacto que entregó la instantánea de NLP (original o resumen), el dominio de la fuente, las probabilidades de sentimiento y categoría y las revisiones del modelo. El texto es el fragmento al que el modelo asignó la etiqueta, nunca el artículo completo (como máximo 2,000 caracteres); el sentimiento y la categoría son salidas del modelo, no hechos verificados. Work item 46, bloque D."@es ;
+    rdfs:comment "One news item (a fragment or a full article) for one company: the date, title, the exact text the NLP snapshot delivered (original or summary), the source domain, the sentiment/category probabilities and the model revisions. The text is the fragment the model labelled, never the full article (at most 2,000 characters); sentiment and category are model outputs, not verified facts. Work item 46, block D."@en .
 
 :SelectionCycle
     a owl:Class ;
@@ -2217,7 +2217,7 @@ so every result is in-sample.""" .
 
 :newsItemOfAsset a owl:ObjectProperty ;
     rdfs:domain :NewsItem ; rdfs:range :Asset ;
-    rdfs:label "News item of asset"@en ; rdfs:label "Fragmento de noticia del activo"@es ;
+    rdfs:label "News item of asset"@en ; rdfs:label "Noticia del activo"@es ;
     rdfs:comment "The loaded Asset the row resolves to through its ticker, or through its engine asset_id when the ticker no longer names the current symbol. Absent when the row does not resolve; the row is still loaded."@en ;
     rdfs:comment "El activo cargado al que resuelve la fila por su ticker, o por su asset_id del motor cuando el ticker ya no nombra el símbolo actual. Falta cuando la fila no resuelve; la fila se carga igual."@es .
 
@@ -2236,8 +2236,8 @@ so every result is in-sample.""" .
 :itemId a owl:DatatypeProperty, owl:FunctionalProperty ;
     rdfs:domain :NewsItem ; rdfs:range xsd:string ;
     rdfs:label "Item id"@en ; rdfs:label "Id del elemento"@es ;
-    rdfs:comment "The fragment id within the snapshot (sub_news.id). It is part of the IRI."@en ;
-    rdfs:comment "El id del fragmento dentro de la instantánea (sub_news.id). Forma parte del IRI."@es .
+    rdfs:comment "The fragment id (sub_news.id) or, for a full article (body), the fingerprint of its body. It is part of the IRI."@en ;
+    rdfs:comment "El id del fragmento (sub_news.id) o, en un artículo completo (body), la huella de su cuerpo."@es .
 
 :newsTicker a owl:DatatypeProperty, owl:FunctionalProperty ;
     rdfs:domain :NewsItem ; rdfs:range xsd:string ;
@@ -2344,8 +2344,8 @@ so every result is in-sample.""" .
 :articleId a owl:DatatypeProperty, owl:FunctionalProperty ;
     rdfs:domain :NewsItem ; rdfs:range xsd:integer ;
     rdfs:label "Article id"@en ; rdfs:label "Id del artículo"@es ;
-    rdfs:comment "The article the fragment comes from (sub_news.article_id); several fragments can share one article."@en ;
-    rdfs:comment "El artículo del que sale el fragmento (sub_news.article_id); varios fragmentos pueden compartir un artículo."@es .
+    rdfs:comment "The article the fragment comes from (sub_news.article_id); several fragments can share one article. Absent on full articles: the NLP delivery does not say which article each body comes from."@en ;
+    rdfs:comment "El artículo del que sale el fragmento (sub_news.article_id); varios fragmentos pueden compartir un artículo. Falta en los artículos completos: la entrega de NLP no dice de qué artículo sale cada cuerpo."@es .
 
 :bodyHash a owl:DatatypeProperty, owl:FunctionalProperty ;
     rdfs:domain :NewsItem ; rdfs:range xsd:string ;
@@ -2356,8 +2356,8 @@ so every result is in-sample.""" .
 :sourceDomain a owl:DatatypeProperty, owl:FunctionalProperty ;
     rdfs:domain :NewsItem ; rdfs:range xsd:string ;
     rdfs:label "Source domain"@en ; rdfs:label "Dominio de la fuente"@es ;
-    rdfs:comment "The article's source domain (for example cnbc.com); the academic-use citation travels on every row."@en ;
-    rdfs:comment "El dominio de la fuente del artículo (por ejemplo cnbc.com); la cita para uso académico viaja en cada fila."@es .
+    rdfs:comment "The article's source domain (for example cnbc.com); the academic-use citation travels on every row that carries it. Absent on full articles: the NLP delivery does not say which article each body comes from."@en ;
+    rdfs:comment "El dominio de la fuente del artículo (por ejemplo cnbc.com); la cita para uso académico viaja en cada fila que lo trae. Falta en los artículos completos: la entrega de NLP no dice de qué artículo sale cada cuerpo."@es .
 
 :url a owl:DatatypeProperty, owl:FunctionalProperty ;
     rdfs:domain :NewsItem ; rdfs:range xsd:anyURI ;
