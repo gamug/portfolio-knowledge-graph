@@ -3791,7 +3791,10 @@ measured pilot budget is in `docs/veto-hierarchy-design.md` §6.
       recursively; agents `--check-store` passes H1/P3/H2/P2/H3 on `portfolio_test`; tests model
       the real store and a missing Book/option/asset type.)* Close the store context for the
       agents pre-flight.
-- [ ] **T-909** Reserved for block F review fixes.
+- [x] **T-909** *(done 2026-11-17: `_agent_sum` and the agents loader SUM queries use `?value`
+      inside the aggregate and `?n` as the alias; text-level tests reject any projection alias that
+      equals its own inner variable; targeted tests 73 passed / 2 deselected.)* Fix the malformed
+      aggregate alias in the agents store counts.
 
 **Acceptance criteria**:
 
