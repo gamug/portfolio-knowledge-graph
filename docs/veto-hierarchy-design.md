@@ -895,8 +895,11 @@ loaded m018 graphs: `alerts_by_rule`, `actions_by_status`, `rebalances`, `daily_
 manager/narrator/news/bull keys (not loaded yet, including `news_level_c_decisions`,
 `news_level_d_decisions`, `news_exits`, `news_sector_rejections` and `bull_triggered`).
 `MARKOWITZ_MV`/`SPY` `daily_rows` are verified from the series graph when it exists; an absent
-series graph prints `not store-verifiable` and does not fail. A missing `PortfolioPeriodSummary` is
-a failure, not a non-verifiable key.
+series graph prints `not store-verifiable` and does not fail. `final_values` is read from the exact
+whole-window `PeriodSummary_<label>_<window>_<slug>_<window>`, never from an arbitrary summary; a
+missing or ambiguous whole-window summary is a failure. `destination_options` subtracts the cash
+menu entries parsed from the same JSON-lines before comparing, because cash is `:chosenCash`, not a
+`:DestinationOption`.
 
 ### 9.2 SHA-256 before parsing
 

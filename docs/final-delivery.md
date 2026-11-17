@@ -318,10 +318,11 @@ The following final-delivery data is deliberately outside this PR and is not in 
   `news_sector`/`PORTFOLIO_CHECK` rejection counts (no schema property yet).
 
 Those files are still hash-verified and parsed for the counts above. The later PR decides the
-classes/properties, the `SHACL` shapes and the `control_counts` store-side checks. Until then,
-`destination_options` counts every menu entry in the file (including cash), while the graph holds
-only the non-cash `DestinationOption` individuals; this is a known provisional gap, not a
-manifest mismatch.
+classes/properties and the `SHACL` shapes. The store check still compares every control count
+exactly: `destination_options` in the manifest counts every menu entry, including cash, while the
+graph intentionally holds only the non-cash `DestinationOption` individuals (cash is
+`:chosenCash`). `verify_store_control_counts` subtracts the number of cash entries parsed from the
+same delivery JSON-lines before comparing, so this is an exact check, not a waiver.
 
 ### 0quater.3 Large graphs and write batching
 
