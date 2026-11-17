@@ -973,7 +973,7 @@ Finally, `KG_REPOSITORY=portfolio uv run python cli/verify_store.py --to-product
 After the load and acceptance, create the Workbench agent from
 [`ttyg/create-agent.md`](ttyg/create-agent.md) with **Repository ID `portfolio`**. The agent is
 Workbench state: it is not in the export, the backup or the repository. Paste the v2.1 CONSTRUCT and
-the single v1.4 instruction fence exactly as the recipe says, and confirm that **Review agent
+the single v1.5 instruction fence exactly as the recipe says, and confirm that **Review agent
 instructions** shows the stated character count.
 
 When the evaluation reaches questions 21 and 22 (book weighting and the name cap), the human answer

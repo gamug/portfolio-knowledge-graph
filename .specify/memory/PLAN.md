@@ -3749,6 +3749,13 @@ measured pilot budget is in `docs/veto-hierarchy-design.md` §6.
 - [x] **T-926** *(done 2026-11-17: `:newsTitle` ES/EN comments and the pending-review row in
       `docs/labels-news-review.md`; one sentence in the news design and final-delivery docs; the
       two v2 dry runs.)* Labels and delivery documentation.
+- [x] **T-927** *(done 2026-11-17: `docs/ttyg/instructions-v1.5.md`; complete-graph additions,
+      v1.4 marked superseded in README/create-agent/tests, and the exact fence length recorded.)*
+      TTYG instructions v1.5.
+- [x] **T-928** *(done 2026-11-17: `docs/ttyg/recipes-review-final.md` for C1–C20/R1–R9 and
+      `docs/ttyg/evaluation-recording-template.csv`.)* Recipes and evaluation review.
+- [x] **T-929** *(done 2026-11-17: docs/tests reconciliation, targeted TTYG suite and PR.)*
+      Documentation close-out.
 - [x] **T-900** *(done 2026-11-16: `docs/agent-traceability-design.md`; design only, no code,
       schema or GraphDB write.)* Record the real block-F files, keys, counts, graph names,
       pointer-only fields and the deviations from `docs/veto-hierarchy-design.md` §7.
