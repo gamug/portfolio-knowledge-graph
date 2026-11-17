@@ -94,6 +94,13 @@ def test_a_body_without_article_id_and_source_domain_conforms() -> None:
     assert conforms, results.serialize(format="turtle")
 
 
+def test_a_body_with_an_empty_title_conforms() -> None:
+    g = _body_item()
+    g.set((ITEM, KG.newsTitle, rdflib.Literal("")))
+    conforms, results = _validate(g)
+    assert conforms, results.serialize(format="turtle")
+
+
 def test_a_sub_news_without_article_id_and_source_domain_fails() -> None:
     g = _item()
     g.remove((ITEM, KG.articleId, None))

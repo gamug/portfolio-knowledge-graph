@@ -2266,8 +2266,8 @@ so every result is in-sample.""" .
 :newsTitle a owl:DatatypeProperty, owl:FunctionalProperty ;
     rdfs:domain :NewsItem ; rdfs:range xsd:string ;
     rdfs:label "News title"@en ; rdfs:label "Título de la noticia"@es ;
-    rdfs:comment "The title exactly as delivered."@en ;
-    rdfs:comment "El título exactamente como lo entregó la fuente."@es .
+    rdfs:comment "The title exactly as delivered. May be empty on a full article: the NLP delivery does not always carry a title."@en ;
+    rdfs:comment "El título exactamente como lo entregó la fuente. Puede venir vacío en un artículo completo: la entrega de NLP no siempre trae el título."@es .
 
 :newsText a owl:DatatypeProperty, owl:FunctionalProperty ;
     rdfs:domain :NewsItem ; rdfs:range xsd:string ;

@@ -727,7 +727,7 @@ loaded item (same `item_id`, same ticker) therefore writes a second value on the
 per graph; queries must read the revision they want by graph, not assume one value per predicate.
 
 The row carries `:itemKind`, `:itemId`, `:newsTicker`, `:newsAssetId`, `:newsDate`, `:dateSource`,
-`:newsTitle`, `:newsText`, `:textSource`, `:newsSentiment`, `:sentimentScore`, `:pPositive`,
+`:newsTitle` (empty is allowed only on a full article; a fragment's title is required), `:newsText`, `:textSource`, `:newsSentiment`, `:sentimentScore`, `:pPositive`,
 `:pNegative`, `:pNeutral`, `:sentimentRevision`, `:newsCategory`, `:categoryScore`, `:groupLabel`,
 `:categoryRevision`, `:bodyHash`, `:modelRevision` and, when the delivery fills it, `:url`;
 `:newsItemOfAsset` links the ticker's Asset when it resolves. A `sub_news` row also carries

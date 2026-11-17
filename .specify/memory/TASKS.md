@@ -1453,7 +1453,7 @@ See `docs/fundamentals-design.md` and `PLAN.md` Work item 45.*
 
 See `docs/veto-hierarchy-design.md` and `PLAN.md` Work item 46. The design is complete; block E
 (``T-880–T-884``) adds the daily series, and the final manifest (`final-1`) is handled by
-T-890–T-899, block D news rows by T-910–T-914 and block D2 full-article rows by T-915–T-919.
+T-890–T-899, block D news rows by T-910–T-914 and block D2 full-article rows by T-915–T-919, and block D3 empty body title by T-925–T-926.
 
 - [x] **T-840** *(done 2026-11-13: `docs/veto-hierarchy-design.md`; design only, no code, schema or
       GraphDB write.)* Configuration identity, filters, rules/shapes, detail model, price masking,
@@ -1559,6 +1559,12 @@ T-890–T-899, block D news rows by T-910–T-914 and block D2 full-article rows
       reconciliation, and the unchanged real dry run plus the synthetic body dry run; full suite
       1,915 passed / 63 deselected.)* Docs and regression.
 - [ ] **T-920–T-924** Reserved for block D2 review fixes.
+- [x] **T-925** *(done 2026-11-17: `src/projection/news.py`; an empty-string title is accepted
+      only for `body`, a null title is still rejected for both kinds, and the parser/loader/shape
+      tests cover the three cases.)* Accept an empty body title.
+- [x] **T-926** *(done 2026-11-17: `:newsTitle` ES/EN comments and the pending-review row in
+      `docs/labels-news-review.md`; one sentence in the news design and final-delivery docs; the
+      two v2 dry runs.)* Labels and delivery documentation.
 - [x] **T-900** *(done 2026-11-16: `docs/agent-traceability-design.md`; design only.)* Record the
       real block-F files, keys, counts, graph names, pointer-only fields and the deviations from
       `docs/veto-hierarchy-design.md` §7.

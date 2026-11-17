@@ -3614,7 +3614,8 @@ graph is **1265 triples**. No GraphDB write.
 merged (#165, T-880–T-884); final-manifest follow-up merged (#167, T-890–T-896); block B2
 aggregates and label text merged (#169/#170, T-896–T-899); block D news rows merged (#166,
 T-910–T-914); block F agent traceability merged (#168, T-900–T-909); block D2 full-article news
-rows in `feat/news-body-items` (T-915–T-919).**
+rows merged (#173, T-915–T-919); block D3 empty body title in `fix/news-body-empty-title`
+(T-925–T-926).**
 
 **Why**: Reviewer A delivered the frozen data dictionary and the pilot `H1C-B5-P1` for the complete
 System with the Veto Hierarchy. The engine arm codes no longer identify a configuration
@@ -3742,6 +3743,12 @@ measured pilot budget is in `docs/veto-hierarchy-design.md` §6.
       reconciliation, and the unchanged real dry run plus the synthetic body dry run.)* Docs and
       regression.
 - [ ] **T-920–T-924** Reserved for block D2 review fixes.
+- [x] **T-925** *(done 2026-11-17: `src/projection/news.py`; an empty-string title is accepted
+      only for `body`, a null title is still rejected for both kinds, and the parser/loader/shape
+      tests cover the three cases.)* Accept an empty body title.
+- [x] **T-926** *(done 2026-11-17: `:newsTitle` ES/EN comments and the pending-review row in
+      `docs/labels-news-review.md`; one sentence in the news design and final-delivery docs; the
+      two v2 dry runs.)* Labels and delivery documentation.
 - [x] **T-900** *(done 2026-11-16: `docs/agent-traceability-design.md`; design only, no code,
       schema or GraphDB write.)* Record the real block-F files, keys, counts, graph names,
       pointer-only fields and the deviations from `docs/veto-hierarchy-design.md` §7.
@@ -3849,3 +3856,8 @@ triples, SHACL conforms, unresolved EQR only. A synthetic folder with three `bod
 `sub_news` row passes the same parser, projection and SHACL checks (`body=3 sub_news=1`). No
 GraphDB write; the read-only pre-flight reports all seven graphs `would-be-written`. Full suite
 **1,915 passed / 63 deselected** (52 min 37 s).
+**Verified 2026-11-17 (T-925–T-926, block D3)**: the v2 delivery projects **93,303** rows
+(**70,278 `sub_news`**, **23,025 `body`**), **19** unresolved (all EQR), and **10** year graphs
+totalling **2,286,487** triples; every graph SHACL-conforms. `load_agents` passes all seven windows:
+**4,149** distinct cited pairs (**1,447 body**), none missing, **142,778** triples, all graphs
+conform, and every control count matches the manifest. Targeted suite **131 passed / 2 deselected**.
