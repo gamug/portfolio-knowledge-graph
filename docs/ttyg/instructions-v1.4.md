@@ -1,5 +1,9 @@
 # Talk to Your Graph additional instructions v1.4 (`final` label, review fixes)
 
+**Superseded by [`instructions-v1.5.md`](instructions-v1.5.md).** This file is kept as the
+historical copy; do not paste it into the agent. v1.5 keeps every v1.4 rule and adds the complete
+final graph (news, aggregates, series, external MARKOWITZ_MV summaries and agent traceability).
+
 Paste the entire block below into the agent's **Additional instructions** field. This version keeps
 the v1.3 rules and fixes the 2026-11-14 rehearsal findings: it starts answers with the datum, keeps
 backtest boilerplate out of fundamentals and conceptual answers, replaces every `D` in the

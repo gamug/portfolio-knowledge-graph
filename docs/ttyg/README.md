@@ -11,12 +11,15 @@ agent form by hand.
 | File | What it is |
 |---|---|
 | [`ontology_construct_curated_v2_1.rq`](ontology_construct_curated_v2_1.rq) | The current pasteable curated CONSTRUCT. It exposes the 29 classes and 257 properties the reports agent needs, including `SECFiling`, `FundamentalMetricSet`, `FundamentalAssessment`, `Veto`, `GuardAlert` and `returnOnInvestedCapital`. It intentionally carries no presentation labels or rule catalog; the instructions read those from the named graphs. |
-| [`instructions-v1.4.md`](instructions-v1.4.md) | The current English v1.4 "Additional instructions" (one pasteable `text` fence) plus usage notes. It fixes the 2026-11-14 rehearsal findings, names the five delivered configurations, adds the continuous C1 window and the bounded question patterns. |
+| [`instructions-v1.5.md`](instructions-v1.5.md) | The current English v1.5 "Additional instructions" (one pasteable `text` fence) plus usage notes. It keeps the v1.4 rules and adds the complete final graph: news (`sub_news`/`body`), aggregates and `:newsRiskOff`, SPY/MARKOWITZ_MV series, the external MARKOWITZ_MV summaries and the agent traceability graphs. |
 | [`investor-recipes.md`](investor-recipes.md) | Bounded SPARQL recipes for the twenty compound investor questions C1–C20, the R1–R9 refusal table and the human test procedure. `tests/test_ttyg_recipes.py` parses and executes the available-now recipes on a synthetic graph. |
-| [`create-agent.md`](create-agent.md) | The step-by-step Workbench form: SPARQL only, the accepted v2.1 CONSTRUCT, temperature `0.1`, the single v1.4 instruction fence and the `graphdb.llm.*` placeholders. |
+| [`create-agent.md`](create-agent.md) | The step-by-step Workbench form: SPARQL only, the accepted v2.1 CONSTRUCT, temperature `0.1`, the single v1.5 instruction fence and the `graphdb.llm.*` placeholders. |
 | [`evaluation-questions.md`](evaluation-questions.md) | The T-758/T-762 evaluation sheet: the original ES/EN questions, the T-757 fundamentals/weighting/query-hygiene additions and the T-762 review questions, with expected answers. Answers stay empty for the human run. |
+| [`recipes-review-final.md`](recipes-review-final.md) | The C1–C20/R1–R9 review against the final graph: whether each question, configuration/window and answer type still hold, which graph answers it, and the separate status-label proposals for Reviewer A. |
+| [`evaluation-recording-template.csv`](evaluation-recording-template.csv) | The blank human-run recording template: one row per case, attempt, answer, generated SPARQL, configuration/window, the four dimensions and notes. |
 | [`ontology_construct_curated_v3.rq`](ontology_construct_curated_v3.rq) | **Reference only; not pasteable into the Workbench form.** It adds the presentation labels, the rule catalog and the MetricType labels, which is useful for review and tests, but the form rejects it with a "SPARQL method requires an ontology graph…" validation message while SPARQL runs fine over REST. |
 | [`ontology_construct_curated_v2.rq`](ontology_construct_curated_v2.rq) | Superseded by v2.1/v3. Kept as the historical copy; do not paste it into the agent. |
+| [`instructions-v1.4.md`](instructions-v1.4.md) | Superseded by v1.5. Kept as the historical copy; do not paste it into the agent. |
 | [`instructions-v1.3.md`](instructions-v1.3.md) | Superseded by v1.4. Kept as the historical copy; do not paste it into the agent. |
 | [`instructions-v1.2.md`](instructions-v1.2.md) | Superseded by v1.4. Kept as the historical copy; do not paste it into the agent. |
 
@@ -54,7 +57,7 @@ bilingual labels.
 | Curated CONSTRUCT | [`ontology_construct_curated_v2_1.rq`](ontology_construct_curated_v2_1.rq). |
 | Auto-add missing namespaces | Ticked. |
 | Temperature | `0.1`. |
-| Additional instructions | The single `text` fence in [`instructions-v1.4.md`](instructions-v1.4.md). |
+| Additional instructions | The single `text` fence in [`instructions-v1.5.md`](instructions-v1.5.md). |
 
 ## Evaluation questions (T-758/T-759/T-762)
 

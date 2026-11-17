@@ -110,3 +110,10 @@ remains).
 - The sheet is run by a human; the repository does not record answers. The T-757 and T-762 additions
   carry `expected_answer` as method guidance only. T-759 remains open until the human run and the
   production reload.
+
+## Recording template
+
+[`evaluation-recording-template.csv`](evaluation-recording-template.csv) has one row per case
+(C1–C20, R1–R9) with the question sent, attempt, answer, generated SPARQL, configuration/window,
+the four dimensions (identification, accuracy, context, honesty, each `correct`, `incomplete` or
+`invented`) and notes. It is a blank template; the human run fills it.

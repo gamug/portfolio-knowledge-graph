@@ -55,7 +55,7 @@ form:
 | Auto-add missing namespaces | **Ticked.** Use the form setting that the accepted v2.1 CONSTRUCT was created with. |
 | Model | The model from `graphdb.llm.model`, or the provider's equivalent offered by the form. |
 | Temperature | `0.1`. |
-| Additional instructions | The **single `text` fence** in [`instructions-v1.4.md`](instructions-v1.4.md). Open the file in the repository and paste that one block; do not copy it into this page. Do not reuse a copy from the scratch folder: that rehearsal copy had different GUARD rules. |
+| Additional instructions | The **single `text` fence** in [`instructions-v1.5.md`](instructions-v1.5.md). Open the file in the repository and paste that one block; do not copy it into this page. Do not reuse a copy from the scratch folder: that rehearsal copy had different GUARD rules. |
 | Context window / Top P / base instructions | Leave the defaults unless the provider rejects one of them. |
 
 Click **Create Agent**. If the form blocks Create Agent, first suspect the SPARQL ontology input:
@@ -63,7 +63,7 @@ paste the byte-exact v2.1 file, tick **Auto-add missing namespaces**, and confir
 repository has its schema graphs loaded. v3 is rejected by this form.
 
 After pasting the instructions, open **Review agent instructions**. It must show exactly
-**24,033 characters** (the length of the single fence in `instructions-v1.4.md`). If the number is
+**26,019 characters** (the length of the single fence in `instructions-v1.5.md`). If the number is
 different, **STOP**: the paste is stale or partial; reopen the repository file and paste the whole
 fence again.
 
@@ -106,7 +106,7 @@ Spanish-only or English-only rule to the agent.
 ## Related
 
 - [`README.md`](README.md) — the source files and the CONSTRUCT hashes.
-- [`instructions-v1.4.md`](instructions-v1.4.md) — the single instruction block.
+- [`instructions-v1.5.md`](instructions-v1.5.md) — the single instruction block.
 - [`investor-recipes.md`](investor-recipes.md) — the bounded recipes and the human test procedure.
 - [`../second-user-setup.md`](../second-user-setup.md) — the colleague's local repository, read-only
   user and first smoke questions.
