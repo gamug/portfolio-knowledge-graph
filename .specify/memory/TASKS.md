@@ -1572,6 +1572,11 @@ T-890–T-899, block D news rows by T-910–T-914 and block D2 full-article rows
       `docs/ttyg/evaluation-recording-template.csv`.)* Recipes and evaluation review.
 - [x] **T-929** *(done 2026-11-17: docs/tests reconciliation, targeted TTYG suite and PR.)*
       Documentation close-out.
+- [x] **T-930** *(done 2026-11-18: `docs/ttyg/instructions-v1.7.md`; byte-exact copy of the
+      Workbench-pasted v1.7 (SHA-256 `00e74b0…1a849fa`, 38,665 bytes, two fences), with v1.5
+      unchanged as the evaluated version.)* TTYG v1.7 demo instructions.
+- [x] **T-931** *(done 2026-11-18: `docs/ttyg/README.md`; v1.7 row added, v1.5 kept as the
+      evaluated version, and the `portfolio-final-v1-6` demo agent named.)* README demo row.
 - [x] **T-900** *(done 2026-11-16: `docs/agent-traceability-design.md`; design only.)* Record the
       real block-F files, keys, counts, graph names, pointer-only fields and the deviations from
       `docs/veto-hierarchy-design.md` §7.
