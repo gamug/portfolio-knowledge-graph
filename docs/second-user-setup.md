@@ -113,18 +113,83 @@ The password stays in the colleague's local, git-ignored `.env`; never commit it
 
 ## 5. `portfolio-app`
 
-Pin `portfolio-app` to **`<pinned version>`** (the maintainer fills this placeholder; do not invent a
-version). Follow the app's own README for installation. Point it at the local GraphDB with the
-read-only user above.
+Pin `portfolio-app` to tag **`v0.1.0-entrega1`** (commit
+`0d40b7bb40c793576ad6da9fdd514297bb3c6cc0`; PR #43 was merged to `main`, and this is the first own
+tag of the repository — the other tags are inherited from the upstream fork). The maintainer
+supplies the repository URL.
 
-Set the app's chat timeout to **`KG_CHAT_TIMEOUT_SECONDS=300`**. The measured worst case on the
-delivered graph was 37 s (120 s also works); 300 s is the conservative margin for a slower local
-machine.
+### Requirements
 
-The app may also need an LLM key for its own features. The key is the colleague's own, stored only
-in their local `.env` (and, for the GraphDB TTYG connector, in `graphdb.llm.api-key` or
-`graphdb.llm.api-key@file`). It is never committed to this repository, never shared with the
-maintainer or another user, and never pasted into an issue or chat.
+**Option A — Dev Container (recommended, verified on Windows/WSL2).** Docker Desktop, VS Code and
+the Dev Containers extension. The container image carries Python 3.12, Node 22.12, pnpm 10.33.0 and
+uv 0.12.1. Open the repository in the container.
+
+**Option B — local without a container (Mac or WSL2) — NOT tested on a clean machine.** git,
+Python 3.12.x (3.11 and 3.13 fail with the lockfile), uv 0.12.1 or compatible, Node >= 22.12.0 and
+pnpm 10.33.0 (not npm).
+
+### Install (Mac/Linux/WSL2; not tested on a clean machine)
+
+```bash
+git clone <portfolio-app repository URL>
+cd portfolio-app
+git checkout v0.1.0-entrega1
+cp .env.example .env        # edit it; never `source .env`
+DO_NOT_TRACK=1 OPENUI_TELEMETRY_DISABLED=1 uv sync --locked --directory backend
+DO_NOT_TRACK=1 OPENUI_TELEMETRY_DISABLED=1 pnpm --dir frontend install --frozen-lockfile
+```
+
+The maintainer supplies `<portfolio-app repository URL>`. In the Dev Container, create `.env` and
+run the same two dependency commands inside the container; the image already carries the toolchain.
+
+### Start (verified in the devcontainer; not tested on native Mac)
+
+With GraphDB 11.5.1 already running:
+
+```bash
+# terminal 1
+cd backend && uv run uvicorn app.main:app --port 8000
+
+# terminal 2
+cd frontend && pnpm dev
+```
+
+Open http://localhost:5173.
+
+### `.env` (example values only)
+
+```text
+LLM_API_KEY=<YOUR_DEEPSEEK_API_KEY>
+LLM_MODEL=deepseek-chat
+LLM_URL=https://api.deepseek.com
+KG_HOST=http://127.0.0.1:7200          # http://host.docker.internal:7200 inside the dev container
+KG_USER=<READ_ONLY_USER>
+KG_PASSWORD=<READ_ONLY_PASSWORD>
+KG_AGENT_ID=<TTYG_AGENT_UUID>
+SQLITE_PATH=backend/data/app.sqlite3
+KG_CHAT_MODE=chat
+KG_CHAT_TIMEOUT_SECONDS=300
+KG_TOOL_MAX_ITERATIONS=8
+```
+
+`KG_CHAT_MODE=chat` is optional. `KG_REPOSITORY` is documentary only in chat mode. `KG_AGENT_ID`
+is the UUID of the TTYG agent the colleague creates on their own GraphDB over repository
+`portfolio`, **not** the agent name: the app selects the agent only by this UUID. The example UUID
+in the app's `.env.example` is a placeholder from earlier tests; the colleague must replace it. The
+colleague supplies their own DeepSeek key, read-only GraphDB user and agent UUID.
+
+Keep `KG_CHAT_TIMEOUT_SECONDS=300`: the measured worst case on the delivered graph was 37 s (120 s
+also works); 300 s is the conservative margin for a slower local machine.
+
+The key is the colleague's own, stored only in their local, git-ignored `.env` (and, for the
+GraphDB TTYG connector, in `graphdb.llm.api-key` or `graphdb.llm.api-key@file`). It is never
+committed to this repository, never shared with the maintainer or another user, and never pasted
+into an issue or chat.
+
+**Measured against the real agent (2026-11-20).** Through the app's real flow against
+`portfolio-final-v1-7` (instructions v1.7, repository `portfolio`): ventanas question 17.2 s; GUARD
+alerts P1 21.0 s (271); System vs SPY over C1 37.1 s (no). These are the measured timings; do not
+generalise them.
 
 ## 6. First smoke questions
 
@@ -142,6 +207,17 @@ result facts:
 | Is a reported performance figure definitive? | No: all loaded windows (the six calendar windows and C1) were seen during selection, so final performance is in-sample. |
 | Are the backtest tests statistically significant? | 72 `:BacktestTest` rows; **0** have p ≤ 0.05, and the smallest is p = 0.077. There is no test between the two System configurations or against SPY/MARKOWITZ_MV. |
 | Does the System beat SPY in return? | Over C1 it does not: the System returned **+38.8%** against SPY's **+73.1%**. Its value is risk control: its C1 maximum drawdown is **15.7%** against SPY's **24.5%**, and it is lower than SPY's in five of the six calendar windows (H2 is the exception). |
+
+### App smoke flow
+
+1. Open http://localhost:5173. The page loads without error banners, with a New Chat session, Chat
+   on the left and Report on the right.
+2. Ask the section 6 questions above in separate chats.
+3. A healthy answer has no SPARQL in its body; **Show SPARQL query** displays the query the agent
+   used.
+4. **Generate Report** ends without "(incomplete)", and **Download Report** saves a standalone
+   `.html` file.
+5. Do not use the ROIC question for this smoke test.
 
 A healthy conversation has these properties:
 
@@ -236,6 +312,11 @@ The delivered final graph does not need this. A separate repository `portfolio_l
 live day at a time for the live product; its loader replaces three fixed graphs and never touches
 `portfolio`, the `final` graphs or the TTYG agent. Setup, command, exit codes and checks are in
 [`live-day-loader.md`](live-day-loader.md).
+
+The app can point to `portfolio_live` only through a SECOND TTYG agent bound to that repository,
+with its own UUID in `KG_AGENT_ID` (optionally `SQLITE_PATH=backend/data/app_live.sqlite3` to keep
+live sessions apart); no app code change is needed. This is NOT tested end to end and not decided
+with the thesis co-author.
 
 ## 8. What not to do
 

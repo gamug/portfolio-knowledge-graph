@@ -446,9 +446,14 @@ def test_second_user_setup_names_the_final_export_and_the_demo_agent() -> None:
         "271",
         "+73.1%",
         "live-day-loader.md",
-        "<pinned version>",
+        "v0.1.0-entrega1",
+        "0d40b7bb40c793576ad6da9fdd514297bb3c6cc0",
+        "KG_AGENT_ID",
+        "portfolio_live",
+        "NOT tested end to end",
     ):
         assert phrase in text, phrase
+    assert "<pinned version>" not in text
 
 
 def test_superseded_v1_4_is_marked_as_a_historical_copy() -> None:
