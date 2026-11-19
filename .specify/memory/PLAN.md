@@ -4048,3 +4048,57 @@ counts P1 271 / H1 205 / P3 125 / H2 77 / P2 103 / H3 274 / C1 2,084 (total 3,13
 15.7% drawdown vs SPY +73.1% / 24.5%. The export file is 1,161,572,478 bytes and its `SHA256SUMS`
 matches. Docs/ttyg tests and ruff pass; no source or schema changed. The app section pins
 `v0.1.0-entrega1` and records the real-flow timings 17.2 s / 21.0 s / 37.1 s.
+
+## Work item 49 — Live-day TTYG agent instructions (T-990–T-996)
+
+The live product needs a second TTYG agent over repository `portfolio_live`; the final-delivery
+recipe describes graphs and facts that do not exist there. Documentation and one docs test only:
+no source, schema, graph, CONSTRUCT or `create-agent.md` change.
+
+**Decisions**
+
+- The agent is `portfolio-live-v1`, bound to `portfolio_live`; it uses SPARQL only, the same curated
+  v2.1 CONSTRUCT and temperature `0.1` as `create-agent.md`.
+- `docs/ttyg/instructions-live-v1.md` holds one pasteable `text` fence (15,808 characters) for the
+  three fixed `SYSTEM_LIVE` graphs. It describes only the live book, selection side, GUARD stops and
+  live performance; the final delivery's six calendar windows, continuous window, five
+  configurations, tests, news, aggregates, fundamentals and series are explicitly absent.
+- The six ready-made templates are parameter-free and bounded to the live graphs: loaded day and
+  formation, current portfolio, last two decisions, stops/destinations/memory, decision
+  traceability and live performance. No query was run in this task; the reviewer runs them
+  read-only against `portfolio_live`.
+- News and the SPY series are not in the live graph; they are planned for 2026-11-27. The fence
+  requires a plain refusal and forbids any SPY comparison.
+- `docs/ttyg/README.md` indexes the new file; `instructions-v1.*.md` and `create-agent.md` are
+  untouched.
+
+**Tasks**
+
+- [x] **T-990** *(done 2026-11-19: `docs/ttyg/instructions-live-v1.md`; one `text` fence for the
+      `portfolio_live` agent, 15,808 characters.)* Live instruction block.
+- [x] **T-991** *(done 2026-11-19: `docs/ttyg/instructions-live-v1.md`; Create-the-agent section
+      with Repository ID `portfolio_live`, name `portfolio-live-v1`, v2.1 CONSTRUCT and 0.1.)*
+      Agent recipe pointer.
+- [x] **T-992** *(done 2026-11-19: `docs/ttyg/instructions-live-v1.md`; six parameter-free
+      templates bounded to the three live graphs.)* Ready-made queries.
+- [x] **T-993** *(done 2026-11-19: `docs/ttyg/instructions-live-v1.md`; no news, no SPY series or
+      comparison, no other configurations/tests/fundamentals, no predictions, masked-company
+      rule.)* Refusals and missing data.
+- [x] **T-994** *(done 2026-11-19: `tests/test_ttyg_docs.py`; single fence, 37,611-character cap,
+      forbidden final-delivery figures/configurations and six patterns.)* Docs test.
+- [x] **T-995** *(done 2026-11-19: `docs/ttyg/README.md`; row indexing the live instructions.)*
+      Docs index.
+- [x] **T-996** *(done 2026-11-19: docs/ttyg tests and ruff on the touched test file; one commit,
+      one PR.)* Verification and PR.
+
+**Acceptance criteria**
+
+- A third party creates `portfolio-live-v1` on `portfolio_live` from the fence and the existing
+  `create-agent.md` method, without touching the evaluated agent.
+- Every template is bounded to a live graph and returns the loaded day or depends on a query that
+  does.
+- The fence never claims news, a SPY series, another configuration or a backtest result exists.
+
+**Verified 2026-11-19**: the file has one `text` fence of 15,808 characters; all 104
+classes/properties named in the fence exist in `schema/tbox.ttl` or `schema/shapes.ttl`; docs/ttyg
+tests pass and ruff is clean. No GraphDB query was run and no store was contacted.
