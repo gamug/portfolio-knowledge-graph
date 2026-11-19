@@ -228,16 +228,19 @@ ORDER BY ?graph
 ```
 
 The three live graphs must have the counts the loader printed; no `live_staging` graph may remain.
-The loaded day is the `:knowledgeDate` of the metadata graph's `:BacktestRun`:
+The loaded day is the `:dateTo` of the live `:PortfolioPeriodSummary` (`:segment "LIVE"`), not the
+`:knowledgeDate` of the metadata `:BacktestRun`: that date is when the run was created.
 
 ```sparql
 PREFIX : <https://thesis.local/kg/portfolio#>
-SELECT ?run ?window ?runId ?knowledge ?file
+SELECT ?book ?loadedDay ?dateFrom ?dateTo
 WHERE {
-  GRAPH <urn:graph:derived:backtest:meta:live> {
-    ?run a :BacktestRun ; :windowId ?window ; :backtestRunId ?runId ;
-         :knowledgeDate ?knowledge ; :sourceFile ?file .
+  GRAPH <urn:graph:derived:backtest:live:LIVE:system_live> {
+    ?book a :StrategyBook ; :runLabel "live" ; :windowId "LIVE" .
+    ?summary a :PortfolioPeriodSummary ; :summaryOfBook ?book ; :segment "LIVE" ;
+             :dateFrom ?dateFrom ; :dateTo ?dateTo .
   }
+  BIND (?dateTo AS ?loadedDay)
 }
 ```
 

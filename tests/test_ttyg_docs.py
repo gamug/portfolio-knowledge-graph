@@ -21,6 +21,7 @@ CONSTRUCT_V2_1 = TTYG / "ontology_construct_curated_v2_1.rq"
 CONSTRUCT_V3 = TTYG / "ontology_construct_curated_v3.rq"
 INSTRUCTIONS = TTYG / "instructions-v1.5.md"
 INSTRUCTIONS_V17 = TTYG / "instructions-v1.7.md"
+INSTRUCTIONS_LIVE = TTYG / "instructions-live-v1.md"
 SUPERSEDED_INSTRUCTIONS = TTYG / "instructions-v1.4.md"
 README = TTYG / "README.md"
 CREATE_AGENT = TTYG / "create-agent.md"
@@ -429,6 +430,49 @@ def test_create_agent_doc_links_the_sources_and_keeps_the_key_placeholder() -> N
     assert "0.1" in text
     assert "DeepSeek" in text and "Gemini 3.x" in text
     assert "create-agent.md" in readme
+
+
+def test_live_agent_instructions_are_bounded_and_leave_out_the_final_delivery() -> None:
+    text = INSTRUCTIONS_LIVE.read_text(encoding="utf-8")
+    block = _instruction_block(INSTRUCTIONS_LIVE)
+    assert len(block.rstrip("\n")) <= 37_611
+    assert len(block.rstrip("\n")) > 5_000
+    assert "portfolio-live-v1" in text
+    assert "repository **`portfolio_live`**" in text
+    assert "create-agent.md" in text
+    assert "SYSTEM_LIVE" in block
+    assert "portfolio_live" in block
+    assert "three fixed" in text
+    for forbidden in (
+        "978",
+        "271",
+        "SYSTEM_WITH_HIERARCHY",
+        "SYSTEM_WITHOUT_HIERARCHY",
+        "MARKOWITZ_BASE",
+        "MARKOWITZ_MV",
+        "C1",
+        "P1",
+        "P2",
+        "P3",
+        "H1",
+        "H2",
+        "H3",
+    ):
+        assert forbidden not in block, forbidden
+    assert "SPY series" in block
+    assert "does not have" in block
+    assert block.count("\nPATTERN ") == 6
+    assert ":knowledgeDate of the live :BacktestRun" not in block
+    assert "loaded day is the :BacktestRun's :knowledgeDate" not in block
+    assert "date the run was created, not the loaded day" in block
+    assert ":dateTo of the :PortfolioPeriodSummary" in block
+    assert "weights belong to ?weightDate, not to the loaded day" in block
+    assert "COALESCE(?asset, <urn:none:no-asset>)" in block
+    assert ":stoppedAsset ?stopped" in block
+    assert ":memoryAsset ?stopped" in block
+    loader = (REPO / "docs" / "live-day-loader.md").read_text(encoding="utf-8")
+    assert "The loaded day is the `:knowledgeDate`" not in loader
+    assert "`:dateTo` of the live `:PortfolioPeriodSummary`" in loader
 
 
 def test_second_user_setup_names_the_final_export_and_the_demo_agent() -> None:

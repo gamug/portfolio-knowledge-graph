@@ -1713,3 +1713,35 @@ Work item 48. Documentation only: no source, schema or graph change.
       end.)* Schema provenance and new symbols.
 - [x] **T-988** *(done 2026-11-19: docs/ttyg tests, ruff on the touched test file, one commit and
       one PR.)* Verification and PR.
+
+## Work item 49 — Live-day TTYG agent instructions (T-990–T-996)
+
+See `docs/ttyg/instructions-live-v1.md` and `PLAN.md` Work item 49. Documentation and one docs test:
+no source, schema, graph, CONSTRUCT or `create-agent.md` change.
+
+- [x] **T-990** *(done 2026-11-19: `docs/ttyg/instructions-live-v1.md`; one pasteable `text` fence
+      for `portfolio_live`, 16,757 characters, under the 37,611 cap.)* Live instruction block.
+- [x] **T-991** *(done 2026-11-19: `docs/ttyg/instructions-live-v1.md`; Create-the-agent section:
+      Repository ID `portfolio_live`, name `portfolio-live-v1`, same v2.1 CONSTRUCT and 0.1.)*
+      Agent recipe pointer.
+- [x] **T-992** *(done 2026-11-19: `docs/ttyg/instructions-live-v1.md`; six parameter-free templates
+      for the loaded day/formation, portfolio, last decisions, stops, traceability and performance,
+      all bounded to the three live graphs.)* Ready-made queries.
+- [x] **T-993** *(done 2026-11-19: `docs/ttyg/instructions-live-v1.md`; explicit refusal for news
+      and the SPY series, no SPY comparison, no other configurations/tests/fundamentals, no
+      predictions and the masked-company rule.)* Refusals.
+- [x] **T-994** *(done 2026-11-19: `tests/test_ttyg_docs.py`; single fence, length cap, forbidden
+      final-delivery figures/configurations and six patterns.)* Docs test.
+- [x] **T-995** *(done 2026-11-19: `docs/ttyg/README.md`; file row added.)* Docs index.
+- [x] **T-996** *(done 2026-11-19: docs/ttyg tests and ruff on the touched test file; one commit,
+      one PR.)* Verification and PR.
+
+**Review corrections 2026-11-19** (reviewer's read-only run): the loaded day is the LIVE
+`:PortfolioPeriodSummary` `:dateTo` (2026-11-17), not the run-creation `:knowledgeDate`
+(2026-11-19); PATTERN 3 uses a no-asset placeholder so CASH/SPY get no score or rule; PATTERN 4
+joins the memory on the stop's own `:stoppedAsset`; PATTERN 2 states the loaded day and the latest
+weighted date (2026-11-13). Fence now 16,757 characters.
+
+**Verified 2026-11-19**: one fence, 16,757 characters; all 104 named classes/properties exist in
+`schema/tbox.ttl` or `schema/shapes.ttl`; docs/ttyg tests pass and ruff is clean. No GraphDB query
+was run and no store was contacted.
