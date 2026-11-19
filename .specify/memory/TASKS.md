@@ -1659,7 +1659,7 @@ GraphDB scratch-repository rehearsal was not possible here because GraphDB refus
 `host.docker.internal:7200`; no write was made to `portfolio`, `portfolio_test` or any real
 repository.
 
-## Work item 48 — Second-user final-delivery documentation (T-970–T-975)
+## Work item 48 — Second-user final-delivery documentation (T-970–T-982)
 
 See `docs/second-user-setup.md`, `docs/ttyg/create-agent.md`, `docs/ttyg/README.md` and `PLAN.md`
 Work item 48. Documentation only: no source, schema or graph change.
@@ -1688,5 +1688,11 @@ Work item 48. Documentation only: no source, schema or graph change.
       normalised to 1.0 before the window), the demo agent name `portfolio-final-v1-7` and the
       app's `KG_CHAT_TIMEOUT_SECONDS=300`.)* Post-review corrections.
 
-**Open item:** the `portfolio-app` pinned version was not supplied; section 5 keeps
-`<pinned version>` until the user provides it.
+- [x] **T-980** *(done 2026-11-20: `docs/second-user-setup.md`; `portfolio-app`
+      `v0.1.0-entrega1` / commit `0d40b7bb…`, Dev Container and local requirements, install and
+      start commands, `.env` placeholders and the `KG_AGENT_ID` UUID rule.)* App section.
+- [x] **T-981** *(done 2026-11-20: `docs/second-user-setup.md`; app smoke flow and the measured
+      real-agent timings 17.2 s / 21.0 s / 37.1 s, explicitly not generalised.)* App smoke flow.
+- [x] **T-982** *(done 2026-11-20: `docs/second-user-setup.md`; live day through a second TTYG
+      agent bound to `portfolio_live`, own UUID and optional `app_live.sqlite3`; NOT tested end to
+      end and not decided with the thesis co-author.)* Live-day app note.

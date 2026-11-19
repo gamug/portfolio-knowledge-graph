@@ -3961,7 +3961,7 @@ and mypy clean. The real GraphDB scratch-repository rehearsal could not run beca
 unreachable from this environment (connection refused at `host.docker.internal:7200`); the user
 performs the first real write into `portfolio_live` from this runbook.
 
-## Work item 48 — Second-user final-delivery documentation (T-970–T-975)
+## Work item 48 — Second-user final-delivery documentation (T-970–T-982)
 
 The director and the jury install the delivered graph on their own machines on 2026-11-20. The
 second-user page and the TTYG form recipe still described the Work item 42 store (v1.5 agent,
@@ -3981,7 +3981,8 @@ only: no source, schema, graph or delivery change.
 - The smoke table uses only repo-sourced facts or the read-only query results recorded next to it:
   72 `:BacktestTest` rows, 0 with p ≤ 0.05 (min p = 0.077); C1 System +38.8% vs SPY +73.1%, maximum
   drawdown 15.7% vs 24.5% (lower in five of six calendar windows).
-- `portfolio-app` remains `<pinned version>` because no version was supplied; the user must fill it.
+- `portfolio-app` is pinned to tag `v0.1.0-entrega1` (commit `0d40b7bb40c793576ad6da9fdd514297bb3c6cc0`); the app section documents the Dev Container and local requirements, install, start, `.env`, the measured app timings and the app smoke flow.
+- The app points at `portfolio_live` only through a second TTYG agent with its own UUID; this is not tested end to end and not decided with the thesis co-author.
 
 **Tasks**
 
@@ -4004,6 +4005,14 @@ only: no source, schema, graph or delivery change.
       `docs/ttyg/create-agent.md`, `docs/ttyg/README.md`, `tests/test_ttyg_docs.py`; corrected the
       GUARD alert counts (P1 271, total 3,139 including C1), the SPY C1 return (+73.1%), the demo
       agent name `portfolio-final-v1-7` and the app timeout 300 s.)* Post-review corrections.
+- [x] **T-980** *(done 2026-11-20: `docs/second-user-setup.md`; pinned version `v0.1.0-entrega1`
+      / commit `0d40b7bb…`, the Dev Container and local requirements, install and start commands,
+      and the `.env` variables with placeholder secrets and the agent UUID rule.)* App section.
+- [x] **T-981** *(done 2026-11-20: `docs/second-user-setup.md`; app smoke flow and the three
+      measured real-agent timings, without generalising them.)* App smoke flow and timings.
+- [x] **T-982** *(done 2026-11-20: `docs/second-user-setup.md`; the optional live day uses a second
+      TTYG agent bound to `portfolio_live`, own UUID and optional separate SQLite path; not tested
+      end to end and not decided with the thesis co-author.)* Live-day app note.
 
 **Acceptance criteria**
 
@@ -4012,12 +4021,12 @@ only: no source, schema, graph or delivery change.
   v1.7.
 - Every smoke-table number has a repo document or a recorded read-only query result.
 - `docs/ttyg/instructions-v1.5.md` and `instructions-v1.7.md` are unchanged.
-- The pinned `portfolio-app` version is either supplied or recorded as an open item; never invented.
+- The app section pins `portfolio-app` `v0.1.0-entrega1`, uses placeholders for the repository URL and secrets, and requires the colleague's own LLM key, read-only GraphDB user and agent UUID.
 
-**Verified 2026-11-20 (T-970–T-975, corrected by T-979)**: read-only queries against the
+**Verified 2026-11-20 (T-970–T-982, corrected by T-979)**: read-only queries against the
 delivered `portfolio` store returned 12,727,091 triples in 86 graphs, the per-window `:GuardAlert`
 counts P1 271 / H1 205 / P3 125 / H2 77 / P2 103 / H3 274 / C1 2,084 (total 3,139), 72
 `:BacktestTest` rows with 0 p ≤ 0.05 and min p = 0.077, and the C1 comparison System +38.8% /
 15.7% drawdown vs SPY +73.1% / 24.5%. The export file is 1,161,572,478 bytes and its `SHA256SUMS`
-matches. Docs/ttyg tests and ruff pass; no source or schema changed. The `portfolio-app` version is
-still the open `<pinned version>` placeholder.
+matches. Docs/ttyg tests and ruff pass; no source or schema changed. The app section pins
+`v0.1.0-entrega1` and records the real-flow timings 17.2 s / 21.0 s / 37.1 s.
