@@ -117,7 +117,8 @@ done
 The SHACL validation itself uses the local universe database (`SQL_UNIVERSE_DB`, default
 `/workspaces/thesis/data/universe_history_gics.db` when present), exactly as the final dry run
 does; the store graphs are checked because the written graph points at them and a person queries
-them from the application. `build_delivery` uses the same `shapes.ttl`/`rules.ttl`/`reference.ttl`
+them from the application. The database precedence is `--assets-db`, then `SQL_UNIVERSE_DB` (as
+read by `etl.config.universe_db_path`), then the bundled default only when neither is set. `build_delivery` uses the same `shapes.ttl`/`rules.ttl`/`reference.ttl`
 and the same sibling-context logic as `cli/load_veto.py`.
 
 ## 3. The command

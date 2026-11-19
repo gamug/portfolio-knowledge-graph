@@ -412,6 +412,46 @@ def test_a_missing_argument_still_ends_with_json(capsys: pytest.CaptureFixture[s
     assert "day" in payload["error"]
 
 
+def test_sql_universe_db_wins_over_the_bundled_default(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    env_db = tmp_path / "universe_live.db"
+    env_db.write_bytes(b"db")
+    default = tmp_path / "universe_history_gics.db"
+    default.write_bytes(b"db")
+    monkeypatch.setenv("SQL_UNIVERSE_DB", str(env_db))
+    monkeypatch.setattr(load_live, "DEFAULT_ASSETS_DB", default)
+    args = load_live.parse_args(["--folder", "x", "--day", "2026-11-17"])
+    assert args.assets_db == env_db
+
+
+def test_assets_db_wins_over_sql_universe_db(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    env_db = tmp_path / "universe_live.db"
+    env_db.write_bytes(b"db")
+    default = tmp_path / "universe_history_gics.db"
+    default.write_bytes(b"db")
+    explicit = tmp_path / "explicit.db"
+    monkeypatch.setenv("SQL_UNIVERSE_DB", str(env_db))
+    monkeypatch.setattr(load_live, "DEFAULT_ASSETS_DB", default)
+    args = load_live.parse_args(
+        ["--folder", "x", "--day", "2026-11-17", "--assets-db", str(explicit)]
+    )
+    assert args.assets_db == explicit
+
+
+def test_the_bundled_default_applies_without_an_explicit_database(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    default = tmp_path / "universe_history_gics.db"
+    default.write_bytes(b"db")
+    monkeypatch.delenv("SQL_UNIVERSE_DB", raising=False)
+    monkeypatch.setattr(load_live, "DEFAULT_ASSETS_DB", default)
+    args = load_live.parse_args(["--folder", "x", "--day", "2026-11-17"])
+    assert args.assets_db == default
+
+
 def test_no_secret_reaches_stdout_or_stderr(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
