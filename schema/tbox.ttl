@@ -960,7 +960,7 @@ so every result is in-sample.""" .
 :armCode a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:range xsd:string ;
     rdfs:comment "MARKOWITZ_BASE | TOPN_MV_NOGUARD | TOPN_MV_GUARD_NO_NLP | TOPN_MV_GUARD | MARKOWITZ_BASE_GUARD | MARKOWITZ_MV. No rdfs:domain: shared across StrategyBook, BookRebalance, GuardAction, BookWeightDaily, BookDailyPerformance and PortfolioPeriodSummary. MARKOWITZ_MV is the external mean-variance base book (Work item 44), summary-only. SHACL sh:in." .
 :windowId a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:range xsd:string ;
-    rdfs:comment "P<number>, H<number> or C<number> (P1, P2, P3, H1, H2, H3, C1, …; T-234 opened the vocabulary, Work item 33 added H<number> and Work item 46 added the continuous C1 window). No rdfs:domain: shared across StrategyBook, GuardAlert, BookDailyPerformance, PortfolioPeriodSummary, BacktestTest, BacktestRun, DailySeriesPoint and SeriesWeightPoint. SHACL sh:pattern ^([PH][0-9]+|C[0-9]+)$: a typo in the letter or digits is no longer caught, only the P/H/C<number> shape." .
+    rdfs:comment "P<number>, H<number>, C<number> or LIVE (P1, P2, P3, H1, H2, H3, C1, LIVE, …; T-234 opened the vocabulary, Work item 33 added H<number>, Work item 46 added the continuous C1 window and Work item 47 added the live day's LIVE window). No rdfs:domain: shared across StrategyBook, GuardAlert, BookDailyPerformance, PortfolioPeriodSummary, BacktestTest, BacktestRun, DailySeriesPoint and SeriesWeightPoint. SHACL sh:pattern ^([PH][0-9]+|C[0-9]+|LIVE)$: a typo in the letter or digits is no longer caught, only the P/H/C<number>/LIVE shape." .
 :knowledgeDate a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:range xsd:date ;
     rdfs:comment "The date the m018 row became known (v_* knowledge_date, the view's own date or the run's created_at date). No rdfs:domain: every m018 individual carries it, so a knowledgeDate <= D query works uniformly (handoff checklist 3). It is not valid time and not a replacement for :knowledgeDate-less m015/m016 rows." .
 :status a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:range xsd:string ;
@@ -972,7 +972,7 @@ so every result is in-sample.""" .
 :guardLayer a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:range xsd:integer ;
     rdfs:comment "T-206/Work item 46: 0..1, the GUARD protection layer (0 portfolio tail risk, 1 Basing Points). No rdfs:domain: it is the alert's v_guard_alert.layer and the GUARD RuleDefinition's layer. SHACL bounds it to 0..1 on both." .
 :segment a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:range xsd:string ;
-    rdfs:comment "P<number>, H<number> or C<number> plus an optional lowercase sub-period suffix (P1, H1, P3, H2, P2a, P2b, H3, C1, …; T-234 opened the vocabulary, Work item 33 added H<number> and Work item 46 added C1). No rdfs:domain: shared by PortfolioPeriodSummary and BacktestTest. SHACL sh:pattern ^([PH][0-9]+|C[0-9]+)[a-z]?$." .
+    rdfs:comment "P<number>, H<number>, C<number> or LIVE plus an optional lowercase sub-period suffix (P1, H1, P3, H2, P2a, P2b, H3, C1, LIVE, …; T-234 opened the vocabulary, Work item 33 added H<number>, Work item 46 added C1 and Work item 47 added LIVE). No rdfs:domain: shared by PortfolioPeriodSummary and BacktestTest. SHACL sh:pattern ^([PH][0-9]+|C[0-9]+|LIVE)[a-z]?$." .
 :runLabel a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:range xsd:string ;
     rdfs:comment "The operator's name for one backtest result family (--db LABEL=PATH; T-233), the one run identity the m018 views do not expose (no input hash, no parameters). [a-z][a-z0-9_]{1,31}: lowercase, 2-32 characters. No rdfs:domain: StrategyBook and BacktestTest share it, the two m018 classes with no book link, and BacktestRun, AggregatesSet, TrendFilterState and ReferenceReturn carry it directly; every other class reaches its label through its book. SHACL sh:pattern, the same one the CLI and the graph-name pattern enforce." .
 :handle a owl:DatatypeProperty, owl:FunctionalProperty ; rdfs:range xsd:string ;
@@ -1709,7 +1709,7 @@ so every result is in-sample.""" .
 
 :BacktestConfiguration a owl:Class ;
     rdfs:label "Backtest configuration"@en ; rdfs:label "Configuración de backtest"@es ;
-    rdfs:comment "The five closed configurations of the new delivery: SYSTEM_WITH_HIERARCHY, SYSTEM_WITHOUT_HIERARCHY, MARKOWITZ_BASE, MARKOWITZ_MV and SPY. :armCode is engine provenance only."@en ; rdfs:comment "Las cinco configuraciones cerradas de la entrega nueva: SYSTEM_WITH_HIERARCHY, SYSTEM_WITHOUT_HIERARCHY, MARKOWITZ_BASE, MARKOWITZ_MV y SPY. :armCode es solo procedencia del motor."@es .
+    rdfs:comment "The five closed configurations of the final delivery (SYSTEM_WITH_HIERARCHY, SYSTEM_WITHOUT_HIERARCHY, MARKOWITZ_BASE, MARKOWITZ_MV and SPY) plus SYSTEM_LIVE for the one-configuration live day loader. :armCode is engine provenance only."@en ; rdfs:comment "Las cinco configuraciones cerradas de la entrega final (SYSTEM_WITH_HIERARCHY, SYSTEM_WITHOUT_HIERARCHY, MARKOWITZ_BASE, MARKOWITZ_MV y SPY) más SYSTEM_LIVE para el cargador del día en vivo de una sola configuración. :armCode es solo procedencia del motor."@es .
 
 :DecisionEvent a owl:Class ;
     rdfs:subClassOf :Observation ;
@@ -1790,6 +1790,11 @@ so every result is in-sample.""" .
     skos:notation "SPY" ;
     rdfs:label "SPY total-return reference"@en ; rdfs:label "Referencia de retorno total SPY"@es ;
     rdfs:comment "The SPY total-return reference series; its daily series loads in the block E series graph."@en ; rdfs:comment "La serie de referencia de retorno total de SPY; su serie diaria se carga en el grafo de series del bloque E."@es .
+
+:Configuration_SystemLive a :BacktestConfiguration ;
+    skos:notation "SYSTEM_LIVE" ;
+    rdfs:label "System live day"@en ; rdfs:label "Día en vivo del Sistema"@es ;
+    rdfs:comment "The one configuration of the live day loader: the System book TOPN_MV_GUARD, re-run from its formation to the loaded day. Its fixed graphs are replaced every day; it is never part of the evaluated final delivery."@en ; rdfs:comment "La única configuración del cargador del día en vivo: el libro del Sistema TOPN_MV_GUARD, recalculado desde su formación hasta el día cargado. Sus grafos fijos se reemplazan cada día; nunca forma parte de la entrega final evaluada."@es .
 
 :configuration a owl:ObjectProperty, owl:FunctionalProperty ; rdfs:range :BacktestConfiguration ;
     rdfs:label "Backtest configuration"@en ; rdfs:label "Configuración de backtest"@es ;

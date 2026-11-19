@@ -22,7 +22,7 @@ from typing import Any, Protocol
 import rdflib
 from rdflib.namespace import RDF, XSD
 
-from projection.veto_manifest import configuration_slug
+from projection.veto_manifest import LIVE_CONFIGURATION, configuration_slug
 
 NS = "https://thesis.local/kg/portfolio#"
 KG = rdflib.Namespace(NS)
@@ -748,7 +748,7 @@ def build_detail_batch(detail: DetailFile, context: EventContext) -> DetailBatch
     """Project one validated detail file into the configuration-keyed graph."""
     batch = DetailBatch(context.graph)
     batch.rows["detail_lines"] = detail.lines
-    if context.configuration == "SYSTEM_WITH_HIERARCHY":
+    if context.configuration in ("SYSTEM_WITH_HIERARCHY", LIVE_CONFIGURATION):
         _decisions(detail, context, batch)
         _retention_from_decisions(detail, context, batch)
     elif context.configuration == "SYSTEM_WITHOUT_HIERARCHY":

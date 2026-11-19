@@ -1609,3 +1609,52 @@ T-890–T-899, block D news rows by T-910–T-914 and block D2 full-article rows
       inside the aggregate and `?n` as the alias; text-level tests reject any projection alias that
       equals its own inner variable; targeted tests 73 passed / 2 deselected.)* Fix the malformed
       aggregate alias in the agents store counts.
+
+## Work item 47 — SYSTEM_LIVE live day loader (T-940–T-969)
+
+See `docs/live-day-loader.md` and `PLAN.md` Work item 47. The live loader writes one day into three
+fixed SYSTEM_LIVE graphs in `portfolio_live`; every day replaces the previous one. It reuses the
+Veto Hierarchy projection and never writes to `portfolio` or the `final` graphs.
+
+- [x] **T-940** *(done 2026-11-19: `src/projection/live_manifest.py`; manifest keys/types, folder
+      SHA256SUMS, every files_sha256 entry, streamed db/mask hashes, day/formation, SYSTEM_LIVE/LIVE,
+      synthetic RunConfig.)* Manifest adapter for `manifest_live.json`.
+- [x] **T-941** *(done 2026-11-19: `src/projection/veto_manifest.py`, `src/projection/backtest.py`,
+      `src/kg_store/gate.py`, `schema/shapes.ttl`, `schema/tbox.ttl`; the LIVE window,
+      SYSTEM_LIVE configuration and `Configuration_SystemLive`, the fixed graph names and the gate
+      targets; schema-only plan is now 12,213 triples.)* Live vocabulary and schema.
+- [x] **T-942** *(done 2026-11-19: `src/projection/load_veto.py`; preverified hashes, supplied
+      RunConfig and optional control counts, empty selection graph; `src/projection/veto_events.py`
+      routes SYSTEM_LIVE through the with-hierarchy projector.)* Reuse the veto projection.
+- [x] **T-943** *(done 2026-11-19: `src/projection/load_live.py`; three staging graphs, one SPARQL
+      Update with one MOVE per graph, cleanup on failure, per-graph counts, no staging left and the
+      masked-price check.)* Replace-per-day write and verification.
+- [x] **T-944** *(done 2026-11-19: `cli/load_live.py`; dry run, `--check-store`, `--write`,
+      `--repository` defaulting to `portfolio_live`, the `portfolio` refusal, exit codes 0/2/3/4/5
+      and the always-last JSON line.)* CLI and output contract.
+- [x] **T-945** *(done 2026-11-19: real dry runs; 2026-10-16 = 3 graphs / 204,996 triples and
+      2026-11-17 = 3 graphs / 229,375 triples, SHACL conforms, 60.5 s and 66.1 s; the 3 GB hash is
+      12.5–13.5 s; no store contacted.)* Real example dry runs.
+- [x] **T-946** *(done 2026-11-19: `tests/test_live_day.py`, `tests/fixtures/dataset_store.py`; 26
+      tests: happy path, empty manager/retention, same day twice, D then D+1, wrong SHA256SUMS,
+      files_sha256, db_sha256, mask sha, wrong day, SHACL exit 3, pre-swap failure, portfolio
+      refusal, JSON last, no secret, check-store only.)* Hermetic tests.
+- [x] **T-947** *(done 2026-11-19: `/workspaces/thesis/kg_handoff/load_live/`; self-contained src and
+      schema snapshot plus a PEP 723 uv script that runs from `/workspaces/thesis`.)* Operator
+      handoff.
+- [x] **T-948** *(done 2026-11-19: `docs/live-day-loader.md` and the `docs/final-delivery.md` link;
+      repository setup, exact context graphs, schema/universe load, export/import commands, exact
+      command, exit codes, rerun and checks.)* Documentation.
+- [x] **T-949** *(done 2026-11-19: `src/kg_store/load_schema.py` and
+      `tests/test_kg_load_schema.py`; `--to-production` excludes `instances.trig` for any target, so
+      `portfolio_live` gets the five schema graphs.)* Live schema setup.
+- [ ] **T-950–T-969** Reserved for K's review after the first real write into `portfolio_live`.
+
+**Verified 2026-11-19**: the in-memory end-to-end run of the real projected batches (load day 1,
+then day 2, then day 2 again, plus day 2 alone in a fresh store) is idempotent per day and leaves
+only day 2 after D then D+1; per-graph counts and order-independent hashes match. Day 1 hashes
+`768bc9fb…` / `43ff43cc…` / `7df36d37…` and day 2 `950e85a3…` / `f07eff57…` / `f743526b…`
+(meta/m018/selection). Full suite **1965 passed / 63 deselected**; ruff and mypy clean. The real
+GraphDB scratch-repository rehearsal was not possible here because GraphDB refused connections at
+`host.docker.internal:7200`; no write was made to `portfolio`, `portfolio_test` or any real
+repository.

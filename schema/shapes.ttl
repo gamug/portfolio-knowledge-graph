@@ -461,7 +461,7 @@
     # segment are patterns since T-234: a typo in a window's letter or digits is no longer caught.
     sh:property [ sh:path :runLabel ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ;
                   sh:pattern "^[a-z][a-z0-9_]{1,31}$" ] ;
-    sh:property [ sh:path :windowId ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ; sh:pattern "^([PH][0-9]+|C[0-9]+)$" ] ;
+    sh:property [ sh:path :windowId ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ; sh:pattern "^([PH][0-9]+|C[0-9]+|LIVE)$" ] ;
     sh:property [ sh:path :backtestStartDate ; sh:datatype xsd:date ; sh:minCount 1 ; sh:maxCount 1 ] ;
     sh:property [ sh:path :backtestEndDate ; sh:datatype xsd:date ; sh:minCount 1 ; sh:maxCount 1 ] ;
     sh:property [ sh:path :runStatus ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ] ;
@@ -515,7 +515,7 @@
     sh:targetClass :GuardAlert ;
     sh:property [ sh:path :alertId ; sh:datatype xsd:integer ; sh:minCount 1 ; sh:maxCount 1 ] ;
     sh:property [ sh:path :backtestRunId ; sh:datatype xsd:integer ; sh:minCount 1 ; sh:maxCount 1 ] ;
-    sh:property [ sh:path :windowId ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ; sh:pattern "^([PH][0-9]+|C[0-9]+)$" ] ;
+    sh:property [ sh:path :windowId ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ; sh:pattern "^([PH][0-9]+|C[0-9]+|LIVE)$" ] ;
     # v_guard_alert.knowledge_date = date (handoff §3.2).
     sh:property [ sh:path :alertDate ; sh:datatype xsd:date ; sh:minCount 1 ; sh:maxCount 1 ;
                   sh:equals :knowledgeDate ] ;
@@ -602,7 +602,7 @@
     sh:property [ sh:path :backtestRunId ; sh:datatype xsd:integer ; sh:minCount 1 ; sh:maxCount 1 ] ;
     sh:property [ sh:path :armCode ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ;
                   sh:in ("MARKOWITZ_BASE" "TOPN_MV_NOGUARD" "TOPN_MV_GUARD_NO_NLP" "TOPN_MV_GUARD" "MARKOWITZ_BASE_GUARD" "MARKOWITZ_MV") ] ;
-    sh:property [ sh:path :windowId ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ; sh:pattern "^([PH][0-9]+|C[0-9]+)$" ] ;
+    sh:property [ sh:path :windowId ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ; sh:pattern "^([PH][0-9]+|C[0-9]+|LIVE)$" ] ;
     # v_book_daily_performance.knowledge_date = date (handoff §3.2).
     sh:property [ sh:path :performanceDate ; sh:datatype xsd:date ; sh:minCount 1 ; sh:maxCount 1 ;
                   sh:equals :knowledgeDate ] ;
@@ -627,9 +627,9 @@
     sh:property [ sh:path :backtestRunId ; sh:datatype xsd:integer ; sh:minCount 1 ; sh:maxCount 1 ] ;
     sh:property [ sh:path :armCode ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ;
                   sh:in ("MARKOWITZ_BASE" "TOPN_MV_NOGUARD" "TOPN_MV_GUARD_NO_NLP" "TOPN_MV_GUARD" "MARKOWITZ_BASE_GUARD" "MARKOWITZ_MV") ] ;
-    sh:property [ sh:path :windowId ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ; sh:pattern "^([PH][0-9]+|C[0-9]+)$" ] ;
+    sh:property [ sh:path :windowId ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ; sh:pattern "^([PH][0-9]+|C[0-9]+|LIVE)$" ] ;
     sh:property [ sh:path :segment ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ;
-                  sh:pattern "^([PH][0-9]+|C[0-9]+)[a-z]?$" ] ;
+                  sh:pattern "^([PH][0-9]+|C[0-9]+|LIVE)[a-z]?$" ] ;
     sh:property [ sh:path :dateFrom ; sh:datatype xsd:date ; sh:minCount 1 ; sh:maxCount 1 ] ;
     # v_portfolio_period_summary.knowledge_date = date_to (handoff §3.2).
     sh:property [ sh:path :dateTo ; sh:datatype xsd:date ; sh:minCount 1 ; sh:maxCount 1 ;
@@ -652,9 +652,9 @@
     sh:property [ sh:path :backtestRunId ; sh:datatype xsd:integer ; sh:minCount 1 ; sh:maxCount 1 ] ;
     sh:property [ sh:path :runLabel ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ;
                   sh:pattern "^[a-z][a-z0-9_]{1,31}$" ] ;
-    sh:property [ sh:path :windowId ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ; sh:pattern "^([PH][0-9]+|C[0-9]+)$" ] ;
+    sh:property [ sh:path :windowId ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ; sh:pattern "^([PH][0-9]+|C[0-9]+|LIVE)$" ] ;
     sh:property [ sh:path :segment ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ;
-                  sh:pattern "^([PH][0-9]+|C[0-9]+)[a-z]?$" ] ;
+                  sh:pattern "^([PH][0-9]+|C[0-9]+|LIVE)[a-z]?$" ] ;
     sh:property [ sh:path :armA ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ;
                   sh:in ("MARKOWITZ_BASE" "TOPN_MV_NOGUARD" "TOPN_MV_GUARD_NO_NLP" "TOPN_MV_GUARD" "MARKOWITZ_BASE_GUARD" "MARKOWITZ_MV") ] ;
     sh:property [ sh:path :armB ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ;
@@ -689,7 +689,7 @@
     sh:property [ sh:path :finishedAt ; sh:datatype xsd:dateTime ; sh:maxCount 1 ] ;
     sh:property [ sh:path :runLabel ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ;
                   sh:pattern "^[a-z][a-z0-9_]{1,31}$" ] ;
-    sh:property [ sh:path :windowId ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ; sh:pattern "^([PH][0-9]+|C[0-9]+)$" ] ;
+    sh:property [ sh:path :windowId ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ; sh:pattern "^([PH][0-9]+|C[0-9]+|LIVE)$" ] ;
     sh:property [ sh:path :backtestRunId ; sh:datatype xsd:integer ; sh:minInclusive 1 ; sh:minCount 1 ; sh:maxCount 1 ] .
 
 #################################################################
@@ -709,7 +709,7 @@
     sh:property [ sh:path :runLabel ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ;
                   sh:pattern "^[a-z][a-z0-9_]{1,31}$" ] ;
     sh:property [ sh:path :windowId ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ;
-                  sh:pattern "^([PH][0-9]+|C[0-9]+)$" ] ;
+                  sh:pattern "^([PH][0-9]+|C[0-9]+|LIVE)$" ] ;
     sh:property [ sh:path :backtestRunId ; sh:datatype xsd:integer ; sh:minCount 1 ; sh:maxCount 1 ] ;
     sh:property [ sh:path :sourceFile ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ] ;
     sh:property [ sh:path :sourceSha256 ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ;
@@ -763,7 +763,7 @@
     sh:property [ sh:path :runLabel ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ;
                   sh:pattern "^[a-z][a-z0-9_]{1,31}$" ] ;
     sh:property [ sh:path :trendWindow ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ;
-                  sh:pattern "^([PH][0-9]+|C[0-9]+)$" ] ;
+                  sh:pattern "^([PH][0-9]+|C[0-9]+|LIVE)$" ] ;
     sh:property [ sh:path :trendDecisionDate ; sh:datatype xsd:date ; sh:minCount 1 ; sh:maxCount 1 ] ;
     sh:property [ sh:path :trendState ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ;
                   sh:in ("below" "at_or_above" "not_evaluable") ] ;
@@ -780,9 +780,9 @@
     sh:property [ sh:path :runLabel ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ;
                   sh:pattern "^[a-z][a-z0-9_]{1,31}$" ] ;
     sh:property [ sh:path :returnWindow ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ;
-                  sh:pattern "^([PH][0-9]+|C[0-9]+)$" ] ;
+                  sh:pattern "^([PH][0-9]+|C[0-9]+|LIVE)$" ] ;
     sh:property [ sh:path :returnSegment ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ;
-                  sh:pattern "^([PH][0-9]+|C[0-9]+)[a-z]?$" ] ;
+                  sh:pattern "^([PH][0-9]+|C[0-9]+|LIVE)[a-z]?$" ] ;
     sh:property [ sh:path :referenceDateFrom ; sh:datatype xsd:date ; sh:minCount 1 ; sh:maxCount 1 ;
                   sh:lessThanOrEquals :referenceDateTo ] ;
     sh:property [ sh:path :referenceDateTo ; sh:datatype xsd:date ; sh:minCount 1 ; sh:maxCount 1 ] ;
@@ -810,7 +810,7 @@
     sh:targetClass :DailySeriesPoint ;
     sh:property [ sh:path :seriesOfConfiguration ; sh:minCount 1 ; sh:maxCount 1 ] ;
     sh:property [ sh:path :windowId ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ;
-                  sh:pattern "^([PH][0-9]+|C[0-9]+)$" ] ;
+                  sh:pattern "^([PH][0-9]+|C[0-9]+|LIVE)$" ] ;
     sh:property [ sh:path :seriesDate ; sh:datatype xsd:date ; sh:minCount 1 ; sh:maxCount 1 ] ;
     sh:xone (
         [ sh:property [ sh:path :seriesOfConfiguration ; sh:hasValue :Configuration_SPY ] ;
@@ -830,7 +830,7 @@
     sh:property [ sh:path :seriesOfConfiguration ; sh:minCount 1 ; sh:maxCount 1 ;
                   sh:hasValue :Configuration_MarkowitzMV ] ;
     sh:property [ sh:path :windowId ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ;
-                  sh:pattern "^([PH][0-9]+|C[0-9]+)$" ] ;
+                  sh:pattern "^([PH][0-9]+|C[0-9]+|LIVE)$" ] ;
     sh:property [ sh:path :seriesDate ; sh:datatype xsd:date ; sh:minCount 1 ; sh:maxCount 1 ] ;
     sh:property [ sh:path :seriesAssetId ; sh:datatype xsd:integer ; sh:minCount 1 ; sh:maxCount 1 ;
                   sh:minInclusive 1 ] ;

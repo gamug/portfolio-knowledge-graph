@@ -135,7 +135,7 @@ def main(argv: list[str] | None = None) -> int:
             file=sys.stderr,
         )
         return 2
-    include_examples = db.repository != PRODUCTION_REPOSITORY
+    include_examples = db.repository != PRODUCTION_REPOSITORY and not args.to_production
     try:
         expected = load(db, directory, include_examples=include_examples)
         problems, others = verify(db, expected)
@@ -147,7 +147,7 @@ def main(argv: list[str] | None = None) -> int:
         print("verification FAILED:", *problems, sep="\n  ", file=sys.stderr)
         return 1
     if not include_examples:
-        print("examples: instances.trig not loaded in the production repository")
+        print("examples: instances.trig not loaded (--to-production or production target)")
     print(f"verified: {len(expected)} graphs, {total} asserted triples match the local parse")
     if others:
         print(f"note: {len(others)} other graph(s) in the store were left untouched")

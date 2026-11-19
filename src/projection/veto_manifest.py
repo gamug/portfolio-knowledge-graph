@@ -22,7 +22,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-#: The five configurations of the final delivery.
+#: The five configurations of the final delivery (the manifest's closed vocabulary).
 CONFIGURATIONS: tuple[str, ...] = (
     "SYSTEM_WITH_HIERARCHY",
     "SYSTEM_WITHOUT_HIERARCHY",
@@ -30,6 +30,10 @@ CONFIGURATIONS: tuple[str, ...] = (
     "MARKOWITZ_MV",
     "SPY",
 )
+
+#: The live day's one configuration (Work item 47); it is not part of a final manifest.
+LIVE_CONFIGURATION = "SYSTEM_LIVE"
+ALL_CONFIGURATIONS: tuple[str, ...] = (*CONFIGURATIONS, LIVE_CONFIGURATION)
 
 #: The seven windows of the final delivery, including the independent C1 run.
 WINDOWS: tuple[str, ...] = ("P1", "H1", "P3", "H2", "P2", "H3", "C1")
@@ -41,6 +45,7 @@ CONFIGURATION_SLUGS: Mapping[str, str] = {
     "MARKOWITZ_BASE": "markowitz_base",
     "MARKOWITZ_MV": "markowitz_mv",
     "SPY": "spy",
+    "SYSTEM_LIVE": "system_live",
 }
 
 #: configuration -> TBox individual.
@@ -50,10 +55,12 @@ CONFIGURATION_IRIS: Mapping[str, str] = {
     "MARKOWITZ_BASE": "Configuration_MarkowitzBase",
     "MARKOWITZ_MV": "Configuration_MarkowitzMV",
     "SPY": "Configuration_SPY",
+    "SYSTEM_LIVE": "Configuration_SystemLive",
 }
 
 LABEL_PATTERN = r"[a-z][a-z0-9_]{1,31}"
-_WINDOW_PATTERN = re.compile(r"(?:[PH][0-9]+|C[0-9]+)")
+#: ``LIVE`` is the live day's window (Work item 47); the final delivery keeps its seven windows.
+_WINDOW_PATTERN = re.compile(r"(?:[PH][0-9]+|C[0-9]+|LIVE)")
 _LABEL = re.compile(LABEL_PATTERN)
 _SHA256 = re.compile(r"[0-9a-f]{64}")
 _DATE = re.compile(r"\d{4}-\d{2}-\d{2}")
@@ -175,7 +182,7 @@ def configuration_slug(value: str) -> str:
         return CONFIGURATION_SLUGS[value]
     except KeyError:
         raise VetoManifestError(
-            f"configuration {value!r} is not one of {', '.join(CONFIGURATIONS)}"
+            f"configuration {value!r} is not one of {', '.join(ALL_CONFIGURATIONS)}"
         ) from None
 
 
@@ -185,7 +192,7 @@ def configuration_iri(value: str) -> str:
         return CONFIGURATION_IRIS[value]
     except KeyError:
         raise VetoManifestError(
-            f"configuration {value!r} is not one of {', '.join(CONFIGURATIONS)}"
+            f"configuration {value!r} is not one of {', '.join(ALL_CONFIGURATIONS)}"
         ) from None
 
 

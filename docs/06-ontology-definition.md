@@ -928,7 +928,7 @@ not a veto rule:** it carries no `:ruleSeverity`, `:penaltyPoints` or `:priority
 `VetoShape` refuses it as the object of `:appliesRule`/`:primaryRule`. `RuleDefinitionShape` adds one
 `sh:or` branch for `:category "GUARD"`, keeps the severity requirement for every other active rule,
 makes `:priorityRank` mandatory for non-GUARD rules, and widens the rank range to `[1,10]` for
-`UTILITY_CASH_COVERAGE`. The bundle is **12451 quads; conforms: True** (the FR-001 gate, current at
+`UTILITY_CASH_COVERAGE`. The bundle is **12457 quads; conforms: True** (the FR-001 gate, current at
 block F).
 
 **Projection of the three remaining v18 views (T-208, T-352/T-353).** `TickerHistory`,
@@ -1143,8 +1143,8 @@ graph, so queries must read the revision by graph. The loader writes one append-
 calendar year,
 `urn:graph:derived:news:{label}:{year}` (a year over the ~400,000-triple bound becomes
 `:01-06`/`:07-12`), in bounded N-Triples batches; a lost answer is a graph in doubt and is never
-retried blindly. Counts: **83 classes (69 disjoint leaves), 69 named shapes, 12451 quads**; load
-plan **21/12728 asserted triples** (production **5/12207**).
+retried blindly. Counts: **83 classes (69 disjoint leaves), 69 named shapes, 12457 quads**; load
+plan **21/12734 asserted triples** (production **5/12213**).
 
 ## 1.20 Agent traceability (Work item 46, block F, 2026-11-16)
 
@@ -1160,7 +1160,7 @@ evidence and exact p-value/size fractions as integer numerator/denominator pairs
 `:BullModeDecision` store N11 per decision date. `shapes.ttl` adds one closed shape per class and
 `:AgentRecordNoPriceShape`; the loader writes one append-only graph per `(label, window, file)`
 into `urn:graph:derived:backtest:agents:{label}:{window}:{slug}`. Counts: **83 classes, 69 disjoint
-leaves, 69 named shapes, 12451 quads, 21/12728 asserted triples, production 5/12207**; the five
+leaves, 69 named shapes, 12457 quads, 21/12734 asserted triples, production 5/12213**; the five
 windows that load project **43,468 triples** (7,726 manager, 22,244 narrator, 12,483 news, 1,015
 bull-mode) and all SHACL-conform. P1/C1 stop on two REGN test rows absent from `news_rows.jsonl`;
 no GraphDB write.
