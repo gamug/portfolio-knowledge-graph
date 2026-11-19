@@ -62,8 +62,12 @@ The loader never creates the repository. If it does not exist, the run exits 4.
 
 ### 2.2 Load the schema and the universe catalog
 
-Run these from the repo checkout, with the live target exported. The `--to-production` flag here
-means “schema only, no worked examples”; it is also required for the real `portfolio` repository.
+Run these from the repo checkout, with the live target exported. `load_schema --to-production`
+loads the schema graphs only, with no worked examples; its closing line
+`verified: 5 graphs, 12213 asserted triples match the local parse` is the check. Do **not** run
+`cli/verify_store.py --to-production` against `portfolio_live`: for any repository not named
+`portfolio` it expects the worked-example graphs of `instances.trig` and reports two false FAILs
+(`src/kg_store/acceptance.py:154`).
 
 ```bash
 set -a; . ./.env; set +a
@@ -71,7 +75,6 @@ export KG_REPOSITORY=portfolio_live
 export SQL_UNIVERSE_DB=/workspaces/thesis/data/universe_history_gics.db
 
 uv run python cli/load_schema.py --to-production
-uv run python cli/verify_store.py --to-production
 uv run python cli/load_universe.py --as-of 2026-11-09 --write
 ```
 
@@ -94,12 +97,19 @@ Not needed: `urn:graph:labels`, `urn:graph:reference:fibo`, `urn:graph:derived:f
 `urn:graph:portfolio:current`, and every `urn:graph:derived:backtest:*` graph of the final
 delivery. Do not copy the final backtest graphs into `portfolio_live`.
 
+The delivered final export's `urn:graph:tbox` predates `:Configuration_SystemLive` (it entered with
+commit `db96068`). **Never copy `urn:graph:tbox` (or the shapes) from `portfolio`**;
+`portfolio_live` must always get its schema from `load_schema` run from a clone of this repository
+at a commit that contains the live loader. Only the other context graphs may be copied. Whoever
+imported the final TriG must still do §2.2 from such a clone.
+
 If you prefer to copy instead of reloading, the read-only export/import is one graph at a time.
-Only the four context graphs above (and optionally `urn:graph:reference:fibo`) are needed:
+Only the other context graphs (and optionally `urn:graph:reference:fibo`) may be copied; never the
+tbox or the shapes:
 
 ```bash
 # read-only export from portfolio; repeat for each graph name
-for graph in urn:graph:tbox urn:graph:reference urn:graph:reference:fibo \
+for graph in urn:graph:reference urn:graph:reference:fibo \
              urn:graph:rules:catalog urn:graph:universe:2026-Q4; do
   name=$(printf '%s' "$graph" | tr ':/' '__')
   curl -fsS -u "$KG_USER:$KG_PASSWORD" \
@@ -119,6 +129,27 @@ The SHACL validation itself uses the local universe database (`SQL_UNIVERSE_DB`,
 does; the store graphs are checked because the written graph points at them and a person queries
 them from the application. `build_delivery` uses the same `shapes.ttl`/`rules.ttl`/`reference.ttl`
 and the same sibling-context logic as `cli/load_veto.py`.
+
+### 2.4 A company that entered the S&P 500 after the universe catalog
+
+Assets are resolved at load time from the `SQL_UNIVERSE_DB` file (`universe_assets` in
+`src/projection/backtest.py`), not from the store. The store's `urn:graph:universe:*` graph is only
+checked for being non-empty (`_check_context` in `src/projection/load_live.py`).
+
+If the database does not know the symbol, the projector omits that `:Asset` link and counts it as
+`asset link omitted` (`src/projection/backtest.py`, `tests/test_backtest.py`). A row whose shape
+requires the link — `:StopEvent :stoppedAsset`, `:DestinationOption :optionAsset` or
+`:FormationTarget :targetAsset` — then fails SHACL: the loader exits **3**, its JSON line reports
+`"shacl": "fails"`, and the error is `SHACL failed for LIVE/SYSTEM_LIVE:` followed by the shape
+report; nothing is written (`src/projection/load_live.py`, `src/projection/load_veto.py`). If the
+symbol appears only in rows with an optional asset link (for example `:BookWeightDaily` or
+`:GuardAlert`), the load can still conform; check the omitted-link counts in the projection output.
+
+If the database has the symbol, the load works, but that `:Asset` is absent from the store's
+universe graph. `load_universe` refuses to write the same quarter graph twice, so the supported
+procedure is to ship a universe database updated through the live day (the operator uses
+`scratch/live/data/universe_live.db`) and point `SQL_UNIVERSE_DB` at it. This is **not tested end
+to end**.
 
 ## 3. The command
 

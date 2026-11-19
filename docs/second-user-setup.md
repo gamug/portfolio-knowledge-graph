@@ -176,17 +176,18 @@ KG_TOOL_MAX_ITERATIONS=8
 is the UUID of the TTYG agent the colleague creates on their own GraphDB over repository
 `portfolio`, **not** the agent name: the app selects the agent only by this UUID. The example UUID
 in the app's `.env.example` is a placeholder from earlier tests; the colleague must replace it. The
-colleague supplies their own DeepSeek key, read-only GraphDB user and agent UUID.
+colleague uses the key the authors hand over, or their own DeepSeek key, plus their own read-only
+GraphDB user and agent UUID.
 
 Keep `KG_CHAT_TIMEOUT_SECONDS=300`: the measured worst case on the delivered graph was 37 s (120 s
 also works); 300 s is the conservative margin for a slower local machine.
 
-The key is the colleague's own, stored only in their local, git-ignored `.env` (and, for the
-GraphDB TTYG connector, in `graphdb.llm.api-key` or `graphdb.llm.api-key@file`). It is never
-committed to this repository, never shared with the maintainer or another user, and never pasted
-into an issue or chat.
+The model key is the key the authors hand over, or the colleague's own. The same key goes in the
+app's local, git-ignored `.env` and in `graphdb.llm.api-key` (or `graphdb.llm.api-key@file`) for
+the TTYG agent. It is never committed to this repository, never shared with the maintainer or
+another user, and never pasted into an issue or chat.
 
-**Measured against the real agent (2026-11-20).** Through the app's real flow against
+**Measured against the real agent (2026-11-19).** Through the app's real flow against
 `portfolio-final-v1-7` (instructions v1.7, repository `portfolio`): ventanas question 17.2 s; GUARD
 alerts P1 21.0 s (271); System vs SPY over C1 37.1 s (no). These are the measured timings; do not
 generalise them.
@@ -233,7 +234,7 @@ A healthy conversation has these properties:
 ### Sources for the smoke-table numbers
 
 Every number above is either stated in a repository document or recorded by one of these read-only
-queries against the delivered `portfolio` store (run 2026-11-20):
+queries against the delivered `portfolio` store (run 2026-11-19):
 
 - the six window dates and C1's dates: [`ttyg/instructions-v1.7.md`](ttyg/instructions-v1.7.md),
   "Windows"; the five configurations: the same file, "Configurations".
@@ -313,10 +314,13 @@ live day at a time for the live product; its loader replaces three fixed graphs 
 `portfolio`, the `final` graphs or the TTYG agent. Setup, command, exit codes and checks are in
 [`live-day-loader.md`](live-day-loader.md).
 
-The app can point to `portfolio_live` only through a SECOND TTYG agent bound to that repository,
-with its own UUID in `KG_AGENT_ID` (optionally `SQLITE_PATH=backend/data/app_live.sqlite3` to keep
-live sessions apart); no app code change is needed. This is NOT tested end to end and not decided
-with the thesis co-author.
+The app's read-only user needs Read on `portfolio_live` as well as `portfolio`. The app reaches the
+live day through a second TTYG agent, `portfolio-live-v1`, bound to `portfolio_live` (its
+instructions are in `docs/ttyg/instructions-live-v1.md`, Work item 49). Put that agent's UUID in
+`KG_AGENT_ID` in `.env` and restart the backend; optionally set
+`SQLITE_PATH=backend/data/app_live.sqlite3` to keep live sessions apart. No app code change is
+needed. The agent's instructions cover what the live graph holds today and state that news and the
+SPY series are not in it; they arrive on 2026-11-27. This is NOT tested end to end.
 
 ## 8. What not to do
 
