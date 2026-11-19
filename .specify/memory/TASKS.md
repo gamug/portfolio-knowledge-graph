@@ -1720,7 +1720,7 @@ See `docs/ttyg/instructions-live-v1.md` and `PLAN.md` Work item 49. Documentatio
 no source, schema, graph, CONSTRUCT or `create-agent.md` change.
 
 - [x] **T-990** *(done 2026-11-19: `docs/ttyg/instructions-live-v1.md`; one pasteable `text` fence
-      for `portfolio_live`, 15,808 characters, under the 37,611 cap.)* Live instruction block.
+      for `portfolio_live`, 16,757 characters, under the 37,611 cap.)* Live instruction block.
 - [x] **T-991** *(done 2026-11-19: `docs/ttyg/instructions-live-v1.md`; Create-the-agent section:
       Repository ID `portfolio_live`, name `portfolio-live-v1`, same v2.1 CONSTRUCT and 0.1.)*
       Agent recipe pointer.
@@ -1736,6 +1736,12 @@ no source, schema, graph, CONSTRUCT or `create-agent.md` change.
 - [x] **T-996** *(done 2026-11-19: docs/ttyg tests and ruff on the touched test file; one commit,
       one PR.)* Verification and PR.
 
-**Verified 2026-11-19**: one fence, 15,808 characters; all 104 named classes/properties exist in
+**Review corrections 2026-11-19** (reviewer's read-only run): the loaded day is the LIVE
+`:PortfolioPeriodSummary` `:dateTo` (2026-11-17), not the run-creation `:knowledgeDate`
+(2026-11-19); PATTERN 3 uses a no-asset placeholder so CASH/SPY get no score or rule; PATTERN 4
+joins the memory on the stop's own `:stoppedAsset`; PATTERN 2 states the loaded day and the latest
+weighted date (2026-11-13). Fence now 16,757 characters.
+
+**Verified 2026-11-19**: one fence, 16,757 characters; all 104 named classes/properties exist in
 `schema/tbox.ttl` or `schema/shapes.ttl`; docs/ttyg tests pass and ruff is clean. No GraphDB query
 was run and no store was contacted.

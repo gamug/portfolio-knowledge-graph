@@ -462,6 +462,17 @@ def test_live_agent_instructions_are_bounded_and_leave_out_the_final_delivery() 
     assert "SPY series" in block
     assert "does not have" in block
     assert block.count("\nPATTERN ") == 6
+    assert ":knowledgeDate of the live :BacktestRun" not in block
+    assert "loaded day is the :BacktestRun's :knowledgeDate" not in block
+    assert "date the run was created, not the loaded day" in block
+    assert ":dateTo of the :PortfolioPeriodSummary" in block
+    assert "weights belong to ?weightDate, not to the loaded day" in block
+    assert "COALESCE(?asset, <urn:none:no-asset>)" in block
+    assert ":stoppedAsset ?stopped" in block
+    assert ":memoryAsset ?stopped" in block
+    loader = (REPO / "docs" / "live-day-loader.md").read_text(encoding="utf-8")
+    assert "The loaded day is the `:knowledgeDate`" not in loader
+    assert "`:dateTo` of the live `:PortfolioPeriodSummary`" in loader
 
 
 def test_second_user_setup_names_the_final_export_and_the_demo_agent() -> None:

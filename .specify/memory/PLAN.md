@@ -4059,7 +4059,7 @@ no source, schema, graph, CONSTRUCT or `create-agent.md` change.
 
 - The agent is `portfolio-live-v1`, bound to `portfolio_live`; it uses SPARQL only, the same curated
   v2.1 CONSTRUCT and temperature `0.1` as `create-agent.md`.
-- `docs/ttyg/instructions-live-v1.md` holds one pasteable `text` fence (15,808 characters) for the
+- `docs/ttyg/instructions-live-v1.md` holds one pasteable `text` fence (16,757 characters) for the
   three fixed `SYSTEM_LIVE` graphs. It describes only the live book, selection side, GUARD stops and
   live performance; the final delivery's six calendar windows, continuous window, five
   configurations, tests, news, aggregates, fundamentals and series are explicitly absent.
@@ -4071,11 +4071,16 @@ no source, schema, graph, CONSTRUCT or `create-agent.md` change.
   requires a plain refusal and forbids any SPY comparison.
 - `docs/ttyg/README.md` indexes the new file; `instructions-v1.*.md` and `create-agent.md` are
   untouched.
+- Review corrections (2026-11-19, reviewer's read-only run): the loaded day is the LIVE
+  `:PortfolioPeriodSummary` `:dateTo` (2026-11-17), not the run's creation `:knowledgeDate`
+  (2026-11-19); PATTERN 3 joins CASH/SPY through a no-asset placeholder; PATTERN 4 joins the stop
+  memory on the stop's own `:stoppedAsset`; PATTERN 2 states both the loaded day and the latest
+  weighted date. Fence now 16,757 characters.
 
 **Tasks**
 
 - [x] **T-990** *(done 2026-11-19: `docs/ttyg/instructions-live-v1.md`; one `text` fence for the
-      `portfolio_live` agent, 15,808 characters.)* Live instruction block.
+      `portfolio_live` agent, 16,757 characters.)* Live instruction block.
 - [x] **T-991** *(done 2026-11-19: `docs/ttyg/instructions-live-v1.md`; Create-the-agent section
       with Repository ID `portfolio_live`, name `portfolio-live-v1`, v2.1 CONSTRUCT and 0.1.)*
       Agent recipe pointer.
@@ -4099,6 +4104,6 @@ no source, schema, graph, CONSTRUCT or `create-agent.md` change.
   does.
 - The fence never claims news, a SPY series, another configuration or a backtest result exists.
 
-**Verified 2026-11-19**: the file has one `text` fence of 15,808 characters; all 104
+**Verified 2026-11-19**: the file has one `text` fence of 16,757 characters; all 104
 classes/properties named in the fence exist in `schema/tbox.ttl` or `schema/shapes.ttl`; docs/ttyg
 tests pass and ruff is clean. No GraphDB query was run and no store was contacted.
