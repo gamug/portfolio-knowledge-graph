@@ -1669,11 +1669,11 @@ Work item 48. Documentation only: no source, schema or graph change.
       Workbench Import advice and the retained not-yet-verified re-import warning.)* Rewrite the
       second-user setup for the final delivery.
 - [x] **T-971** *(done 2026-11-19: `docs/ttyg/create-agent.md`, `docs/ttyg/README.md`; the form
-      pastes the v1.7 fence for `portfolio-final-v1-6`, repo computation 37,611 characters, and
+      pastes the v1.7 fence for `portfolio-final-v1-7`, repo computation 37,611 characters, and
       the `37,612`/one-character Workbench caveat; v1.5 stays evaluated.)* Update the agent recipe.
 - [x] **T-972** *(done 2026-11-19: `docs/second-user-setup.md`; smoke table with the five
-      configurations, calendar order, P1 978 alerts, in-sample caveat, 72 tests / 0 significant
-      (min p 0.077) and C1 +38.8% vs SPY +72.1% / 15.7% vs 24.5% drawdown, plus the source
+      configurations, calendar order, P1 271 alerts, in-sample caveat, 72 tests / 0 significant
+      (min p 0.077) and C1 +38.8% vs SPY +73.1% / 15.7% vs 24.5% drawdown, plus the source
       queries and results.)* Rebuild the smoke questions.
 - [x] **T-973** *(done 2026-11-19: `docs/second-user-setup.md`; optional `portfolio_live` paragraph
       linked to `docs/live-day-loader.md`.)* Add the live-day note.
@@ -1681,6 +1681,12 @@ Work item 48. Documentation only: no source, schema or graph change.
       the second-user final-export assertions.)* Update the docs tests.
 - [x] **T-975** *(done 2026-11-19: docs/ttyg tests and ruff on the touched test file; one commit,
       one PR.)* Verification and PR.
+
+- [x] **T-979** *(done 2026-11-20: `docs/second-user-setup.md`, `docs/final-delivery.md`,
+      `docs/ttyg/create-agent.md`, `docs/ttyg/README.md`, `tests/test_ttyg_docs.py`; corrected the
+      delivered GUARD alert counts (P1 271, total 3,139 including C1), the SPY C1 return (+73.1%,
+      normalised to 1.0 before the window), the demo agent name `portfolio-final-v1-7` and the
+      app's `KG_CHAT_TIMEOUT_SECONDS=300`.)* Post-review corrections.
 
 **Open item:** the `portfolio-app` pinned version was not supplied; section 5 keeps
 `<pinned version>` until the user provides it.

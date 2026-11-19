@@ -48,7 +48,7 @@ form:
 
 | Field | Value |
 |---|---|
-| Agent name | `portfolio-final-v1-6` (the delivered demo agent name; it is not part of the graph). |
+| Agent name | `portfolio-final-v1-7` (the delivered demo agent name; it is not part of the graph). |
 | Repository ID | `portfolio` for the delivered agent. Use `portfolio_test` only for a rehearsal, never for the delivered agent. |
 | Query methods | **SPARQL only**. Disable full-text search, similarity search and the ChatGPT retrieval connector. |
 | SPARQL ontology | Choose **Use a CONSTRUCT query** and paste the whole file [`ontology_construct_curated_v2_1.rq`](ontology_construct_curated_v2_1.rq). Do not retype or edit it; [`README.md`](README.md) records its SHA-256. Do **not** paste `ontology_construct_curated_v3.rq`: the form rejects it with a "SPARQL method requires an ontology graph…" validation message even though the query runs over REST. |

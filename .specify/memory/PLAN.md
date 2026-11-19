@@ -3975,11 +3975,11 @@ only: no source, schema, graph or delivery change.
   `portfolio-repository-config.ttl` and `SHA256SUMS`.
 - Prefer Workbench Import (server files) for the 1.16 GB file; expect minutes, not seconds. The
   `docs/final-delivery.md` warning that a live re-import is not yet verified stays.
-- The delivered demo agent is `portfolio-final-v1-6` with instructions v1.7; v1.5 remains the
+- The delivered demo agent is `portfolio-final-v1-7` with instructions v1.7; v1.5 remains the
   evaluated version. The v1.7 fence is 37,611 characters by the repo computation; Workbench may
   show one more/less because of the trailing newline.
 - The smoke table uses only repo-sourced facts or the read-only query results recorded next to it:
-  72 `:BacktestTest` rows, 0 with p ≤ 0.05 (min p = 0.077); C1 System +38.8% vs SPY +72.1%, maximum
+  72 `:BacktestTest` rows, 0 with p ≤ 0.05 (min p = 0.077); C1 System +38.8% vs SPY +73.1%, maximum
   drawdown 15.7% vs 24.5% (lower in five of six calendar windows).
 - `portfolio-app` remains `<pinned version>` because no version was supplied; the user must fill it.
 
@@ -3989,10 +3989,10 @@ only: no source, schema, graph or delivery change.
       folder/counts, Workbench Import advice, retained live-import warning, C1/86-graph facts.)*
       Second-user setup rewrite.
 - [x] **T-971** *(done 2026-11-19: `docs/ttyg/create-agent.md`, `docs/ttyg/README.md`; v1.7 fence,
-      `portfolio-final-v1-6`, 37,611-character computation and the one-character Workbench note.)*
+      `portfolio-final-v1-7`, 37,611-character computation and the one-character Workbench note.)*
       Agent form recipe.
 - [x] **T-972** *(done 2026-11-19: `docs/second-user-setup.md`; smoke table rebuilt with the five
-      configurations, calendar order, P1 978 alerts, in-sample caveat, 72/0 tests and the C1 return
+      configurations, calendar order, P1 271 alerts, in-sample caveat, 72/0 tests and the C1 return
       and drawdown comparison, with the source queries/results recorded.)* Smoke questions.
 - [x] **T-973** *(done 2026-11-19: `docs/second-user-setup.md`; optional `portfolio_live` section
       linked to `docs/live-day-loader.md`.)* Live-day note.
@@ -4000,18 +4000,24 @@ only: no source, schema, graph or delivery change.
       second-user export/agent assertions. Docs/ttyg tests only.)* Docs tests.
 - [x] **T-975** *(done 2026-11-19: docs/ttyg tests, `ruff` on the touched test file and the PR.)*
       Verification and PR.
+- [x] **T-979** *(done 2026-11-20: `docs/second-user-setup.md`, `docs/final-delivery.md`,
+      `docs/ttyg/create-agent.md`, `docs/ttyg/README.md`, `tests/test_ttyg_docs.py`; corrected the
+      GUARD alert counts (P1 271, total 3,139 including C1), the SPY C1 return (+73.1%), the demo
+      agent name `portfolio-final-v1-7` and the app timeout 300 s.)* Post-review corrections.
 
 **Acceptance criteria**
 
 - A third party following `second-user-setup.md` creates `portfolio`, imports the final 1.16 GB
-  export, creates the read-only user and rebuilds the delivered `portfolio-final-v1-6` agent with
+  export, creates the read-only user and rebuilds the delivered `portfolio-final-v1-7` agent with
   v1.7.
 - Every smoke-table number has a repo document or a recorded read-only query result.
 - `docs/ttyg/instructions-v1.5.md` and `instructions-v1.7.md` are unchanged.
 - The pinned `portfolio-app` version is either supplied or recorded as an open item; never invented.
 
-**Verified 2026-11-19 (T-970–T-975)**: read-only queries against the delivered `portfolio` store
-returned 12,727,091 triples in 86 graphs, 72 `:BacktestTest` rows with 0 p ≤ 0.05 and min p = 0.077,
-and the C1 return/drawdown comparison recorded in the page. The export file is 1,161,572,478 bytes
-and its `SHA256SUMS` matches. Docs/ttyg tests and ruff pass; no source or schema changed. The
-`portfolio-app` version is still the open `<pinned version>` placeholder.
+**Verified 2026-11-20 (T-970–T-975, corrected by T-979)**: read-only queries against the
+delivered `portfolio` store returned 12,727,091 triples in 86 graphs, the per-window `:GuardAlert`
+counts P1 271 / H1 205 / P3 125 / H2 77 / P2 103 / H3 274 / C1 2,084 (total 3,139), 72
+`:BacktestTest` rows with 0 p ≤ 0.05 and min p = 0.077, and the C1 comparison System +38.8% /
+15.7% drawdown vs SPY +73.1% / 24.5%. The export file is 1,161,572,478 bytes and its `SHA256SUMS`
+matches. Docs/ttyg tests and ruff pass; no source or schema changed. The `portfolio-app` version is
+still the open `<pinned version>` placeholder.

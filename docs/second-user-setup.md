@@ -83,10 +83,13 @@ is named `portfolio`, so the `--to-production` flag is required even for the rea
 
 ## 3. Recreate the TTYG agent
 
-The agent is Workbench state and is not in the export. The delivered agent is named
-**`portfolio-final-v1-6`** and holds **instructions v1.7** ([`ttyg/instructions-v1.7.md`](ttyg/instructions-v1.7.md)).
-v1.7 is the demo version; v1.5 ([`ttyg/instructions-v1.5.md`](ttyg/instructions-v1.5.md)) remains the
-evaluated version. Follow [`ttyg/create-agent.md`](ttyg/create-agent.md) exactly: SPARQL only, the
+The agent is Workbench state and is not in the export. The delivered demo agent is named
+**`portfolio-final-v1-7`** (the maintainer's Workbench UUID is
+`bfa836ca-3c91-409d-82e6-f506bfb22089`; a local recreation gets its own UUID) and holds
+**instructions v1.7** ([`ttyg/instructions-v1.7.md`](ttyg/instructions-v1.7.md)). v1.7 is the demo
+version; v1.5 ([`ttyg/instructions-v1.5.md`](ttyg/instructions-v1.5.md)) remains the evaluated
+version. The evaluated agent `portfolio-final` is a different agent; do not replace it with this
+demo recipe. Follow [`ttyg/create-agent.md`](ttyg/create-agent.md) exactly: SPARQL only, the
 curated v2.1 CONSTRUCT, the single v1.7 instruction fence, temperature `0.1`, and the operator's
 own `graphdb.llm.*` settings. The form requires a repository-manager account; after the agent
 exists, the read-only user can use it.
@@ -114,6 +117,10 @@ Pin `portfolio-app` to **`<pinned version>`** (the maintainer fills this placeho
 version). Follow the app's own README for installation. Point it at the local GraphDB with the
 read-only user above.
 
+Set the app's chat timeout to **`KG_CHAT_TIMEOUT_SECONDS=300`**. The measured worst case on the
+delivered graph was 37 s (120 s also works); 300 s is the conservative margin for a slower local
+machine.
+
 The app may also need an LLM key for its own features. The key is the colleague's own, stored only
 in their local `.env` (and, for the GraphDB TTYG connector, in `graphdb.llm.api-key` or
 `graphdb.llm.api-key@file`). It is never committed to this repository, never shared with the
@@ -130,11 +137,11 @@ result facts:
 | Which run labels does the graph have? | Only `final`; no `rule`, `candidate_y2` or `candidate`. |
 | List the windows in calendar order. | `P1` 2022-01-03..2022-10-12, `H1` 2022-10-13..2023-10-26, `P3` 2023-10-27..2024-08-02, `H2` 2024-08-05..2025-02-18, `P2` 2025-02-19..2025-09-23, `H3` 2025-09-24..2026-10-15. `C1` (2022-01-03..2026-10-15) is an independent continuous run, not a seventh contiguous window. |
 | Which five configurations does the graph have? | System with the Veto Hierarchy (`SYSTEM_WITH_HIERARCHY`, final book `TOPN_MV_GUARD`), System without the Veto Hierarchy (`SYSTEM_WITHOUT_HIERARCHY`), minimum variance (`MARKOWITZ_BASE`), mean-variance base Markowitz (`MARKOWITZ_MV`) and the SPY total-return reference (`SPY`). `:configuration` identifies the configuration; `:armCode` is engine provenance. |
-| How many GUARD alerts does P1 have? | 978, with the counting rule and the window stated. |
+| How many GUARD alerts does P1 have? | 271, all in the System with the Veto Hierarchy graphs; 0 in the other configurations. State the counting rule and the window. |
 | What is the Sistema's weighting objective: minimum variance or minimum CVaR? | Minimum CVaR after a minimum-variance selection. `:objective "min_var"` is a fixed per-arm label for the selection stage, not the book weighting. |
 | Is a reported performance figure definitive? | No: all loaded windows (the six calendar windows and C1) were seen during selection, so final performance is in-sample. |
 | Are the backtest tests statistically significant? | 72 `:BacktestTest` rows; **0** have p ≤ 0.05, and the smallest is p = 0.077. There is no test between the two System configurations or against SPY/MARKOWITZ_MV. |
-| Does the System beat SPY in return? | Over C1 it does not: the System returned **+38.8%** against SPY's **+72.1%**. Its value is risk control: its C1 maximum drawdown is **15.7%** against SPY's **24.5%**, and it is lower than SPY's in five of the six calendar windows (H2 is the exception). |
+| Does the System beat SPY in return? | Over C1 it does not: the System returned **+38.8%** against SPY's **+73.1%**. Its value is risk control: its C1 maximum drawdown is **15.7%** against SPY's **24.5%**, and it is lower than SPY's in five of the six calendar windows (H2 is the exception). |
 
 A healthy conversation has these properties:
 
@@ -150,11 +157,24 @@ A healthy conversation has these properties:
 ### Sources for the smoke-table numbers
 
 Every number above is either stated in a repository document or recorded by one of these read-only
-queries against the delivered `portfolio` store (run 2026-11-19):
+queries against the delivered `portfolio` store (run 2026-11-20):
 
 - the six window dates and C1's dates: [`ttyg/instructions-v1.7.md`](ttyg/instructions-v1.7.md),
   "Windows"; the five configurations: the same file, "Configurations".
-- P1's 978 GUARD alerts: [`final-delivery.md`](final-delivery.md) §8.2.
+- P1's 271 GUARD alerts (and the other windows):
+
+  ```sparql
+  PREFIX : <https://thesis.local/kg/portfolio#>
+  SELECT ?window (COUNT(DISTINCT ?alert) AS ?alerts)
+  WHERE {
+    GRAPH ?graph { ?alert a :GuardAlert ; :windowId ?window }
+    FILTER(STRSTARTS(STR(?graph), "urn:graph:derived:backtest:final:"))
+  }
+  GROUP BY ?window
+  ORDER BY ?window
+  # result: P1 271, H1 205, P3 125, H2 77, P2 103, H3 274, C1 2,084 (total 3,139);
+  #         all in the SYSTEM_WITH_HIERARCHY graphs, none in the other configurations
+  ```
 - the 72 tests, 0 significant and smallest p = 0.077:
 
   ```sparql
@@ -185,13 +205,16 @@ queries against the delivered `portfolio` store (run 2026-11-19):
     }
   } ORDER BY ?d
   # result: first 2022-01-03 = 1.0057899613640617,
-  #         last 2026-10-15 = 1.7314818153304654 (+72.1%),
-  #         maximum drawdown over the 1,201 points = 24.5%
+  #         last 2026-10-15 = 1.7314818153304654.
+  #         The series is normalised to 1.0 on the close before the window, so the return is
+  #         1.7314818153304654 - 1 = +73.1%. Including that 1.0 base, the maximum drawdown over
+  #         the 1,201 points is 24.5%.
   ```
 
-  The per-window comparison uses the same `:cumulativeReturn`/`:maxDrawdown` query on each
-  `:segment` and SPY's `:referenceTotalReturn`/`:referenceMaxDrawdown` from
-  `:ReferenceReturn`; the System's drawdown is lower in P1, H1, P3, P2 and H3, and higher in H2.
+  The six calendar rows use the same `:cumulativeReturn`/`:maxDrawdown` query on each `:segment`
+  and SPY's `:referenceTotalReturn`/`:referenceMaxDrawdown` from `:ReferenceReturn`; the C1 row
+  uses the series values above. The System's drawdown is lower in P1, H1, P3, P2 and H3, and
+  higher in H2.
 
   | Segment | System return | SPY return | System max drawdown | SPY max drawdown |
   |---|---:|---:|---:|---:|
@@ -201,7 +224,7 @@ queries against the delivered `portfolio` store (run 2026-11-19):
   | H2 | +10.4% | +15.5% | 5.4% | 4.2% |
   | P2 | +5.6% | +9.4% | 4.5% | 18.8% |
   | H3 | +17.9% | +17.6% | 5.1% | 8.9% |
-  | C1 | +38.8% | +72.1% | 15.7% | 24.5% |
+  | C1 | +38.8% | +73.1% | 15.7% | 24.5% |
 
 If a smoke question fails, retry it once (two attempts per question). If it still fails, check the
 repository label, the agent's instruction fence and the `graphdb.llm.*` model before changing

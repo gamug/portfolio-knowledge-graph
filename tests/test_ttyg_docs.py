@@ -64,7 +64,7 @@ ALLOWED_CONFIG_NUMBERS = {"756", "210", "200", "100", "129"}
 #: Result figures that must never be frozen into the instructions.
 FORBIDDEN_RESULT_FIGURES = (
     "4,958",
-    "978",
+    "271",
     "933",
     "603",
     "441",
@@ -414,7 +414,7 @@ def test_create_agent_doc_links_the_sources_and_keeps_the_key_placeholder() -> N
 
     assert "ontology_construct_curated_v2_1.rq" in text
     assert "instructions-v1.7.md" in text
-    assert "portfolio-final-v1-6" in text
+    assert "portfolio-final-v1-7" in text
     assert "Auto-add missing namespaces" in text
     assert "**Ticked.**" in text
     assert "Review agent instructions" in text
@@ -437,11 +437,14 @@ def test_second_user_setup_names_the_final_export_and_the_demo_agent() -> None:
         "portfolio-final-20261117T154804Z",
         "12,727,091",
         "86 named graphs",
-        "portfolio-final-v1-6",
+        "portfolio-final-v1-7",
         "instructions-v1.7.md",
         "v1.5",
         "Workbench → Import",
         "minutes, not seconds",
+        "KG_CHAT_TIMEOUT_SECONDS=300",
+        "271",
+        "+73.1%",
         "live-day-loader.md",
         "<pinned version>",
     ):
