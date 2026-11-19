@@ -3961,7 +3961,7 @@ and mypy clean. The real GraphDB scratch-repository rehearsal could not run beca
 unreachable from this environment (connection refused at `host.docker.internal:7200`); the user
 performs the first real write into `portfolio_live` from this runbook.
 
-## Work item 48 — Second-user final-delivery documentation (T-970–T-982)
+## Work item 48 — Second-user final-delivery documentation (T-970–T-988)
 
 The director and the jury install the delivered graph on their own machines on 2026-11-20. The
 second-user page and the TTYG form recipe still described the Work item 42 store (v1.5 agent,
@@ -4013,6 +4013,24 @@ only: no source, schema, graph or delivery change.
 - [x] **T-982** *(done 2026-11-20: `docs/second-user-setup.md`; the optional live day uses a second
       TTYG agent bound to `portfolio_live`, own UUID and optional separate SQLite path; not tested
       end to end and not decided with the thesis co-author.)* Live-day app note.
+- [x] **T-983** *(done 2026-11-19: `docs/final-delivery.md`, `docs/second-user-setup.md`; the
+      read-only store checks and the app measurement are dated 2026-11-19, not 2026-11-20.)*
+      Correct the measurement dates.
+- [x] **T-984** *(done 2026-11-19: `docs/second-user-setup.md`; the model key is the one the authors
+      hand over or the colleague's own, and the same key goes in `.env` and
+      `graphdb.llm.api-key`/`api-key@file`.)* Key wording.
+- [x] **T-985** *(done 2026-11-19: `docs/second-user-setup.md`; Read on `portfolio_live` too, live
+      agent `portfolio-live-v1`, UUID in `KG_AGENT_ID` plus backend restart, optional
+      `app_live.sqlite3`, news/SPY planned for 2026-11-27, NOT tested end to end.)* Live-day app.
+- [x] **T-986** *(done 2026-11-19: `docs/live-day-loader.md` §2.2; removed
+      `verify_store.py --to-production`, its two false FAILs and the `load_schema` check line
+      `verified: 5 graphs, 12213 asserted triples match the local parse`.)* Schema check.
+- [x] **T-987** *(done 2026-11-19: `docs/live-day-loader.md` §2.3/§2.4; never copy the tbox/shapes,
+      the set-up clone must contain the live loader, and the post-catalog company section with
+      exit 3/`SHACL failed for LIVE/SYSTEM_LIVE:` and the supported updated-database procedure,
+      marked not tested end to end.)* Schema provenance and new symbols.
+- [x] **T-988** *(done 2026-11-19: `tests/test_ttyg_docs.py`; docs/ttyg tests, ruff on the touched
+      test file, one commit and one PR.)* Verification and PR.
 
 **Acceptance criteria**
 

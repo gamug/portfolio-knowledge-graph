@@ -909,7 +909,7 @@ GROUP BY ?window
 ORDER BY ?window
 ```
 
-Expected (read-only check of the delivered `portfolio` store, 2026-11-20; the total includes C1):
+Expected (read-only check of the delivered `portfolio` store, 2026-11-19; the total includes C1):
 
 | Window | `:GuardAlert` rows |
 |---|---:|

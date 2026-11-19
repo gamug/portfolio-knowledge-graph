@@ -1659,7 +1659,7 @@ GraphDB scratch-repository rehearsal was not possible here because GraphDB refus
 `host.docker.internal:7200`; no write was made to `portfolio`, `portfolio_test` or any real
 repository.
 
-## Work item 48 — Second-user final-delivery documentation (T-970–T-982)
+## Work item 48 — Second-user final-delivery documentation (T-970–T-988)
 
 See `docs/second-user-setup.md`, `docs/ttyg/create-agent.md`, `docs/ttyg/README.md` and `PLAN.md`
 Work item 48. Documentation only: no source, schema or graph change.
@@ -1696,3 +1696,20 @@ Work item 48. Documentation only: no source, schema or graph change.
 - [x] **T-982** *(done 2026-11-20: `docs/second-user-setup.md`; live day through a second TTYG
       agent bound to `portfolio_live`, own UUID and optional `app_live.sqlite3`; NOT tested end to
       end and not decided with the thesis co-author.)* Live-day app note.
+- [x] **T-983** *(done 2026-11-19: `docs/final-delivery.md`, `docs/second-user-setup.md`; store
+      checks and app measurement dated 2026-11-19.)* Correct the dates.
+- [x] **T-984** *(done 2026-11-19: `docs/second-user-setup.md`; key handed over by the authors or
+      the colleague's own, same key in `.env` and `graphdb.llm.api-key`/`api-key@file`.)* Key
+      wording.
+- [x] **T-985** *(done 2026-11-19: `docs/second-user-setup.md`; Read on `portfolio_live`, live agent
+      `portfolio-live-v1`, UUID in `KG_AGENT_ID` and backend restart, optional `app_live.sqlite3`,
+      news/SPY planned for 2026-11-27, NOT tested end to end.)* Live-day app note.
+- [x] **T-986** *(done 2026-11-19: `docs/live-day-loader.md` §2.2; `verify_store.py` removed with
+      its two false FAILs; `load_schema` prints the `verified: 5 graphs, 12213 asserted triples`
+      check.)* Schema check.
+- [x] **T-987** *(done 2026-11-19: `docs/live-day-loader.md` §2.3/§2.4; tbox/shapes never copied,
+      schema from a clone with the live loader, post-catalog company section with exit 3 and
+      `SHACL failed for LIVE/SYSTEM_LIVE:`, supported updated-database procedure; not tested end to
+      end.)* Schema provenance and new symbols.
+- [x] **T-988** *(done 2026-11-19: docs/ttyg tests, ruff on the touched test file, one commit and
+      one PR.)* Verification and PR.
