@@ -3876,3 +3876,87 @@ GraphDB write; the read-only pre-flight reports all seven graphs `would-be-writt
 totalling **2,286,487** triples; every graph SHACL-conforms. `load_agents` passes all seven windows:
 **4,149** distinct cited pairs (**1,447 body**), none missing, **142,778** triples, all graphs
 conform, and every control count matches the manifest. Targeted suite **131 passed / 2 deselected**.
+
+## Work item 47 — SYSTEM_LIVE live day loader (T-940–T-969)
+
+The live operator exports one `graph_export/` folder per day (manifest_live.json, SHA256SUMS, the
+ranking/selection files and a cited ~3 GB engine database) and runs one command. The loader puts
+that day into three fixed SYSTEM_LIVE graphs in a separate `portfolio_live` repository. Every day
+replaces the previous one; loading the same day twice is idempotent. It never writes to `portfolio`
+and never touches the evaluated `final` graphs or the TTYG agent.
+
+The projection is not forked: `projection.load_veto.build_delivery` projects the live manifest as
+one final run of one configuration/one window (`SYSTEM_LIVE`/`LIVE`, label `live`) with the same
+filters, detail/selection projection, shapes and sibling context. New code is the manifest adapter
+(`projection/live_manifest.py`), the replace-per-day staging/`MOVE` write (`projection/load_live.py`),
+the CLI and the exit/JSON contract.
+
+**Decisions**
+
+- Input `--folder` + `--day`; the day must equal the manifest day.
+- Target repository defaults to `portfolio_live`; `portfolio` is refused in every mode, whatever
+  `KG_REPOSITORY` says. The loader never creates or deletes a repository.
+- Fixed live graphs: `urn:graph:derived:backtest:meta:live`,
+  `urn:graph:derived:backtest:live:LIVE:system_live`,
+  `urn:graph:derived:backtest:selection:live:LIVE:system_live`. Staging uses the `live_staging`
+  label.
+- One SPARQL Update with one exact `MOVE <staging> TO <live>` per graph is the swap; a failure
+  before it leaves the previous day intact, and the staging graphs are dropped.
+- Exit codes: 0 ok, 2 input/manifest/hash, 3 SHACL, 4 store/target or pre-swap staging, 5
+  write/verify after the swap. The last stdout line is always one JSON object.
+- The Tiingo mask is applied as in the final load: the 33 `:pricesNotPublished` assets get no
+  price/valuation.
+
+**Tasks**
+
+- [x] **T-940** *(done 2026-11-19: `src/projection/live_manifest.py`; strict manifest keys/types,
+      folder SHA256SUMS, every files_sha256 entry, streamed db/mask hashes, day/formation,
+      SYSTEM_LIVE/LIVE, synthetic RunConfig.)* Manifest adapter.
+- [x] **T-941** *(done 2026-11-19: `veto_manifest.py`, `backtest.py`, `gate.py`,
+      `schema/shapes.ttl`, `schema/tbox.ttl`; LIVE window and SYSTEM_LIVE configuration,
+      `Configuration_SystemLive`, the shared graph names and the gate targets.)* Live vocabulary.
+- [x] **T-942** *(done 2026-11-19: `load_veto.build_delivery` accepts preverified hashes, a supplied
+      RunConfig and no control counts; empty selection graphs; `veto_events` projects SYSTEM_LIVE as
+      the with-hierarchy book.)* Reuse the veto projection.
+- [x] **T-943** *(done 2026-11-19: `src/projection/load_live.py`; staging, one MOVE request,
+      per-graph counts, no leftover staging, masked-price check, cleanup on failure.)* Replace-per-day
+      write and verification.
+- [x] **T-944** *(done 2026-11-19: `cli/load_live.py`; dry run, `--check-store`, `--write`, the
+      repository guard, exit codes and the always-last JSON line.)* CLI and output contract.
+- [x] **T-945** *(done 2026-11-19: both real example folders dry-run; day 1 3 graphs / 204,996
+      triples and day 2 3 graphs / 229,375 triples, SHACL conforms; no store write.)* Real dry runs.
+- [x] **T-946** *(done 2026-11-19: `tests/test_live_day.py`, `tests/fixtures/dataset_store.py`;
+      happy path, empty manager/retention, same day twice, D then D+1, four hash failures, wrong
+      day, SHACL, pre-swap failure, portfolio refusal, JSON last, no secret, check-store.)* Tests.
+- [x] **T-947** *(done 2026-11-19: `/workspaces/thesis/kg_handoff/load_live/`; self-contained src
+      and schema snapshot, PEP 723 uv script, runbook and exact graph_load_command.)* Operator
+      handoff.
+- [x] **T-948** *(done 2026-11-19: `docs/live-day-loader.md`, linked from `docs/final-delivery.md`;
+      setup, exact context graphs, commands, exit codes, rerun, checks and rollback.)* Documentation.
+- [x] **T-949** *(done 2026-11-19: `cli/load_schema.py` honours `--to-production` for any target, so
+      `portfolio_live` gets the five schema graphs without `instances.trig`.)* Live schema setup.
+- [ ] **T-950–T-969** Reserved for K's review after the first real write into `portfolio_live`.
+
+**Acceptance criteria**
+
+- A dry run verifies every hash and projects/SHACL-validates the day without contacting a store.
+- `--write` stages the three graphs, swaps them in one transaction and verifies the counts, the
+  absence of staging graphs and the price mask; `--check-store` only plans.
+- Loading day D then D+1 leaves the state of D+1 only; loading the same day twice gives the same
+  graphs; a failure before the swap leaves D intact.
+- The last stdout line is one JSON object in every case, exit codes are 0/2/3/4/5 as above, and
+  no credential appears in any output.
+- `portfolio` is refused; no repository is created or deleted; the final graphs and TTYG are
+  untouched.
+
+**Verified 2026-11-19 (T-940–T-949)**: real dry runs over both example folders:
+2026-10-16 → meta 17 + m018 847 + selection 204,132 = **204,996 triples**, 60.5 s;
+2026-11-17 → meta 17 + m018 9,762 + selection 219,596 = **229,375 triples**, 66.1 s; SHACL
+conforms on both; the 3 GB database hash took 12.5–13.5 s each. Per-graph order-independent hashes:
+day 1 `768bc9fb…` / `43ff43cc…` / `7df36d37…` (meta/m018/selection) and day 2 `950e85a3…` /
+`f07eff57…` / `f743526b…`. An in-memory end-to-end run of the same write path (load day 1, then
+day 2, then day 2 again, and day 2 alone in a fresh store) gave identical per-graph hashes: same day
+twice idempotent and D then D+1 equals D+1 alone. Full suite **1965 passed / 63 deselected**; ruff
+and mypy clean. The real GraphDB scratch-repository rehearsal could not run because GraphDB was
+unreachable from this environment (connection refused at `host.docker.internal:7200`); the user
+performs the first real write into `portfolio_live` from this runbook.

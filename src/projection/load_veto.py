@@ -49,7 +49,7 @@ from projection.control_counts import (
     verify_agent_control_counts,
     verify_store_control_counts,
 )
-from projection.delivery import ConfigError, read_config
+from projection.delivery import ConfigError, RunConfig, read_config
 from projection.disk_space import DiskMonitor, DiskSpaceError
 from projection.run_metadata import (
     MetadataError,
@@ -82,6 +82,10 @@ LARGE_GRAPH_TRIPLES = 300_000
 
 class LoadVetoError(ValueError):
     """A loader step failed; the message names the step and the source."""
+
+
+class ShaclFailed(LoadVetoError):
+    """The projected batch does not conform to ``shapes.ttl``; nothing was written."""
 
 
 class WriteFailed(LoadVetoError):
@@ -162,31 +166,49 @@ def _run_info(path: Path, label: str, configuration: str) -> RunInfo:
     return dataclasses.replace(info, configuration=configuration)
 
 
-def build_delivery(  # noqa: C901, PLR0912, PLR0915 -- one branch per graph kind
+def build_delivery(  # noqa: C901, PLR0912, PLR0913, PLR0915 -- one branch per graph kind
     manifest: VetoManifest,
     label: str,
     *,
     assets_db: Path | None = None,
     validate_shacl: bool = True,
+    run_config: RunConfig | None = None,
+    require_control_counts: bool = True,
+    verified: Mapping[Path, str] | None = None,
 ) -> LoadResult:
-    """Verify the manifest, project every graph and optionally SHACL-validate each key."""
+    """Verify the manifest, project every graph and optionally SHACL-validate each key.
+
+    ``run_config`` is the frozen ``config_<label>.md`` metadata; a caller that has no such file
+    (the live day loader) supplies the equivalent :class:`RunConfig` itself. A live manifest has no
+    ``control_counts``, so its caller also passes ``require_control_counts=False``. ``verified``
+    carries hashes the caller already streamed (the live adapter verifies the 3 GB database once);
+    when it is absent the loader hashes every named file here.
+    """
     if manifest.label != label:
         raise LoadVetoError(
             f"{manifest.path}: label {manifest.label!r} differs from --label {label!r}"
         )
-    try:
-        hashes = verify_files(manifest)
-    except VetoManifestError as exc:
-        for run in manifest.engine_runs:
-            for path in run.files.values():
-                if str(path) in str(exc) or path.name in str(exc):
-                    raise LoadVetoError(f"{run.configuration}/{run.window}: {exc}") from exc
-        raise
+    if verified is None:
+        try:
+            hashes = verify_files(manifest)
+        except VetoManifestError as exc:
+            for run in manifest.engine_runs:
+                for path in run.files.values():
+                    if str(path) in str(exc) or path.name in str(exc):
+                        raise LoadVetoError(f"{run.configuration}/{run.window}: {exc}") from exc
+            raise
+    else:
+        hashes = dict(verified)
+        missing = sorted(str(path) for path in _manifest_paths(manifest) if path not in hashes)
+        if missing:
+            raise LoadVetoError(
+                "the caller's verified hashes are incomplete; missing: " + ", ".join(missing)
+            )
     validate_control_counts(
         manifest.control_counts,
         tuple(dict.fromkeys(run.configuration for run in manifest.runs)),
         manifest.windows,
-        final=not manifest.draft,
+        final=not manifest.draft and require_control_counts,
     )
     print(f"\nmanifest: {manifest.path} ({manifest.status or 'final'})")
     print(f"manifest: {len(hashes)} file(s) verified")
@@ -195,12 +217,18 @@ def build_delivery(  # noqa: C901, PLR0912, PLR0915 -- one branch per graph kind
     assets = _config_assets(assets_db)
     guard_catalog = load_guard_catalog(config.schema_dir() / "rules.ttl")
     selection_catalog = load_selection_catalog(config.schema_dir() / "rules.ttl")
-    config_path = manifest.root / f"config_{label}.md"
-    if not config_path.is_file():
+    if run_config is None:
+        config_path = manifest.root / f"config_{label}.md"
+        if not config_path.is_file():
+            raise LoadVetoError(
+                f"{config_path}: the metadata graph needs the frozen config_{label}.md next to "
+                "the manifest"
+            )
+        run_config = read_config(config_path, label, final_delivery=not manifest.draft)
+    elif run_config.label != label:
         raise LoadVetoError(
-            f"{config_path}: the metadata graph needs the frozen config_{label}.md next to the manifest"
+            f"{run_config.path}: label {run_config.label!r} differs from --label {label!r}"
         )
-    run_config = read_config(config_path, label, final_delivery=not manifest.draft)
     runs = [_run_info(run.db_file, label, run.configuration) for run in manifest.engine_runs]
     meta_projection = build_metadata(label, runs, hashes, run_config)
     meta = VetoGraph(
@@ -290,9 +318,15 @@ def build_delivery(  # noqa: C901, PLR0912, PLR0915 -- one branch per graph kind
                     configuration=run.configuration,
                 )
                 selection_name = selection_graph_name(label, run.window, run.configuration)
-                selection_graph = rdflib.Graph().parse(
-                    data=selection_projection.projection.turtle(selection_name), format="turtle"
-                )
+                if selection_name in selection_projection.projection.graphs:
+                    selection_graph = rdflib.Graph().parse(
+                        data=selection_projection.projection.turtle(selection_name),
+                        format="turtle",
+                    )
+                else:
+                    # A day whose selection side has no rows still replaces the live selection
+                    # graph with an empty one; the swap below clears the previous day.
+                    selection_graph = rdflib.Graph()
                 graphs.append(
                     VetoGraph(
                         selection_name,
@@ -310,11 +344,15 @@ def build_delivery(  # noqa: C901, PLR0912, PLR0915 -- one branch per graph kind
                 detail_rows = {}
                 if not manifest.draft and run.configuration.startswith("SYSTEM_"):
                     raise LoadVetoError(f"{run.db_file}: the detail projection is missing")
-            if not manifest.draft and not _has_control_counts(
-                manifest, run.configuration, run.window
+            if (
+                require_control_counts
+                and not manifest.draft
+                and not _has_control_counts(manifest, run.configuration, run.window)
             ):
                 raise LoadVetoError(f"{run.configuration}/{run.window}: control_counts is missing")
-            if _has_control_counts(manifest, run.configuration, run.window) or not manifest.draft:
+            if _has_control_counts(manifest, run.configuration, run.window) or (
+                not manifest.draft and require_control_counts
+            ):
                 computed = compute_control_counts(
                     run.configuration,
                     run.window,
@@ -352,9 +390,15 @@ def build_delivery(  # noqa: C901, PLR0912, PLR0915 -- one branch per graph kind
     for run in getattr(manifest, "runs", ()):
         if run.source_kind != "series_csv":
             continue
-        if not manifest.draft and not _has_control_counts(manifest, run.configuration, run.window):
+        if (
+            require_control_counts
+            and not manifest.draft
+            and not _has_control_counts(manifest, run.configuration, run.window)
+        ):
             raise LoadVetoError(f"{run.configuration}/{run.window}: control_counts is missing")
-        if _has_control_counts(manifest, run.configuration, run.window) or not manifest.draft:
+        if _has_control_counts(manifest, run.configuration, run.window) or (
+            not manifest.draft and require_control_counts
+        ):
             computed = compute_series_counts(
                 run.window, run.files, window_filter=run.configuration == "SPY"
             )
@@ -376,6 +420,19 @@ def build_delivery(  # noqa: C901, PLR0912, PLR0915 -- one branch per graph kind
         )
         print(f"  {graph.kind:9} {graph.graph}: {graph.triples} triples{flag}")
     return LoadResult(tuple(batches), meta)
+
+
+def _manifest_paths(manifest: VetoManifest) -> tuple[Path, ...]:
+    """Every file whose hash the loader consumes, without duplicates."""
+    paths = [manifest.price_mask.path]
+    if manifest.news_rows is not None:
+        paths.append(manifest.news_rows.path)
+    for run in manifest.runs:
+        if run.source_kind == "engine_db":
+            paths.append(run.db_file)
+        paths.extend(run.files.values())
+        paths.extend(run.extra_hashes)
+    return tuple(dict.fromkeys(paths))
 
 
 def _shacl_context(
@@ -400,7 +457,7 @@ def _validate_one(batch: VetoBatch, shapes: rdflib.Graph, context: rdflib.Graph)
     conforms, results, _ = pyshacl.validate(graph, shacl_graph=shapes)
     elapsed = time.perf_counter() - started
     if not conforms:
-        raise LoadVetoError(
+        raise ShaclFailed(
             f"SHACL failed for {batch.key[1]}/{batch.key[2]}:\n"
             + results.serialize(format="turtle")[:8000]
         )
@@ -415,7 +472,7 @@ def _validate_meta(meta: VetoGraph, shapes: rdflib.Graph, context: rdflib.Graph)
     conforms, results, _ = pyshacl.validate(graph, shacl_graph=shapes)
     elapsed = time.perf_counter() - started
     if not conforms:
-        raise LoadVetoError(
+        raise ShaclFailed(
             "SHACL failed for the metadata graph:\n" + results.serialize(format="turtle")[:8000]
         )
     print(f"SHACL: meta conforms ({elapsed:.1f}s)")

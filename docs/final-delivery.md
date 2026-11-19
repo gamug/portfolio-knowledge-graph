@@ -11,6 +11,10 @@ Everything is read-only unless a step says **write**. The agent never runs a `DR
 reviews the listing, takes the backup and runs the one-graph statements. Never delete the
 repository: the TTYG agents and the ruleset live in GraphDB, not in the exported graph.
 
+**Live day (SYSTEM_LIVE) is separate and out of this sequence.** Its loader writes three fixed
+graphs in `portfolio_live`, never in `portfolio`, and never touches the `final` graphs or the TTYG
+agent. Setup, command, exit codes and checks: [`live-day-loader.md`](live-day-loader.md).
+
 ## 0bis. Work item 46 reload — exact order for 18–19 November 2026
 
 **This section supersedes §3–§8 for the Veto Hierarchy delivery; the older six-window sequence

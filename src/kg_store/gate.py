@@ -109,7 +109,7 @@ _QUARTER = r"\d{4}-Q[1-4]"
 #: Work item 33); the last segment is a positive run id (old naming) or a configuration slug
 #: (Work item 46).
 _BACKTEST_TARGET = re.compile(
-    r"urn:graph:derived:backtest:([a-z][a-z0-9_]{1,31}):([PH][0-9]+|C[0-9]+):"
+    r"urn:graph:derived:backtest:([a-z][a-z0-9_]{1,31}):([PH][0-9]+|C[0-9]+|LIVE):"
     r"([a-z][a-z0-9_]{1,31}|[1-9][0-9]*)"
 )
 #: A ticker-history snapshot is labelled and dated: a later refresh writes a new graph, never an
@@ -125,7 +125,7 @@ _ORCHESTRATOR_TARGET = re.compile(
 #: The selection side of one backtest run (Work item 26) lives beside the m018 graph, not inside
 #: it: the m018 graph is append-only and may already be written. Same label/window vocabulary.
 _BACKTEST_SELECTION_TARGET = re.compile(
-    r"urn:graph:derived:backtest:selection:([a-z][a-z0-9_]{1,31}):([PH][0-9]+|C[0-9]+):"
+    r"urn:graph:derived:backtest:selection:([a-z][a-z0-9_]{1,31}):([PH][0-9]+|C[0-9]+|LIVE):"
     r"([a-z][a-z0-9_]{1,31}|[1-9][0-9]*)"
 )
 #: One metadata graph per run label (Work item 33): the :BacktestRun and :RunConfiguration
@@ -1132,12 +1132,15 @@ def existing_subjects(db: GraphDB, batch: rdflib.Graph) -> list[str]:
     return found
 
 
-def plan(
+def plan(  # noqa: PLR0913 -- the optional replace-mode flags are explicit
     db: GraphDB,
     data: bytes,
     graph: str,
     directory: Path | None = None,
     context: rdflib.Graph | None = None,
+    *,
+    allow_existing: bool = False,
+    context_only: bool = False,
 ) -> IngestPlan:
     """Run every check :func:`ingest` runs, without writing; return the plan.
 
@@ -1148,6 +1151,12 @@ def plan(
     selection graph of a delivery planned before any write); it is merged for the shape check and is
     never written. ``ALREADY_IN_STORE`` means the target append-only graph exists, so a writer skips
     it; :func:`write` keeps the historical refusal for a real ``ingest`` call.
+
+    ``allow_existing`` is for a loader that replaces a whole graph (the live day loader): the
+    individuals it declares are expected to exist in the graph being replaced, so only the shape
+    and context checks run, never the immutable-individual refusal. ``context_only`` validates
+    beside ``context`` alone (the live loader's authoritative disk universe) instead of fetching
+    the referenced individuals from the store.
     """
     append_only = check_target(graph)
     batch = parse_batch(data)
@@ -1155,6 +1164,8 @@ def plan(
     refs = references(batch, schema)
 
     def validation_context() -> rdflib.Graph:
+        if context_only:
+            return context if context is not None else rdflib.Graph()
         stored = fetch_context(db, refs, schema, batch) if refs else rdflib.Graph()
         return _with_extra_context(stored, context, refs)
 
@@ -1183,7 +1194,7 @@ def plan(
                 "restatements the stored section cannot take (T-032): " + "; ".join(bad)
             )
     taken = existing_subjects(db, batch)
-    if taken:
+    if taken and not allow_existing:
         raise IngestRejected(
             "individuals that already exist in the store (observations are immutable; use a "
             "new IRI, or :validTo / :clearedOn to close one): " + ", ".join(taken)

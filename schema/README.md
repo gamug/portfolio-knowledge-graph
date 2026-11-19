@@ -608,8 +608,8 @@ what the store *enforces*.
     empty literal. `:NewsItemShape` keeps the closed shape: `:articleId`/`:sourceDomain` lose
     `sh:minCount 1` and a node-level `sh:or` requires them only when `:itemKind` is not `body`.
     The class label is ES «Noticia» / EN «News item». Counts: **83 classes (69 disjoint leaves),
-    635 properties, 69 named shapes, 12451 quads; conforms: True**; load plan **21 graphs / 12728
-    asserted triples** (production **5 / 12207**). The store must be reloaded afterwards.
+    635 properties, 69 named shapes, 12457 quads; conforms: True**; load plan **21 graphs / 12734
+    asserted triples** (production **5 / 12213**). The store must be reloaded afterwards.
 
 ## Validation
 
