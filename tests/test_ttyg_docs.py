@@ -20,6 +20,7 @@ TTYG = REPO / "docs" / "ttyg"
 CONSTRUCT_V2_1 = TTYG / "ontology_construct_curated_v2_1.rq"
 CONSTRUCT_V3 = TTYG / "ontology_construct_curated_v3.rq"
 INSTRUCTIONS = TTYG / "instructions-v1.5.md"
+INSTRUCTIONS_V17 = TTYG / "instructions-v1.7.md"
 SUPERSEDED_INSTRUCTIONS = TTYG / "instructions-v1.4.md"
 README = TTYG / "README.md"
 CREATE_AGENT = TTYG / "create-agent.md"
@@ -63,7 +64,7 @@ ALLOWED_CONFIG_NUMBERS = {"756", "210", "200", "100", "129"}
 #: Result figures that must never be frozen into the instructions.
 FORBIDDEN_RESULT_FIGURES = (
     "4,958",
-    "978",
+    "271",
     "933",
     "603",
     "441",
@@ -77,9 +78,9 @@ FORBIDDEN_RESULT_FIGURES = (
 )
 
 
-def _instruction_block() -> str:
+def _instruction_block(path: Path = INSTRUCTIONS) -> str:
     """The one pasteable ``text`` fence of the instructions file."""
-    text = INSTRUCTIONS.read_text(encoding="utf-8")
+    text = path.read_text(encoding="utf-8")
     matches = list(TEXT_FENCE.finditer(text))
     assert len(matches) == 1
     block = matches[0].group("block")
@@ -400,6 +401,7 @@ def test_readme_records_the_construct_sha256_and_the_agent_form() -> None:
     assert "read-only user" in readme
     assert "ontology_construct_curated_v2_1.rq" in readme
     assert "instructions-v1.5.md" in readme
+    assert "instructions-v1.7.md" in readme
     assert "evaluation-questions.md" in readme
     assert "29" in readme
 
@@ -408,14 +410,17 @@ def test_create_agent_doc_links_the_sources_and_keeps_the_key_placeholder() -> N
     """Work item 42 (T-722)/T-761: the recipe links the current sources and never a real key."""
     text = CREATE_AGENT.read_text(encoding="utf-8")
     readme = README.read_text(encoding="utf-8")
-    block = _instruction_block()
+    block = _instruction_block(INSTRUCTIONS_V17)
 
     assert "ontology_construct_curated_v2_1.rq" in text
-    assert "instructions-v1.5.md" in text
+    assert "instructions-v1.7.md" in text
+    assert "portfolio-final-v1-7" in text
     assert "Auto-add missing namespaces" in text
     assert "**Ticked.**" in text
     assert "Review agent instructions" in text
-    assert f"{len(block):,} characters" in text
+    assert len(block.rstrip("\n")) == 37_611
+    assert "37,611 characters" in text
+    assert "37,612" in text
     assert "portfolio_test" in text
     assert "`portfolio`" in text
     assert "scratch folder" in text and "different GUARD rules" in text
@@ -424,6 +429,26 @@ def test_create_agent_doc_links_the_sources_and_keeps_the_key_placeholder() -> N
     assert "0.1" in text
     assert "DeepSeek" in text and "Gemini 3.x" in text
     assert "create-agent.md" in readme
+
+
+def test_second_user_setup_names_the_final_export_and_the_demo_agent() -> None:
+    text = (REPO / "docs" / "second-user-setup.md").read_text(encoding="utf-8")
+    for phrase in (
+        "portfolio-final-20261117T154804Z",
+        "12,727,091",
+        "86 named graphs",
+        "portfolio-final-v1-7",
+        "instructions-v1.7.md",
+        "v1.5",
+        "Workbench → Import",
+        "minutes, not seconds",
+        "KG_CHAT_TIMEOUT_SECONDS=300",
+        "271",
+        "+73.1%",
+        "live-day-loader.md",
+        "<pinned version>",
+    ):
+        assert phrase in text, phrase
 
 
 def test_superseded_v1_4_is_marked_as_a_historical_copy() -> None:
@@ -484,6 +509,7 @@ def test_v1_5_and_the_d4_tasks_are_recorded() -> None:
         assert f"**{task}**" in tasks
         assert f"**{task}**" in plan
     assert (TTYG / "instructions-v1.5.md").is_file()
+    assert (TTYG / "instructions-v1.7.md").is_file()
     assert (TTYG / "recipes-review-final.md").is_file()
     assert (TTYG / "evaluation-recording-template.csv").is_file()
 

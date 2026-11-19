@@ -909,17 +909,22 @@ GROUP BY ?window
 ORDER BY ?window
 ```
 
-Expected:
+Expected (read-only check of the delivered `portfolio` store, 2026-11-20; the total includes C1):
 
 | Window | `:GuardAlert` rows |
 |---|---:|
-| P1 | 978 |
-| H1 | 933 |
-| P3 | 603 |
-| H2 | 441 |
-| P2 | 714 |
-| H3 | 1,289 |
-| **Total** | **4,958** |
+| P1 | 271 |
+| H1 | 205 |
+| P3 | 125 |
+| H2 | 77 |
+| P2 | 103 |
+| H3 | 274 |
+| C1 | 2,084 |
+| **Total** | **3,139** |
+
+All of them are in the `SYSTEM_WITH_HIERARCHY` graphs; the other configurations carry no
+`:GuardAlert`. C1 is an independent continuous run (2022-01-03..2026-10-15), not a seventh
+contiguous calendar window.
 
 ### 8.3 The 13 expected graphs exist
 
@@ -1029,6 +1034,8 @@ The dry run of `cli/load_run.py --label final` over `final_corregida` contacted 
 The loader prints `unknown key 'revision' ignored` while reading `config_final.md`: the delivery's
 front matter has a `revision` key the loader does not use. The warning is harmless. The write's
 verifier prints the stored counts; compare them with the same run's source, not with this table.
+The `v_guard_alert` column is the database source rows over all arms; it is not the stored
+`:GuardAlert` count, which is the per-window table in §8.2.
 
 ## 11. Failure and rollback
 
