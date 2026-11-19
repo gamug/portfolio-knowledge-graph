@@ -3960,3 +3960,58 @@ twice idempotent and D then D+1 equals D+1 alone. Full suite **1965 passed / 63 
 and mypy clean. The real GraphDB scratch-repository rehearsal could not run because GraphDB was
 unreachable from this environment (connection refused at `host.docker.internal:7200`); the user
 performs the first real write into `portfolio_live` from this runbook.
+
+## Work item 48 — Second-user final-delivery documentation (T-970–T-975)
+
+The director and the jury install the delivered graph on their own machines on 2026-11-20. The
+second-user page and the TTYG form recipe still described the Work item 42 store (v1.5 agent,
+~4.2 million triples), so a third party would build the wrong agent. This work item is documentation
+only: no source, schema, graph or delivery change.
+
+**Decisions**
+
+- The delivered export is `portfolio-final-20261117T154804Z`: `portfolio-final-20261117T154804Z.trig`
+  (1,161,572,478 bytes / ~1.16 GB), 12,727,091 explicit triples in 86 named graphs, plus
+  `portfolio-repository-config.ttl` and `SHA256SUMS`.
+- Prefer Workbench Import (server files) for the 1.16 GB file; expect minutes, not seconds. The
+  `docs/final-delivery.md` warning that a live re-import is not yet verified stays.
+- The delivered demo agent is `portfolio-final-v1-6` with instructions v1.7; v1.5 remains the
+  evaluated version. The v1.7 fence is 37,611 characters by the repo computation; Workbench may
+  show one more/less because of the trailing newline.
+- The smoke table uses only repo-sourced facts or the read-only query results recorded next to it:
+  72 `:BacktestTest` rows, 0 with p ≤ 0.05 (min p = 0.077); C1 System +38.8% vs SPY +72.1%, maximum
+  drawdown 15.7% vs 24.5% (lower in five of six calendar windows).
+- `portfolio-app` remains `<pinned version>` because no version was supplied; the user must fill it.
+
+**Tasks**
+
+- [x] **T-970** *(done 2026-11-19: `docs/second-user-setup.md`; GraphDB 11.5.1, the final export
+      folder/counts, Workbench Import advice, retained live-import warning, C1/86-graph facts.)*
+      Second-user setup rewrite.
+- [x] **T-971** *(done 2026-11-19: `docs/ttyg/create-agent.md`, `docs/ttyg/README.md`; v1.7 fence,
+      `portfolio-final-v1-6`, 37,611-character computation and the one-character Workbench note.)*
+      Agent form recipe.
+- [x] **T-972** *(done 2026-11-19: `docs/second-user-setup.md`; smoke table rebuilt with the five
+      configurations, calendar order, P1 978 alerts, in-sample caveat, 72/0 tests and the C1 return
+      and drawdown comparison, with the source queries/results recorded.)* Smoke questions.
+- [x] **T-973** *(done 2026-11-19: `docs/second-user-setup.md`; optional `portfolio_live` section
+      linked to `docs/live-day-loader.md`.)* Live-day note.
+- [x] **T-974** *(done 2026-11-19: `tests/test_ttyg_docs.py`; v1.7 length/agent assertions and the
+      second-user export/agent assertions. Docs/ttyg tests only.)* Docs tests.
+- [x] **T-975** *(done 2026-11-19: docs/ttyg tests, `ruff` on the touched test file and the PR.)*
+      Verification and PR.
+
+**Acceptance criteria**
+
+- A third party following `second-user-setup.md` creates `portfolio`, imports the final 1.16 GB
+  export, creates the read-only user and rebuilds the delivered `portfolio-final-v1-6` agent with
+  v1.7.
+- Every smoke-table number has a repo document or a recorded read-only query result.
+- `docs/ttyg/instructions-v1.5.md` and `instructions-v1.7.md` are unchanged.
+- The pinned `portfolio-app` version is either supplied or recorded as an open item; never invented.
+
+**Verified 2026-11-19 (T-970–T-975)**: read-only queries against the delivered `portfolio` store
+returned 12,727,091 triples in 86 graphs, 72 `:BacktestTest` rows with 0 p ≤ 0.05 and min p = 0.077,
+and the C1 return/drawdown comparison recorded in the page. The export file is 1,161,572,478 bytes
+and its `SHA256SUMS` matches. Docs/ttyg tests and ruff pass; no source or schema changed. The
+`portfolio-app` version is still the open `<pinned version>` placeholder.

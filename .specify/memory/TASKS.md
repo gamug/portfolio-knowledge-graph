@@ -1658,3 +1658,29 @@ only day 2 after D then D+1; per-graph counts and order-independent hashes match
 GraphDB scratch-repository rehearsal was not possible here because GraphDB refused connections at
 `host.docker.internal:7200`; no write was made to `portfolio`, `portfolio_test` or any real
 repository.
+
+## Work item 48 — Second-user final-delivery documentation (T-970–T-975)
+
+See `docs/second-user-setup.md`, `docs/ttyg/create-agent.md`, `docs/ttyg/README.md` and `PLAN.md`
+Work item 48. Documentation only: no source, schema or graph change.
+
+- [x] **T-970** *(done 2026-11-19: `docs/second-user-setup.md`; final export
+      `portfolio-final-20261117T154804Z`, 1,161,572,478 bytes, 12,727,091 triples, 86 graphs,
+      Workbench Import advice and the retained not-yet-verified re-import warning.)* Rewrite the
+      second-user setup for the final delivery.
+- [x] **T-971** *(done 2026-11-19: `docs/ttyg/create-agent.md`, `docs/ttyg/README.md`; the form
+      pastes the v1.7 fence for `portfolio-final-v1-6`, repo computation 37,611 characters, and
+      the `37,612`/one-character Workbench caveat; v1.5 stays evaluated.)* Update the agent recipe.
+- [x] **T-972** *(done 2026-11-19: `docs/second-user-setup.md`; smoke table with the five
+      configurations, calendar order, P1 978 alerts, in-sample caveat, 72 tests / 0 significant
+      (min p 0.077) and C1 +38.8% vs SPY +72.1% / 15.7% vs 24.5% drawdown, plus the source
+      queries and results.)* Rebuild the smoke questions.
+- [x] **T-973** *(done 2026-11-19: `docs/second-user-setup.md`; optional `portfolio_live` paragraph
+      linked to `docs/live-day-loader.md`.)* Add the live-day note.
+- [x] **T-974** *(done 2026-11-19: `tests/test_ttyg_docs.py`; v1.7 fence length/agent assertions and
+      the second-user final-export assertions.)* Update the docs tests.
+- [x] **T-975** *(done 2026-11-19: docs/ttyg tests and ruff on the touched test file; one commit,
+      one PR.)* Verification and PR.
+
+**Open item:** the `portfolio-app` pinned version was not supplied; section 5 keeps
+`<pinned version>` until the user provides it.

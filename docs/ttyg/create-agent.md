@@ -48,24 +48,26 @@ form:
 
 | Field | Value |
 |---|---|
-| Agent name | `portfolio-final` (a descriptive local name; it is not part of the graph). |
+| Agent name | `portfolio-final-v1-6` (the delivered demo agent name; it is not part of the graph). |
 | Repository ID | `portfolio` for the delivered agent. Use `portfolio_test` only for a rehearsal, never for the delivered agent. |
 | Query methods | **SPARQL only**. Disable full-text search, similarity search and the ChatGPT retrieval connector. |
 | SPARQL ontology | Choose **Use a CONSTRUCT query** and paste the whole file [`ontology_construct_curated_v2_1.rq`](ontology_construct_curated_v2_1.rq). Do not retype or edit it; [`README.md`](README.md) records its SHA-256. Do **not** paste `ontology_construct_curated_v3.rq`: the form rejects it with a "SPARQL method requires an ontology graph…" validation message even though the query runs over REST. |
 | Auto-add missing namespaces | **Ticked.** Use the form setting that the accepted v2.1 CONSTRUCT was created with. |
 | Model | The model from `graphdb.llm.model`, or the provider's equivalent offered by the form. |
 | Temperature | `0.1`. |
-| Additional instructions | The **single `text` fence** in [`instructions-v1.5.md`](instructions-v1.5.md). Open the file in the repository and paste that one block; do not copy it into this page. Do not reuse a copy from the scratch folder: that rehearsal copy had different GUARD rules. |
+| Additional instructions | The **single `text` fence** in [`instructions-v1.7.md`](instructions-v1.7.md). Open the file in the repository and paste that one block; do not copy it into this page. v1.7 is the demo version; v1.5 remains the evaluated version. Do not reuse a copy from the scratch folder: that rehearsal copy had different GUARD rules. |
 | Context window / Top P / base instructions | Leave the defaults unless the provider rejects one of them. |
 
 Click **Create Agent**. If the form blocks Create Agent, first suspect the SPARQL ontology input:
 paste the byte-exact v2.1 file, tick **Auto-add missing namespaces**, and confirm the `portfolio`
 repository has its schema graphs loaded. v3 is rejected by this form.
 
-After pasting the instructions, open **Review agent instructions**. It must show exactly
-**26,019 characters** (the length of the single fence in `instructions-v1.5.md`). If the number is
-different, **STOP**: the paste is stale or partial; reopen the repository file and paste the whole
-fence again.
+After pasting the instructions, open **Review agent instructions**. The repository computation
+of the v1.7 fence is **37,611 characters**. Workbench **Review agent instructions** may show a count
+that differs by one (**37,612** or **37,610**); the v1.5 page had the same one-character difference
+(26,019 shown for a 26,018-character fence). Do not trust a specific Workbench number you cannot
+see: compare the pasted block with the file, and if it differs by more than one character, **STOP**
+and paste the whole fence again.
 
 Before asking anything, confirm that the agent chat selector at the top shows the repository
 `portfolio` (not `portfolio_test`). Ask **one question per chat** so a wrong answer is not carried
@@ -106,7 +108,7 @@ Spanish-only or English-only rule to the agent.
 ## Related
 
 - [`README.md`](README.md) — the source files and the CONSTRUCT hashes.
-- [`instructions-v1.5.md`](instructions-v1.5.md) — the single instruction block.
+- [`instructions-v1.7.md`](instructions-v1.7.md) — the single demo instruction block (v1.5 remains the evaluated version).
 - [`investor-recipes.md`](investor-recipes.md) — the bounded recipes and the human test procedure.
 - [`../second-user-setup.md`](../second-user-setup.md) — the colleague's local repository, read-only
   user and first smoke questions.
