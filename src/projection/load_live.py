@@ -521,7 +521,10 @@ def _parse_args(argv: Sequence[str] | None) -> argparse.Namespace:
         "--assets-db",
         type=Path,
         default=None,
-        help="universe database for SHACL context (default: SQL_UNIVERSE_DB)",
+        help=(
+            "universe database for SHACL context "
+            "(default: SQL_UNIVERSE_DB, then the bundled default when present)"
+        ),
     )
     parser.add_argument("--check-store", action="store_true", help="read-only store pre-flight")
     parser.add_argument(
@@ -537,8 +540,11 @@ def _parse_args(argv: Sequence[str] | None) -> argparse.Namespace:
     except ValueError:
         raise _UsageError(f"--day {args.day!r} is not a YYYY-MM-DD date") from None
     args.day = parsed.isoformat()
-    if args.assets_db is None and DEFAULT_ASSETS_DB.is_file():
-        args.assets_db = DEFAULT_ASSETS_DB
+    if args.assets_db is None:
+        if os.environ.get("SQL_UNIVERSE_DB"):
+            args.assets_db = config.universe_db_path()
+        elif DEFAULT_ASSETS_DB.is_file():
+            args.assets_db = DEFAULT_ASSETS_DB
     return args
 
 
