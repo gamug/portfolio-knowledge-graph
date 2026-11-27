@@ -516,6 +516,8 @@ def test_live_agent_v2_adds_news_spy_and_the_book_name() -> None:
     assert "COALESCE(?asset, <urn:none:no-asset>)" in block
     assert ":memoryAsset ?stopped" in block
     assert "planned for 2026-11-27" not in block
+    assert "in-sample for the delivered run" not in block
+    assert "after the design was frozen (out of sample" in block
     for forbidden in (
         "978",
         "271",
