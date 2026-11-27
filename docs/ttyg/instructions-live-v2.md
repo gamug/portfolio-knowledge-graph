@@ -271,6 +271,28 @@ WHAT IS NOT IN THE GRAPH
 - For a masked Tiingo company, its price and valuation metrics are not published; do not estimate or derive them.
 ```
 
+## Smoke questions (real day 2026-11-25)
+
+The live graph changes every day, so these healthy answers hold only while the loaded day is
+**2026-11-25** (formation 2026-10-15). They were computed by the reviewer on 2026-11-27 by running
+this page's templates on that day's six projected graphs (the dry run of the delivered export:
+6 graphs, 286,156 triples, SHACL conforms; the co-author's `--write` on the Mac gave the same
+count). Ask them in order:
+
+| Question | Healthy answer |
+|---|---|
+| Which day is loaded and since when does the live window run? | Loaded day **2026-11-25**; the window runs from the formation, **2026-10-15**. The book is named "Sistema con la Jerarquía de Veto (en vivo)". |
+| What is the current portfolio? | Target weights of the latest weighted date, **2026-11-13** (said explicitly, not the loaded day's holdings): **25 companies + SPY + cash** (SPY core 21.06 %, cash 57.88 %). Cash on the loaded day after stops: **76.84 %**. Stopped since 2026-11-13: XOM, FSLR, PM, GWW, INTU, NEM, ROST, EOG. No weight is recomputed. |
+| Which stops happened and where did the freed weight go? | **13** stops in the window. Three were chosen by the agent and bought a replacement: FIX → CBOE (2026-10-20), GOOG → ED (2026-10-29), EOG → CHD (2026-11-04). Ten were rule stops that ended in cash: NWS and XOM on 2026-11-05 (`SCALE_BELOW_ONE`) and eight `FILTER_OFF` stops from 2026-11-16 to 2026-11-23. |
+| Which news GUARD levels are in force? | At the latest news decision, **2026-11-12**: level D fired (21-session tone 0.130 below its p20 threshold 0.362) and the trend filter's news input is on; level C flagged no sector (0 sector rejections); level B threshold 6, with 0 news exits in the window. |
+| Which news support the last decision's news vetoes? | On 2026-11-12 the news GUARD vetoed **GOOG** (20 linked news items, e.g. "Alphabet tanks nearly 13% for worst day ever…", 2026-10-29) and **DECK** (3 items, 2026-10-22 and 2026-10-23). It does not attribute level C or D to any single news item. |
+| How does the book compare with SPY? | On 2026-11-25 the book returned **−2.10 %** and SPY **−6.87 %** (+4.77 percentage points for the book); the book's maximum drawdown is 4.22 %. One short live window: no conclusion that either beats the other. |
+
+A healthy answer also names the loaded day, shows one SPARQL query and keeps CASH and SPY out of
+the company count. If SPY's drawdown is asked, the agent computes it from the daily values (10.77 %
+on 2026-11-20 from the 2026-10-21 peak) and says it was computed, because the graph does not publish
+it.
+
 ## Usage notes
 
 - The fence is the full instruction set. The agent must read the loaded day from the LIVE
