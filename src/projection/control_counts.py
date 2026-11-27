@@ -2,7 +2,7 @@
 
 The shape is ``control_counts -> configuration -> window -> key -> value``. The loader never trusts
 the manifest for a value: it computes each key from the same filtered rows, detail file and manifest
-files it projects, then compares. Reviewer A's letter (2026-11-13) is the definition source.
+files it projects, then compares. The 2026-11-13 review letter is the definition source.
 """
 
 from __future__ import annotations

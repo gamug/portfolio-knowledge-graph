@@ -154,9 +154,10 @@ _BACKTEST_SERIES_TARGET = re.compile(
 )
 #: One block-F agent-traceability graph per run label, window and source file (Work item 46):
 #: manager calls, narrator texts, news actions/date records and N11 bull-mode records are separate
-#: streams so any one can be loaded later without touching the others.
+#: streams so any one can be loaded later without touching the others. ``LIVE`` is the live day's
+#: window (Work item 50: its news actions/levels graph).
 _AGENTS_TARGET = re.compile(
-    r"urn:graph:derived:backtest:agents:([a-z][a-z0-9_]{1,31}):([PH][0-9]+|C[0-9]+):"
+    r"urn:graph:derived:backtest:agents:([a-z][a-z0-9_]{1,31}):([PH][0-9]+|C[0-9]+|LIVE):"
     r"(manager_calls|narrator|news|bull_mode)"
 )
 #: One fundamentals graph per run label (Work item 45): the block C filings, metric sets and
@@ -165,9 +166,10 @@ _FUNDAMENTALS_TARGET = re.compile(r"urn:graph:derived:fundamentals:([a-z][a-z0-9
 #: One news graph per run label and calendar year (Work item 46, block D). A year whose projected
 #: count would exceed the loader's bound is split into its two month spans, so the optional
 #: ``01-06``/``07-12`` segment keeps every graph bounded without reusing the test-window H1/H2/H3
-#: names.
+#: names. The live day keeps its few news rows in one fixed ``...:{label}:LIVE`` graph instead
+#: (Work item 50), so the graph set it replaces every day never changes with the calendar.
 _NEWS_TARGET = re.compile(
-    r"urn:graph:derived:news:([a-z][a-z0-9_]{1,31}):([12][0-9]{3})(?::(01-06|07-12))?"
+    r"urn:graph:derived:news:([a-z][a-z0-9_]{1,31}):(?:([12][0-9]{3})(?::(01-06|07-12))?|LIVE)"
 )
 #: The incremental asset-catalog batch (T-371): a sequence-qualified suffix on the quarter graph,
 #: so the one-time catalog graph is never appended to and a later delta gets the next number.
@@ -282,10 +284,10 @@ def check_target(graph: str) -> bool:
         "urn:graph:derived:backtest:aggregates:{run label}[:{configuration slug}], "
         "urn:graph:derived:backtest:external:{run label}, "
         "urn:graph:derived:backtest:series:{run label}:{configuration slug}, "
-        "urn:graph:derived:backtest:agents:{run label}:{P<n>|H<n>|C<n>}:"
+        "urn:graph:derived:backtest:agents:{run label}:{P<n>|H<n>|C<n>|LIVE}:"
         "{manager_calls|narrator|news|bull_mode}, "
         "urn:graph:derived:fundamentals:{run label}, "
-        "urn:graph:derived:news:{run label}:YYYY[:01-06|:07-12], "
+        "urn:graph:derived:news:{run label}:{YYYY[:01-06|:07-12]|LIVE}, "
         "urn:graph:derived:ticker-history:{run label}:YYYY-MM-DD, "
         "urn:graph:derived:orchestrator:{run label}:{positive integer}, "
         "urn:graph:universe:YYYY-Qn[:delta:{positive integer}], "

@@ -40,6 +40,14 @@ def _hash(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
+@pytest.fixture(autouse=True)
+def _no_universe(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The stubbed projection needs no universe database; the real one is tested separately."""
+    monkeypatch.setattr(load_live, "universe_assets", lambda path: {})
+    monkeypatch.setattr(load_live, "load_guard_catalog", lambda path: None)
+    monkeypatch.setattr(load_live, "_shacl_context", lambda assets, catalog: (None, rdflib.Graph()))
+
+
 def _files(folder: Path) -> dict[str, tuple[str, bytes]]:
     return {
         "rankings_file": ("H1B-A2g-LIVE.rankings.json", b"{}"),
@@ -506,12 +514,20 @@ def test_the_live_graph_names_are_fixed() -> None:
         "urn:graph:derived:backtest:meta:live",
         "urn:graph:derived:backtest:live:LIVE:system_live",
         "urn:graph:derived:backtest:selection:live:LIVE:system_live",
+        "urn:graph:derived:news:live:LIVE",
+        "urn:graph:derived:backtest:agents:live:LIVE:news",
+        "urn:graph:derived:backtest:series:live:spy",
     )
     assert staging_graph_names() == (
         "urn:graph:derived:backtest:meta:live_staging",
         "urn:graph:derived:backtest:live_staging:LIVE:system_live",
         "urn:graph:derived:backtest:selection:live_staging:LIVE:system_live",
+        "urn:graph:derived:news:live_staging:LIVE",
+        "urn:graph:derived:backtest:agents:live_staging:LIVE:news",
+        "urn:graph:derived:backtest:series:live_staging:spy",
     )
+    for name in (*live_graph_names(), *staging_graph_names()):
+        assert gate.check_target(name) is True
 
 
 @pytest.mark.parametrize(

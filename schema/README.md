@@ -517,7 +517,7 @@ what the store *enforces*.
     `cli/load_mv_base.py` load the external summary-only book into
     `urn:graph:derived:backtest:external:{label}`; its `bookId` is the engine's maximum + 1 and its
     `backtestRunId` is the engine's own run id, both read read-only from `final_<window>.db`
-    (`objective "max_sharpe"`, pending Reviewer A). The gate accepts that graph name. No class or
+    (`objective "max_sharpe"`, a named constant per the 2026-11-13 letter). The gate accepts that graph name. No class or
     named shape was added: **58 classes (44 disjoint leaves), 39 named shapes, 4940 quads;
     conforms: True**, load plan **5217 asserted triples** (production **4696**). The store must be
     reloaded afterwards (`cli/load_schema.py` with `KG_REPOSITORY=portfolio_test`, then
@@ -542,7 +542,7 @@ what the store *enforces*.
     `:ScoreSnapshot` domain; `:computedAt`/`:eventTime` widen to `:Observation`. `shapes.ttl`
     gains `FundamentalFilingShape`, `FundamentalMetricSetShape`, `FundamentalAssessmentShape` and
     `FundamentalMetricDefinitionShape`; the four have synthetic positive/negative tests in
-    `tests/test_fundamentals_shapes.py`. Reviewer A approved the 58-row table; the 37 metric concepts are now in `labels.ttl` under
+    `tests/test_fundamentals_shapes.py`. The 2026-11-13 review letter approved the 58-row table; the 37 metric concepts are now in `labels.ttl` under
     `:FundamentalMetricScheme`. Counts: **72 classes (58 disjoint leaves), 57 named shapes, 9125 quads; conforms:
     True**; load plan **21 graphs / 9402 asserted triples** (production **5 / 8881**). The store
     must be reloaded afterwards.

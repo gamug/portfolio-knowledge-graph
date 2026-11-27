@@ -22,6 +22,7 @@ CONSTRUCT_V3 = TTYG / "ontology_construct_curated_v3.rq"
 INSTRUCTIONS = TTYG / "instructions-v1.5.md"
 INSTRUCTIONS_V17 = TTYG / "instructions-v1.7.md"
 INSTRUCTIONS_LIVE = TTYG / "instructions-live-v1.md"
+INSTRUCTIONS_LIVE_V2 = TTYG / "instructions-live-v2.md"
 SUPERSEDED_INSTRUCTIONS = TTYG / "instructions-v1.4.md"
 README = TTYG / "README.md"
 CREATE_AGENT = TTYG / "create-agent.md"
@@ -475,6 +476,62 @@ def test_live_agent_instructions_are_bounded_and_leave_out_the_final_delivery() 
     assert "`:dateTo` of the live `:PortfolioPeriodSummary`" in loader
 
 
+def test_live_agent_v2_adds_news_spy_and_the_book_name() -> None:
+    text = INSTRUCTIONS_LIVE_V2.read_text(encoding="utf-8")
+    block = _instruction_block(INSTRUCTIONS_LIVE_V2)
+    assert 5_000 < len(block.rstrip("\n")) <= 37_611
+    assert "portfolio-live-v1" in text
+    assert "UUID" in text and "KG_AGENT_ID" in text
+    assert "instructions-live-v1.md" in text
+    assert "Sistema con la Jerarquía de Veto (en vivo)" in block
+    assert "System with the Veto Hierarchy (live)" in block
+    assert "N companies + SPY + cash" in block
+    assert '?key IN ("CASH", "SPY")' in block
+    assert (
+        ":cashWeight of the :BookDailyPerformance whose :performanceDate is the loaded day" in block
+    )
+    assert "stopped since" in block
+    assert "Never recompute or redistribute weights" in block
+    for graph in (
+        "urn:graph:derived:news:live:LIVE",
+        "urn:graph:derived:backtest:agents:live:LIVE:news",
+        "urn:graph:derived:backtest:series:live:spy",
+    ):
+        assert graph in block, graph
+    for term in (
+        ":levelBThreshold",
+        ":levelCFlaggedCount",
+        ":levelDFired",
+        ":levelDTone21",
+        ":levelDP20",
+        ":newsExits",
+        ":newsItem ?item",
+        ":seriesValue",
+    ):
+        assert term in block, term
+    assert "never present a given news item as the cause of C or D" in block
+    assert 'never conclude that the book "beats" or "loses to" SPY' in block
+    assert "date the run was created, not the loaded day" in block
+    assert ":dateTo of the :PortfolioPeriodSummary" in block
+    assert "COALESCE(?asset, <urn:none:no-asset>)" in block
+    assert ":memoryAsset ?stopped" in block
+    assert "planned for 2026-11-27" not in block
+    for forbidden in (
+        "978",
+        "271",
+        "SYSTEM_WITH_HIERARCHY",
+        "SYSTEM_WITHOUT_HIERARCHY",
+        "MARKOWITZ_BASE",
+    ):
+        assert forbidden not in block, forbidden
+    for window in ("C1", "P1", "P2", "P3", "H1", "H2", "H3"):
+        assert not re.search(rf"\b{window}\b", block), window
+    names = re.findall(r"\nPATTERN (\w+) - ", block)
+    assert names == ["1", "2", "2b", "3", "4", "5", "6", "6b", "7", "8", "9"]
+    readme = README.read_text(encoding="utf-8")
+    assert "instructions-live-v2.md" in readme
+
+
 def test_second_user_setup_names_the_final_export_and_the_demo_agent() -> None:
     text = (REPO / "docs" / "second-user-setup.md").read_text(encoding="utf-8")
     for phrase in (
@@ -490,8 +547,9 @@ def test_second_user_setup_names_the_final_export_and_the_demo_agent() -> None:
         "271",
         "+73.1%",
         "live-day-loader.md",
-        "v0.1.0-entrega1",
-        "0d40b7bb40c793576ad6da9fdd514297bb3c6cc0",
+        "v0.1.1-entrega1",
+        "9cc57204",
+        "instructions-live-v2.md",
         "KG_AGENT_ID",
         "portfolio_live",
         "NOT tested end to end",
