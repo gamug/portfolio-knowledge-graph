@@ -1,4 +1,4 @@
-"""Manifest control_counts against Reviewer A's pilot and the comparison rules (T-867/T-868)."""
+"""Manifest control_counts against the 2026-11-13 letter's pilot and the comparison rules (T-867/T-868)."""
 
 from __future__ import annotations
 
@@ -50,7 +50,7 @@ A_FILE = Path(
 
 def _pilot_control() -> dict:
     if not PILOT.is_dir() or not A_FILE.is_file():
-        pytest.skip("the pilot or Reviewer A's control-count file is absent")
+        pytest.skip("the pilot or the letter's control-count file is absent")
     source = FinancialSource.open(PILOT / "H1C-B5-P1.db")
     try:
         tickers = read_asset_tickers(source)

@@ -113,10 +113,11 @@ The password stays in the colleague's local, git-ignored `.env`; never commit it
 
 ## 5. `portfolio-app`
 
-Pin `portfolio-app` to tag **`v0.1.0-entrega1`** (commit
-`0d40b7bb40c793576ad6da9fdd514297bb3c6cc0`; PR #43 was merged to `main`, and this is the first own
-tag of the repository — the other tags are inherited from the upstream fork). The maintainer
-supplies the repository URL.
+Pin `portfolio-app` to tag **`v0.1.1-entrega1`** (commit `9cc57204`; it replaces the first own tag
+`v0.1.0-entrega1` — the other tags of the repository are inherited from the upstream fork). The
+co-author ran `v0.1.1-entrega1` on a Mac with a case-insensitive file system: the frontend builds
+and starts, the backend answers, and the app works against the live agent over `portfolio_live`.
+The maintainer supplies the repository URL.
 
 ### Requirements
 
@@ -133,7 +134,7 @@ pnpm 10.33.0 (not npm).
 ```bash
 git clone <portfolio-app repository URL>
 cd portfolio-app
-git checkout v0.1.0-entrega1
+git checkout v0.1.1-entrega1
 cp .env.example .env        # edit it; never `source .env`
 DO_NOT_TRACK=1 OPENUI_TELEMETRY_DISABLED=1 uv sync --locked --directory backend
 DO_NOT_TRACK=1 OPENUI_TELEMETRY_DISABLED=1 pnpm --dir frontend install --frozen-lockfile
@@ -310,17 +311,19 @@ anything.
 ## 7. Live day (`portfolio_live`) — optional
 
 The delivered final graph does not need this. A separate repository `portfolio_live` can hold one
-live day at a time for the live product; its loader replaces three fixed graphs and never touches
+live day at a time for the live product; its loader replaces six fixed graphs and never touches
 `portfolio`, the `final` graphs or the TTYG agent. Setup, command, exit codes and checks are in
 [`live-day-loader.md`](live-day-loader.md).
 
 The app's read-only user needs Read on `portfolio_live` as well as `portfolio`. The app reaches the
-live day through a second TTYG agent, `portfolio-live-v1`, bound to `portfolio_live` (its
-instructions are in `docs/ttyg/instructions-live-v1.md`, Work item 49). Put that agent's UUID in
-`KG_AGENT_ID` in `.env` and restart the backend; optionally set
+live day through a second TTYG agent, `portfolio-live-v1`, bound to `portfolio_live` (its current
+instructions are `docs/ttyg/instructions-live-v2.md`, Work item 50; v1 is kept as history). Put that
+agent's UUID in `KG_AGENT_ID` in `.env` and restart the backend; optionally set
 `SQLITE_PATH=backend/data/app_live.sqlite3` to keep live sessions apart. No app code change is
-needed. The agent's instructions cover what the live graph holds today and state that news and the
-SPY series are not in it; they arrive on 2026-11-27. This is NOT tested end to end.
+needed. The agent answers about the live book, its stops, its news GUARD (levels B, C, D and the
+news behind each pool action) and SPY on the same dates, whenever the day's export brings the news
+rows and the SPY series; on a day without them it says so. The co-author ran the app against this
+agent on a Mac; the news and SPY part is NOT tested end to end on a real day yet.
 
 ## 8. What not to do
 

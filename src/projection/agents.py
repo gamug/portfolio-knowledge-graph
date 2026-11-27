@@ -1248,8 +1248,15 @@ def _project_narrator(data: WindowData, label: str) -> GraphBuilder:
 
 
 def _project_news(  # noqa: C901, PLR0912, PLR0915 -- one graph per source file
-    data: WindowData, label: str
+    data: WindowData,
+    label: str,
+    configuration: rdflib.URIRef = KG.Configuration_SystemWithHierarchy,
 ) -> GraphBuilder:
+    """The news actions, date records, levels and evidence of one window.
+
+    ``configuration`` is the book the records belong to: the final delivery's
+    ``SYSTEM_WITH_HIERARCHY`` or the live day's ``SYSTEM_LIVE`` (Work item 50).
+    """
     builder = GraphBuilder()
     raw = data.news.raw
     run = news_run_iri(label, data.window)
@@ -1257,11 +1264,7 @@ def _project_news(  # noqa: C901, PLR0912, PLR0915 -- one graph per source file
     builder.add(run, RDF.type, KG.NewsRunRecord)
     builder.add(run, KG.knowledgeDate, _date_literal(first_date))
     builder.add(run, KG.windowId, rdflib.Literal(data.window))
-    builder.add(
-        run,
-        KG.agentRecordOfConfiguration,
-        KG.Configuration_SystemWithHierarchy,
-    )
+    builder.add(run, KG.agentRecordOfConfiguration, configuration)
     builder.add(run, KG.newsMode, rdflib.Literal(raw["news_mode"]))
     builder.add(run, KG.newsAlpha, _decimal_literal(raw["news_alpha"]))
     builder.add(run, KG.newsTableSha256, rdflib.Literal(raw["news_table_sha256"]))

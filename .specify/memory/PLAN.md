@@ -4107,3 +4107,67 @@ no source, schema, graph, CONSTRUCT or `create-agent.md` change.
 **Verified 2026-11-19**: the file has one `text` fence of 16,757 characters; all 104
 classes/properties named in the fence exist in `schema/tbox.ttl` or `schema/shapes.ttl`; docs/ttyg
 tests pass and ruff is clean. No GraphDB query was run and no store was contacted.
+
+## Work item 50 — Live day news rows, news GUARD and SPY series (T-1000–T-1008)
+
+The live product must answer the news GUARD (levels B, C, D and the news behind each pool action)
+and the live window against SPY. The co-author's export adds two optional files in the final
+delivery's formats; the loader projects them, and the live agent's instructions read them.
+
+**Decisions**
+
+- `manifest_live.json` gains two optional keys: `news_rows_file` (the block D object
+  `{file, sha256, rows, model_revision, columns}`, the final 24 columns in order) and
+  `spy_series_file` (a folder-relative path to `spy_daily.csv` with `window = LIVE`). Each file may
+  sit in a sub-folder, must be listed in the folder's `SHA256SUMS` with its relative path and named
+  in `files_sha256`. A day without them loads exactly as before.
+- Three more fixed graphs, replaced every day with the other three in the same single SPARQL
+  Update: `urn:graph:derived:news:live:LIVE`, `urn:graph:derived:backtest:agents:live:LIVE:news`
+  and `urn:graph:derived:backtest:series:live:spy`. The gate's agents and news name patterns admit
+  `LIVE`, so the live set never changes with the calendar year.
+- The swap MOVEs each non-empty staging graph and DROPs (one exact IRI) each empty live graph, so a
+  day without news or SPY empties those graphs instead of keeping the previous day's rows.
+- No projector is forked: `projection.news.parse_rows`/`link_assets`/`_add_row`,
+  `projection.agents._news`/`_project_news` (now taking the configuration, `SYSTEM_LIVE` here) and
+  the final SPY point shape. `news.json`, already in every export, is projected only with the day's
+  news rows, because every evidence row must resolve to a `:NewsItem`.
+- The SPY series must run from the formation to the day and its dates must equal the book's
+  `:performanceDate` sessions; its value has the same base as the book's `:nav` (1.0 at the close
+  before the formation).
+- The JSON line's `"graphs"` counts the live graphs that hold triples (3 or 6).
+- `docs/ttyg/instructions-live-v2.md` is the agent's new fence, pasted into the existing
+  `portfolio-live-v1` agent (same UUID): the book is "Sistema con la Jerarquía de Veto (en vivo)",
+  CASH and SPY are not companies, the current portfolio reports the loaded day's `:cashWeight`
+  and the names stopped since the weighted date, plus the news GUARD and SPY sections and templates.
+- The three loader comments that named the co-author now cite the 2026-11-13 letter.
+- `docs/second-user-setup.md` pins `portfolio-app` `v0.1.1-entrega1` (commit `9cc57204`).
+
+**Tasks**
+
+- [x] **T-1000** *(done 2026-11-27: `src/projection/live_manifest.py`; optional keys, sub-folder
+      paths, `SHA256SUMS`/`files_sha256` cross-checks, six graph names.)* Live manifest adapter.
+- [x] **T-1001** *(done 2026-11-27: `src/projection/live_extras.py`; news rows, news actions and
+      SPY projection with the final projectors.)* Live extras projection.
+- [x] **T-1002** *(done 2026-11-27: `src/projection/load_live.py`; dry-run shape check of the three
+      graphs, MOVE/DROP swap, kind-keyed siblings, graph count.)* Loader integration.
+- [x] **T-1003** *(done 2026-11-27: `src/kg_store/gate.py`, `src/projection/agents.py`; `LIVE` in the
+      agents/news graph patterns; the news projector takes the configuration.)* Shared code.
+- [x] **T-1004** *(done 2026-11-27: `tests/test_live_extras.py`, `tests/test_live_day.py`.)* Tests.
+- [x] **T-1005** *(done 2026-11-27: `docs/ttyg/instructions-live-v2.md`, `docs/ttyg/README.md`,
+      `tests/test_ttyg_docs.py`.)* Live agent v2.
+- [x] **T-1006** *(done 2026-11-27: `docs/live-day-loader.md`, `docs/second-user-setup.md`.)* Docs.
+- [x] **T-1007** *(done 2026-11-27: `schema/labels.ttl`, `src/projection/mv_base.py`,
+      `src/projection/control_counts.py`, `schema/README.md`, `tests/test_control_counts.py`.)*
+      Comments cite the 2026-11-13 letter.
+- [x] **T-1008** *(done 2026-11-27: full test suite, ruff, mypy, handoff refresh.)* Verification.
+
+**Acceptance criteria**
+
+- A day with both files gives six non-empty graphs; the next day without them empties the three new
+  graphs; the same day twice gives the same graphs; a missing cited news row, a SPY date mismatch or
+  a hash mismatch writes nothing (exit 2), a shape failure writes nothing (exit 3).
+
+**Verified 2026-11-27**: real dry run of the 2026-11-17 day with its real `news.json`, database and
+universe, plus rehearsal news rows for the 27 cited rows and a rehearsal SPY series on the book's 24
+sessions: six graphs, SHACL conforms for all, the three SYSTEM_LIVE graphs unchanged (17 / 9,762 /
+219,596). The eleven v2 templates ran on those projected graphs in memory. No store was written.

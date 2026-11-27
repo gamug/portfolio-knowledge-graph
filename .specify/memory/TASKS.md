@@ -1745,3 +1745,23 @@ weighted date (2026-11-13). Fence now 16,757 characters.
 **Verified 2026-11-19**: one fence, 16,757 characters; all 104 named classes/properties exist in
 `schema/tbox.ttl` or `schema/shapes.ttl`; docs/ttyg tests pass and ruff is clean. No GraphDB query
 was run and no store was contacted.
+
+## Work item 50 — Live day news rows, news GUARD and SPY series (T-1000–T-1008)
+
+See `PLAN.md` Work item 50, `docs/live-day-loader.md` §1bis and `docs/ttyg/instructions-live-v2.md`.
+
+- [x] **T-1000** *(done 2026-11-27: `src/projection/live_manifest.py`.)* Optional `news_rows_file`
+      and `spy_series_file`, sub-folder paths, hash cross-checks, six fixed graph names.
+- [x] **T-1001** *(done 2026-11-27: `src/projection/live_extras.py`.)* News rows, news actions
+      (B/C/D levels, pool actions, evidence links) and SPY series with the final projectors.
+- [x] **T-1002** *(done 2026-11-27: `src/projection/load_live.py`.)* Dry-run shape check, one
+      MOVE/DROP swap, kind-keyed siblings, `"graphs"` = graphs with triples.
+- [x] **T-1003** *(done 2026-11-27: `src/kg_store/gate.py`, `src/projection/agents.py`.)* `LIVE`
+      graph names; news projector configuration parameter.
+- [x] **T-1004** *(done 2026-11-27: `tests/test_live_extras.py`, `tests/test_live_day.py`.)* Tests.
+- [x] **T-1005** *(done 2026-11-27: `docs/ttyg/instructions-live-v2.md`, README, docs test.)* Live
+      agent v2: book name, company count, loaded-day cash, news GUARD, SPY.
+- [x] **T-1006** *(done 2026-11-27: `docs/live-day-loader.md`, `docs/second-user-setup.md`.)* Docs
+      and the `v0.1.1-entrega1` pin.
+- [x] **T-1007** *(done 2026-11-27.)* Loader comments cite the 2026-11-13 letter.
+- [x] **T-1008** *(done 2026-11-27.)* Full suite, ruff, mypy, handoff refresh.

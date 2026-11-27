@@ -5,16 +5,22 @@ like one final run of one configuration/one window (``SYSTEM_LIVE``/``LIVE``) th
 :func:`projection.load_veto.build_delivery`; this module adds what is live-specific:
 
 * the ``manifest_live.json`` adapter and its folder/file/database/mask hash checks;
-* the per-day replace: write three staging graphs, then one SPARQL Update with three exact
-  ``MOVE <staging> TO <live>`` statements (one transaction), then verify counts and the mask;
+* the per-day replace: write one staging graph per non-empty live graph, then one SPARQL Update
+  with one exact ``MOVE <staging> TO <live>`` per non-empty graph and one exact
+  ``DROP SILENT GRAPH <live>`` per empty one (one transaction), then verify counts and the mask;
+* the optional news rows, news actions and SPY series (Work item 50, :mod:`projection.live_extras`);
 * the target repository guard (never ``portfolio``) and the store-context check;
 * the exit codes and the one JSON line that is always the last stdout line.
 
 No projection logic is forked here. The live graphs are fixed and shared by every day:
 
+* ``urn:graph:derived:backtest:meta:live``
 * ``urn:graph:derived:backtest:live:LIVE:system_live``
 * ``urn:graph:derived:backtest:selection:live:LIVE:system_live``
-* ``urn:graph:derived:backtest:meta:live``
+* ``urn:graph:derived:news:live:LIVE`` (news rows; empty without ``news_rows_file``)
+* ``urn:graph:derived:backtest:agents:live:LIVE:news`` (news actions, evidence and B/C/D levels;
+  empty without ``news_rows_file``)
+* ``urn:graph:derived:backtest:series:live:spy`` (empty without ``spy_series_file``)
 """
 
 from __future__ import annotations
@@ -50,6 +56,14 @@ from projection.backtest import (
 from projection.boundary import BoundaryError
 from projection.control_counts import ControlCountError
 from projection.delivery import ConfigError
+from projection.live_extras import (
+    NEWS_ACTIONS_KIND,
+    NEWS_KIND,
+    LiveExtras,
+    LiveExtrasError,
+    build_extras,
+    performance_dates,
+)
 from projection.live_manifest import (
     LIVE_LABEL,
     LiveManifestError,
@@ -167,6 +181,7 @@ def main(  # noqa: C901, PLR0911 -- one exit per failure class
         return 4
     except (
         LiveManifestError,
+        LiveExtrasError,
         VetoManifestError,
         DetailError,
         LoadVetoError,
@@ -213,8 +228,15 @@ def _run(args: argparse.Namespace, outcome: Outcome) -> None:
         require_control_counts=False,
         verified=live.hashes,
     )
-    graphs = tuple(_all_graphs(result))
+    base = tuple(_all_graphs(result))
+    assets = universe_assets(assets_db)
+    m018 = next(graph for graph in base if graph.kind == "m018")
+    extras = build_extras(live, assets, performance_dates(m018))
+    _show_extras(extras)
+    graphs = (*base, *extras.graphs)
     _set_projection(outcome, graphs)
+    shacl_context = _shacl_context(assets, load_guard_catalog(config.schema_dir() / "rules.ttl"))[1]
+    _validate_extras(extras, shacl_context)
     outcome.shacl = "conforms"
     failures = _masked_batch_failures(graphs, masked)
     if failures:
@@ -227,9 +249,6 @@ def _run(args: argparse.Namespace, outcome: Outcome) -> None:
         outcome.ok = True
         return
 
-    shacl_context = _shacl_context(
-        universe_assets(assets_db), load_guard_catalog(config.schema_dir() / "rules.ttl")
-    )[1]
     store = _open_store(args.repository)
     announce_target(store)
     _check_context(store)
@@ -245,8 +264,36 @@ def _run(args: argparse.Namespace, outcome: Outcome) -> None:
 
 
 def _set_projection(outcome: Outcome, graphs: Sequence[VetoGraph]) -> None:
-    outcome.graphs = len(graphs)
+    """The JSON line counts the graphs that hold triples (3 without news/SPY, 6 with both)."""
+    outcome.graphs = sum(1 for graph in graphs if graph.triples)
     outcome.triples = sum(graph.triples for graph in graphs)
+
+
+def _show_extras(extras: LiveExtras) -> None:
+    print(
+        f"news rows: {extras.news_rows} ({extras.unresolved_rows} without an :Asset link); "
+        f"news actions: {extras.actions} over {extras.decision_dates} decision date(s); "
+        f"SPY points: {extras.spy_points}"
+    )
+    for graph in extras.graphs:
+        state = f"{graph.triples} triples" if graph.triples else "empty (emptied in the store)"
+        print(f"  {graph.kind:<12} {graph.graph}: {state}")
+
+
+def _validate_extras(extras: LiveExtras, shacl_context: rdflib.Graph) -> None:
+    """The gate's own shape check on each non-empty extra graph, beside the disk universe."""
+    siblings = _parsed(extras.graphs)
+    for graph in extras.graphs:
+        if not graph.triples:
+            continue
+        try:
+            gate.validate(
+                gate.parse_batch(graph.data),
+                context=_context_with_sibling(shacl_context, siblings, graph),
+            )
+        except gate.IngestRejected as exc:
+            raise ShaclFailed(f"SHACL failed for {graph.graph}:\n{exc}") from exc
+        print(f"SHACL: {graph.kind} conforms ({graph.graph})")
 
 
 def _open_store(repository: str) -> GraphDB:
@@ -282,7 +329,7 @@ def _plan(store: GraphDB, graphs: Sequence[VetoGraph], shacl_context: rdflib.Gra
     siblings = _parsed(graphs)
     for graph in graphs:
         if graph.triples == 0:
-            print(f"pre-flight: {graph.graph}: empty, would replace with an empty graph")
+            print(f"pre-flight: {graph.graph}: empty, would be emptied in the store")
             continue
         try:
             plan = gate.plan(
@@ -308,23 +355,29 @@ def _write_day(  # noqa: C901 -- one branch per pre-swap failure class
 ) -> None:
     live = live_graph_names()
     staging = staging_graph_names()
+    target_of = dict(zip(live, staging, strict=True))
+    if sorted(graph.graph for graph in graphs) != sorted(live):
+        raise LiveError(
+            "the projected graphs are not the live graph set: "
+            + ", ".join(sorted(graph.graph for graph in graphs))
+        )
     siblings = _parsed(graphs)
     try:
         for target in staging:
             _drop(store, target)
-        for graph, target in zip(graphs, staging, strict=True):
+        for graph in graphs:
             if graph.triples == 0:
-                store.update(f"CREATE SILENT GRAPH <{target}>")
-            else:
-                plan = gate.plan(
-                    store,
-                    graph.data,
-                    target,
-                    context=_context_with_sibling(shacl_context, siblings, graph),
-                    allow_existing=True,
-                    context_only=True,
-                )
-                gate.write_batched(store, plan)
+                continue
+            target = target_of[graph.graph]
+            plan = gate.plan(
+                store,
+                graph.data,
+                target,
+                context=_context_with_sibling(shacl_context, siblings, graph),
+                allow_existing=True,
+                context_only=True,
+            )
+            gate.write_batched(store, plan)
             count = _existing(store, target)
             if count != graph.triples:
                 raise LiveStoreError(
@@ -342,10 +395,7 @@ def _write_day(  # noqa: C901 -- one branch per pre-swap failure class
         raise LiveStoreError(f"staging failed; the previous day is untouched: {exc}") from exc
 
     try:
-        update = ";\n".join(
-            f"MOVE <{source}> TO <{target}>" for source, target in zip(staging, live, strict=True)
-        )
-        store.update(update)
+        store.update(_swap_update(graphs, target_of))
     except GraphDBError as exc:
         _cleanup(store, staging)
         raise LiveWriteError(
@@ -369,7 +419,27 @@ def _write_day(  # noqa: C901 -- one branch per pre-swap failure class
             + "\n"
             + "\n".join(f"  {line}" for line in failures)
         )
-    print(f"write complete: {len(live)} graph(s) replaced, no repository deleted")
+    written = sum(1 for graph in graphs if graph.triples)
+    print(
+        f"write complete: {len(live)} graph(s) replaced ({written} with triples, "
+        f"{len(live) - written} emptied), no repository deleted"
+    )
+
+
+def _swap_update(graphs: Sequence[VetoGraph], target_of: Mapping[str, str]) -> str:
+    """One SPARQL Update (one transaction): MOVE each staged graph, DROP each empty live graph.
+
+    Every statement names one exact graph IRI. An empty live graph (a day without news or SPY
+    files) is dropped instead of moved from an empty staging graph, so the previous day's rows
+    never survive whatever the store does with an empty MOVE source.
+    """
+    statements = [
+        f"MOVE <{target_of[graph.graph]}> TO <{graph.graph}>"
+        if graph.triples
+        else f"DROP SILENT GRAPH <{graph.graph}>"
+        for graph in graphs
+    ]
+    return ";\n".join(statements)
 
 
 def _drop(store: GraphDB, graph: str) -> None:
@@ -401,20 +471,22 @@ def _verify_after_swap(
     return failures
 
 
+#: The validation-only sibling of each graph kind: the graph its individuals point at.
+_SIBLING_KIND: Mapping[str, str] = {
+    "m018": "selection",
+    "selection": "m018",
+    NEWS_ACTIONS_KIND: NEWS_KIND,
+}
+
+
 def _parsed(graphs: Sequence[VetoGraph]) -> dict[str, rdflib.Graph]:
-    return {graph.graph: rdflib.Graph().parse(data=graph.data, format="turtle") for graph in graphs}
+    """Each graph parsed once, keyed by its kind (the live graph set has one graph per kind)."""
+    return {graph.kind: rdflib.Graph().parse(data=graph.data, format="turtle") for graph in graphs}
 
 
 def _sibling(siblings: Mapping[str, rdflib.Graph], graph: VetoGraph) -> rdflib.Graph | None:
-    if graph.kind == "m018":
-        for name, parsed in siblings.items():
-            if ":selection:" in name:
-                return parsed
-    if graph.kind == "selection":
-        for name, parsed in siblings.items():
-            if ":selection:" not in name and ":meta:" not in name:
-                return parsed
-    return None
+    kind = _SIBLING_KIND.get(graph.kind)
+    return siblings.get(kind) if kind is not None else None
 
 
 def _context_with_sibling(

@@ -8,6 +8,12 @@ and the declared database/mask hashes, then builds the same :class:`VetoManifest
 :class:`ManifestRun` and :class:`RunConfig` the final loader uses, with the one live
 configuration/window (``SYSTEM_LIVE``/``LIVE``) and label ``live``.
 
+Two optional files follow the final delivery's formats (Work item 50): ``news_rows_file`` (the
+block D ``news_rows.jsonl`` object, same keys and columns) and ``spy_series_file`` (the block E
+``spy_daily.csv`` restricted to the ``LIVE`` window). Both may sit in a sub-folder of the day's
+folder, must be listed in its ``SHA256SUMS`` and in ``files_sha256``. A day without them loads as
+before; the loader then empties their live graphs.
+
 The projection, SHACL and gate code are not reimplemented here.
 """
 
@@ -22,13 +28,18 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from projection import agents as agent_records
+from projection import news as news_records
+from projection import series as series_records
 from projection.delivery import Manifest, ManifestError, RunConfig, read_manifest
 from projection.veto_manifest import (
     LIVE_CONFIGURATION,
     ManifestRun,
+    NewsRowsContract,
     PriceMask,
     VetoManifest,
     VetoManifestError,
+    _news_rows_contract,
     backtest_graph_name,
     hash_file,
     meta_graph_name,
@@ -73,7 +84,12 @@ _REQUIRED_KEYS = frozenset(
         *LIVE_FILE_FIELDS,
     }
 )
-_OPTIONAL_KEYS = frozenset({"operator"})
+#: The optional news-rows and SPY-series files (Work item 50); ``files_sha256`` names them too.
+NEWS_ROWS_FIELD = "news_rows_file"
+SPY_SERIES_FIELD = "spy_series_file"
+OPTIONAL_FILE_FIELDS: tuple[str, ...] = (NEWS_ROWS_FIELD, SPY_SERIES_FIELD)
+
+_OPTIONAL_KEYS = frozenset({"operator", *OPTIONAL_FILE_FIELDS})
 _SHA256 = re.compile(r"[0-9a-f]{64}")
 _DATE = re.compile(r"\d{4}-\d{2}-\d{2}")
 _MANIFEST_NAME = "manifest_live.json"
@@ -103,6 +119,8 @@ class LiveManifest:
     file_hashes: Mapping[Path, str]
     folder_hashes: Mapping[str, str]
     hashes: Mapping[Path, str]
+    news_rows: NewsRowsContract | None = None
+    spy_series: Path | None = None
 
     def veto_manifest(self) -> VetoManifest:
         """The one-run manifest the existing projection/SHACL code consumes."""
@@ -171,17 +189,46 @@ def live_meta_graph_name() -> str:
     return meta_graph_name(LIVE_LABEL)
 
 
+def news_graph_name(label: str = LIVE_LABEL) -> str:
+    """The one fixed news-rows graph of the live day (no year split: the window is short)."""
+    return f"{news_records.GRAPH_PREFIX}{label}:{LIVE_WINDOW}"
+
+
+def news_actions_graph_name(label: str = LIVE_LABEL) -> str:
+    """The one fixed news-actions/date-records/levels graph of the live day."""
+    return f"{agent_records.GRAPH_PREFIX}{label}:{LIVE_WINDOW}:news"
+
+
+def spy_graph_name(label: str = LIVE_LABEL) -> str:
+    """The one fixed SPY daily-series graph of the live day."""
+    return series_records.graph_name(label, series_records.SPY_SLUG)
+
+
 def live_graph_names() -> tuple[str, ...]:
-    """The three live graphs, in the order the loader writes and verifies them."""
-    return (live_meta_graph_name(), live_graph_name(), live_selection_graph_name())
+    """The six live graphs, in the order the loader writes and verifies them.
+
+    The last three (news rows, news actions, SPY series) are emptied on a day that does not bring
+    their files, so a previous day's rows never survive the replace.
+    """
+    return (
+        live_meta_graph_name(),
+        live_graph_name(),
+        live_selection_graph_name(),
+        news_graph_name(),
+        news_actions_graph_name(),
+        spy_graph_name(),
+    )
 
 
 def staging_graph_names() -> tuple[str, ...]:
-    """The three staging graphs; each ``MOVE`` names one of them and its live counterpart."""
+    """The six staging graphs; the swap names each one with its live counterpart."""
     return (
         meta_graph_name(STAGING_LABEL),
         backtest_graph_name(STAGING_LABEL, LIVE_WINDOW, LIVE_CONFIGURATION),
         selection_graph_name(STAGING_LABEL, LIVE_WINDOW, LIVE_CONFIGURATION),
+        news_graph_name(STAGING_LABEL),
+        news_actions_graph_name(STAGING_LABEL),
+        spy_graph_name(STAGING_LABEL),
     )
 
 
@@ -210,6 +257,7 @@ def read_live_manifest(folder: str | Path) -> LiveManifest:
     sums = _read_sums(root)
     folder_hashes = _verify_folder(root, sums, path)
     files, file_hashes = _files(root, raw, sums)
+    news_rows, spy_series, extra_hashes = _optional_files(root, raw, sums)
 
     db_file = _path(root, raw, "db_file")
     if not db_file.is_file():
@@ -233,6 +281,7 @@ def read_live_manifest(folder: str | Path) -> LiveManifest:
     hashes: dict[Path, str] = {db_file: actual_db, mask_file: actual_mask}
     for file_path in files.values():
         hashes[file_path] = folder_hashes[file_path.name]
+    hashes.update(extra_hashes)
 
     return LiveManifest(
         folder=root,
@@ -250,6 +299,8 @@ def read_live_manifest(folder: str | Path) -> LiveManifest:
         file_hashes=file_hashes,
         folder_hashes=folder_hashes,
         hashes=hashes,
+        news_rows=news_rows,
+        spy_series=spy_series,
     )
 
 
@@ -307,10 +358,11 @@ def _files(
     declared = raw.get("files_sha256")
     if not isinstance(declared, dict):
         raise LiveManifestError("files_sha256 must be an object")
-    unknown = sorted(set(declared) - set(LIVE_FILE_FIELDS))
+    present = {field for field in OPTIONAL_FILE_FIELDS if field in raw}
+    unknown = sorted(set(declared) - set(LIVE_FILE_FIELDS) - present)
     if unknown:
         raise LiveManifestError(f"files_sha256: unknown file key(s): {', '.join(unknown)}")
-    missing = sorted(set(LIVE_FILE_FIELDS) - set(declared))
+    missing = sorted((set(LIVE_FILE_FIELDS) | present) - set(declared))
     if missing:
         raise LiveManifestError(f"files_sha256: missing file key(s): {', '.join(missing)}")
 
@@ -334,6 +386,60 @@ def _files(
         files[field] = path
         hashes[path] = digest
     return files, hashes
+
+
+def _optional_files(
+    root: Path, raw: Mapping[str, Any], sums: Manifest
+) -> tuple[NewsRowsContract | None, Path | None, dict[Path, str]]:
+    """The optional news-rows and SPY files: each listed in SHA256SUMS and ``files_sha256``."""
+    declared = raw["files_sha256"]
+    hashes: dict[Path, str] = {}
+    news_rows: NewsRowsContract | None = None
+    spy_series: Path | None = None
+    if NEWS_ROWS_FIELD in raw:
+        try:
+            news_rows = _news_rows_contract(raw[NEWS_ROWS_FIELD], root, False)
+        except LiveManifestError:
+            raise
+        except VetoManifestError as exc:
+            raise LiveManifestError(str(exc)) from exc
+        if news_rows is None:
+            raise LiveManifestError(f"{NEWS_ROWS_FIELD} must be an object when present")
+        if tuple(news_rows.columns) != news_records.NEWS_COLUMNS:
+            raise LiveManifestError(
+                f"{NEWS_ROWS_FIELD}.columns must repeat the final delivery's "
+                f"{len(news_records.NEWS_COLUMNS)} columns in order"
+            )
+        digest = _listed(root, news_rows.path, sums, declared, NEWS_ROWS_FIELD)
+        if digest != news_rows.sha256:
+            raise LiveManifestError(
+                f"{news_rows.path}: {NEWS_ROWS_FIELD}.sha256 {news_rows.sha256} differs from "
+                f"SHA256SUMS {digest}"
+            )
+        hashes[news_rows.path] = digest
+    if SPY_SERIES_FIELD in raw:
+        name = _text(raw, SPY_SERIES_FIELD)
+        if Path(name).is_absolute() or ".." in Path(name).parts:
+            raise LiveManifestError(f"{SPY_SERIES_FIELD}: {name!r} must be relative to the folder")
+        spy_series = _inside(root, name, SPY_SERIES_FIELD)
+        hashes[spy_series] = _listed(root, spy_series, sums, declared, SPY_SERIES_FIELD)
+    return news_rows, spy_series, hashes
+
+
+def _listed(root: Path, path: Path, sums: Manifest, declared: Mapping[str, Any], field: str) -> str:
+    """The file's SHA256SUMS digest, which must equal its ``files_sha256`` entry."""
+    if not path.is_file():
+        raise LiveManifestError(f"{field}: missing file: {path}")
+    relative = path.relative_to(root).as_posix()
+    folder_digest = sums.entries.get(relative, sums.entries.get(f"./{relative}"))
+    if folder_digest is None:
+        raise LiveManifestError(f"{sums.path}: does not list {relative}")
+    digest = _hash(declared, field, where="files_sha256")
+    if digest != folder_digest:
+        raise LiveManifestError(
+            f"{relative}: files_sha256 {digest} differs from SHA256SUMS {folder_digest}"
+        )
+    return digest
 
 
 def _inside(root: Path, name: str, where: str) -> Path:

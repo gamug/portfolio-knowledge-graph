@@ -1074,7 +1074,7 @@
 
 #################################################################
 # Veto Hierarchy labels (Work item 46, PR D, T-860–T-862)
-# Reviewer A approved the texts in the 2026-11-13 letter; the
+# The texts were approved in the 2026-11-13 review letter; the
 # frozen table is docs/labels-veto-review.md.
 #################################################################
 

@@ -8,8 +8,8 @@ It is deliberately isolated from the evaluated delivery:
 
 - it writes only the repository named by `--repository` (default `portfolio_live`) and refuses
   `portfolio` whatever `KG_REPOSITORY` says; it never creates or deletes a repository;
-- it writes three fixed graphs and never touches the `final` graphs or anything the TTYG agent
-  sees;
+- it writes six fixed graphs of `portfolio_live` and never touches the `final` graphs or anything
+  the final TTYG agent (repository `portfolio`) sees;
 - it projects exactly like one final run of one configuration/one window through
   `projection.load_veto.build_delivery`: same manifest filters, same detail/selection projection,
   same `shapes.ttl`, same sibling context. Only the manifest adapter, the replace-per-day write and
@@ -22,26 +22,78 @@ checkout).
 
 ## 1. The fixed graphs
 
-Every day replaces the same three graphs:
+Every day replaces the same six graphs (the last three since Work item 50):
 
 ```text
 urn:graph:derived:backtest:meta:live
 urn:graph:derived:backtest:live:LIVE:system_live
 urn:graph:derived:backtest:selection:live:LIVE:system_live
+urn:graph:derived:news:live:LIVE                      # news rows (:NewsItem)
+urn:graph:derived:backtest:agents:live:LIVE:news      # news GUARD: levels B/C/D, actions, evidence
+urn:graph:derived:backtest:series:live:spy            # SPY daily series (:DailySeriesPoint)
 ```
 
-The write uses three staging graphs with the label `live_staging`, then one SPARQL Update with one
-exact `MOVE <staging> TO <live>` per graph:
+The last three are filled only when the day's export brings the optional files of §1bis; on a day
+without them they are empty, and the swap empties them in the store so no previous day's rows
+survive.
+
+The write stages every non-empty graph under the label `live_staging`, then sends one SPARQL Update
+with one exact `MOVE <staging> TO <live>` per non-empty graph and one exact
+`DROP SILENT GRAPH <live>` per empty one:
 
 ```text
 urn:graph:derived:backtest:meta:live_staging
 urn:graph:derived:backtest:live_staging:LIVE:system_live
 urn:graph:derived:backtest:selection:live_staging:LIVE:system_live
+urn:graph:derived:news:live_staging:LIVE
+urn:graph:derived:backtest:agents:live_staging:LIVE:news
+urn:graph:derived:backtest:series:live_staging:spy
 ```
 
 One request is one GraphDB transaction. If anything fails before the swap, the previous day is
 untouched and the staging graphs are dropped. Every `DROP`/`MOVE` names one exact graph IRI; the
 loader never uses `DROP ALL`, `CLEAR ALL`, `DROP DEFAULT` or deletes a repository.
+
+## 1bis. The optional news rows and SPY series (Work item 50)
+
+Both follow the final delivery's formats and both are optional, independently:
+
+| Manifest key | Value | Content |
+|---|---|---|
+| `news_rows_file` | object `{file, sha256, rows, model_revision, columns}` (optional `readme`) | `news/news_rows.jsonl`: the block D rows, one JSON object per line, the same 24 columns in the same order as the final delivery |
+| `spy_series_file` | string, path relative to the day's folder | `series_diarias_referencia/spy_daily.csv`: `window,date,daily_total_return,value`; `window` is `LIVE`; one row per session from the formation to the day, both included |
+
+Rules the loader enforces before anything is written (exit 2 otherwise):
+
+- each file is inside the day's folder, listed in the folder's `SHA256SUMS` with its relative path
+  (`news/news_rows.jsonl`, `series_diarias_referencia/spy_daily.csv`) and named in `files_sha256`
+  (`"news_rows_file"`, `"spy_series_file"`); `news_rows_file.sha256` equals the `SHA256SUMS` entry;
+- the news rows pass the final loader's parser (`projection.news.parse_rows`): key and types,
+  `rows` equal to the line count, one `model_revision`;
+- every row cited by a `test_rows` entry of the day's `news.json` (`news_actions_file`) is in the
+  news rows. The news rows of a day are every row the news actions cite plus every row, of every
+  ticker, dated from the first session of the evidence window of the first decision in `news.json`
+  (`dates[0].window[0]`) to the day; the base window is not needed;
+- the SPY series runs from the formation to the day, and its dates are exactly the book's
+  `:performanceDate` sessions. Its `value` is SPY's total-return index normalised to 1.0 at the close
+  of the session before the formation, the same base as the book's `:nav`, so the two compare on
+  the same date.
+
+What the loader projects, with the final delivery's own projectors (no fork):
+
+- `urn:graph:derived:news:live:LIVE` — one `:NewsItem` per `(item_kind, item_id, ticker)`, linked to
+  its `:Asset` when the universe database resolves the ticker (`projection.news`);
+- `urn:graph:derived:backtest:agents:live:LIVE:news` — from `news.json`, already in every live
+  export: the `:NewsRunRecord` (level-B news exits, level-C sector rejections), one `:DateRecord` per
+  news decision date with the B/C/D levels in force and the filter flags, and each pool
+  `:NewsAction` (veto or promotion) with its `:NewsEvidence`, whose `:newsItem` links name the news
+  rows behind it (`projection.agents`, with `SYSTEM_LIVE` as the configuration). It is projected only
+  when the day brings its news rows, because every evidence row must resolve;
+- `urn:graph:derived:backtest:series:live:spy` — one `:DailySeriesPoint` per session
+  (`:Configuration_SPY`, `:windowId "LIVE"`, `:dailyTotalReturn`, `:seriesValue`).
+
+Each graph is checked by the gate's own shape check beside the disk universe in the dry run, and
+again when it is staged.
 
 ## 2. One-time setup (the USER does this)
 
@@ -197,7 +249,7 @@ The exact `graph_load_command` list is:
 | Exit | Meaning |
 |---|---|
 | 0 | success (dry run, pre-flight, or the swap and its verification) |
-| 2 | input/manifest/hash failure (folder `SHA256SUMS`, a `files_sha256` entry, `db_sha256`, `price_mask_sha256`, a manifest key/type, or `--day` ≠ manifest `day`) |
+| 2 | input/manifest/hash failure (folder `SHA256SUMS`, a `files_sha256` entry, `db_sha256`, `price_mask_sha256`, a manifest key/type, `--day` ≠ manifest `day`), or a news-row/SPY rule of §1bis |
 | 3 | SHACL failure; nothing was written |
 | 4 | store/target failure (unreachable, refused repository, missing schema/context graph), or a staging failure before the swap; the previous day is intact |
 | 5 | write/verify failure after the swap began; the message names the affected SYSTEM_LIVE graphs |
@@ -208,12 +260,15 @@ The last stdout line is always one JSON object, also on failure, and nothing is 
 {"day": "2026-11-17", "repository": "portfolio_live", "graphs": 3, "triples": 229375, "shacl": "conforms", "ok": true}
 ```
 
+`"graphs"` counts the live graphs that hold triples after the load: 3 on a day without the optional
+files, 6 on a day with both news rows and the SPY series. `"triples"` is their sum.
+
 On failure it carries `"ok": false` and `"error"`, and `"shacl"` is `"fails"` (SHACL stopped the
 load) or `"not_run"` (a check before SHACL). The JSON never contains a credential.
 
 ## 5. Re-running a day and checking the result
 
-Re-run the same command; the three graphs are replaced, not appended. Loading the same day twice
+Re-run the same command; the six graphs are replaced, not appended. Loading the same day twice
 gives the same graphs (same triple counts and an order-independent hash). Loading D+1 leaves only
 D+1's state, because the engine re-runs the LIVE window from the formation to D+1.
 
@@ -227,7 +282,8 @@ GROUP BY ?graph
 ORDER BY ?graph
 ```
 
-The three live graphs must have the counts the loader printed; no `live_staging` graph may remain.
+The live graphs must have the counts the loader printed (an empty news or SPY graph does not appear
+in the result); no `live_staging` graph may remain.
 The loaded day is the `:dateTo` of the live `:PortfolioPeriodSummary` (`:segment "LIVE"`), not the
 `:knowledgeDate` of the metadata `:BacktestRun`: that date is when the run was created.
 
@@ -257,7 +313,9 @@ the JSON error names the live graphs that were being swapped; re-run the last kn
 4. `price_mask_file` exists and its SHA-256 equals `price_mask_sha256`;
 5. the manifest keys/types, `configuration == "SYSTEM_LIVE"`, `window == "LIVE"`, and
    `day >= formation`;
-6. the whole projected batch against the same shapes and sibling context as the veto loader;
+6. the whole projected batch against the same shapes and sibling context as the veto loader, and
+   each news/SPY graph against the gate's shapes beside the disk universe (the news-actions graph
+   beside the day's news rows); the §1bis rules;
 7. the target repository exists, is not `portfolio`, and holds the context graphs above.
 
 After the swap it verifies the per-graph triple counts, that no staging graph is left, and that no
